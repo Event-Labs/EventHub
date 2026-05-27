@@ -10,6 +10,7 @@ import {
 import { CustomerDiscoveryPage } from '@/pages/CustomerDiscoveryPage.jsx'
 import { EventDetailPage } from '@/pages/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/EventsPage.jsx'
+import { FavoriteEventsPage } from '@/pages/FavoriteEventsPage.jsx'
 import { HomePage } from '@/pages/HomePage.jsx'
 import { LoginPage } from '@/pages/LoginPage.jsx'
 import { MyTicketsPage } from '@/pages/MyTicketsPage.jsx'
@@ -22,7 +23,6 @@ import {
   AttendeeListPage,
   CreateEventWizardPage,
   EventReviewPage,
-  FavoriteEventsPage,
   ForgotPasswordPage,
   NotificationsPage,
   OnSiteBookingPage,

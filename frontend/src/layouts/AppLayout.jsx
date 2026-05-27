@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Bell, ChevronDown, UserCircle } from 'lucide-react'
 
@@ -9,7 +9,10 @@ export function AppLayout() {
 
   useEffect(() => {
     const syncAuth = () =>
-      setLoggedIn(localStorage.getItem('eventhub-auth') === 'true')
+      setLoggedIn(
+        Boolean(localStorage.getItem('eventhub-token')) ||
+          localStorage.getItem('eventhub-auth') === 'true',
+      )
     syncAuth()
     window.addEventListener('storage', syncAuth)
     window.addEventListener('eventhub-auth', syncAuth)
@@ -21,6 +24,8 @@ export function AppLayout() {
 
   const logout = () => {
     localStorage.removeItem('eventhub-auth')
+    localStorage.removeItem('eventhub-token')
+    localStorage.removeItem('eventhub-user')
     window.dispatchEvent(new Event('eventhub-auth'))
     setOpen(false)
     navigate('/')
@@ -80,6 +85,13 @@ export function AppLayout() {
                     onClick={() => setOpen(false)}
                   >
                     Vé của tôi
+                  </NavLink>
+                  <NavLink
+                    className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
+                    to="/favorites"
+                    onClick={() => setOpen(false)}
+                  >
+                    Sự kiện yêu thích
                   </NavLink>
                   <button
                     className="block w-full px-4 py-3 text-left text-sm font-semibold text-error hover:bg-error/10"
