@@ -25,6 +25,8 @@ const envSchema = z.object({
     SMTP_PASS: z.string(),
     EMAIL_FROM: z.string().email(),
 
+    GOOGLE_CLIENT_ID: z.string().optional(),
+
     BCRYPT_SALT_ROUNDS: z.string().transform(Number).default('12'),
     EMAIL_VERIFY_EXPIRES_IN: z.string().transform(Number).default('86400'),
     PASSWORD_RESET_EXPIRES_IN: z.string().transform(Number).default('3600'),
