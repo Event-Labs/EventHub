@@ -15,7 +15,7 @@ const startServer = async () => {
 
         // 3. Start Server
         const server = app.listen(env.PORT, () => {
-            logger.info(`🚀 Server running in ${env.NODE_ENV} mode on ${env.APP_URL}`);
+            logger.info(`Server running in ${env.NODE_ENV} mode on ${env.APP_URL}`);
         });
 
         // Handle graceful shutdown
