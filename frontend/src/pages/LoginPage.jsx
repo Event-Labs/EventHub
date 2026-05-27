@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { heroImage } from '@/data/events.js'
-import { http } from '@/services/http.js'
+import { authService } from '@/services/auth.service.js'
+import { GoogleLogin } from '@react-oauth/google'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -15,15 +16,33 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const response = await http.post('/auth/login', form)
-      const { accessToken, user } = response.data.data
+      const res = await authService.login(form)
+      const { accessToken, user } = res.data
       localStorage.setItem('eventhub-token', accessToken)
       localStorage.setItem('eventhub-user', JSON.stringify(user))
       localStorage.setItem('eventhub-auth', 'true')
       window.dispatchEvent(new Event('eventhub-auth'))
       navigate(searchParams.get('redirect') || '/')
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng nhập không thành công.')
+      setError(err.response?.data?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('')
+    setLoading(true)
+    try {
+      const res = await authService.googleLogin(credentialResponse.credential)
+      const { accessToken, user } = res.data
+      localStorage.setItem('eventhub-token', accessToken)
+      localStorage.setItem('eventhub-user', JSON.stringify(user))
+      localStorage.setItem('eventhub-auth', 'true')
+      window.dispatchEvent(new Event('eventhub-auth'))
+      navigate(searchParams.get('redirect') || '/')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Đăng nhập Google thất bại.')
     } finally {
       setLoading(false)
     }
@@ -40,10 +59,20 @@ export function LoginPage() {
             Đăng nhập để tiếp tục đặt vé và quản lý sự kiện.
           </p>
         </div>
-        <button className="mt-6 flex w-full items-center justify-center gap-3 rounded-md border border-border-soft bg-white py-3 font-bold text-slate-900">
-          <Circle className="size-5" />
-          Đăng nhập bằng Google
-        </button>
+        <div className="mt-6 flex justify-center w-full overflow-hidden rounded-md">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => {
+              setError('Đăng nhập Google thất bại. Vui lòng thử lại.')
+            }}
+            useOneTap
+            width="100%"
+            theme="filled_blue"
+            size="large"
+            text="signin_with"
+            shape="rectangular"
+          />
+        </div>
         <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
           <span className="h-px flex-1 bg-border-soft" />
           hoặc email
@@ -61,6 +90,7 @@ export function LoginPage() {
             label="Email"
             placeholder="alex@example.com"
             type="email"
+            required
             value={form.email}
             onChange={(event) => setForm({ ...form, email: event.target.value })}
           />
@@ -70,6 +100,7 @@ export function LoginPage() {
             placeholder="••••••••"
             type="password"
             trailing={Eye}
+            required
             value={form.password}
             onChange={(event) => setForm({ ...form, password: event.target.value })}
           />
@@ -108,78 +139,7 @@ export function LoginPage() {
   )
 }
 
-export function RegisterPage() {
-  const navigate = useNavigate()
-  const register = () => {
-    localStorage.setItem('eventhub-auth', 'true')
-    window.dispatchEvent(new Event('eventhub-auth'))
-    navigate('/')
-  }
-
-  return (
-    <AuthShell>
-      <div className="glass-panel mx-auto w-full max-w-lg rounded-lg p-7 shadow-2xl">
-        <div className="text-center">
-          <h1 className="font-display text-3xl font-extrabold text-primary">
-            Tạo tài khoản
-          </h1>
-          <p className="mt-2 text-muted">
-            Tài khoản khách hàng để mua vé, lưu yêu thích và theo dõi đơn.
-          </p>
-        </div>
-        <button className="mt-6 flex w-full items-center justify-center gap-3 rounded-md border border-border-soft bg-white py-3 font-bold text-slate-900">
-          <Circle className="size-5" />
-          Đăng ký bằng Google
-        </button>
-        <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
-          <span className="h-px flex-1 bg-border-soft" />
-          hoặc email
-          <span className="h-px flex-1 bg-border-soft" />
-        </div>
-        <form
-          className="space-y-4"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <Field icon={User} label="Họ và tên" placeholder="Alex Rivers" />
-          <Field
-            icon={Mail}
-            label="Email"
-            placeholder="alex@example.com"
-            type="email"
-          />
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field
-              icon={Lock}
-              label="Mật khẩu"
-              placeholder="••••••••"
-              type="password"
-            />
-            <Field
-              icon={Lock}
-              label="Xác nhận mật khẩu"
-              placeholder="••••••••"
-              type="password"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={register}
-            className="w-full rounded-md bg-primary py-4 font-bold text-slate-950"
-          >
-            Đăng ký
-          </button>
-        </form>
-        <p className="mt-6 text-center">
-          <Link to="/login" className="font-bold text-primary hover:underline">
-            Quay lại đăng nhập
-          </Link>
-        </p>
-      </div>
-    </AuthShell>
-  )
-}
-
-function AuthShell({ children }) {
+export function AuthShell({ children }) {
   return (
     <div className="relative flex min-h-[calc(100vh-64px)] items-center justify-center overflow-hidden px-4 py-12">
       <img
@@ -193,7 +153,10 @@ function AuthShell({ children }) {
   )
 }
 
-function Field({ icon: Icon, trailing: Trailing, label, ...props }) {
+export function Field({ icon: Icon, trailing: Trailing, label, ...props }) {
+  const [showPassword, setShowPassword] = useState(false)
+  const isPassword = props.type === 'password'
+
   return (
     <label className="block space-y-2">
       <span className="text-sm font-semibold text-muted">{label}</span>
@@ -201,10 +164,17 @@ function Field({ icon: Icon, trailing: Trailing, label, ...props }) {
         <Icon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
         <input
           {...props}
+          type={isPassword ? (showPassword ? 'text' : 'password') : props.type}
           className="w-full rounded-md border border-border-soft bg-surface py-3 pl-10 pr-10 text-content outline-none focus:border-primary"
         />
-        {Trailing && (
-          <Trailing className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+        {isPassword && Trailing && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary outline-none"
+          >
+            <Trailing className="size-4" />
+          </button>
         )}
       </div>
     </label>

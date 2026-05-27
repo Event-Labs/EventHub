@@ -64,24 +64,6 @@ const adminMenu = [
   'Hồ sơ',
 ]
 
-export function ForgotPasswordPage() {
-  return (
-    <SimplePage
-      title="Quên mật khẩu"
-      description="Nhập email để nhận liên kết đặt lại mật khẩu."
-    >
-      <div className="glass-panel mx-auto max-w-md rounded-lg p-6">
-        <Input label="Email" placeholder="ban@example.com" />
-        <button className="mt-5 w-full rounded-md bg-primary py-3 font-bold text-slate-950">
-          Gửi email đặt lại
-        </button>
-        <div className="mt-5 rounded-md border border-success/30 bg-success/10 p-4 text-sm text-success">
-          Nếu email tồn tại, hệ thống sẽ gửi hướng dẫn đặt lại mật khẩu.
-        </div>
-      </div>
-    </SimplePage>
-  )
-}
 
 export function FavoriteEventsPage() {
   return (

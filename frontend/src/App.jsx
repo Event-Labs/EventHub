@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import { AppLayout } from '@/layouts/AppLayout.jsx'
 import { BookingPage } from '@/pages/BookingPage.jsx'
 import {
@@ -23,7 +24,6 @@ import {
   AttendeeListPage,
   CreateEventWizardPage,
   EventReviewPage,
-  ForgotPasswordPage,
   NotificationsPage,
   OnSiteBookingPage,
   OrderListPage,
@@ -38,6 +38,9 @@ import {
 } from '@/pages/PlatformPages.jsx'
 import { ProfilePage } from '@/pages/ProfilePage.jsx'
 import { RegisterPage } from '@/pages/RegisterPage.jsx'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage.jsx'
+import { VerifyEmailPage } from '@/pages/VerifyEmailPage.jsx'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage.jsx'
 import { TicketDetailPage } from '@/pages/TicketDetailPage.jsx'
 
 const router = createBrowserRouter([
@@ -108,6 +111,14 @@ const router = createBrowserRouter([
       {
         path: 'forgot-password',
         element: <ForgotPasswordPage />,
+      },
+      {
+        path: 'verify-email',
+        element: <VerifyEmailPage />,
+      },
+      {
+        path: 'reset-password',
+        element: <ResetPasswordPage />,
       },
       {
         path: 'favorites',
@@ -190,7 +201,11 @@ const router = createBrowserRouter([
 ])
 
 function App() {
-  return <RouterProvider router={router} />
+  return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <RouterProvider router={router} />
+    </GoogleOAuthProvider>
+  )
 }
 
 export default App
