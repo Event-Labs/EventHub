@@ -3,6 +3,7 @@ const cookieParser = require('cookie-parser');
 const securityMiddlewares = require('./middlewares/security.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
 const authRoutes = require('./modules/auth/auth.routes');
+const eventRoutes = require('./modules/events/events.routes');
 const ApiResponse = require('./core/response/ApiResponse');
 
 const app = express();
@@ -19,6 +20,7 @@ app.use(cookieParser());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/events', eventRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

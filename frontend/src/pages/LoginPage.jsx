@@ -1,13 +1,32 @@
-import { Circle, Eye, Lock, Mail, User } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+﻿import { Circle, Eye, Lock, Mail, User } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { heroImage } from '@/data/events.js'
+import { http } from '@/services/http.js'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const login = () => {
-    localStorage.setItem('eventhub-auth', 'true')
-    window.dispatchEvent(new Event('eventhub-auth'))
-    navigate('/')
+  const [searchParams] = useSearchParams()
+  const [form, setForm] = useState({ email: '', password: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const login = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const response = await http.post('/auth/login', form)
+      const { accessToken, user } = response.data.data
+      localStorage.setItem('eventhub-token', accessToken)
+      localStorage.setItem('eventhub-user', JSON.stringify(user))
+      localStorage.setItem('eventhub-auth', 'true')
+      window.dispatchEvent(new Event('eventhub-auth'))
+      navigate(searchParams.get('redirect') || '/')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Đăng nhập không thành công.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -32,13 +51,18 @@ export function LoginPage() {
         </div>
         <form
           className="space-y-4"
-          onSubmit={(event) => event.preventDefault()}
+          onSubmit={(event) => {
+            event.preventDefault()
+            login()
+          }}
         >
           <Field
             icon={Mail}
             label="Email"
             placeholder="alex@example.com"
             type="email"
+            value={form.email}
+            onChange={(event) => setForm({ ...form, email: event.target.value })}
           />
           <Field
             icon={Lock}
@@ -46,6 +70,8 @@ export function LoginPage() {
             placeholder="••••••••"
             type="password"
             trailing={Eye}
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
           />
           <div className="text-right">
             <Link
@@ -55,12 +81,17 @@ export function LoginPage() {
               Quên mật khẩu?
             </Link>
           </div>
+          {error && (
+            <div className="rounded-md border border-error/40 bg-error/10 p-3 text-sm text-error">
+              {error}
+            </div>
+          )}
           <button
-            type="button"
-            onClick={login}
-            className="w-full rounded-md bg-primary py-4 font-bold text-slate-950"
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-primary py-4 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Đăng nhập
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
         </form>
         <p className="mt-6 text-center text-muted">

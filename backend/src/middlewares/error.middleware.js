@@ -2,6 +2,12 @@ const ApiResponse = require('../core/response/ApiResponse');
 const logger = require('../core/logger');
 
 const errorMiddleware = (err, req, res, next) => {
+    if (err.name === 'ZodError') {
+        return res.status(400).json(
+            ApiResponse.error('Invalid request data', 400, 'VALIDATION_ERROR', err.issues)
+        );
+    }
+
     err.statusCode = err.statusCode || 500;
     err.errorCode = err.errorCode || 'INTERNAL_SERVER_ERROR';
 
