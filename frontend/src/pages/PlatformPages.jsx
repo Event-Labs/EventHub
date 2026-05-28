@@ -191,6 +191,39 @@ export function AIFaqPage() {
   )
 }
 
+export function FeedbackPage() {
+  return (
+    <SimplePage
+      title="Phản hồi"
+      description="Gửi góp ý về trải nghiệm đặt vé, sự kiện hoặc hỗ trợ từ EventHub."
+    >
+      <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_320px]">
+        <section className="glass-panel rounded-lg p-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Họ và tên" placeholder="Nhập họ tên" />
+            <Input label="Email" placeholder="email@example.com" type="email" />
+          </div>
+          <label className="mt-4 block">
+            <span className="text-sm font-semibold text-muted">Nội dung phản hồi</span>
+            <textarea
+              className="mt-2 min-h-36 w-full rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-primary"
+              placeholder="Chia sẻ vấn đề hoặc góp ý của bạn"
+            />
+          </label>
+          <button className="mt-5 rounded-md bg-primary px-5 py-3 font-bold text-slate-950">
+            Gửi phản hồi
+          </button>
+        </section>
+        <StatusCard
+          title="Thời gian phản hồi"
+          value="Trong 24 giờ"
+          tone="success"
+        />
+      </div>
+    </SimplePage>
+  )
+}
+
 export function OrganizerRequestPage() {
   return (
     <CustomerShell title="Yêu cầu trở thành ban tổ chức">

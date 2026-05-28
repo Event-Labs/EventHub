@@ -117,23 +117,25 @@ export function EventCard({
         </span>
       </div>
       <div className={cn('flex flex-1 flex-col space-y-4 p-5', !compact && '-mt-28 relative z-10')}>
-        <div>
-          <h3 className="font-display text-xl font-bold text-white">
+        <div className="min-h-[92px]">
+          <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white">
             {item.title}
           </h3>
           <p className="mt-1 line-clamp-2 text-sm text-muted">
             {item.subtitle}
           </p>
         </div>
-        <div className="space-y-2 text-sm text-muted">
-          <div className="flex items-center gap-2">
-            <Calendar className="size-4 text-primary" />
-            {item.date}
-            {item.time ? ` - ${item.time}` : ''}
+        <div className="min-h-[84px] space-y-2 text-sm leading-6 text-muted">
+          <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">
+            <Calendar className="mt-1 size-4 shrink-0 text-primary" />
+            <span>
+              {item.date}
+              {item.time ? ` - ${item.time}` : ''}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="size-4 text-primary" />
-            {item.location}
+          <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">
+            <MapPin className="mt-1 size-4 shrink-0 text-primary" />
+            <span className="line-clamp-3">{item.location}</span>
           </div>
         </div>
         <div className="mt-auto flex items-end justify-between gap-4 pt-2">

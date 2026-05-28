@@ -148,7 +148,7 @@ export function EventDetailPage() {
   const handleBook = () => {
     if (requireLogin()) return
     if (selectedTicketItems.length === 0) return
-    navigate('/booking')
+    navigate('/booking/seats')
   }
 
   if (eventQuery.isLoading) {
