@@ -32,8 +32,8 @@ class AuthRepository {
 
   async createUser(userData) {
     const query = `
-      INSERT INTO users (email, password_hash, full_name, phone, google_id, email_verified)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO users (email, password_hash, full_name, phone, google_id, email_verified, avatar_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     const values = [
@@ -43,6 +43,7 @@ class AuthRepository {
       userData.phone || null,
       userData.google_id || null,
       userData.email_verified || false,
+      userData.avatar_url || null,
     ];
     const { rows } = await db.query(query, values);
     return rows[0];
