@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { Camera, Lock, Mail, Phone, Save, UserCircle, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Camera, Mail, Phone, Save, UserCircle, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
 
 export function ProfilePage() {
   const [mode, setMode] = useState('view')
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
 
   const { data: user, isLoading, error } = useQuery({
     queryKey: ['profile'],
@@ -46,7 +44,7 @@ export function ProfilePage() {
         </p>
         <div className="mt-8 flex justify-center gap-4">
           <button 
-            onClick={() => queryClient.invalidateQueries(['profile'])}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['profile'] })}
             className="rounded-md bg-surface px-6 py-2 font-bold text-white border border-border-soft hover:bg-panel-soft"
           >
             Thử lại
@@ -106,7 +104,7 @@ export function ProfilePage() {
           user={user} 
           onDone={() => {
             setMode('view')
-            queryClient.invalidateQueries(['profile'])
+            queryClient.invalidateQueries({ queryKey: ['profile'] })
           }} 
         />
       )}
@@ -179,11 +177,11 @@ function ProfileEdit({ user, onDone }) {
 
   const updateMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: () => {
+    onSuccess: (updatedUser) => {
       setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' })
       // Automatically sync local storage for header/sidebar updates
       const storedUser = JSON.parse(localStorage.getItem('eventhub-user') || '{}')
-      localStorage.setItem('eventhub-user', JSON.stringify({ ...storedUser, ...formData }))
+      localStorage.setItem('eventhub-user', JSON.stringify({ ...storedUser, ...updatedUser }))
       window.dispatchEvent(new Event('eventhub-auth'))
       
       setTimeout(onDone, 1500)
