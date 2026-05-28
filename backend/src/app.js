@@ -5,6 +5,7 @@ const errorMiddleware = require('./middlewares/error.middleware');
 const authRoutes = require('./modules/auth/auth.routes');
 const eventRoutes = require('./modules/events/events.routes');
 const uploadRoutes = require('./modules/uploads/uploads.routes');
+const userRoutes = require('./modules/user/user.routes');
 const ApiResponse = require('./core/response/ApiResponse');
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(cookieParser());
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/users', userRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
