@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Music,
   Search,
-  Sparkles,
   Star,
   Theater,
   Trophy,
@@ -170,7 +169,7 @@ export function HomePage() {
           ))}
         </div>
 
-        <form className="glass-panel mt-6 rounded-lg p-4" onSubmit={handleSearch}>
+        <form className="mt-16" onSubmit={handleSearch}>
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted" />
@@ -191,7 +190,7 @@ export function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <SectionHeader
           title="Sự kiện đề xuất"
-          description="Các chương trình công khai đang mở bán hoặc sắp diễn ra."
+          description="Các chương trình công khai đang mở bán hoặc sắp diễn ra"
         />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {featuredEvents.slice(0, 4).map((event) => (
@@ -265,7 +264,7 @@ export function HomePage() {
         <div>
           <SectionHeader title="Danh mục phổ biến" />
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            {categories.slice(0, 6).map((category, index) => {
+            {categories.map((category, index) => {
               const Icon = categoryIcons[index % categoryIcons.length]
               return (
                 <Link
@@ -303,12 +302,11 @@ export function HomePage() {
                   </div>
                   <div className="flex items-center gap-1 text-warning">
                     <Star className="size-4 fill-warning" />
-                    <Sparkles className="size-4" />
-                  </div>
+                    </div>
                 </article>
               ))
             ) : (
-              <StatePanel message="Chưa có dữ liệu ban tổ chức." compact />
+              <StatePanel message="Chưa có dữ liệu ban tổ chức" compact />
             )}
           </div>
         </div>
