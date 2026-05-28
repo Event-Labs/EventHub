@@ -1,5 +1,5 @@
-﻿import { Calendar, Heart, MapPin } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Calendar, Heart, MapPin } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils.js'
 
 const badgeClasses = {
@@ -53,9 +53,27 @@ export function EventCard({
   favoriteBusy = false,
 }) {
   const item = normalizeEvent(event)
+  const navigate = useNavigate()
+  const detailPath = `/events/${item.id}`
+
+  const openDetail = (clickEvent) => {
+    if (clickEvent?.target?.closest?.('[data-card-action]')) return
+    navigate(detailPath)
+  }
 
   return (
-    <article className="group overflow-hidden rounded-lg border border-border-soft bg-panel shadow-lg transition hover:-translate-y-1 hover:border-primary/60">
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={openDetail}
+      onKeyDown={(keyEvent) => {
+        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+          keyEvent.preventDefault()
+          openDetail()
+        }
+      }}
+      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-lg border border-border-soft bg-panel shadow-lg transition hover:-translate-y-1 hover:border-primary/60"
+    >
       <div
         className={cn(
           'relative overflow-hidden',
@@ -71,13 +89,15 @@ export function EventCard({
         {onFavoriteToggle && (
           <button
             type="button"
+            data-card-action
             disabled={favoriteBusy}
             onClick={(clickEvent) => {
               clickEvent.preventDefault()
+              clickEvent.stopPropagation()
               onFavoriteToggle(event)
             }}
             className={cn(
-              'absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-70',
+              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-70',
               item.isFavorited && 'bg-primary text-slate-950',
             )}
             aria-label={item.isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
@@ -96,7 +116,7 @@ export function EventCard({
           {item.category}
         </span>
       </div>
-      <div className={cn('space-y-4 p-5', !compact && '-mt-28 relative z-10')}>
+      <div className={cn('flex flex-1 flex-col space-y-4 p-5', !compact && '-mt-28 relative z-10')}>
         <div>
           <h3 className="font-display text-xl font-bold text-white">
             {item.title}
@@ -116,19 +136,23 @@ export function EventCard({
             {item.location}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="mt-auto flex items-end justify-between gap-4 pt-2">
           <div>
             <p className="text-xs text-neutral">Giá từ</p>
             <p className="font-display text-lg font-bold text-primary">
               {item.priceLabel}
             </p>
           </div>
-          <Link
-            to={`/events/${item.id}`}
-            className="rounded-md bg-tertiary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:bg-orange-600"
-          >
-            Xem chi tiết
-          </Link>
+          {!compact && (
+            <Link
+              to={detailPath}
+              data-card-action
+              onClick={(clickEvent) => clickEvent.stopPropagation()}
+              className="shrink-0 rounded-md bg-tertiary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:bg-orange-600"
+            >
+              Xem chi tiết
+            </Link>
+          )}
         </div>
       </div>
     </article>
