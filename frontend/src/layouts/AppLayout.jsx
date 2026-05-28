@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Bell, UserCircle } from 'lucide-react'
 
+const centerNavItems = [
+  ['Sự kiện', '/events'],
+  ['Vé của tôi', '/my-tickets'],
+  ['Phản hồi', '/feedback'],
+]
+
+const navLinkClass = ({ isActive }) =>
+  `rounded-md px-3 py-2 text-sm font-bold transition ${
+    isActive ? 'bg-primary/15 text-primary' : 'text-subtle hover:text-primary'
+  }`
+
 export function AppLayout() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
@@ -49,12 +60,20 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-background text-content">
       <header className="sticky top-0 z-50 border-b border-border-soft bg-[#0d1422]/95 shadow-xl backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
             <span className="font-display text-xl font-extrabold text-primary">
               EventHub
             </span>
           </NavLink>
+
+          <nav className="hidden items-center justify-center gap-1 md:flex">
+            {centerNavItems.map(([label, to]) => (
+              <NavLink key={to} to={to} className={navLinkClass}>
+                {label}
+              </NavLink>
+            ))}
+          </nav>
 
           {!loggedIn ? (
             <div className="flex items-center gap-3">
@@ -114,6 +133,13 @@ export function AppLayout() {
                     onClick={() => setOpen(false)}
                   >
                     Sự kiện yêu thích
+                  </NavLink>
+                  <NavLink
+                    className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
+                    to="/organizer-request"
+                    onClick={() => setOpen(false)}
+                  >
+                    Đăng kí làm organizer
                   </NavLink>
                   <button
                     className="block w-full px-4 py-3 text-left text-sm font-semibold text-error hover:bg-error/10"
