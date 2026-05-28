@@ -16,3 +16,22 @@ http.interceptors.request.use((config) => {
 
   return config
 })
+
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear token and user if unauthorized
+      localStorage.removeItem('eventhub-token')
+      localStorage.removeItem('eventhub-user')
+      localStorage.setItem('eventhub-auth', 'false')
+      window.dispatchEvent(new Event('eventhub-auth'))
+      
+      // Redirect to login if not already there
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      }
+    }
+    return Promise.reject(error)
+  }
+)

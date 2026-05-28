@@ -10,6 +10,15 @@ class UploadsController {
       next(err);
     }
   };
+
+  createAvatarSignature = async (req, res, next) => {
+    try {
+      const data = uploadsService.createAvatarSignature();
+      res.status(200).json(ApiResponse.success(data, 'Cloudinary upload signature for avatar created'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new UploadsController();

@@ -36,6 +36,38 @@ export async function uploadEventImage(file, type = 'banner') {
   }
 }
 
+export async function uploadAvatar(file) {
+  if (!file) return null
+
+  const signatureResponse = await http.post('/uploads/cloudinary/avatar/signature')
+  const { upload_url: uploadUrl, fields } = signatureResponse.data.data
+  const formData = new FormData()
+
+  Object.entries(fields).forEach(([key, value]) => {
+    formData.append(key, value)
+  })
+  formData.append('file', file)
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!uploadResponse.ok) {
+    const errorData = await uploadResponse.json().catch(() => ({}))
+    console.error('Cloudinary upload error:', errorData)
+    throw new Error(errorData.error?.message || 'Không thể tải ảnh đại diện lên Cloudinary')
+  }
+
+  const data = await uploadResponse.json()
+
+  return {
+    public_id: data.public_id,
+    url: data.secure_url,
+    secure_url: data.secure_url,
+  }
+}
+
 export function uploadEventThumbnail(file) {
   return uploadEventImage(file, 'thumbnail')
 }
