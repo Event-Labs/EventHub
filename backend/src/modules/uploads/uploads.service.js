@@ -53,7 +53,7 @@ class UploadsService {
     const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } =
       requireCloudinaryConfig();
     const timestamp = Math.floor(Date.now() / 1000);
-    const folder = 'avatar';
+    const folder = 'eventhub/users/avatar';
     const params = {
       folder,
       timestamp,
