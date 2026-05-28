@@ -6,6 +6,9 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const { sendEmail } = require('../../infrastructure/email/email.service');
+const { OAuth2Client } = require('google-auth-library');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 class AuthService {
     // --- HELPERS ---
@@ -43,6 +46,7 @@ class AuthService {
         const rawToken = crypto.randomBytes(32).toString('hex');
         const tokenHash = this.hashToken(rawToken);
         const expiresAt = new Date(Date.now() + (parseInt(process.env.EMAIL_VERIFY_EXPIRES_IN) * 1000));
+        logger.info(`[DEBUG] CREATED Verify Token: ${rawToken} -> Hash: ${tokenHash}`);
 
         // Save pending user configuration to Redis
         await authRepository.savePendingUser(tokenHash, {
@@ -51,7 +55,7 @@ class AuthService {
         }, expiresAt);
 
         // Send email
-        const verifyUrl = `${process.env.APP_URL}/api/auth/verify-email?token=${rawToken}`;
+        const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${rawToken}`;
         await sendEmail({
             email: userData.email,
             subject: 'Email Verification',
@@ -68,7 +72,7 @@ class AuthService {
             throw new AppError('Invalid credentials', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
         }
 
-        if (user.is_locked) {
+        if (user.status === 'LOCKED') {
             throw new AppError('Account is locked', 403, ErrorCodes.AUTH_ACCOUNT_LOCKED);
         }
 
@@ -96,9 +100,69 @@ class AuthService {
             expires_at: expiresAt,
         });
 
-        await authRepository.updateUser(user.id, { last_login_at: new Date() });
+        // No last_login_at column exists in DB, omitted
 
         return { user: { id: user.id, email: user.email, full_name: user.full_name, roles }, accessToken, refreshToken };
+    }
+
+    async googleLogin(credential, deviceInfo) {
+        try {
+            const ticket = await googleClient.verifyIdToken({
+                idToken: credential,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+            const payload = ticket.getPayload();
+
+            if (!payload) {
+                throw new AppError('Invalid Google Token payload', 401, ErrorCodes.AUTH_INVALID_TOKEN);
+            }
+
+            const { email, name, sub: google_id, email_verified } = payload;
+
+            let user = await authRepository.findUserByEmail(email);
+
+            if (!user) {
+                // Register if not found
+                user = await authRepository.createUser({
+                    email,
+                    full_name: name,
+                    password_hash: '*', // No password needed for OAuth
+                    phone: null,
+                    google_id,
+                    email_verified: email_verified || false,
+                });
+                await authRepository.assignRole(user.id, 'CUSTOMER');
+            } else {
+                if (user.status === 'LOCKED') {
+                    throw new AppError('Account is locked', 403, ErrorCodes.AUTH_ACCOUNT_LOCKED);
+                }
+                // Update google_id if it's the first time linking
+                if (!user.google_id) {
+                    user = await authRepository.updateUser(user.id, { google_id });
+                }
+            }
+
+            // Now proceed with normal login flow token generation
+            const roles = await authRepository.findUserRoles(user.id);
+            const accessToken = this.generateAccessToken(user, roles);
+            const refreshToken = this.generateRefreshToken();
+            const refreshTokenHash = this.hashToken(refreshToken);
+
+            const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
+            await authRepository.createSession({
+                user_id: user.id,
+                refresh_token_hash: refreshTokenHash,
+                user_agent: deviceInfo.userAgent,
+                ip_address: deviceInfo.ip,
+                expires_at: expiresAt,
+            });
+
+            return { user: { id: user.id, email: user.email, full_name: user.full_name, roles }, accessToken, refreshToken };
+
+        } catch (error) {
+            logger.error('Google OAuth error', error);
+            throw new AppError('Google Login Failed', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
+        }
     }
 
     async refresh(token, deviceInfo) {
@@ -106,20 +170,18 @@ class AuthService {
         const session = await authRepository.findSessionByHash(hash);
 
         if (!session) {
-            // Possible reuse attack
-            // If we had a way to identify the user from the expired token, we'd revoke all sessions
             throw new AppError('Invalid refresh token', 401, ErrorCodes.AUTH_INVALID_TOKEN);
         }
 
         const user = await authRepository.findUserById(session.user_id);
-        if (!user || user.is_locked) {
+        if (!user || user.status === 'LOCKED') {
             throw new AppError('User not available', 401, ErrorCodes.AUTH_USER_NOT_FOUND);
         }
 
         const roles = await authRepository.findUserRoles(user.id);
 
-        // Rotate token
-        await authRepository.revokeSession(session.id);
+        // Rotate token — revoke old session by its hash
+        await authRepository.revokeSessionByHash(hash);
 
         const newAccessToken = this.generateAccessToken(user, roles);
         const newRefreshToken = this.generateRefreshToken();
@@ -130,7 +192,7 @@ class AuthService {
             refresh_token_hash: newHash,
             user_agent: deviceInfo.userAgent,
             ip_address: deviceInfo.ip,
-            expires_at: session.expires_at, // Keep original expiry or extend
+            expires_at: session.expires_at,
         });
 
         return { accessToken: newAccessToken, refreshToken: newRefreshToken };
@@ -140,18 +202,18 @@ class AuthService {
         const hash = this.hashToken(token);
         const session = await authRepository.findSessionByHash(hash);
         if (session) {
-            await authRepository.revokeSession(session.id);
+            await authRepository.revokeSessionByHash(hash);
         }
     }
 
     async forgotPassword(email) {
         const user = await authRepository.findUserByEmail(email);
-        // Anti-enumeration: always return success
-        if (!user) return;
+        if (!user) return; // Anti-enumeration: always return success
 
         const rawToken = crypto.randomBytes(32).toString('hex');
         const tokenHash = this.hashToken(rawToken);
         const expiresAt = new Date(Date.now() + (parseInt(process.env.PASSWORD_RESET_EXPIRES_IN || '3600') * 1000));
+        logger.info(`[DEBUG] CREATED Reset Token: ${rawToken} -> Hash: ${tokenHash}`);
 
         await authRepository.createPasswordResetToken(user.id, tokenHash, expiresAt);
 
@@ -165,15 +227,17 @@ class AuthService {
 
     async resetPassword(token, newPassword) {
         const hash = this.hashToken(token);
+        logger.info(`[DEBUG] VALIDATING Reset Token: ${token} -> Hash: ${hash}`);
         const resetRecord = await authRepository.findPasswordResetToken(hash);
 
         if (!resetRecord) {
+            logger.warn(`[DEBUG] Reset Record not found in Redis for hash: ${hash}`);
             throw new AppError('Invalid or expired reset token', 400, ErrorCodes.AUTH_INVALID_TOKEN);
         }
 
         const password_hash = await this.hashPassword(newPassword);
         await authRepository.updateUser(resetRecord.user_id, { password_hash });
-        await authRepository.usePasswordResetToken(resetRecord.id);
+        await authRepository.usePasswordResetToken(resetRecord.id); // deletes key
 
         // Revoke all sessions after password reset
         await authRepository.revokeAllUserSessions(resetRecord.user_id);
@@ -181,10 +245,12 @@ class AuthService {
 
     async verifyEmail(token) {
         const hash = this.hashToken(token);
+        logger.info(`[DEBUG] VALIDATING Verify Token: ${token} -> Hash: ${hash}`);
 
         // Fetch from Redis
         const pendingUser = await authRepository.getPendingUser(hash);
         if (!pendingUser) {
+            logger.warn(`[DEBUG] Pending user not found in Redis for hash: ${hash}`);
             throw new AppError('Invalid or expired verification token', 400, ErrorCodes.AUTH_INVALID_TOKEN);
         }
 
@@ -195,7 +261,7 @@ class AuthService {
         });
 
         // Assign the default role
-        await authRepository.assignRole(user.id, 'customer');
+        await authRepository.assignRole(user.id, 'CUSTOMER');
 
         // Clean up Redis
         await authRepository.deletePendingUser(hash);
