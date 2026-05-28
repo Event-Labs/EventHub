@@ -126,10 +126,12 @@ export function EventDetailPage() {
   const selectTicket = (ticketType) => {
     if (requireLogin()) return
     if (!isSaleOpen(ticketType)) return
-    setSelectedTickets((current) => ({
-      ...current,
-      [ticketType.id]: current[ticketType.id] || 1,
-    }))
+    setSelectedTickets((current) => {
+      const next = { ...current }
+      if (next[ticketType.id]) delete next[ticketType.id]
+      else next[ticketType.id] = 1
+      return next
+    })
   }
 
   const updateQuantity = (ticketType, delta) => {
@@ -201,32 +203,34 @@ export function EventDetailPage() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8">
         <section className="space-y-10">
           <article className="rounded-lg border border-border-soft bg-panel p-6">
-            <div className="flex items-center justify-between gap-4">
+            <div>
               <h2 className="font-display text-3xl font-bold text-white">
                 Tổng quan
               </h2>
-              <button
-                type="button"
-                onClick={() => setOverviewOpen((value) => !value)}
-                className="grid size-10 place-items-center rounded-full border border-border-soft text-subtle hover:border-primary hover:text-primary"
-                aria-label={overviewOpen ? 'Thu gọn tổng quan' : 'Mở rộng tổng quan'}
-              >
-                {overviewOpen ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
-              </button>
             </div>
-            <p
-              className={cn(
-                'mt-5 whitespace-pre-line text-lg leading-8 text-muted',
-                !overviewOpen && 'line-clamp-5',
-              )}
+            <button
+              type="button"
+              onClick={() => setOverviewOpen((value) => !value)}
+              className="mt-5 block w-full text-left"
+              aria-expanded={overviewOpen}
             >
-              {overview}
-            </p>
+              <span
+                className={cn(
+                  'block whitespace-pre-line text-lg leading-8 text-muted',
+                  !overviewOpen && 'line-clamp-5',
+                )}
+              >
+                {overview}
+              </span>
+              <span className="mt-5 grid w-full place-items-center text-white transition hover:text-primary">
+                {overviewOpen ? <ChevronUp className="size-6" /> : <ChevronDown className="size-6" />}
+              </span>
+            </button>
           </article>
 
           <section className="overflow-hidden rounded-lg border border-border-soft bg-[#333945]">
             <div className="flex items-center justify-between border-b border-border-soft bg-panel px-5 py-4">
-              <h2 className="font-display text-xl font-bold text-success">
+              <h2 className="font-display text-xl font-bold text-primary">
                 Lịch diễn
               </h2>
               <div className="flex overflow-hidden rounded-full bg-white text-slate-900">
@@ -263,7 +267,7 @@ export function EventDetailPage() {
                             <p className="text-sm font-semibold text-white">
                               {formatTime(session.start_time)} - {formatTime(session.end_time)}
                             </p>
-                            <p className="font-bold text-success">
+                            <p className="font-bold text-primary">
                               {formatShortDate(session.start_time)}
                             </p>
                             <p className="mt-2 text-sm text-muted">
@@ -283,7 +287,6 @@ export function EventDetailPage() {
                             {tickets.length ? (
                               tickets.map((ticketType) => {
                                 const saleOpen = isSaleOpen(ticketType)
-                                const selected = Boolean(selectedTickets[ticketType.id])
                                 return (
                                   <button
                                     key={ticketType.id}
@@ -291,29 +294,27 @@ export function EventDetailPage() {
                                     onClick={() => selectTicket(ticketType)}
                                     disabled={!saleOpen}
                                     className={cn(
-                                      'flex min-h-20 w-full items-center justify-between gap-4 rounded-lg border border-slate-500 bg-[#414856] px-5 py-4 text-left transition',
-                                      selected && 'border-primary bg-primary/10',
+                                      'grid min-h-20 w-full gap-4 rounded-lg border border-slate-500 bg-[#414856] px-5 py-4 text-left transition md:grid-cols-[minmax(0,1fr)_140px]',
                                       saleOpen ? 'hover:border-primary' : 'cursor-not-allowed opacity-85',
                                     )}
                                   >
-                                    <div>
+                                    <div className="max-w-3xl min-w-0">
                                       <p className="font-bold text-white">{ticketType.name}</p>
                                       {ticketType.description && (
-                                        <p className="mt-1 text-sm text-muted">{ticketType.description}</p>
+                                        <p className="mt-1 max-w-2xl whitespace-pre-line text-sm leading-6 text-muted">
+                                          {ticketType.description}
+                                        </p>
                                       )}
                                     </div>
-                                    <div className="text-right">
-                                      <p className="font-display text-lg font-bold text-success">
+                                    <div className="self-start text-right">
+                                      <p className="font-display text-lg font-bold text-primary">
                                         {formatPrice(ticketType.price)}
                                       </p>
-                                      <span className={cn(
-                                        'mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold',
-                                        saleOpen
-                                          ? 'bg-primary text-slate-950'
-                                          : 'bg-orange-200 text-orange-700',
-                                      )}>
-                                        {saleOpen ? (selected ? 'Đã chọn' : 'Chọn') : 'Vé chưa mở bán'}
-                                      </span>
+                                      {!saleOpen && (
+                                        <span className="mt-2 inline-flex rounded-full bg-orange-200 px-3 py-1 text-xs font-bold text-orange-700">
+                                          Vé chưa mở bán
+                                        </span>
+                                      )}
                                     </div>
                                   </button>
                                 )

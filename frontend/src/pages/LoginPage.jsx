@@ -1,4 +1,4 @@
-﻿import { Circle, Eye, Lock, Mail, User } from 'lucide-react'
+﻿import {  Eye, Lock, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { heroImage } from '@/data/events.js'
@@ -56,10 +56,10 @@ export function LoginPage() {
             EventHub
           </h1>
           <p className="mt-2 text-muted">
-            Đăng nhập để tiếp tục đặt vé và quản lý sự kiện.
+            Đăng nhập để tiếp tục đặt vé và quản lý sự kiện
           </p>
         </div>
-        <div className="mt-6 flex justify-center w-full overflow-hidden rounded-md">
+        <div className="mt-6 flex w-full justify-center overflow-hidden rounded-sm">
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => {
@@ -67,10 +67,11 @@ export function LoginPage() {
             }}
             useOneTap
             width="100%"
-            theme="filled_blue"
+            theme="outline"
             size="large"
-            text="signin_with"
+            text="continue_with"
             shape="rectangular"
+            locale="en"
           />
         </div>
         <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
