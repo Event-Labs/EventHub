@@ -5,7 +5,8 @@ const {
     loginSchema,
     forgotPasswordSchema,
     resetPasswordSchema,
-    verifyEmailSchema
+    verifyEmailSchema,
+    googleLoginSchema
 } = require('./auth.validation');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
@@ -45,6 +46,23 @@ class AuthController {
 
             res.cookie('refresh_token', refreshToken, this.cookieOptions);
             res.status(200).json(ApiResponse.success({ user, accessToken }, 'Login successful'));
+        } catch (err) {
+            next(err);
+        }
+    };
+
+    googleLogin = async (req, res, next) => {
+        try {
+            const { credential } = googleLoginSchema.parse(req.body);
+            const deviceInfo = {
+                userAgent: req.headers['user-agent'],
+                ip: req.ip,
+            };
+
+            const { user, accessToken, refreshToken } = await authService.googleLogin(credential, deviceInfo);
+
+            res.cookie('refresh_token', refreshToken, this.cookieOptions);
+            res.status(200).json(ApiResponse.success({ user, accessToken }, 'Google Login successful'));
         } catch (err) {
             next(err);
         }

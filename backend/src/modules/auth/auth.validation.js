@@ -25,10 +25,15 @@ const verifyEmailSchema = z.object({
     token: z.string().min(1, 'Token is required'),
 });
 
+const googleLoginSchema = z.object({
+    credential: z.string().min(1, 'Credential is required'),
+});
+
 module.exports = {
     registerSchema,
     loginSchema,
     forgotPasswordSchema,
     resetPasswordSchema,
     verifyEmailSchema,
+    googleLoginSchema,
 };

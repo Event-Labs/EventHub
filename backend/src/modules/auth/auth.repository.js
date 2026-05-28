@@ -1,5 +1,14 @@
 const db = require('../../infrastructure/database/db.client');
 const { client } = require('../../infrastructure/redis/redis.client');
+const crypto = require('crypto');
+
+// =============================================
+// KEYS for Redis-based storage (no DB tables for these)
+// session:{hash}           → session object JSON (TTL = expiry)
+// user_sessions:{userId}   → SET of session hashes (for bulk revoke)
+// pwd_reset:{hash}         → { user_id } JSON (TTL = expiry)
+// pending_user:{hash}      → user data JSON (TTL = expiry) [for registration]
+// =============================================
 
 class AuthRepository {
   // --- USERS ---
@@ -54,118 +63,126 @@ class AuthRepository {
     return rows[0];
   }
 
-  // --- ROLES ---
+  // --- ROLES (user_roles uses role_id FK to roles table) ---
   async findUserRoles(userId) {
     const query = `
-      SELECT role FROM user_roles WHERE user_id = $1
+      SELECT r.name FROM user_roles ur
+      JOIN roles r ON r.id = ur.role_id
+      WHERE ur.user_id = $1
     `;
     const { rows } = await db.query(query, [userId]);
-    return rows.map((r) => r.role);
+    return rows.map((r) => r.name);
   }
 
-  async assignRole(userId, role, assignedBy = null) {
+  async assignRole(userId, roleName) {
+    // user_roles has (user_id UUID, role_id INT) — no role string column
     const query = `
-      INSERT INTO user_roles (user_id, role, assigned_by)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id, role) DO NOTHING
+      INSERT INTO user_roles (user_id, role_id)
+      SELECT $1, id FROM roles WHERE name = $2
+      ON CONFLICT (user_id, role_id) DO NOTHING
     `;
-    await db.query(query, [userId, role, assignedBy]);
+    await db.query(query, [userId, roleName]);
   }
 
-  // --- REFRESH SESSIONS ---
+  // --- SESSIONS (Redis-based — no user_sessions table in DB) ---
   async createSession(sessionData) {
-    const query = `
-      INSERT INTO user_sessions (user_id, refresh_token_hash, user_agent, ip_address, expires_at)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `;
-    const values = [
-      sessionData.user_id,
-      sessionData.refresh_token_hash,
-      sessionData.user_agent,
-      sessionData.ip_address,
-      sessionData.expires_at,
-    ];
-    const { rows } = await db.query(query, values);
-    return rows[0];
+    const id = crypto.randomUUID();
+    const key = `session:${sessionData.refresh_token_hash}`;
+    const userKey = `user_sessions:${sessionData.user_id}`;
+
+    const session = {
+      id,
+      user_id: sessionData.user_id,
+      user_agent: sessionData.user_agent,
+      ip_address: sessionData.ip_address,
+      expires_at: sessionData.expires_at,
+      revoked_at: null,
+    };
+
+    const ttlSeconds = Math.floor(
+      (new Date(sessionData.expires_at).getTime() - Date.now()) / 1000
+    );
+
+    await client.setEx(key, ttlSeconds, JSON.stringify(session));
+    // Track this hash under the user so we can revoke all later
+    await client.sAdd(userKey, sessionData.refresh_token_hash);
+
+    return session;
   }
 
   async findSessionByHash(hash) {
-    const query = `
-      SELECT * FROM user_sessions 
-      WHERE refresh_token_hash = $1 AND revoked_at IS NULL AND expires_at > now()
-    `;
-    const { rows } = await db.query(query, [hash]);
-    return rows[0];
+    const key = `session:${hash}`;
+    const data = await client.get(key);
+    if (!data) return null;
+    const session = JSON.parse(data);
+    if (session.revoked_at) return null;
+    return session;
   }
 
-  async revokeSession(id) {
-    const query = `
-      UPDATE user_sessions SET revoked_at = now() WHERE id = $1
-    `;
-    await db.query(query, [id]);
+  async revokeSession(id, hash) {
+    // Left for interface compatibility. 
+    // New code uses revokeSessionByHash directly.
+    if (hash) {
+      await this.revokeSessionByHash(hash);
+    }
+  }
+
+  async revokeSessionByHash(hash) {
+    const key = `session:${hash}`;
+    await client.del(key);
   }
 
   async revokeAllUserSessions(userId) {
-    const query = `
-      UPDATE user_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL
-    `;
-    await db.query(query, [userId]);
+    const userKey = `user_sessions:${userId}`;
+    const hashes = await client.sMembers(userKey);
+    if (hashes.length > 0) {
+      const sessionKeys = hashes.map((h) => `session:${h}`);
+      await client.del(sessionKeys);
+    }
+    await client.del(userKey);
   }
 
-  // --- TOKENS (Verification & Reset) ---
-  async createEmailVerificationToken(userId, tokenHash, expiresAt) {
-    const query = `
-      INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
-      VALUES ($1, $2, $3)
-    `;
-    await db.query(query, [userId, tokenHash, expiresAt]);
-  }
-
-  async findEmailVerificationToken(tokenHash) {
-    const query = `
-      SELECT * FROM email_verification_tokens 
-      WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
-    `;
-    const { rows } = await db.query(query, [tokenHash]);
-    return rows[0];
-  }
-
-  async useEmailVerificationToken(id) {
-    const query = `
-      UPDATE email_verification_tokens SET used_at = now() WHERE id = $1
-    `;
-    await db.query(query, [id]);
-  }
-
+  // --- PASSWORD RESET TOKENS (Redis-based) ---
   async createPasswordResetToken(userId, tokenHash, expiresAt) {
-    const query = `
-      INSERT INTO password_resets (user_id, token_hash, expires_at)
-      VALUES ($1, $2, $3)
-    `;
-    await db.query(query, [userId, tokenHash, expiresAt]);
+    const key = `pwd_reset:${tokenHash}`;
+    const ttlSeconds = Math.floor(
+      (new Date(expiresAt).getTime() - Date.now()) / 1000
+    );
+    await client.setEx(key, ttlSeconds, JSON.stringify({ user_id: userId }));
   }
 
   async findPasswordResetToken(tokenHash) {
-    const query = `
-      SELECT * FROM password_resets 
-      WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
-    `;
-    const { rows } = await db.query(query, [tokenHash]);
-    return rows[0];
+    const key = `pwd_reset:${tokenHash}`;
+    const data = await client.get(key);
+    if (!data) return null;
+    const record = JSON.parse(data);
+    // Return shape compatible with auth.service.js expectations
+    return { id: tokenHash, user_id: record.user_id };
   }
 
   async usePasswordResetToken(id) {
-    const query = `
-      UPDATE password_resets SET used_at = now() WHERE id = $1
-    `;
-    await db.query(query, [id]);
+    // id = tokenHash (as returned above). Delete to invalidate.
+    const key = `pwd_reset:${id}`;
+    await client.del(key);
   }
 
-  // --- PENDING USERS (Redis) ---
+  // --- EMAIL VERIFICATION TOKENS (Redis-based) ---
+  // Just aliasing pending user logic so the interface stays compatible if we ever need it separately.
+  async createEmailVerificationToken(userId, tokenHash, expiresAt) {
+    // Handled via savePendingUser currently.
+  }
+
+  async findEmailVerificationToken(tokenHash) {
+    return null;
+  }
+
+  async useEmailVerificationToken(id) {
+    return null;
+  }
+
+  // --- PENDING USERS (Redis — for email verification before DB insert) ---
   async savePendingUser(tokenHash, userData, expiresAt) {
     const key = `pending_user:${tokenHash}`;
-    // Calculate expiration in seconds
     const ttl = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
     await client.setEx(key, ttl, JSON.stringify(userData));
   }

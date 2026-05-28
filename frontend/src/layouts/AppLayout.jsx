@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown, UserCircle } from 'lucide-react'
+import { Bell, UserCircle } from 'lucide-react'
 
 export function AppLayout() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -32,7 +32,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-content">
+    <div className="flex min-h-screen flex-col bg-background text-content">
       <header className="sticky top-0 z-50 border-b border-border-soft bg-[#0d1422]/95 shadow-xl backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
@@ -62,13 +62,12 @@ export function AppLayout() {
                 <Bell className="size-5" />
               </button>
               <button
-                className="flex items-center gap-2 rounded-full border border-border-soft bg-panel px-2 py-1"
+                className="grid size-10 place-items-center overflow-hidden rounded-full border border-primary/40 bg-primary text-slate-950 transition hover:border-primary hover:bg-sky-300"
                 onClick={() => setOpen((value) => !value)}
+                aria-label="Mở menu tài khoản"
+                aria-expanded={open}
               >
-                <span className="grid size-9 place-items-center rounded-full bg-primary text-slate-950">
-                  <UserCircle className="size-6" />
-                </span>
-                <ChevronDown className="size-4 text-muted" />
+                <UserCircle className="size-7" />
               </button>
               {open && (
                 <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-lg border border-border-soft bg-panel shadow-2xl">
@@ -106,7 +105,7 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main>
+      <main className="flex-1">
         <Outlet />
       </main>
       <footer className="border-t border-border-soft bg-[#0d1422]">
