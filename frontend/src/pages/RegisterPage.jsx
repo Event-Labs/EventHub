@@ -106,16 +106,17 @@ export function RegisterPage() {
                         Tài khoản khách hàng để mua vé, lưu yêu thích và theo dõi đơn.
                     </p>
                 </div>
-                <div className="mt-6 flex justify-center w-full overflow-hidden rounded-md">
+                <div className="mt-6 flex w-full justify-center overflow-hidden rounded-sm">
                     <GoogleLogin
                         onSuccess={handleGoogleSuccess}
                         onError={() => setError('Đăng nhập Google thất bại.')}
                         useOneTap
                         width="100%"
-                        theme="filled_blue"
+                        theme="outline"
                         size="large"
-                        text="signup_with"
+                        text="continue_with"
                         shape="rectangular"
+                        locale="en"
                     />
                 </div>
                 <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
