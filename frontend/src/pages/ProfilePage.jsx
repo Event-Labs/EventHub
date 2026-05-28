@@ -17,7 +17,7 @@ export function ProfilePage() {
       }
       return getProfile()
     },
-    retry: false, // Don't retry on 401
+    retry: false,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -71,29 +71,31 @@ export function ProfilePage() {
             Hồ sơ cá nhân
           </h1>
           <p className="mt-2 text-muted">
-            Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub.
+            Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub
           </p>
         </div>
         <div className="flex gap-3">
+          {mode !== 'edit' && (
+            <button
+              onClick={() => setMode('edit')}
+              className={`rounded-md border px-5 py-3 font-bold transition-all ${
+                mode === 'view'
+                  ? 'border-primary bg-primary text-slate-950'
+                  : 'border-border-soft text-subtle hover:text-white'
+              }`}
+            >
+              Chỉnh sửa hồ sơ
+            </button>
+          )}
           <button
-            onClick={() => setMode(mode === 'edit' ? 'view' : 'edit')}
-            className={`rounded-md px-5 py-3 font-bold transition-all ${
-              mode === 'edit' 
-                ? 'bg-surface text-white border border-border-soft' 
-                : 'bg-primary text-slate-950'
-            }`}
-          >
-            {mode === 'edit' ? 'Hủy chỉnh sửa' : 'Chỉnh sửa hồ sơ'}
-          </button>
-          <button
-            onClick={() => setMode(mode === 'password' ? 'view' : 'password')}
+            onClick={() => setMode('password')}
             className={`rounded-md border px-5 py-3 font-bold transition-all ${
               mode === 'password'
                 ? 'bg-primary text-slate-950 border-primary'
                 : 'border-border-soft text-subtle hover:text-white'
             }`}
           >
-             {mode === 'password' ? 'Hủy đổi mật khẩu' : 'Đổi mật khẩu'}
+             Đổi mật khẩu
           </button>
         </div>
       </div>

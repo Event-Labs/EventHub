@@ -49,7 +49,7 @@ export function BookingTicketsPage() {
 
 export function BookingSeatsPage() {
   return (
-    <BookingShell step={2}>
+    <BookingShell step={1}>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <section>
           <h1 className="mb-5 font-display text-2xl font-bold text-white">
@@ -86,7 +86,7 @@ export function BookingSeatsPage() {
 
 export function BookingAttendeesPage() {
   return (
-    <BookingShell step={3}>
+    <BookingShell step={2}>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <section>
           <h1 className="mb-5 font-display text-2xl font-bold text-white">
@@ -107,7 +107,7 @@ export function BookingAttendeesPage() {
 
 export function BookingReviewPage() {
   return (
-    <BookingShell step={4}>
+    <BookingShell step={3}>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <section className="space-y-5">
           <h1 className="font-display text-2xl font-bold text-white">
@@ -157,7 +157,7 @@ export function BookingReviewPage() {
 
 export function BookingPaymentPage() {
   return (
-    <BookingShell step={5}>
+    <BookingShell step={4}>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <section>
           <div className="mb-4 grid gap-3 md:grid-cols-3">
@@ -208,7 +208,7 @@ export function BookingPaymentPage() {
 }
 
 function BookingShell({ step, children }) {
-  const labels = ['Vé', 'Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
+  const labels = ['Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
   return (
     <div className="bg-background text-content">
       <div className="mx-auto min-h-[calc(100vh-64px)] max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
