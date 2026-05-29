@@ -1,7 +1,8 @@
 ﻿import {  Eye, Lock, Mail } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { heroImage } from '@/data/events.js'
+import { getPostLoginPath } from '@/lib/auth.js'
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
 
@@ -11,6 +12,22 @@ export function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const token = localStorage.getItem('eventhub-token')
+    if (!token) return
+
+    try {
+      const user = JSON.parse(localStorage.getItem('eventhub-user') || 'null')
+      navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'), {
+        replace: true,
+      })
+    } catch {
+      localStorage.removeItem('eventhub-token')
+      localStorage.removeItem('eventhub-user')
+      localStorage.removeItem('eventhub-auth')
+    }
+  }, [navigate, searchParams])
 
   const login = async () => {
     setError('')
@@ -22,7 +39,7 @@ export function LoginPage() {
       localStorage.setItem('eventhub-user', JSON.stringify(user))
       localStorage.setItem('eventhub-auth', 'true')
       window.dispatchEvent(new Event('eventhub-auth'))
-      navigate(searchParams.get('redirect') || '/')
+      navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.')
     } finally {
@@ -40,7 +57,7 @@ export function LoginPage() {
       localStorage.setItem('eventhub-user', JSON.stringify(user))
       localStorage.setItem('eventhub-auth', 'true')
       window.dispatchEvent(new Event('eventhub-auth'))
-      navigate(searchParams.get('redirect') || '/')
+      navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập Google thất bại.')
     } finally {
