@@ -40,6 +40,13 @@ import {
   AdminLayout,
   AdminPlansPage,
 } from '@/pages/admin/AdminPages.jsx'
+import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
+import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
+import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
+import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
+import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
+import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
+import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { ProfilePage } from '@/pages/ProfilePage.jsx'
 import { RegisterPage } from '@/pages/auth/RegisterPage.jsx'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage.jsx'
@@ -87,6 +94,44 @@ const router = createBrowserRouter([
       {
         path: 'profile',
         element: <ProfilePage />,
+      },
+    ],
+  },
+  {
+    path: '/organizer',
+    element: <OrganizerLayout />,
+    children: [
+      {
+        index: true,
+        element: <OrganizerPortalDashboardPage />,
+      },
+      {
+        path: 'events',
+        element: <OrganizerEventsPage />,
+      },
+      {
+        path: 'attendees',
+        element: <OrganizerAttendeesPage />,
+      },
+      {
+        path: 'staff-tasks',
+        element: <OrganizerTasksPage />,
+      },
+      {
+        path: 'promotions',
+        element: <OrganizerPromosPage />,
+      },
+      {
+        path: 'announcements',
+        element: <OrganizerAnnouncementsPage />,
+      },
+      {
+        path: 'profile',
+        element: <ProfilePage />,
+      },
+      {
+        path: '*',
+        element: <OrganizerPortalDashboardPage />,
       },
     ],
   },
