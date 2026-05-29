@@ -15,14 +15,10 @@ export function ResetPasswordPage() {
     })
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
-    const [error, setError] = useState('')
+    const [error, setError] = useState(() =>
+        token ? '' : 'Mã đặt lại mật khẩu không tồn tại.',
+    )
     const [countdown, setCountdown] = useState(5)
-
-    useEffect(() => {
-        if (!token) {
-            setError('Mã đặt lại mật khẩu không tồn tại.')
-        }
-    }, [token])
 
     useEffect(() => {
         if (success && countdown > 0) {

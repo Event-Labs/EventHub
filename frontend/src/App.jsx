@@ -6,23 +6,20 @@ import {
   BookingPaymentPage,
   BookingReviewPage,
   BookingSeatsPage,
-} from '@/pages/BookingFlowPages.jsx'
+} from '@/pages/customer/BookingFlowPages.jsx'
 import { CustomerDiscoveryPage } from '@/pages/CustomerDiscoveryPage.jsx'
 import { EventDetailPage } from '@/pages/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/FavoriteEventsPage.jsx'
 import { HomePage } from '@/pages/HomePage.jsx'
-import { LoginPage } from '@/pages/LoginPage.jsx'
-import { MyTicketsPage } from '@/pages/MyTicketsPage.jsx'
+import { LoginPage } from '@/pages/auth/LoginPage.jsx'
+import { MyTicketsPage } from '@/pages/customer/MyTicketsPage.jsx'
 import { NotFoundPage } from '@/pages/NotFoundPage.jsx'
-import { PaymentConfirmationPage } from '@/pages/PaymentConfirmationPage.jsx'
+import { PaymentConfirmationPage } from '@/pages/customer/PaymentConfirmationPage.jsx'
 import {
-  AccountListPage,
-  AdminDashboardPage,
   AIFaqPage,
   AttendeeListPage,
   CreateEventWizardPage,
-  EventReviewPage,
   FeedbackPage,
   NotificationsPage,
   OnSiteBookingPage,
@@ -30,20 +27,69 @@ import {
   OrganizerDashboardPage,
   OrganizerEventListPage,
   OrganizerRequestPage,
-  PlatformFeePage,
   QrCheckInPage,
   RequestRefundPage,
   RevenueDashboardPage,
   StaffDashboardPage,
 } from '@/pages/PlatformPages.jsx'
+import {
+  AdminAccountsPage,
+  AdminAnalyticsPage,
+  AdminEventReviewPage,
+  AdminFinancePage,
+  AdminLayout,
+  AdminPlansPage,
+} from '@/pages/admin/AdminPages.jsx'
 import { ProfilePage } from '@/pages/ProfilePage.jsx'
-import { RegisterPage } from '@/pages/RegisterPage.jsx'
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage.jsx'
-import { VerifyEmailPage } from '@/pages/VerifyEmailPage.jsx'
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage.jsx'
-import { TicketDetailPage } from '@/pages/TicketDetailPage.jsx'
+import { RegisterPage } from '@/pages/auth/RegisterPage.jsx'
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage.jsx'
+import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage.jsx'
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage.jsx'
+import { TicketDetailPage } from '@/pages/customer/TicketDetailPage.jsx'
 
 const router = createBrowserRouter([
+  {
+    path: '/admin',
+    element: <AdminLayout />,
+    children: [
+      {
+        index: true,
+        element: <AdminAnalyticsPage />,
+      },
+      {
+        path: 'accounts',
+        element: <AdminAccountsPage />,
+      },
+      {
+        path: 'manage-account',
+        element: <AdminAccountsPage />,
+      },
+      {
+        path: 'event-review',
+        element: <AdminEventReviewPage />,
+      },
+      {
+        path: 'events',
+        element: <AdminEventReviewPage />,
+      },
+      {
+        path: 'platform-fee',
+        element: <AdminFinancePage />,
+      },
+      {
+        path: 'finance',
+        element: <AdminFinancePage />,
+      },
+      {
+        path: 'plans',
+        element: <AdminPlansPage />,
+      },
+      {
+        path: 'profile',
+        element: <ProfilePage />,
+      },
+    ],
+  },
   {
     path: '/',
     element: <AppLayout />,
@@ -179,22 +225,6 @@ const router = createBrowserRouter([
       {
         path: 'staff/on-site-booking',
         element: <OnSiteBookingPage />,
-      },
-      {
-        path: 'admin',
-        element: <AdminDashboardPage />,
-      },
-      {
-        path: 'admin/accounts',
-        element: <AccountListPage />,
-      },
-      {
-        path: 'admin/event-review',
-        element: <EventReviewPage />,
-      },
-      {
-        path: 'admin/platform-fee',
-        element: <PlatformFeePage />,
       },
       {
         path: '*',
