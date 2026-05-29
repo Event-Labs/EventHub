@@ -16,11 +16,11 @@ import { isAdminUser } from '@/lib/auth.js'
 import { AvatarFallback } from './AdminComponents.jsx'
 
 const navItems = [
-  { label: 'Analytics', to: '/admin', icon: LayoutDashboard, end: true },
-  { label: 'Users', to: '/admin/accounts', icon: Users },
-  { label: 'Events', to: '/admin/event-review', icon: Calendar },
-  { label: 'Finance', to: '/admin/platform-fee', icon: CreditCard },
-  { label: 'Plans', to: '/admin/plans', icon: BriefcaseBusiness },
+  { label: 'Tổng quan', to: '/admin', icon: LayoutDashboard, end: true },
+  { label: 'Người dùng', to: '/admin/accounts', icon: Users },
+  { label: 'Duyệt sự kiện', to: '/admin/event-review', icon: Calendar },
+  { label: 'Tài chính', to: '/admin/platform-fee', icon: CreditCard },
+  { label: 'Gói dịch vụ', to: '/admin/plans', icon: BriefcaseBusiness },
 ]
 
 export function AdminLayout() {
@@ -75,24 +75,22 @@ export function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="space-y-2">
+        <div className="space-y-1 border-t border-border-soft pt-4">
           <NavLink
             to="/admin/profile"
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md px-4 py-3 text-sm font-bold transition ${
-                isActive
-                  ? 'bg-primary text-slate-950'
-                  : 'text-subtle hover:bg-panel-soft hover:text-primary'
+              `flex items-center gap-3 rounded-md px-4 py-2.5 text-sm font-semibold transition ${
+                isActive ? 'text-primary' : 'text-subtle hover:bg-panel-soft hover:text-primary'
               }`
             }
           >
             <ShieldCheck className="size-4" />
-            Profile
+            Hồ sơ
           </NavLink>
           <button
             type="button"
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-md px-4 py-3 text-sm font-bold text-subtle transition hover:bg-panel-soft hover:text-primary"
+            className="flex w-full items-center gap-3 rounded-md px-4 py-2.5 text-sm font-semibold text-subtle transition hover:bg-panel-soft hover:text-primary"
           >
             <LogOut className="size-4" />
             Đăng xuất
@@ -116,7 +114,7 @@ function TopBar({ user }) {
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
         <input
           className="h-9 w-full rounded-md border border-[#d8dadc] bg-[#f2f4f6] pl-10 pr-3 text-sm text-[#191c1e] outline-none placeholder:text-[#737686] focus:border-primary focus:ring-2 focus:ring-primary/20"
-          placeholder="Search admin portal..."
+          placeholder="Tìm kiếm trong quản trị..."
         />
       </div>
       <div className="ml-4 flex items-center gap-2">
