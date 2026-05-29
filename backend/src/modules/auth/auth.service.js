@@ -11,6 +11,16 @@ const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 class AuthService {
+    serializeAuthUser(user, roles) {
+        return {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            avatar_url: user.avatar_url,
+            roles,
+        };
+    }
+
     // --- HELPERS ---
     async hashPassword(password) {
         const salt = await bcrypt.genSalt(parseInt(process.env.BCRYPT_SALT_ROUNDS || '12'));
@@ -102,7 +112,7 @@ class AuthService {
 
         // No last_login_at column exists in DB, omitted
 
-        return { user: { id: user.id, email: user.email, full_name: user.full_name, roles }, accessToken, refreshToken };
+        return { user: this.serializeAuthUser(user, roles), accessToken, refreshToken };
     }
 
     async googleLogin(credential, deviceInfo) {
@@ -117,7 +127,7 @@ class AuthService {
                 throw new AppError('Invalid Google Token payload', 401, ErrorCodes.AUTH_INVALID_TOKEN);
             }
 
-            const { email, name, sub: google_id, email_verified } = payload;
+            const { email, name, sub: google_id, email_verified, picture } = payload;
 
             let user = await authRepository.findUserByEmail(email);
 
@@ -130,6 +140,7 @@ class AuthService {
                     phone: null,
                     google_id,
                     email_verified: email_verified || false,
+                    avatar_url: picture || null,
                 });
                 await authRepository.assignRole(user.id, 'CUSTOMER');
             } else {
@@ -139,6 +150,10 @@ class AuthService {
                 // Update google_id if it's the first time linking
                 if (!user.google_id) {
                     user = await authRepository.updateUser(user.id, { google_id });
+                }
+
+                if (!user.avatar_url && picture) {
+                    user = await authRepository.updateUser(user.id, { avatar_url: picture });
                 }
             }
 
@@ -157,7 +172,7 @@ class AuthService {
                 expires_at: expiresAt,
             });
 
-            return { user: { id: user.id, email: user.email, full_name: user.full_name, roles }, accessToken, refreshToken };
+            return { user: this.serializeAuthUser(user, roles), accessToken, refreshToken };
 
         } catch (error) {
             logger.error('Google OAuth error', error);

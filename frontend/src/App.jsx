@@ -1,7 +1,6 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { AppLayout } from '@/layouts/AppLayout.jsx'
-import { BookingPage } from '@/pages/BookingPage.jsx'
 import {
   BookingAttendeesPage,
   BookingPaymentPage,
@@ -24,6 +23,7 @@ import {
   AttendeeListPage,
   CreateEventWizardPage,
   EventReviewPage,
+  FeedbackPage,
   NotificationsPage,
   OnSiteBookingPage,
   OrderListPage,
@@ -66,7 +66,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'booking',
-        element: <BookingPage />,
+        element: <Navigate to="/booking/seats" replace />,
       },
       {
         path: 'booking/seats',
@@ -123,6 +123,10 @@ const router = createBrowserRouter([
       {
         path: 'favorites',
         element: <FavoriteEventsPage />,
+      },
+      {
+        path: 'feedback',
+        element: <FeedbackPage />,
       },
       {
         path: 'request-refund',
