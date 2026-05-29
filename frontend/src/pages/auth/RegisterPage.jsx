@@ -1,9 +1,10 @@
-import { Circle, Lock, Mail, Phone, User } from 'lucide-react'
+import { Lock, Mail, Phone, User } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
 import { AuthShell, Field } from './LoginPage.jsx'
 import { GoogleLogin } from '@react-oauth/google'
+import { getPostLoginPath } from '@/lib/auth.js'
 
 export function RegisterPage() {
     const [form, setForm] = useState({
@@ -59,8 +60,7 @@ export function RegisterPage() {
             localStorage.setItem('eventhub-user', JSON.stringify(user))
             localStorage.setItem('eventhub-auth', 'true')
             window.dispatchEvent(new Event('eventhub-auth'))
-            // Dẫn thẳng vào trang chính vì đăng nhập thành công
-            window.location.href = '/'
+            window.location.href = getPostLoginPath(user)
         } catch (err) {
             setError(err.response?.data?.message || 'Đăng ký bằng Google thất bại.')
         } finally {
