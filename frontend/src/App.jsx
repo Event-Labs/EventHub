@@ -11,6 +11,7 @@ import { CustomerDiscoveryPage } from '@/pages/customer/discovery/CustomerDiscov
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
+import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
 import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
@@ -26,7 +27,6 @@ import {
   OrderListPage,
   OrganizerDashboardPage,
   OrganizerEventListPage,
-  OrganizerRequestPage,
   QrCheckInPage,
   RequestRefundPage,
   RevenueDashboardPage,
@@ -39,6 +39,7 @@ import {
   AdminEventReviewPage,
   AdminFinancePage,
   AdminLayout,
+  AdminOrganizerRequestsPage,
   AdminPlansPage,
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
@@ -85,6 +86,10 @@ const router = createBrowserRouter([
       {
         path: 'accounts',
         element: <AdminAccountsPage />,
+      },
+      {
+        path: 'organizer-requests',
+        element: <AdminOrganizerRequestsPage />,
       },
       {
         path: 'manage-account',
