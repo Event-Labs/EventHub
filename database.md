@@ -196,7 +196,12 @@ CREATE TABLE event_categories (
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(150) UNIQUE NOT NULL,
 
-    description TEXT
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE events (
@@ -920,6 +925,11 @@ EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trigger_events_updated_at
 BEFORE UPDATE ON events
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_event_categories_updated_at
+BEFORE UPDATE ON event_categories
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 

@@ -10,6 +10,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Tags,
   Users,
 } from 'lucide-react'
 import { isAdminUser } from '@/lib/auth.js'
@@ -18,7 +19,14 @@ import { AvatarFallback } from './AdminComponents.jsx'
 const navItems = [
   { label: 'Tổng quan', to: '/admin', icon: LayoutDashboard, end: true },
   { label: 'Người dùng', to: '/admin/accounts', icon: Users },
-  { label: 'Duyệt sự kiện', to: '/admin/event-review', icon: Calendar },
+  {
+    label: 'Sự kiện',
+    icon: Calendar,
+    children: [
+      { label: 'Loại sự kiện', to: '/admin/events/categories', icon: Tags },
+      { label: 'Duyệt sự kiện', to: '/admin/events/review', icon: Calendar },
+    ],
+  },
   { label: 'Tài chính', to: '/admin/platform-fee', icon: CreditCard },
   { label: 'Gói dịch vụ', to: '/admin/plans', icon: BriefcaseBusiness },
 ]
@@ -57,22 +65,8 @@ export function AdminLayout() {
           <h1 className="font-display text-xl font-extrabold text-primary">EventHub</h1>
         </div>
         <nav className="mt-10 flex-1 space-y-1">
-          {navItems.map(({ label, to, icon: Icon, end }) => (
-            <NavLink
-              key={label}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-4 py-3 text-sm font-bold transition ${
-                  isActive
-                    ? 'bg-primary text-slate-950'
-                    : 'text-subtle hover:bg-panel-soft hover:text-primary'
-                }`
-              }
-            >
-              <Icon className="size-4" />
-              {label}
-            </NavLink>
+          {navItems.map((item) => (
+            <AdminNavItem key={item.label} item={item} />
           ))}
         </nav>
         <div className="space-y-1 border-t border-border-soft pt-4">
@@ -104,6 +98,66 @@ export function AdminLayout() {
         </div>
       </main>
     </div>
+  )
+}
+
+function AdminNavItem({ item }) {
+  const location = useLocation()
+  const Icon = item.icon
+
+  if (item.children?.length) {
+    const isGroupActive = item.children.some((child) =>
+      location.pathname === child.to || location.pathname.startsWith(`${child.to}/`),
+    )
+
+    return (
+      <div className="space-y-1">
+        <div
+          className={`flex items-center gap-3 rounded-md px-4 py-3 text-sm font-bold ${
+            isGroupActive ? 'bg-panel-soft text-primary' : 'text-subtle'
+          }`}
+        >
+          <Icon className="size-4" />
+          {item.label}
+        </div>
+        <div className="space-y-1 pl-6">
+          {item.children.map(({ label, to, icon: ChildIcon, end }) => (
+            <NavLink
+              key={label}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-md px-4 py-2.5 text-sm font-semibold transition ${
+                  isActive
+                    ? 'bg-primary text-slate-950'
+                    : 'text-subtle hover:bg-panel-soft hover:text-primary'
+                }`
+              }
+            >
+              <ChildIcon className="size-4" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      className={({ isActive }) =>
+        `flex items-center gap-3 rounded-md px-4 py-3 text-sm font-bold transition ${
+          isActive
+            ? 'bg-primary text-slate-950'
+            : 'text-subtle hover:bg-panel-soft hover:text-primary'
+        }`
+      }
+    >
+      <Icon className="size-4" />
+      {item.label}
+    </NavLink>
   )
 }
 
