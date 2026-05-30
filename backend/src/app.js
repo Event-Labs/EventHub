@@ -3,6 +3,8 @@ const cookieParser = require('cookie-parser');
 const securityMiddlewares = require('./middlewares/security.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
 const authRoutes = require('./modules/auth/auth.routes');
+const adminEventCategoryRoutes = require('./modules/admin/eventCategories.routes');
+const adminSubscriptionRoutes = require('./modules/admin/subscriptions.routes');
 const eventRoutes = require('./modules/events/events.routes');
 const uploadRoutes = require('./modules/uploads/uploads.routes');
 const userRoutes = require('./modules/user/user.routes');
@@ -22,6 +24,8 @@ app.use(cookieParser());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin/event-categories', adminEventCategoryRoutes);
+app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/users', userRoutes);

@@ -10,6 +10,26 @@ export async function fetchEventCategories() {
   return response.data.data
 }
 
+export async function fetchAdminEventCategories() {
+  const response = await http.get('/admin/event-categories')
+  return response.data.data
+}
+
+export async function createAdminEventCategory(payload) {
+  const response = await http.post('/admin/event-categories', payload)
+  return response.data.data
+}
+
+export async function updateAdminEventCategory(categoryId, payload) {
+  const response = await http.patch(`/admin/event-categories/${categoryId}`, payload)
+  return response.data.data
+}
+
+export async function deleteAdminEventCategory(categoryId) {
+  const response = await http.delete(`/admin/event-categories/${categoryId}`)
+  return response.data.data
+}
+
 export async function fetchEventDetail(identifier) {
   const response = await http.get(`/events/${identifier}`)
   return response.data.data

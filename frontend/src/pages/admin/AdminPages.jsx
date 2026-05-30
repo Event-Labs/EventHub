@@ -1,6 +1,7 @@
 export { AdminLayout } from './AdminLayout.jsx'
 export { AdminAnalyticsPage } from './AdminAnalyticsPage.jsx'
 export { AdminAccountsPage } from './AdminAccountsPage.jsx'
+export { AdminEventCategoriesPage } from './AdminEventCategoriesPage.jsx'
 export { AdminEventReviewPage } from './AdminEventReviewPage.jsx'
 export { AdminFinancePage } from './AdminFinancePage.jsx'
 export { AdminPlansPage } from './AdminPlansPage.jsx'

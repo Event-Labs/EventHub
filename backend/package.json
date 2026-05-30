@@ -5,6 +5,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "migrate:event-categories": "node scripts/run-sql-migration.js 20260530_event_categories_admin.sql",
+    "migrate:subscriptions": "node scripts/run-sql-migration.js 20260530_subscriptions_admin.sql",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -35,6 +35,7 @@ import {
 import {
   AdminAccountsPage,
   AdminAnalyticsPage,
+  AdminEventCategoriesPage,
   AdminEventReviewPage,
   AdminFinancePage,
   AdminLayout,
@@ -95,6 +96,14 @@ const router = createBrowserRouter([
       },
       {
         path: 'events',
+        element: <Navigate to="/admin/events/review" replace />,
+      },
+      {
+        path: 'events/categories',
+        element: <AdminEventCategoriesPage />,
+      },
+      {
+        path: 'events/review',
         element: <AdminEventReviewPage />,
       },
       {

@@ -196,7 +196,12 @@ CREATE TABLE event_categories (
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(150) UNIQUE NOT NULL,
 
-    description TEXT
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE events (
@@ -711,8 +716,10 @@ CREATE TABLE subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     name VARCHAR(100) NOT NULL,
+    description TEXT,
 
     price NUMERIC(12,2) NOT NULL,
+    duration_days INT DEFAULT 30,
 
     event_limit INT DEFAULT 0,
 
@@ -721,8 +728,12 @@ CREATE TABLE subscriptions (
     analytics_enabled BOOLEAN DEFAULT FALSE,
 
     priority_support BOOLEAN DEFAULT FALSE,
+    features JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
 
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE organizer_subscriptions (
@@ -923,6 +934,11 @@ BEFORE UPDATE ON events
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER trigger_event_categories_updated_at
+BEFORE UPDATE ON event_categories
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER trigger_venues_updated_at
 BEFORE UPDATE ON venues
 FOR EACH ROW
@@ -955,6 +971,11 @@ EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trigger_organizer_subscriptions_updated_at
 BEFORE UPDATE ON organizer_subscriptions
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_subscriptions_updated_at
+BEFORE UPDATE ON subscriptions
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 

@@ -157,8 +157,9 @@ class EventsRepository {
         c.description,
         COUNT(e.id)::int AS event_count
       FROM event_categories c
-      JOIN events e ON e.category_id = c.id
-      WHERE ${PUBLIC_EVENT_WHERE}
+      LEFT JOIN events e ON e.category_id = c.id AND ${PUBLIC_EVENT_WHERE}
+      WHERE COALESCE(c.is_active, true) = true
+        AND c.deleted_at IS NULL
       GROUP BY c.id, c.name, c.slug, c.description
       ORDER BY event_count DESC, c.name ASC
     `;
