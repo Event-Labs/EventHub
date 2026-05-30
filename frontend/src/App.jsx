@@ -6,16 +6,16 @@ import {
   BookingPaymentPage,
   BookingReviewPage,
   BookingSeatsPage,
-} from '@/pages/customer/BookingFlowPages.jsx'
-import { CustomerDiscoveryPage } from '@/pages/CustomerDiscoveryPage.jsx'
-import { EventDetailPage } from '@/pages/EventDetailPage.jsx'
-import { EventsPage } from '@/pages/EventsPage.jsx'
-import { FavoriteEventsPage } from '@/pages/FavoriteEventsPage.jsx'
-import { HomePage } from '@/pages/HomePage.jsx'
+} from '@/pages/customer/booking/BookingFlowPages.jsx'
+import { CustomerDiscoveryPage } from '@/pages/customer/discovery/CustomerDiscoveryPage.jsx'
+import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
+import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
+import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
+import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
-import { MyTicketsPage } from '@/pages/customer/MyTicketsPage.jsx'
-import { NotFoundPage } from '@/pages/NotFoundPage.jsx'
-import { PaymentConfirmationPage } from '@/pages/customer/PaymentConfirmationPage.jsx'
+import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
+import { NotFoundPage } from '@/pages/public/NotFoundPage.jsx'
+import { PaymentConfirmationPage } from '@/pages/customer/booking/PaymentConfirmationPage.jsx'
 import {
   AIFaqPage,
   AttendeeListPage,
@@ -31,7 +31,7 @@ import {
   RequestRefundPage,
   RevenueDashboardPage,
   StaffDashboardPage,
-} from '@/pages/PlatformPages.jsx'
+} from '@/pages/legacy/PlatformPages.jsx'
 import {
   AdminAccountsPage,
   AdminAnalyticsPage,
@@ -42,6 +42,16 @@ import {
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
+import {
+  OrganizerBillingHistoryPage,
+  OrganizerBillingPage,
+  OrganizerEventBillingDetailPage,
+  OrganizerInvoicePage,
+  OrganizerPlanSelectionPage,
+  OrganizerPublishingFeePage,
+  OrganizerPublishingPaymentPage,
+  OrganizerSubscriptionPaymentPage,
+} from '@/pages/organizer/OrganizerBillingPages.jsx'
 import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
 import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
@@ -55,12 +65,12 @@ import { StaffLayout } from '@/pages/staff/StaffLayout.jsx'
 import { CameraDeniedPage, ManualCheckInPage, StaffQrCheckInPage } from '@/pages/staff/StaffQrCheckInPage.jsx'
 import { TicketResultPage } from '@/pages/staff/StaffResultsPage.jsx'
 import { StaffTasksPage } from '@/pages/staff/StaffTasksPage.jsx'
-import { ProfilePage } from '@/pages/ProfilePage.jsx'
+import { ProfilePage } from '@/pages/shared/ProfilePage.jsx'
 import { RegisterPage } from '@/pages/auth/RegisterPage.jsx'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage.jsx'
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage.jsx'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage.jsx'
-import { TicketDetailPage } from '@/pages/customer/TicketDetailPage.jsx'
+import { TicketDetailPage } from '@/pages/customer/tickets/TicketDetailPage.jsx'
 
 const router = createBrowserRouter([
   {
@@ -118,6 +128,22 @@ const router = createBrowserRouter([
         element: <OrganizerEventsPage />,
       },
       {
+        path: 'events/create',
+        element: <OrganizerPublishingFeePage />,
+      },
+      {
+        path: 'events/create/publishing-fee',
+        element: <OrganizerPublishingFeePage />,
+      },
+      {
+        path: 'events/publishing-payment',
+        element: <OrganizerPublishingPaymentPage />,
+      },
+      {
+        path: 'events/detail',
+        element: <OrganizerEventBillingDetailPage />,
+      },
+      {
         path: 'attendees',
         element: <OrganizerAttendeesPage />,
       },
@@ -132,6 +158,30 @@ const router = createBrowserRouter([
       {
         path: 'announcements',
         element: <OrganizerAnnouncementsPage />,
+      },
+      {
+        path: 'billing',
+        element: <OrganizerBillingPage />,
+      },
+      {
+        path: 'finance',
+        element: <OrganizerBillingPage />,
+      },
+      {
+        path: 'billing/plans',
+        element: <OrganizerPlanSelectionPage />,
+      },
+      {
+        path: 'billing/payment',
+        element: <OrganizerSubscriptionPaymentPage />,
+      },
+      {
+        path: 'billing/history',
+        element: <OrganizerBillingHistoryPage />,
+      },
+      {
+        path: 'billing/invoice',
+        element: <OrganizerInvoicePage />,
       },
       {
         path: 'profile',
