@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#eaddff",
+                        "surface-container-high": "#e2e7ff",
+                        "inverse-on-surface": "#eef0ff",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#dae2fd",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "secondary": "#9d4300",
+                        "tertiary": "#6a1edb",
+                        "on-tertiary-container": "#f7edff",
+                        "surface-container": "#eaedff",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "primary-container": "#2563eb",
+                        "primary-fixed": "#dbe1ff",
+                        "on-primary-container": "#eeefff",
+                        "on-secondary-container": "#5c2400",
+                        "on-background": "#131b2e",
+                        "on-secondary": "#ffffff",
+                        "surface": "#faf8ff",
+                        "on-secondary-fixed-variant": "#783200",
+                        "surface-variant": "#dae2fd",
+                        "background": "#faf8ff",
+                        "on-secondary-fixed": "#341100",
+                        "tertiary-container": "#8343f4",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "primary": "#004ac6",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#0053db",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#00174b",
+                        "surface-dim": "#d2d9f4",
+                        "secondary-fixed": "#ffdbca",
+                        "on-surface-variant": "#434655",
+                        "surface-container-low": "#f2f3ff",
+                        "surface-bright": "#faf8ff",
+                        "on-surface": "#131b2e",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#ffb690",
+                        "outline": "#737686",
+                        "inverse-surface": "#283044",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-fixed": "#25005a",
+                        "secondary-container": "#fd761a",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#b4c5ff",
+                        "outline-variant": "#c3c6d7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "base": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "sm": "12px",
+                        "xs": "8px",
+                        "lg": "24px",
+                        "container-max": "1440px",
+                        "sidebar-width": "280px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Geist"],
+                        "display": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "headline-sm": ["Geist"],
+                        "label-md": ["Geist"],
+                        "label-sm": ["Geist"],
+                        "body-md": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "headline-lg-mobile": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "display": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Geist', sans-serif; background-color: #F8FAFC; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(8px); border: 1px solid #E2E8F0; }
+        .sidebar-active { color: #dbe1ff; font-weight: 700; border-right: 4px solid #dbe1ff; background: rgba(218, 226, 253, 0.1); }
+    </style>
+</head>
+<body class="text-on-background">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 bottom-0 w-[280px] flex flex-col z-40 bg-inverse-surface transition-all duration-200 ease-in-out">
+<div class="p-lg flex flex-col gap-base">
+<div class="flex items-center gap-md mb-xl">
+<div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary" style="font-variation-settings: 'FILL' 1;">event</span>
+</div>
+<div>
+<h1 class="font-headline-lg text-headline-lg font-bold text-surface-container-lowest">EventHub</h1>
+<p class="font-body-sm text-body-sm text-surface-variant/60">Organizer Portal</p>
+</div>
+</div>
+<nav class="flex flex-col gap-base mt-md">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-primary-fixed font-bold border-r-4 border-primary-fixed bg-surface-container-highest/10 transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event</span>
+<span class="font-label-md text-label-md">Events</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">Billing &amp; Subscription</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Team</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto p-lg border-t border-surface-variant/10">
+<button class="w-full bg-secondary-container text-on-secondary-fixed py-md rounded-xl font-label-md text-label-md mb-xl flex items-center justify-center gap-base active:scale-95 transition-transform">
+                Publish Event
+            </button>
+<nav class="flex flex-col gap-base">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-surface-variant/80 font-medium hover:bg-surface-variant/10 transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-surface-variant/80 font-medium hover:bg-surface-variant/10 transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Sign Out</span>
+</a>
+</nav>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-[280px] min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-[280px] flex justify-between items-center px-xl h-16 z-30 bg-surface border-b border-outline-variant max-w-[calc(1440px-280px)]">
+<div class="flex items-center gap-md flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-xl pr-md py-base bg-surface-container-low border-none rounded-full font-body-sm text-body-sm focus:ring-2 focus:ring-primary" placeholder="Search events..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-base rounded-full cursor-pointer transition-colors">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-base rounded-full cursor-pointer transition-colors">help</span>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-md">
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">Switch Workspace</button>
+<button class="bg-primary text-on-primary px-lg py-base rounded-full font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all">Create New</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border-2 border-primary-fixed" data-alt="A professional headshot of a young entrepreneur in a modern office setting. The lighting is soft and high-key, emphasizing a clean corporate aesthetic. He is wearing a minimalist navy blue blazer. The overall mood is confident, reliable, and approachable, aligned with a high-trust analytics platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDXJ94hPhvt-mlpIXhQ3LgXqmHeXVgtm6LMkdjSGvRXjXasJ3BrcsH_v8AMGcYFU_0QPdIGfJgY5m3vLti5fjgtSpP9K8FsC3UPJF0cJp5uZOv0gxfGUj8RIC5HT8cno5HmQvGF35PpLEKBYmIIJ4pC1dymuDf6h5dZs2q2iKv5_vRuS_ZXHYUDtUUOk648uG9cnA1I5tY-glYh6UJreipDTKL9C1jTUsOG6Wz_hajLwBVAJZjCxn5TGY3jlnWBbId7wAxMW7PQNg"/>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="pt-xl px-xl mt-16 max-w-[1440px] mx-auto">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-xs mb-lg text-outline font-label-sm text-label-sm">
+<span>Events</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-on-surface">Annual Tech Summit 2024</span>
+</div>
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-xl">
+<div>
+<div class="flex items-center gap-md mb-xs">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Annual Tech Summit 2024</h2>
+<span class="px-md py-base bg-emerald-100 text-emerald-800 rounded-full font-label-sm text-label-sm flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                            Published
+                        </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage your event's logistical and financial status.</p>
+</div>
+<div class="flex gap-md">
+<button class="flex items-center gap-xs px-lg py-md border border-outline-variant rounded-xl font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">edit</span> Edit Details
+                    </button>
+<button class="flex items-center gap-xs px-lg py-md bg-secondary-container text-on-secondary-fixed rounded-xl font-label-md text-label-md shadow-sm hover:opacity-90 transition-all">
+<span class="material-symbols-outlined">share</span> Share Event
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-gutter pb-xl">
+<!-- Main Content (Left) -->
+<div class="col-span-12 lg:col-span-8 space-y-gutter">
+<!-- Event Snapshot -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="aspect-[21/9] relative">
+<img class="w-full h-full object-cover" data-alt="A wide-angle cinematic shot of a modern technology conference hall. Large LED screens display abstract geometric data visualizations in shades of primary blue and electric purple. The room is filled with focused professionals in a dimly lit, high-tech environment. The aesthetic is sleek, professional, and forward-thinking, capturing the energy of a large-scale corporate event." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkCs2AkQvex5HmjS43zKaZQg5pIXUZnk49rqVTsAe1J2eSleDC2W_VflYzg9DQHul9Ga3haDRJpmnQ9VKNN5RP-86QRcXI4hDTjqvfdB41G5zuARWS5uNa4gIGKZL9AfGEiylgJOvvhas_fAe88BTeGOnZZ-sBbKRk-RqlRB0xpbBuJsDZS34lsNqTJDgjP14hIIsi1XX25tz2d_c6UgcTlzT5XQQacXo7HbkjOs_yeRwmgz7Sv7JEn6MPsma9r6nwalfYfwfBkP8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-lg left-lg text-white">
+<div class="flex items-center gap-md font-label-md text-label-md opacity-80 mb-xs">
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">calendar_today</span> Oct 24, 2024</span>
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">location_on</span> Grand Convention Center</span>
+</div>
+</div>
+</div>
+<div class="p-lg grid grid-cols-3 gap-lg text-center divide-x divide-outline-variant">
+<div>
+<p class="font-label-sm text-label-sm text-outline mb-xs">Registrations</p>
+<p class="font-headline-sm text-headline-sm text-on-surface">1,248 / 1,500</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline mb-xs">Total Revenue</p>
+<p class="font-headline-sm text-headline-sm text-on-surface">320.5M VND</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline mb-xs">Days Remaining</p>
+<p class="font-headline-sm text-headline-sm text-on-surface">14 Days</p>
+</div>
+</div>
+</div>
+<!-- AI Insights Panel -->
+<div class="p-lg rounded-xl bg-surface-container-lowest border-2 border-transparent relative overflow-hidden group" style="border-image: linear-gradient(to right, #7C3AED, #38BDF8) 1;">
+<div class="flex items-start gap-md">
+<div class="w-10 h-10 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary shadow-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">AI Operational Insight</h3>
+<span class="px-md py-base bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full font-label-sm text-label-sm">System Healthy</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Based on your "Pro Plan" performance metrics, registration is tracking 15% higher than previous events. Billing status is finalized with no outstanding fees for current logistical triggers.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Billing & Operational Status (Right Sidebar) -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
+<!-- Billing & Operational Status Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="p-lg border-b border-outline-variant bg-surface-container-low/30">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Billing &amp; Operational Status</h3>
+</div>
+<!-- Status Badge Section -->
+<div class="px-lg pt-lg pb-md">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-outline">Event Status</span>
+<span class="px-md py-base bg-emerald-100 text-emerald-800 rounded-lg font-label-md text-label-md border border-emerald-200">Published</span>
+</div>
+</div>
+<!-- Fee Status Card (Internal Card) -->
+<div class="mx-lg p-lg bg-surface-container-low rounded-xl border border-outline-variant space-y-md">
+<div class="flex justify-between items-start">
+<div>
+<div class="flex items-center gap-xs text-secondary mb-base">
+<span class="material-symbols-outlined text-[18px]">confirmation_number</span>
+<p class="font-label-md text-label-md uppercase tracking-wider">Publishing Fee</p>
+</div>
+<p class="font-headline-md text-headline-md text-on-surface">150,000 VND</p>
+</div>
+<span class="px-md py-base bg-emerald-100 text-emerald-800 rounded-full font-label-sm text-label-sm font-bold">Paid</span>
+</div>
+<div class="pt-md border-t border-outline-variant/50 space-y-sm">
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">Method</span>
+<span class="text-on-surface font-medium flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px] text-primary">qr_code_2</span> PayOS QR
+                                    </span>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">Transaction ID</span>
+<span class="text-on-surface font-mono">#EH-9821-TX</span>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">Date</span>
+<span class="text-on-surface">Sept 15, 2024</span>
+</div>
+</div>
+</div>
+<!-- Subscription Section -->
+<div class="p-lg space-y-md">
+<div class="flex justify-between items-center py-md border-y border-outline-variant/30">
+<div class="flex items-center gap-md">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline">Subscription at Creation</p>
+<p class="font-label-md text-label-md text-on-surface">Pro Plan</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">info</span>
+</div>
+<!-- Buttons -->
+<div class="flex flex-col gap-sm mt-md">
+<button class="w-full flex items-center justify-center gap-xs py-md bg-primary text-on-primary rounded-xl font-label-md text-label-md shadow-sm hover:opacity-90 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+                                    View Receipt
+                                </button>
+<button class="w-full flex items-center justify-center gap-xs py-md border border-outline-variant text-on-surface rounded-xl font-label-md text-label-md hover:bg-surface-container-low active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                                    Download Invoice
+                                </button>
+</div>
+</div>
+<!-- Footer Link -->
+<div class="p-lg bg-surface-container-low/20 border-t border-outline-variant">
+<a class="flex items-center justify-center gap-xs text-primary font-label-sm text-label-sm hover:underline" href="#">
+                                Need help with billing? Contact Support
+                                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</a>
+</div>
+</section>
+<!-- Additional Context Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
+<h4 class="font-label-md text-label-md text-on-surface-variant mb-md uppercase tracking-wider">Quick Actions</h4>
+<div class="grid grid-cols-2 gap-md">
+<button class="flex flex-col items-center gap-base p-md border border-outline-variant rounded-lg hover:border-primary hover:bg-primary-fixed/10 transition-all group">
+<span class="material-symbols-outlined text-outline group-hover:text-primary">group_add</span>
+<span class="font-label-sm text-label-sm text-on-surface">Add Staff</span>
+</button>
+<button class="flex flex-col items-center gap-base p-md border border-outline-variant rounded-lg hover:border-primary hover:bg-primary-fixed/10 transition-all group">
+<span class="material-symbols-outlined text-outline group-hover:text-primary">analytics</span>
+<span class="font-label-sm text-label-sm text-on-surface">Reports</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple micro-interaction for buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+            button.addEventListener('mouseleave', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+    </script>
+</body></html>

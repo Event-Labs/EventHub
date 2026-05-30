@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Invoice Details - EventHub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .print-shadow-none { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+            body { background: white !important; }
+            .sidebar-spacing { margin-left: 0 !important; }
+        }
+        .paper-texture {
+            background-color: #ffffff;
+            background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#eaddff",
+                        "surface-container-high": "#e2e7ff",
+                        "inverse-on-surface": "#eef0ff",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#dae2fd",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "secondary": "#9d4300",
+                        "tertiary": "#6a1edb",
+                        "on-tertiary-container": "#f7edff",
+                        "surface-container": "#eaedff",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "primary-container": "#2563eb",
+                        "primary-fixed": "#dbe1ff",
+                        "on-primary-container": "#eeefff",
+                        "on-secondary-container": "#5c2400",
+                        "on-background": "#131b2e",
+                        "on-secondary": "#ffffff",
+                        "surface": "#faf8ff",
+                        "on-secondary-fixed-variant": "#783200",
+                        "surface-variant": "#dae2fd",
+                        "background": "#faf8ff",
+                        "on-secondary-fixed": "#341100",
+                        "tertiary-container": "#8343f4",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "primary": "#004ac6",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#0053db",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#00174b",
+                        "surface-dim": "#d2d9f4",
+                        "secondary-fixed": "#ffdbca",
+                        "on-surface-variant": "#434655",
+                        "surface-container-low": "#f2f3ff",
+                        "surface-bright": "#faf8ff",
+                        "on-surface": "#131b2e",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#ffb690",
+                        "outline": "#737686",
+                        "inverse-surface": "#283044",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-fixed": "#25005a",
+                        "secondary-container": "#fd761a",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#b4c5ff",
+                        "outline-variant": "#c3c6d7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "base": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "sm": "12px",
+                        "xs": "8px",
+                        "lg": "24px",
+                        "container-max": "1440px",
+                        "sidebar-width": "280px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Geist"],
+                        "display": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "headline-sm": ["Geist"],
+                        "label-md": ["Geist"],
+                        "label-sm": ["Geist"],
+                        "body-md": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "headline-lg-mobile": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "display": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden">
+<!-- Sidebar Navigation Shell -->
+<aside class="fixed left-0 top-0 bottom-0 w-[280px] flex flex-col z-40 bg-inverse-surface no-print">
+<div class="p-lg flex flex-col gap-xs">
+<div class="flex items-center gap-sm mb-lg">
+<div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded-lg">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">event_available</span>
+</div>
+<div>
+<h1 class="font-headline-lg text-headline-lg font-bold text-surface-container-lowest leading-none">EventHub</h1>
+<p class="font-label-sm text-label-sm text-surface-variant/60">Organizer Portal</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">event</span>
+<span class="font-label-md text-label-md">Events</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out text-primary-fixed font-bold border-r-4 border-primary-fixed bg-surface-container-highest/10" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-label-md text-label-md">Billing &amp; Subscription</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Team</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto p-lg border-t border-surface-variant/10">
+<button class="w-full bg-secondary-container text-on-secondary-fixed font-bold py-md rounded-lg flex items-center justify-center gap-sm mb-lg transition-transform active:scale-95">
+<span class="material-symbols-outlined">campaign</span>
+                Publish Event
+            </button>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-md px-md py-sm text-surface-variant/80 font-medium hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-surface-variant/80 font-medium hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Sign Out</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[280px] min-h-screen sidebar-spacing">
+<!-- Top Navigation -->
+<header class="fixed top-0 right-0 left-[280px] h-16 bg-surface flex justify-between items-center px-lg border-b border-outline-variant z-30 no-print">
+<div class="flex items-center gap-md bg-surface-container-low px-md py-xs rounded-full w-96">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-sm w-full outline-none" placeholder="Search invoices..." type="text"/>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-xs rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-xs rounded-full transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-md">
+<button class="font-label-md text-label-md text-primary hover:underline">Switch Workspace</button>
+<img alt="Profile" class="w-10 h-10 rounded-full border border-outline-variant" data-alt="A professional headshot of a smiling male executive with clean-cut features, wearing a modern blue suit. The background is a soft, out-of-focus high-end office environment with natural daylight. The lighting is crisp and flattering, emphasizing a trustworthy and successful corporate professional persona." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrb2osqDZo_RwEqQYn2ICa_X94I7QmViCg9B7eTAot7tT7e7iIP_uwhQe9VTRFUEzrVQ25WiALzlShOlS_MuV-fRF09IYcAGBW-C-Rpds2IY-OcDOmmArQc0BmfRB5rHE-01pB0dvErb91GKzDmX1l-8cqizFyMhfdfbRW1SYXuBZifInDjoTtqygxgBuk_MOfnBVbf-pMM_d0Slew8I0-ZM6SeuXX-i9lmFnvENQoAbzpSTQWhevW_dIe4MMLxdaQl8yvGUBeeLA"/>
+</div>
+</div>
+</header>
+<!-- Document Content -->
+<div class="pt-24 pb-xl px-xl max-w-5xl mx-auto">
+<!-- Breadcrumbs / Actions -->
+<div class="flex justify-between items-center mb-lg no-print">
+<div class="flex items-center gap-xs">
+<a class="text-outline hover:text-primary transition-colors flex items-center" href="#">
+<span class="material-symbols-outlined text-md">arrow_back</span>
+<span class="font-label-md ml-xs">Back to Billing</span>
+</a>
+</div>
+<div class="flex gap-md">
+<button class="flex items-center gap-sm px-lg py-md border border-outline-variant rounded-lg font-label-md hover:bg-surface-container transition-colors" onclick="window.print()">
+<span class="material-symbols-outlined text-md">print</span>
+                        Print
+                    </button>
+<button class="flex items-center gap-sm px-lg py-md bg-primary text-on-primary rounded-lg font-label-md shadow-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-md">download</span>
+                        Download PDF
+                    </button>
+</div>
+</div>
+<!-- Invoice Paper -->
+<div class="bg-white rounded-xl border border-outline-variant p-xl shadow-sm print-shadow-none relative overflow-hidden">
+<!-- AI Insight Decoration -->
+<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7C3AED] via-[#38BDF8] to-[#7C3AED] opacity-80"></div>
+<!-- Header Section -->
+<div class="flex justify-between items-start mb-xl pb-xl border-b border-outline-variant">
+<div class="flex flex-col gap-md">
+<div class="flex items-center gap-sm">
+<div class="w-12 h-12 bg-primary-container flex items-center justify-center rounded-xl">
+<span class="material-symbols-outlined text-on-primary-container text-headline-md" style="font-variation-settings: 'FILL' 1;">event_available</span>
+</div>
+<span class="font-headline-lg text-headline-lg text-on-surface font-extrabold tracking-tight">EventHub</span>
+</div>
+<div class="text-on-surface-variant font-body-sm leading-relaxed">
+                            88 Market St, Suite 500<br/>
+                            San Francisco, CA 94103<br/>
+                            United States
+                        </div>
+</div>
+<div class="text-right">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Invoice</h2>
+<div class="font-label-md text-label-md text-primary mb-base">#INV-2024-001</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Issued: Oct 01, 2024</div>
+<div class="mt-md inline-flex px-md py-xs bg-green-100 text-green-800 rounded-full font-label-sm border border-green-200">
+<span class="material-symbols-outlined text-sm mr-xs" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            PAID
+                        </div>
+</div>
+</div>
+<!-- Billing Grid -->
+<div class="grid grid-cols-2 gap-xl mb-xl">
+<div class="bg-surface-container-low p-lg rounded-lg border border-outline-variant/30">
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-sm">Billed To</h3>
+<div class="font-headline-sm text-headline-sm text-on-surface mb-xs">Alex Rivers</div>
+<div class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                            TechNexus Solutions Inc.<br/>
+                            arivers@technexus.io<br/>
+                            +1 (555) 012-3456
+                        </div>
+</div>
+<div class="bg-surface-container-low p-lg rounded-lg border border-outline-variant/30">
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-sm">Payment Details</h3>
+<div class="flex flex-col gap-xs">
+<div class="flex justify-between">
+<span class="font-body-sm text-on-surface-variant">Method:</span>
+<span class="font-label-md text-on-surface">PayOS (Visa •••• 4242)</span>
+</div>
+<div class="flex justify-between">
+<span class="font-body-sm text-on-surface-variant">Transaction ID:</span>
+<span class="font-label-md text-on-surface">TXN_99210085</span>
+</div>
+<div class="flex justify-between">
+<span class="font-body-sm text-on-surface-variant">Date:</span>
+<span class="font-label-md text-on-surface">Oct 01, 2024, 09:42 AM</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Itemized Table -->
+<div class="mb-xl">
+<table class="w-full border-collapse">
+<thead>
+<tr class="bg-surface-container text-left">
+<th class="p-md font-label-md text-label-md text-on-surface border-b border-outline-variant first:rounded-tl-lg last:rounded-tr-lg">Description</th>
+<th class="p-md font-label-md text-label-md text-on-surface border-b border-outline-variant text-center">Type</th>
+<th class="p-md font-label-md text-label-md text-on-surface border-b border-outline-variant text-right">Quantity</th>
+<th class="p-md font-label-md text-label-md text-on-surface border-b border-outline-variant text-right">Price</th>
+<th class="p-md font-label-md text-label-md text-on-surface border-b border-outline-variant text-right">Total</th>
+</tr>
+</thead>
+<tbody>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="p-md border-b border-outline-variant">
+<div class="font-label-md text-on-surface">Pro Plan Subscription (Monthly)</div>
+<div class="font-body-sm text-on-surface-variant">Oct 01, 2024 – Oct 31, 2024</div>
+</td>
+<td class="p-md border-b border-outline-variant text-center">
+<span class="inline-flex items-center gap-xs px-xs py-base text-primary font-label-sm">
+<span class="material-symbols-outlined text-sm">shield</span>
+                                        SaaS
+                                    </span>
+</td>
+<td class="p-md border-b border-outline-variant text-right font-body-md text-on-surface-variant">1</td>
+<td class="p-md border-b border-outline-variant text-right font-body-md text-on-surface-variant">$49.00</td>
+<td class="p-md border-b border-outline-variant text-right font-label-md text-on-surface">$49.00</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="p-md border-b border-outline-variant">
+<div class="font-label-md text-on-surface">Event Publishing Fee: TechNexus Summit</div>
+<div class="font-body-sm text-on-surface-variant">Global Conference Booking Fee</div>
+</td>
+<td class="p-md border-b border-outline-variant text-center">
+<span class="inline-flex items-center gap-xs px-xs py-base text-secondary font-label-sm">
+<span class="material-symbols-outlined text-sm">confirmation_number</span>
+                                        Event
+                                    </span>
+</td>
+<td class="p-md border-b border-outline-variant text-right font-body-md text-on-surface-variant">1</td>
+<td class="p-md border-b border-outline-variant text-right font-body-md text-on-surface-variant">$100.00</td>
+<td class="p-md border-b border-outline-variant text-right font-label-md text-on-surface">$100.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Summary -->
+<div class="flex justify-end">
+<div class="w-full max-w-xs flex flex-col gap-md">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span class="font-body-md">Subtotal</span>
+<span class="font-body-md">$149.00</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant">
+<span class="font-body-md">Processing Fee (0%)</span>
+<span class="font-body-md">$0.00</span>
+</div>
+<div class="pt-md border-t border-outline-variant flex justify-between items-center">
+<span class="font-headline-sm text-headline-sm text-on-surface">Total Amount</span>
+<span class="font-headline-sm text-headline-sm text-primary">$149.00</span>
+</div>
+<div class="text-right mt-xs">
+<span class="text-outline font-label-sm text-xs">Approximately 3,725,000 VND</span>
+</div>
+</div>
+</div>
+<!-- Footer Note -->
+<div class="mt-24 pt-lg border-t border-outline-variant flex justify-between items-center text-outline">
+<div class="font-body-sm italic">
+                        Thank you for using EventHub for your event management needs.
+                    </div>
+<div class="font-label-sm">
+                        finance@eventhub.com • eventhub.com
+                    </div>
+</div>
+<!-- Bottom Pattern -->
+<div class="absolute bottom-0 left-0 right-0 h-1 bg-surface-variant/20"></div>
+</div>
+<!-- Additional Help Section -->
+<div class="mt-lg p-lg bg-surface-container-low rounded-xl border border-outline-variant no-print flex items-center justify-between">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-full text-primary">
+<span class="material-symbols-outlined">contact_support</span>
+</div>
+<div>
+<h4 class="font-label-md text-on-surface">Need help with this invoice?</h4>
+<p class="font-body-sm text-on-surface-variant">Contact our billing department if you find any discrepancies.</p>
+</div>
+</div>
+<button class="px-md py-sm bg-white border border-outline-variant rounded-lg font-label-md hover:bg-surface-container transition-colors">
+                    Raise Ticket
+                </button>
+</div>
+</div>
+</main>
+<!-- Interactions Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Hover effect logic is handled via Tailwind
+            console.log('Invoice Detail Page Initialized');
+        });
+    </script>
+</body></html>

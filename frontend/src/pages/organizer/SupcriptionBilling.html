@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Subscription &amp; Billing | EventHub Organizer Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#eaddff",
+                        "surface-container-high": "#e2e7ff",
+                        "inverse-on-surface": "#eef0ff",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#dae2fd",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "secondary": "#9d4300",
+                        "tertiary": "#6a1edb",
+                        "on-tertiary-container": "#f7edff",
+                        "surface-container": "#eaedff",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "primary-container": "#2563eb",
+                        "primary-fixed": "#dbe1ff",
+                        "on-primary-container": "#eeefff",
+                        "on-secondary-container": "#5c2400",
+                        "on-background": "#131b2e",
+                        "on-secondary": "#ffffff",
+                        "surface": "#faf8ff",
+                        "on-secondary-fixed-variant": "#783200",
+                        "surface-variant": "#dae2fd",
+                        "background": "#faf8ff",
+                        "on-secondary-fixed": "#341100",
+                        "tertiary-container": "#8343f4",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "primary": "#004ac6",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#0053db",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#00174b",
+                        "surface-dim": "#d2d9f4",
+                        "secondary-fixed": "#ffdbca",
+                        "on-surface-variant": "#434655",
+                        "surface-container-low": "#f2f3ff",
+                        "surface-bright": "#faf8ff",
+                        "on-surface": "#131b2e",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#ffb690",
+                        "outline": "#737686",
+                        "inverse-surface": "#283044",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-fixed": "#25005a",
+                        "secondary-container": "#fd761a",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#b4c5ff",
+                        "outline-variant": "#c3c6d7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "base": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "sm": "12px",
+                        "xs": "8px",
+                        "lg": "24px",
+                        "container-max": "1440px",
+                        "sidebar-width": "280px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Geist"],
+                        "display": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "headline-sm": ["Geist"],
+                        "label-md": ["Geist"],
+                        "label-sm": ["Geist"],
+                        "body-md": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "headline-lg-mobile": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "display": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { background-color: #F8FAFC; font-family: 'Geist', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .ai-border { border: 2px solid transparent; background-image: linear-gradient(white, white), linear-gradient(to right, #7C3AED, #38BDF8); background-origin: border-box; background-clip: padding-box, border-box; }
+        .card-shadow { box-shadow: 0px 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .card-shadow:hover { box-shadow: 0px 4px 6px -1px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- Fixed SideNavBar -->
+<aside class="fixed left-0 top-0 bottom-0 w-[280px] flex flex-col z-40 bg-inverse-surface">
+<div class="p-lg flex flex-col gap-xs">
+<h1 class="font-headline-lg text-headline-lg font-bold text-surface-container-lowest">EventHub</h1>
+<p class="font-label-md text-label-md text-surface-variant/80">Organizer Portal</p>
+</div>
+<nav class="flex-1 px-md mt-lg space-y-1">
+<a class="flex items-center gap-md p-md rounded-lg transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">event</span>
+<span class="font-label-md text-label-md">Events</span>
+</a>
+<!-- Active State: Billing & Subscription -->
+<a class="flex items-center gap-md p-md rounded-lg transition-all duration-200 ease-in-out text-primary-fixed font-bold border-r-4 border-primary-fixed bg-surface-container-highest/10" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">Billing &amp; Subscription</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Team</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg transition-all duration-200 ease-in-out text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-md mb-lg border-t border-white/10 pt-lg">
+<button class="w-full bg-secondary-container text-on-secondary-container font-bold py-md px-lg rounded-xl mb-xl transition-transform active:scale-95">
+                Publish Event
+            </button>
+<div class="space-y-1">
+<a class="flex items-center gap-md p-md text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant rounded-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+<a class="flex items-center gap-md p-md text-surface-variant/80 font-medium hover:bg-surface-variant/10 hover:text-surface-variant rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Sign Out</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Fixed TopNavBar -->
+<header class="fixed top-0 right-0 left-[280px] h-16 bg-surface flex justify-between items-center px-lg border-b border-outline-variant z-30">
+<div class="flex items-center gap-md">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-10 pr-md py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-sm w-64 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="Search..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-sm">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant"></div>
+<div class="flex items-center gap-md">
+<button class="font-label-md text-label-md text-primary hover:underline">Switch Workspace</button>
+<button class="bg-primary-container text-on-primary-container px-md py-2 rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity">
+                    Create New
+                </button>
+<img alt="User Profile Avatar" class="w-8 h-8 rounded-full border border-outline-variant object-cover" data-alt="Close-up studio portrait of a confident professional man in his late 30s wearing a dark navy blazer. The lighting is soft and directional, creating a clean corporate modern aesthetic against a neutral light grey background. He has a warm, approachable expression suitable for a high-trust user profile identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXQpbXefMbcOvwDLyeyz9GwpPQiL973nQySM1q0HeoYoaraXwo4CsfMmlzjxJi0TekdsjG-fKPR5MP-0awY3Mclyo1nWmkkBb8oi-mOe6z4RbnNjwIFxC7aZ4__ZPdzY6p2pLj734NWdQSACcF2tmXpDsyezZoGqJGukO2ocdlfv2gVBzTlUNqSpBa2d0Zh8S3LaTM6Sj8voXV4IVBBGU6ITHLxVuKMoK-Pf2gYk1rmQbXcxSxkZNM7HTtmQGvb-8xd3LvODHh2Yc"/>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<main class="ml-[280px] mt-16 p-xl max-w-[1440px] mx-auto min-h-[calc(100vh-64px)]">
+<header class="mb-xl">
+<h2 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Subscription &amp; Billing</h2>
+<p class="font-body-md text-body-md text-outline">Manage your organizer plan, view usage stats, and handle payments.</p>
+</header>
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Main Content Left Column -->
+<div class="col-span-12 lg:col-span-8 space-y-gutter">
+<!-- Current Plan Card -->
+<div class="bg-white rounded-xl border border-outline-variant p-lg card-shadow">
+<div class="flex justify-between items-start mb-lg">
+<div class="flex items-center gap-md">
+<div class="p-md bg-primary-fixed rounded-xl text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<div>
+<div class="flex items-center gap-xs mb-1">
+<h3 class="font-headline-sm text-headline-sm">Pro Plan</h3>
+<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 uppercase tracking-wider">Active</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline">Billed monthly • Since Jan 2024</p>
+</div>
+</div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-on-surface">$49/month</div>
+<p class="font-label-sm text-label-sm text-outline">Next renewal: Oct 12, 2024</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md pt-lg border-t border-outline-variant">
+<div class="flex flex-col gap-sm">
+<p class="font-label-md text-label-md text-on-surface">Plan Benefits</p>
+<ul class="space-y-xs">
+<li class="flex items-center gap-xs font-body-sm text-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+                                    Event creation
+                                </li>
+<li class="flex items-center gap-xs font-body-sm text-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+                                    Ticket management
+                                </li>
+<li class="flex items-center gap-xs font-body-sm text-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+                                    AI Insight
+                                </li>
+<li class="flex items-center gap-xs font-body-sm text-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+                                    24/7 Support
+                                </li>
+</ul>
+</div>
+<div class="flex items-end justify-end gap-md">
+<button class="font-label-md text-label-md text-on-surface-variant px-lg py-md border border-outline-variant rounded-lg hover:bg-surface transition-colors">Cancel</button>
+<button class="font-label-md text-label-md bg-primary-container text-on-primary-container px-lg py-md rounded-lg hover:opacity-90 transition-opacity">Upgrade Plan</button>
+</div>
+</div>
+</div>
+<!-- Usage Statistics Section -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Usage Card: Events -->
+<div class="bg-white rounded-xl border border-outline-variant p-md card-shadow">
+<div class="flex justify-between items-center mb-md">
+<span class="font-label-md text-label-md text-outline">Events</span>
+<span class="font-headline-sm text-headline-sm">3 / 10</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full transition-all duration-700 ease-out" style="width: 30%"></div>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-sm">30% capacity used</p>
+</div>
+<!-- Usage Card: Staff -->
+<div class="bg-white rounded-xl border border-outline-variant p-md card-shadow">
+<div class="flex justify-between items-center mb-md">
+<span class="font-label-md text-label-md text-outline">Staff</span>
+<span class="font-headline-sm text-headline-sm">4 / 20</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full transition-all duration-700 ease-out" style="width: 20%"></div>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-sm">20% capacity used</p>
+</div>
+<!-- Usage Card: AI Summaries (AI Styled) -->
+<div class="ai-border rounded-xl p-md card-shadow flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-center mb-md">
+<span class="font-label-md text-label-md text-outline flex items-center gap-xs">
+                                    AI Summaries
+                                    <span class="material-symbols-outlined text-[14px] text-tertiary">auto_awesome</span>
+</span>
+<span class="font-headline-sm text-headline-sm">12 / 50</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-tertiary-container h-full transition-all duration-700 ease-out" style="width: 24%"></div>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-sm">Smart processing active</p>
+</div>
+</div>
+<!-- Billing History (Bento Extension) -->
+<div class="bg-white rounded-xl border border-outline-variant overflow-hidden card-shadow">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center">
+<h4 class="font-headline-sm text-headline-sm">Billing History</h4>
+<button class="font-label-md text-label-md text-primary flex items-center gap-xs">
+                            View All <span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="divide-y divide-outline-variant">
+<div class="px-lg py-md flex items-center justify-between hover:bg-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-outline">description</span>
+<div>
+<p class="font-label-md text-label-md">Pro Plan - Sep 2024</p>
+<p class="font-body-sm text-body-sm text-outline">Paid on Sep 12, 2024</p>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<span class="font-label-md text-label-md">$49.00</span>
+<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full">PAID</span>
+</div>
+</div>
+<div class="px-lg py-md flex items-center justify-between hover:bg-surface transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-outline">description</span>
+<div>
+<p class="font-label-md text-label-md">Pro Plan - Aug 2024</p>
+<p class="font-body-sm text-body-sm text-outline">Paid on Aug 12, 2024</p>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<span class="font-label-md text-label-md">$49.00</span>
+<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full">PAID</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column - Summary & Quick Actions -->
+<div class="col-span-12 lg:col-span-4 space-y-gutter">
+<!-- Billing Summary Card -->
+<div class="bg-white rounded-xl border border-outline-variant p-lg card-shadow">
+<h4 class="font-headline-sm text-headline-sm mb-lg">Next Billing</h4>
+<div class="space-y-md">
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-outline">Upcoming Charge</span>
+<span class="font-headline-sm text-headline-sm">$49.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-outline">Date</span>
+<span class="font-body-md text-body-md">Oct 12, 2024</span>
+</div>
+</div>
+<div class="mt-lg pt-lg border-t border-dashed border-outline-variant">
+<div class="flex items-center gap-md p-md bg-surface-container-low rounded-xl mb-lg">
+<span class="material-symbols-outlined text-primary">credit_card</span>
+<div>
+<p class="font-label-md text-label-md">Visa ending in 4242</p>
+<p class="font-body-sm text-body-sm text-outline">Expires 12/26</p>
+</div>
+</div>
+<button class="w-full font-label-md text-label-md text-primary border border-primary/20 bg-primary/5 py-md rounded-lg hover:bg-primary/10 transition-colors">Update Payment Method</button>
+</div>
+</div>
+<!-- Event Fee Tag Explainer (Monetization Context) -->
+<div class="bg-white rounded-xl border border-outline-variant p-lg card-shadow">
+<div class="flex items-center gap-sm mb-md">
+<div class="w-8 h-8 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[20px]">sell</span>
+</div>
+<h4 class="font-label-md text-label-md">Monetization Shorthand</h4>
+</div>
+<div class="space-y-md">
+<div class="flex gap-md">
+<div class="w-1 h-12 bg-primary-container rounded-full"></div>
+<div>
+<p class="font-label-sm text-label-sm font-bold text-primary-container">SUBSCRIPTION TAGS</p>
+<p class="font-body-sm text-body-sm text-outline">Charges covered by your fixed monthly tier.</p>
+</div>
+</div>
+<div class="flex gap-md">
+<div class="w-1 h-12 bg-secondary-container rounded-full"></div>
+<div>
+<p class="font-label-sm text-label-sm font-bold text-secondary-container">EVENT FEE TAGS</p>
+<p class="font-body-sm text-body-sm text-outline">Transactional fees per event ticket sold.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Promotion Card -->
+<div class="relative overflow-hidden rounded-xl h-48 group cursor-pointer">
+<img alt="Premium Enterprise Features" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A professional high-angle view of a sleek, modern co-working space with floor-to-ceiling windows and minimalist furniture. The color palette features cool blues and warm wood tones, reflecting an atmosphere of high-level business planning and operational excellence. The lighting is bright and airy, suggesting a premium, high-trust environment for corporate enterprise services." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClAzhKrxRSP2IzD9TzN0EgcJ3koJRh3YRoQzfAasCbApxF9uzxqNt22w7lnm-Mj02hLY5NzlFc96-Q34aIUuTzxCYy1xGNm0xCCXy5AeB5pkPY5zBQclMwjz4bTqfHYHGmregtvh7QXskCFanXOESSikUgHy-C7TvUNysbFomuniPw68p61co1V1uQsTS_jSWXzjBF9Z_BV31FURE2eEmjsyW0CMPUEdEbVMFcyaDHgvh6jSlYu6fIY-7CW3oPEKxcSS-KiSouRcQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-lg">
+<h5 class="text-white font-headline-sm text-headline-sm mb-xs">Need Enterprise Power?</h5>
+<p class="text-white/80 font-body-sm text-body-sm mb-md">Unlimited events, custom branding, and dedicated account manager.</p>
+<button class="bg-white text-on-surface font-label-md text-label-md py-xs px-md rounded-lg w-fit">Talk to Sales</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple micro-interaction for progress bars on load
+        window.addEventListener('load', () => {
+            const progressBars = document.querySelectorAll('.bg-primary, .bg-tertiary-container');
+            progressBars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 100);
+            });
+        });
+    </script>
+</body></html>
