@@ -47,6 +47,14 @@ import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
+import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
+import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
+import { StaffEventDetailPage } from '@/pages/staff/StaffEventDetailPage.jsx'
+import { StaffEventsPage, NoAssignedEventsPage } from '@/pages/staff/StaffEventsPage.jsx'
+import { StaffLayout } from '@/pages/staff/StaffLayout.jsx'
+import { CameraDeniedPage, ManualCheckInPage, StaffQrCheckInPage } from '@/pages/staff/StaffQrCheckInPage.jsx'
+import { TicketResultPage } from '@/pages/staff/StaffResultsPage.jsx'
+import { StaffTasksPage } from '@/pages/staff/StaffTasksPage.jsx'
 import { ProfilePage } from '@/pages/ProfilePage.jsx'
 import { RegisterPage } from '@/pages/auth/RegisterPage.jsx'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage.jsx'
@@ -132,6 +140,72 @@ const router = createBrowserRouter([
       {
         path: '*',
         element: <OrganizerPortalDashboardPage />,
+      },
+    ],
+  },
+  {
+    path: '/staff',
+    element: <StaffLayout />,
+    children: [
+      {
+        index: true,
+        element: <StaffPortalDashboardPage />,
+      },
+      {
+        path: 'events',
+        element: <StaffEventsPage />,
+      },
+      {
+        path: 'events/empty',
+        element: <NoAssignedEventsPage />,
+      },
+      {
+        path: 'events/detail',
+        element: <StaffEventDetailPage />,
+      },
+      {
+        path: 'tasks',
+        element: <StaffTasksPage />,
+      },
+      {
+        path: 'qr-check-in',
+        element: <StaffQrCheckInPage />,
+      },
+      {
+        path: 'qr-check-in/camera-denied',
+        element: <CameraDeniedPage />,
+      },
+      {
+        path: 'qr-check-in/valid',
+        element: <TicketResultPage state="valid" />,
+      },
+      {
+        path: 'qr-check-in/invalid',
+        element: <TicketResultPage state="invalid" />,
+      },
+      {
+        path: 'qr-check-in/already',
+        element: <TicketResultPage state="already" />,
+      },
+      {
+        path: 'qr-check-in/success',
+        element: <TicketResultPage state="success" />,
+      },
+      {
+        path: 'manual-check-in',
+        element: <ManualCheckInPage />,
+      },
+      {
+        path: 'check-in-count',
+        element: <StaffCheckInCountPage />,
+      },
+      {
+        path: 'profile',
+        element: <ProfilePage />,
+      },
+      {
+        path: '*',
+        element: <StaffPortalDashboardPage />,
       },
     ],
   },
