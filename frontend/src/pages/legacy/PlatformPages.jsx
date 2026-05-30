@@ -224,36 +224,7 @@ export function FeedbackPage() {
   )
 }
 
-export function OrganizerRequestPage() {
-  return (
-    <CustomerShell title="Yêu cầu trở thành ban tổ chức">
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="glass-panel rounded-lg p-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Tên tổ chức" placeholder="EventHub Production" />
-            <Input label="Email liên hệ" placeholder="ops@example.com" />
-            <Input label="Số điện thoại" placeholder="090..." />
-            <Input label="Tài liệu hỗ trợ" type="file" />
-          </div>
-          <label className="mt-4 block">
-            <span className="text-sm font-semibold text-muted">
-              Mô tả doanh nghiệp
-            </span>
-            <textarea className="mt-2 min-h-32 w-full rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-primary" />
-          </label>
-          <button className="mt-5 rounded-md bg-primary px-5 py-3 font-bold text-slate-950">
-            Gửi yêu cầu
-          </button>
-        </section>
-        <StatusCard
-          title="Trạng thái yêu cầu"
-          value="Đang chờ duyệt"
-          tone="warning"
-        />
-      </div>
-    </CustomerShell>
-  )
-}
+export { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 
 export function OrganizerDashboardPage() {
   return (
