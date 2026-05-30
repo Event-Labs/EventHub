@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Camera, Mail, Phone, Save, UserCircle, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Camera, Mail, Phone, Save, UserCircle, Loader2, CheckCircle2, AlertCircle, MapPin, Calendar, Eye, EyeOff, Check, X } from 'lucide-react'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
 
@@ -112,6 +112,7 @@ export function ProfilePage() {
       )}
       {mode === 'password' && (
         <ChangePassword 
+          user={user}
           onDone={() => setMode('view')} 
         />
       )}
@@ -154,9 +155,9 @@ function ProfileView({ user }) {
           <Info icon={UserCircle} label="Họ và tên" value={user.full_name} />
           <Info icon={Mail} label="Email" value={user.email} />
           <Info icon={Phone} label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
-          <Info icon={UserCircle} label="Ngày sinh" value={formatDate(user.dob)} />
-          <Info icon={UserCircle} label="Thành phố" value={user.city || 'Chưa cập nhật'} />
-          <Info icon={UserCircle} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} className="md:col-span-2" />
+          <Info icon={Calendar} label="Ngày sinh" value={formatDate(user.dob)} />
+          <Info icon={MapPin} label="Thành phố" value={user.city || 'Chưa cập nhật'} />
+          <Info icon={MapPin} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} className="md:col-span-2" />
         </div>
       </section>
     </div>
@@ -172,6 +173,7 @@ function ProfileEdit({ user, onDone }) {
     city: user.city || '',
     avatar_url: user.avatar_url || '',
   })
+  const [errors, setErrors] = useState({})
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(user.avatar_url || '')
   const [isUploading, setIsUploading] = useState(false)
@@ -181,7 +183,6 @@ function ProfileEdit({ user, onDone }) {
     mutationFn: updateProfile,
     onSuccess: (updatedUser) => {
       setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' })
-      // Automatically sync local storage for header/sidebar updates
       const storedUser = JSON.parse(localStorage.getItem('eventhub-user') || '{}')
       localStorage.setItem('eventhub-user', JSON.stringify({ ...storedUser, ...updatedUser }))
       window.dispatchEvent(new Event('eventhub-auth'))
@@ -189,9 +190,30 @@ function ProfileEdit({ user, onDone }) {
       setTimeout(onDone, 1500)
     },
     onError: (err) => {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Không thể cập nhật hồ sơ.' })
+      const errorMsg = err.response?.data?.message || 'Không thể cập nhật hồ sơ.'
+      setMessage({ type: 'error', text: errorMsg })
+      
+      // If it's a validation error from backend, we could try to map it, 
+      // but for now we'll just show the main message.
     }
   })
+
+  const validate = () => {
+    const newErrors = {}
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = 'Vui lòng nhập họ và tên.'
+    }
+    
+    if (formData.phone) {
+      const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
+      if (!phoneRegex.test(formData.phone)) {
+        newErrors.phone = 'Số điện thoại không đúng định dạng Việt Nam. Ví dụ: 09xxxxxxxx hoặc +849xxxxxxxx.'
+      }
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
@@ -207,6 +229,8 @@ function ProfileEdit({ user, onDone }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!validate()) return
+
     setIsUploading(true)
     setMessage({ type: '', text: '' })
 
@@ -227,7 +251,7 @@ function ProfileEdit({ user, onDone }) {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
-      <aside className="glass-panel rounded-lg p-6 text-center">
+      <aside className="glass-panel h-fit rounded-lg p-6 text-center">
         <div className="relative mx-auto size-36">
           {previewUrl ? (
             <img
@@ -240,13 +264,13 @@ function ProfileEdit({ user, onDone }) {
               <UserCircle className="size-20 text-muted" />
             </div>
           )}
-          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-primary text-slate-950 hover:scale-110 transition-transform">
+          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-primary text-slate-950 hover:scale-110 transition-transform shadow-lg">
             <Camera className="size-5" />
             <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
           </label>
         </div>
-        <p className="mt-4 text-sm text-muted">
-          JPG, PNG. Kích thước đề xuất 400x400px.
+        <p className="mt-4 text-sm text-subtle">
+          JPG, PNG. Đề xuất 400x400px.
         </p>
       </aside>
       <section className="glass-panel rounded-lg p-6">
@@ -268,28 +292,34 @@ function ProfileEdit({ user, onDone }) {
             <Input 
               label="Họ và tên" 
               value={formData.full_name} 
+              error={errors.full_name}
               onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
               required 
             />
             <Input 
               label="Số điện thoại" 
               value={formData.phone} 
+              error={errors.phone}
+              placeholder="09xxx or +849xxx"
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
             <Input 
               label="Ngày sinh" 
               type="date" 
               value={formData.dob} 
+              error={errors.dob}
               onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
             />
             <Input 
               label="Thành phố" 
               value={formData.city} 
+              error={errors.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
             />
             <Input
               label="Địa chỉ"
               value={formData.address}
+              error={errors.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="md:col-span-2"
             />
@@ -298,7 +328,7 @@ function ProfileEdit({ user, onDone }) {
             <button
               type="button"
               onClick={onDone}
-              className="rounded-md px-5 py-3 font-bold text-muted hover:bg-panel-soft"
+              className="rounded-md px-5 py-3 font-bold text-muted hover:bg-panel-soft transition-colors"
               disabled={updateMutation.isPending || isUploading}
             >
               Hủy
@@ -306,7 +336,7 @@ function ProfileEdit({ user, onDone }) {
             <button
               type="submit"
               disabled={updateMutation.isPending || isUploading}
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-bold text-slate-950 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-slate-950 disabled:opacity-70 disabled:cursor-not-allowed hover:bg-sky-300 transition-colors"
             >
               {(updateMutation.isPending || isUploading) ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -322,13 +352,25 @@ function ProfileEdit({ user, onDone }) {
   )
 }
 
-function ChangePassword({ onDone }) {
+function ChangePassword({ user, onDone }) {
   const [form, setForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   })
   const [message, setMessage] = useState({ type: '', text: '' })
+
+  const hasPassword = user?.hasPassword
+
+  // Strength checks
+  const checks = {
+    length: form.newPassword.length >= 8,
+    uppercase: /[A-Z]/.test(form.newPassword),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(form.newPassword),
+  }
+  const isStrengthValid = Object.values(checks).every(Boolean)
+  const isMatch = form.confirmPassword !== '' && form.newPassword === form.confirmPassword
+  const canSubmit = isStrengthValid && isMatch && (!hasPassword || form.currentPassword !== '')
 
   const mutation = useMutation({
     mutationFn: () => changePassword(form.currentPassword, form.newPassword),
@@ -348,25 +390,23 @@ function ChangePassword({ onDone }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (form.newPassword !== form.confirmPassword) {
-      setMessage({ type: 'error', text: 'Mật khẩu xác nhận không khớp.' })
-      return
-    }
-    if (form.newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Mật khẩu mới phải có ít nhất 6 ký tự.' })
-      return
-    }
+    if (!canSubmit) return
     mutation.mutate()
   }
 
   return (
     <section className="glass-panel mx-auto max-w-xl rounded-lg p-6">
-      <h2 className="font-display text-2xl font-bold text-white">
-        Đổi mật khẩu
+      <h2 className="font-display text-2xl font-bold text-white text-center">
+        {hasPassword ? 'Đổi mật khẩu' : 'Thiết lập mật khẩu mới'}
       </h2>
+      <p className="mt-2 text-center text-sm text-subtle">
+        {hasPassword 
+          ? 'Cập nhật mật khẩu của bạn định kỳ để tăng cường bảo mật' 
+          : 'Vì bạn đăng nhập bằng Google, hãy thiết lập mật khẩu để có thể đăng nhập trực tiếp bằng email.'}
+      </p>
       
       {message.text && (
-        <div className={`mt-4 flex items-center gap-2 rounded-md p-3 text-sm ${
+        <div className={`mt-6 flex items-center gap-2 rounded-md p-3 text-sm ${
           message.type === 'success' ? 'bg-success/10 text-success border border-success/20' : 'bg-error/10 text-error border border-error/20'
         }`}>
           {message.type === 'success' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
@@ -374,48 +414,73 @@ function ChangePassword({ onDone }) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        <Input
-          label="Mật khẩu hiện tại"
-          type="password"
-          placeholder="Nhập mật khẩu hiện tại"
-          required
-          value={form.currentPassword}
-          onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
-        />
-        <Input
-          label="Mật khẩu mới"
-          type="password"
-          placeholder="Nhập mật khẩu mới"
-          required
-          value={form.newPassword}
-          onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-        />
-        <Input
-          label="Xác nhận mật khẩu mới"
-          type="password"
-          placeholder="Nhập lại mật khẩu mới"
-          required
-          value={form.confirmPassword}
-          onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-        />
+      <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+        {hasPassword && (
+          <Input
+            label="Mật khẩu hiện tại"
+            type="password"
+            placeholder="Nhập mật khẩu hiện tại"
+            required
+            value={form.currentPassword}
+            onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+          />
+        )}
         
-        <div className="mt-8 flex justify-end gap-3">
+        <div className="space-y-3">
+          <Input
+            label="Mật khẩu mới"
+            type="password"
+            placeholder="Nhập mật khẩu mới"
+            required
+            value={form.newPassword}
+            onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+          />
+          
+          {form.newPassword && (
+            <div className="flex flex-col gap-1.5 pl-1">
+              <StrengthIndicator label="Tối thiểu 8 ký tự" active={checks.length} />
+              <StrengthIndicator label="Có ít nhất 1 chữ in hoa (A-Z)" active={checks.uppercase} />
+              <StrengthIndicator label="Có ít nhất 1 ký tự đặc biệt" active={checks.special} />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <Input
+            label="Xác nhận mật khẩu mới"
+            type="password"
+            placeholder="Nhập lại mật khẩu mới"
+            required
+            value={form.confirmPassword}
+            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+          />
+          
+          {form.confirmPassword && (
+            <div className="pl-1">
+              <StrengthIndicator 
+                label={isMatch ? "Mật khẩu xác nhận khớp" : "Mật khẩu xác nhận chưa khớp"} 
+                active={isMatch} 
+              />
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onDone}
-            className="rounded-md px-5 py-3 font-bold text-muted hover:bg-panel-soft"
+            className="rounded-md px-5 py-3 font-bold text-muted hover:bg-panel-soft transition-colors"
             disabled={mutation.isPending}
           >
             Hủy
           </button>
           <button
             type="submit"
-            disabled={mutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-bold text-slate-950 disabled:opacity-70"
+            disabled={!canSubmit || mutation.isPending}
+            className="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-slate-950 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-sky-300 transition-colors"
           >
             {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
-            Cập nhật mật khẩu
+            {hasPassword ? 'Cập nhật mật khẩu' : 'Lưu mật khẩu'}
           </button>
         </div>
       </form>
@@ -423,26 +488,60 @@ function ChangePassword({ onDone }) {
   )
 }
 
-function Info({ icon: Icon, label, value, className = '' }) {
+function StrengthIndicator({ label, active }) {
   return (
-    <div className={`rounded-lg border border-border-soft bg-surface p-4 ${className}`}>
-      <div className="flex items-center gap-2 text-muted">
-        <Icon className="size-4" />
-        <span className="text-sm font-semibold">{label}</span>
-      </div>
-      <p className="mt-2 font-bold text-white">{value}</p>
+    <div className={`flex items-center gap-2 text-xs font-medium transition-all duration-300 ${
+      active ? 'text-success' : 'text-error'
+    }`}>
+      {active ? (
+        <Check className="size-3.5 animate-in zoom-in duration-300" />
+      ) : (
+        <span className="inline-block w-3.5 text-center leading-none text-error/60">•</span>
+      )}
+      <span>{label}</span>
     </div>
   )
 }
 
-function Input({ label, className = '', ...props }) {
+function Info({ icon: Icon, label, value, className = '' }) {
   return (
-    <label className={`block space-y-2 ${className}`}>
+    <div className={`rounded-lg border border-border-soft bg-surface p-4 transition-all hover:border-primary/30 ${className}`}>
+      <div className="flex items-center gap-2 text-muted">
+        <Icon className="size-4" />
+        <span className="text-sm font-semibold">{label}</span>
+      </div>
+      <p className="mt-2 font-bold text-white break-words">{value}</p>
+    </div>
+  )
+}
+
+function Input({ label, error, className = '', type, ...props }) {
+  const [showPassword, setShowPassword] = useState(false)
+  const isPassword = type === 'password'
+  const inputType = isPassword ? (showPassword ? 'text' : 'password') : type
+
+  return (
+    <div className={`block space-y-2 ${className}`}>
       <span className="text-sm font-semibold text-muted">{label}</span>
-      <input
-        {...props}
-        className="w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition-colors focus:border-primary disabled:opacity-50"
-      />
-    </label>
+      <div className="relative">
+        <input
+          {...props}
+          type={inputType}
+          className={`w-full rounded-md border bg-surface p-3 pr-10 text-content outline-none transition-all focus:ring-2 focus:ring-primary/20 ${
+            error ? 'border-error ring-error/10' : 'border-border-soft focus:border-primary'
+          } disabled:opacity-50`}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
+          >
+            {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-xs text-error">{error}</p>}
+    </div>
   )
 }
