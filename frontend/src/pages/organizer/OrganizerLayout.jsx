@@ -35,7 +35,7 @@ const navItems = [
     ],
   },
   { label: 'Thông báo', to: '/organizer/announcements', icon: ClipboardList },
-  { label: 'Tài chính', to: '/organizer/finance', icon: CreditCard },
+  { label: 'Gói & thanh toán', to: '/organizer/billing', icon: CreditCard },
 ]
 
 export function OrganizerLayout() {
