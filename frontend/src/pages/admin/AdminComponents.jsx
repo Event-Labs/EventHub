@@ -8,7 +8,15 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-export function Page({ title, description, action, children }) {
+export function Page({
+  title,
+  description,
+  action,
+  actionClassName = 'admin-primary',
+  actionIcon: ActionIcon = Plus,
+  onAction,
+  children,
+}) {
   return (
     <>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -24,8 +32,8 @@ export function Page({ title, description, action, children }) {
           )}
         </div>
         {action && (
-          <button className="admin-primary">
-            <Plus className="size-4" /> {action}
+          <button type="button" className={actionClassName} onClick={onAction}>
+            <ActionIcon className="size-4" /> {action}
           </button>
         )}
       </div>
@@ -109,7 +117,7 @@ export function FilterBar({ labels }) {
 
 export function Table({ headers, rows, compact = false }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-[#c3c6d7] bg-white">
+    <div className="overflow-x-auto rounded-md border border-[#c3c6d7] bg-white shadow-sm">
       <table className="w-full min-w-[760px] text-left text-sm">
         <thead className="bg-[#f2f4f6] text-xs uppercase text-[#5c647a]">
           <tr>
@@ -122,7 +130,10 @@ export function Table({ headers, rows, compact = false }) {
         </thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={index} className="border-t border-[#e0e3e5]">
+            <tr
+              key={index}
+              className="border-t border-[#e0e3e5] transition-colors hover:bg-[#f7f9fb]"
+            >
               {row.map((cell, cellIndex) => (
                 <td
                   key={cellIndex}

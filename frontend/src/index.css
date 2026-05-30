@@ -83,6 +83,27 @@ textarea {
   color: #191c1e;
 }
 
+.admin-input {
+  margin-top: 0.5rem;
+  min-height: 2.75rem;
+  width: 100%;
+  border-radius: 0.25rem;
+  border: 1px solid #c3c6d7;
+  background: #f7f9fb;
+  padding: 0 0.75rem;
+  color: #191c1e;
+  font-size: 0.875rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.admin-input:focus {
+  border-color: #38bdf8;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
 .glass-panel {
   background: rgba(23, 32, 51, 0.78);
   border: 1px solid rgba(51, 65, 85, 0.82);
