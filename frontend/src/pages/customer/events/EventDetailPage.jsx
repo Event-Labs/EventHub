@@ -148,7 +148,16 @@ export function EventDetailPage() {
   const handleBook = () => {
     if (requireLogin()) return
     if (selectedTicketItems.length === 0) return
-    navigate('/booking/seats')
+    navigate('/booking/checkout', {
+      state: {
+        cart: {
+          eventId: event.id,
+          eventTitle: event.title,
+          eventSlug: event.slug,
+          items: selectedTicketItems,
+        },
+      },
+    })
   }
 
   if (eventQuery.isLoading) {

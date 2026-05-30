@@ -1,102 +1,111 @@
-import { Calendar, MapPin, QrCode } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { events, qrImage, tickets } from '@/data/events.js'
+import { useQuery } from '@tanstack/react-query'
+import { Calendar, MapPin, Ticket } from 'lucide-react'
+import { useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { SectionHeader } from '@/components/SectionHeader.jsx'
+import { fetchMyTickets } from '@/services/orders.js'
 
-export function MyTicketsPage() {
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="font-display text-5xl font-extrabold text-primary">
-            Vé của tôi
-          </h1>
-          <p className="mt-2 text-muted">
-            Manage your event access and digital passes.
-          </p>
-        </div>
-        <div className="flex rounded-lg bg-panel p-1">
-          {['Sắp diễn ra', 'Đã dùng', 'Đã hoàn'].map((tab, index) => (
-            <button
-              key={tab}
-              className={`rounded-md px-4 py-2 text-sm font-bold ${index === 0 ? 'bg-primary text-slate-950' : 'text-muted'}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="space-y-5">
-          {tickets.map((ticket) => {
-            const event =
-              events.find((item) => item.id === ticket.eventId) ?? events[0]
-            return (
-              <Link
-                key={ticket.id}
-                to={`/tickets/${ticket.id}`}
-                className="glass-panel flex flex-col overflow-hidden rounded-lg transition hover:-translate-y-1 hover:border-primary/60 md:flex-row"
-              >
-                <img
-                  src={event.image}
-                  alt=""
-                  className="h-48 object-cover md:h-auto md:w-52"
-                />
-                <div className="flex flex-1 flex-col justify-between p-5">
-                  <div>
-                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary">
-                      {event.category}
-                    </span>
-                    <h2 className="mt-3 font-display text-2xl font-bold text-white">
-                      {event.title}
-                    </h2>
-                    <p className="mt-1 text-muted">{event.venue}</p>
-                  </div>
-                  <div className="mt-5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-md bg-white p-1">
-                        <img src={qrImage} alt="" className="size-10" />
-                      </div>
-                      <div className="text-sm">
-                        <p className="text-muted">Mã vé</p>
-                        <p className="font-bold text-white">#{ticket.id}</p>
-                      </div>
-                    </div>
-                    <span className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-slate-950">
-                      Xem chi tiết
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            )
-          })}
-        </section>
-
-        <aside className="glass-panel flex min-h-[420px] flex-col items-center justify-center rounded-lg border-dashed p-8 text-center">
-          <QrCode className="size-20 text-primary/40" />
-          <h2 className="mt-5 font-display text-2xl font-bold text-white">
-            Chọn một vé
-          </h2>
-          <p className="mt-2 max-w-sm text-muted">
-            Click any ticket to view scannable QR code, event information,
-            refund and transfer actions.
-          </p>
-        </aside>
-      </div>
-    </div>
-  )
+function formatDateTime(value) {
+  if (!value) return '—'
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
 }
 
-export function TicketMeta({ event }) {
+function statusLabel(status) {
+  if (status === 'USED') return 'Đã dùng'
+  if (status === 'CANCELLED') return 'Đã hủy'
+  return 'Hợp lệ'
+}
+
+export function MyTicketsPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const isAuthenticated = Boolean(localStorage.getItem('eventhub-token'))
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
+    }
+  }, [isAuthenticated, location.pathname, navigate])
+
+  const ticketsQuery = useQuery({
+    queryKey: ['my-tickets'],
+    queryFn: fetchMyTickets,
+    enabled: isAuthenticated,
+  })
+
+  const tickets = ticketsQuery.data || []
+
+  if (!isAuthenticated) return null
+
   return (
-    <div className="space-y-3 text-sm text-muted">
-      <div className="flex items-center gap-2">
-        <Calendar className="size-4 text-primary" />
-        {event.date} - {event.time}
-      </div>
-      <div className="flex items-center gap-2">
-        <MapPin className="size-4 text-primary" />
-        {event.venue}
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <SectionHeader
+        title="Vé của tôi"
+        description="Danh sách vé đã mua (dữ liệu từ database)"
+      />
+
+      {ticketsQuery.isLoading && (
+        <p className="text-sm text-muted">Đang tải vé...</p>
+      )}
+
+      {ticketsQuery.isError && (
+        <p className="text-sm text-error">Không thể tải danh sách vé.</p>
+      )}
+
+      {!ticketsQuery.isLoading && !ticketsQuery.isError && tickets.length === 0 && (
+        <div className="glass-panel rounded-lg p-8 text-center">
+          <Ticket className="mx-auto size-10 text-primary" />
+          <p className="mt-4 text-muted">Bạn chưa có vé nào.</p>
+          <Link to="/events" className="mt-4 inline-block font-bold text-primary">
+            Khám phá sự kiện
+          </Link>
+        </div>
+      )}
+
+      <div className="space-y-5">
+        {tickets.map((ticket) => (
+          <Link
+            key={ticket.id}
+            to={`/tickets/${ticket.id}`}
+            className="glass-panel flex flex-col overflow-hidden rounded-lg transition hover:border-primary/50 md:flex-row"
+          >
+            {ticket.event.thumbnail_url ? (
+              <img
+                src={ticket.event.thumbnail_url}
+                alt=""
+                className="h-48 object-cover md:h-auto md:w-52"
+              />
+            ) : (
+              <div className="grid h-48 place-items-center bg-panel-soft md:h-auto md:w-52">
+                <Ticket className="size-10 text-primary" />
+              </div>
+            )}
+            <div className="flex flex-1 flex-col justify-between p-5">
+              <div>
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                  {ticket.ticket_type.name}
+                </span>
+                <h2 className="mt-3 font-display text-2xl font-bold text-white">
+                  {ticket.event.title}
+                </h2>
+                <p className="mt-1 font-mono text-sm text-subtle">{ticket.ticket_code}</p>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted">
+                <span className="inline-flex items-center gap-2">
+                  <Calendar className="size-4 text-primary" />
+                  {formatDateTime(ticket.event.start_time)}
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <MapPin className="size-4 text-primary" />
+                  {statusLabel(ticket.status)}
+                </span>
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { AppLayout } from '@/layouts/AppLayout.jsx'
+import { BookingCheckoutPage } from '@/pages/customer/booking/BookingCheckoutPage.jsx'
 import {
   BookingAttendeesPage,
   BookingPaymentPage,
@@ -11,6 +12,7 @@ import { CustomerDiscoveryPage } from '@/pages/customer/discovery/CustomerDiscov
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
+import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
 import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
@@ -21,7 +23,6 @@ import {
   AIFaqPage,
   AttendeeListPage,
   CreateEventWizardPage,
-  FeedbackPage,
   NotificationsPage,
   OnSiteBookingPage,
   OrderListPage,
@@ -55,6 +56,7 @@ import {
   OrganizerSubscriptionPaymentPage,
 } from '@/pages/organizer/OrganizerBillingPages.jsx'
 import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
+import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
 import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
@@ -164,6 +166,10 @@ const router = createBrowserRouter([
       {
         path: 'staff-tasks',
         element: <OrganizerTasksPage />,
+      },
+      {
+        path: 'reports',
+        element: <OrganizerFeedbackReportPage />,
       },
       {
         path: 'promotions',
@@ -295,7 +301,11 @@ const router = createBrowserRouter([
       },
       {
         path: 'booking',
-        element: <Navigate to="/booking/seats" replace />,
+        element: <Navigate to="/events" replace />,
+      },
+      {
+        path: 'booking/checkout',
+        element: <BookingCheckoutPage />,
       },
       {
         path: 'booking/seats',
