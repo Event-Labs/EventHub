@@ -716,8 +716,10 @@ CREATE TABLE subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     name VARCHAR(100) NOT NULL,
+    description TEXT,
 
     price NUMERIC(12,2) NOT NULL,
+    duration_days INT DEFAULT 30,
 
     event_limit INT DEFAULT 0,
 
@@ -726,8 +728,12 @@ CREATE TABLE subscriptions (
     analytics_enabled BOOLEAN DEFAULT FALSE,
 
     priority_support BOOLEAN DEFAULT FALSE,
+    features JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
 
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE organizer_subscriptions (
@@ -965,6 +971,11 @@ EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trigger_organizer_subscriptions_updated_at
 BEFORE UPDATE ON organizer_subscriptions
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_subscriptions_updated_at
+BEFORE UPDATE ON subscriptions
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
