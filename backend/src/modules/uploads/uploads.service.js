@@ -69,6 +69,27 @@ class UploadsService {
       },
     };
   }
+
+  createPolicyPdfSignature() {
+    const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } =
+      requireCloudinaryConfig();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = 'eventhub/platform-policies';
+    const params = {
+      folder,
+      timestamp,
+    };
+
+    return {
+      cloud_name: CLOUDINARY_CLOUD_NAME,
+      upload_url: `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`,
+      fields: {
+        ...params,
+        api_key: CLOUDINARY_API_KEY,
+        signature: signUploadParams(params, CLOUDINARY_API_SECRET),
+      },
+    };
+  }
 }
 
 module.exports = new UploadsService();

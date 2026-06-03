@@ -5,6 +5,7 @@ import {
   Calendar,
   ClipboardList,
   CreditCard,
+  FileText,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -19,6 +20,7 @@ import { getUserRoles } from '@/lib/auth.js'
 import { AvatarInitials } from './OrganizerComponents.jsx'
 
 const navItems = [
+  { label: 'Chinh sach', to: '/organizer/policies', icon: FileText },
   { label: 'Tổng quan', to: '/organizer', icon: LayoutDashboard, end: true },
   { label: 'Quản lý sự kiện', to: '/organizer/events', icon: Calendar },
   { label: 'Quản lý vé', to: '/organizer/tickets', icon: Ticket },
