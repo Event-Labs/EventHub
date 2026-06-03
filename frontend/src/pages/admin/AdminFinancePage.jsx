@@ -1,87 +1,652 @@
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Badge,
-  Field,
-  Insight,
-  Page,
-  Panel,
-  Row,
-  ImagePlaceholder,
-} from './AdminComponents.jsx'
+  FileText,
+  Pencil,
+  Plus,
+  Power,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
+import { fetchAdminEventCategories } from '@/services/events.js'
+import {
+  createPlatformFee,
+  createPlatformPolicy,
+  createPolicyDocument,
+  deletePlatformFee,
+  deletePlatformPolicy,
+  deletePolicyDocument,
+  fetchPlatformFees,
+  fetchPlatformPolicies,
+  fetchPolicyDocuments,
+  updatePlatformFee,
+  updatePlatformPolicy,
+} from '@/services/platformFinance.js'
+import { uploadPolicyPdf } from '@/services/uploads.js'
+import { Badge, Page, Panel, Row, Table } from './AdminComponents.jsx'
+
+const primaryActionClass =
+  'inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
+
+const feeTypes = [
+  ['PERCENTAGE', 'Theo phần trăm'],
+  ['FIXED', 'Số tiền cố định'],
+  ['COMBINED', 'Kết hợp'],
+]
+
+const policyTypes = [
+  ['REFUND', 'Hoàn tiền'],
+  ['PAYOUT', 'Thanh toán doanh thu'],
+  ['EVENT_APPROVAL', 'Duyệt sự kiện'],
+  ['SERVICE_FEE', 'Phí dịch vụ'],
+  ['ORGANIZER_REGULATION', 'Quy định Organizer'],
+]
+
+const emptyFeeForm = {
+  name: '',
+  fee_type: 'COMBINED',
+  percentage_value: 0,
+  fixed_amount: 0,
+  event_category_id: '',
+  is_active: true,
+  effective_from: '',
+  effective_to: '',
+}
+
+const emptyPolicyForm = {
+  policy_type: 'REFUND',
+  title: '',
+  description: '',
+  configText: '{}',
+  is_active: true,
+  effective_from: '',
+  effective_to: '',
+}
 
 export function AdminFinancePage() {
-  const auditImageUrl = null
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState('fees')
+  const [feeModal, setFeeModal] = useState(null)
+  const [policyModal, setPolicyModal] = useState(null)
+  const [documentPolicy, setDocumentPolicy] = useState(null)
+  const [feeForm, setFeeForm] = useState(emptyFeeForm)
+  const [policyForm, setPolicyForm] = useState(emptyPolicyForm)
+
+  const feesQuery = useQuery({ queryKey: ['platform-fees'], queryFn: fetchPlatformFees })
+  const policiesQuery = useQuery({
+    queryKey: ['platform-policies-admin'],
+    queryFn: fetchPlatformPolicies,
+  })
+  const categoriesQuery = useQuery({
+    queryKey: ['admin-event-categories'],
+    queryFn: fetchAdminEventCategories,
+  })
+
+  const fees = feesQuery.data || []
+  const policies = policiesQuery.data || []
+  const categories = categoriesQuery.data || []
+  const activeFee = fees.find((fee) => fee.is_active)
+  const activePolicies = policies.filter((policy) => policy.is_active)
+
+  const refreshFees = () => queryClient.invalidateQueries({ queryKey: ['platform-fees'] })
+  const refreshPolicies = () => {
+    queryClient.invalidateQueries({ queryKey: ['platform-policies-admin'] })
+    queryClient.invalidateQueries({ queryKey: ['platform-policy-documents'] })
+  }
+
+  const feeMutation = useMutation({
+    mutationFn: ({ id, payload }) => (id ? updatePlatformFee(id, payload) : createPlatformFee(payload)),
+    onSuccess: () => {
+      setFeeModal(null)
+      setFeeForm(emptyFeeForm)
+      refreshFees()
+    },
+  })
+
+  const feeDeleteMutation = useMutation({
+    mutationFn: deletePlatformFee,
+    onSuccess: refreshFees,
+  })
+
+  const policyMutation = useMutation({
+    mutationFn: ({ id, payload }) =>
+      id ? updatePlatformPolicy(id, payload) : createPlatformPolicy(payload),
+    onSuccess: () => {
+      setPolicyModal(null)
+      setPolicyForm(emptyPolicyForm)
+      refreshPolicies()
+    },
+  })
+
+  const policyDeleteMutation = useMutation({
+    mutationFn: deletePlatformPolicy,
+    onSuccess: refreshPolicies,
+  })
+
+  const summary = useMemo(
+    () => [
+      ['Phí đang áp dụng', activeFee ? formatFee(activeFee) : 'Chưa thiết lập'],
+      ['Cấu hình phí', fees.length],
+      ['Chính sách hiệu lực', activePolicies.length],
+      ['Tài liệu PDF', policies.reduce((total, policy) => total + Number(policy.document_count || 0), 0)],
+    ],
+    [activeFee, activePolicies.length, fees.length, policies],
+  )
+
+  const openCreateFee = () => {
+    setFeeForm(emptyFeeForm)
+    setFeeModal({ mode: 'create' })
+  }
+
+  const openEditFee = (fee) => {
+    setFeeForm({
+      name: fee.name || '',
+      fee_type: fee.fee_type || 'COMBINED',
+      percentage_value: fee.percentage_value || 0,
+      fixed_amount: fee.fixed_amount || 0,
+      event_category_id: fee.event_category_id || '',
+      is_active: Boolean(fee.is_active),
+      effective_from: toDateTimeInput(fee.effective_from),
+      effective_to: toDateTimeInput(fee.effective_to),
+    })
+    setFeeModal({ mode: 'edit', item: fee })
+  }
+
+  const submitFee = (event) => {
+    event.preventDefault()
+    feeMutation.mutate({
+      id: feeModal?.item?.id,
+      payload: cleanFeePayload(feeForm),
+    })
+  }
+
+  const openCreatePolicy = () => {
+    setPolicyForm(emptyPolicyForm)
+    setPolicyModal({ mode: 'create' })
+  }
+
+  const openEditPolicy = (policy) => {
+    setPolicyForm({
+      policy_type: policy.policy_type || 'REFUND',
+      title: policy.title || '',
+      description: policy.description || '',
+      configText: JSON.stringify(policy.config || {}, null, 2),
+      is_active: Boolean(policy.is_active),
+      effective_from: toDateTimeInput(policy.effective_from),
+      effective_to: toDateTimeInput(policy.effective_to),
+    })
+    setPolicyModal({ mode: 'edit', item: policy })
+  }
+
+  const submitPolicy = (event) => {
+    event.preventDefault()
+    let config
+    try {
+      config = JSON.parse(policyForm.configText || '{}')
+    } catch {
+      window.alert('Cấu hình JSON không hợp lệ')
+      return
+    }
+
+    policyMutation.mutate({
+      id: policyModal?.item?.id,
+      payload: cleanPolicyPayload({ ...policyForm, config }),
+    })
+  }
+
+  const isBusy =
+    feeMutation.isPending ||
+    feeDeleteMutation.isPending ||
+    policyMutation.isPending ||
+    policyDeleteMutation.isPending
 
   return (
-    <Page title="Fee Architecture" description="Finance / Platform Fees" action="Publish Changes">
-      <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
-        <Panel>
-          <p className="text-xs font-bold uppercase text-[#737686]">Current Live Fee</p>
-          <p className="mt-3 text-4xl font-extrabold text-primary">2.5% + $1.00</p>
-          <p className="mt-4 text-sm text-[#5c647a]">
-            Mixed model calculated per ticket sold across all global events.
-          </p>
-          <Badge tone="green" className="mt-5">Active</Badge>
-        </Panel>
-        <Insight
-          title="AI Revenue Insight"
-          text="Based on last 30 days of traffic, switching to a 3.0% flat fee could increase platform revenue by 12.4% without significantly impacting organizers."
-        />
-      </div>
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
-        <Panel>
-          <h3 className="mb-5 text-lg font-bold">Modify Configuration</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Fee Type" value="Mixed (Percentage + Fixed)" />
-            <Field label="Percentage Value" value="2.5%" />
-            <Field label="Fixed Value" value="$ 1.00" />
-          </div>
-          <label className="mt-5 flex items-center justify-between text-sm font-semibold">
-            Apply Globally
-            <input type="checkbox" defaultChecked className="size-5 accent-primary" />
-          </label>
-          <button className="admin-primary mt-5 w-full max-w-md">
-            Update Fee Structure
-          </button>
-        </Panel>
-        <Panel>
-          <h3 className="text-lg font-bold">Fee Simulation</h3>
-          <Field label="Input Ticket Price" value="$ 100.00" className="mt-4" />
-          <div className="mt-4 rounded bg-[#e0e3e5] p-4 text-sm">
-            <Row label="Calculated Platform Fee" value="$3.50" strong />
-            <Row label="Organizer Payout" value="$96.50" />
-            <Row label="Customer Total" value="$100.00" strong />
-          </div>
-          {auditImageUrl ? (
-            <img
-              src={auditImageUrl}
-              alt="Audit Trail"
-              className="mt-5 h-32 w-full rounded object-cover"
-            />
-          ) : (
-            <ImagePlaceholder label="Audit Trail" className="mt-5 h-32 w-full" />
-          )}
-        </Panel>
-      </div>
-      <Panel className="mt-6">
-        <h3 className="mb-4 text-lg font-bold">Automatic Approval Rules</h3>
-        {[
-          'Refunds requested within 24 hours of purchase',
-          'Events cancelled by organizer',
-          'Partial refunds for ticketing errors',
-        ].map((rule, index) => (
-          <label
-            key={rule}
-            className="mt-2 flex items-center gap-3 rounded bg-[#eceef0] px-4 py-3 text-sm text-[#191c1e]"
-          >
-            <input
-              type="checkbox"
-              defaultChecked={index < 2}
-              className="accent-primary"
-            />
-            {rule}
-          </label>
+    <Page
+      title="Tài chính nền tảng"
+      description="Quản lý phí giao dịch, chính sách nền tảng và tài liệu PDF đang áp dụng cho hệ thống"
+      actions={
+        <div className="flex items-center gap-2">
+          <TabButton active={activeTab === 'fees'} onClick={() => setActiveTab('fees')}>
+            Phí
+          </TabButton>
+          <TabButton active={activeTab === 'policies'} onClick={() => setActiveTab('policies')}>
+            Chính sách
+          </TabButton>
+        </div>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summary.map(([label, value], index) => (
+          <MetricCard
+            key={label}
+            label={label}
+            value={value}
+            accent={['bg-[#0057c2]', 'bg-green-600', 'bg-tertiary', 'bg-[#6a1edb]'][index]}
+          />
         ))}
-      </Panel>
+      </div>
+
+      <div className="mt-5 flex justify-end">
+        <button
+          type="button"
+          className={primaryActionClass}
+          onClick={activeTab === 'fees' ? openCreateFee : openCreatePolicy}
+        >
+          <Plus className="size-4" />
+          {activeTab === 'fees' ? 'Thêm phí' : 'Thêm chính sách'}
+        </button>
+      </div>
+
+      <div className="mt-6">
+        {activeTab === 'fees' ? (
+          <FeeTable
+            fees={fees}
+            isLoading={feesQuery.isLoading}
+            isError={feesQuery.isError}
+            isBusy={isBusy}
+            onEdit={openEditFee}
+            onDelete={(fee) => feeDeleteMutation.mutate(fee.id)}
+            onToggle={(fee) =>
+              feeMutation.mutate({
+                id: fee.id,
+                payload: { is_active: !fee.is_active },
+              })
+            }
+          />
+        ) : (
+          <PolicyTable
+            policies={policies}
+            isLoading={policiesQuery.isLoading}
+            isError={policiesQuery.isError}
+            isBusy={isBusy}
+            onEdit={openEditPolicy}
+            onDocuments={setDocumentPolicy}
+            onDelete={(policy) => policyDeleteMutation.mutate(policy.id)}
+            onToggle={(policy) =>
+              policyMutation.mutate({
+                id: policy.id,
+                payload: { is_active: !policy.is_active },
+              })
+            }
+          />
+        )}
+      </div>
+
+      {feeModal && (
+        <Modal title={feeModal.mode === 'edit' ? 'Cập nhật phí nền tảng' : 'Thêm phí nền tảng'} onClose={() => setFeeModal(null)}>
+          <form onSubmit={submitFee} className="space-y-4">
+            <TextInput label="Tên cấu hình" value={feeForm.name} onChange={(name) => setFeeForm({ ...feeForm, name })} required />
+            <SelectInput label="Loại phí" value={feeForm.fee_type} options={feeTypes} onChange={(fee_type) => setFeeForm({ ...feeForm, fee_type })} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <NumberInput label="Giá trị phần trăm" value={feeForm.percentage_value} onChange={(percentage_value) => setFeeForm({ ...feeForm, percentage_value })} />
+              <NumberInput label="Số tiền cố định" value={feeForm.fixed_amount} onChange={(fixed_amount) => setFeeForm({ ...feeForm, fixed_amount })} />
+            </div>
+            <SelectInput
+              label="Loại sự kiện"
+              value={feeForm.event_category_id}
+              options={[['', 'Toàn hệ thống'], ...categories.map((category) => [category.id, category.name])]}
+              onChange={(event_category_id) => setFeeForm({ ...feeForm, event_category_id })}
+            />
+            <DateInputs form={feeForm} setForm={setFeeForm} />
+            <ActiveInput checked={feeForm.is_active} onChange={(is_active) => setFeeForm({ ...feeForm, is_active })} />
+            <FormActions isSaving={feeMutation.isPending} onCancel={() => setFeeModal(null)} />
+          </form>
+        </Modal>
+      )}
+
+      {policyModal && (
+        <Modal title={policyModal.mode === 'edit' ? 'Cập nhật chính sách nền tảng' : 'Thêm chính sách nền tảng'} onClose={() => setPolicyModal(null)}>
+          <form onSubmit={submitPolicy} className="space-y-4">
+            <SelectInput label="Loại chính sách" value={policyForm.policy_type} options={policyTypes} onChange={(policy_type) => setPolicyForm({ ...policyForm, policy_type })} />
+            <TextInput label="Tiêu đề" value={policyForm.title} onChange={(title) => setPolicyForm({ ...policyForm, title })} required />
+            <TextareaInput label="Mô tả" value={policyForm.description} onChange={(description) => setPolicyForm({ ...policyForm, description })} />
+            <TextareaInput label="Cấu hình JSON" value={policyForm.configText} rows={6} onChange={(configText) => setPolicyForm({ ...policyForm, configText })} />
+            <DateInputs form={policyForm} setForm={setPolicyForm} />
+            <ActiveInput checked={policyForm.is_active} onChange={(is_active) => setPolicyForm({ ...policyForm, is_active })} />
+            <FormActions isSaving={policyMutation.isPending} onCancel={() => setPolicyModal(null)} />
+          </form>
+        </Modal>
+      )}
+
+      {documentPolicy && (
+        <PolicyDocumentsModal
+          policy={documentPolicy}
+          onClose={() => setDocumentPolicy(null)}
+          onChanged={refreshPolicies}
+        />
+      )}
     </Page>
   )
+}
+
+function FeeTable({ fees, isLoading, isError, isBusy, onEdit, onDelete, onToggle }) {
+  if (isLoading) return <Panel><p className="text-sm font-semibold">Đang tải cấu hình phí...</p></Panel>
+  if (isError) return <Panel><p className="text-sm font-semibold text-error">Không thể tải cấu hình phí.</p></Panel>
+
+  return (
+    <Table
+      headers={['Tên cấu hình', 'Loại phí', 'Loại sự kiện', 'Mức phí', 'Hiệu lực', 'Trạng thái', 'Hành động']}
+      rows={fees.map((fee) => [
+        <span key="name" className="font-extrabold">{fee.name}</span>,
+        labelFrom(feeTypes, fee.fee_type),
+        fee.event_category_name || 'Toàn hệ thống',
+        formatFee(fee),
+        formatRange(fee.effective_from, fee.effective_to),
+        <Badge key="status" tone={fee.is_active ? 'green' : 'blue'}>{fee.is_active ? 'Đang áp dụng' : 'Tạm tắt'}</Badge>,
+        <ActionButtons key="actions" isBusy={isBusy} onEdit={() => onEdit(fee)} onToggle={() => onToggle(fee)} onDelete={() => onDelete(fee)} />,
+      ])}
+    />
+  )
+}
+
+function PolicyTable({ policies, isLoading, isError, isBusy, onEdit, onDocuments, onDelete, onToggle }) {
+  if (isLoading) return <Panel><p className="text-sm font-semibold">Đang tải chính sách...</p></Panel>
+  if (isError) return <Panel><p className="text-sm font-semibold text-error">Không thể tải chính sách.</p></Panel>
+
+  return (
+    <Table
+      headers={['Loại chính sách', 'Tiêu đề', 'Tài liệu', 'Hiệu lực', 'Trạng thái', 'Hành động']}
+      rows={policies.map((policy) => [
+        labelFrom(policyTypes, policy.policy_type),
+        <span key="title" className="font-extrabold">{policy.title}</span>,
+        <button key="docs" type="button" onClick={() => onDocuments(policy)} className="inline-flex items-center gap-2 text-sm font-bold text-primary">
+          <FileText className="size-4" /> {policy.document_count || 0}
+        </button>,
+        formatRange(policy.effective_from, policy.effective_to),
+        <Badge key="status" tone={policy.is_active ? 'green' : 'blue'}>{policy.is_active ? 'Đang áp dụng' : 'Tạm tắt'}</Badge>,
+        <ActionButtons key="actions" isBusy={isBusy} onEdit={() => onEdit(policy)} onToggle={() => onToggle(policy)} onDelete={() => onDelete(policy)} />,
+      ])}
+    />
+  )
+}
+
+function PolicyDocumentsModal({ policy, onClose, onChanged }) {
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    version: '1.0',
+    is_public: true,
+    file: null,
+  })
+
+  const documentsQuery = useQuery({
+    queryKey: ['platform-policy-documents', policy.id],
+    queryFn: () => fetchPolicyDocuments(policy.id),
+  })
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['platform-policy-documents', policy.id] })
+    onChanged()
+  }
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      const uploaded = await uploadPolicyPdf(form.file)
+      return createPolicyDocument(policy.id, {
+        title: form.title,
+        description: form.description || null,
+        file_url: uploaded.secure_url,
+        file_name: uploaded.file_name,
+        file_size: uploaded.file_size,
+        mime_type: uploaded.mime_type,
+        version: form.version || '1.0',
+        is_public: form.is_public,
+      })
+    },
+    onSuccess: () => {
+      setForm({ title: '', description: '', version: '1.0', is_public: true, file: null })
+      refresh()
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deletePolicyDocument,
+    onSuccess: refresh,
+  })
+
+  const documents = documentsQuery.data || []
+
+  return (
+    <Modal title={`Tài liệu PDF - ${policy.title}`} onClose={onClose} wide>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          uploadMutation.mutate()
+        }}
+        className="grid gap-4 border-b border-[#e0e3e5] pb-5 lg:grid-cols-[1fr_1fr_auto]"
+      >
+        <TextInput label="Tiêu đề tài liệu" value={form.title} onChange={(title) => setForm({ ...form, title })} required />
+        <TextInput label="Phiên bản" value={form.version} onChange={(version) => setForm({ ...form, version })} />
+        <label className="block">
+          <span className="text-xs font-bold text-[#434655]">File PDF</span>
+          <input
+            required
+            type="file"
+            accept="application/pdf"
+            onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })}
+            className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="flex items-center gap-3 text-sm font-semibold text-[#434655] lg:col-span-2">
+          <input type="checkbox" checked={form.is_public} onChange={(event) => setForm({ ...form, is_public: event.target.checked })} className="size-4 accent-primary" />
+          Công khai tài liệu
+        </label>
+        <button type="submit" disabled={uploadMutation.isPending} className={`${primaryActionClass} lg:justify-self-end`}>
+          <Upload className="size-4" /> {uploadMutation.isPending ? 'Đang tải lên...' : 'Tải lên'}
+        </button>
+      </form>
+
+      <div className="mt-5 space-y-3">
+        {documentsQuery.isLoading && <p className="text-sm font-semibold">Đang tải tài liệu...</p>}
+        {documents.map((document) => (
+          <div key={document.id} className="flex flex-col gap-3 rounded-md border border-[#e0e3e5] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-extrabold">{document.title}</p>
+              <p className="text-xs font-semibold text-[#737686]">
+                {document.file_name || 'policy.pdf'} · phiên bản {document.version}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <a href={document.file_url} target="_blank" rel="noreferrer" className="admin-secondary py-2 text-xs">
+                Xem PDF
+              </a>
+              <button type="button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(document.id)} className="grid size-9 place-items-center rounded-md border border-[#f3b8b8] text-error hover:bg-[#fff1f1]">
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {!documentsQuery.isLoading && documents.length === 0 && (
+          <p className="text-sm font-semibold text-[#737686]">Chưa có tài liệu PDF.</p>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function Modal({ title, onClose, children, wide = false }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
+      <div className={`max-h-[90vh] w-full overflow-y-auto rounded-md border border-[#c3c6d7] bg-white p-5 shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-2xl'}`}>
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <h3 className="text-xl font-extrabold text-[#111827]">{title}</h3>
+          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+            <X className="size-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function ActionButtons({ isBusy, onEdit, onToggle, onDelete }) {
+  return (
+    <div className="flex items-center gap-2">
+      <IconButton title="Sửa" onClick={onEdit} disabled={isBusy} icon={Pencil} />
+      <IconButton title="Bật/tắt trạng thái" onClick={onToggle} disabled={isBusy} icon={Power} />
+      <IconButton title="Xóa" onClick={onDelete} disabled={isBusy} icon={Trash2} danger />
+    </div>
+  )
+}
+
+function IconButton({ icon: Icon, danger = false, ...props }) {
+  return (
+    <button
+      type="button"
+      className={`grid size-9 place-items-center rounded-md border transition hover:-translate-y-0.5 disabled:opacity-60 ${danger ? 'border-[#f3b8b8] text-error hover:bg-[#fff1f1]' : 'border-[#c3c6d7] text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'}`}
+      {...props}
+    >
+      <Icon className="size-4" />
+    </button>
+  )
+}
+
+function TabButton({ active, children, ...props }) {
+  return (
+    <button
+      type="button"
+      className={`inline-flex min-w-20 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
+        active
+          ? 'bg-primary text-slate-950 shadow-primary/20 hover:bg-sky-300'
+          : 'border border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'
+      }`}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}
+
+function TextInput({ label, value, onChange, ...props }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold text-[#434655]">{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold outline-none focus:border-primary" {...props} />
+    </label>
+  )
+}
+
+function NumberInput({ label, value, onChange }) {
+  return <TextInput type="number" min="0" step="0.01" label={label} value={value} onChange={onChange} />
+}
+
+function SelectInput({ label, value, options, onChange }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold text-[#434655]">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold outline-none focus:border-primary">
+        {options.map(([optionValue, labelText]) => (
+          <option key={optionValue || 'empty'} value={optionValue}>{labelText}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function TextareaInput({ label, value, onChange, rows = 4 }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold text-[#434655]">{label}</span>
+      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full resize-none rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-3 text-sm outline-none focus:border-primary" />
+    </label>
+  )
+}
+
+function DateInputs({ form, setForm }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <TextInput type="datetime-local" label="Hiệu lực từ" value={form.effective_from} onChange={(effective_from) => setForm({ ...form, effective_from })} />
+      <TextInput type="datetime-local" label="Hiệu lực đến" value={form.effective_to} onChange={(effective_to) => setForm({ ...form, effective_to })} />
+    </div>
+  )
+}
+
+function ActiveInput({ checked, onChange }) {
+  return (
+    <label className="flex items-center gap-3 text-sm font-semibold text-[#434655]">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="size-4 accent-primary" />
+      Đang áp dụng
+    </label>
+  )
+}
+
+function FormActions({ isSaving, onCancel }) {
+  return (
+    <div className="flex justify-end gap-3 border-t border-[#e0e3e5] pt-4">
+      <button type="button" onClick={onCancel} className="admin-secondary">Hủy</button>
+      <button type="submit" disabled={isSaving} className={primaryActionClass}>{isSaving ? 'Đang lưu...' : 'Lưu'}</button>
+    </div>
+  )
+}
+
+function MetricCard({ label, value, accent }) {
+  return (
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+      <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
+      <div>
+        <p className="text-sm font-extrabold text-[#434655]">{label}</p>
+        <p className="mt-5 text-3xl font-black leading-none text-[#111827]">{value}</p>
+      </div>
+    </Panel>
+  )
+}
+
+function cleanFeePayload(form) {
+  return {
+    name: form.name.trim(),
+    fee_type: form.fee_type,
+    percentage_value: Number(form.percentage_value || 0),
+    fixed_amount: Number(form.fixed_amount || 0),
+    event_category_id: form.event_category_id || null,
+    is_active: form.is_active,
+    effective_from: form.effective_from || null,
+    effective_to: form.effective_to || null,
+  }
+}
+
+function cleanPolicyPayload(form) {
+  return {
+    policy_type: form.policy_type,
+    title: form.title.trim(),
+    description: form.description.trim() || null,
+    config: form.config || {},
+    is_active: form.is_active,
+    effective_from: form.effective_from || null,
+    effective_to: form.effective_to || null,
+  }
+}
+
+function formatFee(fee) {
+  const parts = []
+  if (Number(fee.percentage_value) > 0) parts.push(`${Number(fee.percentage_value)}%`)
+  if (Number(fee.fixed_amount) > 0) parts.push(formatMoney(fee.fixed_amount))
+  return parts.join(' + ') || formatMoney(0)
+}
+
+function formatMoney(value) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
+}
+
+function formatRange(from, to) {
+  if (!from && !to) return 'Luôn áp dụng'
+  return (
+    <div className="text-xs font-semibold text-[#434655]">
+      <Row label="Từ" value={from ? new Date(from).toLocaleString('vi-VN') : 'Hiện tại'} />
+      <Row label="Đến" value={to ? new Date(to).toLocaleString('vi-VN') : 'Không giới hạn'} />
+    </div>
+  )
+}
+
+function toDateTimeInput(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 16)
+}
+
+function labelFrom(options, value) {
+  return options.find(([optionValue]) => optionValue === value)?.[1] || value
 }

@@ -5,7 +5,7 @@ class OrdersRepository {
   async findEventById(eventId) {
     const { rows } = await db.query(
       `
-      SELECT id, title, slug, organizer_id, start_time, end_time, status, deleted_at
+      SELECT id, title, slug, organizer_id, category_id, start_time, end_time, status, deleted_at
       FROM events
       WHERE id = $1
       LIMIT 1
@@ -74,11 +74,12 @@ class OrdersRepository {
           status,
           subtotal,
           discount_amount,
+          platform_fee_config_id,
           platform_fee,
           total_amount
         )
-        VALUES ($1, $2, $3, $4, $5, 'PAID', $6, 0, 0, $6)
-        RETURNING id, order_code, status, total_amount, created_at
+        VALUES ($1, $2, $3, $4, $5, 'PAID', $6, 0, $7, $8, $9)
+        RETURNING id, order_code, status, subtotal, platform_fee, total_amount, created_at
         `,
         [
           userId,
@@ -87,6 +88,9 @@ class OrdersRepository {
           buyer.phone || null,
           orderCode,
           totals.subtotal,
+          totals.platform_fee_config_id,
+          totals.platform_fee,
+          totals.total_amount,
         ],
       );
 
@@ -161,7 +165,7 @@ class OrdersRepository {
         )
         VALUES ($1, 'CASH', 'MANUAL', $2, $3, 'SUCCESS', now())
         `,
-        [order.id, `SIM-${order.order_code}`, totals.subtotal],
+        [order.id, `SIM-${order.order_code}`, totals.total_amount],
       );
 
       await client.query('COMMIT');

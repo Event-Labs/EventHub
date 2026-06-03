@@ -6,6 +6,7 @@ const centerNavItems = [
   ['Sự kiện', '/events'],
   ['Vé của tôi', '/my-tickets'],
   ['Phản hồi', '/feedback'],
+  ['Chinh sach', '/policies'],
 ]
 
 const navLinkClass = ({ isActive }) =>

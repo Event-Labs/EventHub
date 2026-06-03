@@ -15,6 +15,7 @@ export function Page({
   actionClassName = 'admin-primary',
   actionIcon: ActionIcon = Plus,
   onAction,
+  actions,
   children,
 }) {
   return (
@@ -31,7 +32,8 @@ export function Page({
             <p className="mt-1 text-sm text-[#434655]">{description}</p>
           )}
         </div>
-        {action && (
+        {actions}
+        {!actions && action && (
           <button type="button" className={actionClassName} onClick={onAction}>
             <ActionIcon className="size-4" /> {action}
           </button>

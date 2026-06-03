@@ -1,5 +1,6 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const platformFinanceService = require('../admin/platformFinance.service');
 const ordersRepository = require('./orders.repository');
 
 function normalizePhone(phone) {
@@ -85,6 +86,9 @@ class OrdersService {
       });
     }
 
+    const activeFee = await platformFinanceService.findActiveFeeForCategory(event.category_id);
+    const feeTotals = platformFinanceService.calculatePlatformFee(subtotal, activeFee);
+
     const result = await ordersRepository.checkout({
       userId,
       eventId: payload.event_id,
@@ -94,7 +98,7 @@ class OrdersService {
         phone: normalizePhone(payload.buyer_phone),
       },
       items: normalizedItems,
-      totals: { subtotal },
+      totals: { subtotal, ...feeTotals },
     });
 
     return {
@@ -102,6 +106,8 @@ class OrdersService {
         id: result.order.id,
         order_code: result.order.order_code,
         status: result.order.status,
+        subtotal: Number(result.order.subtotal),
+        platform_fee: Number(result.order.platform_fee),
         total_amount: Number(result.order.total_amount),
         created_at: result.order.created_at,
       },
