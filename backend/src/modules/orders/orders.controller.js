@@ -12,15 +12,6 @@ class OrdersController {
       next(err);
     }
   };
-
-  getMyTickets = async (req, res, next) => {
-    try {
-      const data = await ordersService.getMyTickets(req.user.sub);
-      res.status(200).json(ApiResponse.success(data, 'Tickets fetched successfully'));
-    } catch (err) {
-      next(err);
-    }
-  };
 }
 
 module.exports = new OrdersController();

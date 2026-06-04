@@ -7,6 +7,5 @@ const router = express.Router();
 router.use(protect);
 
 router.post('/checkout', ordersController.checkout);
-router.get('/tickets/me', ordersController.getMyTickets);
 
 module.exports = router;

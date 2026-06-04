@@ -23,7 +23,7 @@ class OrdersService {
       throw new AppError('Event not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    const ticketTypeIds = payload.items.map((item) => item.ticket_type_id);
+    const ticketTypeIds = [...new Set(payload.items.map((item) => item.ticket_type_id))];
     const ticketTypes = await ordersRepository.findTicketTypesByIds(ticketTypeIds);
 
     if (ticketTypes.length !== ticketTypeIds.length) {
@@ -36,6 +36,7 @@ class OrdersService {
 
     for (const item of payload.items) {
       const ticketType = ticketTypeMap.get(item.ticket_type_id);
+      const sessionSeatIds = item.session_seat_ids || [];
 
       if (!ticketType || ticketType.event_id !== payload.event_id) {
         throw new AppError(
@@ -71,6 +72,32 @@ class OrdersService {
         );
       }
 
+      if (sessionSeatIds.length > 0) {
+        if (!ticketType.is_seated) {
+          throw new AppError(
+            `Ticket "${ticketType.name}" does not support seat selection`,
+            400,
+            ErrorCodes.ORDER_INVALID_ITEMS,
+          );
+        }
+
+        if (sessionSeatIds.length !== item.quantity) {
+          throw new AppError(
+            `Selected seats must match quantity for "${ticketType.name}"`,
+            400,
+            ErrorCodes.ORDER_INVALID_ITEMS,
+          );
+        }
+
+        if (new Set(sessionSeatIds).size !== sessionSeatIds.length) {
+          throw new AppError(
+            `Duplicate seats selected for "${ticketType.name}"`,
+            400,
+            ErrorCodes.ORDER_INVALID_ITEMS,
+          );
+        }
+      }
+
       const unitPrice = Number(ticketType.price);
       const lineTotal = unitPrice * item.quantity;
       subtotal += lineTotal;
@@ -78,6 +105,7 @@ class OrdersService {
       normalizedItems.push({
         ticket_type_id: ticketType.id,
         event_session_id: ticketType.event_session_id,
+        session_seat_ids: sessionSeatIds,
         quantity: item.quantity,
         unit_price: unitPrice,
         line_total: lineTotal,
@@ -120,34 +148,6 @@ class OrdersService {
     };
   }
 
-  async getMyTickets(userId) {
-    const rows = await ordersRepository.findTicketsByUserId(userId);
-    return rows.map((row) => ({
-      id: row.id,
-      ticket_code: row.ticket_code,
-      status: row.status,
-      attendee_name: row.attendee_name,
-      attendee_email: row.attendee_email,
-      created_at: row.created_at,
-      checked_in_at: row.checked_in_at,
-      event: {
-        id: row.event_id,
-        title: row.event_title,
-        slug: row.event_slug,
-        start_time: row.event_start_time,
-        end_time: row.event_end_time,
-        thumbnail_url: row.event_thumbnail_url,
-      },
-      ticket_type: {
-        name: row.ticket_type_name,
-        price: Number(row.ticket_type_price),
-      },
-      order: {
-        order_code: row.order_code,
-        created_at: row.order_created_at,
-      },
-    }));
-  }
 }
 
 module.exports = new OrdersService();

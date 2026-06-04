@@ -1,5 +1,7 @@
 const db = require('../../infrastructure/database/db.client');
 const crypto = require('crypto');
+const AppError = require('../../core/errors/AppError');
+const ErrorCodes = require('../../core/errors/errorCodes');
 
 class OrdersRepository {
   async findEventById(eventId) {
@@ -98,30 +100,125 @@ class OrdersRepository {
       const issuedTickets = [];
 
       for (const item of items) {
-        const orderItemResult = await client.query(
-          `
-          INSERT INTO order_items (
-            order_id,
-            ticket_type_id,
-            quantity,
-            unit_price,
-            final_price
-          )
-          VALUES ($1, $2, $3, $4, $5)
-          RETURNING id
-          `,
-          [
-            order.id,
-            item.ticket_type_id,
-            item.quantity,
-            item.unit_price,
-            item.line_total,
-          ],
-        );
+        const sessionSeatIds = item.session_seat_ids || [];
 
-        const orderItemId = orderItemResult.rows[0].id;
+        if (sessionSeatIds.length > 0) {
+          const hasSeatMappingResult = await client.query(
+            `
+            SELECT EXISTS (
+              SELECT 1
+              FROM ticket_type_seats
+              WHERE ticket_type_id = $1
+            ) AS has_mapping
+            `,
+            [item.ticket_type_id],
+          );
+          const requiresTicketTypeSeatMapping = Boolean(hasSeatMappingResult.rows[0]?.has_mapping);
 
-        for (let index = 0; index < item.quantity; index += 1) {
+          const seatsResult = await client.query(
+            `
+            SELECT
+              ss.id,
+              ss.status,
+              ss.event_session_id,
+              ss.order_id,
+              s.id AS seat_id,
+              s.row_label,
+              s.seat_number,
+              s.is_disabled,
+              tts.ticket_type_id AS mapped_ticket_type_id
+            FROM session_seats ss
+            JOIN seats s ON s.id = ss.seat_id
+            LEFT JOIN ticket_type_seats tts
+              ON tts.seat_id = s.id
+             AND tts.ticket_type_id = $2
+            WHERE ss.id = ANY($1::uuid[])
+              AND ss.event_session_id = $3
+            FOR UPDATE OF ss
+            `,
+            [sessionSeatIds, item.ticket_type_id, item.event_session_id],
+          );
+
+          if (seatsResult.rows.length !== sessionSeatIds.length) {
+            throw new AppError(
+              'One or more selected seats are invalid for this event session',
+              400,
+              ErrorCodes.ORDER_INVALID_ITEMS,
+            );
+          }
+
+          for (const seat of seatsResult.rows) {
+            if (seat.is_disabled) {
+              throw new AppError(
+                `Seat ${seat.row_label}${seat.seat_number} is disabled`,
+                400,
+                ErrorCodes.ORDER_INVALID_ITEMS,
+              );
+            }
+
+            if (seat.status !== 'AVAILABLE') {
+              throw new AppError(
+                `Seat ${seat.row_label}${seat.seat_number} is not available`,
+                400,
+                ErrorCodes.ORDER_TICKET_UNAVAILABLE,
+              );
+            }
+
+            if (requiresTicketTypeSeatMapping && !seat.mapped_ticket_type_id) {
+              throw new AppError(
+                `Seat ${seat.row_label}${seat.seat_number} does not belong to this ticket type`,
+                400,
+                ErrorCodes.ORDER_INVALID_ITEMS,
+              );
+            }
+          }
+
+          await client.query(
+            `
+            UPDATE session_seats
+            SET status = 'SOLD',
+                order_id = $2,
+                held_by = $3,
+                held_until = NULL
+            WHERE id = ANY($1::uuid[])
+            `,
+            [sessionSeatIds, order.id, userId],
+          );
+        }
+
+        const orderItemSeatIds = sessionSeatIds.length > 0 ? sessionSeatIds : [null];
+
+        for (const sessionSeatId of orderItemSeatIds) {
+          const orderItemQuantity = sessionSeatId ? 1 : item.quantity;
+          const orderItemFinalPrice = sessionSeatId ? item.unit_price : item.line_total;
+
+          const orderItemResult = await client.query(
+            `
+            INSERT INTO order_items (
+              order_id,
+              ticket_type_id,
+              session_seat_id,
+              quantity,
+              unit_price,
+              final_price
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, session_seat_id
+            `,
+            [
+              order.id,
+              item.ticket_type_id,
+              sessionSeatId,
+              orderItemQuantity,
+              item.unit_price,
+              orderItemFinalPrice,
+            ],
+          );
+
+          const orderItem = orderItemResult.rows[0];
+          const ticketQuantity = sessionSeatId ? 1 : item.quantity;
+
+          for (let index = 0; index < ticketQuantity; index += 1) {
           const ticketCode = `EH-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
           const ticketResult = await client.query(
             `
@@ -131,24 +228,27 @@ class OrdersRepository {
               event_session_id,
               ticket_type_id,
               ticket_code,
+              qr_code,
               attendee_name,
               attendee_email,
               status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, 'VALID')
+            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, 'VALID')
             RETURNING id, ticket_code, status, created_at
             `,
             [
-              orderItemId,
+              orderItem.id,
               eventId,
               item.event_session_id,
               item.ticket_type_id,
+              orderItem.session_seat_id,
               ticketCode,
               item.attendee_name,
               item.attendee_email,
             ],
           );
           issuedTickets.push(ticketResult.rows[0]);
+        }
         }
       }
 
@@ -182,41 +282,6 @@ class OrdersRepository {
     }
   }
 
-  async findTicketsByUserId(userId) {
-    const { rows } = await db.query(
-      `
-      SELECT
-        t.id,
-        t.ticket_code,
-        t.status,
-        t.attendee_name,
-        t.attendee_email,
-        t.created_at,
-        t.checked_in_at,
-        e.id AS event_id,
-        e.title AS event_title,
-        e.slug AS event_slug,
-        e.start_time AS event_start_time,
-        e.end_time AS event_end_time,
-        e.thumbnail_url AS event_thumbnail_url,
-        tt.name AS ticket_type_name,
-        tt.price AS ticket_type_price,
-        o.order_code,
-        o.created_at AS order_created_at
-      FROM tickets t
-      JOIN order_items oi ON oi.id = t.order_item_id
-      JOIN orders o ON o.id = oi.order_id
-      JOIN events e ON e.id = t.event_id
-      JOIN ticket_types tt ON tt.id = t.ticket_type_id
-      WHERE o.user_id = $1
-        AND o.status = 'PAID'
-        AND e.deleted_at IS NULL
-      ORDER BY e.start_time DESC, t.created_at DESC
-      `,
-      [userId],
-    );
-    return rows;
-  }
 }
 
 module.exports = new OrdersRepository();

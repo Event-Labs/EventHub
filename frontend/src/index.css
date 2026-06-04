@@ -132,6 +132,46 @@ textarea {
   background-size: 24px 24px;
 }
 
+.ticket-card {
+  position: relative;
+}
+
+.ticket-card-main {
+  position: relative;
+}
+
+@media (min-width: 768px) {
+  .ticket-card::before,
+  .ticket-card::after {
+    content: '';
+    position: absolute;
+    right: calc(38% - 20px);
+    z-index: 3;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: #0b1120;
+  }
+
+  .ticket-card::before {
+    top: -20px;
+  }
+
+  .ticket-card::after {
+    bottom: -20px;
+  }
+
+  .ticket-card-main::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: -1px;
+    top: 0;
+    border-right: 2px dashed rgba(15, 23, 42, 0.95);
+  }
+
+}
+
 .success-glow {
   box-shadow: 0 0 60px -12px rgba(56, 189, 248, 0.55);
 }
