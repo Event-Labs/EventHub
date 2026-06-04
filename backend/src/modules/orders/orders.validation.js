@@ -15,6 +15,7 @@ const checkoutSchema = z.object({
       z.object({
         ticket_type_id: z.string().uuid(),
         quantity: z.coerce.number().int().min(1).max(10),
+        session_seat_ids: z.array(z.string().uuid()).optional(),
         attendee_name: z.string().trim().min(2).max(255),
         attendee_email: z.string().trim().email().max(255),
       }),

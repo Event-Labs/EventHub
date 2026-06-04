@@ -93,6 +93,7 @@ export function BookingCheckoutPage() {
       return {
         ticket_type_id: item.ticketType.id,
         quantity: item.quantity,
+        session_seat_ids: item.sessionSeatIds || item.session_seat_ids,
         attendee_name: attendee.name?.trim() || buyerName.trim(),
         attendee_email: attendee.email?.trim() || buyerEmail.trim(),
       }

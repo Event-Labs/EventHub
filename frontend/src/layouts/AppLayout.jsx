@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import { Bell, UserCircle } from 'lucide-react'
 
 const centerNavItems = [
   ['Sự kiện', '/events'],
   ['Vé của tôi', '/my-tickets'],
   ['Phản hồi', '/feedback'],
-  ['Chinh sach', '/policies'],
 ]
 
 const navLinkClass = ({ isActive }) =>
@@ -185,15 +184,25 @@ export function AppLayout() {
             ].map(([title, ...links]) => (
               <div key={title} className="space-y-3">
                 <h3 className="text-sm font-bold text-white">{title}</h3>
-                {links.map((link) => (
-                  <a
-                    key={link}
-                    href="#"
-                    className="block text-sm text-muted transition hover:text-primary"
-                  >
-                    {link}
-                  </a>
-                ))}
+                {links.map((link, index) =>
+                  title === 'EventHub' && index === 2 ? (
+                    <Link
+                      key={link}
+                      to="/policies"
+                      className="block text-sm text-muted transition hover:text-primary"
+                    >
+                      {link}
+                    </Link>
+                  ) : (
+                    <a
+                      key={link}
+                      href="#"
+                      className="block text-sm text-muted transition hover:text-primary"
+                    >
+                      {link}
+                    </a>
+                  ),
+                )}
               </div>
             ))}
           </div>
