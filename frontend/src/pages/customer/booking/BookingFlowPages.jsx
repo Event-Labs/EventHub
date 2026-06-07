@@ -7,7 +7,7 @@ import {
   Plus,
   ShieldCheck,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { events, qrImage } from '@/data/events.js'
 
 const event = events[0]
@@ -282,6 +282,8 @@ function TicketType({ title, desc, price, disabled }) {
 }
 
 function OrderCard({ cta, to, total = '$0.00' }) {
+  const location = useLocation()
+
   return (
     <aside className="glass-panel h-fit rounded-lg p-5 lg:sticky lg:top-24">
       <div className="mb-4 flex items-center justify-between rounded-md bg-ai/20 p-3 text-ai">
@@ -307,6 +309,7 @@ function OrderCard({ cta, to, total = '$0.00' }) {
       <Line label="Tổng cộng" value={total} large />
       <Link
         to={to}
+        state={location.state}
         className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-tertiary py-4 font-bold text-white"
       >
         {cta}

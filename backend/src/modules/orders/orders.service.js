@@ -1,6 +1,7 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const platformFinanceService = require('../admin/platformFinance.service');
+const notificationsService = require('../notifications/notifications.service');
 const ordersRepository = require('./orders.repository');
 
 function normalizePhone(phone) {
@@ -128,6 +129,16 @@ class OrdersService {
       items: normalizedItems,
       totals: { subtotal, ...feeTotals },
     });
+
+    if (userId) {
+      await notificationsService.sendOrderNotification({
+        userId,
+        eventId: payload.event_id,
+        email: payload.buyer_email.toLowerCase(),
+        eventTitle: event.title,
+        orderCode: result.order.order_code,
+      });
+    }
 
     return {
       order: {
