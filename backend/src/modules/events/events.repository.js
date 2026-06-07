@@ -206,7 +206,9 @@ class EventsRepository {
             'district', v.district,
             'ward', v.ward,
             'address_line', v.address_line,
-            'description', v.description
+            'description', v.description,
+            'latitude', v.latitude,
+            'longitude', v.longitude
           )
         ) ORDER BY es.start_time ASC) AS sessions
         FROM event_sessions es
