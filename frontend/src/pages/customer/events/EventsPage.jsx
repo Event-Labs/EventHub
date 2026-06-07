@@ -1,15 +1,23 @@
-﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Filter, Search } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CalendarDays, Filter, RotateCcw, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
-import { fetchEvents, toggleFavorite } from '@/services/events.js'
+import { fetchEventCategories, fetchEvents, toggleFavorite } from '@/services/events.js'
 
 const SORT_OPTIONS = [
   ['start_time', 'Sắp diễn ra'],
   ['created_at', 'Mới nhất'],
   ['price', 'Giá thấp nhất'],
+]
+
+const LOCATION_OPTIONS = [
+  ['', 'Tất cả địa điểm'],
+  ['Thành phố Hồ Chí Minh', 'TP. Hồ Chí Minh'],
+  ['Hà Nội', 'Hà Nội'],
+  ['Đà Nẵng', 'Đà Nẵng'],
+  ['Đà Lạt', 'Đà Lạt'],
 ]
 
 function readFilters(searchParams) {
@@ -45,6 +53,11 @@ export function EventsPage() {
   const eventsQuery = useQuery({
     queryKey: ['events', queryParams],
     queryFn: () => fetchEvents(queryParams),
+  })
+
+  const categoriesQuery = useQuery({
+    queryKey: ['event-categories'],
+    queryFn: fetchEventCategories,
   })
 
   const favoriteMutation = useMutation({
@@ -87,54 +100,69 @@ export function EventsPage() {
 
   const events = eventsQuery.data?.items || []
   const pagination = eventsQuery.data?.pagination
+  const categories = categoriesQuery.data || []
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <form className="glass-panel mb-8 rounded-lg p-5" onSubmit={submitFilters}>
-        <div className="grid gap-4 md:grid-cols-[1.3fr_1fr_1fr_auto]">
+      <form
+        className="glass-panel mb-8 rounded-lg border-primary/15 p-5 shadow-[0_18px_60px_rgba(56,189,248,0.08)]"
+        onSubmit={submitFilters}
+      >
+        <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.72fr)_minmax(180px,0.85fr)_minmax(330px,1.35fr)]">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-muted">Từ khóa</span>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" />
               <input
                 value={draft.keyword}
                 onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
                 placeholder="Tìm sự kiện..."
-                className="w-full rounded-md border border-border-soft bg-surface py-3 pl-10 pr-3 text-content outline-none focus:border-primary"
+                className="h-12 w-full rounded-md border border-border-soft bg-surface py-3 pl-10 pr-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </label>
-          <Input
+
+          <Select
             label="Địa điểm"
             value={draft.location}
             onChange={(value) => setDraft({ ...draft, location: value })}
-            placeholder="TP.HCM, Hà Nội..."
+            options={LOCATION_OPTIONS}
           />
-          <Input
-            label="Từ ngày"
-            type="date"
-            value={draft.start_date}
-            onChange={(value) => setDraft({ ...draft, start_date: value })}
-          />
-          <button className="mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-md bg-primary px-5 font-bold text-slate-950">
-            <Filter className="size-4" />
-            Tìm sự kiện
-          </button>
-        </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-5">
-          <Input
+          <Select
             label="Danh mục"
             value={draft.category_slug}
             onChange={(value) => setDraft({ ...draft, category_slug: value })}
-            placeholder="music, workshop..."
+            options={[
+              ['', categoriesQuery.isLoading ? 'Đang tải danh mục...' : 'Tất cả danh mục'],
+              ...categories.map((category) => [category.slug, category.name]),
+            ]}
+            disabled={categoriesQuery.isLoading}
           />
-          <Input
-            label="Đến ngày"
-            type="date"
-            value={draft.end_date}
-            onChange={(value) => setDraft({ ...draft, end_date: value })}
-          />
+
+          <div className="space-y-2">
+            <span className="flex items-center gap-2 text-sm font-semibold text-muted">
+              <CalendarDays className="size-4 text-primary" />
+              Thời gian
+            </span>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                type="date"
+                value={draft.start_date}
+                onChange={(value) => setDraft({ ...draft, start_date: value })}
+                aria-label="Từ ngày"
+              />
+              <Input
+                type="date"
+                value={draft.end_date}
+                onChange={(value) => setDraft({ ...draft, end_date: value })}
+                aria-label="Đến ngày"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid items-end gap-4 lg:grid-cols-[minmax(170px,0.9fr)_minmax(170px,0.9fr)_minmax(190px,0.95fr)_auto]">
           <Input
             label="Giá từ"
             type="number"
@@ -154,21 +182,28 @@ export function EventsPage() {
             <select
               value={draft.sort_by}
               onChange={(event) => setDraft({ ...draft, sort_by: event.target.value })}
-              className="w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none focus:border-primary"
+              className="h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
             >
               {SORT_OPTIONS.map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
           </label>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-md bg-primary px-5 font-bold text-slate-950 transition hover:bg-sky-300">
+              <Filter className="size-4" />
+              Tìm sự kiện
+            </button>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex h-12 min-w-32 items-center justify-center gap-2 rounded-md border border-primary/40 px-4 font-bold text-primary transition hover:bg-primary/10"
+            >
+              <RotateCcw className="size-4" />
+              Xóa bộ lọc
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={clearFilters}
-          className="mt-4 rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-subtle hover:border-primary hover:text-primary"
-        >
-          Xóa bộ lọc
-        </button>
       </form>
 
       <section>
@@ -202,16 +237,45 @@ export function EventsPage() {
   )
 }
 
-function Input({ label, value, onChange, ...props }) {
+function Input({ label, value, onChange, className = '', ...props }) {
+  const control = (
+    <input
+      {...props}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={`h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 ${className}`}
+    />
+  )
+
+  if (!label) return control
+
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-muted">{label}</span>
-      <input
-        {...props}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none focus:border-primary"
-      />
+      {control}
+    </label>
+  )
+}
+
+function Select({ label, value, onChange, options, icon: Icon, disabled = false }) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-semibold text-muted">{label}</span>
+      <div className="relative">
+        {Icon && <Icon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" />}
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={disabled}
+          className={`h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-70 ${Icon ? 'pl-10' : ''}`}
+        >
+          {options.map(([optionValue, optionLabel]) => (
+            <option key={optionValue || optionLabel} value={optionValue}>
+              {optionLabel}
+            </option>
+          ))}
+        </select>
+      </div>
     </label>
   )
 }

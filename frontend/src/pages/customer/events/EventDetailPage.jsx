@@ -57,6 +57,13 @@ function venueSummary(venue) {
     .join(', ')
 }
 
+function getGoogleMapUrl(venue) {
+  const latitude = Number(venue?.latitude)
+  const longitude = Number(venue?.longitude)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+  return `https://www.google.com/maps?q=${latitude},${longitude}&z=16&output=embed`
+}
+
 function isSaleOpen(ticketType) {
   const now = Date.now()
   const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null
@@ -347,15 +354,35 @@ export function EventDetailPage() {
             <h2 className="mb-5 font-display text-2xl font-bold text-white">
               Địa điểm
             </h2>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-5">
               {event.venues?.length ? (
-                event.venues.map((venue) => (
-                  <div key={venue.id} className="rounded-lg border border-border-soft bg-panel p-5">
-                    <h3 className="font-display text-xl font-bold text-white">{venue.name}</h3>
-                    <p className="mt-2 text-sm text-muted">{venueSummary(venue)}</p>
-                    {venue.description && <p className="mt-3 text-sm text-subtle">{venue.description}</p>}
-                  </div>
-                ))
+                event.venues.map((venue) => {
+                  const mapUrl = getGoogleMapUrl(venue)
+
+                  return (
+                    <div key={venue.id} className="overflow-hidden rounded-lg border border-border-soft bg-panel">
+                      {mapUrl ? (
+                        <iframe
+                          title={`Bản đồ ${venue.name}`}
+                          src={mapUrl}
+                          className="h-80 w-full border-0 md:h-[420px]"
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div className="grid h-64 place-items-center border-b border-border-soft bg-surface text-muted">
+                          Chưa có tọa độ bản đồ cho địa điểm này.
+                        </div>
+                      )}
+                      <div className="p-5">
+                        <h3 className="font-display text-xl font-bold text-white">{venue.name}</h3>
+                        <p className="mt-2 text-sm text-muted">{venueSummary(venue)}</p>
+                        {venue.description && <p className="mt-3 text-sm text-subtle">{venue.description}</p>}
+                      </div>
+                    </div>
+                  )
+                })
               ) : (
                 <StatePanel message="Địa điểm đang được cập nhật." compact />
               )}
