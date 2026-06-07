@@ -21,17 +21,17 @@ export async function markAllNotificationsRead() {
 }
 
 export async function fetchOrganizerAnnouncementEvents() {
-  const response = await http.get('/notifications/organizer/events')
+  const response = await http.get('/announcements/events')
   return response.data.data
 }
 
 export async function fetchOrganizerAnnouncements() {
-  const response = await http.get('/notifications/organizer/announcements')
+  const response = await http.get('/announcements')
   return response.data.data
 }
 
 export async function sendOrganizerAnnouncement(payload) {
-  const response = await http.post('/notifications/organizer/announcements', payload)
+  const response = await http.post('/announcements', payload)
   return response.data.data
 }
 
