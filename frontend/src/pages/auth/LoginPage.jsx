@@ -6,6 +6,18 @@ import { getPostLoginPath } from '@/lib/auth.js'
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
 
+function getCustomerGooglePath(redirectPath = '/') {
+  if (
+    redirectPath.startsWith('/organizer') ||
+    redirectPath.startsWith('/admin') ||
+    redirectPath.startsWith('/staff')
+  ) {
+    return '/'
+  }
+
+  return redirectPath || '/'
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -39,7 +51,7 @@ export function LoginPage() {
       localStorage.setItem('eventhub-user', JSON.stringify(user))
       localStorage.setItem('eventhub-auth', 'true')
       window.dispatchEvent(new Event('eventhub-auth'))
-      navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
+      navigate(getCustomerGooglePath(searchParams.get('redirect') || '/'))
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.')
     } finally {

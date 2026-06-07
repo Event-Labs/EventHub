@@ -13,6 +13,7 @@ const organizerFeedbackRoutes = require('./modules/organizer/feedbackReport.rout
 const orderRoutes = require('./modules/orders/orders.routes');
 const ticketRoutes = require('./modules/tickets/tickets.routes');
 const eventRoutes = require('./modules/events/events.routes');
+const notificationRoutes = require('./modules/notifications/notifications.routes');
 const platformPolicyRoutes = require('./modules/platform-policies/platformPolicies.routes');
 const uploadRoutes = require('./modules/uploads/uploads.routes');
 const userRoutes = require('./modules/user/user.routes');
@@ -42,6 +43,7 @@ app.use('/api/organizer/feedback', organizerFeedbackRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/platform-policies', platformPolicyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/users', userRoutes);
