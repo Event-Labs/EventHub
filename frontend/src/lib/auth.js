@@ -19,15 +19,23 @@ export function isAdminUser(user) {
 
 export function getPostLoginPath(user, redirectPath = '/') {
   if (isAdminUser(user)) {
-    return '/admin'
+    return redirectPath?.startsWith('/admin') ? redirectPath : '/admin'
   }
 
   const roles = getUserRoles(user)
   if (roles.includes('organizer')) {
-    return redirectPath && redirectPath !== '/' ? redirectPath : '/organizer'
+    return redirectPath?.startsWith('/organizer') ? redirectPath : '/organizer'
   }
   if (roles.includes('staff')) {
-    return redirectPath && redirectPath !== '/' ? redirectPath : '/staff'
+    return redirectPath?.startsWith('/staff') ? redirectPath : '/staff'
+  }
+
+  if (
+    redirectPath?.startsWith('/admin') ||
+    redirectPath?.startsWith('/organizer') ||
+    redirectPath?.startsWith('/staff')
+  ) {
+    return '/'
   }
 
   return redirectPath || '/'
