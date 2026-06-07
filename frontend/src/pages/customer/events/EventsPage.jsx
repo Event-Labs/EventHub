@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, Filter, RotateCcw, Search } from 'lucide-react'
+import { Filter, RotateCcw, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
@@ -142,7 +142,6 @@ export function EventsPage() {
 
           <div className="space-y-2">
             <span className="flex items-center gap-2 text-sm font-semibold text-muted">
-              <CalendarDays className="size-4 text-primary" />
               Thời gian
             </span>
             <div className="grid gap-2 sm:grid-cols-2">

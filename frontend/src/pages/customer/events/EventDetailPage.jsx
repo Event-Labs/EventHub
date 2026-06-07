@@ -1,11 +1,9 @@
 ﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Calendar,
-  CalendarDays,
   ChevronDown,
   ChevronUp,
   Heart,
-  List,
   MapPin,
   Minus,
   Plus,
@@ -155,7 +153,7 @@ export function EventDetailPage() {
   const handleBook = () => {
     if (requireLogin()) return
     if (selectedTicketItems.length === 0) return
-    navigate('/booking/checkout', {
+    navigate('/booking/seats', {
       state: {
         cart: {
           eventId: event.id,
@@ -249,14 +247,6 @@ export function EventDetailPage() {
               <h2 className="font-display text-xl font-bold text-primary">
                 Lịch diễn
               </h2>
-              <div className="flex overflow-hidden rounded-full bg-white text-slate-900">
-                <button className="grid size-10 place-items-center border-r border-slate-200">
-                  <List className="size-5" />
-                </button>
-                <button className="grid size-10 place-items-center bg-slate-800 text-white">
-                  <CalendarDays className="size-5" />
-                </button>
-              </div>
             </div>
 
             <div className="space-y-3 p-5">
@@ -397,7 +387,7 @@ export function EventDetailPage() {
                 Vé sự kiện
               </h2>
               <p className="mt-1 text-sm text-muted">
-                Vé đã chọn sẽ hiển thị tại đây.
+                Vé đã chọn sẽ hiển thị tại đây
               </p>
             </div>
             <ShieldCheck className="size-6 shrink-0 text-primary" />
@@ -448,7 +438,7 @@ export function EventDetailPage() {
                 </div>
               ))
             ) : (
-              <StatePanel message="Chọn suất diễn và hạng vé ở phần Lịch diễn." compact />
+              <StatePanel message="Chọn suất diễn và hạng vé ở phần Lịch diễn" compact />
             )}
           </div>
 

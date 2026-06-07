@@ -3,6 +3,7 @@ const app = require('./app');
 const logger = require('./core/logger');
 const { connectRedis } = require('./infrastructure/redis/redis.client');
 const { pool } = require('./infrastructure/database/db.client');
+const { startNotificationScheduler } = require('./modules/notifications/notifications.scheduler');
 
 const startServer = async () => {
     try {
@@ -16,6 +17,7 @@ const startServer = async () => {
         // 3. Start Server
         const server = app.listen(env.PORT, () => {
             logger.info(`Server running in ${env.NODE_ENV} mode on ${env.APP_URL}`);
+            startNotificationScheduler();
         });
 
         // Handle graceful shutdown

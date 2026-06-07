@@ -17,13 +17,13 @@ import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
 import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
+import { NotificationsPage } from '@/pages/customer/NotificationsPage.jsx'
 import { NotFoundPage } from '@/pages/public/NotFoundPage.jsx'
 import { PaymentConfirmationPage } from '@/pages/customer/booking/PaymentConfirmationPage.jsx'
 import {
   AIFaqPage,
   AttendeeListPage,
   CreateEventWizardPage,
-  NotificationsPage,
   OnSiteBookingPage,
   OrderListPage,
   OrganizerDashboardPage,
