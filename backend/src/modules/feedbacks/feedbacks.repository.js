@@ -12,6 +12,20 @@ const FEEDBACK_SELECT = `
 `;
 
 class FeedbacksRepository {
+  async findOrganizerByUserId(userId) {
+    const { rows } = await db.query(
+      `
+      SELECT id, user_id, organization_name, status
+      FROM organizers
+      WHERE user_id = $1
+        AND status = 'ACTIVE'
+      LIMIT 1
+      `,
+      [userId],
+    );
+    return rows[0];
+  }
+
   async findEventById(eventId) {
     const { rows } = await db.query(
       `
