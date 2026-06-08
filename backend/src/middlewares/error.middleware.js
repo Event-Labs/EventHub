@@ -11,6 +11,17 @@ const errorMiddleware = (err, req, res, next) => {
     err.statusCode = err.statusCode || 500;
     err.errorCode = err.errorCode || 'INTERNAL_SERVER_ERROR';
 
+    // Always return flat ACCOUNT_LOCKED response regardless of NODE_ENV
+    if (err.errorCode === 'ACCOUNT_LOCKED') {
+        const response = {
+            success: false,
+            error: 'ACCOUNT_LOCKED',
+            message: err.message,
+            ...(err.data || {})
+        };
+        return res.status(err.statusCode).json(response);
+    }
+
     if (process.env.NODE_ENV === 'development') {
         return res.status(err.statusCode).json({
             success: false,
@@ -31,7 +42,8 @@ const errorMiddleware = (err, req, res, next) => {
         ApiResponse.error(
             err.isOperational ? err.message : 'Something went wrong!',
             err.statusCode,
-            err.errorCode
+            err.errorCode,
+            err.data
         )
     );
 };

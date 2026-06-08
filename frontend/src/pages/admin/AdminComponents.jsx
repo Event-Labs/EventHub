@@ -46,18 +46,18 @@ export function Page({
 
 export function KpiGrid({ items }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {items.map(([label, value, change]) => (
-        <Panel key={label} className="min-h-24">
-          <p className="text-xs font-bold text-[#5c647a]">{label}</p>
+        <Panel key={label} className="min-h-24 border-l-4 border-l-primary">
+          <p className="text-xs font-black uppercase tracking-wider text-[#434655]">{label}</p>
           <div className="mt-3 flex items-end justify-between gap-3">
-            <p className="text-2xl font-extrabold">{value}</p>
+            <p className="text-3xl font-black text-[#111827]">{value}</p>
             {change && (
               <span
-                className={`text-xs font-bold ${
+                className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
                   change.toLowerCase().includes('urgent')
-                    ? 'text-error'
-                    : 'text-success'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-green-100 text-green-700'
                 }`}
               >
                 {change}
@@ -152,17 +152,20 @@ export function Table({ headers, rows, compact = false }) {
   )
 }
 
-export function UserCell({ name, email, image }) {
+export function UserCell({ name, email, image, onClick, className = '' }) {
   return (
-    <div className="flex items-center gap-3">
+    <div 
+      className={`flex items-center gap-3 ${onClick ? 'cursor-pointer hover:opacity-80 transition' : ''} ${className}`}
+      onClick={onClick}
+    >
       {image ? (
-        <img src={image} alt={name} className="size-10 rounded-full object-cover" />
+        <img src={image} alt={name} className="size-10 rounded-full object-cover border border-[#e0e3e5]" />
       ) : (
         <AvatarFallback name={name} />
       )}
-      <div>
-        <p className="font-bold">{name}</p>
-        <p className="text-xs text-[#737686]">{email}</p>
+      <div className="min-w-0">
+        <p className="font-bold text-[#191c1e] truncate">{name}</p>
+        <p className="text-xs text-[#737686] truncate">{email}</p>
       </div>
     </div>
   )
@@ -171,7 +174,7 @@ export function UserCell({ name, email, image }) {
 export function AvatarFallback({ name, className = 'size-10' }) {
   return (
     <div
-      className={`${className} grid shrink-0 place-items-center rounded-full bg-[#dbe1ff] text-sm font-extrabold text-[#003ea8]`}
+      className={`${className} grid shrink-0 place-items-center rounded-full bg-[#dbe1ff] text-sm font-extrabold text-[#003ea8] border border-[#dbe1ff]`}
     >
       {getInitials(name)}
     </div>
@@ -181,7 +184,7 @@ export function AvatarFallback({ name, className = 'size-10' }) {
 export function ImagePlaceholder({ label, className = 'h-12 w-20' }) {
   return (
     <div
-      className={`${className} grid shrink-0 place-items-center rounded bg-[#e0e3e5] text-xs font-bold uppercase text-[#5c647a]`}
+      className={`${className} grid shrink-0 place-items-center rounded-full bg-[#e0e3e5] text-xs font-bold uppercase text-[#5c647a]`}
     >
       {label}
     </div>
@@ -193,11 +196,12 @@ export function Badge({ children, tone = 'blue', className = '' }) {
     blue: 'bg-[#dbe1ff] text-[#003ea8]',
     purple: 'bg-[#eaddff] text-[#5a00c6]',
     green: 'bg-green-100 text-green-700',
+    gray: 'bg-[#f2f4f6] text-[#737686]',
   }
 
   return (
     <span
-      className={`inline-flex rounded px-2 py-1 text-xs font-bold uppercase ${tones[tone]} ${className}`}
+      className={`inline-flex rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${tones[tone]} ${className}`}
     >
       {children}
     </span>
@@ -205,17 +209,19 @@ export function Badge({ children, tone = 'blue', className = '' }) {
 }
 
 export function Status({ value }) {
-  const color =
-    value === 'Locked'
-      ? 'text-[#ba1a1a]'
-      : value === 'Pending'
-        ? 'text-[#6a1edb]'
-        : 'text-[#008a3d]'
+  const normalized = String(value).toUpperCase();
+  const configs = {
+    LOCKED: { color: 'text-[#ba1a1a]', label: 'Locked' },
+    PENDING: { color: 'text-[#6a1edb]', label: 'Pending' },
+    ACTIVE: { color: 'text-[#008a3d]', label: 'Active' },
+  }
+
+  const config = configs[normalized] || { color: 'text-[#737686]', label: normalized };
 
   return (
-    <span className={`inline-flex items-center gap-2 text-sm font-bold ${color}`}>
+    <span className={`inline-flex items-center gap-2 text-sm font-bold ${config.color}`}>
       <span className="size-2 rounded-full bg-current" />
-      {value}
+      {config.label}
     </span>
   )
 }
