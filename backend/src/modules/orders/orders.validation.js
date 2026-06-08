@@ -10,19 +10,23 @@ const checkoutSchema = z.object({
     .regex(/^(0|\+84)(3|5|7|8|9)[0-9]{8}$/)
     .optional()
     .nullable(),
+  promo_code: z.string().trim().max(50).optional().nullable(),
   items: z
     .array(
       z.object({
         ticket_type_id: z.string().uuid(),
         quantity: z.coerce.number().int().min(1).max(10),
-        session_seat_ids: z.array(z.string().uuid()).optional(),
-        attendee_name: z.string().trim().min(2).max(255),
-        attendee_email: z.string().trim().email().max(255),
+        session_seat_ids: z.array(z.string().uuid()).optional().default([]),
       }),
     )
     .min(1),
 });
 
+const orderIdParamSchema = z.object({
+  orderId: z.string().uuid(),
+});
+
 module.exports = {
   checkoutSchema,
+  orderIdParamSchema,
 };
