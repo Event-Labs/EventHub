@@ -1,6 +1,20 @@
 const db = require('../../infrastructure/database/db.client');
 
 class NotificationsRepository {
+  async findOrganizerByUserId(userId) {
+    const { rows } = await db.query(
+      `
+      SELECT id, user_id, organization_name, status
+      FROM organizers
+      WHERE user_id = $1
+        AND status = 'ACTIVE'
+      LIMIT 1
+      `,
+      [userId],
+    );
+    return rows[0];
+  }
+
   async createNotification({ userId, eventId = null, title, content, type = 'SYSTEM' }) {
     const { rows } = await db.query(
       `

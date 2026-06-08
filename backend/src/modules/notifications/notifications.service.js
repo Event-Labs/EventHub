@@ -115,15 +115,26 @@ class NotificationsService {
   }
 
   async listOrganizerEvents(organizerId) {
-    return notificationsRepository.findOrganizerEvents(organizerId);
+    const organizer = await this.getActiveOrganizerProfile(organizerId);
+    return notificationsRepository.findOrganizerEvents(organizer.id);
   }
 
   async listAnnouncements(organizerId) {
-    return notificationsRepository.listAnnouncements(organizerId);
+    const organizer = await this.getActiveOrganizerProfile(organizerId);
+    return notificationsRepository.listAnnouncements(organizer.id);
+  }
+
+  async getActiveOrganizerProfile(userId) {
+    const organizer = await notificationsRepository.findOrganizerByUserId(userId);
+    if (!organizer) {
+      throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    return organizer;
   }
 
   async sendAnnouncement(organizerId, payload) {
-    const event = await notificationsRepository.findOrganizerEvent(payload.event_id, organizerId);
+    const organizer = await this.getActiveOrganizerProfile(organizerId);
+    const event = await notificationsRepository.findOrganizerEvent(payload.event_id, organizer.id);
     if (!event) {
       throw new AppError('Event not found or not owned by organizer', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
@@ -131,7 +142,7 @@ class NotificationsService {
     const channels = new Set(payload.channels);
     const announcement = await notificationsRepository.createAnnouncement({
       eventId: payload.event_id,
-      organizerId,
+      organizerId: organizer.id,
       title: payload.title,
       content: payload.content,
     });

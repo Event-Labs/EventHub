@@ -42,6 +42,14 @@ function mapOrganizerEvent(row) {
 }
 
 class FeedbacksService {
+  async getActiveOrganizerProfile(userId) {
+    const organizer = await feedbacksRepository.findOrganizerByUserId(userId);
+    if (!organizer) {
+      throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    return organizer;
+  }
+
   async assertOrganizerOwnsEvent(organizerId, eventId) {
     const event = await feedbacksRepository.findEventById(eventId);
     if (!event || event.deleted_at) {
@@ -115,12 +123,14 @@ class FeedbacksService {
   }
 
   async getOrganizerEvents(organizerId) {
-    const rows = await feedbacksRepository.findOrganizerEvents(organizerId);
+    const organizer = await this.getActiveOrganizerProfile(organizerId);
+    const rows = await feedbacksRepository.findOrganizerEvents(organizer.id);
     return rows.map(mapOrganizerEvent);
   }
 
   async getEventFeedbackReport(organizerId, eventId) {
-    const event = await this.assertOrganizerOwnsEvent(organizerId, eventId);
+    const organizer = await this.getActiveOrganizerProfile(organizerId);
+    const event = await this.assertOrganizerOwnsEvent(organizer.id, eventId);
     const summary = await feedbacksRepository.getReportSummary(eventId);
     const feedbacks = await feedbacksRepository.findByEventForOrganizer(eventId);
 
