@@ -8,14 +8,24 @@ function mapSubscription(row) {
   return {
     ...row,
     price: Number(row.price),
-    duration_days: Number(row.duration_days || 30),
     event_limit: Number(row.event_limit || 0),
     staff_limit: Number(row.staff_limit || 0),
+    max_active_events: Number(row.max_active_events || 0),
+    max_tickets_per_event: Number(row.max_tickets_per_event || 0),
+    max_staff_per_event: Number(row.max_staff_per_event || 0),
+    max_ticket_types_per_event: Number(row.max_ticket_types_per_event || 0),
+    max_promo_codes_per_event: Number(row.max_promo_codes_per_event || 0),
     subscriber_count: Number(row.subscriber_count || 0),
-    features: Array.isArray(row.features) ? row.features : [],
-    is_active: Boolean(row.is_active),
+    promo_code_enabled: Boolean(row.promo_code_enabled),
+    seat_map_enabled: Boolean(row.seat_map_enabled),
+    manual_checkin_enabled: Boolean(row.manual_checkin_enabled),
+    attendee_export_enabled: Boolean(row.attendee_export_enabled),
+    advanced_analytics_enabled: Boolean(row.advanced_analytics_enabled),
+    ai_report_enabled: Boolean(row.ai_report_enabled),
+    custom_branding_enabled: Boolean(row.custom_branding_enabled),
     analytics_enabled: Boolean(row.analytics_enabled),
     priority_support: Boolean(row.priority_support),
+    is_active: Boolean(row.is_active),
   };
 }
 
