@@ -153,13 +153,22 @@ export function EventDetailPage() {
   const handleBook = () => {
     if (requireLogin()) return
     if (selectedTicketItems.length === 0) return
+    const sessionMap = new Map((event.sessions || []).map((session) => [String(session.id), session]))
     navigate('/booking/seats', {
       state: {
         cart: {
           eventId: event.id,
           eventTitle: event.title,
           eventSlug: event.slug,
-          items: selectedTicketItems,
+          eventStartTime: event.start_time,
+          eventEndTime: event.end_time,
+          venueSummary: event.venue?.summary || venueSummary(firstVenue),
+          holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          availableTicketTypes: event.ticket_types || [],
+          items: selectedTicketItems.map((item) => ({
+            ...item,
+            session: sessionMap.get(String(item.ticketType.event_session_id)),
+          })),
         },
       },
     })

@@ -243,6 +243,56 @@ class EventsRepository {
     return rows[0];
   }
 
+  async findSessionSeats(sessionId, ticketTypeId = null) {
+    const params = [sessionId];
+    const ticketTypeJoin = ticketTypeId
+      ? `
+        LEFT JOIN ticket_type_seats tts
+          ON tts.seat_id = s.id
+         AND tts.ticket_type_id = $2
+      `
+      : '';
+    const ticketTypeWhere = ticketTypeId
+      ? `
+        AND (
+          NOT EXISTS (SELECT 1 FROM ticket_type_seats WHERE ticket_type_id = $2)
+          OR tts.ticket_type_id IS NOT NULL
+        )
+      `
+      : '';
+
+    if (ticketTypeId) params.push(ticketTypeId);
+
+    const { rows } = await db.query(
+      `
+      SELECT
+        ss.id AS session_seat_id,
+        ss.status,
+        ss.held_until,
+        s.id AS seat_id,
+        s.row_label,
+        s.seat_number,
+        s.x_position,
+        s.y_position,
+        s.is_disabled,
+        st.name AS seat_type_name,
+        st.color AS seat_type_color,
+        sm.rows_count,
+        sm.cols_count
+      FROM session_seats ss
+      JOIN seats s ON s.id = ss.seat_id
+      JOIN seat_maps sm ON sm.id = s.seat_map_id
+      LEFT JOIN seat_types st ON st.id = s.seat_type_id
+      ${ticketTypeJoin}
+      WHERE ss.event_session_id = $1
+        ${ticketTypeWhere}
+      ORDER BY s.row_label ASC, s.seat_number ASC
+      `,
+      params,
+    );
+    return rows;
+  }
+
   async findFavoriteEvents(userId) {
     const query = `
       SELECT ${EVENT_CARD_SELECT}, fe.created_at AS favorited_at
