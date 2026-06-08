@@ -147,49 +147,7 @@ export function NotificationsPage() {
   )
 }
 
-export function AIFaqPage() {
-  return (
-    <SimplePage
-      title="EventHub AI FAQ"
-      description="Trợ lý AI hỗ trợ vé, hoàn tiền, địa điểm và lịch trình."
-      accent="text-ai"
-    >
-      <div className="glass-panel mx-auto max-w-4xl rounded-lg p-6">
-        <div className="min-h-80 space-y-4">
-          <Chat
-            who="AI"
-            text="Xin chào, tôi có thể hỗ trợ bạn tải vé, kiểm tra địa điểm hoặc chính sách hoàn tiền."
-          />
-          <Chat who="Bạn" text="Tôi tải vé QR ở đâu?" right />
-        </div>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {[
-            'Làm sao tải vé?',
-            'Tôi có thể hoàn vé không?',
-            'Địa điểm ở đâu?',
-            'Sự kiện bắt đầu lúc mấy giờ?',
-          ].map((q) => (
-            <button
-              key={q}
-              className="rounded-full border border-ai/40 px-3 py-2 text-sm text-ai"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-3">
-          <input
-            className="flex-1 rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-ai"
-            placeholder="Nhập câu hỏi..."
-          />
-          <button className="rounded-md bg-ai px-5 py-3 font-bold text-white">
-            Gửi
-          </button>
-        </div>
-      </div>
-    </SimplePage>
-  )
-}
+export { AIFaqPage } from '@/pages/customer/AIFaqPage.jsx'
 
 export { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
 

@@ -13,6 +13,7 @@ const centerNavItems = [
   ['Sự kiện', '/events'],
   ['Vé của tôi', '/my-tickets'],
   ['Phản hồi', '/feedback'],
+  ['ChatBox', '/ai-faq'],
 ]
 
 const navLinkClass = ({ isActive }) =>
@@ -218,6 +219,7 @@ export function AppLayout() {
                     src={currentUser.avatar_url}
                     alt={currentUser.full_name || 'Tài khoản'}
                     className="size-full rounded-full object-cover"
+                    crossOrigin="anonymous"
                   />
                 ) : (
                   <UserCircle className="size-7" />
