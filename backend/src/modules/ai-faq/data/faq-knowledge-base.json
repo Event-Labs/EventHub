@@ -1,0 +1,111 @@
+{
+  "version": "1.0.0",
+  "domain": "EventHub Platform FAQ",
+  "articles": [
+    {
+      "id": "ticket-download",
+      "category": "tickets",
+      "title": "Tải vé và mã QR",
+      "keywords": ["tải vé", "download", "qr", "mã vé", "ticket code", "in vé"],
+      "content": "Sau khi thanh toán thành công, vé được lưu tại mục Vé của tôi (/my-tickets). Mỗi vé có mã ticket_code và QR dùng khi check-in. Hiện tại bạn có thể xem mã vé trên trang chi tiết vé; tính năng tải PDF sẽ được bổ sung trong bản cập nhật tiếp theo."
+    },
+    {
+      "id": "ticket-transfer",
+      "category": "tickets",
+      "title": "Chuyển nhượng vé",
+      "keywords": ["chuyển nhượng", "transfer", "đổi tên", "attendee"],
+      "content": "Theo chính sách EventHub, vé không thể chuyển nhượng sau khi đăng ký thông tin người tham dự. Vui lòng kiểm tra kỹ email và họ tên trước khi thanh toán."
+    },
+    {
+      "id": "payment-methods",
+      "category": "payment",
+      "title": "Phương thức thanh toán",
+      "keywords": ["thanh toán", "payment", "vnpay", "momo", "payos", "trả tiền"],
+      "content": "EventHub hỗ trợ thanh toán trực tuyến qua VNPAY, PayOS, MoMo tùy sự kiện. Trong môi trường demo/capstone, hệ thống có thể dùng thanh toán mô phỏng (CASH/MANUAL) để phát hành vé ngay sau checkout."
+    },
+    {
+      "id": "payment-failed",
+      "category": "payment",
+      "title": "Thanh toán thất bại",
+      "keywords": ["thất bại", "failed", "lỗi thanh toán", "pending"],
+      "content": "Nếu thanh toán thất bại, đơn hàng ở trạng thái PENDING hoặc EXPIRED và vé chưa được phát hành. Bạn có thể tạo đơn mới. Nếu tiền đã bị trừ, liên hệ hỗ trợ kèm mã order_code trong email xác nhận."
+    },
+    {
+      "id": "refund-policy",
+      "category": "refund",
+      "title": "Chính sách hoàn vé",
+      "keywords": ["hoàn vé", "refund", "hoàn tiền", "hủy vé"],
+      "content": "Yêu cầu hoàn vé được xử lý theo chính sách từng sự kiện. Quy tắc phổ biến: hoàn trước ngày diễn 7 ngày, trừ phí xử lý khoảng 5%. Gửi yêu cầu tại mục Yêu cầu hoàn vé (/request-refund) khi tính năng được kích hoạt."
+    },
+    {
+      "id": "refund-status",
+      "category": "refund",
+      "title": "Theo dõi trạng thái hoàn tiền",
+      "keywords": ["trạng thái hoàn", "refund status", "đang xử lý"],
+      "content": "Sau khi gửi yêu cầu hoàn vé, trạng thái gồm: Đã gửi → Đang xét duyệt → Hoàn tiền về phương thức thanh toán. Thời gian xử lý thường 3–7 ngày làm việc tùy cổng thanh toán."
+    },
+    {
+      "id": "checkin-qr",
+      "category": "checkin",
+      "title": "Check-in bằng QR",
+      "keywords": ["check-in", "checkin", "qr", "quét mã", "vào cổng"],
+      "content": "Tại sự kiện, nhân viên quét mã QR trên vé của bạn. Vé phải ở trạng thái VALID, đúng sự kiện và chưa được sử dụng. Sau check-in thành công, trạng thái chuyển sang USED."
+    },
+    {
+      "id": "checkin-manual",
+      "category": "checkin",
+      "title": "Check-in thủ công",
+      "keywords": ["check-in thủ công", "manual", "mất qr", "ticket code"],
+      "content": "Nếu không quét được QR, nhân viên có thể tra cứu vé bằng mã ticket_code, email hoặc số điện thoại người mua tại quầy hỗ trợ sự kiện."
+    },
+    {
+      "id": "event-location",
+      "category": "events",
+      "title": "Địa điểm sự kiện",
+      "keywords": ["địa điểm", "location", "venue", "chỗ nào", "ở đâu", "bản đồ"],
+      "content": "Địa điểm hiển thị trên trang chi tiết sự kiện (/events/:id), gồm tên venue, địa chỉ, quận/huyện, thành phố. Một số sự kiện có nhiều suất diễn với địa điểm khác nhau — hãy kiểm tra đúng session bạn đã mua vé."
+    },
+    {
+      "id": "event-schedule",
+      "category": "events",
+      "title": "Lịch trình sự kiện",
+      "keywords": ["giờ", "lịch", "schedule", "bắt đầu", "kết thúc", "mấy giờ"],
+      "content": "Thời gian bắt đầu và kết thúc nằm trên trang sự kiện và trong vé của bạn. Giờ check-in thường mở trước giờ diễn 60–90 phút tùy ban tổ chức."
+    },
+    {
+      "id": "account-login",
+      "category": "account",
+      "title": "Đăng nhập và tài khoản",
+      "keywords": ["đăng nhập", "login", "google", "mật khẩu", "quên mật khẩu"],
+      "content": "Bạn có thể đăng nhập bằng email/mật khẩu hoặc Google. Quên mật khẩu: dùng chức năng Quên mật khẩu (/forgot-password) để nhận link đặt lại qua email."
+    },
+    {
+      "id": "organizer-request",
+      "category": "account",
+      "title": "Đăng ký làm ban tổ chức",
+      "keywords": ["organizer", "ban tổ chức", "btc", "tạo sự kiện"],
+      "content": "Khách hàng gửi yêu cầu tại /organizer-request. Admin duyệt yêu cầu và cấp role ORGANIZER. Sau khi được duyệt, đăng xuất và đăng nhập lại để truy cập khu vực Organizer (/organizer)."
+    },
+    {
+      "id": "feedback-event",
+      "category": "engagement",
+      "title": "Phản hồi sau sự kiện",
+      "keywords": ["phản hồi", "feedback", "đánh giá", "rating", "sao"],
+      "content": "Sau khi sự kiện kết thúc và bạn có vé hợp lệ, gửi đánh giá tại /feedback. Mỗi sự kiện chỉ đánh giá một lần. Ban tổ chức xem báo cáo tại /organizer/reports."
+    },
+    {
+      "id": "favorites",
+      "category": "engagement",
+      "title": "Sự kiện yêu thích",
+      "keywords": ["yêu thích", "favorite", "lưu sự kiện"],
+      "content": "Nhấn biểu tượng tim trên thẻ sự kiện để lưu vào danh sách Yêu thích (/favorites). Cần đăng nhập để đồng bộ danh sách."
+    },
+    {
+      "id": "support-contact",
+      "category": "support",
+      "title": "Liên hệ hỗ trợ",
+      "keywords": ["hỗ trợ", "support", "liên hệ", "hotline", "email"],
+      "content": "Nếu AI FAQ không giải đáp được, liên hệ EventHub Support qua email hỗ trợ trong footer hoặc mục Phản hồi. Cung cấp order_code hoặc ticket_code để được xử lý nhanh hơn."
+    }
+  ]
+}
