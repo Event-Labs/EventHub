@@ -3,14 +3,23 @@ const db = require('../../infrastructure/database/db.client');
 const SUBSCRIPTION_SELECT = `
   s.id,
   s.name,
-  s.description,
   s.price,
-  s.duration_days,
   s.event_limit,
   s.staff_limit,
+  s.max_active_events,
+  s.max_tickets_per_event,
+  s.max_staff_per_event,
+  s.max_ticket_types_per_event,
+  s.max_promo_codes_per_event,
+  s.promo_code_enabled,
+  s.seat_map_enabled,
+  s.manual_checkin_enabled,
+  s.attendee_export_enabled,
+  s.advanced_analytics_enabled,
+  s.ai_report_enabled,
+  s.custom_branding_enabled,
   s.analytics_enabled,
   s.priority_support,
-  s.features,
   s.is_active,
   s.created_at,
   s.updated_at,
@@ -51,28 +60,46 @@ class SubscriptionsRepository {
     const { rows } = await db.query(`
       INSERT INTO subscriptions (
         name,
-        description,
         price,
-        duration_days,
         event_limit,
         staff_limit,
+        max_active_events,
+        max_tickets_per_event,
+        max_staff_per_event,
+        max_ticket_types_per_event,
+        max_promo_codes_per_event,
+        promo_code_enabled,
+        seat_map_enabled,
+        manual_checkin_enabled,
+        attendee_export_enabled,
+        advanced_analytics_enabled,
+        ai_report_enabled,
+        custom_branding_enabled,
         analytics_enabled,
         priority_support,
-        features,
         is_active
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING id
     `, [
       payload.name,
-      payload.description || null,
       payload.price,
-      payload.duration_days,
       payload.event_limit,
       payload.staff_limit,
+      payload.max_active_events,
+      payload.max_tickets_per_event,
+      payload.max_staff_per_event,
+      payload.max_ticket_types_per_event,
+      payload.max_promo_codes_per_event,
+      payload.promo_code_enabled,
+      payload.seat_map_enabled,
+      payload.manual_checkin_enabled,
+      payload.attendee_export_enabled,
+      payload.advanced_analytics_enabled,
+      payload.ai_report_enabled,
+      payload.custom_branding_enabled,
       payload.analytics_enabled,
       payload.priority_support,
-      JSON.stringify(payload.features || []),
       payload.is_active,
     ]);
 
@@ -89,14 +116,23 @@ class SubscriptionsRepository {
     };
 
     if (updates.name !== undefined) addSet('name', updates.name);
-    if (updates.description !== undefined) addSet('description', updates.description || null);
     if (updates.price !== undefined) addSet('price', updates.price);
-    if (updates.duration_days !== undefined) addSet('duration_days', updates.duration_days);
     if (updates.event_limit !== undefined) addSet('event_limit', updates.event_limit);
     if (updates.staff_limit !== undefined) addSet('staff_limit', updates.staff_limit);
+    if (updates.max_active_events !== undefined) addSet('max_active_events', updates.max_active_events);
+    if (updates.max_tickets_per_event !== undefined) addSet('max_tickets_per_event', updates.max_tickets_per_event);
+    if (updates.max_staff_per_event !== undefined) addSet('max_staff_per_event', updates.max_staff_per_event);
+    if (updates.max_ticket_types_per_event !== undefined) addSet('max_ticket_types_per_event', updates.max_ticket_types_per_event);
+    if (updates.max_promo_codes_per_event !== undefined) addSet('max_promo_codes_per_event', updates.max_promo_codes_per_event);
+    if (updates.promo_code_enabled !== undefined) addSet('promo_code_enabled', updates.promo_code_enabled);
+    if (updates.seat_map_enabled !== undefined) addSet('seat_map_enabled', updates.seat_map_enabled);
+    if (updates.manual_checkin_enabled !== undefined) addSet('manual_checkin_enabled', updates.manual_checkin_enabled);
+    if (updates.attendee_export_enabled !== undefined) addSet('attendee_export_enabled', updates.attendee_export_enabled);
+    if (updates.advanced_analytics_enabled !== undefined) addSet('advanced_analytics_enabled', updates.advanced_analytics_enabled);
+    if (updates.ai_report_enabled !== undefined) addSet('ai_report_enabled', updates.ai_report_enabled);
+    if (updates.custom_branding_enabled !== undefined) addSet('custom_branding_enabled', updates.custom_branding_enabled);
     if (updates.analytics_enabled !== undefined) addSet('analytics_enabled', updates.analytics_enabled);
     if (updates.priority_support !== undefined) addSet('priority_support', updates.priority_support);
-    if (updates.features !== undefined) addSet('features', JSON.stringify(updates.features), '::jsonb');
     if (updates.is_active !== undefined) addSet('is_active', updates.is_active);
 
     values.push(id);
@@ -112,7 +148,7 @@ class SubscriptionsRepository {
   async softDelete(id) {
     const { rowCount } = await db.query(`
       UPDATE subscriptions
-      SET is_active = false, deleted_at = now(), updated_at = now()
+      SET deleted_at = now(), updated_at = now()
       WHERE id = $1 AND deleted_at IS NULL
     `, [id]);
     return rowCount > 0;
