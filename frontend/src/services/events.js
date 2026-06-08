@@ -35,6 +35,11 @@ export async function fetchEventDetail(identifier) {
   return response.data.data
 }
 
+export async function fetchSessionSeats(sessionId, params = {}) {
+  const response = await http.get(`/events/sessions/${sessionId}/seats`, { params })
+  return response.data.data
+}
+
 export async function fetchFavoriteEvents() {
   const response = await http.get('/events/favorites/me')
   return response.data.data

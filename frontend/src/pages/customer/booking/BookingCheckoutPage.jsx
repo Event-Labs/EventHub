@@ -7,7 +7,7 @@ import { getProfile } from '@/services/user.service.js'
 
 function formatPrice(value) {
   const number = Number(value)
-  if (Number.isNaN(number)) return '0 đ'
+  if (!Number.isFinite(number)) return '0 đ'
   return `${number.toLocaleString('vi-VN')} đ`
 }
 
@@ -20,7 +20,6 @@ export function BookingCheckoutPage() {
   const [buyerName, setBuyerName] = useState('')
   const [buyerEmail, setBuyerEmail] = useState('')
   const [buyerPhone, setBuyerPhone] = useState('')
-  const [attendees, setAttendees] = useState({})
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -46,7 +45,6 @@ export function BookingCheckoutPage() {
   }, [buyerEmail, isAuthenticated])
 
   const lineItems = useMemo(() => cart?.items || [], [cart])
-
   const total = lineItems.reduce(
     (sum, item) => sum + Number(item.ticketType.price || 0) * item.quantity,
     0,
@@ -55,11 +53,10 @@ export function BookingCheckoutPage() {
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
-      navigate('/payment-confirmation', {
+      navigate(`/payment-confirmation?orderId=${data.order.id}`, {
         replace: true,
         state: {
-          order: data.order,
-          tickets: data.tickets,
+          checkout: data,
           eventTitle: cart.eventTitle,
         },
       })
@@ -69,42 +66,26 @@ export function BookingCheckoutPage() {
       if (apiError?.errors && Array.isArray(apiError.errors)) {
         setError(apiError.errors.map((item) => item.message).join(', '))
       } else {
-        setError(apiError?.message || 'Thanh toán thất bại. Vui lòng thử lại.')
+        setError(apiError?.message || 'Không thể tạo đơn thanh toán. Vui lòng thử lại.')
       }
     },
   })
 
-  const updateAttendee = (ticketTypeId, field, value) => {
-    setAttendees((current) => ({
-      ...current,
-      [ticketTypeId]: {
-        ...current[ticketTypeId],
-        [field]: value,
-      },
-    }))
-  }
-
   const handleSubmit = (event) => {
     event.preventDefault()
     setError('')
-
-    const items = lineItems.map((item) => {
-      const attendee = attendees[item.ticketType.id] || {}
-      return {
-        ticket_type_id: item.ticketType.id,
-        quantity: item.quantity,
-        session_seat_ids: item.sessionSeatIds || item.session_seat_ids,
-        attendee_name: attendee.name?.trim() || buyerName.trim(),
-        attendee_email: attendee.email?.trim() || buyerEmail.trim(),
-      }
-    })
 
     checkoutMutation.mutate({
       event_id: cart.eventId,
       buyer_name: buyerName.trim(),
       buyer_email: buyerEmail.trim(),
       buyer_phone: buyerPhone.trim() || null,
-      items,
+      promo_code: cart.promoCode?.trim() || null,
+      items: lineItems.map((item) => ({
+        ticket_type_id: item.ticketType.id,
+        quantity: item.quantity,
+        session_seat_ids: item.sessionSeatIds || item.session_seat_ids || [],
+      })),
     })
   }
 
@@ -113,7 +94,7 @@ export function BookingCheckoutPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <SectionHeader
-        title="Thanh toán"
+        title="Xác nhận đặt vé"
         description={`Đơn hàng cho sự kiện: ${cart.eventTitle}`}
       />
 
@@ -139,33 +120,32 @@ export function BookingCheckoutPage() {
             </div>
           </section>
 
-          {lineItems.map((item) => (
-            <section key={item.ticketType.id} className="glass-panel rounded-lg p-6">
-              <h3 className="font-bold text-primary">
-                {item.ticketType.name} × {item.quantity}
-              </h3>
-              <p className="mt-1 text-sm text-muted">
-                {formatPrice(item.ticketType.price)} / vé
-              </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Tên người tham dự"
-                  value={attendees[item.ticketType.id]?.name || ''}
-                  onChange={(value) => updateAttendee(item.ticketType.id, 'name', value)}
-                  placeholder={buyerName || 'Nhập tên'}
-                  required
-                />
-                <Field
-                  label="Email người tham dự"
-                  type="email"
-                  value={attendees[item.ticketType.id]?.email || ''}
-                  onChange={(value) => updateAttendee(item.ticketType.id, 'email', value)}
-                  placeholder={buyerEmail || 'email@example.com'}
-                  required
-                />
-              </div>
-            </section>
-          ))}
+          <section className="glass-panel rounded-lg p-6">
+            <h2 className="font-display text-xl font-bold text-white">Vé đã chọn</h2>
+            <div className="mt-4 space-y-3">
+              {lineItems.map((item) => (
+                <div
+                  key={item.ticketType.id}
+                  className="rounded-md border border-border-soft bg-panel-soft p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="font-bold text-white">{item.ticketType.name}</h3>
+                      <p className="mt-1 text-sm text-muted">
+                        Số lượng: {item.quantity}
+                        {(item.sessionSeatIds || item.session_seat_ids)?.length
+                          ? ` • ${item.quantity} ghế đã chọn`
+                          : ''}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-primary">
+                      {formatPrice(Number(item.ticketType.price || 0) * item.quantity)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
           {error && <p className="text-sm text-error">{error}</p>}
         </div>
@@ -185,20 +165,28 @@ export function BookingCheckoutPage() {
             ))}
           </ul>
           <div className="mt-4 flex justify-between border-t border-border-soft pt-4 font-bold text-white">
-            <span>Tổng</span>
+            <span>Tổng tiền</span>
             <span className="text-primary">{formatPrice(total)}</span>
           </div>
+          {cart.promoCode && (
+            <p className="mt-3 rounded-md border border-tertiary/30 bg-tertiary/10 p-3 text-xs font-semibold text-tertiary">
+              Promo: {cart.promoCode}
+            </p>
+          )}
           <p className="mt-3 text-xs text-subtle">
-            Thanh toán mô phỏng (lưu vào orders, tickets, payments trong database).
+            Backend sẽ giữ vé trong 15 phút, tạo đơn Pending và mở thanh toán PayOS của ban tổ chức.
           </p>
           <button
             type="submit"
             disabled={checkoutMutation.isPending}
-            className="mt-5 w-full rounded-md bg-primary py-3 text-sm font-bold text-slate-950 disabled:opacity-60"
+            className="mt-5 w-full rounded-md bg-tertiary py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:opacity-60"
           >
-            {checkoutMutation.isPending ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
+            {checkoutMutation.isPending ? 'Đang giữ vé...' : 'Thanh toán qua PayOS'}
           </button>
-          <Link to={`/events/${cart.eventSlug || cart.eventId}`} className="mt-3 block text-center text-sm text-muted hover:text-primary">
+          <Link
+            to={`/events/${cart.eventSlug || cart.eventId}`}
+            className="mt-3 block text-center text-sm text-muted hover:text-primary"
+          >
             Quay lại sự kiện
           </Link>
         </aside>

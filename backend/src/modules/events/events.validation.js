@@ -23,8 +23,18 @@ const favoriteEventSchema = z.object({
   eventId: z.string().trim().min(1),
 });
 
+const sessionSeatsSchema = z.object({
+  sessionId: z.string().uuid(),
+});
+
+const sessionSeatsQuerySchema = z.object({
+  ticket_type_id: z.string().uuid().optional(),
+});
+
 module.exports = {
   listEventsSchema,
   eventIdentifierSchema,
   favoriteEventSchema,
+  sessionSeatsSchema,
+  sessionSeatsQuerySchema,
 };

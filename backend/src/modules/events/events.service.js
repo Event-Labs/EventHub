@@ -123,6 +123,34 @@ class EventsService {
     return mapDetail(event);
   }
 
+  async getSessionSeats(sessionId, query) {
+    const rows = await eventsRepository.findSessionSeats(sessionId, query.ticket_type_id);
+    const first = rows[0];
+    return {
+      seat_map: first
+        ? {
+            rows_count: first.rows_count,
+            cols_count: first.cols_count,
+          }
+        : null,
+      seats: rows.map((row) => ({
+        session_seat_id: row.session_seat_id,
+        seat_id: row.seat_id,
+        row_label: row.row_label,
+        seat_number: row.seat_number,
+        label: `${row.row_label}${row.seat_number}`,
+        x_position: row.x_position,
+        y_position: row.y_position,
+        is_disabled: Boolean(row.is_disabled),
+        status: row.is_disabled ? 'BLOCKED' : row.status,
+        held_until: row.held_until,
+        seat_type: row.seat_type_name
+          ? { name: row.seat_type_name, color: row.seat_type_color }
+          : null,
+      })),
+    };
+  }
+
   async getFavoriteEvents(userId) {
     const rows = await eventsRepository.findFavoriteEvents(userId);
     return rows.map(mapCard);
