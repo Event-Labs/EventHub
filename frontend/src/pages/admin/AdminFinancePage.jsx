@@ -426,7 +426,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
             type="file"
             accept="application/pdf"
             onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })}
-            className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-2 text-sm"
+            className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-2 text-sm font-semibold text-[#111827] file:mr-3 file:rounded file:border-0 file:bg-[#e8f7ff] file:px-3 file:py-1 file:text-sm file:font-bold file:text-[#0057c2]"
           />
         </label>
         <label className="flex items-center gap-3 text-sm font-semibold text-[#434655] lg:col-span-2">
@@ -469,14 +469,16 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
 function Modal({ title, onClose, children, wide = false }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
-      <div className={`max-h-[90vh] w-full overflow-y-auto rounded-md border border-[#c3c6d7] bg-white p-5 shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-2xl'}`}>
-        <div className="mb-5 flex items-start justify-between gap-4">
+      <div className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-[#c3c6d7] bg-white shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-2xl'}`}>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e0e3e5] bg-white px-5 py-4">
           <h3 className="text-xl font-extrabold text-[#111827]">{title}</h3>
           <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
             <X className="size-4" />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          {children}
+        </div>
       </div>
     </div>
   )
@@ -524,7 +526,7 @@ function TextInput({ label, value, onChange, ...props }) {
   return (
     <label className="block">
       <span className="text-xs font-bold text-[#434655]">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold outline-none focus:border-primary" {...props} />
+      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#111827] placeholder:text-[#737686] outline-none focus:border-primary" {...props} />
     </label>
   )
 }
@@ -537,7 +539,7 @@ function SelectInput({ label, value, options, onChange }) {
   return (
     <label className="block">
       <span className="text-xs font-bold text-[#434655]">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold outline-none focus:border-primary">
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#111827] outline-none focus:border-primary">
         {options.map(([optionValue, labelText]) => (
           <option key={optionValue || 'empty'} value={optionValue}>{labelText}</option>
         ))}
@@ -550,7 +552,7 @@ function TextareaInput({ label, value, onChange, rows = 4 }) {
   return (
     <label className="block">
       <span className="text-xs font-bold text-[#434655]">{label}</span>
-      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full resize-none rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-3 text-sm outline-none focus:border-primary" />
+      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full resize-none rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-3 text-sm font-semibold text-[#111827] placeholder:text-[#737686] outline-none focus:border-primary" />
     </label>
   )
 }
