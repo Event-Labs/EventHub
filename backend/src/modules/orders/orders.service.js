@@ -121,6 +121,7 @@ class OrdersService {
     const result = await ordersRepository.checkout({
       userId,
       eventId: payload.event_id,
+      organizerId: event.organizer_id,
       buyer: {
         name: payload.buyer_name,
         email: payload.buyer_email.toLowerCase(),
