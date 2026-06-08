@@ -53,7 +53,6 @@ function StatusBanner({ request }) {
   }
 
   const config = statusConfig[request.status] || statusConfig.PENDING
-
   const Icon = config.icon
 
   return (
@@ -170,7 +169,7 @@ export function OrganizerRequestPage() {
     return (
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <SectionHeader
-          title="Yêu cầu trở thành ban tổ chức"
+          title="Đăng ký trở thành ban tổ chức"
           description="Đang tải dữ liệu từ hệ thống..."
         />
         <p className="text-sm text-muted">Vui lòng đợi trong giây lát.</p>
@@ -182,7 +181,7 @@ export function OrganizerRequestPage() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <SectionHeader
-          title="Yêu cầu trở thành ban tổ chức"
+          title="Đăng ký trở thành ban tổ chức"
           description="Tài khoản của bạn đã có quyền Organizer"
         />
         <div className="glass-panel rounded-lg p-6 text-center">
@@ -192,7 +191,7 @@ export function OrganizerRequestPage() {
           </p>
           <Link
             to="/organizer"
-            className="mt-5 inline-flex rounded-md bg-primary px-5 py-3 text-sm font-bold text-slate-950"
+            className="mt-5 inline-flex rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-orange-400 active:scale-[0.98]"
           >
             Mở Organizer Portal
           </Link>
@@ -204,7 +203,7 @@ export function OrganizerRequestPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <SectionHeader
-        title="Yêu cầu trở thành ban tổ chức"
+        title="Đăng ký trở thành ban tổ chức"
         description="Gửi thông tin tổ chức để Admin xét duyệt và cấp quyền Organizer"
       />
 
@@ -255,13 +254,15 @@ export function OrganizerRequestPage() {
               {error && <p className="text-sm text-error">{error}</p>}
               {success && <p className="text-sm text-success">{success}</p>}
 
-              <button
-                type="submit"
-                disabled={submitMutation.isPending}
-                className="rounded-md bg-primary px-5 py-3 text-sm font-bold text-slate-950 disabled:opacity-60"
-              >
-                {submitMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
-              </button>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={submitMutation.isPending}
+                  className="rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-orange-400 active:scale-[0.98] disabled:opacity-60"
+                >
+                  {submitMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                </button>
+              </div>
             </form>
           )}
         </section>

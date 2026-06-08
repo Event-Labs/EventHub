@@ -1,6 +1,7 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const ordersRepository = require('./orders.repository');
+const paymentsService = require('../payments/payments.service');
 
 function normalizePhone(phone) {
   if (!phone) return null;
@@ -8,84 +9,73 @@ function normalizePhone(phone) {
   return phone;
 }
 
-function isSaleOpen(ticketType) {
-  const now = Date.now();
-  const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null;
-  const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null;
-  return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now);
+function mapMoney(value) {
+  return Number(value || 0);
+}
+
+function mapOrderStatus({ order, items }) {
+  return {
+    order: {
+      id: order.id,
+      order_code: order.order_code,
+      status: order.status,
+      subtotal: mapMoney(order.subtotal),
+      discount_amount: mapMoney(order.discount_amount),
+      platform_fee: mapMoney(order.platform_fee),
+      total_amount: mapMoney(order.total_amount),
+      expired_at: order.expired_at,
+      created_at: order.created_at,
+      event: order.event_id
+        ? { id: order.event_id, title: order.event_title, slug: order.event_slug }
+        : null,
+    },
+    payment: order.payment_order_id
+      ? {
+          id: order.payment_order_id,
+          provider_order_code: order.provider_order_code,
+          status: order.payment_status,
+          amount: mapMoney(order.payment_amount),
+          checkout_url: order.checkout_url,
+          qr_code: order.qr_code,
+        }
+      : null,
+    items: items.map((item) => ({
+      id: item.id,
+      ticket_type_id: item.ticket_type_id,
+      ticket_type_name: item.ticket_type_name,
+      quantity: Number(item.quantity),
+      unit_price: mapMoney(item.unit_price),
+      final_price: mapMoney(item.final_price),
+      seat: item.session_seat_id
+        ? {
+            session_seat_id: item.session_seat_id,
+            label: `${item.row_label || ''}${item.seat_number || ''}`,
+          }
+        : null,
+    })),
+  };
 }
 
 class OrdersService {
   async checkout(userId, payload) {
-    const event = await ordersRepository.findEventById(payload.event_id);
-    if (!event || event.deleted_at) {
-      throw new AppError('Event not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
-    }
+    await ordersRepository.expirePendingOrders();
 
-    const ticketTypeIds = payload.items.map((item) => item.ticket_type_id);
-    const ticketTypes = await ordersRepository.findTicketTypesByIds(ticketTypeIds);
-
-    if (ticketTypes.length !== ticketTypeIds.length) {
-      throw new AppError('Invalid ticket items', 400, ErrorCodes.ORDER_INVALID_ITEMS);
-    }
-
-    const ticketTypeMap = new Map(ticketTypes.map((row) => [row.id, row]));
-    let subtotal = 0;
-    const normalizedItems = [];
-
-    for (const item of payload.items) {
-      const ticketType = ticketTypeMap.get(item.ticket_type_id);
-
-      if (!ticketType || ticketType.event_id !== payload.event_id) {
-        throw new AppError(
-          'Ticket type does not belong to this event',
-          400,
-          ErrorCodes.ORDER_INVALID_ITEMS,
-        );
-      }
-
-      if (!isSaleOpen(ticketType)) {
-        throw new AppError(
-          `Ticket "${ticketType.name}" is not on sale`,
-          400,
-          ErrorCodes.ORDER_TICKET_SALE_CLOSED,
-        );
-      }
-
-      if (item.quantity > (ticketType.max_per_order || 10)) {
-        throw new AppError(
-          `Maximum ${ticketType.max_per_order || 10} tickets per order for "${ticketType.name}"`,
-          400,
-          ErrorCodes.ORDER_INVALID_ITEMS,
-        );
-      }
-
-      const sold = await ordersRepository.countSoldTickets(ticketType.id);
-      const remaining = Number(ticketType.quantity) - sold;
-      if (item.quantity > remaining) {
-        throw new AppError(
-          `Not enough tickets available for "${ticketType.name}"`,
-          400,
-          ErrorCodes.ORDER_TICKET_UNAVAILABLE,
-        );
-      }
-
-      const unitPrice = Number(ticketType.price);
-      const lineTotal = unitPrice * item.quantity;
-      subtotal += lineTotal;
-
-      normalizedItems.push({
-        ticket_type_id: ticketType.id,
-        event_session_id: ticketType.event_session_id,
-        quantity: item.quantity,
+    const normalizedItems = payload.items.map((item) => {
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unit_price || item.price || 0);
+      return {
+        ticket_type_id: item.ticket_type_id,
+        session_seat_ids: item.session_seat_ids || [],
+        quantity,
         unit_price: unitPrice,
-        line_total: lineTotal,
-        attendee_name: item.attendee_name,
-        attendee_email: item.attendee_email.toLowerCase(),
-      });
-    }
+        line_total: unitPrice * quantity,
+      };
+    });
 
-    const result = await ordersRepository.checkout({
+    const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
+    const paymentChannel = await paymentsService.getOrganizerPayosChannelForEvent(payload.event_id);
+
+    const created = await ordersRepository.createPendingCheckout({
       userId,
       eventId: payload.event_id,
       buyer: {
@@ -93,55 +83,79 @@ class OrdersService {
         email: payload.buyer_email.toLowerCase(),
         phone: normalizePhone(payload.buyer_phone),
       },
+      promoCode: payload.promo_code,
       items: normalizedItems,
-      totals: { subtotal },
+      totals: {
+        subtotal,
+        total_amount: subtotal,
+      },
+      paymentChannel,
     });
+
+    try {
+      created.paymentOrder = await paymentsService.createTicketOrderPayosLink({
+        paymentOrder: created.paymentOrder,
+        channel: paymentChannel,
+        orderItems: created.orderItems,
+      });
+    } catch (error) {
+      await ordersRepository.cancelOrder(created.order.id);
+      throw new AppError(
+        error.message || 'Unable to create PayOS payment link',
+        502,
+        ErrorCodes.DATABASE_ERROR,
+      );
+    }
 
     return {
       order: {
-        id: result.order.id,
-        order_code: result.order.order_code,
-        status: result.order.status,
-        total_amount: Number(result.order.total_amount),
-        created_at: result.order.created_at,
+        id: created.order.id,
+        order_code: created.order.order_code,
+        status: created.order.status,
+        subtotal: mapMoney(created.order.subtotal),
+        discount_amount: mapMoney(created.order.discount_amount),
+        platform_fee: mapMoney(created.order.platform_fee),
+        total_amount: mapMoney(created.order.total_amount),
+        expired_at: created.order.expired_at,
+        created_at: created.order.created_at,
+        event: created.event,
       },
-      tickets: result.tickets.map((ticket) => ({
-        id: ticket.id,
-        ticket_code: ticket.ticket_code,
-        status: ticket.status,
-        created_at: ticket.created_at,
+      payment: {
+        id: created.paymentOrder.id,
+        provider_order_code: created.paymentOrder.provider_order_code,
+        status: created.paymentOrder.status,
+        checkout_url: created.paymentOrder.checkout_url,
+        qr_code: created.paymentOrder.qr_code,
+        amount: mapMoney(created.paymentOrder.amount),
+      },
+      items: created.orderItems.map((item) => ({
+        ticket_type_id: item.ticket_type_id,
+        ticket_type_name: item.ticket_type_name,
+        quantity: Number(item.quantity),
+        unit_price: mapMoney(item.unit_price),
+        final_price: mapMoney(item.final_price),
       })),
+      hold_minutes: Number(process.env.TICKET_HOLD_MINUTES || 15),
     };
   }
 
-  async getMyTickets(userId) {
-    const rows = await ordersRepository.findTicketsByUserId(userId);
-    return rows.map((row) => ({
-      id: row.id,
-      ticket_code: row.ticket_code,
-      status: row.status,
-      attendee_name: row.attendee_name,
-      attendee_email: row.attendee_email,
-      created_at: row.created_at,
-      checked_in_at: row.checked_in_at,
-      event: {
-        id: row.event_id,
-        title: row.event_title,
-        slug: row.event_slug,
-        start_time: row.event_start_time,
-        end_time: row.event_end_time,
-        thumbnail_url: row.event_thumbnail_url,
-      },
-      ticket_type: {
-        name: row.ticket_type_name,
-        price: Number(row.ticket_type_price),
-      },
-      order: {
-        order_code: row.order_code,
-        created_at: row.order_created_at,
-      },
-    }));
+  async getStatus(userId, orderId) {
+    await ordersRepository.expirePendingOrders();
+    const row = await ordersRepository.findOrderStatus(orderId, userId);
+    if (!row) {
+      throw new AppError('Order not found', 404, ErrorCodes.ORDER_NOT_FOUND);
+    }
+    return mapOrderStatus(row);
   }
+
+  async cancel(userId, orderId) {
+    const order = await ordersRepository.cancelOrder(orderId, userId);
+    if (!order) {
+      throw new AppError('Order not found or cannot be cancelled', 404, ErrorCodes.ORDER_NOT_FOUND);
+    }
+    return { id: order.id, status: order.status };
+  }
+
 }
 
 module.exports = new OrdersService();

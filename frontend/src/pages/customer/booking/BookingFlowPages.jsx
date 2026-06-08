@@ -1,398 +1,777 @@
+import { useMutation, useQuery } from '@tanstack/react-query'
 import {
-  ArrowRight,
   Check,
-  Clock,
-  CreditCard,
-  Minus,
-  Plus,
+  ExternalLink,
+  RefreshCw,
   ShieldCheck,
+  Tag,
+  Ticket,
+  X,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { events, qrImage } from '@/data/events.js'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
+import { fetchSessionSeats } from '@/services/events.js'
+import { getProfile } from '@/services/user.service.js'
 
-const event = events[0]
-const selectedSeats = ['VIP-A 12', 'VIP-A 13']
+function formatPrice(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '0 đ'
+  return `${number.toLocaleString('vi-VN')} đ`
+}
 
-export function BookingTicketsPage() {
-  return (
-    <BookingShell step={1}>
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-        <section>
-          <EventStrip />
-          <h1 className="mb-5 mt-6 font-display text-2xl font-bold text-white">
-            Chọn loại vé
-          </h1>
-          <div className="space-y-4">
-            <TicketType
-              title="VIP Front Row Seating"
-              desc="Ghế trước sân khấu, vào cổng ưu tiên, quà lưu niệm."
-              price="$249.00"
-            />
-            <TicketType
-              title="General Admission"
-              desc="Vé vào khu vực festival tiêu chuẩn."
-              price="$89.00"
-            />
-            <TicketType
-              title="Early Bird Special"
-              desc="Đã bán hết."
-              price="$45.00"
-              disabled
-            />
-          </div>
-        </section>
-        <OrderCard cta="Tiếp tục chọn ghế" to="/booking/seats" />
-      </div>
-    </BookingShell>
+function formatDateTime(value) {
+  if (!value) return 'Chưa cập nhật'
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+function secondsLeft(expiredAt) {
+  if (!expiredAt) return 0
+  return Math.max(0, Math.floor((new Date(expiredAt).getTime() - Date.now()) / 1000))
+}
+
+function formatCountdown(seconds) {
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+}
+
+function cartTotal(cart) {
+  return (cart?.items || []).reduce(
+    (sum, item) => sum + Number(item.ticketType.price || 0) * Number(item.quantity || 0),
+    0,
   )
 }
 
+function promoDiscount(cart) {
+  const code = cart?.promoCode?.trim().toUpperCase()
+  const subtotal = cartTotal(cart)
+  if (!code || subtotal <= 0) return 0
+  if (code === 'BLUE50' && subtotal >= 300000) return Math.min(50000, subtotal)
+  if (code === 'EVENTHUB100' && subtotal >= 300000) return Math.min(100000, subtotal)
+  return 0
+}
+
+function payableTotal(cart) {
+  return Math.max(0, cartTotal(cart) - promoDiscount(cart))
+}
+
+function normalizeCart(cart) {
+  if (!cart) return cart
+  return {
+    ...cart,
+    holdExpiresAt: cart.holdExpiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+  }
+}
+
+export function BookingTicketsPage() {
+  return <NavigateBackToEvents />
+}
+
 export function BookingSeatsPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const seatedItem = (cart?.items || []).find((item) => item.ticketType.is_seated)
+  const [selectedSeatIds, setSelectedSeatIds] = useState(seatedItem?.sessionSeatIds || [])
+
+  const seatsQuery = useQuery({
+    queryKey: ['session-seats', seatedItem?.ticketType.event_session_id, seatedItem?.ticketType.id],
+    queryFn: () =>
+      fetchSessionSeats(seatedItem.ticketType.event_session_id, {
+        ticket_type_id: seatedItem.ticketType.id,
+      }),
+    enabled: Boolean(seatedItem),
+  })
+
+  if (!cart?.items?.length) return <NavigateBackToEvents />
+
+  const continueFlow = () => {
+    const nextCart = {
+      ...cart,
+      items: cart.items.map((item) =>
+        seatedItem && item.ticketType.id === seatedItem.ticketType.id
+          ? { ...item, sessionSeatIds: selectedSeatIds }
+          : item,
+      ),
+    }
+    navigate('/booking/attendees', { state: { cart: nextCart } })
+  }
+
+  const toggleSeat = (seatId) => {
+    setSelectedSeatIds((current) => {
+      if (current.includes(seatId)) return current.filter((id) => id !== seatId)
+      if (current.length >= seatedItem.quantity) return current
+      return [...current, seatId]
+    })
+  }
+
   return (
-    <BookingShell step={1}>
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <section>
-          <h1 className="mb-5 font-display text-2xl font-bold text-white">
-            Chọn ghế của bạn
-          </h1>
-          <div className="rounded-lg border border-border-soft bg-panel p-6">
-            <div className="mx-auto mb-8 h-5 max-w-md rounded-t-full bg-slate-950 text-center text-xs font-bold text-white">
-              STAGE
-            </div>
-            <div className="space-y-8">
-              <SeatGrid rows={3} cols={12} selected={[2, 3]} />
-              <SeatGrid rows={8} cols={1} selected={[]} />
-            </div>
-          </div>
-          <div className="mt-5 rounded-lg border border-primary/40 bg-primary/10 p-4">
-            <p className="text-sm font-bold text-primary">Ghế đã chọn</p>
-            <div className="mt-3 flex gap-3">
-              {selectedSeats.map((seat) => (
-                <span
-                  key={seat}
-                  className="rounded-md border border-primary bg-surface px-4 py-2 font-bold text-primary"
+    <BookingShell step={1} cart={cart}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="space-y-5">
+          <PageTitle title="Chọn ghế" subtitle="Sơ đồ dưới đây là loại ghế cứng cố định" />
+          {!seatedItem ? (
+            <Panel>
+              <p className="text-muted">
+                Vé bạn chọn không yêu cầu ghế cố định. Bạn có thể tiếp tục nhập thông tin người tham gia.
+              </p>
+            </Panel>
+          ) : (
+            <Panel>
+              <div className="mx-auto mb-8 h-8 max-w-lg rounded-b-full bg-gradient-to-r from-primary via-sky-300 to-primary text-center text-xs font-extrabold leading-8 text-slate-950 shadow-lg shadow-primary/20">
+                SÂN KHẤU
+              </div>
+              <div className="mb-5 flex flex-wrap gap-4 text-xs text-muted">
+                <Legend color="bg-primary" label="Đang chọn" />
+                <Legend color="bg-panel-soft" label="Còn trống" />
+                <Legend color="bg-slate-700" label="Đã giữ/bán" />
+              </div>
+              {seatsQuery.isLoading ? (
+                <p className="text-muted">Đang tải sơ đồ ghế...</p>
+              ) : (
+                <div
+                  className="grid gap-2 rounded-lg bg-surface/60 p-4"
+                  style={{
+                    gridTemplateColumns: `repeat(${seatsQuery.data?.seat_map?.cols_count || 8}, minmax(0, 1fr))`,
+                  }}
                 >
-                  {seat}
-                </span>
-              ))}
-            </div>
-          </div>
+                  {(seatsQuery.data?.seats || []).map((seat) => {
+                    const selected = selectedSeatIds.includes(seat.session_seat_id)
+                    const disabled = seat.status !== 'AVAILABLE'
+                    return (
+                      <button
+                        key={seat.session_seat_id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => toggleSeat(seat.session_seat_id)}
+                        title={seat.label}
+                        className={`min-h-10 rounded-t-lg border text-xs font-bold transition ${
+                          selected
+                            ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
+                            : disabled
+                              ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+                              : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
+                        }`}
+                      >
+                        {seat.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              <p className="mt-4 text-sm text-muted">
+                Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{seatedItem.quantity} ghế.
+              </p>
+            </Panel>
+          )}
         </section>
-        <OrderCard cta="Xác nhận ghế" to="/booking/attendees" total="$274.50" />
+        <OrderCard
+          cart={cart}
+          setCart={setCart}
+          cta="Tiếp tục"
+          onClick={continueFlow}
+          disabled={Boolean(seatedItem) && selectedSeatIds.length !== seatedItem.quantity}
+        />
       </div>
     </BookingShell>
   )
 }
 
 export function BookingAttendeesPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
+  const [attendees, setAttendees] = useState(cart?.attendees || {})
+  const [buyer, setBuyer] = useState(cart?.buyer || { name: '', email: '', phone: '' })
+
+  useEffect(() => {
+    if (!buyer.email) {
+      getProfile()
+        .then((profile) => {
+          setBuyer({
+            name: profile.full_name || '',
+            email: profile.email || '',
+            phone: profile.phone || '',
+          })
+        })
+        .catch(() => {})
+    }
+  }, [buyer.email])
+
+  if (!cart?.items?.length) return <NavigateBackToEvents />
+
+  const updateAttendee = (slotId, field, value) => {
+    setAttendees((current) => ({
+      ...current,
+      [slotId]: {
+        ...current[slotId],
+        [field]: value,
+      },
+    }))
+  }
+
+  const continueFlow = () => {
+    navigate('/booking/review', { state: { cart: { ...cart, attendees, buyer } } })
+  }
+
   return (
-    <BookingShell step={2}>
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <section>
-          <h1 className="mb-5 font-display text-2xl font-bold text-white">
-            Thông tin người tham dự
-          </h1>
-          <AttendeeCard number={1} filled />
-          <AttendeeCard number={2} />
-          <div className="mt-5 rounded-lg border border-ai/30 bg-ai/10 p-4 text-sm text-subtle">
-            Vui lòng nhập đúng họ tên theo giấy tờ tùy thân. Vé không thể chuyển
-            nhượng sau khi đăng ký.
-          </div>
+    <BookingShell step={2} cart={cart}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="space-y-5">
+          <PageTitle title="Thông tin người tham gia" subtitle="Thông tin này sẽ được dùng khi xuất vé sau thanh toán" />
+          <Panel>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">Người mua</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input label="Họ và tên" value={buyer.name} onChange={(value) => setBuyer((current) => ({ ...current, name: value }))} />
+              <Input label="Email" type="email" value={buyer.email} onChange={(value) => setBuyer((current) => ({ ...current, email: value }))} />
+              <Input label="Số điện thoại" value={buyer.phone} onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))} />
+            </div>
+          </Panel>
+          {attendeeSlots.map((slot, index) => (
+            <Panel key={slot.id}>
+              <h3 className="mb-4 font-bold text-white">
+                Vé {index + 1} <span className="text-sm text-muted">({slot.ticketName})</span>
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  label="Họ và tên"
+                  value={attendees[slot.id]?.name || buyer.name}
+                  onChange={(value) => updateAttendee(slot.id, 'name', value)}
+                  placeholder="Nhập tên người tham gia"
+                />
+                <Input
+                  label="Email"
+                  type="email"
+                  value={attendees[slot.id]?.email || buyer.email}
+                  onChange={(value) => updateAttendee(slot.id, 'email', value)}
+                  placeholder="email@example.com"
+                />
+              </div>
+            </Panel>
+          ))}
         </section>
-        <OrderCard cta="Kiểm tra đơn" to="/booking/review" total="$332.50" />
+        <OrderCard cart={cart} setCart={setCart} cta="Kiểm tra đơn" onClick={continueFlow} />
       </div>
     </BookingShell>
   )
 }
 
 export function BookingReviewPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const [promoCode, setPromoCode] = useState(cart?.promoCode || '')
+  const [voucherOpen, setVoucherOpen] = useState(false)
+
+  if (!cart?.items?.length) return <NavigateBackToEvents />
+
+  const continueFlow = () => {
+    navigate('/booking/payment', { state: { cart: { ...cart, promoCode } } })
+  }
+
   return (
-    <BookingShell step={3}>
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+    <BookingShell step={3} cart={cart}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
-          <h1 className="font-display text-2xl font-bold text-white">
-            Kiểm tra đơn hàng
-          </h1>
-          <EventStrip />
-          <Panel title="Vé & ghế">
-            {selectedSeats.map((seat) => (
-              <div
-                key={seat}
-                className="mb-3 flex items-center justify-between rounded-md bg-panel-soft p-3"
-              >
-                <span className="font-bold text-white">
-                  VIP Section A - {seat}
-                </span>
-                <span className="text-primary">$149.00</span>
-              </div>
-            ))}
-          </Panel>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Panel title="Người tham dự">
-              <p className="font-bold text-white">Alex Rivers</p>
-              <p className="text-muted">alex.rivers@gmail.com</p>
-            </Panel>
-            <Panel title="Người mua">
-              <p className="font-bold text-white">Alex Rivers</p>
-              <p className="text-muted">Visa kết thúc bằng 4242</p>
-            </Panel>
-          </div>
-          <Panel title="Mã khuyến mãi">
-            <div className="flex gap-3">
-              <input
-                className="flex-1 rounded-md border border-border-soft bg-surface p-3 outline-none"
-                placeholder="Nhập mã"
-              />
-              <button className="rounded-md bg-panel-soft px-4 font-bold">
-                Áp dụng
-              </button>
+          <PageTitle title="Kiểm tra vé" subtitle="Vui lòng kiểm tra kỹ vé, người tham gia, thời gian và địa điểm" />
+          <Panel>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">Thông tin sự kiện</h2>
+            <div className="grid gap-3 text-sm text-muted md:grid-cols-2">
+              <InfoLine label="Sự kiện" value={cart.eventTitle} />
+              <InfoLine label="Thời gian" value={`${formatDateTime(cart.eventStartTime)} - ${formatDateTime(cart.eventEndTime)}`} />
+              <InfoLine label="Địa điểm" value={cart.venueSummary || 'Đang cập nhật'} wide />
             </div>
           </Panel>
+          <Panel>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">Thông tin vé</h2>
+            <div className="space-y-3">
+              {cart.items.map((item) => (
+                <div key={item.ticketType.id} className="rounded-md bg-panel-soft p-4">
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-white">{item.ticketType.name}</p>
+                      <p className="mt-1 text-sm text-muted">Số lượng: {item.quantity}</p>
+                    </div>
+                    <p className="font-bold text-primary">
+                      {formatPrice(Number(item.ticketType.price || 0) * item.quantity)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+          <Panel>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">Người tham gia</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {expandAttendeeSlots(cart).map((slot, index) => (
+                <div key={slot.id} className="rounded-md border border-border-soft bg-surface p-3">
+                  <p className="text-xs font-bold uppercase text-primary">Vé {index + 1}</p>
+                  <p className="mt-1 font-semibold text-white">{cart.attendees?.[slot.id]?.name || cart.buyer?.name || 'Chưa nhập'}</p>
+                  <p className="text-sm text-muted">{cart.attendees?.[slot.id]?.email || cart.buyer?.email || 'Chưa nhập'}</p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+          <PromoPanel
+            promoCode={promoCode}
+            setPromoCode={setPromoCode}
+            onOpenVoucher={() => setVoucherOpen(true)}
+          />
         </section>
-        <OrderCard cta="Thanh toán" to="/booking/payment" total="$336.89" />
+        <OrderCard cart={{ ...cart, promoCode }} setCart={setCart} cta="Xác nhận và thanh toán" onClick={continueFlow} />
       </div>
+      {voucherOpen && (
+        <VoucherModal
+          promoCode={promoCode}
+          setPromoCode={setPromoCode}
+          onClose={() => setVoucherOpen(false)}
+        />
+      )}
     </BookingShell>
   )
 }
 
 export function BookingPaymentPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const [checkout, setCheckout] = useState(null)
+  const [error, setError] = useState('')
+
+  const checkoutMutation = useMutation({
+    mutationFn: checkoutOrder,
+    onSuccess: (data) => {
+      setCheckout(data)
+      navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart, checkout: data } })
+    },
+    onError: (err) => {
+      setError(err.response?.data?.message || 'Không thể tạo thanh toán PayOS. Vui lòng thử lại.')
+    },
+  })
+
+  const statusQuery = useQuery({
+    queryKey: ['order-status', checkout?.order?.id],
+    queryFn: () => fetchOrderStatus(checkout.order.id),
+    enabled: Boolean(checkout?.order?.id),
+    refetchInterval: checkout?.order?.status === 'PENDING' ? 5000 : false,
+  })
+
+  const payment = statusQuery.data?.payment || checkout?.payment
+  const order = statusQuery.data?.order || checkout?.order
+
+  useEffect(() => {
+    if (order?.status === 'PAID') {
+      navigate(`/payment-confirmation?orderId=${order.id}`, { replace: true, state: { checkout } })
+    }
+  }, [checkout, navigate, order?.id, order?.status])
+
+  useEffect(() => {
+    if (!cart?.items?.length || checkout || checkoutMutation.isPending) return
+    checkoutMutation.mutate({
+      event_id: cart.eventId,
+      buyer_name: cart.buyer?.name || '',
+      buyer_email: cart.buyer?.email || '',
+      buyer_phone: cart.buyer?.phone || null,
+      promo_code: cart.promoCode?.trim() || null,
+      items: cart.items.map((item) => ({
+        ticket_type_id: item.ticketType.id,
+        quantity: item.quantity,
+        session_seat_ids: item.sessionSeatIds || [],
+      })),
+    })
+  }, [cart, checkout, checkoutMutation])
+
+  if (!cart?.items?.length) return <NavigateBackToEvents />
+
   return (
-    <BookingShell step={4}>
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <section>
-          <div className="mb-4 grid gap-3 md:grid-cols-3">
-            {['PayOS QR', 'Chuyển khoản', 'Thẻ Credit/Debit'].map(
-              (method, index) => (
+    <BookingShell step={4} cart={cart}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="space-y-5">
+          <PageTitle title="Thanh toán" subtitle="Quét QR hoặc mở PayOS để hoàn tất giao dịch." />
+          <Panel>
+            {checkoutMutation.isPending && <p className="text-muted">Đang giữ vé và tạo thanh toán PayOS...</p>}
+            {error && <p className="text-error">{error}</p>}
+            {payment && (
+              <div className="text-center">
+                <p className="text-sm font-bold uppercase tracking-widest text-muted">Số tiền cần thanh toán</p>
+                <p className="mt-2 font-display text-4xl font-extrabold text-white">{formatPrice(order.total_amount)}</p>
+                {payment.qr_code ? (
+                  <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
+                    <img src={payment.qr_code} alt="QR PayOS" className="size-56" />
+                  </div>
+                ) : (
+                  <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">
+                    QR sẽ hiển thị khi PayOS trả dữ liệu.
+                  </div>
+                )}
+                {payment.checkout_url && (
+                  <a
+                    href={payment.checkout_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-bold text-slate-950"
+                  >
+                    Mở trang PayOS
+                    <ExternalLink className="size-4" />
+                  </a>
+                )}
                 <button
-                  key={method}
-                  className={`rounded-lg border p-4 text-left ${index === 0 ? 'border-tertiary text-white' : 'border-border-soft text-muted'}`}
+                  type="button"
+                  onClick={() => statusQuery.refetch()}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-border-soft py-3 text-sm font-bold text-white hover:border-primary hover:text-primary"
                 >
-                  <CreditCard className="mb-2 size-5 text-primary" />
-                  <span className="font-bold">{method}</span>
+                  <RefreshCw className="size-4" />
+                  Kiểm tra trạng thái
                 </button>
-              ),
-            )}
-          </div>
-          <div className="glass-panel rounded-lg p-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted">
-              Số tiền cần thanh toán
-            </p>
-            <h1 className="mt-2 font-display text-5xl font-extrabold text-white">
-              $512.75
-            </h1>
-            <div className="mx-auto mt-6 w-fit rounded-lg bg-gradient-to-br from-primary to-tertiary p-1">
-              <div className="rounded-md bg-white p-4">
-                <img src={qrImage} alt="QR thanh toán" className="size-48" />
               </div>
-            </div>
-            <p className="mt-4 text-sm text-muted">
-              Quét mã bằng ứng dụng ngân hàng hoặc ví điện tử để hoàn tất giao
-              dịch.
-            </p>
-            <Link
-              to="/payment-confirmation"
-              className="mt-6 inline-flex rounded-full bg-tertiary px-10 py-4 font-bold text-white"
-            >
-              Tôi đã thanh toán
-            </Link>
-          </div>
+            )}
+          </Panel>
         </section>
-        <OrderCard
-          cta="Chờ thanh toán"
-          to="/payment-confirmation"
-          total="$512.75"
-        />
+        <OrderCard cart={cart} setCart={setCart} cta="Đang chờ thanh toán" disabled />
       </div>
     </BookingShell>
   )
 }
 
-function BookingShell({ step, children }) {
+function BookingShell({ step, cart, children }) {
   const labels = ['Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
+  const [tick, setTick] = useState(0)
+  const remaining = secondsLeft(cart?.holdExpiresAt)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((value) => value + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   return (
-    <div className="bg-background text-content">
-      <div className="mx-auto min-h-[calc(100vh-64px)] max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto mb-8 flex max-w-2xl items-center justify-between">
+    <div className="min-h-[calc(100vh-64px)] bg-background text-content">
+      <div className="border-b border-border-soft bg-[#08111f]">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-7 sm:px-6 lg:px-8">
           {labels.map((label, index) => {
             const active = index + 1 === step
             const done = index + 1 < step
             return (
-              <div key={label} className="flex flex-col items-center gap-1">
+              <div key={label} className="flex flex-col items-center gap-2">
                 <div
-                  className={`grid size-9 place-items-center rounded-full text-sm font-bold ${active ? 'bg-tertiary text-white' : done ? 'bg-primary text-slate-950' : 'bg-panel-soft text-muted'}`}
+                  className={`grid size-11 place-items-center rounded-full text-sm font-bold transition ${
+                    active
+                      ? 'bg-tertiary text-white shadow-lg shadow-tertiary/30'
+                      : done
+                        ? 'bg-tertiary/20 text-tertiary'
+                        : 'bg-panel-soft text-muted'
+                  }`}
                 >
                   {done ? <Check className="size-4" /> : index + 1}
                 </div>
-                <span className="text-xs font-bold">{label}</span>
+                <span className="text-sm font-extrabold text-white">{label}</span>
               </div>
             )
           })}
         </div>
+      </div>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {cart?.eventTitle && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 p-4">
+            <div>
+              <p className="text-xs font-bold uppercase text-tertiary">Booking</p>
+              <h2 className="font-display text-xl font-bold text-white">{cart.eventTitle}</h2>
+            </div>
+            <div className="rounded-md bg-background px-4 py-2 font-mono text-lg font-bold text-tertiary">
+              {formatCountdown(secondsLeft(cart.holdExpiresAt) || remaining + tick * 0)}
+            </div>
+          </div>
+        )}
         {children}
       </div>
     </div>
   )
 }
 
-function EventStrip() {
-  return (
-    <div className="flex gap-4 rounded-lg bg-panel p-4">
-      <img
-        src={event.image}
-        alt=""
-        className="h-28 w-44 rounded-md object-cover"
-      />
-      <div className="self-center">
-        <span className="rounded-full bg-tertiary/20 px-2 py-1 text-xs font-bold text-tertiary">
-          LIVE PERFORMANCE
-        </span>
-        <h2 className="mt-2 font-display text-xl font-bold text-white">
-          {event.title}
-        </h2>
-        <p className="text-sm text-muted">
-          {event.date} - {event.venue}
-        </p>
-      </div>
-    </div>
-  )
-}
+function OrderCard({ cart, cta, onClick, disabled }) {
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const remaining = secondsLeft(cart?.holdExpiresAt)
 
-function TicketType({ title, desc, price, disabled }) {
-  return (
-    <div
-      className={`rounded-lg bg-panel-soft p-5 ${disabled ? 'opacity-40' : ''}`}
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h3 className="font-bold text-white">{title}</h3>
-          <p className="mt-1 text-sm text-muted">{desc}</p>
-          <p className="mt-1 text-xs text-primary">Có thể hoàn vé</p>
-        </div>
-        <div className="text-right">
-          <p className="font-display text-2xl font-bold text-white">{price}</p>
-          {!disabled && (
-            <div className="mt-2 inline-flex items-center gap-3 rounded-md bg-background px-3 py-1">
-              <Minus className="size-4" />0<Plus className="size-4" />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function OrderCard({ cta, to, total = '$0.00' }) {
   return (
     <aside className="glass-panel h-fit rounded-lg p-5 lg:sticky lg:top-24">
-      <div className="mb-4 flex items-center justify-between rounded-md bg-ai/20 p-3 text-ai">
-        <span className="flex items-center gap-2 text-sm font-bold">
-          <Clock className="size-4" />
-          Giữ vé trong
-        </span>
-        <span className="font-mono font-bold">09:40</span>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-xl font-bold text-white">Thông tin đặt vé</h2>
+          <p className="mt-1 text-sm text-muted">Giữ chỗ trong {formatCountdown(remaining)}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCancelOpen(true)}
+          className="text-sm font-bold text-primary hover:text-sky-300"
+        >
+          Chọn lại vé
+        </button>
       </div>
-      <h2 className="font-display text-2xl font-bold text-white">
-        Tóm tắt đơn
-      </h2>
-      <div className="my-5 space-y-3 border-y border-border-soft py-5 text-sm">
-        <Line
-          label="Tạm tính"
-          value={total === '$0.00' ? '$0.00' : '$298.00'}
-        />
-        <Line
-          label="Phí dịch vụ"
-          value={total === '$0.00' ? '$0.00' : '$24.50'}
-        />
+      <div className="space-y-3 border-y border-border-soft py-4">
+        {(cart?.items || []).map((item) => (
+          <div key={item.ticketType.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
+            <div>
+              <p className="font-semibold text-white">{item.ticketType.name}</p>
+              <p className="text-muted">{formatPrice(item.ticketType.price)} × {String(item.quantity).padStart(2, '0')}</p>
+            </div>
+            <p className="font-bold text-primary">{formatPrice(Number(item.ticketType.price || 0) * item.quantity)}</p>
+          </div>
+        ))}
       </div>
-      <Line label="Tổng cộng" value={total} large />
-      <Link
-        to={to}
-        className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-tertiary py-4 font-bold text-white"
+      {cart?.promoCode && (
+        <div className="mt-4 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+          Mã khuyến mãi: {cart.promoCode}
+        </div>
+      )}
+      <Line label={`Tạm tính ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart))} large />
+      {promoDiscount(cart) > 0 && (
+        <Line label="Giảm giá" value={`-${formatPrice(promoDiscount(cart))}`} tone="discount" />
+      )}
+      {promoDiscount(cart) > 0 && (
+        <Line label="Tổng thanh toán" value={formatPrice(payableTotal(cart))} large />
+      )}
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="mt-5 flex w-full items-center justify-center rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {cta}
-        <ArrowRight className="size-4" />
-      </Link>
+      </button>
+      <button
+        type="button"
+        onClick={() => setCancelOpen(true)}
+        className="mt-3 w-full rounded-md border border-border-soft py-3 text-sm font-bold text-muted hover:border-error hover:text-error"
+      >
+        Hủy đặt vé
+      </button>
       <p className="mt-3 flex items-center justify-center gap-1 text-xs text-muted">
-        <ShieldCheck className="size-3" /> Thanh toán bảo mật bởi EventHub Pay
+        <ShieldCheck className="size-3" /> Thanh toán qua PayOS của ban tổ chức
       </p>
+
+      {cancelOpen && (
+        <CancelBookingModal
+          onStay={() => setCancelOpen(false)}
+          onCancel={() => {
+            setCancelOpen(false)
+            window.location.href = `/events/${cart.eventSlug || cart.eventId}`
+          }}
+        />
+      )}
     </aside>
   )
 }
 
-function SeatGrid({ rows, cols, selected }) {
+function PromoPanel({ promoCode, onOpenVoucher }) {
   return (
-    <div
-      className="mx-auto grid w-fit gap-2"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-    >
-      {Array.from({ length: rows * cols }).map((_, index) => (
-        <div
-          key={index}
-          className={`size-4 rounded-t-md ${selected.includes(index) ? 'bg-primary' : index % 7 === 0 ? 'bg-slate-700' : 'bg-slate-500'}`}
-        />
-      ))}
-    </div>
+    <section className="rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="font-display text-xl font-bold text-white">Mã khuyến mãi</h2>
+        <button type="button" onClick={onOpenVoucher} className="text-sm font-bold text-primary">
+          Chọn voucher
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onOpenVoucher}
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-border-soft px-4 py-2 text-muted hover:border-primary hover:text-primary"
+      >
+        <Tag className="size-4" />
+        {promoCode || 'Thêm khuyến mãi'}
+      </button>
+    </section>
   )
 }
 
-function AttendeeCard({ number, filled }) {
+function VoucherModal({ promoCode, setPromoCode, onClose }) {
+  const [draft, setDraft] = useState(promoCode || '')
+  const suggested = ['BLUE50', 'EVENTHUB100']
+
   return (
-    <div className="mb-4 rounded-lg bg-panel p-5">
-      <h3 className="mb-4 font-display text-xl font-bold text-white">
-        Vé {number} <span className="text-sm text-muted">(VIP Seating)</span>
-      </h3>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Input
-          label="Họ và tên"
-          placeholder="Nhập tên người tham dự"
-          defaultValue={filled ? 'Alex Rivers' : ''}
-        />
-        <Input
-          label="Email"
-          placeholder="Nhập email"
-          defaultValue={filled ? 'alex.rivers@premium.com' : ''}
-        />
-        <Input
-          label="Số điện thoại"
-          placeholder="+84..."
-          className="md:col-span-2"
-          defaultValue={filled ? '+1 (555) 0123-456' : ''}
-        />
+    <ModalFrame onClose={onClose} light>
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <h2 className="text-xl font-bold text-slate-900">Chọn tối đa 2 voucher</h2>
+        <button type="button" onClick={onClose} className="text-slate-500">
+          <X className="size-5" />
+        </button>
+      </div>
+      <div className="mt-5 flex gap-3">
+        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-md border border-slate-300 px-3">
+          <Ticket className="size-5 text-slate-500" />
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Nhập mã voucher"
+            className="w-full outline-none"
+          />
+        </div>
+        <button type="button" onClick={() => setPromoCode(draft)} className="rounded-md bg-slate-200 px-5 font-bold text-slate-600">
+          Áp dụng
+        </button>
+      </div>
+      <h3 className="mt-6 font-bold text-slate-900">Voucher từ Ban tổ chức</h3>
+      <p className="mt-5 text-center text-lg font-semibold text-slate-400">Chưa có voucher nào</p>
+      <div className="my-6 border-t border-slate-200" />
+      <h3 className="font-bold text-slate-900">Voucher từ EventHub</h3>
+      <div className="mt-4 space-y-3">
+        {suggested.map((code) => (
+          <button
+            key={code}
+            type="button"
+            onClick={() => setDraft(code)}
+            className={`flex w-full items-center justify-between rounded-lg border p-4 text-left ${
+              draft === code ? 'border-primary bg-primary/10' : 'border-slate-200'
+            }`}
+          >
+            <div>
+              <p className="font-bold text-slate-900">Giảm {code === 'BLUE50' ? '50.000đ' : '100.000đ'}</p>
+              <p className="mt-1 text-sm text-slate-600">Đơn tối thiểu 300.000đ</p>
+              <p className="mt-2 text-sm text-primary">HSD: 30/06/2026</p>
+            </div>
+            <span className="grid size-8 place-items-center rounded-full border border-primary">
+              {draft === code && <span className="size-4 rounded-full bg-primary" />}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <button type="button" onClick={onClose} className="rounded-md border border-primary py-3 font-bold text-primary">
+          Hủy bỏ
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPromoCode(draft)
+            onClose()
+          }}
+          className="rounded-md bg-primary py-3 font-bold text-slate-950"
+        >
+          Xong
+        </button>
+      </div>
+    </ModalFrame>
+  )
+}
+
+function CancelBookingModal({ onStay, onCancel }) {
+  return createPortal(
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 px-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-7 text-slate-900 shadow-2xl">
+        <h2 className="text-center text-2xl font-bold">Hủy đơn hàng?</h2>
+        <p className="mt-4 text-center text-lg">Bạn có chắc chắn muốn tiếp tục?</p>
+        <ul className="mx-auto mt-4 max-w-xs list-disc text-slate-700">
+          <li>Bạn sẽ mất vị trí mình đã lựa chọn.</li>
+          <li>Đơn hàng đang thanh toán có thể bị hủy.</li>
+        </ul>
+        <div className="mt-7 grid grid-cols-2 gap-3">
+          <button type="button" onClick={onCancel} className="rounded-md border border-error py-3 font-bold text-error">
+            Hủy đơn
+          </button>
+          <button type="button" onClick={onStay} className="rounded-md bg-tertiary py-3 font-bold text-white">
+            Ở lại
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+function ModalFrame({ children, onClose, light = false }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 px-4">
+      <div className={`max-h-[90vh] w-full max-w-xl overflow-auto rounded-lg p-6 shadow-2xl ${light ? 'bg-white text-slate-900' : 'bg-surface text-white'}`}>
+        {!light && (
+          <button type="button" onClick={onClose} className="float-right text-muted hover:text-white">
+            <X className="size-5" />
+          </button>
+        )}
+        {children}
       </div>
     </div>
   )
 }
 
-function Panel({ title, children }) {
+function Panel({ children }) {
+  return <section className="rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10">{children}</section>
+}
+
+function PageTitle({ title, subtitle }) {
   return (
-    <section className="rounded-lg bg-panel p-5">
-      <h3 className="mb-4 font-display text-xl font-bold text-white">
-        {title}
-      </h3>
-      {children}
-    </section>
+    <div>
+      <h1 className="font-display text-3xl font-bold text-white">{title}</h1>
+      <p className="mt-2 text-muted">{subtitle}</p>
+    </div>
   )
 }
 
-function Input({ label, className = '', ...props }) {
+function Input({ label, value, onChange, type = 'text', placeholder }) {
   return (
-    <label className={`space-y-2 ${className}`}>
+    <label className="block">
       <span className="text-sm font-semibold text-muted">{label}</span>
       <input
-        {...props}
-        className="w-full rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-primary"
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-2 h-11 w-full rounded-md border border-border-soft bg-surface px-3 outline-none focus:border-primary"
       />
     </label>
   )
 }
 
-function Line({ label, value, large }) {
+function Legend({ color, label }) {
   return (
-    <div
-      className={`flex justify-between ${large ? 'font-display text-xl font-bold' : 'text-sm'}`}
-    >
-      <span>{label}</span>
-      <span className={large ? 'text-primary' : ''}>{value}</span>
+    <span className="inline-flex items-center gap-2">
+      <span className={`size-3 rounded-sm ${color}`} />
+      {label}
+    </span>
+  )
+}
+
+function InfoLine({ label, value, wide }) {
+  return (
+    <div className={wide ? 'md:col-span-2' : ''}>
+      <p className="text-xs font-bold uppercase text-primary">{label}</p>
+      <p className="mt-1 font-semibold text-white">{value}</p>
+    </div>
+  )
+}
+
+function Line({ label, value, large, tone }) {
+  return (
+    <div className={`mt-4 flex justify-between gap-4 ${large ? 'font-display text-xl font-bold' : 'text-sm'}`}>
+      <span className="text-muted">{label}</span>
+      <span className={tone === 'discount' ? 'font-semibold text-primary' : large ? 'text-primary' : 'font-semibold text-white'}>{value}</span>
+    </div>
+  )
+}
+
+function expandAttendeeSlots(cart) {
+  const slots = []
+  ;(cart?.items || []).forEach((item) => {
+    for (let index = 0; index < item.quantity; index += 1) {
+      slots.push({
+        id: `${item.ticketType.id}-${index}`,
+        ticketName: item.ticketType.name,
+      })
+    }
+  })
+  return slots
+}
+
+function NavigateBackToEvents() {
+  return (
+    <div className="mx-auto max-w-lg px-4 py-16 text-center">
+      <p className="text-muted">Không tìm thấy thông tin đặt vé.</p>
+      <Link to="/events" className="mt-4 inline-block font-bold text-primary">
+        Chọn sự kiện
+      </Link>
     </div>
   )
 }
