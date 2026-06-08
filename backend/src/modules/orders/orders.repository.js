@@ -57,7 +57,7 @@ class OrdersRepository {
     return rows[0]?.sold || 0;
   }
 
-  async checkout({ userId, eventId, buyer, items, totals }) {
+  async checkout({ userId, eventId, organizerId, buyer, items, totals }) {
     const client = await db.getClient();
 
     try {
@@ -69,6 +69,7 @@ class OrdersRepository {
         `
         INSERT INTO orders (
           user_id,
+          organizer_id,
           buyer_name,
           buyer_email,
           buyer_phone,
@@ -80,11 +81,12 @@ class OrdersRepository {
           platform_fee,
           total_amount
         )
-        VALUES ($1, $2, $3, $4, $5, 'PAID', $6, 0, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, 'PAID', $7, 0, $8, $9, $10)
         RETURNING id, order_code, status, subtotal, platform_fee, total_amount, created_at
         `,
         [
           userId,
+          organizerId,
           buyer.name,
           buyer.email,
           buyer.phone || null,
@@ -227,6 +229,7 @@ class OrdersRepository {
               event_id,
               event_session_id,
               ticket_type_id,
+              session_seat_id,
               ticket_code,
               qr_code,
               attendee_name,
@@ -254,18 +257,53 @@ class OrdersRepository {
 
       await client.query(
         `
-        INSERT INTO payments (
+        INSERT INTO payment_orders (
           order_id,
-          payment_method,
+          organizer_id,
+          payment_owner_type,
+          payment_channel_id,
+          reference_type,
+          reference_id,
           provider,
-          transaction_code,
+          provider_order_code,
           amount,
+          currency,
+          description,
           status,
           paid_at
         )
-        VALUES ($1, 'CASH', 'MANUAL', $2, $3, 'SUCCESS', now())
+        VALUES ($1, $2, 'ORGANIZER', NULL, 'TICKET_ORDER', $1, 'MANUAL', $3, $4, 'VND', $5, 'PAID', now())
         `,
-        [order.id, `SIM-${order.order_code}`, totals.total_amount],
+        [
+          order.id,
+          organizerId,
+          Number(`${Date.now()}${crypto.randomInt(100, 1000)}`),
+          totals.total_amount,
+          `Manual payment for order ${order.order_code}`,
+        ],
+      );
+
+      await client.query(
+        `
+        INSERT INTO payment_transactions (
+          payment_order_id,
+          provider,
+          provider_transaction_id,
+          amount,
+          status,
+          raw_payload
+        )
+        SELECT id, provider, $2, amount, 'PAID', $3::jsonb
+        FROM payment_orders
+        WHERE order_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+        `,
+        [
+          order.id,
+          `SIM-${order.order_code}`,
+          JSON.stringify({ order_code: order.order_code, method: 'CASH' }),
+        ],
       );
 
       await client.query('COMMIT');

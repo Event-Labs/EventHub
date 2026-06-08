@@ -152,7 +152,20 @@ class TicketsRepository {
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
       LEFT JOIN seats s ON s.id = ss.seat_id
-      LEFT JOIN payments p ON p.order_id = o.id AND p.status = 'SUCCESS'
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(pt.provider_transaction_id, po.provider_order_code::text) AS transaction_code,
+          'CASH'::text AS payment_method,
+          po.provider::text AS provider,
+          po.status,
+          po.paid_at
+        FROM payment_orders po
+        LEFT JOIN payment_transactions pt ON pt.payment_order_id = po.id
+        WHERE po.order_id = o.id
+          AND po.status = 'PAID'
+        ORDER BY po.paid_at DESC NULLS LAST, pt.created_at DESC NULLS LAST
+        LIMIT 1
+      ) p ON true
       WHERE t.id = $1
         AND o.user_id = $2
         AND o.status = 'PAID'
