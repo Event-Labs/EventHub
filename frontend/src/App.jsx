@@ -12,6 +12,7 @@ import { CustomerDiscoveryPage } from '@/pages/customer/discovery/CustomerDiscov
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
+import { AIFaqPage } from '@/pages/customer/AIFaqPage.jsx'
 import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
 import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
@@ -20,7 +21,6 @@ import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
 import { NotFoundPage } from '@/pages/public/NotFoundPage.jsx'
 import { PaymentConfirmationPage } from '@/pages/customer/booking/PaymentConfirmationPage.jsx'
 import {
-  AIFaqPage,
   AttendeeListPage,
   CreateEventWizardPage,
   NotificationsPage,
