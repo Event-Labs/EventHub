@@ -121,7 +121,14 @@ class OrganizerRequestsRepository {
 
       const lockResult = await client.query(
         `
-        SELECT id, user_id, status
+        SELECT
+          id,
+          user_id,
+          organization_name,
+          organization_description,
+          business_email,
+          business_phone,
+          status
         FROM organizer_requests
         WHERE id = $1
         FOR UPDATE
@@ -162,6 +169,35 @@ class OrganizerRequestsRepository {
           ON CONFLICT (user_id, role_id) DO NOTHING
           `,
           [request.user_id],
+        );
+
+        await client.query(
+          `
+          INSERT INTO organizers (
+            user_id,
+            organization_name,
+            description,
+            business_email,
+            business_phone,
+            status
+          )
+          VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+          ON CONFLICT (user_id) DO UPDATE
+          SET
+            organization_name = EXCLUDED.organization_name,
+            description = EXCLUDED.description,
+            business_email = EXCLUDED.business_email,
+            business_phone = EXCLUDED.business_phone,
+            status = 'ACTIVE',
+            updated_at = now()
+          `,
+          [
+            request.user_id,
+            request.organization_name,
+            request.organization_description || null,
+            request.business_email || null,
+            request.business_phone || null,
+          ],
         );
       }
 

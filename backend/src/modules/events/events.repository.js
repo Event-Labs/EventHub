@@ -23,7 +23,7 @@ const EVENT_CARD_SELECT = `
   c.name AS category_name,
   c.slug AS category_slug,
   organizer.id AS organizer_id,
-  organizer.full_name AS organizer_name,
+  COALESCE(organizer.organization_name, organizer_user.full_name) AS organizer_name,
   venue_summary.venue_name,
   venue_summary.city,
   venue_summary.district,
@@ -35,7 +35,8 @@ const EVENT_CARD_SELECT = `
 
 const EVENT_CARD_JOINS = `
   LEFT JOIN event_categories c ON c.id = e.category_id
-  LEFT JOIN users organizer ON organizer.id = e.organizer_id
+  LEFT JOIN organizers organizer ON organizer.id = e.organizer_id
+  LEFT JOIN users organizer_user ON organizer_user.id = organizer.user_id
   LEFT JOIN LATERAL (
     SELECT v.name AS venue_name, v.city, v.district, v.address_line
     FROM event_sessions es
@@ -68,7 +69,8 @@ function buildListQuery(filters) {
       OR e.short_description ILIKE ${keywordParam}
       OR e.description ILIKE ${keywordParam}
       OR c.name ILIKE ${keywordParam}
-      OR organizer.full_name ILIKE ${keywordParam}
+      OR organizer.organization_name ILIKE ${keywordParam}
+      OR organizer_user.full_name ILIKE ${keywordParam}
       OR EXISTS (
         SELECT 1 FROM event_sessions es_kw
         JOIN venues v_kw ON v_kw.id = es_kw.venue_id
@@ -183,8 +185,9 @@ class EventsRepository {
         e.description,
         json_build_object(
           'id', organizer.id,
-          'full_name', organizer.full_name,
-          'avatar_url', organizer.avatar_url
+          'full_name', COALESCE(organizer.organization_name, organizer_user.full_name),
+          'organization_name', organizer.organization_name,
+          'avatar_url', organizer_user.avatar_url
         ) AS organizer,
         COALESCE(sessions.sessions, '[]'::json) AS sessions,
         COALESCE(ticket_types.ticket_types, '[]'::json) AS ticket_types
@@ -206,7 +209,9 @@ class EventsRepository {
             'district', v.district,
             'ward', v.ward,
             'address_line', v.address_line,
-            'description', v.description
+            'description', v.description,
+            'latitude', v.latitude,
+            'longitude', v.longitude
           )
         ) ORDER BY es.start_time ASC) AS sessions
         FROM event_sessions es
@@ -236,6 +241,56 @@ class EventsRepository {
     `;
     const { rows } = await db.query(query, [userId, identifier]);
     return rows[0];
+  }
+
+  async findSessionSeats(sessionId, ticketTypeId = null) {
+    const params = [sessionId];
+    const ticketTypeJoin = ticketTypeId
+      ? `
+        LEFT JOIN ticket_type_seats tts
+          ON tts.seat_id = s.id
+         AND tts.ticket_type_id = $2
+      `
+      : '';
+    const ticketTypeWhere = ticketTypeId
+      ? `
+        AND (
+          NOT EXISTS (SELECT 1 FROM ticket_type_seats WHERE ticket_type_id = $2)
+          OR tts.ticket_type_id IS NOT NULL
+        )
+      `
+      : '';
+
+    if (ticketTypeId) params.push(ticketTypeId);
+
+    const { rows } = await db.query(
+      `
+      SELECT
+        ss.id AS session_seat_id,
+        ss.status,
+        ss.held_until,
+        s.id AS seat_id,
+        s.row_label,
+        s.seat_number,
+        s.x_position,
+        s.y_position,
+        s.is_disabled,
+        st.name AS seat_type_name,
+        st.color AS seat_type_color,
+        sm.rows_count,
+        sm.cols_count
+      FROM session_seats ss
+      JOIN seats s ON s.id = ss.seat_id
+      JOIN seat_maps sm ON sm.id = s.seat_map_id
+      LEFT JOIN seat_types st ON st.id = s.seat_type_id
+      ${ticketTypeJoin}
+      WHERE ss.event_session_id = $1
+        ${ticketTypeWhere}
+      ORDER BY s.row_label ASC, s.seat_number ASC
+      `,
+      params,
+    );
+    return rows;
   }
 
   async findFavoriteEvents(userId) {

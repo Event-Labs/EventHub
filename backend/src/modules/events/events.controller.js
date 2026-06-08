@@ -4,6 +4,8 @@ const {
   eventIdentifierSchema,
   favoriteEventSchema,
   listEventsSchema,
+  sessionSeatsQuerySchema,
+  sessionSeatsSchema,
 } = require('./events.validation');
 
 class EventsController {
@@ -31,6 +33,17 @@ class EventsController {
       const { identifier } = eventIdentifierSchema.parse(req.params);
       const data = await eventsService.getPublicEventDetail(identifier, req.user?.sub);
       res.status(200).json(ApiResponse.success(data, 'Event fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getSessionSeats = async (req, res, next) => {
+    try {
+      const { sessionId } = sessionSeatsSchema.parse(req.params);
+      const query = sessionSeatsQuerySchema.parse(req.query);
+      const data = await eventsService.getSessionSeats(sessionId, query);
+      res.status(200).json(ApiResponse.success(data, 'Session seats fetched successfully'));
     } catch (err) {
       next(err);
     }

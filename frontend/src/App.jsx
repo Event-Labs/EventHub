@@ -18,12 +18,12 @@ import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
 import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
+import { NotificationsPage } from '@/pages/customer/NotificationsPage.jsx'
 import { NotFoundPage } from '@/pages/public/NotFoundPage.jsx'
 import { PaymentConfirmationPage } from '@/pages/customer/booking/PaymentConfirmationPage.jsx'
 import {
   AttendeeListPage,
   CreateEventWizardPage,
-  NotificationsPage,
   OnSiteBookingPage,
   OrderListPage,
   OrganizerDashboardPage,
@@ -70,6 +70,7 @@ import { CameraDeniedPage, ManualCheckInPage, StaffQrCheckInPage } from '@/pages
 import { TicketResultPage } from '@/pages/staff/StaffResultsPage.jsx'
 import { StaffTasksPage } from '@/pages/staff/StaffTasksPage.jsx'
 import { ProfilePage } from '@/pages/shared/ProfilePage.jsx'
+import { PlatformPoliciesPage } from '@/pages/shared/PlatformPoliciesPage.jsx'
 import { RegisterPage } from '@/pages/auth/RegisterPage.jsx'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage.jsx'
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage.jsx'
@@ -182,6 +183,10 @@ const router = createBrowserRouter([
       {
         path: 'billing',
         element: <OrganizerBillingPage />,
+      },
+      {
+        path: 'policies',
+        element: <PlatformPoliciesPage audience="organizer" />,
       },
       {
         path: 'finance',
@@ -366,6 +371,10 @@ const router = createBrowserRouter([
       {
         path: 'feedback',
         element: <FeedbackPage />,
+      },
+      {
+        path: 'policies',
+        element: <PlatformPoliciesPage />,
       },
       {
         path: 'request-refund',

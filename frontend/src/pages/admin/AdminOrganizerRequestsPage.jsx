@@ -7,6 +7,9 @@ import {
 } from '@/services/organizerRequests.js'
 import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
 
+const primaryActionClass =
+  'inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
+
 const statusFilters = [
   { label: 'Tất cả', value: '' },
   { label: 'Chờ duyệt', value: 'PENDING' },
@@ -87,18 +90,18 @@ export function AdminOrganizerRequestsPage() {
   return (
     <Page
       title="Yêu cầu Organizer"
-      description="User Management / Organizer Requests"
+      description="Theo dõi, kiểm tra và phê duyệt các yêu cầu nâng quyền Organizer trên nền tảng"
     >
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         {statusFilters.map((filter) => (
           <button
             key={filter.label}
             type="button"
             onClick={() => setStatusFilter(filter.value)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`inline-flex min-w-24 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
               statusFilter === filter.value
-                ? 'bg-primary text-slate-950'
-                : 'border border-[#c3c6d7] bg-white text-[#434655] hover:border-primary'
+                ? 'bg-primary text-slate-950 shadow-primary/20 hover:bg-sky-300'
+                : 'border border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'
             }`}
           >
             {filter.label}
@@ -106,12 +109,24 @@ export function AdminOrganizerRequestsPage() {
         ))}
       </div>
 
-      <Panel className="mb-5">
-        <p className="text-xs font-bold text-[#5c647a]">Hàng đợi chờ duyệt</p>
-        <p className="mt-2 text-2xl font-extrabold">
-          {pendingCountQuery.isLoading ? '...' : pendingCount}
-        </p>
-      </Panel>
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <MetricCard
+          label="Hàng đợi chờ duyệt"
+          value={pendingCountQuery.isLoading ? '...' : pendingCount}
+          accent="bg-[#0057c2]"
+        />
+        <MetricCard
+          label="Đang hiển thị"
+          value={requestsQuery.isLoading ? '...' : requests.length}
+          accent="bg-green-600"
+        />
+        <MetricCard
+          label="Bộ lọc hiện tại"
+          value={statusFilters.find((filter) => filter.value === statusFilter)?.label || 'Tất cả'}
+          accent="bg-tertiary"
+          compact
+        />
+      </div>
 
       {requestsQuery.isLoading && (
         <Panel>Đang tải danh sách yêu cầu...</Panel>
@@ -203,20 +218,20 @@ export function AdminOrganizerRequestsPage() {
                   <p className="mt-3 text-sm text-error">{reviewError}</p>
                 )}
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    className="admin-primary"
-                    disabled={reviewMutation.isPending}
-                    onClick={() => submitReview('APPROVED')}
+                <button
+                  type="button"
+                  className={primaryActionClass}
+                  disabled={reviewMutation.isPending}
+                  onClick={() => submitReview('APPROVED')}
                   >
                     <CheckCircle2 className="size-4" />
                     Duyệt
                   </button>
-                  <button
-                    type="button"
-                    className="rounded-md border border-error/40 px-4 py-2 text-sm font-bold text-error"
-                    disabled={reviewMutation.isPending}
-                    onClick={() => submitReview('REJECTED')}
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-error/40 px-5 py-3 text-sm font-bold text-error transition duration-200 hover:-translate-y-0.5 hover:bg-[#fff1f1] disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={reviewMutation.isPending}
+                  onClick={() => submitReview('REJECTED')}
                   >
                     <XCircle className="size-4" />
                     Từ chối
@@ -255,5 +270,19 @@ export function AdminOrganizerRequestsPage() {
         </div>
       )}
     </Page>
+  )
+}
+
+function MetricCard({ label, value, accent, compact = false }) {
+  return (
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+      <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
+      <div>
+        <p className="text-sm font-extrabold text-[#434655]">{label}</p>
+        <p className={`mt-5 font-black leading-none text-[#111827] ${compact ? 'text-2xl' : 'text-4xl'}`}>
+          {value}
+        </p>
+      </div>
+    </Panel>
   )
 }
