@@ -32,6 +32,27 @@ http.interceptors.response.use(
         window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
       }
     }
+
+    if (error.response?.status === 403 && (error.response?.data?.errorCode === 'ACCOUNT_LOCKED' || error.response?.data?.error === 'ACCOUNT_LOCKED')) {
+      const lockData = error.response.data.data || error.response.data;
+      localStorage.removeItem('eventhub-token')
+      localStorage.removeItem('eventhub-user')
+      localStorage.setItem('eventhub-auth', 'false')
+      window.dispatchEvent(new Event('eventhub-auth'))
+
+      // Nếu đang ở trang login, KHÔNG lưu sessionStorage và KHÔNG dispatch event.
+      // Để local catch trong LoginPage tự xử lý và hiển thị modal trực tiếp,
+      // tránh race condition giữa event dispatch và async state update của React.
+      if (window.location.pathname.includes('/login')) {
+        return Promise.reject(error)
+      }
+
+      // Nếu đang ở trang khác: lưu lock info rồi redirect về login.
+      // Trang login sẽ đọc sessionStorage trong useEffect và hiện modal.
+      sessionStorage.setItem('eventhub-lock-info', JSON.stringify(lockData))
+      window.location.href = '/login'
+    }
+
     return Promise.reject(error)
   }
 )

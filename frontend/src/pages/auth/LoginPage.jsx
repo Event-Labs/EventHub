@@ -1,10 +1,11 @@
-﻿import {  Eye, Lock, Mail } from 'lucide-react'
+import {  Eye, Lock, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { heroImage } from '@/data/events.js'
 import { getPostLoginPath } from '@/lib/auth.js'
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
+import { LockedAccountModal } from '@/components/LockedAccountModal'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -12,6 +13,31 @@ export function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [lockModalOpen, setLockModalOpen] = useState(false)
+  const [lockData, setLockData] = useState(null)
+
+  useEffect(() => {
+    const handleLockEvent = (e) => {
+      setLockData(e.detail);
+      setLockModalOpen(true);
+    };
+    window.addEventListener('account-locked', handleLockEvent);
+
+    const storedLockInfo = sessionStorage.getItem('eventhub-lock-info')
+    if (storedLockInfo) {
+      try {
+        const parsed = JSON.parse(storedLockInfo)
+        if (parsed) {
+          setLockData(parsed)
+          setLockModalOpen(true)
+        }
+      } catch (err) {
+        sessionStorage.removeItem('eventhub-lock-info')
+      }
+    }
+
+    return () => window.removeEventListener('account-locked', handleLockEvent);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('eventhub-token')
@@ -41,7 +67,13 @@ export function LoginPage() {
       window.dispatchEvent(new Event('eventhub-auth'))
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.')
+      const errorData = err.response?.data;
+      if (err.response?.status === 403 && (errorData?.errorCode === 'ACCOUNT_LOCKED' || errorData?.error === 'ACCOUNT_LOCKED')) {
+        setLockData(errorData.data || errorData);
+        setLockModalOpen(true);
+        return
+      }
+      setError(errorData?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.')
     } finally {
       setLoading(false)
     }
@@ -59,7 +91,17 @@ export function LoginPage() {
       window.dispatchEvent(new Event('eventhub-auth'))
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng nhập Google thất bại.')
+      const errorData = err.response?.data;
+      if (err.response?.status === 403 && (errorData?.errorCode === 'ACCOUNT_LOCKED' || errorData?.error === 'ACCOUNT_LOCKED')) {
+        // Ưu tiên lấy data chi tiết từ response
+        const lockInfo = errorData.data || errorData;
+        setLockData(lockInfo);
+        setLockModalOpen(true);
+        // Xoá thông báo lỗi thông thường để không bị hiển thị cùng lúc
+        setError('');
+        return;
+      }
+      setError(errorData?.message || 'Đăng nhập Google thất bại.')
     } finally {
       setLoading(false)
     }
@@ -153,6 +195,15 @@ export function LoginPage() {
           </Link>
         </p>
       </div>
+      <LockedAccountModal 
+        open={lockModalOpen} 
+        lockData={lockData} 
+        onLogout={() => {
+          setLockModalOpen(false);
+          setLockData(null);
+          sessionStorage.removeItem('eventhub-lock-info');
+        }}
+      />
     </AuthShell>
   )
 }
