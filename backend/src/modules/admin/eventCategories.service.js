@@ -33,7 +33,11 @@ class EventCategoriesService {
   }
 
   async createCategory(payload) {
-    const slug = await createUniqueSlug(payload.name);
+    const slug = payload.slug ? slugify(payload.slug) : await createUniqueSlug(payload.name);
+    if (await eventCategoriesRepository.slugExists(slug)) {
+      throw new AppError('Event category slug already exists', 409, ErrorCodes.RESOURCE_ALREADY_EXISTS);
+    }
+
     return eventCategoriesRepository.create({
       name: payload.name,
       slug,
@@ -48,7 +52,15 @@ class EventCategoriesService {
       throw new AppError('Event category not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    return eventCategoriesRepository.update(id, payload);
+    const updates = { ...payload };
+    if (payload.slug !== undefined) {
+      updates.slug = slugify(payload.slug);
+      if (await eventCategoriesRepository.slugExists(updates.slug, id)) {
+        throw new AppError('Event category slug already exists', 409, ErrorCodes.RESOURCE_ALREADY_EXISTS);
+      }
+    }
+
+    return eventCategoriesRepository.update(id, updates);
   }
 
   async deleteCategory(id) {
