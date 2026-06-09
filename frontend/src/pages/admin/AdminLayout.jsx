@@ -19,7 +19,7 @@ import { AvatarFallback } from './AdminComponents.jsx'
 
 const navItems = [
   { label: 'Tổng quan', to: '/admin', icon: LayoutDashboard, end: true },
-  { label: 'User Management', to: '/admin/accounts', icon: Users },
+  { label: 'Người dùng', to: '/admin/accounts', icon: Users },
   { label: 'Yêu cầu Organizer', to: '/admin/organizer-requests', icon: ClipboardList },
   {
     label: 'Sự kiện',
