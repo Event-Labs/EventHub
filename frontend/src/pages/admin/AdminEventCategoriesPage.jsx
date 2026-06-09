@@ -11,6 +11,7 @@ import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
 
 const emptyForm = {
   name: '',
+  slug: '',
   description: '',
   is_active: true,
 }
@@ -68,6 +69,7 @@ export function AdminEventCategoriesPage() {
     setSelectedCategory(category)
     setForm({
       name: category.name || '',
+      slug: category.slug || '',
       description: category.description || '',
       is_active: Boolean(category.is_active),
     })
@@ -85,6 +87,7 @@ export function AdminEventCategoriesPage() {
 
     const payload = {
       name: form.name.trim(),
+      slug: form.slug.trim(),
       description: form.description.trim() || null,
       is_active: form.is_active,
     }
@@ -218,8 +221,7 @@ export function AdminEventCategoriesPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase text-[#737686]">Loại sự kiện</p>
-                <h3 className="mt-1 text-xl font-extrabold text-[#111827]">
+                <h3 className="text-xl font-extrabold text-[#111827]">
                   {modalMode === 'edit' ? 'Cập nhật loại sự kiện' : 'Thêm loại sự kiện'}
                 </h3>
               </div>
@@ -238,7 +240,26 @@ export function AdminEventCategoriesPage() {
                 required
                 maxLength={100}
                 value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                onChange={(event) => {
+                  const name = event.target.value
+                  setForm((current) => ({
+                    ...current,
+                    name,
+                    slug: modalMode === 'create' && !current.slug ? slugifyText(name) : current.slug,
+                  }))
+                }}
+                className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary"
+              />
+            </label>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-bold text-[#434655]">Slug</span>
+              <input
+                required
+                maxLength={150}
+                value={form.slug}
+                onChange={(event) => setForm({ ...form, slug: slugifyText(event.target.value) })}
+                placeholder="am-nhac-bieu-dien"
                 className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary"
               />
             </label>
@@ -333,4 +354,16 @@ function MetricCard({ label, value, accent }) {
       </div>
     </Panel>
   )
+}
+
+function slugifyText(value) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }

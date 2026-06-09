@@ -72,6 +72,7 @@ class EventCategoriesRepository {
     };
 
     if (updates.name !== undefined) addSet('name', updates.name);
+    if (updates.slug !== undefined) addSet('slug', updates.slug);
     if (updates.description !== undefined) addSet('description', updates.description || null);
     if (updates.is_active !== undefined) addSet('is_active', updates.is_active);
 
