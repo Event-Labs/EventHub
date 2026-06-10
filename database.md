@@ -1003,7 +1003,9 @@ EXECUTE FUNCTION update_updated_at_column();
 -- END
 -- =========================================================
 
-// bổ sung db
+-- =========================================================
+-- BỔ SUNG DATABASE
+-- =========================================================
 
 DROP TABLE IF EXISTS payments; 
 DROP INDEX IF EXISTS idx_payments_order; 
