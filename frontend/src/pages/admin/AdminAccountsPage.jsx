@@ -34,6 +34,7 @@ export function AdminAccountsPage() {
   const [unlockModalOpen, setUnlockModalOpen] = useState(false)
   const [targetUser, setTargetUser] = useState(null)
   const [stats, setStats] = useState({ total: 0, active: 0, locked: 0, organizers: 0 })
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0)
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -95,6 +96,7 @@ export function AdminAccountsPage() {
       await adminUserService.unlockUser(targetUser.id)
       setUnlockModalOpen(false)
       fetchUsers()
+      setDetailRefreshKey(prev => prev + 1)
     } catch (err) {
       console.error('Failed to unlock user', err)
     }
@@ -102,11 +104,46 @@ export function AdminAccountsPage() {
 
   if (selectedUserId) {
     return (
-      <UserDetailView 
-        userId={selectedUserId} 
-        onBack={() => setSelectedUserId(null)} 
-        onStatusChange={handleAction}
-      />
+      <>
+        <UserDetailView 
+          userId={selectedUserId} 
+          onBack={() => setSelectedUserId(null)} 
+          onStatusChange={handleAction}
+          refreshKey={detailRefreshKey}
+        />
+        {lockModalOpen && (
+          <LockUserModal 
+            user={targetUser} 
+            open={lockModalOpen} 
+            onClose={() => setLockModalOpen(false)} 
+            onSuccess={() => {
+              fetchUsers() // This updates stats, causing refreshKey to change (hopefully) or we add a specific refresh trigger
+            }}
+          />
+        )}
+        {unlockModalOpen && (
+          <Modal
+            open={unlockModalOpen}
+            title="Mở khóa tài khoản"
+            onClose={() => setUnlockModalOpen(false)}
+            footer={
+              <>
+                <button className="admin-secondary" onClick={() => setUnlockModalOpen(false)}>Hủy bỏ</button>
+                <button className="admin-primary bg-success border-none text-white hover:bg-green-700" onClick={handleUnlock}>Xác nhận mở khóa</button>
+              </>
+            }
+          >
+            <div className="py-2">
+              <p className="text-sm text-[#434655]">
+                Bạn có chắc chắn muốn mở khóa tài khoản cho <span className="font-bold text-[#111827]">{targetUser?.full_name}</span>?
+              </p>
+              <p className="mt-2 text-sm text-[#434655]">
+                Sau khi mở khóa, người dùng có thể đăng nhập và sử dụng hệ thống bình thường.
+              </p>
+            </div>
+          </Modal>
+        )}
+      </>
     )
   }
 
@@ -239,7 +276,10 @@ export function AdminAccountsPage() {
           user={targetUser} 
           open={lockModalOpen} 
           onClose={() => setLockModalOpen(false)} 
-          onSuccess={fetchUsers}
+          onSuccess={() => {
+            fetchUsers()
+            setDetailRefreshKey(prev => prev + 1)
+          }}
         />
       )}
 

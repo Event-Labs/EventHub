@@ -11,10 +11,10 @@ const startServer = async () => {
         await pool.query('SELECT NOW()');
         logger.info('Database connection verified');
 
-        // 2. Connect to Redis (optional/graceful)
-        await connectRedis();
+        // 2. Connect to Redis (non-blocking)
+        connectRedis().catch(err => logger.error('Initial Redis connection failed:', err));
 
-        // 3. Start Server
+        // 3. Start Server immediately
         const server = app.listen(env.PORT, () => {
             logger.info(`Server running in ${env.NODE_ENV} mode on ${env.APP_URL}`);
             startNotificationScheduler();
