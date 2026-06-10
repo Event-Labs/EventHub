@@ -13,7 +13,7 @@ import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { events } from '@/data/events.js'
 
 const customerMenu = [
-  ['Khám phá sự kiện', '/discover'],
+  ['Khám phá sự kiện', '/events'],
   ['Yêu thích', '/favorites'],
   ['Vé của tôi', '/my-tickets'],
   ['Thông báo', '/notifications'],

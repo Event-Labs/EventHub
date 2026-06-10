@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Edit3, Plus, Power, Trash2, X } from 'lucide-react'
+import { Edit3, Plus, Power, Trash2, X } from 'lucide-react'
 import {
   createAdminEventCategory,
   deleteAdminEventCategory,
@@ -200,7 +200,7 @@ export function AdminEventCategoriesPage() {
                 </button>
                 <button
                   type="button"
-                  title="Xóa mềm"
+                  title="Xóa"
                   onClick={() => deleteCategory(category)}
                   disabled={deleteMutation.isPending}
                   className="grid size-9 place-items-center rounded-md border border-[#f3b8b8] text-error transition duration-200 hover:-translate-y-0.5 hover:bg-[#fff1f1] disabled:opacity-60"
@@ -303,23 +303,22 @@ export function AdminEventCategoriesPage() {
 
       {deleteTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-md border border-[#f3b8b8] bg-white p-5 shadow-2xl">
-            <div className="flex gap-4">
-              <div className="grid size-11 shrink-0 place-items-center rounded-md bg-[#fff1f1] text-error">
-                <AlertTriangle className="size-5" />
-              </div>
+          <div className="w-full max-w-md rounded-md border border-[#c3c6d7] bg-white p-5 text-[#111827] shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase text-[#737686]">Xác nhận xóa</p>
-                <h3 className="mt-1 text-xl font-extrabold text-[#111827]">
-                  Xóa mềm loại sự kiện?
+                <h3 className="text-xl font-extrabold">
+                  Xóa loại sự kiện?
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-[#434655]">
+                <p className="mt-2 text-sm font-semibold text-[#434655]">
                   Loại <span className="font-bold text-[#111827]">{deleteTarget.name}</span> sẽ
                   bị ẩn khỏi hệ thống nhưng dữ liệu vẫn được giữ trong database.
                 </p>
               </div>
+              <button type="button" onClick={() => setDeleteTarget(null)} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+                <X className="size-4" />
+              </button>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-3 border-t border-[#e0e3e5] pt-4">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
@@ -331,10 +330,9 @@ export function AdminEventCategoriesPage() {
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#9f1111] disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Trash2 className="size-4" />
-                {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa mềm'}
+                {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
               </button>
             </div>
           </div>
