@@ -10,6 +10,7 @@ import {
   LogOut,
   MapPin,
   Megaphone,
+  PackageOpen,
   Search,
   Settings,
   Settings2,
@@ -37,7 +38,7 @@ const navItems = [
     ],
   },
   { label: 'Thông báo', to: '/organizer/announcements', icon: ClipboardList },
-  { label: 'Gói & thanh toán', to: '/organizer/billing', icon: CreditCard },
+  { label: 'Gói dịch vụ', to: '/organizer/subscriptions', icon: PackageOpen },
 ]
 
 export function OrganizerLayout() {
