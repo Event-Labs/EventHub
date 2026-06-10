@@ -70,7 +70,7 @@ class UploadsService {
     };
   }
 
-  createPolicyPdfSignature() {
+  createPolicyDocumentSignature() {
     const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } =
       requireCloudinaryConfig();
     const timestamp = Math.floor(Date.now() / 1000);
@@ -89,6 +89,10 @@ class UploadsService {
         signature: signUploadParams(params, CLOUDINARY_API_SECRET),
       },
     };
+  }
+
+  createPolicyPdfSignature() {
+    return this.createPolicyDocumentSignature();
   }
 }
 
