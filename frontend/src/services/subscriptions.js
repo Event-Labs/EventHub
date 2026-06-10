@@ -19,3 +19,9 @@ export async function deleteAdminSubscription(subscriptionId) {
   const response = await http.delete(`/admin/subscriptions/${subscriptionId}`)
   return response.data.data
 }
+
+// Organizer: view available subscription plans (read-only)
+export async function fetchSubscriptionsForOrganizer() {
+  const response = await http.get('/admin/subscriptions')
+  return response.data.data
+}
