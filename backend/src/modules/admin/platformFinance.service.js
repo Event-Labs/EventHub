@@ -62,6 +62,13 @@ function serializePolicy(row, documents = undefined) {
   };
 }
 
+function isSupportedPolicyDocument(mimeType = '') {
+  return [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ].includes(mimeType);
+}
+
 class PlatformFinanceService {
   calculatePlatformFee(subtotal, feeConfig) {
     if (!feeConfig) {
@@ -177,8 +184,8 @@ class PlatformFinanceService {
       throw new AppError('Platform policy configuration not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    if (!payload.mime_type?.includes('pdf')) {
-      throw new AppError('Policy document must be a PDF', 400, ErrorCodes.INVALID_INPUT);
+    if (!isSupportedPolicyDocument(payload.mime_type)) {
+      throw new AppError('Policy document must be a PDF or DOCX file', 400, ErrorCodes.INVALID_INPUT);
     }
 
     return serializeDocument(await platformFinanceRepository.createDocument(policyConfigId, payload, userId));
