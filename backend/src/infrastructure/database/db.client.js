@@ -5,12 +5,12 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000, // Increased to 5s
 });
 
 pool.on('error', (err) => {
     logger.error('Unexpected error on idle client', err);
-    process.exit(-1);
+    // Do not exit process, let the pool handle it
 });
 
 pool.on('connect', () => {

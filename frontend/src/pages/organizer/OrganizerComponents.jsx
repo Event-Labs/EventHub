@@ -1,6 +1,6 @@
 import { ChevronRight, Plus, Search, Sparkles } from 'lucide-react'
 
-export function OrganizerPage({ title, eyebrow, description, action, children }) {
+export function OrganizerPage({ title, eyebrow, description, action, onActionClick, children }) {
   return (
     <>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -23,10 +23,14 @@ export function OrganizerPage({ title, eyebrow, description, action, children })
           {description && <p className="mt-1 text-sm text-[#434655]">{description}</p>}
         </div>
         {action && (
-          <button className="admin-primary">
-            <Plus className="size-4" />
-            {action}
-          </button>
+          typeof action === 'string' ? (
+            <button className="admin-primary flex items-center gap-2" onClick={onActionClick}>
+              <Plus className="size-4" />
+              {action}
+            </button>
+          ) : (
+            action
+          )
         )}
       </div>
       {children}

@@ -21,6 +21,7 @@ const announcementRoutes = require('./modules/announcements/announcements.routes
 const platformPolicyRoutes = require('./modules/platform-policies/platformPolicies.routes');
 const uploadRoutes = require('./modules/uploads/uploads.routes');
 const userRoutes = require('./modules/user/user.routes');
+const promotionRoutes = require('./modules/promotions/promotions.routes');
 const ApiResponse = require('./core/response/ApiResponse');
 
 const app = express();
@@ -55,6 +56,7 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/platform-policies', platformPolicyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/promotions', promotionRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
