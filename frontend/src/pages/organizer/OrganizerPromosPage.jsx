@@ -40,7 +40,7 @@ export function OrganizerPromosPage() {
   const [selectedPromo, setSelectedPromo] = useState(null)
   const [formData, setFormData] = useState({
     code: '',
-    event_id: '',
+    event_id: undefined,
     discount_type: 'PERCENTAGE',
     discount_value: '',
     usage_limit: '',
@@ -98,11 +98,17 @@ export function OrganizerPromosPage() {
   const handleCreate = async (e) => {
     e.preventDefault()
     setFormErrors({})
+    
+    if (formData.event_id === undefined) {
+      setFormErrors({ event_id: 'Vui lòng chọn sự kiện áp dụng' })
+      return
+    }
+
     try {
       // Clean data before sending
       const submissionData = {
         ...formData,
-        event_id: formData.event_id || null, // Backend Zod will catch if null
+        event_id: (formData.event_id === 'ALL' || formData.event_id === '') ? null : formData.event_id,
         discount_value: Number(formData.discount_value),
         min_order_value: formData.min_order_value === '' ? 0 : Number(formData.min_order_value),
         max_discount: formData.max_discount === '' ? null : Number(formData.max_discount),
@@ -130,10 +136,16 @@ export function OrganizerPromosPage() {
   const handleEdit = async (e) => {
     e.preventDefault()
     setFormErrors({})
+
+    if (formData.event_id === undefined) {
+      setFormErrors({ event_id: 'Vui lòng chọn sự kiện áp dụng' })
+      return
+    }
+
     try {
       const submissionData = {
         ...formData,
-        event_id: formData.event_id || null,
+        event_id: (formData.event_id === 'ALL' || formData.event_id === '') ? null : formData.event_id,
         usage_limit: formData.usage_limit === '' ? null : Number(formData.usage_limit),
         min_order_value: formData.min_order_value === '' ? 0 : Number(formData.min_order_value),
         max_discount: formData.max_discount === '' ? null : Number(formData.max_discount),
@@ -171,7 +183,7 @@ export function OrganizerPromosPage() {
     setSelectedPromo(promo)
     setFormData({
       code: promo.code,
-      event_id: promo.event_id || '',
+      event_id: promo.event_id || 'ALL',
       discount_type: promo.discount_type,
       discount_value: promo.discount_value,
       usage_limit: promo.usage_limit || '',
@@ -192,7 +204,7 @@ export function OrganizerPromosPage() {
     setSelectedPromo(null)
     setFormData({
       code: '',
-      event_id: '',
+      event_id: undefined,
       discount_type: 'PERCENTAGE',
       discount_value: '',
       usage_limit: '',
@@ -228,13 +240,41 @@ export function OrganizerPromosPage() {
     }
   }
 
+  const hasEvents = events && events.length > 0;
+
   return (
     <OrganizerPage
       title="Promotion Management"
       description="Create and track performance of event discount codes."
-      action="Create Promo Code"
-      onActionClick={() => { resetForm(); setShowCreateModal(true); }}
+      action={
+        <button 
+          className={`flex items-center gap-2 ${hasEvents ? 'admin-primary' : 'bg-gray-300 text-gray-500 cursor-not-allowed px-4 py-2 rounded-md font-bold text-sm'}`} 
+          onClick={() => { 
+            if (hasEvents) {
+              resetForm(); 
+              setShowCreateModal(true); 
+            }
+          }}
+          disabled={!hasEvents}
+          title={!hasEvents ? "Vui lòng tạo sự kiện trước khi tạo promo code" : "Create Promo Code"}
+        >
+          <Plus className="size-4" />
+          Create Promo Code
+        </button>
+      }
     >
+      {!hasEvents && !loading && (
+        <div className="mb-6 rounded-md bg-amber-50 p-4 border border-amber-200">
+           <div className="flex items-center gap-3 text-amber-800">
+              <AlertCircle className="size-5 shrink-0" />
+              <div>
+                <p className="text-sm font-bold">Bạn chưa có sự kiện nào</p>
+                <p className="text-sm mt-1">Vui lòng tạo ít nhất một sự kiện trước khi có thể quản lý Promo Code.</p>
+              </div>
+           </div>
+        </div>
+      )}
+
       <OrganizerPanel className="mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
           <div className="relative flex-1">
@@ -280,12 +320,10 @@ export function OrganizerPromosPage() {
         </div>
       ) : (
         <OrganizerTable
-          headers={['Promo Code', 'Discount Type', 'Usage Tracking', 'Valid Period', 'Status', 'Actions']}
+          headers={['Promo Code', 'Sự kiện áp dụng', 'Discount Type', 'Usage Tracking', 'Valid Period', 'Status', 'Actions']}
           rows={promos.map((promo) => [
-            <div key="promo" className="flex flex-col">
-               <span className="font-extrabold text-lg text-primary">{promo.code}</span>
-               {promo.event_name && <span className="text-xs text-[#737686] mt-0.5">{promo.event_name}</span>}
-            </div>,
+            <span key="promo" className="font-extrabold text-lg text-primary">{promo.code}</span>,
+            <span key="event" className="text-sm font-semibold text-[#434655]">{promo.event_name || 'Tất cả sự kiện'}</span>,
             <span key="type" className="font-medium text-[#434655]">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
             <span key="period" className="text-sm text-[#434655]">{formatDateRange(promo.start_time, promo.end_time)}</span>,
@@ -426,15 +464,16 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             {errors.code && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.code}</p>}
           </label>
           <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.event_id ? 'text-error' : 'text-[#434655]'}`}>Applicable Event</span>
+            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.event_id ? 'text-error' : 'text-[#434655]'}`}>Sự kiện áp dụng</span>
             <select 
               className={`mt-1.5 h-11 w-full rounded border px-3 text-sm outline-none transition-all ${
                 errors.event_id ? 'border-error bg-error/5 ring-1 ring-error/20' : 'border-[#c3c6d7] bg-white focus:border-primary'
               }`}
-              value={formData.event_id}
+              value={formData.event_id === undefined ? '' : formData.event_id}
               onChange={(e) => setFormData({ ...formData, event_id: e.target.value })}
             >
-              <option value="">All Events</option>
+              <option value="" disabled>-- Chọn sự kiện --</option>
+              <option value="ALL">Tất cả sự kiện</option>
               {(events || []).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id}>{ev.title || ev.name || ev.eventName || 'Unnamed Event'}</option>)}
             </select>
             {errors.event_id && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.event_id}</p>}
@@ -556,7 +595,19 @@ function PromoDetailModal({ open, onClose, promo }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-6">
           <DetailItem label="PROMO CODE" value={promo.code} highlight />
-          <DetailItem label="EVENT" value={promo.event_name || 'All Events'} />
+          <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+            <DetailItem label="SỰ KIỆN ÁP DỤNG" value={promo.event_name ? 'Sự kiện cụ thể' : 'Tất cả sự kiện'} />
+            <div className="mt-2 text-sm">
+              <span className="font-bold text-gray-500">Tên sự kiện: </span>
+              <span className="font-medium">{promo.event_name || 'N/A'}</span>
+            </div>
+            {promo.event_id && (
+              <div className="mt-1 text-xs">
+                <span className="font-bold text-gray-500">Event ID: </span>
+                <span className="font-mono text-gray-600">{promo.event_id}</span>
+              </div>
+            )}
+          </div>
           <DetailItem label="DISCOUNT" value={
             promo.discount_type === 'PERCENTAGE' 
               ? `${parseFloat(promo.discount_value)}% Off` 
