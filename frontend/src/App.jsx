@@ -53,6 +53,7 @@ import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
 import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscriptionsPage.jsx'
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
+import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
 import { StaffEventDetailPage } from '@/pages/staff/StaffEventDetailPage.jsx'
@@ -150,7 +151,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'staff-management',
-        element: <OrganizerTasksPage />,
+        element: <OrganizerStaffManagementPage />,
       },
       {
         path: 'reports',

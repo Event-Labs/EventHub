@@ -1,139 +1,519 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ClipboardList, Search, Trash2, UserPlus } from 'lucide-react'
+import {
+  CheckCircle2,
+  ChevronDown,
+  CircleDashed,
+  ClipboardList,
+  Clock,
+  Filter,
+  Loader2,
+  Plus,
+  User,
+  X,
+} from 'lucide-react'
 import {
   createStaffTask,
   fetchOrganizerOperationsOverview,
-  fetchStaffCandidates,
-  inviteStaffToEvent,
-  removeStaffFromEvent,
+  fetchOrganizerStaffTasks,
 } from '@/services/operations.js'
-import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel, OrganizerTable } from './OrganizerComponents.jsx'
+import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 
-const taskColumns = [
-  ['TODO', 'Cần làm'],
-  ['IN_PROGRESS', 'Đang làm'],
-  ['DONE', 'Hoàn thành'],
-]
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG = {
+  TODO: {
+    label: 'Cần làm',
+    icon: CircleDashed,
+    color: 'text-[#737686]',
+    bg: 'bg-[#f2f4f6]',
+    border: 'border-[#c3c6d7]',
+    badge: 'gray',
+  },
+  IN_PROGRESS: {
+    label: 'Đang làm',
+    icon: Clock,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    badge: 'blue',
+  },
+  DONE: {
+    label: 'Hoàn thành',
+    icon: CheckCircle2,
+    color: 'text-green-600',
+    bg: 'bg-green-50',
+    border: 'border-green-200',
+    badge: 'green',
+  },
+}
+
+const STATUSES = ['TODO', 'IN_PROGRESS', 'DONE']
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
 
 export function OrganizerTasksPage() {
-  const [data, setData] = useState(null)
+  const [overview, setOverview] = useState(null)
+  const [tasks, setTasks] = useState([])
   const [selectedEventId, setSelectedEventId] = useState('')
-  const [assignForm, setAssignForm] = useState({ email: '', staff_role: 'Check-in' })
-  const [taskForm, setTaskForm] = useState({ staff_id: '', title: '', description: '' })
-  const [candidateSearch, setCandidateSearch] = useState('')
-  const [candidates, setCandidates] = useState([])
+  const [filterStaffId, setFilterStaffId] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const loadData = async () => {
+  // Load overview (for events & staff list) + tasks
+  const loadAll = async (eventId) => {
     setLoading(true)
     setError('')
     try {
-      const overview = await fetchOrganizerOperationsOverview()
-      setData(overview)
-      setSelectedEventId((current) => current || overview.events?.[0]?.id || '')
+      const [ov, taskList] = await Promise.all([
+        fetchOrganizerOperationsOverview(),
+        fetchOrganizerStaffTasks(eventId ? { event_id: eventId } : {}),
+      ])
+      setOverview(ov)
+      setTasks(taskList)
+      if (!selectedEventId && ov.events?.[0]?.id) {
+        setSelectedEventId(ov.events[0].id)
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải dữ liệu vận hành.')
+      setError(err.response?.data?.message || 'Không thể tải dữ liệu.')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadData()
+    loadAll(selectedEventId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    let active = true
-
-    const loadCandidates = async () => {
-      if (!candidateSearch.trim()) {
-        setCandidates([])
-        return
-      }
-
-      try {
-        const rows = await fetchStaffCandidates({ search: candidateSearch.trim() })
-        if (active) setCandidates(rows)
-      } catch {
-        if (active) setCandidates([])
-      }
-    }
-
-    const timer = setTimeout(loadCandidates, 300)
-    return () => {
-      active = false
-      clearTimeout(timer)
-    }
-  }, [candidateSearch])
-
-  const selectedEvent = useMemo(
-    () => data?.events?.find((event) => event.id === selectedEventId),
-    [data?.events, selectedEventId],
-  )
-
-  const assignedStaff = useMemo(
-    () => (data?.staff_assignments || []).filter((item) => item.event_id === selectedEventId),
-    [data?.staff_assignments, selectedEventId],
-  )
-
-  const invitations = useMemo(
-    () => (data?.invitations || []).filter((item) => item.event_id === selectedEventId),
-    [data?.invitations, selectedEventId],
-  )
-
-  const pendingInvitationCount = useMemo(
-    () => invitations.filter((item) => item.status === 'PENDING').length,
-    [invitations],
-  )
-
-  const perEventLimit = Number(
-    data?.subscription?.max_staff_per_event || data?.subscription?.staff_limit || 0,
-  )
-  const reservedStaffSlots = assignedStaff.length + pendingInvitationCount
-  const staffLimitReached = perEventLimit > 0 && reservedStaffSlots >= perEventLimit
-  const subscriptionActive = Boolean(data?.subscription?.active)
-  const selectedTasks = (data?.tasks || []).filter((task) => task.event_id === selectedEventId)
-
-  const submitAssign = async (event) => {
-    event.preventDefault()
-    if (!selectedEventId || !assignForm.email.trim()) return
-
-    setSaving(true)
+  // Reload tasks when event filter changes
+  const handleEventChange = async (eventId) => {
+    setSelectedEventId(eventId)
+    setFilterStaffId('')
+    setLoading(true)
     setError('')
     try {
-      await inviteStaffToEvent({
-        event_id: selectedEventId,
-        email: assignForm.email.trim(),
-        staff_role: assignForm.staff_role,
-      })
-      setAssignForm({ email: '', staff_role: 'Check-in' })
-      setCandidateSearch('')
-      setCandidates([])
-      await loadData()
+      const taskList = await fetchOrganizerStaffTasks(eventId ? { event_id: eventId } : {})
+      setTasks(taskList)
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gửi lời mời nhân sự.')
+      setError(err.response?.data?.message || 'Không thể tải công việc.')
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
   }
 
-  const submitTask = async (event) => {
-    event.preventDefault()
-    if (!selectedEventId || !taskForm.staff_id || !taskForm.title.trim()) return
+  // Staff list from the selected event's assignments
+  const assignedStaff = useMemo(
+    () =>
+      (overview?.staff_assignments || []).filter(
+        (s) => !selectedEventId || s.event_id === selectedEventId,
+      ),
+    [overview?.staff_assignments, selectedEventId],
+  )
 
+  // Derive unique staff from tasks (in case overview is stale)
+  const staffFromTasks = useMemo(() => {
+    const map = new Map()
+    for (const t of tasks) {
+      if (t.staff_id && !map.has(t.staff_id)) {
+        map.set(t.staff_id, { staff_id: t.staff_id, staff_name: t.staff_name, staff_email: t.staff_email })
+      }
+    }
+    return Array.from(map.values())
+  }, [tasks])
+
+  const staffOptions = useMemo(() => {
+    const map = new Map()
+    for (const s of [...assignedStaff, ...staffFromTasks]) {
+      const id = s.staff_id
+      if (id && !map.has(id)) map.set(id, s)
+    }
+    return Array.from(map.values())
+  }, [assignedStaff, staffFromTasks])
+
+  // Filtered + grouped tasks
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (filterStaffId && t.staff_id !== filterStaffId) return false
+      if (filterStatus && t.status !== filterStatus) return false
+      return true
+    })
+  }, [tasks, filterStaffId, filterStatus])
+
+  const tasksByStatus = useMemo(() => {
+    const groups = { TODO: [], IN_PROGRESS: [], DONE: [] }
+    for (const t of filteredTasks) {
+      if (groups[t.status]) groups[t.status].push(t)
+    }
+    return groups
+  }, [filteredTasks])
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = tasks.length
+    const done = tasks.filter((t) => t.status === 'DONE').length
+    const inProgress = tasks.filter((t) => t.status === 'IN_PROGRESS').length
+    const todo = tasks.filter((t) => t.status === 'TODO').length
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0
+    return { total, done, inProgress, todo, progress }
+  }, [tasks])
+
+  const selectedEvent = overview?.events?.find((e) => e.id === selectedEventId)
+
+  return (
+    <OrganizerPage
+      title="Công việc nhân sự"
+      description="Theo dõi tiến độ và giao việc cho từng staff theo sự kiện."
+    >
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* ── Toolbar ── */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Event selector */}
+          <label className="flex flex-col gap-1 text-xs font-bold text-[#434655]">
+            Sự kiện
+            <div className="relative">
+              <select
+                className="h-10 w-56 appearance-none rounded-md border border-[#c3c6d7] bg-white pl-3 pr-8 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                value={selectedEventId}
+                onChange={(e) => handleEventChange(e.target.value)}
+                disabled={loading}
+              >
+                <option value="">Tất cả sự kiện</option>
+                {(overview?.events || []).map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+            </div>
+          </label>
+
+          {/* Staff filter */}
+          <label className="flex flex-col gap-1 text-xs font-bold text-[#434655]">
+            <span className="flex items-center gap-1">
+              <Filter className="size-3" /> Lọc theo staff
+            </span>
+            <div className="relative">
+              <select
+                className="h-10 w-48 appearance-none rounded-md border border-[#c3c6d7] bg-white pl-3 pr-8 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                value={filterStaffId}
+                onChange={(e) => setFilterStaffId(e.target.value)}
+                disabled={loading}
+              >
+                <option value="">Tất cả staff</option>
+                {staffOptions.map((s) => (
+                  <option key={s.staff_id} value={s.staff_id}>
+                    {s.staff_name || s.staff_email || 'Staff'}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+            </div>
+          </label>
+
+          {/* Status filter */}
+          <label className="flex flex-col gap-1 text-xs font-bold text-[#434655]">
+            Trạng thái
+            <div className="relative">
+              <select
+                className="h-10 w-40 appearance-none rounded-md border border-[#c3c6d7] bg-white pl-3 pr-8 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                disabled={loading}
+              >
+                <option value="">Tất cả</option>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_CONFIG[s].label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+            </div>
+          </label>
+
+          {/* Clear filters */}
+          {(filterStaffId || filterStatus) && (
+            <button
+              className="flex h-10 items-center gap-1.5 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold text-[#565e74] hover:border-primary hover:text-primary"
+              onClick={() => { setFilterStaffId(''); setFilterStatus('') }}
+            >
+              <X className="size-3.5" /> Xóa lọc
+            </button>
+          )}
+        </div>
+
+        <button
+          className="admin-primary self-end"
+          onClick={() => setShowCreateModal(true)}
+          disabled={loading || !selectedEventId}
+        >
+          <Plus className="size-4" />
+          Tạo công việc
+        </button>
+      </div>
+
+      {/* ── Progress stats ── */}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Tổng công việc" value={stats.total} icon={ClipboardList} />
+        <StatCard label="Cần làm" value={stats.todo} icon={CircleDashed} tone="gray" />
+        <StatCard label="Đang làm" value={stats.inProgress} icon={Clock} tone="blue" />
+        <StatCard label="Hoàn thành" value={stats.done} icon={CheckCircle2} tone="green" />
+      </div>
+
+      {/* ── Progress bar ── */}
+      {stats.total > 0 && (
+        <OrganizerPanel className="mb-5">
+          <div className="flex items-center justify-between text-sm font-bold text-[#191c1e]">
+            <span>Tiến độ tổng thể{selectedEvent ? ` — ${selectedEvent.title}` : ''}</span>
+            <span className="text-primary">{stats.progress}%</span>
+          </div>
+          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-[#e0e3e5]">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${stats.progress}%` }}
+            />
+          </div>
+          <div className="mt-2 flex gap-4 text-xs text-[#565e74]">
+            <span>{stats.done} hoàn thành</span>
+            <span>{stats.inProgress} đang làm</span>
+            <span>{stats.todo} chưa bắt đầu</span>
+          </div>
+        </OrganizerPanel>
+      )}
+
+      {/* ── Loading / Empty ── */}
+      {loading ? (
+        <OrganizerPanel className="flex items-center justify-center py-16">
+          <Loader2 className="size-7 animate-spin text-primary" />
+        </OrganizerPanel>
+      ) : !selectedEventId ? (
+        <OrganizerPanel className="py-12 text-center text-sm text-[#737686]">
+          Chọn một sự kiện để xem công việc.
+        </OrganizerPanel>
+      ) : filteredTasks.length === 0 ? (
+        <OrganizerPanel className="py-12 text-center">
+          <ClipboardList className="mx-auto mb-3 size-10 text-[#c3c6d7]" />
+          <p className="text-sm font-semibold text-[#565e74]">Chưa có công việc nào.</p>
+          <p className="mt-1 text-xs text-[#737686]">
+            Nhấn &ldquo;Tạo công việc&rdquo; để giao việc cho staff.
+          </p>
+        </OrganizerPanel>
+      ) : (
+        /* ── Kanban board ── */
+        <div className="grid gap-4 lg:grid-cols-3">
+          {STATUSES.map((status) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              tasks={tasksByStatus[status]}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Staff breakdown table ── */}
+      {!loading && tasks.length > 0 && (
+        <div className="mt-7">
+          <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-[#434655]">
+            Tiến độ theo nhân sự
+          </h2>
+          <StaffProgressTable tasks={tasks} staffOptions={staffOptions} />
+        </div>
+      )}
+
+      {/* ── Create task modal ── */}
+      {showCreateModal && (
+        <CreateTaskModal
+          events={overview?.events || []}
+          selectedEventId={selectedEventId}
+          assignedStaff={assignedStaff}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => {
+            setShowCreateModal(false)
+            handleEventChange(selectedEventId)
+          }}
+        />
+      )}
+    </OrganizerPage>
+  )
+}
+
+// ─── Kanban Column ────────────────────────────────────────────────────────────
+
+function KanbanColumn({ status, tasks }) {
+  const cfg = STATUS_CONFIG[status]
+  const Icon = cfg.icon
+
+  return (
+    <div className={`rounded-lg border ${cfg.border} ${cfg.bg} p-3`}>
+      {/* Column header */}
+      <div className="mb-3 flex items-center justify-between px-1">
+        <div className={`flex items-center gap-2 font-extrabold ${cfg.color}`}>
+          <Icon className="size-4" />
+          {cfg.label}
+        </div>
+        <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-[#434655] shadow-sm">
+          {tasks.length}
+        </span>
+      </div>
+
+      {/* Task cards */}
+      <div className="space-y-3">
+        {tasks.map((task) => (
+          <TaskCard key={task.id} task={task} />
+        ))}
+        {tasks.length === 0 && (
+          <div className="rounded-md border border-dashed border-[#c3c6d7] px-3 py-6 text-center text-xs text-[#737686]">
+            Trống
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Task Card ────────────────────────────────────────────────────────────────
+
+function TaskCard({ task }) {
+  const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO
+  const createdDate = task.created_at
+    ? new Date(task.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+    : null
+
+  return (
+    <div className="rounded-md border border-[#e0e3e5] bg-white p-4 shadow-sm">
+      <p className="font-bold leading-snug text-[#191c1e]">{task.title}</p>
+      {task.description && (
+        <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-[#565e74]">{task.description}</p>
+      )}
+      <div className="mt-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <AvatarInitials name={task.staff_name || 'Staff'} className="size-6" />
+          <span className="max-w-[100px] truncate text-xs font-semibold text-[#434655]">
+            {task.staff_name || 'Staff'}
+          </span>
+        </div>
+        <Badge tone={cfg.badge}>{cfg.label}</Badge>
+      </div>
+      {createdDate && (
+        <p className="mt-2 text-right text-[10px] text-[#a0a3af]">{createdDate}</p>
+      )}
+    </div>
+  )
+}
+
+// ─── Staff Progress Table ─────────────────────────────────────────────────────
+
+function StaffProgressTable({ tasks, staffOptions }) {
+  const rows = useMemo(() => {
+    return staffOptions
+      .map((s) => {
+        const staffTasks = tasks.filter((t) => t.staff_id === s.staff_id)
+        const done = staffTasks.filter((t) => t.status === 'DONE').length
+        const inProgress = staffTasks.filter((t) => t.status === 'IN_PROGRESS').length
+        const todo = staffTasks.filter((t) => t.status === 'TODO').length
+        const total = staffTasks.length
+        const progress = total > 0 ? Math.round((done / total) * 100) : 0
+        return { ...s, done, inProgress, todo, total, progress }
+      })
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total)
+  }, [tasks, staffOptions])
+
+  if (rows.length === 0) return null
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-[#c3c6d7] bg-white">
+      <table className="w-full min-w-[640px] text-left text-sm">
+        <thead className="bg-[#f2f4f6] text-xs uppercase text-[#5c647a]">
+          <tr>
+            <th className="px-5 py-3 font-bold">Nhân sự</th>
+            <th className="px-5 py-3 font-bold">Tổng</th>
+            <th className="px-5 py-3 font-bold">Cần làm</th>
+            <th className="px-5 py-3 font-bold">Đang làm</th>
+            <th className="px-5 py-3 font-bold">Hoàn thành</th>
+            <th className="px-5 py-3 font-bold">Tiến độ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.staff_id} className="border-t border-[#e0e3e5] hover:bg-[#f7f9fb]">
+              <td className="px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <AvatarInitials name={row.staff_name || 'Staff'} className="size-8" />
+                  <div>
+                    <p className="font-bold text-[#191c1e]">{row.staff_name || 'Staff'}</p>
+                    {row.staff_email && (
+                      <p className="text-xs text-[#737686]">{row.staff_email}</p>
+                    )}
+                  </div>
+                </div>
+              </td>
+              <td className="px-5 py-3 font-bold text-[#191c1e]">{row.total}</td>
+              <td className="px-5 py-3 text-[#737686]">{row.todo}</td>
+              <td className="px-5 py-3 text-blue-600 font-semibold">{row.inProgress}</td>
+              <td className="px-5 py-3 text-green-600 font-semibold">{row.done}</td>
+              <td className="px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-2 w-28 overflow-hidden rounded-full bg-[#e0e3e5]">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      style={{ width: `${row.progress}%` }}
+                    />
+                  </div>
+                  <span className="w-9 text-right text-xs font-bold text-[#434655]">
+                    {row.progress}%
+                  </span>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ─── Create Task Modal ────────────────────────────────────────────────────────
+
+function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCreated }) {
+  const [form, setForm] = useState({
+    event_id: selectedEventId || events[0]?.id || '',
+    staff_id: '',
+    title: '',
+    description: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  // Staff for current event selection in form
+  const staffForEvent = useMemo(
+    () => assignedStaff.filter((s) => !form.event_id || s.event_id === form.event_id),
+    [assignedStaff, form.event_id],
+  )
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.event_id || !form.staff_id || !form.title.trim()) return
     setSaving(true)
     setError('')
     try {
       await createStaffTask({
-        event_id: selectedEventId,
-        staff_id: taskForm.staff_id,
-        title: taskForm.title,
-        description: taskForm.description,
+        event_id: form.event_id,
+        staff_id: form.staff_id,
+        title: form.title.trim(),
+        description: form.description.trim(),
       })
-      setTaskForm({ staff_id: '', title: '', description: '' })
-      await loadData()
+      onCreated()
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể tạo công việc.')
     } finally {
@@ -141,265 +521,158 @@ export function OrganizerTasksPage() {
     }
   }
 
-  const removeAssignment = async (staffId) => {
-    if (!selectedEventId || !staffId) return
-
-    setSaving(true)
-    setError('')
-    try {
-      await removeStaffFromEvent(selectedEventId, staffId)
-      await loadData()
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gỡ nhân sự khỏi sự kiện.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const pickCandidate = (candidate) => {
-    setAssignForm((form) => ({ ...form, email: candidate.email }))
-    setCandidateSearch(candidate.email)
-    setCandidates([])
-  }
-
   return (
-    <OrganizerPage
-      title="Quản lý nhân sự"
-      description="Phân công staff theo sự kiện, kiểm soát giới hạn gói dịch vụ và giao việc vận hành."
-    >
-      {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
-
-      <OrganizerPanel className="mb-5">
-        <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
-          <label className="text-sm font-bold text-[#434655]">
-            Sự kiện
-            <select
-              className="mt-2 h-10 w-full rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold text-[#191c1e]"
-              value={selectedEventId}
-              onChange={(event) => setSelectedEventId(event.target.value)}
-              disabled={loading}
-            >
-              {(data?.events || []).map((event) => (
-                <option key={event.id} value={event.id}>{event.title}</option>
-              ))}
-            </select>
-          </label>
-          <LimitCard label="Gói hiện tại" value={data?.subscription?.name || 'Chưa có'} />
-          <LimitCard
-            label="Staff đã phân công"
-            value={`${assignedStaff.length}/${perEventLimit || 0}`}
-          />
-          <LimitCard
-            label="Slot còn lại"
-            value={subscriptionActive ? `${Math.max(0, perEventLimit - reservedStaffSlots)}` : '—'}
-            warning={staffLimitReached}
-            hint={pendingInvitationCount > 0 ? `+${pendingInvitationCount} lời mời chờ` : null}
-          />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[#e0e3e5] px-6 py-4">
+          <div className="flex items-center gap-2 font-extrabold text-[#111827]">
+            <ClipboardList className="size-5 text-primary" />
+            Tạo công việc mới
+          </div>
+          <button
+            className="grid size-8 place-items-center rounded-full text-[#737686] hover:bg-[#f2f4f6] hover:text-[#191c1e]"
+            onClick={onClose}
+          >
+            <X className="size-4" />
+          </button>
         </div>
-      </OrganizerPanel>
 
-      {loading ? (
-        <OrganizerPanel>Đang tải dữ liệu...</OrganizerPanel>
-      ) : !selectedEvent ? (
-        <OrganizerPanel>Chưa có sự kiện để phân công nhân sự.</OrganizerPanel>
-      ) : !subscriptionActive ? (
-        <OrganizerPanel className="text-sm font-semibold text-red-700">
-          Cần gói subscription đang hoạt động trước khi mời staff cho sự kiện.
-        </OrganizerPanel>
-      ) : (
-        <>
-          <div className="mb-6 grid gap-5 xl:grid-cols-2">
-            <OrganizerPanel>
-              <h2 className="mb-4 flex items-center gap-2 font-extrabold text-[#111827]">
-                <UserPlus className="size-5 text-primary" />
-                Phân công staff
-              </h2>
-              <form className="grid gap-3" onSubmit={submitAssign}>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
-                  <input
-                    type="search"
-                    className="h-10 w-full rounded-md border border-[#c3c6d7] pl-9 pr-3 text-sm"
-                    placeholder="Tìm customer theo tên hoặc email"
-                    value={candidateSearch}
-                    onChange={(event) => {
-                      setCandidateSearch(event.target.value)
-                      setAssignForm((form) => ({ ...form, email: event.target.value }))
-                    }}
-                    disabled={staffLimitReached || saving}
-                  />
-                  {candidates.length > 0 && (
-                    <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-[#c3c6d7] bg-white shadow">
-                      {candidates.map((candidate) => (
-                        <li key={candidate.id}>
-                          <button
-                            type="button"
-                            className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-[#f7f9fb]"
-                            onClick={() => pickCandidate(candidate)}
-                          >
-                            <span className="font-bold text-[#191c1e]">{candidate.full_name}</span>
-                            <span className="text-[#565e74]">{candidate.email}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <input
-                  type="email"
-                  className="h-10 rounded-md border border-[#c3c6d7] px-3 text-sm"
-                  placeholder="Email tài khoản customer"
-                  value={assignForm.email}
-                  onChange={(event) => setAssignForm((form) => ({ ...form, email: event.target.value }))}
-                  disabled={staffLimitReached || saving}
-                  required
-                />
-                <input
-                  className="h-10 rounded-md border border-[#c3c6d7] px-3 text-sm"
-                  placeholder="Vai trò: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
-                  value={assignForm.staff_role}
-                  onChange={(event) => setAssignForm((form) => ({ ...form, staff_role: event.target.value }))}
-                  disabled={saving}
-                />
-                <button className="admin-primary w-fit" disabled={staffLimitReached || saving || !assignForm.email.trim()}>
-                  <UserPlus className="size-4" />
-                  Gửi lời mời
-                </button>
-                {staffLimitReached && (
-                  <p className="text-sm font-semibold text-red-700">
-                    Gói {data?.subscription?.name || 'hiện tại'} chỉ cho phép {perEventLimit} staff cho mỗi sự kiện (đã tính cả lời mời đang chờ).
-                  </p>
-                )}
-                <p className="text-sm leading-6 text-[#565e74]">
-                  Customer nhận thông báo, đồng ý lời mời thì được gán role STAFF và thêm vào sự kiện.
+        {/* Form */}
+        <form className="px-6 py-5" onSubmit={handleSubmit}>
+          {error && (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="grid gap-4">
+            {/* Event */}
+            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+              Sự kiện
+              <select
+                className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                value={form.event_id}
+                onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value, staff_id: '' }))}
+                required
+              >
+                <option value="">Chọn sự kiện...</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>{ev.title}</option>
+                ))}
+              </select>
+            </label>
+
+            {/* Staff */}
+            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+              <span className="flex items-center gap-1">
+                <User className="size-3" /> Staff phụ trách
+              </span>
+              <select
+                className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                value={form.staff_id}
+                onChange={(e) => setForm((f) => ({ ...f, staff_id: e.target.value }))}
+                disabled={staffForEvent.length === 0}
+                required
+              >
+                <option value="">
+                  {staffForEvent.length === 0
+                    ? 'Không có staff cho sự kiện này'
+                    : 'Chọn staff...'}
+                </option>
+                {staffForEvent.map((s) => (
+                  <option key={s.staff_id} value={s.staff_id}>
+                    {s.staff_name || s.staff_email} {s.staff_role ? `— ${s.staff_role}` : ''}
+                  </option>
+                ))}
+              </select>
+              {staffForEvent.length === 0 && form.event_id && (
+                <p className="text-xs text-[#737686]">
+                  Chưa có staff được phân công. Thêm nhân sự tại trang Quản lý nhân sự.
                 </p>
-              </form>
-            </OrganizerPanel>
+              )}
+            </label>
 
-            <OrganizerPanel>
-              <h2 className="mb-4 flex items-center gap-2 font-extrabold text-[#111827]">
-                <ClipboardList className="size-5 text-primary" />
-                Tạo công việc
-              </h2>
-              <form className="grid gap-3" onSubmit={submitTask}>
-                <select
-                  className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm"
-                  value={taskForm.staff_id}
-                  onChange={(event) => setTaskForm((form) => ({ ...form, staff_id: event.target.value }))}
-                  disabled={saving || assignedStaff.length === 0}
-                >
-                  <option value="">Chọn staff đã được phân công</option>
-                  {assignedStaff.map((staff) => (
-                    <option key={staff.staff_id} value={staff.staff_id}>{staff.staff_name} - {staff.staff_role || 'Staff'}</option>
-                  ))}
-                </select>
-                <input
-                  className="h-10 rounded-md border border-[#c3c6d7] px-3 text-sm"
-                  placeholder="Tên công việc"
-                  value={taskForm.title}
-                  onChange={(event) => setTaskForm((form) => ({ ...form, title: event.target.value }))}
-                  disabled={saving}
-                />
-                <textarea
-                  className="min-h-20 rounded-md border border-[#c3c6d7] px-3 py-2 text-sm"
-                  placeholder="Mô tả chi tiết"
-                  value={taskForm.description}
-                  onChange={(event) => setTaskForm((form) => ({ ...form, description: event.target.value }))}
-                  disabled={saving}
-                />
-                <button className="admin-primary w-fit" disabled={saving || !taskForm.staff_id || !taskForm.title.trim()}>
-                  <ClipboardList className="size-4" />
+            {/* Title */}
+            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+              Tên công việc
+              <input
+                className="h-10 rounded-md border border-[#c3c6d7] px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                placeholder="VD: Kiểm tra check-in, Hỗ trợ khu A..."
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                required
+                maxLength={200}
+              />
+            </label>
+
+            {/* Description */}
+            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+              Mô tả
+              <textarea
+                className="min-h-[88px] rounded-md border border-[#c3c6d7] px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                placeholder="Chi tiết công việc, vị trí, thời gian..."
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </label>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-5 flex justify-end gap-3">
+            <button
+              type="button"
+              className="admin-secondary"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              className="admin-primary"
+              disabled={saving || !form.event_id || !form.staff_id || !form.title.trim()}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Đang tạo...
+                </>
+              ) : (
+                <>
+                  <Plus className="size-4" />
                   Tạo công việc
-                </button>
-                {assignedStaff.length === 0 && (
-                  <p className="text-sm text-[#565e74]">Chỉ giao việc cho staff đã chấp nhận lời mời.</p>
-                )}
-              </form>
-            </OrganizerPanel>
+                </>
+              )}
+            </button>
           </div>
-
-          <OrganizerTable
-            headers={['Staff', 'Vai trò', 'Email', 'Ngày phân công', 'Hành động']}
-            rows={assignedStaff.map((staff) => [
-              <span key="staff" className="flex items-center gap-3 font-bold">
-                <AvatarInitials name={staff.staff_name || 'Staff'} className="size-8" />
-                {staff.staff_name}
-              </span>,
-              staff.staff_role || 'Staff',
-              staff.staff_email,
-              new Date(staff.assigned_at).toLocaleDateString('vi-VN'),
-              <button key="remove" className="admin-secondary text-red-700" onClick={() => removeAssignment(staff.staff_id)} disabled={saving}>
-                <Trash2 className="size-4" />
-                Gỡ
-              </button>,
-            ])}
-          />
-
-          <div className="mt-7">
-            <h2 className="mb-3 font-extrabold text-[#111827]">Lời mời staff</h2>
-            <OrganizerTable
-              headers={['Email', 'Người nhận', 'Vai trò', 'Trạng thái', 'Hết hạn']}
-              rows={invitations.map((invitation) => [
-                invitation.invited_email,
-                invitation.invited_user_name || 'Customer',
-                invitation.staff_role || 'Staff',
-                <Badge key="status" tone={invitation.status === 'ACCEPTED' ? 'green' : invitation.status === 'DECLINED' ? 'red' : 'blue'}>
-                  {invitation.status}
-                </Badge>,
-                new Date(invitation.expires_at).toLocaleDateString('vi-VN'),
-              ])}
-            />
-          </div>
-
-          <div className="mt-7 grid gap-5 xl:grid-cols-3">
-            {taskColumns.map(([status, label]) => {
-              const tasks = selectedTasks.filter((task) => task.status === status)
-              return (
-                <div key={status}>
-                  <div className="mb-3 flex items-center justify-between px-1">
-                    <h3 className="font-bold text-[#191c1e]">{label}</h3>
-                    <span className="rounded bg-[#e0e3e5] px-2 py-0.5 text-xs font-bold text-[#434655]">{tasks.length}</span>
-                  </div>
-                  <div className="space-y-4">
-                    {tasks.map((task) => <TaskCard key={task.id} task={task} />)}
-                    {tasks.length === 0 && <OrganizerPanel className="text-sm text-[#737686]">Chưa có công việc.</OrganizerPanel>}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </OrganizerPage>
-  )
-}
-
-function LimitCard({ label, value, warning = false, hint = null }) {
-  return (
-    <div className={`rounded-md border px-4 py-3 ${warning ? 'border-red-200 bg-red-50' : 'border-[#c3c6d7] bg-[#f7f9fb]'}`}>
-      <p className="text-xs font-bold uppercase text-[#737686]">{label}</p>
-      <p className={`mt-1 text-lg font-extrabold ${warning ? 'text-red-700' : 'text-[#111827]'}`}>{value}</p>
-      {hint && <p className="mt-1 text-xs font-semibold text-[#565e74]">{hint}</p>}
+        </form>
+      </div>
     </div>
   )
 }
 
-function TaskCard({ task }) {
-  const done = task.status === 'DONE'
-  const tone = done ? 'green' : task.status === 'IN_PROGRESS' ? 'blue' : 'gray'
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, icon: Icon, tone = 'primary' }) {
+  const styles = {
+    primary: { bg: 'bg-primary/10', text: 'text-primary', val: 'text-primary' },
+    gray: { bg: 'bg-[#f2f4f6]', text: 'text-[#737686]', val: 'text-[#434655]' },
+    blue: { bg: 'bg-blue-50', text: 'text-blue-500', val: 'text-blue-700' },
+    green: { bg: 'bg-green-50', text: 'text-green-500', val: 'text-green-700' },
+  }
+  const s = styles[tone] || styles.primary
 
   return (
-    <OrganizerPanel className="min-h-32">
-      <div className="flex items-start justify-between">
-        <Badge tone={tone}>{task.status}</Badge>
-        {done && <CheckCircle2 className="size-4 text-primary" />}
+    <div className={`rounded-lg border border-[#e0e3e5] ${s.bg} px-4 py-3`}>
+      <div className={`flex items-center gap-2 text-xs font-bold uppercase ${s.text}`}>
+        <Icon className="size-3.5" />
+        {label}
       </div>
-      <p className="mt-4 font-bold text-[#191c1e]">{task.title}</p>
-      {task.description && <p className="mt-2 text-sm leading-6 text-[#565e74]">{task.description}</p>}
-      <div className="mt-5 flex items-center gap-2 text-xs text-[#565e74]">
-        <AvatarInitials name={task.staff_name || 'Staff'} className="size-6" />
-        {task.staff_name}
-      </div>
-    </OrganizerPanel>
+      <p className={`mt-1.5 text-2xl font-extrabold ${s.val}`}>{value}</p>
+    </div>
   )
 }
