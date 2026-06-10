@@ -22,8 +22,8 @@ class UploadsController {
 
   createPolicyPdfSignature = async (req, res, next) => {
     try {
-      const data = uploadsService.createPolicyPdfSignature();
-      res.status(200).json(ApiResponse.success(data, 'Cloudinary upload signature for policy PDF created'));
+      const data = uploadsService.createPolicyDocumentSignature();
+      res.status(200).json(ApiResponse.success(data, 'Cloudinary upload signature for policy document created'));
     } catch (err) {
       next(err);
     }

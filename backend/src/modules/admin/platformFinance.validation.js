@@ -28,14 +28,26 @@ const updatePlatformFeeSchema = platformFeeSchema.partial().refine(
   { message: 'At least one field is required' },
 );
 
+const policyTypes = [
+  'TERMS_CUSTOMER',
+  'TERMS_ORGANIZER',
+  'TERMS_STAFF',
+  'PRIVACY_POLICY',
+  'PAYMENT_SECURITY_POLICY',
+  'PAYMENT_POLICY',
+  'REFUND_POLICY',
+  'EVENT_POLICY',
+  'TICKET_POLICY',
+  'CHECKIN_POLICY',
+  'SUBSCRIPTION_POLICY',
+  'FEE_POLICY',
+  'COMPLAINT_POLICY',
+  'AI_POLICY',
+  'SYSTEM_POLICY',
+];
+
 const policyConfigSchema = z.object({
-  policy_type: z.enum([
-    'REFUND',
-    'PAYOUT',
-    'EVENT_APPROVAL',
-    'SERVICE_FEE',
-    'ORGANIZER_REGULATION',
-  ]),
+  policy_type: z.enum(policyTypes),
   title: z.string().trim().min(2).max(255),
   description: z.string().trim().max(5000).optional().nullable(),
   config: z.record(z.string(), z.any()).default({}),
@@ -55,7 +67,12 @@ const policyDocumentSchema = z.object({
   file_url: z.string().url(),
   file_name: z.string().trim().max(255).optional().nullable(),
   file_size: z.coerce.number().int().nonnegative().optional().nullable(),
-  mime_type: z.string().trim().max(100).default('application/pdf'),
+  mime_type: z
+    .enum([
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ])
+    .default('application/pdf'),
   version: z.string().trim().max(50).default('1.0'),
   is_public: z.coerce.boolean().default(true),
 });
@@ -67,7 +84,7 @@ const updatePolicyDocumentSchema = policyDocumentSchema.partial().refine(
 
 const policyTypeQuerySchema = z.object({
   policy_type: z
-    .enum(['REFUND', 'PAYOUT', 'EVENT_APPROVAL', 'SERVICE_FEE', 'ORGANIZER_REGULATION'])
+    .enum(policyTypes)
     .optional(),
 });
 
