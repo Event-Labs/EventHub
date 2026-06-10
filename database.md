@@ -196,12 +196,7 @@ CREATE TABLE event_categories (
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(150) UNIQUE NOT NULL,
 
-    description TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
-
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
+    description TEXT
 );
 
 CREATE TABLE events (
@@ -438,6 +433,68 @@ CREATE TABLE platform_fee_configs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE platform_fee_configs
+ADD COLUMN event_category_id UUID REFERENCES event_categories(id),
+ADD COLUMN effective_from TIMESTAMPTZ DEFAULT NOW(),
+ADD COLUMN effective_to TIMESTAMPTZ,
+ADD COLUMN created_by UUID REFERENCES users(id),
+ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+
+
+CREATE TYPE platform_policy_type_enum AS ENUM (
+    'REFUND',
+    'PAYOUT',
+    'EVENT_APPROVAL',
+    'SERVICE_FEE',
+    'ORGANIZER_REGULATION'
+);
+
+CREATE TABLE platform_policy_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    policy_type platform_policy_type_enum NOT NULL,
+
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+
+    config JSONB NOT NULL,
+
+    is_active BOOLEAN DEFAULT TRUE,
+
+    effective_from TIMESTAMPTZ DEFAULT NOW(),
+    effective_to TIMESTAMPTZ,
+
+    created_by UUID REFERENCES users(id),
+    updated_by UUID REFERENCES users(id),
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE platform_policy_documents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    policy_config_id UUID REFERENCES platform_policy_configs(id) ON DELETE CASCADE,
+
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+
+    file_url TEXT NOT NULL,
+    file_name VARCHAR(255),
+    file_size BIGINT,
+    mime_type VARCHAR(100) DEFAULT 'application/pdf',
+
+    version VARCHAR(50) DEFAULT '1.0',
+
+    is_public BOOLEAN DEFAULT TRUE,
+
+    uploaded_by UUID REFERENCES users(id),
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
 -- =========================================================
 -- ORDERS
 -- =========================================================
@@ -541,26 +598,6 @@ CREATE TABLE order_items (
     unit_price NUMERIC(12,2) NOT NULL,
 
     final_price NUMERIC(12,2) NOT NULL
-);
-
-CREATE TABLE payments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-    order_id UUID NOT NULL REFERENCES orders(id),
-
-    payment_method payment_method_enum NOT NULL,
-
-    provider payment_provider_enum NOT NULL,
-
-    transaction_code VARCHAR(255) UNIQUE,
-
-    amount NUMERIC(12,2) NOT NULL,
-
-    status payment_status_enum DEFAULT 'PENDING',
-
-    paid_at TIMESTAMPTZ,
-
-    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE tickets (
@@ -716,10 +753,8 @@ CREATE TABLE subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     name VARCHAR(100) NOT NULL,
-    description TEXT,
 
     price NUMERIC(12,2) NOT NULL,
-    duration_days INT DEFAULT 30,
 
     event_limit INT DEFAULT 0,
 
@@ -728,13 +763,27 @@ CREATE TABLE subscriptions (
     analytics_enabled BOOLEAN DEFAULT FALSE,
 
     priority_support BOOLEAN DEFAULT FALSE,
-    features JSONB DEFAULT '[]'::jsonb,
-    is_active BOOLEAN DEFAULT TRUE,
 
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
+
+ALTER TABLE subscriptions
+ADD COLUMN max_active_events INT DEFAULT 0,
+ADD COLUMN max_tickets_per_event INT DEFAULT 0,
+ADD COLUMN max_staff_per_event INT DEFAULT 0,
+ADD COLUMN max_ticket_types_per_event INT DEFAULT 0,
+ADD COLUMN max_promo_codes_per_event INT DEFAULT 0,
+ADD COLUMN platform_fee_rate NUMERIC(5,2) DEFAULT 0,
+ADD COLUMN promo_code_enabled BOOLEAN DEFAULT FALSE,
+ADD COLUMN seat_map_enabled BOOLEAN DEFAULT FALSE,
+ADD COLUMN manual_checkin_enabled BOOLEAN DEFAULT FALSE,
+ADD COLUMN attendee_export_enabled BOOLEAN DEFAULT FALSE,
+ADD COLUMN advanced_analytics_enabled BOOLEAN DEFAULT FALSE,
+ADD COLUMN ai_report_enabled BOOLEAN DEFAULT FALSE,
+ADD COLUMN custom_branding_enabled BOOLEAN DEFAULT FALSE;
+
 
 CREATE TABLE organizer_subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -750,25 +799,6 @@ CREATE TABLE organizer_subscriptions (
     status subscription_status_enum DEFAULT 'ACTIVE',
 
     updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE subscription_payments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-    organizer_subscription_id
-    UUID REFERENCES organizer_subscriptions(id),
-
-    provider payment_provider_enum,
-
-    transaction_code VARCHAR(255),
-
-    amount NUMERIC(12,2) NOT NULL,
-
-    status payment_status_enum DEFAULT 'PENDING',
-
-    paid_at TIMESTAMPTZ,
-
-    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =========================================================
@@ -934,11 +964,6 @@ BEFORE UPDATE ON events
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_event_categories_updated_at
-BEFORE UPDATE ON event_categories
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER trigger_venues_updated_at
 BEFORE UPDATE ON venues
 FOR EACH ROW
@@ -974,12 +999,224 @@ BEFORE UPDATE ON organizer_subscriptions
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_subscriptions_updated_at
-BEFORE UPDATE ON subscriptions
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-
 -- =========================================================
 -- END
 -- =========================================================
 
+-- =========================================================
+-- BỔ SUNG DATABASE
+-- =========================================================
+
+DROP TABLE IF EXISTS payments; 
+DROP INDEX IF EXISTS idx_payments_order; 
+DROP TABLE IF EXISTS subscription_payments;
+
+ALTER TYPE order_status_enum ADD VALUE IF NOT EXISTS 'FAILED';
+ALTER TYPE order_status_enum ADD VALUE IF NOT EXISTS 'REFUND_REQUESTED';
+ALTER TYPE order_status_enum ADD VALUE IF NOT EXISTS 'REFUNDED';
+
+
+ALTER TABLE promo_codes
+DROP CONSTRAINT IF EXISTS promo_codes_code_key;
+
+ALTER TABLE promo_codes
+ALTER COLUMN event_id SET NOT NULL;
+
+CREATE UNIQUE INDEX uq_promo_code_per_event
+ON promo_codes(event_id, code);
+
+
+-- =========================================================
+-- PAYMENTS
+-- =========================================================
+
+CREATE TABLE organizer_payment_channels (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+organizer_id UUID NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+
+provider payment_provider_enum NOT NULL DEFAULT 'PAYOS',
+
+client_id TEXT NOT NULL,
+api_key_encrypted TEXT NOT NULL,
+checksum_key_encrypted TEXT NOT NULL,
+
+bank_name TEXT,
+bank_account_number TEXT,
+bank_account_holder TEXT,
+
+status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+-- PENDING, ACTIVE, INVALID, DISABLED
+
+is_default BOOLEAN DEFAULT TRUE,
+
+created_at TIMESTAMPTZ DEFAULT NOW(),
+updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_default_payment_channel
+ON organizer_payment_channels(organizer_id)
+WHERE is_default = TRUE;
+
+
+CREATE TABLE payment_orders (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+order_id UUID REFERENCES orders(id),
+
+organizer_id UUID REFERENCES organizers(id),
+
+payment_owner_type VARCHAR(30) NOT NULL,
+-- PLATFORM, ORGANIZER
+
+payment_channel_id UUID REFERENCES organizer_payment_channels(id),
+
+reference_type VARCHAR(50) NOT NULL,
+-- TICKET_ORDER, SUBSCRIPTION, EVENT_FEE
+
+reference_id UUID NOT NULL,
+
+provider payment_provider_enum NOT NULL DEFAULT 'PAYOS',
+
+provider_order_code BIGINT UNIQUE NOT NULL,
+
+amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+currency VARCHAR(10) DEFAULT 'VND',
+
+description TEXT NOT NULL,
+
+checkout_url TEXT,
+qr_code TEXT,
+
+status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+-- PENDING, PAID, FAILED, EXPIRED, CANCELLED
+
+expired_at TIMESTAMPTZ,
+paid_at TIMESTAMPTZ,
+
+created_at TIMESTAMPTZ DEFAULT NOW(),
+updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+CREATE TABLE payment_transactions (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+payment_order_id UUID NOT NULL REFERENCES payment_orders(id) ON DELETE CASCADE,
+
+provider payment_provider_enum NOT NULL DEFAULT 'PAYOS',
+
+provider_transaction_id TEXT,
+
+amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+
+status VARCHAR(30) NOT NULL,
+-- PENDING, PAID, FAILED, EXPIRED, CANCELLED
+
+raw_payload JSONB,
+
+created_at TIMESTAMPTZ DEFAULT NOW()
+); 
+
+CREATE TYPE payment_order_status_enum AS ENUM (
+    'PENDING',
+    'PAID',
+    'FAILED',
+    'EXPIRED',
+    'CANCELLED'
+);
+
+CREATE TYPE payment_owner_type_enum AS ENUM (
+    'PLATFORM',
+    'ORGANIZER'
+);
+
+CREATE TYPE payment_reference_type_enum AS ENUM (
+    'TICKET_ORDER',
+    'SUBSCRIPTION',
+    'EVENT_FEE'
+);
+
+
+-- =========================================================
+-- REFUND (LÀM SAU)
+-- =========================================================
+
+CREATE TABLE refund_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    order_id UUID NOT NULL REFERENCES orders(id),
+    ticket_id UUID REFERENCES tickets(id),
+
+    customer_id UUID REFERENCES users(id),
+    organizer_id UUID REFERENCES users(id),
+
+    refund_amount NUMERIC(12,2) NOT NULL,
+
+    reason TEXT,
+
+    status VARCHAR(30) NOT NULL DEFAULT 'REQUESTED',
+    -- REQUESTED, APPROVED, REJECTED, REFUNDED, FAILED
+
+    refund_method VARCHAR(30) DEFAULT 'MANUAL_BANK_TRANSFER',
+
+    organizer_proof_url TEXT,
+    organizer_transaction_ref TEXT,
+
+    requested_at TIMESTAMPTZ DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ,
+    refunded_at TIMESTAMPTZ
+);
+
+
+-- =========================================================
+-- ORGANIZERS
+-- =========================================================
+
+CREATE TABLE organizers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    organization_name VARCHAR(255) NOT NULL,
+    description TEXT,
+
+    business_email VARCHAR(255),
+    business_phone VARCHAR(20),
+
+    status VARCHAR(30) DEFAULT 'ACTIVE',
+    -- ACTIVE, SUSPENDED, INACTIVE
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_payment_orders_order
+ON payment_orders(order_id);
+
+CREATE INDEX idx_payment_orders_reference
+ON payment_orders(reference_type, reference_id);
+
+CREATE INDEX idx_payment_orders_provider_order_code
+ON payment_orders(provider_order_code);
+
+CREATE INDEX idx_payment_orders_status
+ON payment_orders(status);
+
+CREATE INDEX idx_payment_transactions_payment_order
+ON payment_transactions(payment_order_id);
+
+CREATE TRIGGER trigger_organizer_payment_channels_updated_at
+BEFORE UPDATE ON organizer_payment_channels
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_payment_orders_updated_at
+BEFORE UPDATE ON payment_orders
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_organizers_updated_at
+BEFORE UPDATE ON organizers
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
