@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  FileText,
+  Eye,
   Pencil,
   Plus,
   Power,
@@ -23,7 +23,7 @@ import {
   updatePlatformFee,
   updatePlatformPolicy,
 } from '@/services/platformFinance.js'
-import { uploadPolicyPdf } from '@/services/uploads.js'
+import { uploadPolicyDocument } from '@/services/uploads.js'
 import { Badge, Page, Panel, Row, Table } from './AdminComponents.jsx'
 
 const primaryActionClass =
@@ -36,12 +36,33 @@ const feeTypes = [
 ]
 
 const policyTypes = [
-  ['REFUND', 'Hoàn tiền'],
-  ['PAYOUT', 'Thanh toán doanh thu'],
-  ['EVENT_APPROVAL', 'Duyệt sự kiện'],
-  ['SERVICE_FEE', 'Phí dịch vụ'],
-  ['ORGANIZER_REGULATION', 'Quy định Organizer'],
+  ['TERMS_CUSTOMER', '1. Điều khoản sử dụng dành cho Khách hàng'],
+  ['TERMS_ORGANIZER', '2. Điều khoản sử dụng dành cho Nhà tổ chức'],
+  ['TERMS_STAFF', '3. Điều khoản sử dụng dành cho Staff'],
+  ['PRIVACY_POLICY', '4. Chính sách bảo mật thông tin cá nhân'],
+  ['PAYMENT_SECURITY_POLICY', '5. Chính sách bảo mật thanh toán'],
+  ['PAYMENT_POLICY', '6. Chính sách thanh toán'],
+  ['REFUND_POLICY', '7. Chính sách hoàn tiền'],
+  ['EVENT_POLICY', '8. Chính sách sự kiện'],
+  ['TICKET_POLICY', '9. Chính sách đặt vé và sử dụng vé'],
+  ['CHECKIN_POLICY', '10. Chính sách check-in và chống vé giả'],
+  ['SUBSCRIPTION_POLICY', '11. Chính sách gói dịch vụ Organizer'],
+  ['FEE_POLICY', '12. Chính sách phí nền tảng'],
+  ['COMPLAINT_POLICY', '13. Chính sách khiếu nại và giải quyết tranh chấp'],
+  ['AI_POLICY', '14. Chính sách sử dụng AI'],
+  ['SYSTEM_POLICY', '15. Chính sách hệ thống'],
 ]
+
+const policyConfigFields = {
+  default: [
+    ['priority', 'Thứ tự ưu tiên', 'number'],
+    ['review_cycle_days', 'Chu kỳ rà soát định kỳ (ngày)', 'number'],
+    ['requires_acceptance', 'Yêu cầu người dùng xác nhận đồng ý', 'boolean'],
+    ['applies_to', 'Đối tượng áp dụng', 'text'],
+    ['summary', 'Tóm tắt điều khoản/chính sách', 'textarea'],
+    ['public_note', 'Ghi chú công khai', 'textarea'],
+  ],
+}
 
 const emptyFeeForm = {
   name: '',
@@ -55,10 +76,10 @@ const emptyFeeForm = {
 }
 
 const emptyPolicyForm = {
-  policy_type: 'REFUND',
+  policy_type: 'TERMS_CUSTOMER',
   title: '',
   description: '',
-  configText: '{}',
+  config: {},
   is_active: true,
   effective_from: '',
   effective_to: '',
@@ -129,7 +150,7 @@ export function AdminFinancePage() {
       ['Phí đang áp dụng', activeFee ? formatFee(activeFee) : 'Chưa thiết lập'],
       ['Cấu hình phí', fees.length],
       ['Chính sách hiệu lực', activePolicies.length],
-      ['Tài liệu PDF', policies.reduce((total, policy) => total + Number(policy.document_count || 0), 0)],
+      ['Tài liệu PDF/DOCX', policies.reduce((total, policy) => total + Number(policy.document_count || 0), 0)],
     ],
     [activeFee, activePolicies.length, fees.length, policies],
   )
@@ -162,16 +183,16 @@ export function AdminFinancePage() {
   }
 
   const openCreatePolicy = () => {
-    setPolicyForm(emptyPolicyForm)
+    setPolicyForm({ ...emptyPolicyForm, config: createDefaultPolicyConfig(emptyPolicyForm.policy_type) })
     setPolicyModal({ mode: 'create' })
   }
 
   const openEditPolicy = (policy) => {
     setPolicyForm({
-      policy_type: policy.policy_type || 'REFUND',
+      policy_type: policy.policy_type || 'TERMS_CUSTOMER',
       title: policy.title || '',
       description: policy.description || '',
-      configText: JSON.stringify(policy.config || {}, null, 2),
+      config: createDefaultPolicyConfig(policy.policy_type || 'TERMS_CUSTOMER', policy.config || {}),
       is_active: Boolean(policy.is_active),
       effective_from: toDateTimeInput(policy.effective_from),
       effective_to: toDateTimeInput(policy.effective_to),
@@ -181,17 +202,9 @@ export function AdminFinancePage() {
 
   const submitPolicy = (event) => {
     event.preventDefault()
-    let config
-    try {
-      config = JSON.parse(policyForm.configText || '{}')
-    } catch {
-      window.alert('Cấu hình JSON không hợp lệ')
-      return
-    }
-
     policyMutation.mutate({
       id: policyModal?.item?.id,
-      payload: cleanPolicyPayload({ ...policyForm, config }),
+      payload: cleanPolicyPayload(policyForm),
     })
   }
 
@@ -298,10 +311,10 @@ export function AdminFinancePage() {
       {policyModal && (
         <Modal title={policyModal.mode === 'edit' ? 'Cập nhật chính sách nền tảng' : 'Thêm chính sách nền tảng'} onClose={() => setPolicyModal(null)}>
           <form onSubmit={submitPolicy} className="space-y-4">
-            <SelectInput label="Loại chính sách" value={policyForm.policy_type} options={policyTypes} onChange={(policy_type) => setPolicyForm({ ...policyForm, policy_type })} />
+            <SelectInput label="Loại chính sách" value={policyForm.policy_type} options={policyTypes} onChange={(policy_type) => setPolicyForm({ ...policyForm, policy_type, config: createDefaultPolicyConfig(policy_type, policyForm.config) })} />
             <TextInput label="Tiêu đề" value={policyForm.title} onChange={(title) => setPolicyForm({ ...policyForm, title })} required />
             <TextareaInput label="Mô tả" value={policyForm.description} onChange={(description) => setPolicyForm({ ...policyForm, description })} />
-            <TextareaInput label="Cấu hình JSON" value={policyForm.configText} rows={6} onChange={(configText) => setPolicyForm({ ...policyForm, configText })} />
+            <PolicyConfigFields form={policyForm} setForm={setPolicyForm} />
             <DateInputs form={policyForm} setForm={setPolicyForm} />
             <ActiveInput checked={policyForm.is_active} onChange={(is_active) => setPolicyForm({ ...policyForm, is_active })} />
             <FormActions isSaving={policyMutation.isPending} onCancel={() => setPolicyModal(null)} />
@@ -351,13 +364,84 @@ function PolicyTable({ policies, isLoading, isError, isBusy, onEdit, onDocuments
         labelFrom(policyTypes, policy.policy_type),
         <span key="title" className="font-extrabold">{policy.title}</span>,
         <button key="docs" type="button" onClick={() => onDocuments(policy)} className="inline-flex items-center gap-2 text-sm font-bold text-primary">
-          <FileText className="size-4" /> {policy.document_count || 0}
+          <Upload className="size-4" /> Upload/Xem file ({policy.document_count || 0})
         </button>,
         formatRange(policy.effective_from, policy.effective_to),
         <Badge key="status" tone={policy.is_active ? 'green' : 'blue'}>{policy.is_active ? 'Đang áp dụng' : 'Tạm tắt'}</Badge>,
         <ActionButtons key="actions" isBusy={isBusy} onEdit={() => onEdit(policy)} onToggle={() => onToggle(policy)} onDelete={() => onDelete(policy)} />,
       ])}
     />
+  )
+}
+
+function PolicyConfigFields({ form, setForm }) {
+  const fields = policyConfigFields[form.policy_type] || policyConfigFields.default
+  const updateConfig = (key, value) => {
+    setForm({
+      ...form,
+      config: {
+        ...(form.config || {}),
+        [key]: value,
+      },
+    })
+  }
+
+  return (
+    <div className="rounded-md border border-[#e0e3e5] bg-[#fbfcfd] p-4">
+      <p className="text-sm font-extrabold text-[#111827]">Cấu hình chi tiết</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {fields.map(([key, label, type]) => {
+          const value = form.config?.[key]
+
+          if (type === 'boolean') {
+            return (
+              <label key={key} className="flex items-center gap-3 rounded-md border border-[#c3c6d7] bg-white px-3 py-3 text-sm font-semibold text-[#434655]">
+                <input
+                  type="checkbox"
+                  checked={Boolean(value)}
+                  onChange={(event) => updateConfig(key, event.target.checked)}
+                  className="size-4 accent-primary"
+                />
+                {label}
+              </label>
+            )
+          }
+
+          if (type === 'textarea') {
+            return (
+              <div key={key} className="sm:col-span-2">
+                <TextareaInput
+                  label={label}
+                  value={value || ''}
+                  rows={3}
+                  onChange={(nextValue) => updateConfig(key, nextValue)}
+                />
+              </div>
+            )
+          }
+
+          if (type === 'text') {
+            return (
+              <TextInput
+                key={key}
+                label={label}
+                value={value || ''}
+                onChange={(nextValue) => updateConfig(key, nextValue)}
+              />
+            )
+          }
+
+          return (
+            <NumberInput
+              key={key}
+              label={label}
+              value={value ?? 0}
+              onChange={(nextValue) => updateConfig(key, nextValue)}
+            />
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -383,7 +467,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      const uploaded = await uploadPolicyPdf(form.file)
+      const uploaded = await uploadPolicyDocument(form.file)
       return createPolicyDocument(policy.id, {
         title: form.title,
         description: form.description || null,
@@ -409,22 +493,22 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
   const documents = documentsQuery.data || []
 
   return (
-    <Modal title={`Tài liệu PDF - ${policy.title}`} onClose={onClose} wide>
+    <Modal title={`Tài liệu chính sách - ${policy.title}`} onClose={onClose} wide>
       <form
         onSubmit={(event) => {
           event.preventDefault()
           uploadMutation.mutate()
         }}
-        className="grid gap-4 border-b border-[#e0e3e5] pb-5 lg:grid-cols-[1fr_1fr_auto]"
+        className="grid gap-4 border-b border-[#e0e3e5] pb-5 lg:grid-cols-[minmax(320px,1.5fr)_minmax(120px,0.55fr)_minmax(260px,0.95fr)]"
       >
         <TextInput label="Tiêu đề tài liệu" value={form.title} onChange={(title) => setForm({ ...form, title })} required />
         <TextInput label="Phiên bản" value={form.version} onChange={(version) => setForm({ ...form, version })} />
         <label className="block">
-          <span className="text-xs font-bold text-[#434655]">File PDF</span>
+          <span className="text-xs font-bold text-[#434655]">File PDF hoặc DOCX</span>
           <input
             required
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx"
             onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })}
             className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-2 text-sm font-semibold text-[#111827] file:mr-3 file:rounded file:border-0 file:bg-[#e8f7ff] file:px-3 file:py-1 file:text-sm file:font-bold file:text-[#0057c2]"
           />
@@ -441,16 +525,23 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
       <div className="mt-5 space-y-3">
         {documentsQuery.isLoading && <p className="text-sm font-semibold">Đang tải tài liệu...</p>}
         {documents.map((document) => (
-          <div key={document.id} className="flex flex-col gap-3 rounded-md border border-[#e0e3e5] p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-extrabold">{document.title}</p>
+          <div key={document.id} className="flex flex-col gap-3 rounded-md border border-[#e0e3e5] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="truncate text-base font-black text-[#111827]">{document.title}</p>
               <p className="text-xs font-semibold text-[#737686]">
-                {document.file_name || 'policy.pdf'} · phiên bản {document.version}
+                {document.file_name || 'policy-document'} · phiên bản {document.version}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <a href={document.file_url} target="_blank" rel="noreferrer" className="admin-secondary py-2 text-xs">
-                Xem PDF
+              <a
+                href={document.file_url}
+                target="_blank"
+                rel="noreferrer"
+                title="Xem file"
+                aria-label="Xem file"
+                className="grid size-9 place-items-center rounded-md border border-[#c3c6d7] text-[#111827] transition hover:border-primary hover:bg-[#f1fbff] hover:text-primary"
+              >
+                <Eye className="size-4" />
               </a>
               <button type="button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(document.id)} className="grid size-9 place-items-center rounded-md border border-[#f3b8b8] text-error hover:bg-[#fff1f1]">
                 <Trash2 className="size-4" />
@@ -459,7 +550,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
           </div>
         ))}
         {!documentsQuery.isLoading && documents.length === 0 && (
-          <p className="text-sm font-semibold text-[#737686]">Chưa có tài liệu PDF.</p>
+          <p className="text-sm font-semibold text-[#737686]">Chưa có tài liệu chính sách.</p>
         )}
       </div>
     </Modal>
@@ -609,12 +700,40 @@ function cleanFeePayload(form) {
   }
 }
 
+function createDefaultPolicyConfig(policyType, existing = {}) {
+  const nextConfig = { ...existing }
+  ;(policyConfigFields[policyType] || []).forEach(([key, , type]) => {
+    if (nextConfig[key] !== undefined && nextConfig[key] !== null) return
+    nextConfig[key] = type === 'boolean' ? false : type === 'number' ? 0 : ''
+  })
+  return nextConfig
+}
+
+function normalizePolicyConfig(policyType, config = {}) {
+  return (policyConfigFields[policyType] || []).reduce((result, [key, , type]) => {
+    const value = config[key]
+
+    if (type === 'number') {
+      result[key] = Number(value || 0)
+      return result
+    }
+
+    if (type === 'boolean') {
+      result[key] = Boolean(value)
+      return result
+    }
+
+    result[key] = typeof value === 'string' ? value.trim() : ''
+    return result
+  }, {})
+}
+
 function cleanPolicyPayload(form) {
   return {
     policy_type: form.policy_type,
     title: form.title.trim(),
     description: form.description.trim() || null,
-    config: form.config || {},
+    config: normalizePolicyConfig(form.policy_type, form.config),
     is_active: form.is_active,
     effective_from: form.effective_from || null,
     effective_to: form.effective_to || null,
@@ -636,7 +755,7 @@ function formatRange(from, to) {
   if (!from && !to) return 'Luôn áp dụng'
   return (
     <div className="text-xs font-semibold text-[#434655]">
-      <Row label="Từ" value={from ? new Date(from).toLocaleString('vi-VN') : 'Hiện tại'} />
+      <Row label="Từ" value={from ? new Date(from).toLocaleString('vi-VN') : 'Không giới hạn'} />
       <Row label="Đến" value={to ? new Date(to).toLocaleString('vi-VN') : 'Không giới hạn'} />
     </div>
   )
