@@ -68,11 +68,16 @@ export async function uploadAvatar(file) {
   }
 }
 
-export async function uploadPolicyPdf(file) {
+const POLICY_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+
+export async function uploadPolicyDocument(file) {
   if (!file) return null
 
-  if (file.type !== 'application/pdf') {
-    throw new Error('Vui long chon file PDF')
+  if (!POLICY_DOCUMENT_TYPES.includes(file.type)) {
+    throw new Error('Vui long chon file PDF hoac DOCX')
   }
 
   const signatureResponse = await http.post('/uploads/cloudinary/policy-pdf/signature')
@@ -91,7 +96,7 @@ export async function uploadPolicyPdf(file) {
 
   if (!uploadResponse.ok) {
     const errorData = await uploadResponse.json().catch(() => ({}))
-    throw new Error(errorData.error?.message || 'Khong the tai PDF len Cloudinary')
+    throw new Error(errorData.error?.message || 'Khong the tai tai lieu len Cloudinary')
   }
 
   const data = await uploadResponse.json()
@@ -106,6 +111,8 @@ export async function uploadPolicyPdf(file) {
     format: data.format,
   }
 }
+
+export const uploadPolicyPdf = uploadPolicyDocument
 
 export function uploadEventThumbnail(file) {
   return uploadEventImage(file, 'thumbnail')
