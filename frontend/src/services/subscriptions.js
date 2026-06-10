@@ -25,3 +25,15 @@ export async function fetchSubscriptionsForOrganizer() {
   const response = await http.get('/admin/subscriptions')
   return response.data.data
 }
+
+// Organizer: fetch current active plan
+export async function fetchCurrentPlan() {
+  const response = await http.get('/organizer/subscriptions/current-plan')
+  return response.data.data
+}
+
+// Organizer: subscribe to a plan (simulated/direct activation)
+export async function subscribeToPlan(subscriptionId) {
+  const response = await http.post('/organizer/subscriptions/subscribe', { subscription_id: subscriptionId })
+  return response.data.data
+}

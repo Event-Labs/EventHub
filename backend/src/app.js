@@ -10,8 +10,9 @@ const adminPlatformFinanceRoutes = require('./modules/admin/platformFinance.rout
 const organizerRequestRoutes = require('./modules/organizer-requests/organizerRequests.routes');
 const feedbackRoutes = require('./modules/feedbacks/feedbacks.routes');
 const organizerFeedbackRoutes = require('./modules/organizer/feedbackReport.routes');
-const organizerBillingRoutes = require('./modules/organizer-billing/organizerBilling.routes');
+const organizerSubscriptionsRoutes = require('./modules/organizer-subscriptions/organizerSubscriptions.routes');
 const aiFaqRoutes = require('./modules/ai-faq/aiFaq.routes');
+
 const orderRoutes = require('./modules/orders/orders.routes');
 const paymentRoutes = require('./modules/payments/payments.routes');
 const ticketRoutes = require('./modules/tickets/tickets.routes');
@@ -44,10 +45,9 @@ app.use('/api/admin/platform-finance', adminPlatformFinanceRoutes);
 app.use('/api/organizer-requests', organizerRequestRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/organizer/feedback', organizerFeedbackRoutes);
-app.use('/api/organizer/billing', organizerBillingRoutes);
+app.use('/api/organizer/subscriptions', organizerSubscriptionsRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/ai-faq', aiFaqRoutes);
-app.use('/api/payments', paymentRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/notifications', notificationRoutes);
