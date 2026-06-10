@@ -23,6 +23,7 @@ const announcementRoutes = require('./modules/announcements/announcements.routes
 const platformPolicyRoutes = require('./modules/platform-policies/platformPolicies.routes');
 const uploadRoutes = require('./modules/uploads/uploads.routes');
 const userRoutes = require('./modules/user/user.routes');
+const operationsRoutes = require('./modules/operations/operations.routes');
 const ApiResponse = require('./core/response/ApiResponse');
 
 const app = express();
@@ -57,6 +58,7 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/platform-policies', platformPolicyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/operations', operationsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -33,6 +33,7 @@ const navItems = [
     icon: Settings2,
     children: [
       { label: 'Người tham dự', to: '/organizer/attendees' },
+      { label: 'Quản lý nhân sự', to: '/organizer/staff-management' },
       { label: 'Công việc nhân sự', to: '/organizer/staff-tasks' },
       { label: 'Báo cáo', to: '/organizer/reports' },
     ],

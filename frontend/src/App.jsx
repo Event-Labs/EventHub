@@ -149,6 +149,10 @@ const router = createBrowserRouter([
         element: <OrganizerTasksPage />,
       },
       {
+        path: 'staff-management',
+        element: <OrganizerTasksPage />,
+      },
+      {
         path: 'reports',
         element: <OrganizerFeedbackReportPage />,
       },
