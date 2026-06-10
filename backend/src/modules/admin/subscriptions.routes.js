@@ -4,9 +4,16 @@ const { protect, authorize } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
-router.use(protect, authorize('ADMIN', 'admin', 'SUPER_ADMIN', 'super_admin'));
+// Organizers can view available plans (read-only)
+router.get(
+  '/',
+  protect,
+  authorize('ADMIN', 'admin', 'SUPER_ADMIN', 'super_admin', 'ORGANIZER', 'organizer'),
+  subscriptionsController.list,
+);
 
-router.get('/', subscriptionsController.list);
+// Admin-only mutations
+router.use(protect, authorize('ADMIN', 'admin', 'SUPER_ADMIN', 'super_admin'));
 router.post('/', subscriptionsController.create);
 router.patch('/:id', subscriptionsController.update);
 router.delete('/:id', subscriptionsController.delete);

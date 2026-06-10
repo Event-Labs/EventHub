@@ -44,13 +44,18 @@ const protect = async (req, res, next) => {
     }
 };
 
+const normalizeRole = (role) => String(role).toUpperCase();
+
 const authorize = (...roles) => {
+    const requiredRoles = roles.map(normalizeRole);
+
     return (req, res, next) => {
         if (!req.user || !req.user.roles) {
             return next(new AppError('Roles not found in token', 403, ErrorCodes.AUTH_FORBIDDEN));
         }
 
-        const hasRole = roles.some(role => req.user.roles.includes(role));
+        const userRoles = req.user.roles.map(normalizeRole);
+        const hasRole = requiredRoles.some((role) => userRoles.includes(role));
         if (!hasRole) {
             return next(new AppError('You do not have permission to perform this action', 403, ErrorCodes.AUTH_FORBIDDEN));
         }
