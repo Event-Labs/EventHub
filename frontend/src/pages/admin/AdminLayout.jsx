@@ -177,18 +177,24 @@ function TopBar({ user }) {
         <IconButton icon={Bell} />
         <IconButton icon={Settings} />
         <IconButton icon={Grid3X3} />
-        {user?.avatar_url ? (
-          <img
-            src={user.avatar_url}
-            alt="Administrator"
-            className="size-8 rounded-full object-cover"
-          />
-        ) : (
-          <AvatarFallback
-            name={user?.full_name || user?.email || 'Admin'}
-            className="size-8"
-          />
-        )}
+        <NavLink 
+          to="/admin/profile"
+          className="ml-2 block rounded-full transition-all hover:ring-2 hover:ring-primary ring-offset-2"
+          title="Xem hồ sơ"
+        >
+          {user?.avatar_url ? (
+            <img
+              src={user.avatar_url}
+              alt="Administrator"
+              className="size-8 rounded-full object-cover"
+            />
+          ) : (
+            <AvatarFallback
+              name={user?.full_name || user?.email || 'Admin'}
+              className="size-8"
+            />
+          )}
+        </NavLink>
       </div>
     </header>
   )

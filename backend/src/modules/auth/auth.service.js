@@ -83,7 +83,23 @@ class AuthService {
         }
 
         if (user.status === 'LOCKED') {
-            throw new AppError('Account is locked', 403, ErrorCodes.AUTH_ACCOUNT_LOCKED);
+            // Check for auto-unblock
+            if (user.locked_until && new Date(user.locked_until) < new Date()) {
+                await authRepository.updateUser(user.id, {
+                    status: 'ACTIVE',
+                    lock_reason: null,
+                    locked_at: null,
+                    locked_until: null,
+                    locked_by: null
+                });
+            } else {
+                throw new AppError('Account is locked', 403, ErrorCodes.ACCOUNT_LOCKED, {
+                    lockReason: user.lock_reason,
+                    lockedAt: user.locked_at ? new Date(user.locked_at).toISOString() : null,
+                    lockedUntil: user.locked_until ? new Date(user.locked_until).toISOString() : null,
+                    isPermanentLock: user.locked_until === null
+                });
+            }
         }
 
         if (!user.email_verified) {
@@ -145,7 +161,22 @@ class AuthService {
                 await authRepository.assignRole(user.id, 'CUSTOMER');
             } else {
                 if (user.status === 'LOCKED') {
-                    throw new AppError('Account is locked', 403, ErrorCodes.AUTH_ACCOUNT_LOCKED);
+                    if (user.locked_until && new Date(user.locked_until) < new Date()) {
+                        await authRepository.updateUser(user.id, {
+                            status: 'ACTIVE',
+                            lock_reason: null,
+                            locked_at: null,
+                            locked_until: null,
+                            locked_by: null
+                        });
+                    } else {
+                        throw new AppError('Account is locked', 403, ErrorCodes.ACCOUNT_LOCKED, {
+                            lockReason: user.lock_reason,
+                            lockedAt: user.locked_at ? new Date(user.locked_at).toISOString() : null,
+                            lockedUntil: user.locked_until ? new Date(user.locked_until).toISOString() : null,
+                            isPermanentLock: user.locked_until === null
+                        });
+                    }
                 }
                 // Update google_id if it's the first time linking
                 if (!user.google_id) {
@@ -175,6 +206,11 @@ class AuthService {
             return { user: this.serializeAuthUser(user, roles), accessToken, refreshToken };
 
         } catch (error) {
+            // Re-throw AppErrors (e.g., ACCOUNT_LOCKED) trực tiếp,
+            // không bọc lại thành lỗi generic.
+            if (error instanceof AppError) {
+                throw error;
+            }
             logger.error('Google OAuth error', error);
             throw new AppError('Google Login Failed', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
         }
@@ -189,8 +225,27 @@ class AuthService {
         }
 
         const user = await authRepository.findUserById(session.user_id);
-        if (!user || user.status === 'LOCKED') {
+        if (!user) {
             throw new AppError('User not available', 401, ErrorCodes.AUTH_USER_NOT_FOUND);
+        }
+
+        if (user.status === 'LOCKED') {
+            if (user.locked_until && new Date(user.locked_until) < new Date()) {
+                await authRepository.updateUser(user.id, {
+                    status: 'ACTIVE',
+                    lock_reason: null,
+                    locked_at: null,
+                    locked_until: null,
+                    locked_by: null
+                });
+            } else {
+                throw new AppError('Account is locked', 403, ErrorCodes.ACCOUNT_LOCKED, {
+                    lockReason: user.lock_reason,
+                    lockedAt: user.locked_at ? new Date(user.locked_at).toISOString() : null,
+                    lockedUntil: user.locked_until ? new Date(user.locked_until).toISOString() : null,
+                    isPermanentLock: user.locked_until === null
+                });
+            }
         }
 
         const roles = await authRepository.findUserRoles(user.id);

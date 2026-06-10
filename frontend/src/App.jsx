@@ -8,7 +8,6 @@ import {
   BookingReviewPage,
   BookingSeatsPage,
 } from '@/pages/customer/booking/BookingFlowPages.jsx'
-import { CustomerDiscoveryPage } from '@/pages/customer/discovery/CustomerDiscoveryPage.jsx'
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
@@ -17,6 +16,7 @@ import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
 import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
+import { LockedAccountPage } from '@/pages/auth/LockedAccountPage.jsx'
 import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
 import { NotificationsPage } from '@/pages/customer/NotificationsPage.jsx'
 import { NotFoundPage } from '@/pages/public/NotFoundPage.jsx'
@@ -42,6 +42,7 @@ import {
   AdminLayout,
   AdminOrganizerRequestsPage,
   AdminPlansPage,
+  AdminProfilePage,
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
@@ -119,7 +120,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'profile',
-        element: <ProfilePage />,
+        element: <AdminProfilePage />,
       },
     ],
   },
@@ -252,10 +253,6 @@ const router = createBrowserRouter([
         element: <HomePage />,
       },
       {
-        path: 'discover',
-        element: <CustomerDiscoveryPage />,
-      },
-      {
         path: 'events',
         element: <EventsPage />,
       },
@@ -306,6 +303,10 @@ const router = createBrowserRouter([
       {
         path: 'login',
         element: <LoginPage />,
+      },
+      {
+        path: 'locked-account',
+        element: <LockedAccountPage />,
       },
       {
         path: 'register',
