@@ -8,7 +8,6 @@ import {
   BookingReviewPage,
   BookingSeatsPage,
 } from '@/pages/customer/booking/BookingFlowPages.jsx'
-import { CustomerDiscoveryPage } from '@/pages/customer/discovery/CustomerDiscoveryPage.jsx'
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
@@ -293,10 +292,6 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
-      },
-      {
-        path: 'discover',
-        element: <CustomerDiscoveryPage />,
       },
       {
         path: 'events',
