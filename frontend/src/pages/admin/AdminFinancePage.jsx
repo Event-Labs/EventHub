@@ -29,6 +29,8 @@ import { Badge, Page, Panel, Row, Table } from './AdminComponents.jsx'
 const primaryActionClass =
   'inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
 
+const PAGE_SIZE = 10
+
 const feeTypes = [
   ['PERCENTAGE', 'Theo phần trăm'],
   ['FIXED', 'Số tiền cố định'],
@@ -91,6 +93,10 @@ export function AdminFinancePage() {
   const [feeModal, setFeeModal] = useState(null)
   const [policyModal, setPolicyModal] = useState(null)
   const [documentPolicy, setDocumentPolicy] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [actionError, setActionError] = useState('')
+  const [feePage, setFeePage] = useState(1)
+  const [policyPage, setPolicyPage] = useState(1)
   const [feeForm, setFeeForm] = useState(emptyFeeForm)
   const [policyForm, setPolicyForm] = useState(emptyPolicyForm)
 
@@ -109,6 +115,10 @@ export function AdminFinancePage() {
   const categories = categoriesQuery.data || []
   const activeFee = fees.find((fee) => fee.is_active)
   const activePolicies = policies.filter((policy) => policy.is_active)
+  const feePagination = getPagination(fees.length, feePage, PAGE_SIZE)
+  const policyPagination = getPagination(policies.length, policyPage, PAGE_SIZE)
+  const paginatedFees = fees.slice(feePagination.startIndex, feePagination.endIndex)
+  const paginatedPolicies = policies.slice(policyPagination.startIndex, policyPagination.endIndex)
 
   const refreshFees = () => queryClient.invalidateQueries({ queryKey: ['platform-fees'] })
   const refreshPolicies = () => {
@@ -127,7 +137,14 @@ export function AdminFinancePage() {
 
   const feeDeleteMutation = useMutation({
     mutationFn: deletePlatformFee,
-    onSuccess: refreshFees,
+    onSuccess: () => {
+      setActionError('')
+      setDeleteTarget(null)
+      refreshFees()
+    },
+    onError: (error) => {
+      setActionError(getApiErrorMessage(error, 'Không thể xóa cấu hình phí. Vui lòng thử lại.'))
+    },
   })
 
   const policyMutation = useMutation({
@@ -142,7 +159,14 @@ export function AdminFinancePage() {
 
   const policyDeleteMutation = useMutation({
     mutationFn: deletePlatformPolicy,
-    onSuccess: refreshPolicies,
+    onSuccess: () => {
+      setActionError('')
+      setDeleteTarget(null)
+      refreshPolicies()
+    },
+    onError: (error) => {
+      setActionError(getApiErrorMessage(error, 'Không thể xóa chính sách. Vui lòng thử lại.'))
+    },
   })
 
   const summary = useMemo(
@@ -208,6 +232,22 @@ export function AdminFinancePage() {
     })
   }
 
+  const requestDelete = (type, item) => {
+    setActionError('')
+    setDeleteTarget({ type, item })
+  }
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return
+
+    if (deleteTarget.type === 'fee') {
+      feeDeleteMutation.mutate(deleteTarget.item.id)
+      return
+    }
+
+    policyDeleteMutation.mutate(deleteTarget.item.id)
+  }
+
   const isBusy =
     feeMutation.isPending ||
     feeDeleteMutation.isPending ||
@@ -253,36 +293,58 @@ export function AdminFinancePage() {
 
       <div className="mt-6">
         {activeTab === 'fees' ? (
-          <FeeTable
-            fees={fees}
-            isLoading={feesQuery.isLoading}
-            isError={feesQuery.isError}
-            isBusy={isBusy}
-            onEdit={openEditFee}
-            onDelete={(fee) => feeDeleteMutation.mutate(fee.id)}
-            onToggle={(fee) =>
-              feeMutation.mutate({
-                id: fee.id,
-                payload: { is_active: !fee.is_active },
-              })
-            }
-          />
+          <>
+            <FeeTable
+              fees={paginatedFees}
+              isLoading={feesQuery.isLoading}
+              isError={feesQuery.isError}
+              isBusy={isBusy}
+              onEdit={openEditFee}
+              onDelete={(fee) => requestDelete('fee', fee)}
+              onToggle={(fee) =>
+                feeMutation.mutate({
+                  id: fee.id,
+                  payload: { is_active: !fee.is_active },
+                })
+              }
+            />
+            {!feesQuery.isLoading && !feesQuery.isError && (
+              <PaginationControls
+                page={feePagination.page}
+                pageSize={PAGE_SIZE}
+                total={fees.length}
+                label="cấu hình phí"
+                onPageChange={setFeePage}
+              />
+            )}
+          </>
         ) : (
-          <PolicyTable
-            policies={policies}
-            isLoading={policiesQuery.isLoading}
-            isError={policiesQuery.isError}
-            isBusy={isBusy}
-            onEdit={openEditPolicy}
-            onDocuments={setDocumentPolicy}
-            onDelete={(policy) => policyDeleteMutation.mutate(policy.id)}
-            onToggle={(policy) =>
-              policyMutation.mutate({
-                id: policy.id,
-                payload: { is_active: !policy.is_active },
-              })
-            }
-          />
+          <>
+            <PolicyTable
+              policies={paginatedPolicies}
+              isLoading={policiesQuery.isLoading}
+              isError={policiesQuery.isError}
+              isBusy={isBusy}
+              onEdit={openEditPolicy}
+              onDocuments={setDocumentPolicy}
+              onDelete={(policy) => requestDelete('policy', policy)}
+              onToggle={(policy) =>
+                policyMutation.mutate({
+                  id: policy.id,
+                  payload: { is_active: !policy.is_active },
+                })
+              }
+            />
+            {!policiesQuery.isLoading && !policiesQuery.isError && (
+              <PaginationControls
+                page={policyPagination.page}
+                pageSize={PAGE_SIZE}
+                total={policies.length}
+                label="chính sách"
+                onPageChange={setPolicyPage}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -329,6 +391,16 @@ export function AdminFinancePage() {
           onChanged={refreshPolicies}
         />
       )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          target={deleteTarget}
+          error={actionError}
+          isDeleting={feeDeleteMutation.isPending || policyDeleteMutation.isPending}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={confirmDelete}
+        />
+      )}
     </Page>
   )
 }
@@ -346,8 +418,8 @@ function FeeTable({ fees, isLoading, isError, isBusy, onEdit, onDelete, onToggle
         fee.event_category_name || 'Toàn hệ thống',
         formatFee(fee),
         formatRange(fee.effective_from, fee.effective_to),
-        <Badge key="status" tone={fee.is_active ? 'green' : 'blue'}>{fee.is_active ? 'Đang áp dụng' : 'Tạm tắt'}</Badge>,
-        <ActionButtons key="actions" isBusy={isBusy} onEdit={() => onEdit(fee)} onToggle={() => onToggle(fee)} onDelete={() => onDelete(fee)} />,
+        <Badge key="status" tone={fee.is_active ? 'green' : 'blue'}>{fee.is_active ? 'Đang áp dụng' : 'Tạm ẩn'}</Badge>,
+        <ActionButtons key="actions" isBusy={isBusy} toggleTitle={fee.is_active ? 'Tạm ẩn' : 'Hiện lại'} onEdit={() => onEdit(fee)} onToggle={() => onToggle(fee)} onDelete={() => onDelete(fee)} />,
       ])}
     />
   )
@@ -367,10 +439,86 @@ function PolicyTable({ policies, isLoading, isError, isBusy, onEdit, onDocuments
           <Upload className="size-4" /> Upload/Xem file ({policy.document_count || 0})
         </button>,
         formatRange(policy.effective_from, policy.effective_to),
-        <Badge key="status" tone={policy.is_active ? 'green' : 'blue'}>{policy.is_active ? 'Đang áp dụng' : 'Tạm tắt'}</Badge>,
-        <ActionButtons key="actions" isBusy={isBusy} onEdit={() => onEdit(policy)} onToggle={() => onToggle(policy)} onDelete={() => onDelete(policy)} />,
+        <Badge key="status" tone={policy.is_active ? 'green' : 'blue'}>{policy.is_active ? 'Đang áp dụng' : 'Tạm ẩn'}</Badge>,
+        <ActionButtons key="actions" isBusy={isBusy} toggleTitle={policy.is_active ? 'Tạm ẩn' : 'Hiện lại'} onEdit={() => onEdit(policy)} onToggle={() => onToggle(policy)} onDelete={() => onDelete(policy)} />,
       ])}
     />
+  )
+}
+
+function PaginationControls({ page, pageSize, total, label, onPageChange }) {
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const end = Math.min(page * pageSize, total)
+
+  return (
+    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm text-[#5c647a]">
+        Hiển thị <span className="font-bold">{start}</span> đến <span className="font-bold">{end}</span> trong tổng số <span className="font-bold">{total}</span> {label}
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={page === 1}
+          onClick={() => onPageChange(page - 1)}
+          className="admin-secondary px-4 py-2 text-xs disabled:opacity-50"
+        >
+          Trước
+        </button>
+        <button
+          type="button"
+          disabled={page * pageSize >= total}
+          onClick={() => onPageChange(page + 1)}
+          className="admin-secondary px-4 py-2 text-xs disabled:opacity-50"
+        >
+          Sau
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
+  const isFee = target.type === 'fee'
+  const itemName = target.item.name || target.item.title
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-md border border-[#c3c6d7] bg-white p-5 text-[#111827] shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-extrabold">{isFee ? 'Xóa cấu hình phí?' : 'Xóa chính sách?'}</h3>
+            <p className="mt-2 text-sm font-semibold text-[#434655]">
+              {isFee
+                ? `Cấu hình phí "${itemName}" sẽ được xóa khỏi danh sách quản lý.`
+                : `Chính sách "${itemName}" sẽ được xóa khỏi danh sách quản lý.`}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {error && (
+          <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-6 flex justify-end gap-3 border-t border-[#e0e3e5] pt-4">
+          <button type="button" onClick={onClose} className="admin-secondary">
+            Hủy
+          </button>
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isDeleting ? 'Đang xóa...' : 'Xóa'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -575,11 +723,11 @@ function Modal({ title, onClose, children, wide = false }) {
   )
 }
 
-function ActionButtons({ isBusy, onEdit, onToggle, onDelete }) {
+function ActionButtons({ isBusy, toggleTitle, onEdit, onToggle, onDelete }) {
   return (
     <div className="flex items-center gap-2">
       <IconButton title="Sửa" onClick={onEdit} disabled={isBusy} icon={Pencil} />
-      <IconButton title="Bật/tắt trạng thái" onClick={onToggle} disabled={isBusy} icon={Power} />
+      <IconButton title={toggleTitle || 'Bật/tắt trạng thái'} onClick={onToggle} disabled={isBusy} icon={Power} />
       <IconButton title="Xóa" onClick={onDelete} disabled={isBusy} icon={Trash2} danger />
     </div>
   )
@@ -770,4 +918,23 @@ function toDateTimeInput(value) {
 
 function labelFrom(options, value) {
   return options.find(([optionValue]) => optionValue === value)?.[1] || value
+}
+
+function getPagination(total, page, pageSize) {
+  const maxPage = Math.max(1, Math.ceil(total / pageSize))
+  const safePage = Math.min(Math.max(1, page), maxPage)
+
+  return {
+    page: safePage,
+    startIndex: (safePage - 1) * pageSize,
+    endIndex: safePage * pageSize,
+  }
+}
+
+function getApiErrorMessage(error, fallback) {
+  const data = error?.response?.data
+  if (Array.isArray(data?.data) && data.data[0]?.message) {
+    return data.data[0].message
+  }
+  return data?.message || data?.error || fallback
 }
