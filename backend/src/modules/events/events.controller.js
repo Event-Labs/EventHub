@@ -1,4 +1,4 @@
-﻿const ApiResponse = require('../../core/response/ApiResponse');
+const ApiResponse = require('../../core/response/ApiResponse');
 const eventsService = require('./events.service');
 const {
   eventIdentifierSchema,
@@ -83,6 +83,15 @@ class EventsController {
       const { eventId } = favoriteEventSchema.parse(req.params);
       const data = await eventsService.toggleFavorite(req.user.sub, eventId);
       res.status(200).json(ApiResponse.success(data, 'Favorite status updated'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getOrganizerEvents = async (req, res, next) => {
+    try {
+      const data = await eventsService.getOrganizerEvents(req.user.sub);
+      res.status(200).json(ApiResponse.success(data, 'Organizer events fetched successfully'));
     } catch (err) {
       next(err);
     }

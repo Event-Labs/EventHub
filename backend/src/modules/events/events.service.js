@@ -1,4 +1,4 @@
-﻿const eventsRepository = require('./events.repository');
+const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 
@@ -178,6 +178,10 @@ class EventsService {
 
     await eventsRepository.createFavorite(userId, eventId);
     return { event_id: eventId, is_favorited: true };
+  }
+
+  async getOrganizerEvents(userId) {
+    return eventsRepository.findByOrganizer(userId);
   }
 }
 

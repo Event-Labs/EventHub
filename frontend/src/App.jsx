@@ -46,16 +46,6 @@ import {
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
-import {
-  OrganizerBillingHistoryPage,
-  OrganizerBillingPage,
-  OrganizerEventBillingDetailPage,
-  OrganizerInvoicePage,
-  OrganizerPlanSelectionPage,
-  OrganizerPublishingFeePage,
-  OrganizerPublishingPaymentPage,
-  OrganizerSubscriptionPaymentPage,
-} from '@/pages/organizer/OrganizerBillingPages.jsx'
 import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
 import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
 import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
@@ -64,7 +54,9 @@ import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
 import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
 import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'
+import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscriptionsPage.jsx'
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
+import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
 import { StaffEventDetailPage } from '@/pages/staff/StaffEventDetailPage.jsx'
@@ -167,6 +159,7 @@ const router = createBrowserRouter([
       {
         path: 'events/detail',
         element: <OrganizerEventBillingDetailPage />,
+        element: <OrganizerPortalDashboardPage />,
       },
       {
         path: 'attendees',
@@ -175,6 +168,10 @@ const router = createBrowserRouter([
       {
         path: 'staff-tasks',
         element: <OrganizerTasksPage />,
+      },
+      {
+        path: 'staff-management',
+        element: <OrganizerStaffManagementPage />,
       },
       {
         path: 'reports',
@@ -197,32 +194,12 @@ const router = createBrowserRouter([
         element: <OrganizerAnnouncementsPage />,
       },
       {
-        path: 'billing',
-        element: <OrganizerBillingPage />,
+        path: 'subscriptions',
+        element: <OrganizerSubscriptionsPage />,
       },
       {
         path: 'policies',
         element: <PlatformPoliciesPage audience="organizer" />,
-      },
-      {
-        path: 'finance',
-        element: <OrganizerBillingPage />,
-      },
-      {
-        path: 'billing/plans',
-        element: <OrganizerPlanSelectionPage />,
-      },
-      {
-        path: 'billing/payment',
-        element: <OrganizerSubscriptionPaymentPage />,
-      },
-      {
-        path: 'billing/history',
-        element: <OrganizerBillingHistoryPage />,
-      },
-      {
-        path: 'billing/invoice',
-        element: <OrganizerInvoicePage />,
       },
       {
         path: 'profile',

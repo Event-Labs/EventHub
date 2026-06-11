@@ -1,4 +1,4 @@
-﻿const db = require('../../infrastructure/database/db.client');
+const db = require('../../infrastructure/database/db.client');
 
 const PUBLIC_EVENT_WHERE = `
   e.status = 'PUBLISHED'
@@ -331,6 +331,82 @@ class EventsRepository {
       [userId, eventId],
     );
     return rowCount > 0;
+  }
+
+  async findByOrganizer(userId) {
+    try {
+      if (!userId) {
+        console.error('findByOrganizer: userId is undefined');
+        return [];
+      }
+
+      // 1. Get user roles to see if they are admin/staff
+      const roleQuery = `
+        SELECT r.name 
+        FROM user_roles ur 
+        JOIN roles r ON ur.role_id = r.id 
+        WHERE ur.user_id = $1
+      `;
+      const { rows: roles } = await db.query(roleQuery, [userId]);
+      const isAdmin = roles.some(r => r.name === 'ADMIN' || r.name === 'STAFF');
+
+      // 2. Find the organizer record for this user
+      const organizer = await this.findOrganizerByUserId(userId);
+
+      let query;
+      let params;
+
+      if (isAdmin) {
+        // Admins can see all events for management
+        query = `
+          SELECT e.id, e.title, e.slug, e.status, e.start_time, e.end_time
+          FROM events e
+          WHERE e.deleted_at IS NULL
+          ORDER BY e.created_at DESC
+        `;
+        params = [];
+      } else if (organizer) {
+        // Organizers see their own events.
+        query = `
+          SELECT e.id, e.title, e.slug, e.status, e.start_time, e.end_time
+          FROM events e
+          LEFT JOIN organizers o ON o.id = e.organizer_id
+          WHERE (e.organizer_id = $1 OR o.user_id = $2)
+            AND e.deleted_at IS NULL
+          ORDER BY e.created_at DESC
+        `;
+        params = [organizer.id, userId];
+      } else {
+        // Last resort: just try to match user_id directly
+        query = `
+          SELECT e.id, e.title, e.slug, e.status, e.start_time, e.end_time
+          FROM events e
+          WHERE e.organizer_id::text = $1
+            AND e.deleted_at IS NULL
+          ORDER BY e.created_at DESC
+        `;
+        params = [userId];
+      }
+
+      const { rows } = await db.query(query, params);
+      return rows;
+    } catch (error) {
+      console.error('Error in findByOrganizer:', error);
+      throw error;
+    }
+  }
+
+  async findOrganizerByUserId(userId) {
+    const { rows } = await db.query(
+      `
+      SELECT id, user_id, organization_name, status
+      FROM organizers
+      WHERE user_id = $1
+      LIMIT 1
+      `,
+      [userId],
+    );
+    return rows[0];
   }
 }
 

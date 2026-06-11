@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, CalendarDays, CheckCheck, CreditCard, Megaphone } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import {
@@ -7,6 +8,11 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
+import {
+  acceptStaffInvitation,
+  declineStaffInvitation,
+  fetchMyStaffInvitations,
+} from '@/services/operations.js'
 import { cn } from '@/lib/utils.js'
 
 function formatDateTime(value) {
@@ -25,10 +31,15 @@ function iconFor(type) {
 }
 
 export function NotificationsPage() {
+  const [acceptedInvitationId, setAcceptedInvitationId] = useState(null)
   const queryClient = useQueryClient()
   const notificationsQuery = useQuery({
     queryKey: ['notifications'],
     queryFn: () => fetchNotifications({ limit: 50 }),
+  })
+  const invitationsQuery = useQuery({
+    queryKey: ['staff-invitations', 'me'],
+    queryFn: fetchMyStaffInvitations,
   })
 
   const markReadMutation = useMutation({
@@ -47,8 +58,27 @@ export function NotificationsPage() {
     },
   })
 
+  const acceptInvitationMutation = useMutation({
+    mutationFn: acceptStaffInvitation,
+    onSuccess: (data, invitationId) => {
+      setAcceptedInvitationId(invitationId)
+      queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+
+  const declineInvitationMutation = useMutation({
+    mutationFn: declineStaffInvitation,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+
   const notifications = notificationsQuery.data?.items || []
   const unreadCount = notificationsQuery.data?.unread_count || 0
+  const invitations = invitationsQuery.data || []
+  const pendingInvitations = invitations.filter((invitation) => invitation.status === 'PENDING')
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
@@ -71,6 +101,55 @@ export function NotificationsPage() {
       {notificationsQuery.isError && <StatePanel message="Không thể tải thông báo." tone="error" />}
       {!notificationsQuery.isLoading && notifications.length === 0 && (
         <StatePanel message="Bạn chưa có thông báo nào." />
+      )}
+
+      {pendingInvitations.length > 0 && (
+        <section className="mb-6 space-y-3">
+          <h2 className="font-display text-xl font-bold text-white">Lời mời làm staff</h2>
+          {pendingInvitations.map((invitation) => (
+            <article key={invitation.id} className="rounded-lg border border-primary/50 bg-primary/10 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="font-display text-lg font-bold text-white">{invitation.event_title}</h3>
+                  <p className="mt-1 text-sm leading-6 text-muted">
+                    {invitation.organization_name} mời bạn làm staff với vai trò {invitation.staff_role || 'Staff'}.
+                  </p>
+                  <p className="mt-2 text-xs text-subtle">Hết hạn: {formatDateTime(invitation.expires_at)}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => acceptInvitationMutation.mutate(invitation.id)}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-slate-950 hover:bg-sky-300 disabled:opacity-60"
+                    disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
+                  >
+                    Đồng ý
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => declineInvitationMutation.mutate(invitation.id)}
+                    className="rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-subtle hover:bg-panel-soft disabled:opacity-60"
+                    disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
+                  >
+                    Từ chối
+                  </button>
+                </div>
+              </div>
+              {acceptedInvitationId === invitation.id && acceptInvitationMutation.isSuccess && (
+                <div className="mt-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+                  <p className="font-semibold text-primary">
+                    {acceptInvitationMutation.data?.message || 'Bạn đã trở thành staff.'}
+                  </p>
+                  {acceptInvitationMutation.data?.requires_relogin && (
+                    <p className="mt-1 text-muted">
+                      Vui lòng <Link to="/login" className="font-bold text-primary underline">đăng nhập lại</Link> để token có quyền STAFF và truy cập portal staff.
+                    </p>
+                  )}
+                </div>
+              )}
+            </article>
+          ))}
+        </section>
       )}
 
       <div className="space-y-3">

@@ -14,7 +14,9 @@ const organizerFeedbackRoutes = require('./modules/organizer/feedbackReport.rout
 const organizerEventsRoutes = require('./modules/organizer/organizerEvents.routes');
 const organizerVenuesRoutes = require('./modules/organizer/venues.routes');
 const organizerSeatMapsRoutes = require('./modules/organizer/seatMaps.routes');
+const organizerSubscriptionsRoutes = require('./modules/organizer-subscriptions/organizerSubscriptions.routes');
 const aiFaqRoutes = require('./modules/ai-faq/aiFaq.routes');
+
 const orderRoutes = require('./modules/orders/orders.routes');
 const paymentRoutes = require('./modules/payments/payments.routes');
 const ticketRoutes = require('./modules/tickets/tickets.routes');
@@ -24,6 +26,8 @@ const announcementRoutes = require('./modules/announcements/announcements.routes
 const platformPolicyRoutes = require('./modules/platform-policies/platformPolicies.routes');
 const uploadRoutes = require('./modules/uploads/uploads.routes');
 const userRoutes = require('./modules/user/user.routes');
+const promotionRoutes = require('./modules/promotions/promotions.routes');
+const operationsRoutes = require('./modules/operations/operations.routes');
 const ApiResponse = require('./core/response/ApiResponse');
 
 const app = express();
@@ -51,9 +55,9 @@ app.use('/api/organizer/feedback', organizerFeedbackRoutes);
 app.use('/api/organizer/events', organizerEventsRoutes);
 app.use('/api/organizer/venues', organizerVenuesRoutes);
 app.use('/api/organizer/seat-maps', organizerSeatMapsRoutes);
+app.use('/api/organizer/subscriptions', organizerSubscriptionsRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/ai-faq', aiFaqRoutes);
-app.use('/api/payments', paymentRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -61,6 +65,8 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/platform-policies', platformPolicyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/promotions', promotionRoutes);
+app.use('/api/operations', operationsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

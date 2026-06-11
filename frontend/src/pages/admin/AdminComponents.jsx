@@ -45,16 +45,19 @@ export function Page({
 }
 
 export function KpiGrid({ items }) {
+  const gridClass = items.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-5';
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div className={`grid gap-4 sm:grid-cols-2 ${gridClass}`}>
       {items.map(([label, value, change]) => (
-        <Panel key={label} className="min-h-24 border-l-4 border-l-primary">
+        <Panel key={label} className="min-h-24 flex flex-col justify-between border-l-4 border-l-primary">
           <p className="text-xs font-black uppercase tracking-wider text-[#434655]">{label}</p>
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <p className="text-3xl font-black text-[#111827]">{value}</p>
+          <div className="mt-auto pt-3 flex flex-wrap items-end justify-between gap-2">
+            <p className="text-lg xl:text-xl font-black text-[#111827] whitespace-nowrap">
+              {value}
+            </p>
             {change && (
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
                   change.toLowerCase().includes('urgent')
                     ? 'bg-red-100 text-red-700'
                     : 'bg-green-100 text-green-700'
@@ -211,9 +214,9 @@ export function Badge({ children, tone = 'blue', className = '' }) {
 export function Status({ value }) {
   const normalized = String(value).toUpperCase();
   const configs = {
-    LOCKED: { color: 'text-[#ba1a1a]', label: 'Locked' },
-    PENDING: { color: 'text-[#6a1edb]', label: 'Pending' },
-    ACTIVE: { color: 'text-[#008a3d]', label: 'Active' },
+    LOCKED: { color: 'text-[#ba1a1a]', label: 'Đã khóa' },
+    PENDING: { color: 'text-[#6a1edb]', label: 'Chờ xử lý' },
+    ACTIVE: { color: 'text-[#008a3d]', label: 'Hoạt động' },
   }
 
   const config = configs[normalized] || { color: 'text-[#737686]', label: normalized };

@@ -25,7 +25,7 @@ import {
 import { Modal } from '@/components/Modal'
 import adminUserService from '@/services/adminUser'
 
-export function UserDetailView({ userId, onBack, onStatusChange }) {
+export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -41,14 +41,14 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
       }
     }
     fetchDetails()
-  }, [userId])
+  }, [userId, refreshKey])
 
   if (loading) {
-    return <div className="py-20 text-center font-bold text-[#5c647a]">Loading user profile...</div>
+    return <div className="py-20 text-center font-bold text-[#5c647a]">Đang tải hồ sơ người dùng...</div>
   }
 
   if (!user) {
-    return <div className="py-20 text-center font-bold text-error">User not found</div>
+    return <div className="py-20 text-center font-bold text-error">Không tìm thấy người dùng</div>
   }
 
   return (
@@ -57,7 +57,7 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
         onClick={onBack}
         className="flex items-center gap-2 text-sm font-bold text-[#434655] hover:text-primary transition"
       >
-        <ArrowLeft className="size-4" /> Back to User List
+        <ArrowLeft className="size-4" /> Quay lại danh sách
       </button>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -83,11 +83,11 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
             </div>
             <div className="mt-6 border-t border-[#e0e3e5] pt-6 flex justify-around">
                <div className="text-center">
-                  <p className="text-xs font-bold text-[#737686] uppercase">Created At</p>
-                  <p className="mt-1 font-bold">{new Date(user.created_at).toLocaleDateString('vi-VN')}</p>
+                  <p className="text-xs font-bold text-[#737686] uppercase">Ngày tạo</p>
+                  <p className="mt-1 font-bold text-[#111827]">{new Date(user.created_at).toLocaleDateString('vi-VN')}</p>
                </div>
                <div className="text-center text-error">
-                  <p className="text-xs font-bold text-[#737686] uppercase">Status</p>
+                  <p className="text-xs font-bold text-[#737686] uppercase">Trạng thái</p>
                   <div className="mt-1 flex justify-center"><Status value={user.status} /></div>
                </div>
             </div>
@@ -98,21 +98,21 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
                   onClick={() => onStatusChange('UNLOCK', user)}
                   className="w-full flex items-center justify-center gap-2 rounded-md bg-[#008a3d] py-3 text-sm font-bold text-white hover:bg-green-700 transition"
                 >
-                   <Unlock className="size-4" /> Unlock Account
+                   <Unlock className="size-4" /> Mở khóa tài khoản
                  </button>
                ) : (
                  <button 
                   onClick={() => onStatusChange('LOCK', user)}
                   className="w-full flex items-center justify-center gap-2 rounded-md bg-[#ba1a1a] py-3 text-sm font-bold text-white hover:bg-red-700 transition"
                 >
-                   <Lock className="size-4" /> Lock Account
+                   <Lock className="size-4" /> Khóa tài khoản
                  </button>
                )}
             </div>
           </Panel>
 
           <Panel>
-            <h4 className="font-bold text-[#111827] mb-4">Contact Information</h4>
+            <h4 className="font-bold text-[#111827] mb-4">Thông tin liên hệ</h4>
             <div className="space-y-4 text-sm">
                <div className="flex items-start gap-3">
                   <Mail className="size-4 text-[#737686] mt-0.5" />
@@ -124,24 +124,24 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
                <div className="flex items-start gap-3">
                   <Phone className="size-4 text-[#737686] mt-0.5" />
                   <div>
-                    <p className="font-bold">Phone Number</p>
-                    <p className="text-[#434655]">{user.phone || 'Not provided'}</p>
+                    <p className="font-bold">Số điện thoại</p>
+                    <p className="text-[#434655]">{user.phone || 'Chưa cung cấp'}</p>
                   </div>
                </div>
                <div className="flex items-start gap-3">
                   <MapPin className="size-4 text-[#737686] mt-0.5" />
                   <div>
-                    <p className="font-bold">Address</p>
+                    <p className="font-bold">Địa chỉ</p>
                     <p className="text-[#434655]">
-                      {user.address ? `${user.address}, ${user.city}` : 'No address provided'}
+                      {user.address ? `${user.address}, ${user.city}` : 'Chưa cung cấp địa chỉ'}
                     </p>
                   </div>
                </div>
                <div className="flex items-start gap-3">
                   <Calendar className="size-4 text-[#737686] mt-0.5" />
                   <div>
-                    <p className="font-bold">Birthday</p>
-                    <p className="text-[#434655]">{user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Not provided'}</p>
+                    <p className="font-bold">Ngày sinh</p>
+                    <p className="text-[#434655]">{user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Chưa cung cấp'}</p>
                   </div>
                </div>
             </div>
@@ -152,10 +152,10 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
         <div className="lg:col-span-2 space-y-6">
           <KpiGrid 
             items={[
-               ['Events Created', user.events_created || 0, 'Organizer'],
-               ['Tickets Bought', user.tickets_bought || 0, 'Customer'],
-               ['Total Transactions', `${(user.total_spent || 0).toLocaleString('vi-VN')} VND`, 'Finance'],
-               ['Last Update', new Date(user.updated_at).toLocaleDateString('vi-VN'), 'System'],
+               ['Sự kiện đã tạo', user.events_created || 0, 'Organizer'],
+               ['Vé đã mua', user.tickets_bought || 0, 'Customer'],
+               ['Tổng giao dịch', `${(user.total_spent || 0).toLocaleString('vi-VN')} VNĐ`, 'Finance'],
+               ['Cập nhật gần nhất', new Date(user.updated_at).toLocaleDateString('vi-VN'), 'System'],
             ]}
           />
 
@@ -166,22 +166,22 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
                     <Info className="size-6" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-bold text-[#ba1a1a]">Lock Details</h4>
+                    <h4 className="font-bold text-[#ba1a1a]">Chi tiết khóa tài khoản</h4>
                     <div className="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Reason</p>
+                          <p className="text-xs font-bold text-[#737686] uppercase">Lý do</p>
                           <p className="mt-1 font-semibold">{user.lock_reason}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Locked Until</p>
-                          <p className="mt-1 font-semibold">{user.locked_until ? new Date(user.locked_until).toLocaleString('vi-VN') : 'Permanent'}</p>
+                          <p className="text-xs font-bold text-[#737686] uppercase">Khóa đến</p>
+                          <p className="mt-1 font-semibold">{user.locked_until ? new Date(user.locked_until).toLocaleString('vi-VN') : 'Vĩnh viễn'}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Locked By</p>
-                          <p className="mt-1 font-semibold">{user.locked_by_name || 'System'}</p>
+                          <p className="text-xs font-bold text-[#737686] uppercase">Khóa bởi</p>
+                          <p className="mt-1 font-semibold">{user.locked_by_name || 'Hệ thống'}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Locked At</p>
+                          <p className="text-xs font-bold text-[#737686] uppercase">Thời gian khóa</p>
                           <p className="mt-1 font-semibold">{new Date(user.locked_at).toLocaleString('vi-VN')}</p>
                        </div>
                     </div>
@@ -192,9 +192,9 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
 
           <Panel className="min-h-[300px]">
              <div className="flex items-center justify-between mb-6">
-                <h4 className="font-bold text-[#111827]">Account Activity</h4>
+                <h4 className="font-bold text-[#111827]">Hoạt động tài khoản</h4>
                 <div className="flex gap-2">
-                   <button className="rounded bg-[#f2f4f6] px-3 py-1.5 text-xs font-bold text-[#434655]">View All Logs</button>
+                   <button className="rounded bg-[#f2f4f6] px-3 py-1.5 text-xs font-bold text-[#434655]">Xem tất cả nhật ký</button>
                 </div>
              </div>
              
@@ -203,18 +203,18 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
                 <div className="relative">
                    <span className="absolute -left-8 top-1.5 size-4 rounded-full bg-primary border-4 border-white shadow-sm ring-1 ring-primary/20" />
                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-sm text-[#191c1e]">Account verified via email</p>
-                      <span className="text-xs text-[#737686] font-semibold">12 mins ago</span>
+                      <p className="font-bold text-sm text-[#191c1e]">Tài khoản đã xác thực qua email</p>
+                      <span className="text-xs text-[#737686] font-semibold">12 phút trước</span>
                    </div>
-                   <p className="text-xs text-[#5c647a] mt-1">System automated verification</p>
+                   <p className="text-xs text-[#5c647a] mt-1">Xác thực tự động bởi hệ thống</p>
                 </div>
                 <div className="relative">
                    <span className="absolute -left-8 top-1.5 size-4 rounded-full bg-[#c3c6d7] border-4 border-white shadow-sm" />
                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-sm text-[#191c1e]">Initial registration</p>
-                      <span className="text-xs text-[#737686] font-semibold">Oct 24, 2023</span>
+                      <p className="font-bold text-sm text-[#191c1e]">Đăng ký tài khoản</p>
+                      <span className="text-xs text-[#737686] font-semibold">24 Thg 10, 2023</span>
                    </div>
-                   <p className="text-xs text-[#5c647a] mt-1">Platform signup via alex@gmail.com</p>
+                   <p className="text-xs text-[#5c647a] mt-1">Đăng ký nền tảng qua {user.email || 'alex@gmail.com'}</p>
                 </div>
              </div>
              
@@ -222,7 +222,7 @@ export function UserDetailView({ userId, onBack, onStatusChange }) {
                 <div className="size-12 rounded-full bg-[#f2f4f6] grid place-items-center text-[#737686]">
                    <History className="size-6" />
                 </div>
-                <p className="text-sm font-bold text-[#5c647a]">No more recent activity found</p>
+                <p className="text-sm font-bold text-[#5c647a]">Không có hoạt động nào gần đây</p>
              </div>
           </Panel>
         </div>

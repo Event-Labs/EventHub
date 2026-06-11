@@ -16,6 +16,44 @@ const centerNavItems = [
   ['ChatBox', '/ai-faq'],
 ]
 
+const footerSections = [
+  {
+    title: 'Về nền tảng chúng tôi',
+    links: [
+      { label: 'Chính sách hệ thống', to: '/policies?policy_type=SYSTEM_POLICY' },
+      { label: 'Bảo mật thông tin cá nhân', to: '/policies?policy_type=PRIVACY_POLICY' },
+      { label: 'Chính sách sử dụng AI', to: '/policies?policy_type=AI_POLICY' },
+      { label: 'Khiếu nại và tranh chấp', to: '/policies?policy_type=COMPLAINT_POLICY' },
+    ],
+  },
+  {
+    title: 'Dành cho Khách hàng',
+    links: [
+      { label: 'Điều khoản dành cho Khách hàng', to: '/policies?policy_type=TERMS_CUSTOMER' },
+      { label: 'Chính sách vé', to: '/policies?policy_type=TICKET_POLICY' },
+      { label: 'Thanh toán', to: '/policies?policy_type=PAYMENT_POLICY' },
+      { label: 'Bảo mật thanh toán', to: '/policies?policy_type=PAYMENT_SECURITY_POLICY' },
+      { label: 'Hoàn tiền', to: '/policies?policy_type=REFUND_POLICY' },
+    ],
+  },
+  {
+    title: 'Dành cho BTC',
+    links: [
+      { label: 'Điều khoản dành cho Nhà tổ chức', to: '/policies?policy_type=TERMS_ORGANIZER' },
+      { label: 'Chính sách sự kiện', to: '/policies?policy_type=EVENT_POLICY' },
+      { label: 'Gói dịch vụ Organizer', to: '/policies?policy_type=SUBSCRIPTION_POLICY' },
+      { label: 'Phí nền tảng', to: '/policies?policy_type=FEE_POLICY' },
+    ],
+  },
+  {
+    title: 'Dành cho Staff',
+    links: [
+      { label: 'Điều khoản dành cho Staff', to: '/policies?policy_type=TERMS_STAFF' },
+      { label: 'Check-in và chống vé giả', to: '/policies?policy_type=CHECKIN_POLICY' },
+    ],
+  },
+]
+
 const navLinkClass = ({ isActive }) =>
   `relative z-10 px-3 py-2 text-sm font-bold transition ${
     isActive ? 'text-primary' : 'text-subtle hover:text-primary'
@@ -343,38 +381,19 @@ export function AppLayout() {
               © 2026 EventHub. All rights reserved.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
-            {[
-              ['EventHub', 'Về EventHub', 'Liên hệ', 'Chính sách hoàn vé'],
-              [
-                'Hỗ trợ',
-                'Trung tâm trợ giúp',
-                'Hướng dẫn ban tổ chức',
-                'AI FAQ',
-              ],
-              ['Pháp lý', 'Điều khoản', 'Bảo mật', 'Phí nền tảng'],
-            ].map(([title, ...links]) => (
+          <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
+            {footerSections.map(({ title, links }) => (
               <div key={title} className="space-y-3">
                 <h3 className="text-sm font-bold text-white">{title}</h3>
-                {links.map((link, index) =>
-                  title === 'EventHub' && index === 2 ? (
-                    <Link
-                      key={link}
-                      to="/policies"
-                      className="block text-sm text-muted transition hover:text-primary"
-                    >
-                      {link}
-                    </Link>
-                  ) : (
-                    <a
-                      key={link}
-                      href="#"
-                      className="block text-sm text-muted transition hover:text-primary"
-                    >
-                      {link}
-                    </a>
-                  ),
-                )}
+                {links.map((link) => (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    className="block text-sm text-muted transition hover:text-primary"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </div>
             ))}
           </div>
