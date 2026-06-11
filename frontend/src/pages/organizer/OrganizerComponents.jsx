@@ -1,6 +1,7 @@
+import { Link } from 'react-router-dom'
 import { ChevronRight, Plus, Search, Sparkles } from 'lucide-react'
 
-export function OrganizerPage({ title, eyebrow, description, action, onActionClick, children }) {
+export function OrganizerPage({ title, eyebrow, description, action, actionTo, onAction, children }) {
   return (
     <>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -22,15 +23,17 @@ export function OrganizerPage({ title, eyebrow, description, action, onActionCli
           </h1>
           {description && <p className="mt-1 text-sm text-[#434655]">{description}</p>}
         </div>
-        {action && (
-          typeof action === 'string' ? (
-            <button className="admin-primary flex items-center gap-2" onClick={onActionClick}>
-              <Plus className="size-4" />
-              {action}
-            </button>
-          ) : (
-            action
-          )
+        {action && actionTo && (
+          <Link to={actionTo} className="admin-primary">
+            <Plus className="size-4" />
+            {action}
+          </Link>
+        )}
+        {action && !actionTo && (
+          <button type="button" className="admin-primary" onClick={onAction}>
+            <Plus className="size-4" />
+            {action}
+          </button>
         )}
       </div>
       {children}

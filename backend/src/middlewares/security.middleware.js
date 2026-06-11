@@ -3,16 +3,18 @@ const cors = require('cors');
 const hpp = require('hpp');
 
 const securityMiddlewares = (app) => {
-    // Set security HTTP headers
     app.use(helmet());
 
-    // Enable CORS
     app.use(cors({
         origin: process.env.CLIENT_URL,
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: [
+            'Content-Type',
+            'Authorization'
+        ]
     }));
 
-    // Prevent HTTP Parameter Pollution
     app.use(hpp());
 };
 

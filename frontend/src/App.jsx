@@ -48,9 +48,12 @@ import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncem
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
 import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
 import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
+import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
 import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
+import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
+import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'
 import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscriptionsPage.jsx'
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
@@ -139,6 +142,23 @@ const router = createBrowserRouter([
       },
       {
         path: 'events/create',
+        element: <CreateEventPage />,
+      },
+      {
+        path: 'events/:eventId/edit',
+        element: <CreateEventPage />,
+      },
+      {
+        path: 'events/create/publishing-fee',
+        element: <OrganizerPublishingFeePage />,
+      },
+      {
+        path: 'events/publishing-payment',
+        element: <OrganizerPublishingPaymentPage />,
+      },
+      {
+        path: 'events/detail',
+        element: <OrganizerEventBillingDetailPage />,
         element: <OrganizerPortalDashboardPage />,
       },
       {
@@ -160,6 +180,14 @@ const router = createBrowserRouter([
       {
         path: 'promotions',
         element: <OrganizerPromosPage />,
+      },
+      {
+        path: 'venues',
+        element: <OrganizerVenuesPage />,
+      },
+      {
+        path: 'venues/:venueId/seat-maps',
+        element: <OrganizerVenueSeatMapsPage />,
       },
       {
         path: 'announcements',
