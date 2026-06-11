@@ -186,6 +186,23 @@ CREATE TABLE organizer_requests (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE organizers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id),
+
+    organization_name VARCHAR(255) NOT NULL,
+    description TEXT,
+
+    business_email VARCHAR(255),
+    business_phone VARCHAR(20),
+
+    status VARCHAR(50) DEFAULT 'ACTIVE',
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- =========================================================
 -- EVENT MANAGEMENT
 -- =========================================================
@@ -207,7 +224,7 @@ CREATE TABLE event_categories (
 CREATE TABLE events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    organizer_id UUID NOT NULL REFERENCES users(id),
+    organizer_id UUID NOT NULL REFERENCES organizers(id),
 
     category_id UUID REFERENCES event_categories(id),
 
@@ -233,6 +250,11 @@ CREATE TABLE events (
 
     start_publish_at TIMESTAMPTZ,
     end_publish_at TIMESTAMPTZ,
+
+    format VARCHAR(20) CHECK (format IN ('ONLINE', 'OFFLINE', 'HYBRID')),
+    tags TEXT[] DEFAULT '{}',
+    refund_policy JSONB DEFAULT '{}'::jsonb,
+    additional_terms TEXT,
 
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -262,7 +284,7 @@ CREATE TABLE event_reviews (
 CREATE TABLE venues (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    organizer_id UUID REFERENCES users(id),
+    organizer_id UUID REFERENCES organizers(id),
 
     name VARCHAR(255) NOT NULL,
 
@@ -394,7 +416,7 @@ CREATE TABLE ticket_type_seats (
 CREATE TABLE promo_codes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    organizer_id UUID REFERENCES users(id),
+    organizer_id UUID REFERENCES organizers(id),
 
     event_id UUID REFERENCES events(id),
 
@@ -739,7 +761,7 @@ CREATE TABLE subscriptions (
 CREATE TABLE organizer_subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    organizer_id UUID REFERENCES users(id),
+    organizer_id UUID REFERENCES organizers(id),
 
     subscription_id UUID REFERENCES subscriptions(id),
 
@@ -796,7 +818,7 @@ CREATE TABLE announcements (
 
     event_id UUID NOT NULL REFERENCES events(id),
 
-    organizer_id UUID NOT NULL REFERENCES users(id),
+    organizer_id UUID NOT NULL REFERENCES organizers(id),
 
     title VARCHAR(255) NOT NULL,
 
@@ -978,6 +1000,44 @@ CREATE TRIGGER trigger_subscriptions_updated_at
 BEFORE UPDATE ON subscriptions
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+-- =========================================================
+-- MIGRATIONS
+-- =========================================================
+
+-- Migration: add event wizard columns (format, tags, refund_policy, additional_terms)
+ALTER TABLE events
+  ADD COLUMN IF NOT EXISTS format VARCHAR(20) CHECK (format IN ('ONLINE', 'OFFLINE', 'HYBRID')),
+  ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS refund_policy JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS additional_terms TEXT;
+
+-- Migration: venues FK + seat maps + zones
+ALTER TABLE venues
+  DROP CONSTRAINT IF EXISTS venues_organizer_id_fkey,
+  ADD CONSTRAINT venues_organizer_id_fkey
+    FOREIGN KEY (organizer_id) REFERENCES organizers(id);
+
+ALTER TABLE seat_maps
+  ADD COLUMN IF NOT EXISTS layout_type VARCHAR(10) DEFAULT 'GRID'
+    CHECK (layout_type IN ('GRID', 'FREEFORM', 'MIXED')),
+  ADD COLUMN IF NOT EXISTS canvas_width  INT DEFAULT 900,
+  ADD COLUMN IF NOT EXISTS canvas_height INT DEFAULT 600,
+  ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS seat_zones (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  seat_map_id UUID NOT NULL REFERENCES seat_maps(id) ON DELETE CASCADE,
+  name        VARCHAR(100) NOT NULL,
+  color       VARCHAR(20)  NOT NULL DEFAULT '#6B7280',
+  sort_order  INT DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE seats
+  ADD COLUMN IF NOT EXISTS zone_id UUID REFERENCES seat_zones(id) ON DELETE SET NULL;
 
 -- =========================================================
 -- END

@@ -58,9 +58,12 @@ import {
 } from '@/pages/organizer/OrganizerBillingPages.jsx'
 import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
 import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
+import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
 import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
+import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
+import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
@@ -147,7 +150,11 @@ const router = createBrowserRouter([
       },
       {
         path: 'events/create',
-        element: <OrganizerPublishingFeePage />,
+        element: <CreateEventPage />,
+      },
+      {
+        path: 'events/:eventId/edit',
+        element: <CreateEventPage />,
       },
       {
         path: 'events/create/publishing-fee',
@@ -176,6 +183,14 @@ const router = createBrowserRouter([
       {
         path: 'promotions',
         element: <OrganizerPromosPage />,
+      },
+      {
+        path: 'venues',
+        element: <OrganizerVenuesPage />,
+      },
+      {
+        path: 'venues/:venueId/seat-maps',
+        element: <OrganizerVenueSeatMapsPage />,
       },
       {
         path: 'announcements',

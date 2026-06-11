@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
-import { events } from '@/data/events.js'
 
 const customerMenu = [
   ['Khám phá sự kiện', '/events'],
