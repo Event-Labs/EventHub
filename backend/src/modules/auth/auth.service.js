@@ -31,9 +31,17 @@ class AuthService {
         return crypto.createHash('sha256').update(token).digest('hex');
     }
 
-    generateAccessToken(user, roles) {
+    async generateAccessToken(user, roles) {
+        const payload = { sub: user.id, roles };
+
+        if (roles.includes('STAFF')) {
+            const operationsRepository = require('../operations/operations.repository');
+            const staffEventIds = await operationsRepository.getStaffEventIds(user.id);
+            payload.staff_event_ids = staffEventIds;
+        }
+
         return jwt.sign(
-            { sub: user.id, roles },
+            payload,
             process.env.JWT_ACCESS_SECRET,
             { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN }
         );
@@ -113,7 +121,7 @@ class AuthService {
         }
 
         const roles = await authRepository.findUserRoles(user.id);
-        const accessToken = this.generateAccessToken(user, roles);
+        const accessToken = await this.generateAccessToken(user, roles);
         const refreshToken = this.generateRefreshToken();
         const refreshTokenHash = this.hashToken(refreshToken);
 
@@ -190,7 +198,7 @@ class AuthService {
 
             // Now proceed with normal login flow token generation
             const roles = await authRepository.findUserRoles(user.id);
-            const accessToken = this.generateAccessToken(user, roles);
+            const accessToken = await this.generateAccessToken(user, roles);
             const refreshToken = this.generateRefreshToken();
             const refreshTokenHash = this.hashToken(refreshToken);
 
@@ -253,7 +261,7 @@ class AuthService {
         // Rotate token — revoke old session by its hash
         await authRepository.revokeSessionByHash(hash);
 
-        const newAccessToken = this.generateAccessToken(user, roles);
+        const newAccessToken = await this.generateAccessToken(user, roles);
         const newRefreshToken = this.generateRefreshToken();
         const newHash = this.hashToken(newRefreshToken);
 

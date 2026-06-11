@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const eventsController = require('./events.controller');
 const optionalAuth = require('../../middlewares/optionalAuth.middleware');
 const { protect } = require('../../middlewares/auth.middleware');
@@ -12,6 +12,7 @@ router.get('/favorites/me', protect, eventsController.getFavoriteEvents);
 router.post('/:eventId/favorite', protect, eventsController.addFavorite);
 router.delete('/:eventId/favorite', protect, eventsController.removeFavorite);
 router.post('/:eventId/favorite/toggle', protect, eventsController.toggleFavorite);
+router.get('/my-events', protect, eventsController.getOrganizerEvents);
 router.get('/:identifier', optionalAuth, eventsController.getPublicEventDetail);
 
 module.exports = router;

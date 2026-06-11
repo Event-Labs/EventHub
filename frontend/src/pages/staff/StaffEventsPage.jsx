@@ -1,46 +1,115 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Calendar, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel, StaffSearch } from './StaffComponents.jsx'
 
-const events = [
-  ['Neon Pulse: City Arena', 'Hôm nay, 18:00 - 02:00', 'Downtown Plaza Center', 'Ongoing', '1,420 / 2,500'],
-  ['Global Tech Summit 2024', 'Tomorrow, 08:30 - 17:00', 'Exhibition Hall B', 'Upcoming', '0 / 850'],
-  ['Abstract Visions Gala', 'Chủ nhật, 22:00', 'Gallery One', 'Ongoing', '195 / 200'],
-]
-
 export function StaffEventsPage({ empty = false }) {
+  const [events, setEvents] = useState([])
+  const [keyword, setKeyword] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadEvents() {
+      setLoading(true)
+      setError('')
+      try {
+        const data = await fetchAssignedStaffEvents()
+        if (active) setEvents(data)
+      } catch (err) {
+        if (active) setError(err.response?.data?.message || 'Không thể tải sự kiện được giao.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadEvents()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const filteredEvents = useMemo(() => {
+    const normalized = keyword.trim().toLowerCase()
+    if (!normalized) return events
+    return events.filter((event) => {
+      const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(' ')
+      return `${event.title} ${venue} ${event.staff_role || ''}`.toLowerCase().includes(normalized)
+    })
+  }, [events, keyword])
+
   if (empty) return <NoAssignedEventsPage />
 
   return (
     <StaffPage title="Sự kiện được giao" description="Quản lý ca check-in cho các sự kiện sắp tới.">
+      {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
       <div className="mb-5 grid gap-3 md:grid-cols-[1fr_auto]">
-        <StaffSearch placeholder="Tìm theo tên sự kiện, địa điểm..." />
+        <div onChange={(event) => setKeyword(event.target.value)}>
+          <StaffSearch placeholder="Tìm theo tên sự kiện, địa điểm..." />
+        </div>
         <select className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm">
           <option>Tất cả vai trò</option>
         </select>
       </div>
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {events.map((event) => (
-          <StaffPanel key={event[0]}>
-            <div className="mb-4 grid h-36 place-items-center rounded-md bg-gradient-to-br from-primary/20 to-ai/20 text-primary">
-              <Calendar className="size-12" />
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="font-extrabold">{event[0]}</h3>
-              <Badge tone={event[3] === 'Ongoing' ? 'green' : 'blue'}>{event[3]}</Badge>
-            </div>
-            <p className="mt-3 flex items-center gap-2 text-sm text-[#434655]"><Calendar className="size-4" />{event[1]}</p>
-            <p className="mt-2 flex items-center gap-2 text-sm text-[#434655]"><MapPin className="size-4" />{event[2]}</p>
-            <p className="mt-5 text-sm font-semibold">Tiến độ check-in <span className="float-right">{event[4]}</span></p>
-            <div className="mt-2 h-2 rounded bg-[#e0e3e5]"><div className="h-full w-2/3 rounded bg-primary" /></div>
-            <div className="mt-5 flex gap-3">
-              <Link to="/staff/qr-check-in" className="admin-primary flex-1">Bắt đầu</Link>
-              <Link to="/staff/events/detail" className="admin-secondary flex-1">Chi tiết</Link>
-            </div>
-          </StaffPanel>
-        ))}
-      </div>
+
+      {loading ? (
+        <StaffPanel>Đang tải dữ liệu...</StaffPanel>
+      ) : filteredEvents.length === 0 ? (
+        <NoAssignedEventsPage />
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {filteredEvents.map((event) => (
+            <AssignedEventCard key={event.id} event={event} />
+          ))}
+        </div>
+      )}
     </StaffPage>
+  )
+}
+
+function AssignedEventCard({ event }) {
+  const checkedIn = Number(event.checked_in || 0)
+  const totalValid = Number(event.total_valid || 0)
+  const progress = totalValid > 0 ? Math.min(100, Math.round((checkedIn / totalValid) * 100)) : 0
+  const now = Date.now()
+  const start = new Date(event.start_time).getTime()
+  const end = new Date(event.end_time).getTime()
+  const isOngoing = start <= now && now <= end
+  const statusTone = isOngoing ? 'green' : 'blue'
+  const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(', ')
+
+  return (
+    <StaffPanel>
+      <div className="mb-4 grid h-36 place-items-center rounded-md bg-[#dbe1ff] text-primary">
+        <Calendar className="size-12" />
+      </div>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="font-extrabold">{event.title}</h3>
+        <Badge tone={statusTone}>{isOngoing ? 'Ongoing' : event.status}</Badge>
+      </div>
+      <p className="mt-3 flex items-center gap-2 text-sm text-[#434655]">
+        <Calendar className="size-4" />
+        {new Date(event.start_time).toLocaleString('vi-VN')}
+      </p>
+      <p className="mt-2 flex items-center gap-2 text-sm text-[#434655]">
+        <MapPin className="size-4" />
+        {venue || 'Chưa cập nhật địa điểm'}
+      </p>
+      <p className="mt-3 text-sm font-semibold text-[#434655]">Vai trò: {event.staff_role || 'Staff'}</p>
+      <p className="mt-5 text-sm font-semibold">
+        Tiến độ check-in <span className="float-right">{checkedIn} / {totalValid}</span>
+      </p>
+      <div className="mt-2 h-2 rounded bg-[#e0e3e5]">
+        <div className="h-full rounded bg-primary" style={{ width: `${progress}%` }} />
+      </div>
+      <div className="mt-5 flex gap-3">
+        <Link to="/staff/qr-check-in" className="admin-primary flex-1">Bắt đầu</Link>
+        <Link to="/staff/events/detail" className="admin-secondary flex-1">Chi tiết</Link>
+      </div>
+    </StaffPanel>
   )
 }
 
@@ -56,8 +125,8 @@ export function NoAssignedEventsPage() {
           Bạn chưa được phân công vào sự kiện nào. Vui lòng liên hệ ban tổ chức nếu có nhầm lẫn.
         </p>
         <div className="mt-7 flex justify-center gap-3">
-          <button className="admin-primary opacity-60">Quét QR</button>
-          <button className="admin-secondary">Làm mới</button>
+          <Link to="/staff/qr-check-in" className="admin-primary opacity-60">Quét QR</Link>
+          <button className="admin-secondary" onClick={() => window.location.reload()}>Làm mới</button>
         </div>
       </div>
     </div>

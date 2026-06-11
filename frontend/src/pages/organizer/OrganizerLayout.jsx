@@ -10,6 +10,7 @@ import {
   LogOut,
   MapPin,
   Megaphone,
+  PackageOpen,
   Search,
   Settings,
   Settings2,
@@ -32,12 +33,13 @@ const navItems = [
     icon: Settings2,
     children: [
       { label: 'Người tham dự', to: '/organizer/attendees' },
+      { label: 'Quản lý nhân sự', to: '/organizer/staff-management' },
       { label: 'Công việc nhân sự', to: '/organizer/staff-tasks' },
       { label: 'Báo cáo', to: '/organizer/reports' },
     ],
   },
   { label: 'Thông báo', to: '/organizer/announcements', icon: ClipboardList },
-  { label: 'Gói & thanh toán', to: '/organizer/billing', icon: CreditCard },
+  { label: 'Gói dịch vụ', to: '/organizer/subscriptions', icon: PackageOpen },
 ]
 
 export function OrganizerLayout() {

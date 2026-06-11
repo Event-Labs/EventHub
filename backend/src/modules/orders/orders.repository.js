@@ -142,7 +142,8 @@ class OrdersRepository {
           `
           SELECT *
           FROM promo_codes
-          WHERE event_id = $1
+          WHERE (event_id = $1 OR event_id IS NULL)
+            AND organizer_id = $3
             AND UPPER(code) = UPPER($2)
             AND is_active = true
             AND (start_time IS NULL OR start_time <= now())
@@ -150,7 +151,7 @@ class OrdersRepository {
             AND (usage_limit IS NULL OR used_count < usage_limit)
           LIMIT 1
           `,
-          [eventId, promoCode],
+          [eventId, promoCode, firstTicket.organizer_id],
         );
         promo = promoResult.rows[0];
 
