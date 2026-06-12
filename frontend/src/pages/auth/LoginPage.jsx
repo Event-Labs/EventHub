@@ -1,7 +1,7 @@
-import {  Eye, Lock, Mail } from 'lucide-react'
+import { Eye, Lock, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { heroImage } from '@/data/events.js'
+import heroImage from '@/assets/hero.png'
 import { getPostLoginPath } from '@/lib/auth.js'
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
@@ -195,9 +195,9 @@ export function LoginPage() {
           </Link>
         </p>
       </div>
-      <LockedAccountModal 
-        open={lockModalOpen} 
-        lockData={lockData} 
+      <LockedAccountModal
+        open={lockModalOpen}
+        lockData={lockData}
         onLogout={() => {
           setLockModalOpen(false);
           setLockData(null);
