@@ -149,16 +149,7 @@ const router = createBrowserRouter([
         element: <CreateEventPage />,
       },
       {
-        path: 'events/create/publishing-fee',
-        element: <OrganizerPublishingFeePage />,
-      },
-      {
-        path: 'events/publishing-payment',
-        element: <OrganizerPublishingPaymentPage />,
-      },
-      {
         path: 'events/detail',
-        element: <OrganizerEventBillingDetailPage />,
         element: <OrganizerPortalDashboardPage />,
       },
       {
