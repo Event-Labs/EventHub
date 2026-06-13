@@ -8,6 +8,8 @@ const adminOrganizerRequestRoutes = require('./modules/admin/organizerRequests.r
 const adminSubscriptionRoutes = require('./modules/admin/subscriptions.routes');
 const adminPlatformFinanceRoutes = require('./modules/admin/platformFinance.routes');
 const adminUserRoutes = require('./modules/admin/users.routes');
+const adminEventsRoutes = require('./modules/admin/events.routes');
+
 const organizerRequestRoutes = require('./modules/organizer-requests/organizerRequests.routes');
 const feedbackRoutes = require('./modules/feedbacks/feedbacks.routes');
 const organizerFeedbackRoutes = require('./modules/organizer/feedbackReport.routes');
@@ -49,6 +51,7 @@ app.use('/api/admin/organizer-requests', adminOrganizerRequestRoutes);
 app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
 app.use('/api/admin/platform-finance', adminPlatformFinanceRoutes);
 app.use('/api/admin/users', adminUserRoutes);
+app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/organizer-requests', organizerRequestRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/organizer/feedback', organizerFeedbackRoutes);

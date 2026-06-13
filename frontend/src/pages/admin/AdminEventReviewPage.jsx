@@ -1,73 +1,539 @@
-import { ChevronRight, Filter } from 'lucide-react'
-import { Badge, ImagePlaceholder, Insight, Page, Table } from './AdminComponents.jsx'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, Eye, EyeOff, XCircle } from 'lucide-react'
+import { useState } from 'react'
 
+import { fetchAdminEvents, hideAdminEvent, reviewAdminEvent, unhideAdminEvent } from '@/services/adminEvents.js'
+import { Badge, ImagePlaceholder, Insight, Page, Panel, Table } from './AdminComponents.jsx'
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+const STATUS_TABS = [
+  { label: 'Chờ duyệt', value: 'PENDING_REVIEW' },
+  { label: 'Đã duyệt', value: 'PUBLISHED' },
+  { label: 'Từ chối', value: 'REJECTED' },
+  { label: 'Đã ẩn', value: 'HIDDEN' },
+]
+
+/**
+ * Both REJECTED and HIDDEN events share status='HIDDEN' in the DB.
+ * Distinguish them via approval_status:
+ *   HIDDEN + approval_status=REJECTED → event failed admin review ("Từ chối")
+ *   HIDDEN + approval_status=APPROVED → event was published then hidden for violations ("Đã ẩn")
+ */
+function statusBadge(status, approvalStatus) {
+  if (status === 'HIDDEN') {
+    return approvalStatus === 'REJECTED'
+      ? <Badge tone="purple">Từ chối</Badge>
+      : <Badge tone="gray">Đã ẩn</Badge>
+  }
+  const map = {
+    PENDING_REVIEW: { tone: 'blue', label: 'Chờ duyệt' },
+    PUBLISHED: { tone: 'green', label: 'Đã duyệt' },
+    CANCELLED: { tone: 'gray', label: 'Đã huỷ' },
+    COMPLETED: { tone: 'green', label: 'Đã kết thúc' },
+  }
+  const cfg = map[status] ?? { tone: 'gray', label: status }
+  return <Badge tone={cfg.tone}>{cfg.label}</Badge>
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
 export function AdminEventReviewPage() {
-  const rows = [
-    {
-      name: 'Cyber Summit 2024',
-      organizer: 'Future Systems Inc.',
-      category: 'Technology',
-      eventDate: 'Oct 24, 2024',
-      submittedDate: 'Sept 12, 2024',
-      imageUrl: null,
-    },
-    {
-      name: 'Gala for Good',
-      organizer: 'Red Cross Global',
-      category: 'Charity',
-      eventDate: 'Nov 02, 2024',
-      submittedDate: 'Sept 14, 2024',
-      imageUrl: null,
-    },
-    {
-      name: 'Metropolitan Jazz Festival',
-      organizer: 'Harmony Group',
-      category: 'Entertainment',
-      eventDate: 'Oct 30, 2024',
-      submittedDate: 'Sept 15, 2024',
-      imageUrl: null,
-    },
-  ]
+  const queryClient = useQueryClient()
 
+  const [activeStatus, setActiveStatus] = useState('PENDING_REVIEW')
+  const [page, setPage] = useState(1)
+
+  // Per-row note state: { [eventId]: string }
+  const [notes, setNotes] = useState({})
+
+  // Detail modal state
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [modalNote, setModalNote] = useState('')
+  const [modalError, setModalError] = useState('')
+
+  // -------------------------------------------------------------------------
+  // Data fetching
+  // -------------------------------------------------------------------------
+  const queryKey = ['admin-events', activeStatus, page]
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey,
+    queryFn: () => fetchAdminEvents({ status: activeStatus, page, limit: 20 }),
+    keepPreviousData: true,
+  })
+
+  const items = data?.items ?? []
+  const pagination = data?.pagination ?? {}
+
+  // -------------------------------------------------------------------------
+  // Mutations
+  // -------------------------------------------------------------------------
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ eventId, payload }) => reviewAdminEvent(eventId, payload),
+    onSuccess: () => {
+      closeModal()
+      invalidate()
+    },
+    onError: (err) => {
+      const apiMsg = err.response?.data?.message
+      const zodErrors = err.response?.data?.errors
+      if (zodErrors?.length) {
+        setModalError(zodErrors.map((e) => e.message).join(', '))
+      } else {
+        setModalError(apiMsg || 'Không thể thực hiện thao tác.')
+      }
+    },
+  })
+
+  const hideMutation = useMutation({
+    mutationFn: ({ eventId, payload }) => hideAdminEvent(eventId, payload),
+    onSuccess: () => { closeModal(); invalidate() },
+    onError: (err) => {
+      const apiMsg = err.response?.data?.message
+      setModalError(apiMsg || 'Không thể ẩn sự kiện.')
+    },
+  })
+
+  const unhideMutation = useMutation({
+    mutationFn: ({ eventId }) => unhideAdminEvent(eventId),
+    onSuccess: () => { closeModal(); invalidate() },
+    onError: (err) => {
+      const apiMsg = err.response?.data?.message
+      setModalError(apiMsg || 'Không thể bỏ ẩn sự kiện.')
+    },
+  })
+
+  const isMutating = reviewMutation.isPending || hideMutation.isPending || unhideMutation.isPending
+
+  // -------------------------------------------------------------------------
+  // Handlers
+  // -------------------------------------------------------------------------
+  const openModal = (event) => {
+    setSelectedEvent(event)
+    setModalNote(notes[event.id] ?? '')
+    setModalError('')
+  }
+
+  const closeModal = () => {
+    setSelectedEvent(null)
+    setModalNote('')
+    setModalError('')
+  }
+
+  /** Quick approve/reject directly from table row (note from inline input) */
+  const quickReview = (eventId, status) => {
+    const note = (notes[eventId] ?? '').trim() || null
+    reviewMutation.mutate({ eventId, payload: { status, review_note: note } })
+  }
+
+  /** Quick hide directly from table row */
+  const quickHide = (eventId) => {
+    const note = (notes[eventId] ?? '').trim() || null
+    hideMutation.mutate({ eventId, payload: { hide_note: note } })
+  }
+
+  /** Quick unhide directly from table row */
+  const quickUnhide = (eventId) => {
+    unhideMutation.mutate({ eventId })
+  }
+
+  /** Modal submit */
+  const submitModalReview = (status) => {
+    if (!selectedEvent) return
+    reviewMutation.mutate({
+      eventId: selectedEvent.id,
+      payload: { status, review_note: modalNote.trim() || null },
+    })
+  }
+
+  const submitModalHide = () => {
+    if (!selectedEvent) return
+    hideMutation.mutate({
+      eventId: selectedEvent.id,
+      payload: { hide_note: modalNote.trim() || null },
+    })
+  }
+
+  const submitModalUnhide = () => {
+    if (!selectedEvent) return
+    unhideMutation.mutate({ eventId: selectedEvent.id })
+  }
+
+  const setNote = (eventId, value) =>
+    setNotes((prev) => ({ ...prev, [eventId]: value }))
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
   return (
     <Page
-      title="Event Review Queue"
-      description="Audit and approve submitted events for the platform."
+      title="Duyệt sự kiện"
+      description="Kiểm duyệt và phê duyệt các sự kiện được gửi bởi Organizer."
     >
-      <div className="mb-5 flex justify-end gap-2">
-        <button className="admin-secondary">
-          <Filter className="size-4" /> Filter
-        </button>
-        <button className="admin-secondary">Export</button>
+      {/* Status tab filter */}
+      <div className="mb-5 flex flex-wrap gap-2">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => { setActiveStatus(tab.value); setPage(1) }}
+            className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
+              activeStatus === tab.value
+                ? 'bg-primary text-slate-950 shadow-primary/20'
+                : 'border border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <Insight text='AI Assistant: 3 events detected with potentially high risk scores based on policy alignment. Prioritize review for "Cyber Summit 2024".' />
-      <Table
-        headers={['Event Image', 'Event Name', 'Organizer', 'Category', 'Event Date', 'Submitted', 'Status', '']}
-        rows={rows.map((row, index) => [
-          row.imageUrl ? (
-            <img
-              key="img"
-              src={row.imageUrl}
-              alt={row.name}
-              className="h-12 w-20 rounded object-cover"
-            />
-          ) : (
-            <ImagePlaceholder key="img" label="Event" />
-          ),
-          <div key="name">
-            <p className="font-semibold">{row.name}</p>
-            <p className="text-xs text-[#737686]">EVT-{9201 + index}</p>
-          </div>,
-          row.organizer,
-          <Badge key="cat" tone="blue">{row.category}</Badge>,
-          row.eventDate,
-          row.submittedDate,
-          <span key="status" className="font-semibold text-[#6a1edb]">
-            Pending Review
-          </span>,
-          <ChevronRight key="go" className="size-4 text-[#737686]" />,
-        ])}
+
+      {/* AI Insight */}
+      <Insight
+        title="AI Assistant"
+        text="Các sự kiện đang ở trạng thái PENDING_REVIEW. Vui lòng ưu tiên duyệt/ẩn theo ghi chú đánh giá. Khi từ chối, hãy điền ghi chú rõ ràng để Organizer biết cần chỉnh sửa gì."
       />
+
+      {/* States */}
+      {isLoading && (
+        <Panel className="mt-5 text-sm text-[#737686]">Đang tải danh sách sự kiện...</Panel>
+      )}
+      {isError && (
+        <Panel className="mt-5 text-sm text-error">Không thể tải danh sách sự kiện.</Panel>
+      )}
+      {!isLoading && !isError && items.length === 0 && (
+        <Panel className="mt-5 text-sm text-[#737686]">
+          Không có sự kiện nào ở trạng thái này.
+        </Panel>
+      )}
+
+      {/* Table */}
+      {!isLoading && !isError && items.length > 0 && (
+        <>
+          <div className="mt-5">
+            <Table
+              headers={[
+                'Ảnh',
+                'Tên sự kiện',
+                'Organizer',
+                'Ngày diễn ra',
+                'Ngày gửi',
+                'Trạng thái',
+                'Thao tác',
+              ]}
+              rows={items.map((event) => [
+                /* Thumbnail */
+                event.thumbnail_url ? (
+                  <img
+                    key="img"
+                    src={event.thumbnail_url}
+                    alt={event.title}
+                    className="h-12 w-20 rounded object-cover"
+                  />
+                ) : (
+                  <ImagePlaceholder key="img" label="Event" />
+                ),
+
+                /* Event name */
+                <div key="name">
+                  <p className="max-w-[200px] truncate font-semibold text-[#191c1e]">
+                    {event.title}
+                  </p>
+                  <p className="text-xs text-[#737686]">{event.slug}</p>
+                </div>,
+
+                /* Organizer */
+                <span key="org" className="text-sm text-[#434655]">
+                  {event.organizer_name || '—'}
+                </span>,
+
+                /* Event date */
+                <span key="date" className="text-sm text-[#434655]">
+                  {formatDate(event.start_time)}
+                </span>,
+
+                /* Submitted date */
+                <span key="sub" className="text-sm text-[#434655]">
+                  {formatDate(event.created_at)}
+                </span>,
+
+                /* Status badge */
+                <span key="status">{statusBadge(event.status, event.approval_status)}</span>,
+
+                /* Actions */
+                <div key="actions" className="flex flex-col gap-2">
+                  <input
+                    className="h-9 rounded-md border border-[#c3c6d7] bg-white px-2 text-xs outline-none focus:border-primary"
+                    placeholder="Ghi chú (tuỳ chọn)"
+                    value={notes[event.id] ?? ''}
+                    onChange={(e) => setNote(event.id, e.target.value)}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    {/* Approve — only for PENDING_REVIEW */}
+                    {event.status === 'PENDING_REVIEW' && (
+                      <ActionButton
+                        title="Phê duyệt"
+                        color="green"
+                        icon={<CheckCircle2 className="size-4" />}
+                        onClick={() => quickReview(event.id, 'APPROVED')}
+                        disabled={isMutating}
+                      />
+                    )}
+                    {/* Reject — only for PENDING_REVIEW */}
+                    {event.status === 'PENDING_REVIEW' && (
+                      <ActionButton
+                        title="Từ chối"
+                        color="red"
+                        icon={<XCircle className="size-4" />}
+                        onClick={() => quickReview(event.id, 'REJECTED')}
+                        disabled={isMutating}
+                      />
+                    )}
+                    {/* Hide — only for PUBLISHED */}
+                    {event.status === 'PUBLISHED' && (
+                      <ActionButton
+                        title="Ẩn sự kiện"
+                        color="gray"
+                        icon={<EyeOff className="size-4" />}
+                        onClick={() => quickHide(event.id)}
+                        disabled={isMutating}
+                      />
+                    )}
+                    {/* Unhide — only for HIDDEN+APPROVED (was published, then hidden) */}
+                    {event.status === 'HIDDEN' && event.approval_status === 'APPROVED' && (
+                      <ActionButton
+                        title="Bỏ ẩn"
+                        color="green"
+                        icon={<Eye className="size-4" />}
+                        onClick={() => quickUnhide(event.id)}
+                        disabled={isMutating}
+                      />
+                    )}
+                    {/* View detail button */}
+                    <button
+                      type="button"
+                      title="Xem chi tiết"
+                      onClick={() => openModal(event)}
+                      className="rounded-md border border-[#c3c6d7] px-3 py-2 text-xs font-semibold text-[#434655] transition hover:border-primary hover:bg-[#f1fbff] hover:text-primary"
+                    >
+                      Chi tiết
+                    </button>
+                  </div>
+                </div>,
+              ])}
+            />
+          </div>
+
+          {/* Pagination */}
+          {pagination.total_pages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm text-[#434655]">
+              <span>
+                Trang {pagination.page} / {pagination.total_pages} · {pagination.total} sự kiện
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="admin-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Trước
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= pagination.total_pages}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="admin-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Tiếp
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Detail / Review Modal */}
+      {selectedEvent && (
+        <EventReviewModal
+          event={selectedEvent}
+          note={modalNote}
+          error={modalError}
+          isMutating={isMutating}
+          onNoteChange={setModalNote}
+          onReview={submitModalReview}
+          onHide={submitModalHide}
+          onUnhide={submitModalUnhide}
+          onClose={closeModal}
+        />
+      )}
     </Page>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function ActionButton({ title, color, icon, onClick, disabled }) {
+  const colorMap = {
+    green: 'border-green-200 text-green-600 hover:bg-green-50',
+    red: 'border-red-200 text-red-600 hover:bg-red-50',
+    gray: 'border-[#c3c6d7] text-[#434655] hover:border-primary hover:bg-[#f1fbff]',
+  }
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className={`grid size-9 place-items-center rounded-md border transition disabled:cursor-not-allowed disabled:opacity-50 ${colorMap[color]}`}
+    >
+      {icon}
+    </button>
+  )
+}
+
+function EventReviewModal({
+  event,
+  note,
+  error,
+  isMutating,
+  onNoteChange,
+  onReview,
+  onHide,
+  onUnhide,
+  onClose,
+}) {
+  const isPending  = event.status === 'PENDING_REVIEW'
+  const isPublished = event.status === 'PUBLISHED'
+  const isHiddenApproved = event.status === 'HIDDEN' && event.approval_status === 'APPROVED'
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+      <Panel className="w-full max-w-xl">
+        {/* Header */}
+        <h3 className="font-display text-2xl font-extrabold text-[#111827] leading-tight">
+          {event.title}
+        </h3>
+        <p className="mt-1 text-sm text-[#737686]">
+          Organizer: <span className="font-semibold text-[#434655]">{event.organizer_name}</span>
+        </p>
+        <p className="text-sm text-[#737686]">
+          Ngày diễn ra:{' '}
+          <span className="font-semibold text-[#434655]">
+            {formatDate(event.start_time)}
+            {event.end_time && event.end_time !== event.start_time
+              ? ` — ${formatDate(event.end_time)}`
+              : ''}
+          </span>
+        </p>
+        <div className="mt-2">{statusBadge(event.status, event.approval_status)}</div>
+
+        {/* Event thumbnail */}
+        {event.thumbnail_url && (
+          <img
+            src={event.thumbnail_url}
+            alt={event.title}
+            className="mt-4 h-40 w-full rounded-md object-cover"
+          />
+        )}
+
+        {/* Note textarea — shown for PENDING_REVIEW and PUBLISHED (hide reason) */}
+        {(isPending || isPublished) && (
+          <label className="mt-5 block">
+            <span className="text-sm font-semibold text-[#434655]">
+              {isPending ? 'Ghi chú (bắt buộc khi từ chối)' : 'Lý do ẩn (tuỳ chọn)'}
+            </span>
+            <textarea
+              className="mt-2 min-h-24 w-full rounded-md border border-[#c3c6d7] p-3 text-sm outline-none focus:border-primary"
+              placeholder={
+                isPending
+                  ? 'Nhập lý do duyệt hoặc từ chối...'
+                  : 'Nhập lý do ẩn sự kiện...'
+              }
+              value={note}
+              onChange={(e) => onNoteChange(e.target.value)}
+            />
+          </label>
+        )}
+
+        {/* Error */}
+        {error && <p className="mt-3 text-sm font-semibold text-error">{error}</p>}
+
+        {/* Action buttons */}
+        <div className="mt-5 flex flex-wrap gap-3">
+          {isPending && (
+            <>
+              <button
+                type="button"
+                disabled={isMutating}
+                onClick={() => onReview('APPROVED')}
+                className="inline-flex items-center gap-2 rounded-md bg-green-600 px-5 py-3 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <CheckCircle2 className="size-4" />
+                Phê duyệt
+              </button>
+              <button
+                type="button"
+                disabled={isMutating}
+                onClick={() => onReview('REJECTED')}
+                className="inline-flex items-center gap-2 rounded-md border border-error/40 px-5 py-3 text-sm font-bold text-error transition hover:-translate-y-0.5 hover:bg-[#fff1f1] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <XCircle className="size-4" />
+                Từ chối
+              </button>
+            </>
+          )}
+
+          {isPublished && (
+            <button
+              type="button"
+              disabled={isMutating}
+              onClick={onHide}
+              className="inline-flex items-center gap-2 rounded-md bg-[#434655] px-5 py-3 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 hover:bg-[#2d2f3d] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <EyeOff className="size-4" />
+              Ẩn sự kiện
+            </button>
+          )}
+
+          {isHiddenApproved && (
+            <button
+              type="button"
+              disabled={isMutating}
+              onClick={onUnhide}
+              className="inline-flex items-center gap-2 rounded-md bg-green-600 px-5 py-3 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <Eye className="size-4" />
+              Bỏ ẩn
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="admin-secondary"
+            onClick={onClose}
+          >
+            Đóng
+          </button>
+        </div>
+      </Panel>
+    </div>
   )
 }
