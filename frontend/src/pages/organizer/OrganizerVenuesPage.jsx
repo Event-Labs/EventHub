@@ -451,22 +451,17 @@ export function OrganizerVenuesPage() {
       action="Thêm địa điểm"
       onAction={openCreate}
     >
-      <OrganizerPanel className="mb-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
-            <input
-              className="h-10 w-full rounded-md border border-[#c3c6d7] bg-[#f7f9fb] pl-10 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              placeholder="Tìm theo tên, thành phố..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <button type="button" onClick={openCreate} className="admin-primary shrink-0">
-            + Thêm địa điểm
-          </button>
+      <div className="mb-5">
+        <div className="relative w-72 max-w-full">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+          <input
+            className="h-10 w-full rounded-md border border-[#c3c6d7] bg-[#f7f9fb] pl-10 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            placeholder="Tìm theo tên, thành phố..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-      </OrganizerPanel>
+      </div>
 
       {message && <p className="mb-4 text-sm text-[#434655]">{message}</p>}
 

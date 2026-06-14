@@ -100,9 +100,16 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
   })
 
   const allPolicies = policiesQuery.data || []
-  const policies = selectedPolicyType
+  let policies = selectedPolicyType
     ? filterPolicies(allPolicies, selectedPolicyType)
     : allPolicies
+
+  if (audience === 'organizer') {
+    const allowed = ['TERMS_ORGANIZER', 'EVENT_POLICY', 'SUBSCRIPTION_POLICY', 'FEE_POLICY']
+    policies = policies
+      .filter((p) => allowed.includes(p.policy_type))
+      .sort((a, b) => allowed.indexOf(a.policy_type) - allowed.indexOf(b.policy_type))
+  }
   const selectedPdfPolicy = selectedPolicyType
     ? policies.find((policy) => (policy.documents || []).some(isPdfDocument))
     : null
@@ -119,11 +126,10 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
   return (
     <div className={audience === 'organizer' ? '' : 'mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8'}>
       <div className="mb-6">
-        <p className="text-xs font-bold uppercase text-primary">Chính sách nền tảng</p>
-        <h1 className="mt-1 font-display text-3xl font-extrabold text-white">
+        <h1 className={`mt-1 font-display text-3xl font-extrabold ${audience === 'organizer' ? 'text-[#111827]' : 'text-white'}`}>
           {selectedPolicyType ? policyLabels[selectedPolicyType] || 'Chính sách' : 'Chính sách đang áp dụng'}
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+        <p className={`mt-2 max-w-2xl text-sm leading-6 ${audience === 'organizer' ? 'text-[#434655]' : 'text-muted'}`}>
           Các điều khoản và tài liệu PDF/DOCX chính thức được EventHub công khai
         </p>
       </div>
@@ -146,44 +152,56 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
         </PolicyPanel>
       )}
 
-      <div className="grid gap-4">
-        {policies.map((policy) => (
-          <PolicyPanel key={policy.id}>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <span className="inline-flex rounded bg-[#dbe1ff] px-2 py-1 text-xs font-bold uppercase text-[#003ea8]">
-                  {policyLabels[policy.policy_type] || policy.policy_type}
-                </span>
-                <h2 className="mt-3 text-xl font-extrabold text-[#111827]">{policy.title}</h2>
-                {policy.description && (
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#434655]">
-                    {policy.description}
-                  </p>
-                )}
+      <div className="grid gap-6">
+        {policies.map((policy) => {
+          if (audience === 'organizer') {
+            const primaryPdf = (policy.documents || []).find(isPdfDocument)
+            if (!primaryPdf) return null
+            return (
+              <div key={policy.id} className="flex flex-col gap-2">
+                <PolicyPdfViewer policy={policy} document={primaryPdf} />
               </div>
-              <p className="text-xs font-semibold text-[#737686]">
-                Hiệu lực từ {policy.effective_from ? new Date(policy.effective_from).toLocaleDateString('vi-VN') : 'hiện tại'}
-              </p>
-            </div>
+            )
+          }
 
-            {Object.keys(policy.config || {}).length > 0 && (
-              <dl className="mt-4 grid gap-3 rounded-md bg-[#f2f4f6] p-4 sm:grid-cols-2">
-                {Object.entries(policy.config).map(([key, value]) => (
-                  <div key={key}>
-                    <dt className="text-xs font-bold uppercase text-[#737686]">
-                      {configLabels[key] || key}
-                    </dt>
-                    <dd className="mt-1 text-sm font-semibold text-[#191c1e]">
-                      {formatConfigValue(value)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+          return (
+            <PolicyPanel key={policy.id}>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <span className="inline-flex rounded bg-[#dbe1ff] px-2 py-1 text-xs font-bold uppercase text-[#003ea8]">
+                    {policyLabels[policy.policy_type] || policy.policy_type}
+                  </span>
+                  <h2 className="mt-3 text-xl font-extrabold text-[#111827]">{policy.title}</h2>
+                  {policy.description && (
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#434655]">
+                      {policy.description}
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs font-semibold text-[#737686]">
+                  Hiệu lực từ {policy.effective_from ? new Date(policy.effective_from).toLocaleDateString('vi-VN') : 'hiện tại'}
+                </p>
+              </div>
 
-            <PolicyDocuments documents={policy.documents || []} />
-          </PolicyPanel>
-        ))}
+              {Object.keys(policy.config || {}).length > 0 && (
+                <dl className="mt-4 grid gap-3 rounded-md bg-[#f2f4f6] p-4 sm:grid-cols-2">
+                  {Object.entries(policy.config).map(([key, value]) => (
+                    <div key={key}>
+                      <dt className="text-xs font-bold uppercase text-[#737686]">
+                        {configLabels[key] || key}
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-[#191c1e]">
+                        {formatConfigValue(value)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+
+              <PolicyDocuments documents={policy.documents || []} />
+            </PolicyPanel>
+          )
+        })}
       </div>
     </div>
   )
