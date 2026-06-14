@@ -4,7 +4,6 @@ import { CalendarDays, Edit, RefreshCw } from 'lucide-react'
 import {
   Badge,
   OrganizerPage,
-  OrganizerPanel,
   OrganizerTable,
 } from './OrganizerComponents.jsx'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
@@ -85,11 +84,11 @@ export function OrganizerEventsPage() {
   return (
     <OrganizerPage
       title="Quản lý sự kiện"
-      description="Theo dõi, chỉnh sửa và vận hành các sự kiện của ban tổ chức."
+      description="Theo dõi, chỉnh sửa và vận hành các sự kiện của ban tổ chức"
       action="Tạo sự kiện"
       actionTo="/organizer/events/create"
     >
-      <OrganizerPanel className="mb-5">
+      <div className="mb-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <input
             className="h-10 flex-1 rounded-md border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -114,7 +113,7 @@ export function OrganizerEventsPage() {
             Làm mới
           </button>
         </div>
-      </OrganizerPanel>
+      </div>
 
       {message && (
         <p className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">

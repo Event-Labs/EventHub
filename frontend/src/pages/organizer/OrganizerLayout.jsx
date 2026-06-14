@@ -1,18 +1,14 @@
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  BarChart3,
   Bell,
   Calendar,
   ClipboardList,
-  CreditCard,
   FileText,
   LayoutDashboard,
   LogOut,
   MapPin,
   Megaphone,
   PackageOpen,
-  Search,
-  Settings,
   Settings2,
   ShieldCheck,
   Ticket,
@@ -21,7 +17,6 @@ import { getUserRoles } from '@/lib/auth.js'
 import { AvatarInitials } from './OrganizerComponents.jsx'
 
 const navItems = [
-  { label: 'Chinh sach', to: '/organizer/policies', icon: FileText },
   { label: 'Tổng quan', to: '/organizer', icon: LayoutDashboard, end: true },
   { label: 'Quản lý sự kiện', to: '/organizer/events', icon: Calendar },
   { label: 'Quản lý vé', to: '/organizer/tickets', icon: Ticket },
@@ -40,6 +35,8 @@ const navItems = [
   },
   { label: 'Thông báo', to: '/organizer/announcements', icon: ClipboardList },
   { label: 'Gói dịch vụ', to: '/organizer/subscriptions', icon: PackageOpen },
+  { label: 'Chính sách', to: '/organizer/policies', icon: FileText },
+
 ]
 
 export function OrganizerLayout() {
@@ -158,23 +155,9 @@ function NavGroup({ item }) {
 
 function OrganizerTopBar({ user }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#c3c6d7] bg-[#f7f9fb]/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-end border-b border-[#c3c6d7] bg-[#f7f9fb]/95 px-4 backdrop-blur sm:px-6 lg:px-8">
       <div className="flex items-center gap-3">
-        <BarChart3 className="size-5 text-primary" />
-        <span className="font-display text-lg font-extrabold text-primary">
-          Cổng ban tổ chức
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="relative hidden w-72 sm:block">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
-          <input
-            className="h-9 w-full rounded-md border border-[#d8dadc] bg-[#f2f4f6] pl-10 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            placeholder="Tìm kiếm dữ liệu..."
-          />
-        </div>
         <IconButton icon={Bell} />
-        <IconButton icon={Settings} />
         {user?.avatar_url ? (
           <img
             src={user.avatar_url}
