@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
@@ -12,6 +13,9 @@ import {
   Settings2,
   ShieldCheck,
   Ticket,
+  User,
+  CreditCard,
+  Settings,
 } from 'lucide-react'
 import { getUserRoles } from '@/lib/auth.js'
 import { AvatarInitials } from './OrganizerComponents.jsx'
@@ -36,7 +40,6 @@ const navItems = [
   { label: 'Thông báo', to: '/organizer/announcements', icon: ClipboardList },
   { label: 'Gói dịch vụ', to: '/organizer/subscriptions', icon: PackageOpen },
   { label: 'Chính sách', to: '/organizer/policies', icon: FileText },
-
 ]
 
 export function OrganizerLayout() {
@@ -80,18 +83,8 @@ export function OrganizerLayout() {
             <NavGroup key={item.label} item={item} />
           ))}
         </nav>
-        <div className="space-y-1 border-t border-border-soft pt-4">
-          <NavLink
-            to="/organizer/profile"
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md px-4 py-2.5 text-sm font-semibold transition ${
-                isActive ? 'text-primary' : 'text-subtle hover:bg-panel-soft hover:text-primary'
-              }`
-            }
-          >
-            <ShieldCheck className="size-4" />
-            Hồ sơ
-          </NavLink>
+        <div className="space-y-1 border-t border-border-soft pt-4 relative">
+          <SettingsPopover />
           <button
             type="button"
             onClick={logout}
@@ -186,4 +179,60 @@ function parseStoredUser() {
   } catch {
     return null
   }
+}
+
+function SettingsPopover() {
+  const [isOpen, setIsOpen] = useState(false)
+  const popoverRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative" ref={popoverRef}>
+      {isOpen && (
+        <div className="absolute bottom-full left-0 mb-2 w-full rounded-xl border border-[#e5e7eb] bg-white p-2 shadow-[0_4px_20px_rgb(0,0,0,0.08)] animate-in fade-in slide-in-from-bottom-2 z-50">
+          <NavLink
+            to="/organizer/profile"
+            onClick={() => setIsOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold transition ${
+                isActive ? 'bg-primary/10 text-primary' : 'text-subtle hover:bg-panel-soft hover:text-primary'
+              }`
+            }
+          >
+            <User className="size-4" />
+            Hồ sơ
+          </NavLink>
+          <NavLink
+            to="/organizer/settings/payment"
+            onClick={() => setIsOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold transition ${
+                isActive ? 'bg-primary/10 text-primary' : 'text-subtle hover:bg-panel-soft hover:text-primary'
+              }`
+            }
+          >
+            <CreditCard className="size-4" />
+            Thanh toán
+          </NavLink>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex w-full items-center gap-3 rounded-md px-4 py-2.5 text-sm font-semibold transition ${isOpen ? 'bg-panel-soft text-primary' : 'text-subtle hover:bg-panel-soft hover:text-primary'}`}
+      >
+        <Settings className="size-4" />
+        Cài đặt
+      </button>
+    </div>
+  )
 }
