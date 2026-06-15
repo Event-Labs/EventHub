@@ -1629,6 +1629,13 @@ export function CreateEventPage() {
       })
     } catch (err) {
       console.error(err)
+      const errorCode = err.response?.data?.errorCode
+      if (errorCode === 'PAYOS_NOT_CONFIGURED') {
+        navigate('/organizer/settings/payment', {
+          state: { error: 'Bạn cần cấu hình kênh thanh toán PayOS trước khi mở bán vé cho sự kiện này.' },
+        })
+        return
+      }
       setError(err.response?.data?.message || 'Không thể gửi sự kiện.')
     } finally {
       setLoading(false)
