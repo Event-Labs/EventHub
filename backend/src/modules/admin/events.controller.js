@@ -3,7 +3,6 @@ const eventsAdminService = require('./events.service');
 const { eventIdSchema, reviewEventSchema, hideEventSchema } = require('./events.validation');
 
 class EventsAdminController {
-  /** PATCH /api/admin/events/:eventId/review — Function 80 */
   reviewEvent = async (req, res, next) => {
     try {
       const { eventId } = eventIdSchema.parse(req.params);
@@ -15,7 +14,6 @@ class EventsAdminController {
     }
   };
 
-  /** PATCH /api/admin/events/:eventId/hide — Function 81 */
   hideEvent = async (req, res, next) => {
     try {
       const { eventId } = eventIdSchema.parse(req.params);
@@ -27,7 +25,6 @@ class EventsAdminController {
     }
   };
 
-  /** PATCH /api/admin/events/:eventId/unhide */
   unhideEvent = async (req, res, next) => {
     try {
       const { eventId } = eventIdSchema.parse(req.params);

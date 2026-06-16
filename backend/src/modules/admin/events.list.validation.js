@@ -1,13 +1,10 @@
 const { z } = require('zod');
 
-// Accepted status filter values for the admin event list.
-// 'REJECTED' and 'HIDDEN' are virtual filters (both map to status=HIDDEN in DB,
-// distinguished by approval_status — see events.list.repository.js).
 const VALID_STATUS_FILTERS = [
   'PENDING_REVIEW',
   'PUBLISHED',
-  'REJECTED', // status=HIDDEN AND approval_status=REJECTED
-  'HIDDEN',   // status=HIDDEN AND approval_status=APPROVED
+  'REJECTED',
+  'HIDDEN',
   'DRAFT',
   'CANCELLED',
   'COMPLETED',

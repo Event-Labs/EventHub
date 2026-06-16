@@ -1,14 +1,6 @@
 const db = require('../../infrastructure/database/db.client');
 
 class EventsAdminRepository {
-  /**
-   * Find a single event by id for use in admin operations.
-   * Returns id, organizer_id, status, approval_status, and the organizer's user_id
-   * so the caller can send notifications without a second round-trip.
-   *
-   * Note: does NOT use FOR UPDATE here because locking should be done inside
-   * an explicit transaction (see reviewEvent / setHidden below).
-   */
   async findByIdForAdmin(eventId) {
     const { rows } = await db.query(
       `
@@ -33,25 +25,15 @@ class EventsAdminRepository {
     return rows[0] ?? null;
   }
 
-  /**
-   * Review an event (APPROVED or REJECTED) inside a single DB transaction:
-   *  1. Lock the event row with FOR UPDATE
-   *  2. Upsert a record into event_reviews
-   *  3. Update events.status and events.approval_status
-   *
-   * Returns the updated event row.
-   */
   async reviewEvent({ eventId, reviewedBy, status, reviewNote }) {
     const approvalStatus = status; // 'APPROVED' | 'REJECTED'
-    // event_status_enum has no REJECTED value — rejected events go to HIDDEN
-    // approval_status_enum still stores REJECTED so it can be distinguished from admin-hide
+    
     const eventStatus = status === 'APPROVED' ? 'PUBLISHED' : 'HIDDEN';
 
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
 
-      // Lock the row for the duration of this transaction
       const lockRes = await client.query(
         `SELECT id, status FROM events WHERE id = $1 AND deleted_at IS NULL FOR UPDATE LIMIT 1`,
         [eventId],
@@ -101,12 +83,6 @@ class EventsAdminRepository {
     }
   }
 
-  /**
-   * Hide a PUBLISHED event.
-   * approval_status stays APPROVED (the event passed review — it's being hidden
-   * for a post-publication reason, not because of a failed review).
-   * event_reviews is NOT touched here because approval_status_enum has no HIDDEN value.
-   */
   async hideEvent({ eventId }) {
     const { rows } = await db.query(
       `
@@ -122,11 +98,6 @@ class EventsAdminRepository {
     return rows[0] ?? null;
   }
 
-  /**
-   * Restore a HIDDEN+APPROVED event back to PUBLISHED.
-   * Only events that were hidden after publication (approval_status=APPROVED) can be unhidden.
-   * Rejected events (approval_status=REJECTED) must go through the review flow again.
-   */
   async unhideEvent({ eventId }) {
     const { rows } = await db.query(
       `

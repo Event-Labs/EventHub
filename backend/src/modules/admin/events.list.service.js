@@ -6,7 +6,6 @@ class EventsListAdminService {
     try {
       return await eventsListAdminRepository.findEvents({ page, limit, status });
     } catch (err) {
-      // Log the real error before re-throwing so it appears in server logs
       logger.error('[EventsListAdminService] listEvents failed:', err);
       throw err;
     }
