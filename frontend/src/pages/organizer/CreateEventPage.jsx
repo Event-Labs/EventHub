@@ -1270,6 +1270,7 @@ export function CreateEventPage() {
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [eventStatus, setEventStatus] = useState('DRAFT')
   const [successMessage, setSuccessMessage] = useState('')
+  const [paymentSetupRequired, setPaymentSetupRequired] = useState(false)
 
   const isEditMode = Boolean(routeEventId)
 
@@ -1622,6 +1623,7 @@ export function CreateEventPage() {
     setLoading(true)
     setError('')
     setSuccessMessage('')
+    setPaymentSetupRequired(false)
     try {
       await submitOrganizerEvent(eventId)
       navigate('/organizer/events', {
@@ -1631,9 +1633,8 @@ export function CreateEventPage() {
       console.error(err)
       const errorCode = err.response?.data?.errorCode
       if (errorCode === 'PAYOS_NOT_CONFIGURED') {
-        navigate('/organizer/settings/payment', {
-          state: { error: 'Bạn cần cấu hình kênh thanh toán PayOS trước khi mở bán vé cho sự kiện này.' },
-        })
+        setPaymentSetupRequired(true)
+        setError('Payment setup required. Complete payment setup before publishing paid events.')
         return
       }
       setError(err.response?.data?.message || 'Không thể gửi sự kiện.')
@@ -1691,7 +1692,16 @@ export function CreateEventPage() {
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-[#ba1a1a]/20 bg-[#ffdad6] p-4 text-sm text-[#ba1a1a]">
           <Icon name="error" />
-          {error}
+          <span>{error}</span>
+          {paymentSetupRequired && (
+            <button
+              type="button"
+              onClick={() => navigate('/organizer/settings/payment')}
+              className="ml-auto rounded-md border border-[#ba1a1a]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#ba1a1a] hover:bg-[#fff1ee]"
+            >
+              Go to Payment Setup
+            </button>
+          )}
         </div>
       )}
       {successMessage && (
