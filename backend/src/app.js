@@ -18,6 +18,7 @@ const organizerVenuesRoutes = require('./modules/organizer/venues.routes');
 const organizerSeatMapsRoutes = require('./modules/organizer/seatMaps.routes');
 const organizerSubscriptionsRoutes = require('./modules/organizer-subscriptions/organizerSubscriptions.routes');
 const organizerPaymentsRoutes = require('./modules/organizer-payments/organizerPayments.routes');
+const organizerOrdersRoutes = require('./modules/organizer/organizerOrders.routes');
 const aiFaqRoutes = require('./modules/ai-faq/aiFaq.routes');
 
 const orderRoutes = require('./modules/orders/orders.routes');
@@ -61,6 +62,7 @@ app.use('/api/organizer/venues', organizerVenuesRoutes);
 app.use('/api/organizer/seat-maps', organizerSeatMapsRoutes);
 app.use('/api/organizer/subscriptions', organizerSubscriptionsRoutes);
 app.use('/api/organizer/payments', organizerPaymentsRoutes);
+app.use('/api/organizer/orders', organizerOrdersRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/ai-faq', aiFaqRoutes);
 app.use('/api/tickets', ticketRoutes);
