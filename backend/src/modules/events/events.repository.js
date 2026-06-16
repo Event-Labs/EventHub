@@ -127,6 +127,7 @@ function buildListQuery(filters) {
   const sortMap = {
     start_time: 'e.start_time',
     created_at: 'e.created_at',
+    updated_at: 'e.updated_at',
     price: 'price_summary.min_price',
   };
   const sortColumn = sortMap[filters.sortBy] || sortMap.start_time;
@@ -267,7 +268,19 @@ class EventsRepository {
       `
       SELECT
         ss.id AS session_seat_id,
-        ss.status,
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM order_items oi_sold
+            JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+            LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+            WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+              AND o_sold.status = 'PAID'
+              AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+          ) THEN 'SOLD'
+          WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
+          ELSE ss.status
+        END AS status,
         ss.held_until,
         s.id AS seat_id,
         s.row_label,
@@ -290,6 +303,156 @@ class EventsRepository {
       `,
       params,
     );
+    return rows;
+  }
+
+  async checkTicketAvailability(eventId, items) {
+    const params = [
+      eventId,
+      JSON.stringify(
+        items.map((item) => ({
+          ticket_type_id: item.ticket_type_id,
+          quantity: Number(item.quantity),
+          session_seat_ids: item.session_seat_ids || [],
+        })),
+      ),
+    ];
+
+    const { rows } = await db.query(
+      `
+      WITH requested AS (
+        SELECT
+          (item->>'ticket_type_id')::uuid AS ticket_type_id,
+          (item->>'quantity')::int AS quantity,
+          COALESCE(
+            ARRAY(
+              SELECT seat_value::uuid
+              FROM jsonb_array_elements_text(COALESCE(item->'session_seat_ids', '[]'::jsonb)) AS selected_seat_value(seat_value)
+            ),
+            ARRAY[]::uuid[]
+          ) AS session_seat_ids
+        FROM jsonb_array_elements($2::jsonb) AS item
+      ),
+      ticket_info AS (
+        SELECT
+          r.ticket_type_id,
+          r.quantity AS requested_quantity,
+          COALESCE(r.session_seat_ids, ARRAY[]::uuid[]) AS session_seat_ids,
+          tt.name,
+          tt.quantity AS total_quantity,
+          tt.max_per_order,
+          tt.sale_start,
+          tt.sale_end,
+          tt.is_seated,
+          tt.event_session_id,
+          es.status AS session_status,
+          $1::uuid AS requested_event_id,
+          e.id AS event_id,
+          e.status AS event_status,
+          e.visibility,
+          e.approval_status,
+          e.deleted_at
+        FROM requested r
+        LEFT JOIN ticket_types tt ON tt.id = r.ticket_type_id
+        LEFT JOIN event_sessions es ON es.id = tt.event_session_id
+        LEFT JOIN events e ON e.id = es.event_id
+      ),
+      unseated_usage AS (
+        SELECT
+          ti.ticket_type_id,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+          COALESCE((
+            SELECT SUM(th.quantity)::int
+            FROM ticket_holds th
+            WHERE th.ticket_type_id = ti.ticket_type_id
+              AND th.status = 'ACTIVE'
+              AND th.expires_at > now()
+          ), 0) AS active_hold_quantity
+        FROM ticket_info ti
+        LEFT JOIN order_items oi ON oi.ticket_type_id = ti.ticket_type_id
+        LEFT JOIN orders o ON o.id = oi.order_id
+        GROUP BY ti.ticket_type_id
+      ),
+      selected_seats AS (
+        SELECT
+          ti.ticket_type_id,
+          ss.id AS session_seat_id,
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM order_items oi_sold
+              JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+              LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+              WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+                AND o_sold.status = 'PAID'
+                AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+            ) THEN 'SOLD'
+            WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
+            ELSE ss.status
+          END AS status,
+          ss.held_until,
+          s.is_disabled,
+          s.row_label,
+          s.seat_number,
+          EXISTS (SELECT 1 FROM ticket_type_seats tts_any WHERE tts_any.ticket_type_id = ti.ticket_type_id) AS requires_mapping,
+          EXISTS (
+            SELECT 1
+            FROM ticket_type_seats tts
+            WHERE tts.ticket_type_id = ti.ticket_type_id
+              AND tts.seat_id = s.id
+          ) AS has_mapping
+        FROM ticket_info ti
+        LEFT JOIN LATERAL unnest(ti.session_seat_ids) AS selected_seat(session_seat_id) ON true
+        LEFT JOIN session_seats ss
+          ON ss.id = selected_seat.session_seat_id
+         AND ss.event_session_id = ti.event_session_id
+        LEFT JOIN seats s ON s.id = ss.seat_id
+        WHERE ti.is_seated = true
+      )
+      SELECT
+        ti.*,
+        (ti.total_quantity - COALESCE(uu.sold_quantity, 0) - COALESCE(uu.active_hold_quantity, 0))::int AS available_quantity,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'session_seat_id', selected_seats.session_seat_id,
+              'label', concat(COALESCE(selected_seats.row_label, ''), COALESCE(selected_seats.seat_number, '')),
+              'status', selected_seats.status,
+              'held_until', selected_seats.held_until,
+              'is_disabled', selected_seats.is_disabled,
+              'requires_mapping', selected_seats.requires_mapping,
+              'has_mapping', selected_seats.has_mapping
+            )
+          ) FILTER (WHERE selected_seats.session_seat_id IS NOT NULL),
+          '[]'::json
+        ) AS selected_seats
+      FROM ticket_info ti
+      LEFT JOIN unseated_usage uu ON uu.ticket_type_id = ti.ticket_type_id
+      LEFT JOIN selected_seats ON selected_seats.ticket_type_id = ti.ticket_type_id
+      GROUP BY
+        ti.ticket_type_id,
+        ti.requested_quantity,
+        ti.session_seat_ids,
+        ti.name,
+        ti.total_quantity,
+        ti.max_per_order,
+        ti.sale_start,
+        ti.sale_end,
+        ti.is_seated,
+        ti.event_session_id,
+        ti.session_status,
+        ti.requested_event_id,
+        ti.event_id,
+        ti.event_status,
+        ti.visibility,
+        ti.approval_status,
+        ti.deleted_at,
+        uu.sold_quantity,
+        uu.active_hold_quantity
+      `,
+      params,
+    );
+
     return rows;
   }
 

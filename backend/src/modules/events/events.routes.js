@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/', optionalAuth, eventsController.getPublicEvents);
 router.get('/categories', eventsController.getPublicCategories);
 router.get('/sessions/:sessionId/seats', eventsController.getSessionSeats);
+router.post('/availability/check', protect, eventsController.checkTicketAvailability);
 router.get('/favorites/me', protect, eventsController.getFavoriteEvents);
 router.post('/:eventId/favorite', protect, eventsController.addFavorite);
 router.delete('/:eventId/favorite', protect, eventsController.removeFavorite);

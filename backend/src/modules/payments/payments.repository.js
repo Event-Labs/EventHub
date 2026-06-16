@@ -67,6 +67,27 @@ class PaymentsRepository {
     return rows[0];
   }
 
+  async findLatestPaymentOrderWithChannelByOrderId(orderId, userId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        po.*,
+        opc.client_id,
+        opc.api_key_encrypted,
+        opc.checksum_key_encrypted
+      FROM payment_orders po
+      JOIN orders o ON o.id = po.order_id
+      JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
+      WHERE po.order_id = $1
+        AND o.user_id = $2
+      ORDER BY po.created_at DESC
+      LIMIT 1
+      `,
+      [orderId, userId],
+    );
+    return rows[0];
+  }
+
   async markPendingPaymentOrdersExpired() {
     await db.query(
       `

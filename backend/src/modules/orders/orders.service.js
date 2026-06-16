@@ -46,6 +46,13 @@ function mapOrderStatus({ order, items }) {
       quantity: Number(item.quantity),
       unit_price: mapMoney(item.unit_price),
       final_price: mapMoney(item.final_price),
+      ticket: item.ticket_id
+        ? {
+            id: item.ticket_id,
+            ticket_code: item.ticket_code,
+            status: item.ticket_status,
+          }
+        : null,
       seat: item.session_seat_id
         ? {
             session_seat_id: item.session_seat_id,
@@ -141,6 +148,11 @@ class OrdersService {
 
   async getStatus(userId, orderId) {
     await ordersRepository.expirePendingOrders();
+    try {
+      await paymentsService.syncTicketOrderFromPayos(orderId, userId);
+    } catch (error) {
+      // Keep status polling usable even if PayOS status sync is temporarily unavailable.
+    }
     const row = await ordersRepository.findOrderStatus(orderId, userId);
     if (!row) {
       throw new AppError('Order not found', 404, ErrorCodes.ORDER_NOT_FOUND);
