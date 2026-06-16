@@ -40,6 +40,11 @@ export async function fetchSessionSeats(sessionId, params = {}) {
   return response.data.data
 }
 
+export async function checkTicketAvailability(payload) {
+  const response = await http.post('/events/availability/check', payload)
+  return response.data.data
+}
+
 export async function fetchFavoriteEvents() {
   const response = await http.get('/events/favorites/me')
   return response.data.data

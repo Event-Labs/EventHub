@@ -10,9 +10,9 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
-import { fetchSessionSeats } from '@/services/events.js'
+import { checkTicketAvailability, fetchSessionSeats } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 
 function formatPrice(value) {
@@ -38,6 +38,27 @@ function formatCountdown(seconds) {
   const minutes = Math.floor(seconds / 60)
   const rest = seconds % 60
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+}
+
+function paymentQrImageSrc(qrCode) {
+  if (!qrCode) return ''
+  if (/^(https?:|data:image\/)/i.test(qrCode)) return qrCode
+  return `https://api.qrserver.com/v1/create-qr-code/?size=224x224&data=${encodeURIComponent(qrCode)}`
+}
+
+function firstTicketIdFromOrderStatus(data) {
+  return data?.items?.find((item) => item.ticket?.id)?.ticket?.id
+}
+
+function availabilityPayloadFromCart(cart) {
+  return {
+    event_id: cart.eventId,
+    items: (cart.items || []).map((item) => ({
+      ticket_type_id: item.ticketType.id,
+      quantity: item.quantity,
+      session_seat_ids: item.sessionSeatIds || [],
+    })),
+  }
 }
 
 function cartTotal(cart) {
@@ -78,6 +99,8 @@ export function BookingSeatsPage() {
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
   const seatedItem = (cart?.items || []).find((item) => item.ticketType.is_seated)
   const [selectedSeatIds, setSelectedSeatIds] = useState(seatedItem?.sessionSeatIds || [])
+  const [availabilityError, setAvailabilityError] = useState('')
+  const [checkingAvailability, setCheckingAvailability] = useState(false)
 
   const seatsQuery = useQuery({
     queryKey: ['session-seats', seatedItem?.ticketType.event_session_id, seatedItem?.ticketType.id],
@@ -90,7 +113,7 @@ export function BookingSeatsPage() {
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
-  const continueFlow = () => {
+  const continueFlow = async () => {
     const nextCart = {
       ...cart,
       items: cart.items.map((item) =>
@@ -99,10 +122,25 @@ export function BookingSeatsPage() {
           : item,
       ),
     }
-    navigate('/booking/attendees', { state: { cart: nextCart } })
+    setAvailabilityError('')
+    setCheckingAvailability(true)
+    try {
+      const result = await checkTicketAvailability(availabilityPayloadFromCart(nextCart))
+      if (!result.available) {
+        setAvailabilityError(result.message || 'Vé/ghế bạn chọn không còn khả dụng. Vui lòng chọn lại.')
+        seatsQuery.refetch()
+        return
+      }
+      navigate('/booking/attendees', { state: { cart: nextCart } })
+    } catch (err) {
+      setAvailabilityError(err.response?.data?.message || 'Không thể kiểm tra tình trạng vé/ghế. Vui lòng thử lại.')
+    } finally {
+      setCheckingAvailability(false)
+    }
   }
 
   const toggleSeat = (seatId) => {
+    setAvailabilityError('')
     setSelectedSeatIds((current) => {
       if (current.includes(seatId)) return current.filter((id) => id !== seatId)
       if (current.length >= seatedItem.quantity) return current
@@ -120,6 +158,11 @@ export function BookingSeatsPage() {
               <p className="text-muted">
                 Vé bạn chọn không yêu cầu ghế cố định. Bạn có thể tiếp tục nhập thông tin người tham gia.
               </p>
+              {availabilityError && (
+                <p className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
+                  {availabilityError}
+                </p>
+              )}
             </Panel>
           ) : (
             <Panel>
@@ -167,6 +210,11 @@ export function BookingSeatsPage() {
               <p className="mt-4 text-sm text-muted">
                 Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{seatedItem.quantity} ghế.
               </p>
+              {availabilityError && (
+                <p className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
+                  {availabilityError}
+                </p>
+              )}
             </Panel>
           )}
         </section>
@@ -175,7 +223,7 @@ export function BookingSeatsPage() {
           setCart={setCart}
           cta="Tiếp tục"
           onClick={continueFlow}
-          disabled={Boolean(seatedItem) && selectedSeatIds.length !== seatedItem.quantity}
+          disabled={checkingAvailability || (Boolean(seatedItem) && selectedSeatIds.length !== seatedItem.quantity)}
         />
       </div>
     </BookingShell>
@@ -268,11 +316,27 @@ export function BookingReviewPage() {
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
   const [promoCode, setPromoCode] = useState(cart?.promoCode || '')
   const [voucherOpen, setVoucherOpen] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState('')
+  const [checkingAvailability, setCheckingAvailability] = useState(false)
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
-  const continueFlow = () => {
-    navigate('/booking/payment', { state: { cart: { ...cart, promoCode } } })
+  const continueFlow = async () => {
+    const nextCart = { ...cart, promoCode }
+    setAvailabilityError('')
+    setCheckingAvailability(true)
+    try {
+      const result = await checkTicketAvailability(availabilityPayloadFromCart(nextCart))
+      if (!result.available) {
+        setAvailabilityError(result.message || 'Vé/ghế bạn chọn không còn khả dụng. Vui lòng chọn lại.')
+        return
+      }
+      navigate('/booking/payment', { state: { cart: nextCart } })
+    } catch (err) {
+      setAvailabilityError(err.response?.data?.message || 'Không thể kiểm tra tình trạng vé/ghế. Vui lòng thử lại.')
+    } finally {
+      setCheckingAvailability(false)
+    }
   }
 
   return (
@@ -323,8 +387,19 @@ export function BookingReviewPage() {
             setPromoCode={setPromoCode}
             onOpenVoucher={() => setVoucherOpen(true)}
           />
+          {availabilityError && (
+            <p className="rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
+              {availabilityError}
+            </p>
+          )}
         </section>
-        <OrderCard cart={{ ...cart, promoCode }} setCart={setCart} cta="Xác nhận và thanh toán" onClick={continueFlow} />
+        <OrderCard
+          cart={{ ...cart, promoCode }}
+          setCart={setCart}
+          cta="Xác nhận và thanh toán"
+          onClick={continueFlow}
+          disabled={checkingAvailability}
+        />
       </div>
       {voucherOpen && (
         <VoucherModal
@@ -340,9 +415,12 @@ export function BookingReviewPage() {
 export function BookingPaymentPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const existingOrderId = searchParams.get('orderId')
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
-  const [checkout, setCheckout] = useState(null)
+  const [checkout, setCheckout] = useState(location.state?.checkout || null)
   const [error, setError] = useState('')
+  const orderId = existingOrderId || checkout?.order?.id
 
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
@@ -356,23 +434,38 @@ export function BookingPaymentPage() {
   })
 
   const statusQuery = useQuery({
-    queryKey: ['order-status', checkout?.order?.id],
-    queryFn: () => fetchOrderStatus(checkout.order.id),
-    enabled: Boolean(checkout?.order?.id),
-    refetchInterval: checkout?.order?.status === 'PENDING' ? 5000 : false,
+    queryKey: ['order-status', orderId],
+    queryFn: () => fetchOrderStatus(orderId),
+    enabled: Boolean(orderId),
+    initialData: checkout
+      ? {
+          order: checkout.order,
+          payment: checkout.payment,
+          items: checkout.items,
+        }
+      : undefined,
+    refetchInterval: (query) => {
+      const status = query.state.data?.order?.status
+      return status === 'PENDING' ? 5000 : false
+    },
   })
 
   const payment = statusQuery.data?.payment || checkout?.payment
   const order = statusQuery.data?.order || checkout?.order
 
   useEffect(() => {
-    if (order?.status === 'PAID') {
-      navigate(`/payment-confirmation?orderId=${order.id}`, { replace: true, state: { checkout } })
-    }
-  }, [checkout, navigate, order?.id, order?.status])
+    if (payment) setError('')
+  }, [payment])
 
   useEffect(() => {
-    if (!cart?.items?.length || checkout || checkoutMutation.isPending) return
+    if (order?.status === 'PAID') {
+      const ticketId = firstTicketIdFromOrderStatus(statusQuery.data)
+      navigate(ticketId ? `/tickets/${ticketId}` : '/my-tickets', { replace: true })
+    }
+  }, [navigate, order?.status, statusQuery.data])
+
+  useEffect(() => {
+    if (!cart?.items?.length || orderId || checkoutMutation.isPending) return
     checkoutMutation.mutate({
       event_id: cart.eventId,
       buyer_name: cart.buyer?.name || '',
@@ -385,7 +478,7 @@ export function BookingPaymentPage() {
         session_seat_ids: item.sessionSeatIds || [],
       })),
     })
-  }, [cart, checkout, checkoutMutation])
+  }, [cart, checkoutMutation, orderId])
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
@@ -403,7 +496,7 @@ export function BookingPaymentPage() {
                 <p className="mt-2 font-display text-4xl font-extrabold text-white">{formatPrice(order.total_amount)}</p>
                 {payment.qr_code ? (
                   <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
-                    <img src={payment.qr_code} alt="QR PayOS" className="size-56" />
+                    <img src={paymentQrImageSrc(payment.qr_code)} alt="QR PayOS" className="size-56" />
                   </div>
                 ) : (
                   <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">

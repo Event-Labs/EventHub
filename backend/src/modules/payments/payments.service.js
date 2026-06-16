@@ -5,6 +5,13 @@ const ordersRepository = require('../orders/orders.repository');
 const payosClient = require('../../infrastructure/payos/payos.client');
 const paymentsRepository = require('./payments.repository');
 
+function isPayosPaid(paymentData, paymentOrder) {
+  const status = String(paymentData.status || paymentData.paymentStatus || '').toUpperCase();
+  const paidStatuses = new Set(['PAID', 'PAID_SUCCESS', 'SUCCEEDED', 'SUCCESS', 'COMPLETED']);
+  const amountPaid = Number(paymentData.amountPaid || paymentData.paidAmount || 0);
+  return paidStatuses.has(status) || amountPaid >= Number(paymentOrder.amount || 0);
+}
+
 class PaymentsService {
   async getOrganizerPayosChannelForEvent(eventId) {
     const channel = await paymentsRepository.findOrganizerPayosChannelForEvent(eventId);
@@ -61,6 +68,35 @@ class PaymentsService {
     });
 
     return { ok: true };
+  }
+
+  async syncTicketOrderFromPayos(orderId, userId) {
+    const paymentOrder = await paymentsRepository.findLatestPaymentOrderWithChannelByOrderId(orderId, userId);
+    if (!paymentOrder || paymentOrder.status !== 'PENDING') {
+      return null;
+    }
+
+    const paymentData = await payosClient.getPaymentLinkInformation({
+      channel: paymentOrder,
+      providerOrderCode: paymentOrder.provider_order_code,
+    });
+
+    if (!isPayosPaid(paymentData, paymentOrder)) {
+      return paymentData;
+    }
+
+    await ordersRepository.confirmPayment({
+      providerOrderCode: paymentOrder.provider_order_code,
+      amount: paymentData.amount || paymentData.amountPaid || paymentOrder.amount,
+      transactionId:
+        paymentData.reference ||
+        paymentData.transactionId ||
+        paymentData.transaction_id ||
+        String(paymentOrder.provider_order_code),
+      rawPayload: { source: 'payos_status_sync', data: paymentData },
+    });
+
+    return paymentData;
   }
 }
 
