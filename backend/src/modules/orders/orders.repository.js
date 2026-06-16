@@ -248,11 +248,21 @@ class OrdersRepository {
             SELECT
               ss.id,
               ss.status,
+              ss.held_until,
               ss.event_session_id,
               s.is_disabled,
               s.row_label,
               s.seat_number,
-              tts.ticket_type_id AS mapped_ticket_type_id
+              tts.ticket_type_id AS mapped_ticket_type_id,
+              EXISTS (
+                SELECT 1
+                FROM order_items oi_sold
+                JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+                LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+                WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+                  AND o_sold.status = 'PAID'
+                  AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+              ) AS has_paid_ticket
             FROM session_seats ss
             JOIN seats s ON s.id = ss.seat_id
             LEFT JOIN ticket_type_seats tts
@@ -276,7 +286,17 @@ class OrdersRepository {
           const requiresMapping = Boolean(hasSeatMapping.rows[0]?.has_mapping);
 
           for (const seat of seatsResult.rows) {
-            if (seat.is_disabled || seat.status !== 'AVAILABLE' || (requiresMapping && !seat.mapped_ticket_type_id)) {
+            const heldStillValid =
+              seat.status === 'HELD' &&
+              seat.held_until &&
+              new Date(seat.held_until).getTime() > Date.now();
+            if (
+              seat.is_disabled ||
+              seat.has_paid_ticket ||
+              seat.status === 'SOLD' ||
+              heldStillValid ||
+              (requiresMapping && !seat.mapped_ticket_type_id)
+            ) {
               throw new AppError(
                 'Rất tiếc, vé/ghế bạn chọn vừa có người đặt. Vui lòng chọn vé/ghế khác.',
                 409,
@@ -302,7 +322,10 @@ class OrdersRepository {
                   held_until = $3,
                   order_id = $4
               WHERE id = $1
-                AND status = 'AVAILABLE'
+                AND (
+                  status = 'AVAILABLE'
+                  OR (status = 'HELD' AND held_until <= now())
+                )
               `,
               [seat.id, userId, expiredAt, order.id],
             );
@@ -517,12 +540,16 @@ class OrdersRepository {
         oi.quantity,
         oi.unit_price,
         oi.final_price,
+        t.id AS ticket_id,
+        t.ticket_code,
+        t.status AS ticket_status,
         tt.name AS ticket_type_name,
         ss.id AS session_seat_id,
         s.row_label,
         s.seat_number
       FROM order_items oi
       JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      LEFT JOIN tickets t ON t.order_item_id = oi.id
       LEFT JOIN session_seats ss ON ss.id = oi.session_seat_id
       LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE oi.order_id = $1
@@ -683,7 +710,7 @@ class OrdersRepository {
               attendee_email,
               status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, 'VALID')
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'VALID')
             RETURNING id, ticket_code, status, created_at
             `,
             [
@@ -692,6 +719,7 @@ class OrdersRepository {
               item.event_session_id,
               item.ticket_type_id,
               item.session_seat_id,
+              code,
               code,
               order.buyer_name,
               order.buyer_email,

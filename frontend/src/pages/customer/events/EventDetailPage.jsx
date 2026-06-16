@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
+import { checkTicketAvailability, fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
 
 function formatDateTime(value) {
@@ -77,6 +77,8 @@ export function EventDetailPage() {
   const [overviewOpen, setOverviewOpen] = useState(false)
   const [expandedSessionId, setExpandedSessionId] = useState(null)
   const [selectedTickets, setSelectedTickets] = useState({})
+  const [bookingError, setBookingError] = useState('')
+  const [checkingAvailability, setCheckingAvailability] = useState(false)
 
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
@@ -131,6 +133,7 @@ export function EventDetailPage() {
   const selectTicket = (ticketType) => {
     if (requireLogin()) return
     if (!isSaleOpen(ticketType)) return
+    setBookingError('')
     setSelectedTickets((current) => {
       const next = { ...current }
       if (next[ticketType.id]) delete next[ticketType.id]
@@ -141,6 +144,7 @@ export function EventDetailPage() {
 
   const updateQuantity = (ticketType, delta) => {
     if (requireLogin()) return
+    setBookingError('')
     setSelectedTickets((current) => {
       const nextQuantity = Math.max(0, (current[ticketType.id] || 0) + delta)
       const next = { ...current }
@@ -150,9 +154,34 @@ export function EventDetailPage() {
     })
   }
 
-  const handleBook = () => {
+  const handleBook = async () => {
     if (requireLogin()) return
     if (selectedTicketItems.length === 0) return
+    setBookingError('')
+    const unseatedItems = selectedTicketItems.filter((item) => !item.ticketType.is_seated)
+    if (unseatedItems.length) {
+      setCheckingAvailability(true)
+      try {
+        const result = await checkTicketAvailability({
+          event_id: event.id,
+          items: unseatedItems.map((item) => ({
+            ticket_type_id: item.ticketType.id,
+            quantity: item.quantity,
+            session_seat_ids: [],
+          })),
+        })
+        if (!result.available) {
+          setBookingError(result.message || 'Vé bạn chọn không còn khả dụng. Vui lòng chọn lại.')
+          queryClient.invalidateQueries({ queryKey: ['event-detail', eventId] })
+          return
+        }
+      } catch (err) {
+        setBookingError(err.response?.data?.message || 'Không thể kiểm tra tình trạng vé. Vui lòng thử lại.')
+        return
+      } finally {
+        setCheckingAvailability(false)
+      }
+    }
     const sessionMap = new Map((event.sessions || []).map((session) => [String(session.id), session]))
     navigate('/booking/seats', {
       state: {
@@ -458,10 +487,15 @@ export function EventDetailPage() {
                 {formatPrice(total)}
               </span>
             </div>
+            {bookingError && (
+              <p className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
+                {bookingError}
+              </p>
+            )}
             <button
               type="button"
               onClick={handleBook}
-              disabled={selectedTicketItems.length === 0}
+              disabled={checkingAvailability || selectedTicketItems.length === 0}
               className="mt-6 flex w-full items-center justify-center rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Đặt vé

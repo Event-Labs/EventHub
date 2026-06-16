@@ -133,21 +133,103 @@ class EventsService {
             cols_count: first.cols_count,
           }
         : null,
-      seats: rows.map((row) => ({
-        session_seat_id: row.session_seat_id,
-        seat_id: row.seat_id,
-        row_label: row.row_label,
-        seat_number: row.seat_number,
-        label: `${row.row_label}${row.seat_number}`,
-        x_position: row.x_position,
-        y_position: row.y_position,
-        is_disabled: Boolean(row.is_disabled),
-        status: row.is_disabled ? 'BLOCKED' : row.status,
-        held_until: row.held_until,
-        seat_type: row.seat_type_name
-          ? { name: row.seat_type_name, color: row.seat_type_color }
-          : null,
-      })),
+      seats: rows.map((row) => {
+        const holdExpired =
+          row.status === 'HELD' &&
+          row.held_until &&
+          new Date(row.held_until).getTime() <= Date.now();
+        return {
+          session_seat_id: row.session_seat_id,
+          seat_id: row.seat_id,
+          row_label: row.row_label,
+          seat_number: row.seat_number,
+          label: `${row.row_label}${row.seat_number}`,
+          x_position: row.x_position,
+          y_position: row.y_position,
+          is_disabled: Boolean(row.is_disabled),
+          status: row.is_disabled ? 'BLOCKED' : holdExpired ? 'AVAILABLE' : row.status,
+          held_until: row.held_until,
+          seat_type: row.seat_type_name
+            ? { name: row.seat_type_name, color: row.seat_type_color }
+            : null,
+        };
+      }),
+    };
+  }
+
+  async checkTicketAvailability(payload) {
+    const rows = await eventsRepository.checkTicketAvailability(payload.event_id, payload.items);
+    const itemResults = rows.map((row) => {
+      const issues = [];
+      const now = Date.now();
+      const saleStart = row.sale_start ? new Date(row.sale_start).getTime() : null;
+      const saleEnd = row.sale_end ? new Date(row.sale_end).getTime() : null;
+      const selectedSeats = row.selected_seats || [];
+
+      if (!row.ticket_type_id || row.event_id !== payload.event_id) {
+        issues.push('Vé không thuộc sự kiện này.');
+      }
+
+      if (
+        row.deleted_at ||
+        row.event_status !== 'PUBLISHED' ||
+        row.visibility !== 'PUBLIC' ||
+        row.approval_status !== 'APPROVED' ||
+        row.session_status !== 'UPCOMING'
+      ) {
+        issues.push('Sự kiện hoặc suất diễn hiện không khả dụng.');
+      }
+
+      if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
+        issues.push('Vé chưa mở bán hoặc đã hết thời gian bán.');
+      }
+
+      if (row.requested_quantity > (row.max_per_order || 10)) {
+        issues.push(`Bạn chỉ được phép mua tối đa ${row.max_per_order || 10} vé trên một đơn hàng.`);
+      }
+
+      if (row.is_seated) {
+        if (selectedSeats.length !== Number(row.requested_quantity)) {
+          issues.push('Số ghế đã chọn chưa khớp với số lượng vé.');
+        }
+
+        for (const seat of selectedSeats) {
+          const heldStillValid =
+            seat.status === 'HELD' &&
+            seat.held_until &&
+            new Date(seat.held_until).getTime() > now;
+          const unavailable =
+            seat.is_disabled ||
+            seat.status === 'SOLD' ||
+            heldStillValid ||
+            (seat.requires_mapping && !seat.has_mapping);
+
+          if (unavailable) {
+            issues.push(`Ghế ${seat.label || ''} không còn khả dụng.`.trim());
+          }
+        }
+      } else if (Number(row.requested_quantity) > Number(row.available_quantity || 0)) {
+        issues.push(`Vé "${row.name || 'đã chọn'}" chỉ còn ${Math.max(0, Number(row.available_quantity || 0))} vé.`);
+      }
+
+      return {
+        ticket_type_id: row.ticket_type_id,
+        name: row.name,
+        is_seated: Boolean(row.is_seated),
+        requested_quantity: Number(row.requested_quantity || 0),
+        available_quantity: row.is_seated ? null : Math.max(0, Number(row.available_quantity || 0)),
+        selected_seats: selectedSeats,
+        available: issues.length === 0,
+        message: issues[0] || null,
+        issues,
+      };
+    });
+
+    const firstUnavailable = itemResults.find((item) => !item.available);
+    return {
+      available: !firstUnavailable,
+      message: firstUnavailable?.message || null,
+      items: itemResults,
     };
   }
 
