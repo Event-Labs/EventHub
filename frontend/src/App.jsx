@@ -46,6 +46,7 @@ import {
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
+import { OrganizerOrdersPage } from '@/pages/organizer/OrganizerOrdersPage.jsx'
 import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
 import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
 import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
@@ -156,6 +157,10 @@ const router = createBrowserRouter([
       {
         path: 'attendees',
         element: <OrganizerAttendeesPage />,
+      },
+      {
+        path: 'orders',
+        element: <OrganizerOrdersPage />,
       },
       {
         path: 'staff-tasks',

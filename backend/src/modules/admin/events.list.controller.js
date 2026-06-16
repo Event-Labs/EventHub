@@ -4,10 +4,6 @@ const eventsListAdminService = require('./events.list.service');
 const { listEventsAdminSchema } = require('./events.list.validation');
 
 class EventsListAdminController {
-  /**
-   * GET /api/admin/events/pending
-   * Lists events pending review (default) or any other status via ?status=
-   */
   listPendingReview = async (req, res, next) => {
     try {
       const filters = listEventsAdminSchema.parse(req.query);

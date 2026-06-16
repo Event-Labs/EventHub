@@ -11,7 +11,7 @@ import {
   Megaphone,
   PackageOpen,
   Settings2,
-  ShieldCheck,
+  ShoppingCart,
   Ticket,
   User,
   CreditCard,
@@ -24,6 +24,7 @@ const navItems = [
   { label: 'Tổng quan', to: '/organizer', icon: LayoutDashboard, end: true },
   { label: 'Quản lý sự kiện', to: '/organizer/events', icon: Calendar },
   { label: 'Quản lý vé', to: '/organizer/tickets', icon: Ticket },
+  { label: 'Đơn hàng', to: '/organizer/orders', icon: ShoppingCart },
   { label: 'Quản lý địa điểm', to: '/organizer/venues', icon: MapPin },
   { label: 'Mã khuyến mãi', to: '/organizer/promotions', icon: Megaphone },
   {
