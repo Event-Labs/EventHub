@@ -57,6 +57,7 @@ import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeat
 import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscriptionsPage.jsx'
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
+import { OrganizerPaymentSettingsPage } from '@/pages/organizer/OrganizerPaymentSettingsPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
 import { StaffEventDetailPage } from '@/pages/staff/StaffEventDetailPage.jsx'
@@ -195,6 +196,10 @@ const router = createBrowserRouter([
       {
         path: 'profile',
         element: <ProfilePage />,
+      },
+      {
+        path: 'settings/payment',
+        element: <OrganizerPaymentSettingsPage />,
       },
       {
         path: '*',

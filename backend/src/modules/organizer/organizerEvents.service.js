@@ -1,6 +1,7 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const organizerEventsRepository = require('./organizerEvents.repository');
+const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
 
 function mapEvent(row) {
   if (!row) return null;
@@ -225,6 +226,14 @@ class OrganizerEventsService {
     }
     if (!fullEvent.ticket_types?.length) {
       throw new AppError('Event must have at least one ticket type before submit', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const hasPaidTickets = fullEvent.ticket_types.some((tt) => Number(tt.price) > 0);
+    if (hasPaidTickets) {
+      const channel = await organizerPaymentsRepository.findChannelByOrganizerId(organizerId);
+      if (!channel || channel.status !== 'ACTIVE') {
+        throw new AppError('Bạn cần cấu hình kênh thanh toán PayOS trước khi mở bán vé cho sự kiện này.', 400, 'PAYOS_NOT_CONFIGURED');
+      }
     }
 
     const event = await organizerEventsRepository.submitEvent(eventId, organizerId);
