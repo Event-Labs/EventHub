@@ -19,17 +19,48 @@ class OrganizerPaymentsService {
 
   async saveChannel(userId, payload) {
     const organizerId = await this.getOrganizerId(userId);
-    const { client_id, api_key, checksum_key } = payload;
-    
-    if (!client_id || !api_key || !checksum_key) {
-      throw new AppError('client_id, api_key, and checksum_key are required', 400, ErrorCodes.INVALID_INPUT);
+    const existingChannel = await organizerPaymentsRepository.findChannelByOrganizerId(organizerId);
+    const {
+      client_id,
+      api_key,
+      checksum_key,
+      bank_name,
+      bank_account_number,
+      bank_account_holder,
+    } = payload;
+
+    if (!client_id || !bank_name || !bank_account_number || !bank_account_holder) {
+      throw new AppError(
+        'client_id, bank_name, bank_account_number, and bank_account_holder are required',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
     }
 
+    const hasNewApiKey = Boolean(api_key && api_key.trim());
+    const hasNewChecksumKey = Boolean(checksum_key && checksum_key.trim());
+    const shouldUpdateCredentials = hasNewApiKey || hasNewChecksumKey;
+
+    if (!existingChannel && (!hasNewApiKey || !hasNewChecksumKey)) {
+      throw new AppError('api_key and checksum_key are required for a new payment channel', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    if (shouldUpdateCredentials && (!hasNewApiKey || !hasNewChecksumKey)) {
+      throw new AppError('api_key and checksum_key must be provided together', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const clientId = client_id.trim();
+    const credentialsChanged =
+      shouldUpdateCredentials || (existingChannel && existingChannel.client_id !== clientId);
+
     const data = {
-      client_id: client_id.trim(),
-      api_key_encrypted: api_key.trim(),
-      checksum_key_encrypted: checksum_key.trim(),
-      status: 'PENDING',
+      client_id: clientId,
+      api_key_encrypted: shouldUpdateCredentials ? api_key.trim() : null,
+      checksum_key_encrypted: shouldUpdateCredentials ? checksum_key.trim() : null,
+      bank_name: bank_name.trim(),
+      bank_account_number: bank_account_number.trim(),
+      bank_account_holder: bank_account_holder.trim(),
+      status: credentialsChanged ? 'PENDING' : existingChannel?.status || 'PENDING',
     };
 
     return organizerPaymentsRepository.upsertChannel(organizerId, data);
