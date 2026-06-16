@@ -3,21 +3,11 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const eventsAdminRepository = require('./events.repository');
 const notificationsService = require('../notifications/notifications.service');
-
-// ---------------------------------------------------------------------------
-// Allowed status transitions
-// ---------------------------------------------------------------------------
 const REVIEWABLE_STATUSES = new Set(['PENDING_REVIEW']);
 const HIDEABLE_STATUSES   = new Set(['PUBLISHED']);
 const UNHIDEABLE_STATUSES = new Set(['HIDDEN']);
 
 class EventsAdminService {
-  // -------------------------------------------------------------------------
-  // Function 80 — Review Event
-  // Admin approves or rejects an event that is in PENDING_REVIEW status.
-  //   APPROVED  → status = PUBLISHED,  approval_status = APPROVED
-  //   REJECTED  → status = REJECTED,   approval_status = REJECTED
-  // -------------------------------------------------------------------------
   async reviewEvent(adminId, eventId, payload) {
     // 1. Fetch event (with organizer contact info for notification)
     const event = await eventsAdminRepository.findByIdForAdmin(eventId);
@@ -65,11 +55,6 @@ class EventsAdminService {
     return updated;
   }
 
-  // -------------------------------------------------------------------------
-  // Function 81 — Hide Event
-  // Admin hides a PUBLISHED event due to violations or complaints.
-  // This does NOT change approval_status (the event was legitimately approved).
-  // -------------------------------------------------------------------------
   async hideEvent(adminId, eventId, payload = {}) {
     // 1. Fetch event
     const event = await eventsAdminRepository.findByIdForAdmin(eventId);
@@ -111,12 +96,6 @@ class EventsAdminService {
     return updated;
   }
 
-  // -------------------------------------------------------------------------
-  // Unhide Event
-  // Restore a HIDDEN+APPROVED event back to PUBLISHED.
-  // Only works for events hidden after publication — rejected events must
-  // be resubmitted by the organizer and reviewed again.
-  // -------------------------------------------------------------------------
   async unhideEvent(adminId, eventId) {
     const event = await eventsAdminRepository.findByIdForAdmin(eventId);
     if (!event) {
@@ -157,10 +136,6 @@ class EventsAdminService {
 
     return updated;
   }
-
-  // -------------------------------------------------------------------------
-  // Private helpers
-  // -------------------------------------------------------------------------
 
   async _notifyReview({ organizerUserId, organizerEmail, eventId, eventTitle, status, reviewNote }) {
     if (!organizerUserId) return;
@@ -206,21 +181,6 @@ class EventsAdminService {
         eventId,
         title,
         content,
-        type: 'EVENT',
-      },
-      organizerEmail ? { email: organizerEmail } : {},
-    );
-  }
-
-  async _notifyUnhide({ organizerUserId, organizerEmail, eventId, eventTitle }) {
-    if (!organizerUserId) return;
-
-    await notificationsService.createAndDispatch(
-      {
-        userId: organizerUserId,
-        eventId,
-        title: `Sự kiện "${eventTitle}" đã được hiển thị trở lại`,
-        content: `Sự kiện "${eventTitle}" của bạn đã được Admin khôi phục và hiện đang hiển thị công khai trên nền tảng.`,
         type: 'EVENT',
       },
       organizerEmail ? { email: organizerEmail } : {},

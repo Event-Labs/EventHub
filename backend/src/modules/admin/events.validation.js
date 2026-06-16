@@ -4,12 +4,6 @@ const eventIdSchema = z.object({
   eventId: z.string().uuid('eventId must be a valid UUID'),
 });
 
-/**
- * Function 80 — Review Event
- * status: APPROVED → event becomes PUBLISHED
- * status: REJECTED → event becomes REJECTED
- * review_note: required when rejecting, optional when approving
- */
 const reviewEventSchema = z
   .object({
     status: z.enum(['APPROVED', 'REJECTED'], {
@@ -27,10 +21,6 @@ const reviewEventSchema = z
     }
   });
 
-/**
- * Function 81 — Hide Event
- * hide_note: optional reason for hiding
- */
 const hideEventSchema = z.object({
   hide_note: z.string().trim().max(2000).optional().nullable(),
 });

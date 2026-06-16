@@ -9,15 +9,6 @@ const REAL_STATUS_FILTERS = new Set([
   'COMPLETED',
 ]);
 
-/**
- * Build two independent WHERE fragments — one for the list query (params start
- * at $3 because $1=limit, $2=offset) and one for the count query ($1=status).
- *
- * 'REJECTED' and 'HIDDEN' are virtual filters that both resolve to status=HIDDEN
- * but differ on approval_status:
- *   REJECTED → status=HIDDEN AND approval_status=REJECTED  (failed admin review)
- *   HIDDEN   → status=HIDDEN AND approval_status=APPROVED  (published, then hidden for violations)
- */
 function buildWhere(upper) {
   switch (upper) {
     case 'REJECTED':
