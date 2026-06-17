@@ -27,8 +27,10 @@ class EventsAdminRepository {
 
   async reviewEvent({ eventId, reviewedBy, status, reviewNote }) {
     const approvalStatus = status; // 'APPROVED' | 'REJECTED'
-    
-    const eventStatus = status === 'APPROVED' ? 'PUBLISHED' : 'HIDDEN';
+
+    // APPROVED → COMPLETED (đã duyệt, chờ Organizer tự publish)
+    // REJECTED → HIDDEN
+    const eventStatus = status === 'APPROVED' ? 'COMPLETED' : 'HIDDEN';
 
     const client = await db.getClient();
     try {
@@ -102,7 +104,7 @@ class EventsAdminRepository {
     const { rows } = await db.query(
       `
       UPDATE events
-      SET status     = 'PUBLISHED',
+      SET status     = 'COMPLETED',
           updated_at = NOW()
       WHERE id = $1
         AND deleted_at IS NULL
