@@ -49,9 +49,31 @@ function getStatusLabel(status) {
   return STATUS_LABELS[status] || status
 }
 
+function getStatusTone(status) {
+  switch (status) {
+    case 'Active': return 'green'
+    case 'Scheduled': return 'blue'
+    case 'Expired': return 'gray'
+    case 'Inactive': return 'red'
+    default: return 'blue'
+  }
+}
+
 function getPromoMessage(message, fallback) {
   if (!message) return fallback
   return PROMO_MESSAGE_LABELS[message] || (/[À-ỹ]/.test(message) ? message : fallback)
+}
+
+function formatPromoDate(date) {
+  return new Date(date).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatDateRange(start, end) {
+  return `${formatPromoDate(start)} - ${formatPromoDate(end)}`
 }
 
 export function OrganizerPromosPage() {
@@ -246,28 +268,12 @@ export function OrganizerPromosPage() {
     setFormErrors({})
   }
 
-  const formatDateRange = (start, end) => {
-    const s = new Date(start).toLocaleDateString('vi-VN', { month: 'short', day: '2-digit' })
-    const e = new Date(end).toLocaleDateString('vi-VN', { month: 'short', day: '2-digit', year: 'numeric' })
-    return `${s} - ${e}`
-  }
-
   const getDiscountLabel = (promo) => {
     const value = parseFloat(promo.discount_value).toLocaleString()
     if (promo.discount_type === 'PERCENTAGE') {
       return `Giảm ${value}% cho ${promo.event_name ? 'vé sự kiện' : 'tất cả vé'}`
     }
     return `Giảm cố định $${value}`
-  }
-
-  const getStatusTone = (status) => {
-    switch (status) {
-      case 'Active': return 'green'
-      case 'Scheduled': return 'blue'
-      case 'Expired': return 'gray'
-      case 'Inactive': return 'red'
-      default: return 'blue'
-    }
   }
 
   const hasEvents = events && events.length > 0;
@@ -354,8 +360,8 @@ export function OrganizerPromosPage() {
             <span key="event" className="text-sm font-semibold text-[#434655]">{promo.event_name || 'Tất cả sự kiện'}</span>,
             <span key="type" className="font-medium text-[#434655]">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
-            <span key="period" className="text-sm text-[#434655]">{formatDateRange(promo.start_time, promo.end_time)}</span>,
-            <Badge key="status" tone={getStatusTone(promo.status)}>{getStatusLabel(promo.status)}</Badge>,
+            <span key="period" className="whitespace-nowrap text-sm text-[#434655]">{formatDateRange(promo.start_time, promo.end_time)}</span>,
+            <StatusBadge key="status" status={promo.status} />,
             <div key="actions" className="flex items-center gap-3 text-[#737686]">
               <button onClick={() => openDetail(promo)} className="hover:text-primary transition-colors" title="Xem chi tiết"><Eye className="size-4" /></button>
               <button 
@@ -449,6 +455,14 @@ function Usage({ used, limit, percent }) {
         />
       </div>
     </div>
+  )
+}
+
+function StatusBadge({ status }) {
+  return (
+    <span className="flex min-w-[140px] justify-center whitespace-nowrap">
+      <Badge tone={getStatusTone(status)}>{getStatusLabel(status)}</Badge>
+    </span>
   )
 }
 
@@ -603,16 +617,6 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 function PromoDetailModal({ open, onClose, promo }) {
   if (!promo) return null
 
-  const getStatusTone = (status) => {
-    switch (status) {
-      case 'Active': return 'green'
-      case 'Scheduled': return 'blue'
-      case 'Expired': return 'gray'
-      case 'Inactive': return 'red'
-      default: return 'blue'
-    }
-  }
-
   const formatFullDate = (date) => new Date(date).toLocaleString('vi-VN', {
     dateStyle: 'medium',
     timeStyle: 'short'
@@ -641,7 +645,7 @@ function PromoDetailModal({ open, onClose, promo }) {
               ? `Giảm ${parseFloat(promo.discount_value)}%` 
               : `Giảm cố định $${parseFloat(promo.discount_value).toLocaleString()}`
           } />
-          <DetailItem label="TRẠNG THÁI" value={<Badge tone={getStatusTone(promo.status)}>{getStatusLabel(promo.status)}</Badge>} />
+          <DetailItem label="TRẠNG THÁI" value={<StatusBadge status={promo.status} />} />
         </div>
         
         <div className="bg-[#f7f9fb] rounded-md p-5 border border-[#c3c6d7]">
@@ -685,9 +689,8 @@ function PromoDetailModal({ open, onClose, promo }) {
       </div>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-[#e0e3e5]">
-         <div className="grid grid-cols-2 gap-4">
-            <DetailItem label="BẮT ĐẦU" value={formatFullDate(promo.start_time)} />
-            <DetailItem label="KẾT THÚC" value={formatFullDate(promo.end_time)} />
+         <div>
+            <DetailItem label="THỜI GIAN ÁP DỤNG" value={formatDateRange(promo.start_time, promo.end_time)} />
          </div>
          <div className="grid grid-cols-2 gap-4">
             <DetailItem label="NGÀY TẠO" value={formatFullDate(promo.created_at || new Date())} />
