@@ -10,12 +10,14 @@ import {
   MapPin,
   Megaphone,
   PackageOpen,
+  ScanLine,
   Settings2,
   ShoppingCart,
   Ticket,
   User,
   CreditCard,
   Settings,
+  BarChart3,
 } from 'lucide-react'
 import { getUserRoles } from '@/lib/auth.js'
 import { AvatarInitials } from './OrganizerComponents.jsx'
@@ -25,6 +27,8 @@ const navItems = [
   { label: 'Quản lý sự kiện', to: '/organizer/events', icon: Calendar },
   { label: 'Quản lý vé', to: '/organizer/tickets', icon: Ticket },
   { label: 'Đơn hàng', to: '/organizer/orders', icon: ShoppingCart },
+  { label: 'Theo dõi check-in', to: '/organizer/checkin-dashboard', icon: ScanLine },
+  { label: 'Phân tích bán vé', to: '/organizer/ticket-sales', icon: BarChart3 },
   { label: 'Quản lý địa điểm', to: '/organizer/venues', icon: MapPin },
   { label: 'Mã khuyến mãi', to: '/organizer/promotions', icon: Megaphone },
   {
@@ -35,7 +39,7 @@ const navItems = [
       { label: 'Người tham dự', to: '/organizer/attendees' },
       { label: 'Quản lý nhân sự', to: '/organizer/staff-management' },
       { label: 'Công việc nhân sự', to: '/organizer/staff-tasks' },
-      { label: 'Báo cáo', to: '/organizer/reports' },
+      { label: 'Báo cáo phản hồi', to: '/organizer/reports' },
     ],
   },
   { label: 'Thông báo', to: '/organizer/announcements', icon: ClipboardList },
