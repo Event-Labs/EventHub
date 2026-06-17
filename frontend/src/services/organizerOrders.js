@@ -21,3 +21,19 @@ export async function fetchOrganizerAttendees(eventId, params = {}) {
   const response = await http.get(`/organizer/orders/events/${eventId}/attendees`, { params })
   return response.data.data // { items, pagination }
 }
+
+/**
+ * @param {string} eventId
+ */
+export async function fetchCheckinStats(eventId) {
+  const response = await http.get(`/organizer/orders/events/${eventId}/checkin-stats`)
+  return response.data.data
+}
+
+/**
+ * @param {object} params - { eventId?, dateFrom?, dateTo? }
+ */
+export async function fetchRevenueStats(params = {}) {
+  const response = await http.get('/organizer/orders/revenue', { params })
+  return response.data.data
+}

@@ -92,6 +92,32 @@ class OrganizerOrdersController {
       next(err);
     }
   };
+
+  getCheckinStats = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdParamSchema.parse(req.params);
+      const data = await organizerOrdersService.getCheckinStats(req.user.sub, eventId);
+      res.status(200).json(ApiResponse.success(data, 'Check-in stats fetched successfully'));
+    } catch (err) {
+      logger.error('[OrganizerOrdersController] getCheckinStats error:', err);
+      next(err);
+    }
+  };
+
+  getRevenueStats = async (req, res, next) => {
+    try {
+      const { eventId, dateFrom, dateTo } = req.query;
+      const data = await organizerOrdersService.getRevenueStats(req.user.sub, {
+        eventId: eventId || null,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null,
+      });
+      res.status(200).json(ApiResponse.success(data, 'Revenue stats fetched successfully'));
+    } catch (err) {
+      logger.error('[OrganizerOrdersController] getRevenueStats error:', err);
+      next(err);
+    }
+  };
 }
 
 module.exports = new OrganizerOrdersController();
