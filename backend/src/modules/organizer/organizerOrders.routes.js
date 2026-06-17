@@ -10,7 +10,9 @@ router.use(
 );
 
 router.get('/', organizerOrdersController.listOrders);
+router.get('/revenue', organizerOrdersController.getRevenueStats);
 router.get('/events/:eventId/attendees', organizerOrdersController.listAttendees);
+router.get('/events/:eventId/checkin-stats', organizerOrdersController.getCheckinStats);
 router.get('/:orderId', organizerOrdersController.getOrderDetail);
 
 module.exports = router;
