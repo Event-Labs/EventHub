@@ -4,6 +4,7 @@ const SUBSCRIPTION_SELECT = `
   s.id,
   s.name,
   s.price,
+  s.duration_days,
   s.event_limit,
   s.staff_limit,
   s.max_active_events,
