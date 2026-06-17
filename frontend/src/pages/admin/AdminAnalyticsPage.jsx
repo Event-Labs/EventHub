@@ -470,65 +470,69 @@ export function AdminAnalyticsPage() {
               <h2 className="mb-4 font-bold text-[#111827]">Doanh thu từ gói dịch vụ</h2>
               <div className="mb-5 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-[#737686]">Tổng đăng ký</p>
+                  <p className="text-xs font-bold uppercase text-[#737686]">Tổng lượt đăng ký</p>
                   <p className="mt-1 text-xl font-extrabold text-[#111827]">
                     {Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}
                   </p>
+                  <p className="mt-0.5 text-xs text-[#737686]">
+                    {Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')} đang active
+                  </p>
                 </div>
                 <div className="rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-[#737686]">Đang hoạt động</p>
+                  <p className="text-xs font-bold uppercase text-[#737686]">Số gói đang active</p>
                   <p className="mt-1 text-xl font-extrabold text-green-700">
                     {Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}
                   </p>
                 </div>
                 <div className="rounded-lg border border-green-100 bg-green-50 p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-green-700">Doanh thu đang thu (Active)</p>
+                  <p className="text-xs font-bold uppercase text-green-700">Tổng doanh thu thu được</p>
                   <p className="mt-1 text-xl font-extrabold text-green-800">
-                    {fmtCurrency(subscriptionRevenue.active_revenue)}
+                    {fmtCurrency(subscriptionRevenue.total_revenue)}
                   </p>
+                  <p className="mt-0.5 text-xs text-green-600">Bao gồm cả gói đã hủy</p>
                 </div>
               </div>
 
-              {/* Per-plan breakdown */}
+              {/* Per-plan breakdown — mỗi plan 1 dòng */}
               {Array.isArray(subscriptionRevenue.by_plan) && subscriptionRevenue.by_plan.length > 0 && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-[#e5e7eb] text-xs uppercase text-[#737686]">
                         <th className="pb-3 text-left font-bold">Gói dịch vụ</th>
-                        <th className="pb-3 text-right font-bold">Giá</th>
-                        <th className="pb-3 text-right font-bold">Tổng đăng ký</th>
-                        <th className="pb-3 text-right font-bold">Đang dùng</th>
-                        <th className="pb-3 text-right font-bold">Doanh thu hiện tại</th>
+                        <th className="pb-3 text-right font-bold">Giá / lần</th>
+                        <th className="pb-3 text-right font-bold">Tổng doanh thu</th>
                       </tr>
                     </thead>
                     <tbody>
                       {subscriptionRevenue.by_plan.map((plan) => (
                         <tr key={plan.plan_id} className="border-b border-[#f2f4f6] last:border-0 hover:bg-[#f7f9fb]">
                           <td className="py-3">
-                            <span className="rounded px-2 py-1 text-xs font-bold bg-[#dbe1ff] text-[#003ea8]">
-                              {plan.plan_name}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="rounded px-2 py-1 text-xs font-bold bg-[#dbe1ff] text-[#003ea8]">
+                                {plan.plan_name}
+                              </span>
+                              <span className="text-xs text-[#737686]">
+                                {Number(plan.total).toLocaleString('vi-VN')} lượt đăng ký
+                              </span>
+                            </div>
                           </td>
                           <td className="py-3 text-right text-[#434655]">{fmtCurrency(plan.price)}</td>
-                          <td className="py-3 text-right text-[#434655]">{Number(plan.total).toLocaleString('vi-VN')}</td>
-                          <td className="py-3 text-right font-semibold text-green-700">{Number(plan.active).toLocaleString('vi-VN')}</td>
                           <td className="py-3 text-right font-semibold text-green-700">{fmtCurrency(plan.revenue)}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-[#e0e3e5] bg-[#f7f9fb]">
-                        <td className="py-3 font-bold text-[#111827]">Tổng cộng</td>
+                        <td className="py-3 font-bold text-[#111827]">
+                          Tổng cộng
+                          <span className="ml-2 text-xs font-normal text-[#737686]">
+                            ({Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')} lượt)
+                          </span>
+                        </td>
                         <td />
-                        <td className="py-3 text-right font-bold text-[#434655]">
-                          {Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}
-                        </td>
                         <td className="py-3 text-right font-bold text-green-700">
-                          {Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}
-                        </td>
-                        <td className="py-3 text-right font-bold text-green-700">
-                          {fmtCurrency(subscriptionRevenue.active_revenue)}
+                          {fmtCurrency(subscriptionRevenue.total_revenue)}
                         </td>
                       </tr>
                     </tfoot>
