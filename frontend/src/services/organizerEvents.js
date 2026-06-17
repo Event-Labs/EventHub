@@ -30,6 +30,16 @@ export async function submitOrganizerEvent(eventId) {
   return response.data.data
 }
 
+export async function publishOrganizerEvent(eventId) {
+  const response = await http.post(`/organizer/events/${eventId}/publish`)
+  return response.data.data
+}
+
+export async function cancelOrganizerEvent(eventId) {
+  const response = await http.post(`/organizer/events/${eventId}/cancel`)
+  return response.data.data
+}
+
 export async function addOrganizerSession(eventId, payload) {
   const response = await http.post(`/organizer/events/${eventId}/sessions`, payload)
   return response.data.data

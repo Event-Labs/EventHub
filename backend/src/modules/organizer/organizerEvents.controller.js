@@ -56,6 +56,24 @@ class OrganizerEventsController {
     }
   };
 
+  publishEvent = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.publishEvent(req.user.sub, req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, 'Event published successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  cancelEvent = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.cancelEvent(req.user.sub, req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, 'Event cancelled successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   addSession = async (req, res, next) => {
     try {
       const data = await organizerEventsService.addSession(req.user.sub, req.params.eventId, req.body);
