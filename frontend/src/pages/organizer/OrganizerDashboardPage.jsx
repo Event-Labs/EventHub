@@ -5,7 +5,7 @@ import { Insight, OrganizerPage, OrganizerPanel } from './OrganizerComponents.js
 const shortcuts = [
   ['Attendees', '/organizer/attendees', Users, 'Review check-ins and ticket holders.'],
   ['Staff Tasks', '/organizer/staff-tasks', Settings2, 'Coordinate onsite team work.'],
-  ['Promo Codes', '/organizer/promotions', Megaphone, 'Manage event discounts.'],
+  ['Mã khuyến mãi', '/organizer/promotions', Megaphone, 'Quản lý ưu đãi cho sự kiện.'],
   ['Announcements', '/organizer/announcements', Calendar, 'Send updates to attendees.'],
 ]
 
