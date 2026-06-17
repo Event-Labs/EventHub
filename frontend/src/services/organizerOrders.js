@@ -37,3 +37,11 @@ export async function fetchRevenueStats(params = {}) {
   const response = await http.get('/organizer/orders/revenue', { params })
   return response.data.data
 }
+
+/**
+ * @param {object} params - { eventId?, dateFrom?, dateTo? }
+ */
+export async function fetchTicketSalesAnalytics(params = {}) {
+  const response = await http.get('/organizer/orders/ticket-sales', { params })
+  return response.data.data
+}
