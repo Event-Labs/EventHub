@@ -11,7 +11,7 @@ const listEventsSchema = z.object({
   end_date: z.coerce.date().optional(),
   min_price: z.coerce.number().min(0).optional(),
   max_price: z.coerce.number().min(0).optional(),
-  sort_by: z.enum(['start_time', 'created_at', 'price']).default('start_time'),
+  sort_by: z.enum(['start_time', 'created_at', 'updated_at', 'price']).default('start_time'),
   sort_order: z.enum(['asc', 'desc']).default('asc'),
 });
 
@@ -31,10 +31,24 @@ const sessionSeatsQuerySchema = z.object({
   ticket_type_id: z.string().uuid().optional(),
 });
 
+const ticketAvailabilitySchema = z.object({
+  event_id: z.string().uuid(),
+  items: z
+    .array(
+      z.object({
+        ticket_type_id: z.string().uuid(),
+        quantity: z.coerce.number().int().min(1).max(10),
+        session_seat_ids: z.array(z.string().uuid()).optional().default([]),
+      }),
+    )
+    .min(1),
+});
+
 module.exports = {
   listEventsSchema,
   eventIdentifierSchema,
   favoriteEventSchema,
   sessionSeatsSchema,
   sessionSeatsQuerySchema,
+  ticketAvailabilitySchema,
 };

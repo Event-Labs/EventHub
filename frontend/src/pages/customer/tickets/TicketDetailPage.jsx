@@ -81,7 +81,7 @@ export function TicketDetailPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${ticketQuery.data?.ticket_code || 'ticket'}.html`
+    link.download = `${ticketQuery.data?.ticket_code || 'ticket'}.svg`
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -140,8 +140,8 @@ export function TicketDetailPage() {
           </div>
 
           <div className="grid gap-8 p-6 md:grid-cols-[260px_minmax(0,1fr)] md:p-8">
-            <div className="rounded-lg bg-white p-5 shadow-2xl shadow-primary/10">
-              <div className="grid gap-0 overflow-hidden" style={{ gridTemplateColumns: 'repeat(21, minmax(0, 1fr))' }}>
+            <div className="h-fit w-fit self-start rounded-lg bg-white p-5 shadow-2xl shadow-primary/10">
+              <div className="grid size-56 gap-0 overflow-hidden" style={{ gridTemplateColumns: 'repeat(21, minmax(0, 1fr))' }}>
                 {cells.map((filled, index) => (
                   <span
                     key={index}

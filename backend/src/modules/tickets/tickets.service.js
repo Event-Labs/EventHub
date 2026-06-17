@@ -109,12 +109,7 @@ function formatForTicket(value) {
   }).format(new Date(value));
 }
 
-function buildQrSvg(content) {
-  const encoded = Buffer.from(String(content)).toString('base64');
-  return `data:image/svg+xml;base64,${encoded}`;
-}
-
-function generateQrLikeSvg(ticket) {
+function generateQrLikeMarkup(ticket, cellSize = 8) {
   const code = ticket.qr_code || ticket.ticket_code;
   const cells = Array.from({ length: 21 * 21 }, (_, index) => {
     const row = Math.floor(index / 21);
@@ -126,16 +121,19 @@ function generateQrLikeSvg(ticket) {
     const hash = code.charCodeAt(index % code.length) + row * 17 + col * 31;
     const filled = marker || hash % 3 === 0;
     return filled
-      ? `<rect x="${col * 8}" y="${row * 8}" width="8" height="8" fill="#111827"/>`
+      ? `<rect x="${col * cellSize}" y="${row * cellSize}" width="${cellSize}" height="${cellSize}" fill="#111827"/>`
       : '';
   }).join('');
 
-  return buildQrSvg(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="168" height="168" viewBox="0 0 168 168"><rect width="168" height="168" fill="#fff"/>${cells}</svg>`,
-  );
+  return cells;
 }
 
-function buildDownloadHtml(ticket) {
+function clipText(value, maxLength = 64) {
+  const text = String(value ?? 'N/A');
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+}
+
+function buildDownloadSvg(ticket) {
   const invalid = ticket.status !== 'VALID';
   const venue = [
     ticket.venue.address_line,
@@ -144,54 +142,72 @@ function buildDownloadHtml(ticket) {
     ticket.venue.city,
   ].filter(Boolean).join(', ');
   const seat = ticket.seat?.label || 'Free seating';
-  const qr = generateQrLikeSvg(ticket);
+  const qrSize = 168;
+  const qrCellSize = 8;
+  const statusFill = invalid ? '#fee2e2' : '#dcfce7';
+  const statusText = invalid ? '#991b1b' : '#166534';
+  const attendee = clipText(ticket.attendee_name, 30);
+  const orderCode = clipText(ticket.order.order_code, 26);
+  const addressLine = clipText(venue, 74);
 
-  return `<!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(ticket.ticket_code)}</title>
-  <style>
-    body { margin: 0; background: #f3f4f6; color: #111827; font-family: Arial, sans-serif; }
-    .ticket { width: 880px; margin: 32px auto; display: grid; grid-template-columns: 1fr 260px; overflow: hidden; border-radius: 18px; background: #ffffff; box-shadow: 0 24px 80px rgba(15, 23, 42, .18); }
-    .main { padding: 34px; background: #24262d; color: #ffffff; }
-    .side { padding: 28px; border-left: 2px dashed #d1d5db; text-align: center; }
-    .label { margin: 0 0 6px; color: #9ca3af; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { margin: 0 0 24px; font-size: 30px; line-height: 1.18; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-    .value { margin: 0; font-size: 16px; font-weight: 700; }
-    .code { margin-top: 18px; color: #10b981; font-size: 22px; font-weight: 800; letter-spacing: .08em; }
-    img { width: 168px; height: 168px; }
-    .status { display: inline-block; margin-top: 18px; padding: 8px 12px; border-radius: 999px; background: ${invalid ? '#fee2e2' : '#dcfce7'}; color: ${invalid ? '#991b1b' : '#166534'}; font-weight: 800; }
-    .watermark { position: fixed; inset: 0; display: ${invalid ? 'grid' : 'none'}; place-items: center; color: rgba(220, 38, 38, .16); font-size: 96px; font-weight: 900; transform: rotate(-24deg); pointer-events: none; }
-  </style>
-</head>
-<body>
-  <div class="watermark">${escapeHtml(ticket.status)}</div>
-  <main class="ticket">
-    <section class="main">
-      <p class="label">Official Entry Pass</p>
-      <h1>${escapeHtml(ticket.event.title)}</h1>
-      <div class="grid">
-        <div><p class="label">Session</p><p class="value">${escapeHtml(formatForTicket(ticket.session.start_time))}</p></div>
-        <div><p class="label">Ticket type</p><p class="value">${escapeHtml(ticket.ticket_type.name)}</p></div>
-        <div><p class="label">Venue</p><p class="value">${escapeHtml(ticket.venue.name)}</p></div>
-        <div><p class="label">Seat</p><p class="value">${escapeHtml(seat)}</p></div>
-        <div><p class="label">Attendee</p><p class="value">${escapeHtml(ticket.attendee_name)}</p></div>
-        <div><p class="label">Email</p><p class="value">${escapeHtml(ticket.attendee_email)}</p></div>
-      </div>
-      <p class="code">${escapeHtml(ticket.ticket_code)}</p>
-      <p>${escapeHtml(venue)}</p>
-    </section>
-    <aside class="side">
-      <img src="${qr}" alt="QR code" />
-      <div class="status">${escapeHtml(ticket.status)}</div>
-      <p class="label" style="margin-top:24px">Order</p>
-      <p class="value">${escapeHtml(ticket.order.order_code)}</p>
-    </aside>
-  </main>
-</body>
-</html>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+  <defs>
+    <filter id="ticketShadow" x="-10%" y="-15%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0f172a" flood-opacity=".20"/>
+    </filter>
+    <linearGradient id="ticketDark" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#172033"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="680" fill="#f4f7fb"/>
+  <circle cx="160" cy="118" r="80" fill="#38bdf8" opacity=".10"/>
+  <circle cx="1045" cy="570" r="120" fill="#10b981" opacity=".08"/>
+
+  <g transform="translate(110 90)" filter="url(#ticketShadow)">
+    <rect width="980" height="500" rx="28" fill="#ffffff"/>
+    <path d="M28 0h632v500H28C12.5 500 0 487.5 0 472V28C0 12.5 12.5 0 28 0Z" fill="url(#ticketDark)"/>
+    <path d="M660 0h292c15.5 0 28 12.5 28 28v444c0 15.5-12.5 28-28 28H660Z" fill="#ffffff"/>
+    <path d="M660 30v440" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="10 12"/>
+    <circle cx="660" cy="0" r="24" fill="#f4f7fb"/>
+    <circle cx="660" cy="500" r="24" fill="#f4f7fb"/>
+
+    <text x="44" y="62" fill="#38bdf8" font-family="Arial, sans-serif" font-size="15" font-weight="800" letter-spacing="3">EVENTHUB CHECK-IN TICKET</text>
+    <text x="44" y="116" fill="#ffffff" font-family="Arial, sans-serif" font-size="42" font-weight="900">${escapeHtml(clipText(ticket.event.title, 24))}</text>
+    <text x="44" y="152" fill="#a9bdd8" font-family="Arial, sans-serif" font-size="20">${escapeHtml(clipText(ticket.ticket_type.name, 40))}</text>
+
+    <rect x="44" y="198" width="258" height="88" rx="14" fill="#1f2937" opacity=".72"/>
+    <text x="66" y="232" fill="#9fb4d2" font-family="Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1">SESSION</text>
+    <text x="66" y="260" fill="#ffffff" font-family="Arial, sans-serif" font-size="19" font-weight="800">${escapeHtml(formatForTicket(ticket.session.start_time))}</text>
+
+    <rect x="328" y="198" width="244" height="88" rx="14" fill="#1f2937" opacity=".72"/>
+    <text x="350" y="232" fill="#9fb4d2" font-family="Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1">SEAT</text>
+    <text x="350" y="260" fill="#ffffff" font-family="Arial, sans-serif" font-size="22" font-weight="900">${escapeHtml(seat)}</text>
+
+    <text x="44" y="338" fill="#9fb4d2" font-family="Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1">ATTENDEE</text>
+    <text x="44" y="366" fill="#ffffff" font-family="Arial, sans-serif" font-size="21" font-weight="900">${escapeHtml(attendee)}</text>
+    <text x="328" y="338" fill="#9fb4d2" font-family="Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1">ORDER</text>
+    <text x="328" y="366" fill="#ffffff" font-family="Arial, sans-serif" font-size="19" font-weight="900">${escapeHtml(orderCode)}</text>
+
+    <text x="44" y="426" fill="#9fb4d2" font-family="Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1">VENUE</text>
+    <text x="44" y="453" fill="#ffffff" font-family="Arial, sans-serif" font-size="21" font-weight="900">${escapeHtml(clipText(ticket.venue.name, 36))}</text>
+    <text x="44" y="478" fill="#d6e2f2" font-family="Arial, sans-serif" font-size="13">${escapeHtml(addressLine)}</text>
+
+    <text x="820" y="54" fill="#0f172a" font-family="Arial, sans-serif" font-size="13" font-weight="900" text-anchor="middle" letter-spacing="2">SCAN TO CHECK IN</text>
+    <rect x="712" y="82" width="216" height="216" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <g transform="translate(736 106)">
+      <rect width="${qrSize}" height="${qrSize}" fill="#ffffff"/>
+    ${generateQrLikeMarkup(ticket, qrCellSize)}
+    </g>
+    <text x="820" y="342" fill="#0f172a" font-family="Consolas, monospace" font-size="17" font-weight="900" text-anchor="middle">${escapeHtml(ticket.ticket_code)}</text>
+    <rect x="738" y="372" width="164" height="42" rx="21" fill="${statusFill}"/>
+    <text x="820" y="399" fill="${statusText}" font-family="Arial, sans-serif" font-size="15" font-weight="900" text-anchor="middle">${escapeHtml(ticket.status)}</text>
+    <text x="820" y="456" fill="#64748b" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">Keep this ticket ready at the gate</text>
+  </g>
+  ${invalid ? `<text x="600" y="354" fill="#dc2626" opacity=".15" font-family="Arial, sans-serif" font-size="92" font-weight="900" text-anchor="middle" transform="rotate(-15 600 354)">${escapeHtml(ticket.status)}</text>` : ''}
+</svg>`;
 }
 
 class TicketsService {
@@ -219,9 +235,9 @@ class TicketsService {
   async generateTicketDownload(userId, ticketId) {
     const ticket = await this.getTicketDetail(userId, ticketId);
     return {
-      fileName: `${ticket.ticket_code}.html`,
-      contentType: 'text/html; charset=utf-8',
-      content: buildDownloadHtml(ticket),
+      fileName: `${ticket.ticket_code}.svg`,
+      contentType: 'image/svg+xml; charset=utf-8',
+      content: buildDownloadSvg(ticket),
     };
   }
 }

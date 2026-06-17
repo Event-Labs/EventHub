@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { CheckCircle, Clock3, ExternalLink, RefreshCw, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, fetchOrderStatus } from '@/services/orders.js'
 
 function formatPrice(value) {
@@ -21,8 +21,19 @@ function formatCountdown(seconds) {
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
 }
 
+function paymentQrImageSrc(qrCode) {
+  if (!qrCode) return ''
+  if (/^(https?:|data:image\/)/i.test(qrCode)) return qrCode
+  return `https://api.qrserver.com/v1/create-qr-code/?size=224x224&data=${encodeURIComponent(qrCode)}`
+}
+
+function firstTicketIdFromOrderStatus(data) {
+  return data?.items?.find((item) => item.ticket?.id)?.ticket?.id
+}
+
 export function PaymentConfirmationPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const checkout = location.state?.checkout
   const orderId = searchParams.get('orderId') || checkout?.order?.id
@@ -54,6 +65,12 @@ export function PaymentConfirmationPage() {
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (statusQuery.data?.order?.status !== 'PAID') return
+    const ticketId = firstTicketIdFromOrderStatus(statusQuery.data)
+    navigate(ticketId ? `/tickets/${ticketId}` : '/my-tickets', { replace: true })
+  }, [navigate, statusQuery.data])
 
   const data = statusQuery.data
   const remainingSeconds = useMemo(
@@ -136,7 +153,7 @@ export function PaymentConfirmationPage() {
 
           {data.payment?.qr_code ? (
             <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
-              <img src={data.payment.qr_code} alt="QR PayOS" className="size-56" />
+              <img src={paymentQrImageSrc(data.payment.qr_code)} alt="QR PayOS" className="size-56" />
             </div>
           ) : (
             <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">
