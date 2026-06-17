@@ -192,46 +192,39 @@ class AdminAnalyticsRepository {
   }
 
   /**
-   * Subscription revenue: total revenue collected from organizer subscription purchases.
+   * Subscription revenue: tính tất cả lần đăng ký (kể cả CANCELLED vì đã thu tiền),
+   * gộp theo plan — mỗi plan 1 dòng với tổng số lần đăng ký và doanh thu.
    */
   async getSubscriptionRevenue() {
-    const { rows } = await db.query(`
+    // Totals across all plans (all statuses = all paid)
+    const totalRes = await db.query(`
       SELECT
-        COUNT(os.id)::int                                        AS total_subscriptions,
-        COUNT(os.id) FILTER (WHERE os.status = 'ACTIVE')::int   AS active_subscriptions,
-        COALESCE(SUM(s.price) FILTER (WHERE os.status = 'ACTIVE'), 0)::numeric  AS active_revenue,
-        COALESCE(SUM(s.price), 0)::numeric                      AS total_revenue,
-        -- Per-plan breakdown
-        json_agg(
-          json_build_object(
-            'plan_id',    s.id,
-            'plan_name',  s.name,
-            'price',      s.price,
-            'total',      plan_counts.total,
-            'active',     plan_counts.active,
-            'revenue',    plan_counts.revenue
-          )
-          ORDER BY plan_counts.revenue DESC
-        ) AS by_plan
+        COUNT(os.id)::int                                           AS total_subscriptions,
+        COUNT(os.id) FILTER (WHERE os.status = 'ACTIVE')::int      AS active_subscriptions,
+        COALESCE(SUM(s.price), 0)::numeric                         AS total_revenue
       FROM organizer_subscriptions os
       JOIN subscriptions s ON s.id = os.subscription_id AND s.deleted_at IS NULL
-      JOIN LATERAL (
-        SELECT
-          COUNT(*)::int                                            AS total,
-          COUNT(*) FILTER (WHERE os2.status = 'ACTIVE')::int      AS active,
-          COALESCE(SUM(s2.price) FILTER (WHERE os2.status = 'ACTIVE'), 0)::numeric AS revenue
-        FROM organizer_subscriptions os2
-        JOIN subscriptions s2 ON s2.id = os2.subscription_id
-        WHERE os2.subscription_id = os.subscription_id
-      ) plan_counts ON true
     `);
 
-    return rows[0] ?? {
-      total_subscriptions:  0,
-      active_subscriptions: 0,
-      active_revenue:       0,
-      total_revenue:        0,
-      by_plan:              [],
+    // Per-plan breakdown — each plan appears exactly once
+    const byPlanRes = await db.query(`
+      SELECT
+        s.id                                                        AS plan_id,
+        s.name                                                      AS plan_name,
+        s.price,
+        COUNT(os.id)::int                                           AS total,
+        COUNT(os.id) FILTER (WHERE os.status = 'ACTIVE')::int      AS active,
+        COALESCE(SUM(s.price), 0)::numeric                         AS revenue
+      FROM subscriptions s
+      LEFT JOIN organizer_subscriptions os ON os.subscription_id = s.id
+      WHERE s.deleted_at IS NULL
+      GROUP BY s.id, s.name, s.price
+      ORDER BY revenue DESC
+    `);
+
+    return {
+      ...(totalRes.rows[0] ?? { total_subscriptions: 0, active_subscriptions: 0, total_revenue: 0 }),
+      by_plan: byPlanRes.rows,
     };
   }
 
