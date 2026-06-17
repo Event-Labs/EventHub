@@ -1,12 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Check, Clock, Crown, Layers, Loader2, Shield, Star, Users, Zap, X, CalendarDays, TrendingUp } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchSubscriptionsForOrganizer, fetchCurrentPlan, subscribeToPlan } from '@/services/subscriptions.js'
 import { Badge, Insight, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 
 export function OrganizerSubscriptionsPage() {
+  const navigate = useNavigate()
   const [selectedPlan, setSelectedPlan] = useState(null)
-  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState('')
 
   const { data: plans = [], isLoading, isError } = useQuery({
     queryKey: ['organizer-subscriptions'],
@@ -19,16 +22,23 @@ export function OrganizerSubscriptionsPage() {
   })
 
   const handlePayment = async () => {
-    setIsSimulatingPayment(true)
+    setIsProcessing(true)
+    setError('')
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      await subscribeToPlan(selectedPlan.id)
-      setIsSimulatingPayment(false)
+      const result = await subscribeToPlan(selectedPlan.id)
       setSelectedPlan(null)
-      refetchCurrentPlan()
-    } catch (error) {
-      setIsSimulatingPayment(false)
-      alert('Có lỗi xảy ra khi cập nhật gói dịch vụ.')
+
+      if (result.requires_payment) {
+        // PayOS flow — redirect to payment page
+        navigate(`/organizer/subscriptions/payment-result?paymentId=${result.payment_id}`)
+      } else {
+        // Free plan / direct activation
+        refetchCurrentPlan()
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Có lỗi xảy ra khi xử lý gói dịch vụ.')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -70,6 +80,8 @@ export function OrganizerSubscriptionsPage() {
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-2">
               {activePlans.map((plan, index) => {
+                // currentPlan comes from organizer_subscriptions JOIN subscriptions,
+                // so subscription_id is the plan's id
                 const isCurrentPlan = currentPlan?.subscription_id === plan.id
                 return (
                   <PlanCard
@@ -114,7 +126,7 @@ export function OrganizerSubscriptionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
             <button
-              onClick={() => !isSimulatingPayment && setSelectedPlan(null)}
+              onClick={() => !isProcessing && setSelectedPlan(null)}
               className="absolute right-4 top-4 text-[#737686] transition hover:text-[#111827]"
             >
               <X className="size-5" />
@@ -149,17 +161,23 @@ export function OrganizerSubscriptionsPage() {
               </div>
             </div>
 
+            {error && (
+              <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            )}
+
             <button
               onClick={handlePayment}
-              disabled={isSimulatingPayment}
+              disabled={isProcessing}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-extrabold text-slate-950 transition duration-200 hover:brightness-95 disabled:opacity-60"
             >
-              {isSimulatingPayment && <Loader2 className="size-4 animate-spin" />}
-              {isSimulatingPayment
+              {isProcessing && <Loader2 className="size-4 animate-spin" />}
+              {isProcessing
                 ? 'Đang xử lý...'
                 : selectedPlan.price === 0
                   ? 'Kích hoạt ngay'
-                  : 'Thanh toán ngay'}
+                  : 'Tiến hành thanh toán PayOS'}
             </button>
           </div>
         </div>
@@ -169,6 +187,26 @@ export function OrganizerSubscriptionsPage() {
 }
 
 // ─── Plan Card (compact horizontal layout) ─────────────────────────────────
+function StatLine({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="flex items-center gap-1.5 text-[#737686]">
+        <Icon className="size-3 shrink-0" />
+        {label}
+      </span>
+      <span className="font-bold text-[#111827]">{value}</span>
+    </div>
+  )
+}
+
+function Pill({ label }) {
+  return (
+    <span className="rounded-full bg-[#f2f4f6] px-2 py-0.5 text-[10px] font-bold text-[#434655]">
+      {label}
+    </span>
+  )
+}
+
 function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
   const Icon = isCurrentPlan ? Crown : highlighted ? Star : Layers
 
@@ -223,29 +261,28 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
         ) : (
           <>
             {formatMoney(plan.price)}
-            <span className="text-xs font-semibold text-[#737686]"> /{plan.duration_days}ngày</span>
+            <span className="text-xs font-semibold text-[#737686]"> /{plan.duration_days} ngày</span>
           </>
         )}
       </p>
 
-      {/* Quick stats */}
-      <div className="mb-5 space-y-1.5 text-xs text-[#737686]">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1"><Layers className="size-3" /> Sự kiện</span>
-          <span className="font-bold text-[#111827]">
-            {plan.event_limit === 0 ? '∞' : plan.event_limit}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1"><Users className="size-3" /> Nhân sự</span>
-          <span className="font-bold text-[#111827]">
-            {plan.staff_limit === 0 ? '∞' : plan.staff_limit}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1"><Zap className="size-3" /> Thời hạn</span>
-          <span className="font-bold text-[#111827]">{plan.duration_days}d</span>
-        </div>
+      {/* Key stats */}
+      <div className="mb-4 space-y-2 border-t border-[#f2f4f6] pt-4">
+        <StatLine icon={Layers} label="Sự kiện / kỳ"
+          value={plan.event_limit === 0 ? 'Không giới hạn' : `${plan.event_limit} sự kiện`} />
+        <StatLine icon={Users}  label="Nhân sự / sự kiện"
+          value={plan.max_staff_per_event === 0 ? 'Không giới hạn' : `${plan.max_staff_per_event} người`} />
+        <StatLine icon={Zap}    label="Thời hạn"
+          value={`${plan.duration_days} ngày`} />
+      </div>
+
+      {/* Feature pills */}
+      <div className="mb-5 flex flex-wrap gap-1.5">
+        {plan.promo_code_enabled  && <Pill label="Mã KM" />}
+        {plan.seat_map_enabled    && <Pill label="Sơ đồ ghế" />}
+        {plan.ai_report_enabled   && <Pill label="Báo cáo AI" />}
+        {plan.advanced_analytics_enabled && <Pill label="Analytics" />}
+        {plan.attendee_export_enabled    && <Pill label="Xuất DS" />}
       </div>
 
       {/* CTA */}
@@ -287,6 +324,18 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
   const barColor = urgency === 'red' ? 'bg-red-500' : urgency === 'amber' ? 'bg-amber-400' : 'bg-green-500'
   const textColor = urgency === 'red' ? 'text-red-600' : urgency === 'amber' ? 'text-amber-600' : 'text-green-600'
 
+  // Feature flags to display
+  const features = [
+    { label: 'Mã khuyến mãi',       value: plan.promo_code_enabled },
+    { label: 'Sơ đồ chỗ ngồi',      value: plan.seat_map_enabled },
+    { label: 'Check-in thủ công',   value: plan.manual_checkin_enabled },
+    { label: 'Xuất danh sách',      value: plan.attendee_export_enabled },
+    { label: 'Phân tích nâng cao',  value: plan.advanced_analytics_enabled },
+    { label: 'Báo cáo AI',          value: plan.ai_report_enabled },
+    { label: 'Thương hiệu riêng',   value: plan.custom_branding_enabled },
+    { label: 'Hỗ trợ ưu tiên',      value: plan.priority_support },
+  ]
+
   return (
     <OrganizerPanel className="overflow-hidden p-0">
       {/* Header */}
@@ -300,42 +349,58 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
             <p className="text-lg font-extrabold text-[#111827]">{plan.name}</p>
           </div>
         </div>
-        <Badge tone="green">Đang hoạt động</Badge>
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-bold text-[#111827]">{formatMoney(plan.price)}</p>
+          <Badge tone="green">Đang hoạt động</Badge>
+        </div>
       </div>
 
-      <div className="grid gap-0 md:grid-cols-2">
-        {/* Left: stats */}
-        <div className="space-y-4 border-r border-[#e0e3e5] px-6 py-5">
-          <h3 className="text-sm font-extrabold text-[#111827]">Chi tiết gói</h3>
-          <div className="grid gap-3">
-            <StatRow icon={Layers} label="Giới hạn sự kiện" value={plan.event_limit === 0 ? 'Không giới hạn' : `${plan.event_limit} sự kiện`} />
-            <StatRow icon={Users} label="Giới hạn nhân sự" value={plan.staff_limit === 0 ? 'Không giới hạn' : `${plan.staff_limit} người`} />
-            <StatRow icon={CalendarDays} label="Thời hạn gói" value={`${plan.duration_days} ngày`} />
-            <StatRow icon={TrendingUp} label="Phân tích nâng cao" value={plan.analytics_enabled ? 'Có' : 'Không'} highlight={plan.analytics_enabled} />
-            <StatRow icon={Zap} label="Hỗ trợ ưu tiên" value={plan.priority_support ? 'Có' : 'Không'} highlight={plan.priority_support} />
+      <div className="grid gap-0 md:grid-cols-3">
+        {/* Col 1: Limits */}
+        <div className="space-y-3 border-r border-[#e0e3e5] px-6 py-5">
+          <h3 className="text-sm font-extrabold text-[#111827]">Giới hạn sử dụng</h3>
+          <StatRow icon={Layers}      label="Sự kiện / kỳ"         value={plan.event_limit === 0 ? 'Không giới hạn' : plan.event_limit} />
+          <StatRow icon={Zap}         label="Sự kiện active cùng lúc" value={plan.max_active_events === 0 ? 'Không giới hạn' : plan.max_active_events} />
+          <StatRow icon={Users}       label="Nhân sự / sự kiện"    value={plan.max_staff_per_event === 0 ? 'Không giới hạn' : plan.max_staff_per_event} />
+          <StatRow icon={Layers}      label="Loại vé / sự kiện"    value={plan.max_ticket_types_per_event === 0 ? 'Không giới hạn' : plan.max_ticket_types_per_event} />
+          <StatRow icon={Layers}      label="Mã KM / sự kiện"      value={plan.max_promo_codes_per_event === 0 ? 'Không giới hạn' : plan.max_promo_codes_per_event} />
+          <StatRow icon={CalendarDays} label="Thời hạn gói"        value={`${plan.duration_days} ngày`} />
+        </div>
+
+        {/* Col 2: Feature flags */}
+        <div className="border-r border-[#e0e3e5] px-6 py-5">
+          <h3 className="mb-3 text-sm font-extrabold text-[#111827]">Tính năng</h3>
+          <div className="space-y-2">
+            {features.map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between text-sm">
+                <span className="text-[#737686]">{label}</span>
+                {value
+                  ? <span className="flex items-center gap-1 font-bold text-green-600"><Check className="size-3.5" /> Có</span>
+                  : <span className="flex items-center gap-1 text-[#c3c6d7]"><X className="size-3.5" /> Không</span>
+                }
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Right: countdown */}
+        {/* Col 3: Countdown */}
         <div className="flex flex-col justify-center px-6 py-5">
           <h3 className="mb-4 text-sm font-extrabold text-[#111827]">Thời gian còn lại</h3>
 
-          {/* Countdown clock */}
           <div className="mb-5 flex items-end gap-2">
-            <CountdownUnit value={countdown.days} label="Ngày" urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.days}    label="Ngày"  urgent={urgency === 'red'} />
             <span className="mb-2 text-2xl font-extrabold text-[#c3c6d7]">:</span>
-            <CountdownUnit value={countdown.hours} label="Giờ" urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.hours}   label="Giờ"   urgent={urgency === 'red'} />
             <span className="mb-2 text-2xl font-extrabold text-[#c3c6d7]">:</span>
-            <CountdownUnit value={countdown.minutes} label="Phút" urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.minutes} label="Phút"  urgent={urgency === 'red'} />
             <span className="mb-2 text-2xl font-extrabold text-[#c3c6d7]">:</span>
-            <CountdownUnit value={countdown.seconds} label="Giây" urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.seconds} label="Giây"  urgent={urgency === 'red'} />
           </div>
 
-          {/* Progress bar */}
           <div>
             <div className="mb-1 flex justify-between text-xs">
-              <span className="font-semibold text-[#737686]">Thời gian sử dụng</span>
-              <span className={`font-extrabold ${textColor}`}>{pct}% còn lại</span>
+              <span className="font-semibold text-[#737686]">Thời gian còn lại</span>
+              <span className={`font-extrabold ${textColor}`}>{pct}%</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-[#e0e3e5]">
               <div

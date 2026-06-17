@@ -60,6 +60,7 @@ import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
 import { OrganizerCheckinDashboardPage } from '@/pages/organizer/OrganizerCheckinDashboardPage.jsx'
 import { OrganizerTicketSalesPage } from '@/pages/organizer/OrganizerTicketSalesPage.jsx'
+import { OrganizerSubscriptionPaymentPage } from '@/pages/organizer/OrganizerSubscriptionPaymentPage.jsx'
 import { OrganizerPaymentSettingsPage } from '@/pages/organizer/OrganizerPaymentSettingsPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
@@ -203,6 +204,10 @@ const router = createBrowserRouter([
       {
         path: 'subscriptions',
         element: <OrganizerSubscriptionsPage />,
+      },
+      {
+        path: 'subscriptions/payment-result',
+        element: <OrganizerSubscriptionPaymentPage />,
       },
       {
         path: 'policies',

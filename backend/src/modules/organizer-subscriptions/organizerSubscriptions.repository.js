@@ -14,11 +14,39 @@ class OrganizerSubscriptionsRepository {
     const organizerId = await this.findOrganizerIdByUserId(userId);
     if (!organizerId) return null;
     const res = await db.query(
-      `SELECT os.*, s.name, s.price, s.duration_days, s.event_limit, s.staff_limit, s.analytics_enabled, s.priority_support, s.features 
+      `SELECT
+         os.id,
+         os.organizer_id,
+         os.subscription_id,
+         os.status,
+         os.start_date,
+         os.end_date,
+         s.name,
+         s.price,
+         s.duration_days,
+         s.event_limit,
+         s.staff_limit,
+         s.max_active_events,
+         s.max_tickets_per_event,
+         s.max_staff_per_event,
+         s.max_ticket_types_per_event,
+         s.max_promo_codes_per_event,
+         s.promo_code_enabled,
+         s.seat_map_enabled,
+         s.manual_checkin_enabled,
+         s.attendee_export_enabled,
+         s.advanced_analytics_enabled,
+         s.ai_report_enabled,
+         s.custom_branding_enabled,
+         s.analytics_enabled,
+         s.priority_support
        FROM organizer_subscriptions os
        JOIN subscriptions s ON os.subscription_id = s.id
-       WHERE os.organizer_id = $1 AND os.status = 'ACTIVE'
-       ORDER BY os.start_date DESC LIMIT 1`,
+       WHERE os.organizer_id = $1
+         AND os.status = 'ACTIVE'
+         AND s.deleted_at IS NULL
+       ORDER BY os.start_date DESC
+       LIMIT 1`,
       [organizerId],
     );
     return res.rows[0];
