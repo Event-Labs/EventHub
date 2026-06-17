@@ -118,6 +118,21 @@ class OrganizerOrdersController {
       next(err);
     }
   };
+
+  getTicketSalesAnalytics = async (req, res, next) => {
+    try {
+      const { eventId, dateFrom, dateTo } = req.query;
+      const data = await organizerOrdersService.getTicketSalesAnalytics(req.user.sub, {
+        eventId:  eventId  || null,
+        dateFrom: dateFrom || null,
+        dateTo:   dateTo   || null,
+      });
+      res.status(200).json(ApiResponse.success(data, 'Ticket sales analytics fetched successfully'));
+    } catch (err) {
+      logger.error('[OrganizerOrdersController] getTicketSalesAnalytics error:', err);
+      next(err);
+    }
+  };
 }
 
 module.exports = new OrganizerOrdersController();

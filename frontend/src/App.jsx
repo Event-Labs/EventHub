@@ -59,6 +59,7 @@ import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscript
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
 import { OrganizerCheckinDashboardPage } from '@/pages/organizer/OrganizerCheckinDashboardPage.jsx'
+import { OrganizerTicketSalesPage } from '@/pages/organizer/OrganizerTicketSalesPage.jsx'
 import { OrganizerPaymentSettingsPage } from '@/pages/organizer/OrganizerPaymentSettingsPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
@@ -162,6 +163,10 @@ const router = createBrowserRouter([
       {
         path: 'checkin-dashboard',
         element: <OrganizerCheckinDashboardPage />,
+      },
+      {
+        path: 'ticket-sales',
+        element: <OrganizerTicketSalesPage />,
       },
       {
         path: 'orders',

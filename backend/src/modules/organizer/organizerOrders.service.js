@@ -68,6 +68,14 @@ class OrganizerOrdersService {
     }
     return organizerOrdersRepository.getRevenueStats(organizerId, filters);
   }
+
+  async getTicketSalesAnalytics(userId, filters = {}) {
+    const organizerId = await this._resolveOrganizerId(userId);
+    if (filters.eventId) {
+      await this._assertOwnsEvent(organizerId, filters.eventId);
+    }
+    return organizerOrdersRepository.getTicketSalesAnalytics(organizerId, filters);
+  }
 }
 
 module.exports = new OrganizerOrdersService();

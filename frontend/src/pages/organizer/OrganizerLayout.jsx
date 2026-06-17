@@ -17,6 +17,7 @@ import {
   User,
   CreditCard,
   Settings,
+  BarChart3,
 } from 'lucide-react'
 import { getUserRoles } from '@/lib/auth.js'
 import { AvatarInitials } from './OrganizerComponents.jsx'
@@ -27,6 +28,7 @@ const navItems = [
   { label: 'Quản lý vé', to: '/organizer/tickets', icon: Ticket },
   { label: 'Đơn hàng', to: '/organizer/orders', icon: ShoppingCart },
   { label: 'Theo dõi check-in', to: '/organizer/checkin-dashboard', icon: ScanLine },
+  { label: 'Phân tích bán vé', to: '/organizer/ticket-sales', icon: BarChart3 },
   { label: 'Quản lý địa điểm', to: '/organizer/venues', icon: MapPin },
   { label: 'Mã khuyến mãi', to: '/organizer/promotions', icon: Megaphone },
   {
