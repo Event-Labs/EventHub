@@ -8,6 +8,7 @@ function mapSubscription(row) {
   return {
     ...row,
     price: Number(row.price),
+    duration_days: Number(row.duration_days || 30),
     event_limit: Number(row.event_limit || 0),
     staff_limit: Number(row.staff_limit || 0),
     max_active_events: Number(row.max_active_events || 0),
