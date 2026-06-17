@@ -243,6 +243,57 @@ class OrganizerEventsService {
     return mapEvent(event);
   }
 
+  async publishEvent(userId, eventId) {
+    const organizerId = await this.resolveOrganizerId(userId);
+    await this.assertOwnsEvent(organizerId, eventId);
+
+    // Chỉ có thể publish khi Admin đã duyệt (status = COMPLETED, approval_status = APPROVED)
+    const fullEvent = await organizerEventsRepository.findEventById(eventId, organizerId);
+    if (fullEvent.status !== 'COMPLETED' || fullEvent.approval_status !== 'APPROVED') {
+      throw new AppError(
+        'Sự kiện chưa được Admin phê duyệt. Vui lòng chờ Admin duyệt trước khi xuất bản.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
+    const event = await organizerEventsRepository.publishEvent(eventId, organizerId);
+    if (!event) {
+      throw new AppError('Không thể xuất bản sự kiện này', 400, ErrorCodes.INVALID_INPUT);
+    }
+    return mapEvent(event);
+  }
+
+  async cancelEvent(userId, eventId) {
+    const organizerId = await this.resolveOrganizerId(userId);
+    const currentEvent = await this.assertOwnsEvent(organizerId, eventId);
+
+    // Chỉ cho phép hủy event đang PUBLISHED hoặc COMPLETED (đã duyệt chưa public)
+    if (!['PUBLISHED', 'COMPLETED'].includes(currentEvent.status)) {
+      throw new AppError(
+        `Không thể hủy sự kiện ở trạng thái "${currentEvent.status}". Chỉ có thể hủy sự kiện đang xuất bản hoặc đã được duyệt.`,
+        400,
+        ErrorCodes.EVENT_NOT_CANCELLABLE,
+      );
+    }
+
+    // Kiểm tra xem có đơn hàng đã thanh toán không
+    const paidOrderCount = await organizerEventsRepository.countPaidOrders(eventId);
+    if (paidOrderCount > 0) {
+      throw new AppError(
+        `Không thể hủy sự kiện này vì đã có ${paidOrderCount} đơn hàng được thanh toán. Vui lòng liên hệ hỗ trợ để xử lý hoàn tiền trước khi hủy.`,
+        400,
+        ErrorCodes.EVENT_HAS_PAID_ORDERS,
+      );
+    }
+
+    const event = await organizerEventsRepository.cancelEvent(eventId, organizerId);
+    if (!event) {
+      throw new AppError('Không thể hủy sự kiện này', 400, ErrorCodes.EVENT_NOT_CANCELLABLE);
+    }
+    return mapEvent(event);
+  }
+
   async addSession(userId, eventId, payload) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);

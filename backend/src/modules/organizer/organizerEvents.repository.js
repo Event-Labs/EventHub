@@ -275,6 +275,67 @@ class OrganizerEventsRepository {
     return rows[0];
   }
 
+  async publishEvent(eventId, organizerId) {
+    // Chỉ cho phép publish khi đã được Admin duyệt (status = COMPLETED, approval_status = APPROVED)
+    const { rows } = await db.query(
+      `
+      UPDATE events
+      SET status         = 'PUBLISHED',
+          start_publish_at = COALESCE(start_publish_at, NOW()),
+          updated_at     = NOW()
+      WHERE id = $1
+        AND organizer_id = $2
+        AND deleted_at IS NULL
+        AND status = 'COMPLETED'
+        AND approval_status = 'APPROVED'
+      RETURNING *
+      `,
+      [eventId, organizerId],
+    );
+    return rows[0];
+  }
+
+  /**
+   * Đếm số đơn hàng đã thanh toán (PAID) của event.
+   * Dùng để kiểm tra trước khi cho phép hủy.
+   */
+  async countPaidOrders(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT COUNT(DISTINCT o.id)::int AS total
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      JOIN event_sessions es ON es.id = tt.event_session_id
+      WHERE es.event_id = $1
+        AND o.status = 'PAID'
+      `,
+      [eventId],
+    );
+    return rows[0]?.total ?? 0;
+  }
+
+  /**
+   * Hủy event — chỉ cho phép khi status = PUBLISHED hoặc COMPLETED (đã duyệt nhưng chưa public).
+   * Không được hủy nếu đã có đơn PAID.
+   */
+  async cancelEvent(eventId, organizerId) {
+    const { rows } = await db.query(
+      `
+      UPDATE events
+      SET status     = 'CANCELLED',
+          updated_at = NOW()
+      WHERE id = $1
+        AND organizer_id = $2
+        AND deleted_at IS NULL
+        AND status IN ('PUBLISHED', 'COMPLETED')
+      RETURNING id, title, status, approval_status, organizer_id
+      `,
+      [eventId, organizerId],
+    );
+    return rows[0] ?? null;
+  }
+
   async createSession(eventId, data) {
     const { rows } = await db.query(
       `

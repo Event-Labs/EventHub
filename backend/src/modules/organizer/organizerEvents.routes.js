@@ -15,6 +15,8 @@ router.get('/', organizerEventsController.listEvents);
 router.get('/:eventId', organizerEventsController.getEvent);
 router.put('/:eventId', organizerEventsController.updateEvent);
 router.post('/:eventId/submit', organizerEventsController.submitEvent);
+router.post('/:eventId/publish', organizerEventsController.publishEvent);
+router.post('/:eventId/cancel', organizerEventsController.cancelEvent);
 router.post('/:eventId/sessions', organizerEventsController.addSession);
 router.put('/:eventId/sessions/:id', organizerEventsController.updateSession);
 router.delete('/:eventId/sessions/:id', organizerEventsController.deleteSession);
