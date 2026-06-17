@@ -3,9 +3,9 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const eventsAdminRepository = require('./events.repository');
 const notificationsService = require('../notifications/notifications.service');
-const REVIEWABLE_STATUSES = new Set(['PENDING_REVIEW']);
-const HIDEABLE_STATUSES   = new Set(['PUBLISHED']);
-const UNHIDEABLE_STATUSES = new Set(['HIDDEN']);
+const REVIEWABLE_STATUSES  = new Set(['PENDING_REVIEW']);
+const HIDEABLE_STATUSES    = new Set(['PUBLISHED', 'COMPLETED']);
+const UNHIDEABLE_STATUSES  = new Set(['HIDDEN']);
 
 class EventsAdminService {
   async reviewEvent(adminId, eventId, payload) {
@@ -62,10 +62,10 @@ class EventsAdminService {
       throw new AppError('Event not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    // 2. Guard: only PUBLISHED events can be hidden
+    // 2. Guard: only PUBLISHED or COMPLETED events can be hidden
     if (!HIDEABLE_STATUSES.has(event.status)) {
       throw new AppError(
-        `Event cannot be hidden in its current status: ${event.status}. Only PUBLISHED events can be hidden.`,
+        `Event cannot be hidden in its current status: ${event.status}. Only PUBLISHED or COMPLETED events can be hidden.`,
         400,
         ErrorCodes.EVENT_NOT_HIDEABLE,
       );
@@ -146,7 +146,7 @@ class EventsAdminService {
       : `Sự kiện "${eventTitle}" bị từ chối`;
 
     let content = isApproved
-      ? `Sự kiện "${eventTitle}" của bạn đã được Admin phê duyệt và hiện đang hiển thị công khai trên nền tảng.`
+      ? `Sự kiện "${eventTitle}" của bạn đã được Admin phê duyệt. Bạn có thể xuất bản sự kiện bất cứ lúc nào từ trang quản lý sự kiện.`
       : `Sự kiện "${eventTitle}" của bạn đã bị Admin từ chối.`;
 
     if (!isApproved && reviewNote) {
@@ -174,6 +174,24 @@ class EventsAdminService {
       content += `\n\nLý do: ${hideNote}`;
     }
     content += '\n\nVui lòng liên hệ hỗ trợ để biết thêm thông tin.';
+
+    await notificationsService.createAndDispatch(
+      {
+        userId: organizerUserId,
+        eventId,
+        title,
+        content,
+        type: 'EVENT',
+      },
+      organizerEmail ? { email: organizerEmail } : {},
+    );
+  }
+
+  async _notifyUnhide({ organizerUserId, organizerEmail, eventId, eventTitle }) {
+    if (!organizerUserId) return;
+
+    const title = `Sự kiện "${eventTitle}" đã được khôi phục`;
+    const content = `Sự kiện "${eventTitle}" của bạn đã được Admin khôi phục và hiện đang hiển thị công khai trên nền tảng.`;
 
     await notificationsService.createAndDispatch(
       {
