@@ -76,6 +76,17 @@ function formatDateRange(start, end) {
   return `${formatPromoDate(start)} - ${formatPromoDate(end)}`
 }
 
+function formatPromoDateTime(date) {
+  const value = new Date(date)
+  const time = value.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+
+  return `${formatPromoDate(value)} ${time}`
+}
+
 export function OrganizerPromosPage() {
   const [promos, setPromos] = useState([])
   const [events, setEvents] = useState([])
@@ -617,87 +628,149 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 function PromoDetailModal({ open, onClose, promo }) {
   if (!promo) return null
 
-  const formatFullDate = (date) => new Date(date).toLocaleString('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  })
+  const discountValue = parseFloat(promo.discount_value).toLocaleString('vi-VN')
+  const discountIcon = promo.discount_type === 'PERCENTAGE' ? Percent : DollarSign
+  const discountTypeLabel = promo.discount_type === 'PERCENTAGE' ? 'Giảm theo phần trăm' : 'Giảm số tiền cố định'
+  const discountDisplay = promo.discount_type === 'PERCENTAGE' ? `Giảm ${discountValue}%` : `Giảm ${discountValue}đ`
+  const usageLimit = promo.usage_limit || 'Không giới hạn'
+  const remainingUsage = promo.usage_limit ? promo.remaining_usage : 'Không giới hạn'
+  const usagePercentage = Number(promo.usage_percentage || 0)
 
   return (
-    <Modal open={open} title={`Chi tiết mã khuyến mãi: ${promo.code}`} onClose={onClose} maxWidth="max-w-3xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <DetailItem label="MÃ KHUYẾN MÃI" value={promo.code} highlight />
-          <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
-            <DetailItem label="SỰ KIỆN ÁP DỤNG" value={promo.event_name ? 'Sự kiện cụ thể' : 'Tất cả sự kiện'} />
-            <div className="mt-2 text-sm">
-              <span className="font-bold text-gray-500">Tên sự kiện: </span>
-              <span className="font-medium">{promo.event_name || 'Không có'}</span>
-            </div>
-            {promo.event_id && (
-              <div className="mt-1 text-xs">
-                <span className="font-bold text-gray-500">Mã sự kiện: </span>
-                <span className="font-mono text-gray-600">{promo.event_id}</span>
+    <Modal open={open} title={`Chi tiết mã khuyến mãi: ${promo.code}`} onClose={onClose} maxWidth="max-w-5xl">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="space-y-5">
+          <DetailCard className="bg-[#f8fbff]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#737686]">Mã khuyến mãi</p>
+                <p className="mt-1 font-display text-3xl font-extrabold text-primary">{promo.code}</p>
               </div>
-            )}
-          </div>
-          <DetailItem label="ƯU ĐÃI" value={
-            promo.discount_type === 'PERCENTAGE' 
-              ? `Giảm ${parseFloat(promo.discount_value)}%` 
-              : `Giảm cố định $${parseFloat(promo.discount_value).toLocaleString()}`
-          } />
-          <DetailItem label="TRẠNG THÁI" value={<StatusBadge status={promo.status} />} />
+              <StatusDetailRow status={promo.status} />
+            </div>
+          </DetailCard>
+
+          <DetailCard>
+            <DetailItem label="Sự kiện áp dụng" value={promo.event_name ? 'Sự kiện cụ thể' : 'Tất cả sự kiện'} />
+            <div className="mt-3 space-y-1 text-sm">
+              <p>
+                <span className="font-bold text-gray-500">Tên sự kiện: </span>
+                <span className="font-medium text-[#191c1e]">{promo.event_name || 'Không có'}</span>
+              </p>
+              {promo.event_id && (
+                <p className="text-xs">
+                  <span className="font-bold text-gray-500">Mã sự kiện: </span>
+                  <span className="font-mono text-gray-600">{promo.event_id}</span>
+                </p>
+              )}
+            </div>
+          </DetailCard>
+
+          <OfferCard
+            icon={discountIcon}
+            typeLabel={discountTypeLabel}
+            value={discountDisplay}
+          />
         </div>
-        
-        <div className="bg-[#f7f9fb] rounded-md p-5 border border-[#c3c6d7]">
-          <p className="text-xs font-extrabold uppercase text-[#737686] mb-4">Hiệu quả sử dụng</p>
-          
-          <div className="space-y-4">
-             <div className="flex justify-between items-end">
-                <div className="text-3xl font-extrabold text-primary">{promo.used_count}</div>
-                <div className="text-sm text-[#434655] font-bold">/ {promo.usage_limit || '∞'} đã dùng</div>
-             </div>
 
-             {promo.usage_limit && (
-               <>
-                 <div className="h-4 rounded-full bg-[#e0e3e5] overflow-hidden relative">
-                    <div className="h-full bg-primary" style={{ width: `${promo.usage_percentage}%` }} />
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-sm">
-                      Đã đạt {promo.usage_percentage}%
-                    </span>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="bg-white p-3 rounded border border-[#c3c6d7]">
-                       <p className="text-[10px] font-bold text-[#737686] uppercase">Còn lại</p>
-                       <p className="text-lg font-extrabold text-primary-dark">{promo.remaining_usage}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded border border-[#c3c6d7]">
-                       <p className="text-[10px] font-bold text-[#737686] uppercase">Giới hạn</p>
-                       <p className="text-lg font-extrabold">{promo.usage_limit}</p>
-                    </div>
-                 </div>
-               </>
-             )}
+        <div className="rounded-md border border-[#c3c6d7] bg-[#f7f9fb] p-5">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <p className="text-xs font-extrabold uppercase text-[#737686]">Hiệu quả sử dụng</p>
+            <span className="whitespace-nowrap rounded bg-white px-2 py-1 text-xs font-bold text-primary">
+              {usagePercentage}% đã dùng
+            </span>
+          </div>
 
-             {!promo.usage_limit && (
-               <div className="bg-white p-4 rounded border border-primary/20 text-center">
-                  <p className="text-sm font-bold text-primary italic">Mã khuyến mãi này không giới hạn lượt sử dụng.</p>
-               </div>
-             )}
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-[#737686]">Số đã dùng</p>
+              <p className="text-4xl font-extrabold text-primary">{promo.used_count}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase text-[#737686]">Tổng giới hạn</p>
+              <p className="whitespace-nowrap text-xl font-extrabold text-[#191c1e]">{usageLimit}</p>
+            </div>
+          </div>
+
+          <div className="mb-5">
+            <div className="relative h-5 overflow-hidden rounded-full bg-[#e0e3e5]">
+              <div className="h-full bg-primary transition-all duration-500" style={{ width: `${usagePercentage}%` }} />
+              <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap text-[10px] font-extrabold text-[#111827]">
+                {usagePercentage}% đã dùng
+              </span>
+            </div>
+          </div>
+
+          {!promo.usage_limit && (
+            <div className="mb-5 rounded-md border border-primary/20 bg-white p-3 text-sm font-bold text-primary">
+              Mã khuyến mãi này không giới hạn lượt sử dụng.
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <UsageStat label="Số còn lại" value={remainingUsage} />
+            <UsageStat label="Giới hạn" value={usageLimit} />
           </div>
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-[#e0e3e5]">
-         <div>
-            <DetailItem label="THỜI GIAN ÁP DỤNG" value={formatDateRange(promo.start_time, promo.end_time)} />
-         </div>
-         <div className="grid grid-cols-2 gap-4">
-            <DetailItem label="NGÀY TẠO" value={formatFullDate(promo.created_at || new Date())} />
-            <DetailItem label="CẬP NHẬT" value={formatFullDate(promo.updated_at || new Date())} />
-         </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 border-t border-[#e0e3e5] pt-5 md:grid-cols-3">
+        <DetailCard>
+          <DetailItem label="Thời gian áp dụng" value={formatDateRange(promo.start_time, promo.end_time)} />
+        </DetailCard>
+        <DetailCard>
+          <DetailItem label="Ngày tạo" value={formatPromoDateTime(promo.created_at || new Date())} />
+        </DetailCard>
+        <DetailCard>
+          <DetailItem label="Cập nhật" value={formatPromoDateTime(promo.updated_at || new Date())} />
+        </DetailCard>
       </div>
     </Modal>
+  )
+}
+
+function DetailCard({ children, className = '' }) {
+  return (
+    <div className={`rounded-md border border-[#c3c6d7] bg-white p-4 ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function StatusDetailRow({ status }) {
+  return (
+    <div className="flex shrink-0 items-center gap-3 whitespace-nowrap rounded-md border border-[#d7dbe8] bg-white px-3 py-2">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-[#737686]">Trạng thái</p>
+      <StatusBadge status={status} />
+    </div>
+  )
+}
+
+function OfferCard({ icon: Icon, typeLabel, value }) {
+  return (
+    <div className="rounded-md border border-primary/30 bg-primary/10 p-5">
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary text-slate-950">
+          <Icon className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#737686]">Ưu đãi</p>
+          <p className="mt-1 text-sm font-bold text-[#434655]">{typeLabel}</p>
+          <div className="mt-3 inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-md bg-white px-3 py-2 text-lg font-extrabold text-primary shadow-sm">
+            {value}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function UsageStat({ label, value }) {
+  return (
+    <div className="rounded border border-[#c3c6d7] bg-white p-3">
+      <p className="text-[10px] font-bold uppercase text-[#737686]">{label}</p>
+      <p className="mt-1 break-words text-lg font-extrabold text-[#191c1e]">{value}</p>
+    </div>
   )
 }
 
