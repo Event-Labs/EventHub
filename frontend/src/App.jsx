@@ -46,6 +46,7 @@ import {
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
+import { OrganizerOrdersPage } from '@/pages/organizer/OrganizerOrdersPage.jsx'
 import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
 import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
 import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
@@ -57,6 +58,7 @@ import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeat
 import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscriptionsPage.jsx'
 import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
+import { OrganizerPaymentSettingsPage } from '@/pages/organizer/OrganizerPaymentSettingsPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
 import { StaffEventDetailPage } from '@/pages/staff/StaffEventDetailPage.jsx'
@@ -149,21 +151,16 @@ const router = createBrowserRouter([
         element: <CreateEventPage />,
       },
       {
-        path: 'events/create/publishing-fee',
-        element: <OrganizerPublishingFeePage />,
-      },
-      {
-        path: 'events/publishing-payment',
-        element: <OrganizerPublishingPaymentPage />,
-      },
-      {
         path: 'events/detail',
-        element: <OrganizerEventBillingDetailPage />,
         element: <OrganizerPortalDashboardPage />,
       },
       {
         path: 'attendees',
         element: <OrganizerAttendeesPage />,
+      },
+      {
+        path: 'orders',
+        element: <OrganizerOrdersPage />,
       },
       {
         path: 'staff-tasks',
@@ -204,6 +201,10 @@ const router = createBrowserRouter([
       {
         path: 'profile',
         element: <ProfilePage />,
+      },
+      {
+        path: 'settings/payment',
+        element: <OrganizerPaymentSettingsPage />,
       },
       {
         path: '*',

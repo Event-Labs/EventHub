@@ -6,6 +6,7 @@ const {
   listEventsSchema,
   sessionSeatsQuerySchema,
   sessionSeatsSchema,
+  ticketAvailabilitySchema,
 } = require('./events.validation');
 
 class EventsController {
@@ -44,6 +45,16 @@ class EventsController {
       const query = sessionSeatsQuerySchema.parse(req.query);
       const data = await eventsService.getSessionSeats(sessionId, query);
       res.status(200).json(ApiResponse.success(data, 'Session seats fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  checkTicketAvailability = async (req, res, next) => {
+    try {
+      const payload = ticketAvailabilitySchema.parse(req.body);
+      const data = await eventsService.checkTicketAvailability(payload);
+      res.status(200).json(ApiResponse.success(data, 'Ticket availability checked successfully'));
     } catch (err) {
       next(err);
     }

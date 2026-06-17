@@ -69,7 +69,27 @@ async function createPaymentLink({ channel, order, items, returnUrl, cancelUrl }
   return json.data || {};
 }
 
+async function getPaymentLinkInformation({ channel, providerOrderCode }) {
+  const response = await fetch(`${PAYOS_BASE_URL}/v2/payment-requests/${providerOrderCode}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-client-id': channel.client_id,
+      'x-api-key': channel.api_key_encrypted,
+    },
+  });
+
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json.code !== '00') {
+    const message = json.desc || json.message || 'Unable to fetch PayOS payment status';
+    throw new Error(message);
+  }
+
+  return json.data || {};
+}
+
 module.exports = {
   createPaymentLink,
+  getPaymentLinkInformation,
   verifyWebhookData,
 };
