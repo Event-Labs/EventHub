@@ -117,7 +117,7 @@ export function HomePage() {
     featuredEvents.concat(upcomingEvents).forEach((event) => {
       if (event?.id && !unique.has(event.id)) unique.set(event.id, event)
     })
-    return Array.from(unique.values()).slice(0, 6)
+    return Array.from(unique.values()).slice(0, 10)
   }, [featuredEvents, upcomingEvents])
 
   useEffect(() => {
@@ -154,8 +154,10 @@ export function HomePage() {
 
   return (
     <div className="overflow-hidden bg-background text-content">
-      <section className="relative min-h-[720px] overflow-hidden bg-[#080f1e] py-10 sm:py-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(56,189,248,0.18),transparent_34%),radial-gradient(circle_at_75%_40%,rgba(249,115,22,0.14),transparent_30%)]" />
+      <section className="relative min-h-[790px] overflow-hidden bg-[#081126] py-8 sm:py-10">
+        <div className="hero-star-field absolute inset-0 opacity-60" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(179,205,224,0.18),transparent_30%),radial-gradient(circle_at_18%_34%,rgba(43,92,146,0.18),transparent_28%),linear-gradient(180deg,#081126_0%,#0c1446_52%,#081126_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.09),transparent_62%)]" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div>
             {featuredQuery.isLoading ? (
@@ -177,19 +179,19 @@ export function HomePage() {
 
       <form
         onSubmit={handleSearch}
-        className="relative z-20 mx-auto mt-14 max-w-7xl px-4 sm:px-6 lg:px-8"
+        className="relative z-20 mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8"
       >
-        <div className=" flex flex-col gap-3 p-4 shadow-2xl md:flex-row">
+        <div className="flex flex-col gap-3 md:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted" />
             <input
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="Tìm kiếm sự kiện theo tên, danh mục, địa điểm..."
-              className="w-full rounded-md border border-border-soft bg-surface py-3 pl-11 pr-3 text-content outline-none focus:border-primary"
+              className="w-full rounded-full border border-primary/20 bg-white/8 py-3 pl-11 pr-3 text-content outline-none transition focus:border-primary"
             />
           </div>
-          <button className="rounded-md bg-primary px-6 py-3 font-bold text-slate-950 transition hover:bg-sky-300">
+          <button className="rounded-full bg-tertiary px-6 py-3 font-bold text-white shadow-lg shadow-tertiary/20 transition hover:bg-orange-600">
             Tìm kiếm
           </button>
         </div>
@@ -211,11 +213,10 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="bg-[#050b18] py-12">
+      <section className="bg-[#0c1446] py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionTitle
             title="Xu hướng tuần này"
-            description="Những sự kiện đang được quan tâm nhiều nhất."
             action="Xem tất cả"
           />
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -242,7 +243,7 @@ export function HomePage() {
                 key={category.id}
                 type="button"
                 onClick={() => handleCategorySearch(category.slug)}
-                className="glass-panel group min-h-36 rounded-lg p-5 text-center transition hover:border-primary/60 hover:bg-primary/10"
+                className="glass-panel group min-h-36 rounded-[24px] p-5 text-center transition duration-500 ease-out hover:border-primary/60 hover:bg-primary/10"
               >
                 <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/10 text-primary transition group-hover:scale-110">
                   <Icon className="size-6" />
@@ -255,7 +256,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="bg-[#081122] py-12">
+      <section className="bg-[#081126] py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SectionTitle title="Sự kiện sắp diễn ra" tight />
@@ -266,7 +267,7 @@ export function HomePage() {
                   to="/events"
                   className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${
                     index === 0
-                      ? 'bg-primary text-slate-950'
+                      ? 'bg-primary text-[#081126]'
                       : 'bg-panel-soft text-subtle hover:text-primary'
                   }`}
                 >
@@ -294,7 +295,7 @@ export function HomePage() {
 
       <Link
         to="/ai-faq"
-        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full bg-ai px-5 py-3 text-sm font-bold text-white shadow-[0_0_28px_rgba(168,85,247,0.38)] transition hover:bg-purple-500"
+        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-[#0c1446]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_45px_rgba(3,8,24,0.45)] backdrop-blur transition hover:bg-[#2b5c92]"
       >
         Hỏi EventHub AI
         <Sparkles className="size-4" />
@@ -304,31 +305,51 @@ export function HomePage() {
 }
 
 function CinematicCarousel({ activeIndex, events, onSelect }) {
-  const visibleEvents = [-1, 0, 1].map((offset) => {
+  const navigate = useNavigate()
+  const visibleEvents = [-3, -2, -1, 0, 1, 2, 3].map((offset) => {
     const index = (activeIndex + offset + events.length) % events.length
     return { event: events[index], offset, index }
   })
 
+  const spotlightShift = ((activeIndex % Math.max(events.length, 1)) - Math.floor(events.length / 2)) * 2
+
   return (
-    <div className="relative mx-auto flex min-h-[620px] max-w-7xl items-start justify-center pt-8 [perspective:1400px]">
-      <div className="flex w-full items-center justify-center">
+    <div className="relative mx-auto min-h-[700px] max-w-7xl pt-2 [perspective:1500px]">
+      <div className="relative z-20 mx-auto max-w-3xl text-center">
+        <p className="text-xs font-extrabold uppercase tracking-[0.32em] text-primary/85">
+          Featured Events
+        </p>
+        <h1 className="mt-3 font-display text-4xl font-black leading-tight text-white sm:text-5xl">
+          Find Your Next Experience
+        </h1>
+      </div>
+      <div
+        className="pointer-events-none absolute left-1/2 top-[130px] z-0 h-[410px] w-[230px] origin-top bg-[linear-gradient(180deg,rgba(179,205,224,0.18),rgba(179,205,224,0.04)_58%,transparent)] opacity-80 transition-transform duration-500 ease-out"
+        style={{ transform: `translateX(calc(-78% + ${spotlightShift}px)) skewX(-10deg) rotate(-8deg)` }}
+      />
+      <div
+        className="pointer-events-none absolute left-1/2 top-[130px] z-0 h-[410px] w-[230px] origin-top bg-[linear-gradient(180deg,rgba(179,205,224,0.16),rgba(43,92,146,0.06)_58%,transparent)] opacity-80 transition-transform duration-500 ease-out"
+        style={{ transform: `translateX(calc(-22% + ${spotlightShift}px)) skewX(10deg) rotate(8deg)` }}
+      />
+      <div className="absolute inset-x-0 top-[205px] z-10 h-[340px] [transform-style:preserve-3d]">
         {visibleEvents.map(({ event, offset, index }) => (
           <HeroCard
             key={`${event.id}-${offset}`}
             event={event}
             active={offset === 0}
-            side={offset}
-            onClick={() => onSelect(index)}
+            offset={offset}
+            onClick={() => navigate(eventPath(event))}
           />
         ))}
       </div>
-      <div className="absolute bottom-5 flex justify-center gap-2">
+      <div className="stage-platform absolute bottom-8 left-1/2 z-0 h-64 w-[min(1160px,96vw)] -translate-x-1/2 rounded-[50%]" />
+      <div className="absolute bottom-5 left-0 right-0 z-30 flex justify-center gap-2">
         {events.map((event, index) => (
           <button
             key={event.id}
             type="button"
             onClick={() => onSelect(index)}
-            className={`h-2 rounded-full transition ${
+            className={`h-2 rounded-full transition duration-500 ease-out ${
               index === activeIndex ? 'w-8 bg-primary' : 'w-2 bg-white/25'
             }`}
             aria-label={`Chuyển đến sự kiện ${index + 1}`}
@@ -339,38 +360,66 @@ function CinematicCarousel({ activeIndex, events, onSelect }) {
   )
 }
 
-function HeroCard({ event, active, side, onClick }) {
-  const transform = active
-    ? 'z-20 mx-[-20px] w-[min(430px,92vw)] scale-100 opacity-100 blur-0'
-    : side < 0
-      ? 'z-10 hidden w-72 -translate-x-6 scale-[0.85] opacity-40 blur-[1px] md:block'
-      : 'z-10 hidden w-72 translate-x-6 scale-[0.85] opacity-40 blur-[1px] md:block'
+function HeroCard({ event, active, offset, onClick }) {
+  const depth = Math.abs(offset)
+  const positions = {
+    '-3': { x: '-760px', y: '94px', z: '-310px', scale: 0.56, rotate: '36deg', opacity: 0.3, blur: '0.8px' },
+    '-2': { x: '-560px', y: '62px', z: '-210px', scale: 0.67, rotate: '26deg', opacity: 0.48, blur: '0.45px' },
+    '-1': { x: '-340px', y: '26px', z: '-92px', scale: 0.8, rotate: '15deg', opacity: 0.74, blur: '0px' },
+    0: { x: '-50%', y: '-14px', z: '90px', scale: 1, rotate: '0deg', opacity: 1, blur: '0px' },
+    1: { x: '150px', y: '26px', z: '-92px', scale: 0.8, rotate: '-15deg', opacity: 0.74, blur: '0px' },
+    2: { x: '350px', y: '62px', z: '-210px', scale: 0.67, rotate: '-26deg', opacity: 0.48, blur: '0.45px' },
+    3: { x: '535px', y: '94px', z: '-310px', scale: 0.56, rotate: '-36deg', opacity: 0.3, blur: '0.8px' },
+  }
+  const position = positions[offset]
+  const hiddenOnMobile = depth > 1 ? 'hidden lg:block' : depth > 0 ? 'hidden sm:block' : ''
 
   return (
-    <button
-      type="button"
+    <article
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`group h-[540px] overflow-hidden rounded-lg border border-white/10 bg-panel text-left shadow-2xl transition duration-700 [transform-style:preserve-3d] ${
-        side < 0 ? '[transform:rotateY(22deg)]' : side > 0 ? '[transform:rotateY(-22deg)]' : ''
-      } ${transform}`}
+      onKeyDown={(keyEvent) => {
+        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+          keyEvent.preventDefault()
+          onClick()
+        }
+      }}
+      className={`event-card-stage stage-orbit-card group absolute left-1/2 top-0 w-[min(330px,76vw)] cursor-pointer overflow-hidden rounded-[26px] border bg-panel text-left [transform-style:preserve-3d] ${
+        active
+          ? 'h-[370px] border-primary/70 shadow-[0_34px_110px_rgba(179,205,224,0.28)]'
+          : 'h-[260px] border-primary/20'
+      } ${hiddenOnMobile}`}
+      style={{
+        '--stage-x': position.x,
+        '--stage-y': position.y,
+        '--stage-z': position.z,
+        '--stage-scale': position.scale,
+        '--stage-rotate': position.rotate,
+        '--stage-opacity': position.opacity,
+        '--stage-blur': position.blur,
+        '--stage-border-opacity': active ? 0.95 : 0.46,
+        zIndex: 20 - depth,
+      }}
     >
-      <div className={active ? 'h-72 overflow-hidden' : 'h-full overflow-hidden'}>
+      <div className={active ? 'relative h-48 overflow-hidden' : 'relative h-full overflow-hidden'}>
         <img
           src={eventImage(event)}
           alt={event.title}
           className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
         />
+        <div className="event-card-gradient absolute inset-0" />
       </div>
       {active && (
-        <div className="flex h-[252px] flex-col justify-between p-5">
+        <div className="flex h-[178px] flex-col justify-center bg-[linear-gradient(180deg,rgba(12,20,70,0.96),rgba(8,17,38,0.98))] p-5">
           <div>
-            <span className="rounded-full bg-tertiary px-3 py-1 text-xs font-extrabold uppercase text-white">
+            <span className="rounded-full border border-tertiary/50 bg-tertiary/20 px-3 py-1 text-xs font-extrabold uppercase text-white">
               {event.category?.name || 'Sự kiện'}
             </span>
-            <h2 className="mt-3 line-clamp-2 font-display text-xl font-extrabold text-white">
+            <h2 className="mt-3 line-clamp-2 font-display text-lg font-extrabold leading-snug text-white">
               {event.title}
             </h2>
-            <div className="mt-3 grid gap-2 text-sm text-muted sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-2">
               <span className="inline-flex items-center gap-2">
                 <CalendarDays className="size-4 text-primary" />
                 {formatDateTime(event.start_time)}
@@ -380,14 +429,14 @@ function HeroCard({ event, active, side, onClick }) {
                 <span className="line-clamp-1">{eventLocation(event)}</span>
               </span>
             </div>
-            <p className="mt-3 font-display text-lg font-bold text-primary">
+            <p className="mt-2 font-display text-base font-bold text-primary">
               {formatPrice(event)}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="hidden">
             <Link
               to={eventPath(event)}
-              className="w-full rounded-md bg-tertiary px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-orange-600"
+              className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-bold text-[#081126] transition duration-500 ease-out hover:bg-white"
               onClick={(clickEvent) => clickEvent.stopPropagation()}
             >
               Xem chi tiết
@@ -395,13 +444,13 @@ function HeroCard({ event, active, side, onClick }) {
           </div>
         </div>
       )}
-    </button>
+    </article>
   )
 }
 
 function SpotlightEvent({ event }) {
   return (
-    <article className="glass-panel overflow-hidden rounded-lg lg:grid lg:grid-cols-[1fr_1.45fr]">
+    <article className="glass-panel overflow-hidden rounded-[26px] lg:grid lg:grid-cols-[1fr_1.45fr]">
       <Link to={eventPath(event)} className="block min-h-72 overflow-hidden">
         <img
           src={eventImage(event)}
@@ -430,7 +479,7 @@ function SpotlightEvent({ event }) {
           </span>
           <Link
             to={eventPath(event)}
-            className="inline-flex w-fit rounded-md bg-tertiary px-6 py-3 text-sm font-extrabold text-white transition hover:bg-orange-600"
+            className="inline-flex w-fit rounded-full bg-tertiary px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-tertiary/20 transition duration-500 ease-out hover:bg-orange-600"
           >
             Xem chi tiết
           </Link>
@@ -462,7 +511,7 @@ function SectionTitle({ title, description, action, tight = false }) {
 
 function StatePanel({ message, tone = 'default' }) {
   return (
-    <div className={`rounded-lg border p-8 text-center ${
+    <div className={`rounded-[24px] border p-8 text-center ${
       tone === 'error'
         ? 'border-error/40 bg-error/10 text-error'
         : 'border-border-soft bg-panel text-muted'

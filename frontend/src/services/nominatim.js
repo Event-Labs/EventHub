@@ -12,22 +12,25 @@ export function parseNominatimAddress(result) {
   return {
     address_line: result?.display_name || '',
     city: addr.city || addr.town || addr.state || addr.province || '',
-    district: addr.county || addr.city_district || addr.district || addr.municipality || '',
+    district: addr.city_district || addr.district || addr.county || addr.municipality || '',
     ward: addr.suburb || addr.neighbourhood || addr.quarter || addr.village || '',
     country: addr.country || 'Vietnam',
   }
 }
 
-export async function searchAddress(query) {
+export async function searchAddress(query, options = {}) {
   const q = query?.trim()
   if (!q || q.length < 3) return []
 
+  const normalizedQuery = /việt nam|viet nam|vietnam/i.test(q) ? q : `${q}, Vietnam`
+
   const params = new URLSearchParams({
-    q,
+    q: normalizedQuery,
     format: 'json',
     addressdetails: '1',
     countrycodes: 'vn',
-    limit: '5',
+    dedupe: '1',
+    limit: String(options.limit || 8),
   })
 
   const response = await fetch(`${NOMINATIM_BASE}/search?${params}`, {

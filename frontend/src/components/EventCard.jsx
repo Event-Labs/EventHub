@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils.js'
 
 const badgeClasses = {
-  primary: 'border-primary/40 bg-primary/15 text-primary',
-  secondary: 'border-secondary/40 bg-secondary/15 text-secondary',
-  tertiary: 'border-tertiary/40 bg-tertiary/15 text-tertiary',
+  primary: 'border-tertiary/50 bg-tertiary/20 text-white',
+  secondary: 'border-tertiary/50 bg-tertiary/20 text-white',
+  tertiary: 'border-tertiary/50 bg-tertiary/20 text-white',
 }
 
 function formatDateTime(value) {
@@ -72,12 +72,12 @@ export function EventCard({
           openDetail()
         }
       }}
-      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-lg border border-border-soft bg-panel shadow-lg transition hover:-translate-y-1 hover:border-primary/60"
+      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-[24px] border border-primary/20 bg-panel shadow-[0_24px_70px_rgba(3,8,24,0.34)] transition duration-500 ease-out hover:-translate-y-1 hover:border-primary/60"
     >
       <div
         className={cn(
           'relative overflow-hidden',
-          compact ? 'h-48' : 'aspect-[3/4]',
+          compact ? 'h-64' : 'aspect-[3/4]',
         )}
       >
         <img
@@ -97,8 +97,8 @@ export function EventCard({
               onFavoriteToggle(event)
             }}
             className={cn(
-              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-70',
-              item.isFavorited && 'bg-primary text-slate-950',
+              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-primary hover:text-[#081126] disabled:cursor-not-allowed disabled:opacity-70',
+              item.isFavorited && 'bg-primary text-[#081126]',
             )}
             aria-label={item.isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           >
@@ -150,7 +150,7 @@ export function EventCard({
               to={detailPath}
               data-card-action
               onClick={(clickEvent) => clickEvent.stopPropagation()}
-              className="shrink-0 rounded-md bg-tertiary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:bg-orange-600"
+              className="shrink-0 rounded-full bg-tertiary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:bg-orange-600"
             >
               Xem chi tiết
             </Link>
