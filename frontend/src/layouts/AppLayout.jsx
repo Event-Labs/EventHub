@@ -178,7 +178,7 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-content">
-      <header className="sticky top-0 z-50 border-b border-border-soft bg-[#0d1422]/95 shadow-xl backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-primary/15 bg-[#081126]/95 shadow-xl backdrop-blur">
         <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
             <span className="font-display text-xl font-extrabold text-primary">
@@ -218,7 +218,7 @@ export function AppLayout() {
                 Đăng nhập
               </NavLink>
               <NavLink
-                className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-slate-950 hover:bg-sky-300"
+                className="rounded-full bg-primary px-4 py-2 text-sm font-bold text-[#081126] hover:bg-white"
                 to="/register"
               >
                 Đăng ký
@@ -238,13 +238,13 @@ export function AppLayout() {
               >
                 <Bell className="size-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute right-1 top-1 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-extrabold text-slate-950">
+                  <span className="absolute right-1 top-1 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-extrabold text-[#081126]">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
               <button
-                className="grid size-10 place-items-center overflow-hidden rounded-full border border-primary/40 bg-primary text-slate-950 transition hover:border-primary hover:bg-sky-300"
+                className="grid size-10 place-items-center overflow-hidden rounded-full border border-primary/40 bg-primary text-[#081126] transition hover:border-primary hover:bg-white"
                 onClick={() => {
                   setOpen((value) => !value)
                   setNotificationOpen(false)
@@ -367,7 +367,7 @@ export function AppLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <footer className="border-t border-border-soft bg-[#0d1422]">
+      <footer className="border-t border-primary/15 bg-[#081126]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
             <div className="font-display text-2xl font-extrabold text-primary">

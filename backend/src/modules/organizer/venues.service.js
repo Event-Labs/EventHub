@@ -2,6 +2,42 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const venuesRepository = require('./venues.repository');
 
+function normalizeVenuePayload(data, { partial = false } = {}) {
+  const payload = { ...data };
+
+  ['name', 'address_line', 'country', 'city', 'district', 'ward', 'description'].forEach((key) => {
+    if (!partial || data[key] !== undefined) {
+      payload[key] = data[key]?.trim?.() || null;
+    }
+  });
+
+  if (!partial || data.country !== undefined) {
+    payload.country = payload.country || 'Vietnam';
+  }
+
+  ['latitude', 'longitude'].forEach((key) => {
+    if (!partial || data[key] !== undefined) {
+      if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
+        payload[key] = Number(data[key]);
+      } else {
+        payload[key] = null;
+      }
+    }
+  });
+
+  return payload;
+}
+
+function assertValidCoordinates(payload) {
+  if (payload.latitude == null || payload.longitude == null) {
+    throw new AppError('Please resolve venue coordinates from the address', 400, ErrorCodes.INVALID_INPUT);
+  }
+
+  if (!Number.isFinite(payload.latitude) || !Number.isFinite(payload.longitude)) {
+    throw new AppError('Venue coordinates are invalid', 400, ErrorCodes.INVALID_INPUT);
+  }
+}
+
 class VenuesService {
   async resolveOrganizerId(userId) {
     const organizer = await venuesRepository.findOrganizerByUserId(userId);
@@ -31,22 +67,25 @@ class VenuesService {
 
   async createVenue(userId, data) {
     const organizerId = await this.resolveOrganizerId(userId);
-    if (!data.name?.trim()) {
+    const payload = normalizeVenuePayload(data);
+    if (!payload.name) {
       throw new AppError('Venue name is required', 400, ErrorCodes.INVALID_INPUT);
     }
-    if (!data.address_line?.trim() || !data.city?.trim()) {
-      throw new AppError('Address and city are required', 400, ErrorCodes.INVALID_INPUT);
+    if (!payload.address_line) {
+      throw new AppError('Address is required', 400, ErrorCodes.INVALID_INPUT);
     }
-    if (data.latitude == null || data.longitude == null) {
-      throw new AppError('Please select a location on the map', 400, ErrorCodes.INVALID_INPUT);
-    }
-    return venuesRepository.create(organizerId, data);
+    assertValidCoordinates(payload);
+    return venuesRepository.create(organizerId, payload);
   }
 
   async updateVenue(userId, venueId, data) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsVenue(organizerId, venueId);
-    const updated = await venuesRepository.update(venueId, organizerId, data);
+    const payload = normalizeVenuePayload(data, { partial: true });
+    if (payload.latitude !== undefined || payload.longitude !== undefined) {
+      assertValidCoordinates(payload);
+    }
+    const updated = await venuesRepository.update(venueId, organizerId, payload);
     if (!updated) {
       throw new AppError('Venue not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
