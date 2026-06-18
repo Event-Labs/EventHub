@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPin, Pencil, Search, Trash2 } from 'lucide-react'
-import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { OrganizerPage } from './OrganizerComponents.jsx'
 import {
   createVenue,
   deleteVenue,
@@ -36,6 +36,16 @@ const EMPTY_FORM = {
   description: '',
 }
 
+function isValidCoordinate(value) {
+  return value !== null && value !== undefined && Number.isFinite(Number(value))
+}
+
+function buildAddressQuery(form) {
+  return [form.address_line, form.ward, form.district, form.city, form.country]
+    .filter(Boolean)
+    .join(', ')
+}
+
 function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
@@ -50,11 +60,11 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
 
-  const applyGeocode = useCallback((result, lat, lng) => {
+  const applyGeocode = useCallback((result, lat, lng, options = {}) => {
     const parsed = parseNominatimAddress(result)
     setForm((f) => ({
       ...f,
-      address_line: parsed.address_line || f.address_line,
+      address_line: options.preserveAddressLine ? f.address_line : parsed.address_line || f.address_line,
       city: parsed.city || f.city,
       district: parsed.district || f.district,
       ward: parsed.ward || f.ward,
@@ -193,6 +203,35 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
     setShowSuggestions(false)
   }
 
+  async function geocodeFormAddress(payload) {
+    const results = await searchAddress(buildAddressQuery(payload), { limit: 1 })
+    const result = results[0]
+    if (!result) {
+      throw new Error('Không tìm thấy tọa độ cho địa chỉ này. Vui lòng nhập địa chỉ cụ thể hơn hoặc chọn trực tiếp trên bản đồ.')
+    }
+
+    const lat = Number(result.lat)
+    const lng = Number(result.lon)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error('Không lấy được tọa độ hợp lệ từ địa chỉ này.')
+    }
+
+    const parsed = parseNominatimAddress(result)
+    skipSearch.current = true
+    applyGeocode(result, lat, lng, { preserveAddressLine: true })
+    moveMarker(lat, lng)
+
+    return {
+      ...payload,
+      city: payload.city || parsed.city,
+      district: payload.district || parsed.district,
+      ward: payload.ward || parsed.ward,
+      country: payload.country || parsed.country || 'Vietnam',
+      latitude: lat,
+      longitude: lng,
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name.trim()) {
@@ -203,30 +242,41 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
       setError('Vui lòng nhập địa chỉ')
       return
     }
-    if (!form.city.trim()) {
-      setError('Vui lòng nhập thành phố')
-      return
-    }
-    if (form.latitude == null || form.longitude == null) {
-      setError('Vui lòng chọn vị trí trên bản đồ hoặc dùng gợi ý địa chỉ')
-      return
-    }
 
     setSaving(true)
     setError('')
     try {
-      if (editVenue?.id) {
-        await updateVenue(editVenue.id, form)
+      let payload = {
+        ...form,
+        name: form.name.trim(),
+        address_line: form.address_line.trim(),
+        country: form.country || 'Vietnam',
+      }
+
+      if (!isValidCoordinate(payload.latitude) || !isValidCoordinate(payload.longitude)) {
+        setGeocoding(true)
+        payload = await geocodeFormAddress(payload)
       } else {
-        await createVenue(form)
+        payload = {
+          ...payload,
+          latitude: Number(payload.latitude),
+          longitude: Number(payload.longitude),
+        }
+      }
+
+      if (editVenue?.id) {
+        await updateVenue(editVenue.id, payload)
+      } else {
+        await createVenue(payload)
       }
       onSaved()
       onClose()
     } catch (err) {
       console.error(err)
-      setError(err.response?.data?.message || 'Không thể lưu địa điểm')
+      setError(err.response?.data?.message || err.message || 'Không thể lưu địa điểm')
     } finally {
       setSaving(false)
+      setGeocoding(false)
     }
   }
 
@@ -259,7 +309,14 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                 <input
                   className="h-10 w-full rounded-md border border-[#c3c6d7] px-3 text-sm"
                   value={form.address_line}
-                  onChange={(e) => setForm((f) => ({ ...f, address_line: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      address_line: e.target.value,
+                      latitude: null,
+                      longitude: null,
+                    }))
+                  }
                   onFocus={() => suggestions.length && setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   placeholder="Nhập địa chỉ để tìm kiếm..."
@@ -325,10 +382,10 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
               <p className="mb-2 text-xs font-bold text-[#737686]">Bản đồ (OpenStreetMap)</p>
               <div ref={mapRef} className="z-0 h-[380px] w-full cursor-crosshair rounded-md border border-[#c3c6d7]" />
               <p className="mt-2 text-xs text-[#737686]">
-                Click trên bản đồ, kéo marker hoặc chọn gợi ý địa chỉ để tự động điền.
+                Nhập địa chỉ để tự lấy tọa độ. Có thể click bản đồ hoặc kéo marker để chỉnh lại.
               </p>
               {geocoding && (
-                <p className="mt-1 text-xs font-medium text-primary">Đang lấy địa chỉ...</p>
+                <p className="mt-1 text-xs font-medium text-primary">Đang lấy tọa độ...</p>
               )}
             </div>
           </div>
