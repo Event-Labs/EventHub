@@ -77,7 +77,7 @@ class VenuesRepository {
         organizerId,
         data.name,
         data.country || 'Vietnam',
-        data.city,
+        data.city || null,
         data.district || null,
         data.ward || null,
         data.address_line,
