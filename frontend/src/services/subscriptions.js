@@ -32,8 +32,14 @@ export async function fetchCurrentPlan() {
   return response.data.data
 }
 
-// Organizer: subscribe to a plan (simulated/direct activation)
+// Organizer: subscribe to a plan — returns { requires_payment, checkout_url?, qr_code?, payment_id?, ... }
 export async function subscribeToPlan(subscriptionId) {
   const response = await http.post('/organizer/subscriptions/subscribe', { subscription_id: subscriptionId })
+  return response.data.data
+}
+
+// Organizer: poll payment status for a pending subscription payment
+export async function fetchSubscriptionPaymentStatus(paymentId) {
+  const response = await http.get(`/organizer/subscriptions/payment-status/${paymentId}`)
   return response.data.data
 }
