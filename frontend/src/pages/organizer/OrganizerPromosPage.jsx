@@ -1,17 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
-  BarChart3, 
   Pencil, 
   Trash2, 
   Eye, 
   Plus, 
   Search, 
   AlertCircle,
-  Calendar,
-  Ticket,
   Percent,
   DollarSign,
-  ChevronRight,
   Loader2
 } from 'lucide-react'
 import {
@@ -19,17 +15,83 @@ import {
   OrganizerPage,
   OrganizerPanel,
   OrganizerTable,
-  SearchBar,
 } from './OrganizerComponents.jsx'
 import { Modal } from '../../components/Modal.jsx'
 import promotionService from '../../services/promotions'
 import { http } from '../../services/http'
 
+const STATUS_LABELS = {
+  Active: 'Đang hoạt động',
+  Scheduled: 'Đã lên lịch',
+  Expired: 'Hết hạn',
+  Inactive: 'Ngừng hoạt động',
+}
+
+const STATUS_OPTIONS = [
+  { value: 'All Statuses', label: 'Tất cả trạng thái' },
+  { value: 'Active', label: STATUS_LABELS.Active },
+  { value: 'Scheduled', label: STATUS_LABELS.Scheduled },
+  { value: 'Expired', label: STATUS_LABELS.Expired },
+  { value: 'Inactive', label: STATUS_LABELS.Inactive },
+]
+
+const DEFAULT_FILTERS = { keyword: '', status: 'All Statuses' }
+
+const PROMO_MESSAGE_LABELS = {
+  'Promo code already exists': 'Mã khuyến mãi đã tồn tại',
+  'Promo code not found': 'Không tìm thấy mã khuyến mãi',
+  'Discount type must be PERCENTAGE or FIXED': 'Loại giảm giá không hợp lệ',
+  'Discount value must be a number': 'Giá trị giảm phải là số',
+  'Discount value must be positive': 'Giá trị giảm phải lớn hơn 0',
+}
+
+function getStatusLabel(status) {
+  return STATUS_LABELS[status] || status
+}
+
+function getStatusTone(status) {
+  switch (status) {
+    case 'Active': return 'green'
+    case 'Scheduled': return 'blue'
+    case 'Expired': return 'gray'
+    case 'Inactive': return 'red'
+    default: return 'blue'
+  }
+}
+
+function getPromoMessage(message, fallback) {
+  if (!message) return fallback
+  return PROMO_MESSAGE_LABELS[message] || (/[À-ỹ]/.test(message) ? message : fallback)
+}
+
+function formatPromoDate(date) {
+  return new Date(date).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatDateRange(start, end) {
+  return `${formatPromoDate(start)} - ${formatPromoDate(end)}`
+}
+
+function formatPromoDateTime(date) {
+  const value = new Date(date)
+  const time = value.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+
+  return `${formatPromoDate(value)} ${time}`
+}
+
 export function OrganizerPromosPage() {
   const [promos, setPromos] = useState([])
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({ keyword: '', status: 'All Statuses' })
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
   
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -51,12 +113,7 @@ export function OrganizerPromosPage() {
   })
   const [formErrors, setFormErrors] = useState({})
 
-  useEffect(() => {
-    fetchData()
-    fetchEvents()
-  }, [])
-
-  const fetchData = async (currentFilters = filters) => {
+  const fetchData = useCallback(async (currentFilters) => {
     setLoading(true)
     try {
       const response = await promotionService.getAllPromos(currentFilters)
@@ -66,9 +123,9 @@ export function OrganizerPromosPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const response = await http.get('/events/my-events')
       
@@ -87,7 +144,13 @@ export function OrganizerPromosPage() {
     } catch (error) {
       console.error('Error fetching events:', error)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData(DEFAULT_FILTERS)
+    fetchEvents()
+  }, [fetchData, fetchEvents])
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value }
@@ -118,17 +181,17 @@ export function OrganizerPromosPage() {
       await promotionService.createPromo(submissionData)
       setShowCreateModal(false)
       resetForm()
-      fetchData()
+      fetchData(filters)
     } catch (error) {
        if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
          const issues = error.response.data.data || []
          const errors = {}
          issues.forEach(issue => {
-           errors[issue.path[0]] = issue.message
+           errors[issue.path[0]] = getPromoMessage(issue.message, 'Dữ liệu không hợp lệ')
          })
          setFormErrors(errors)
        } else {
-         alert(error?.response?.data?.message || 'Error creating promo code')
+         alert(getPromoMessage(error?.response?.data?.message, 'Không thể tạo mã khuyến mãi'))
        }
     }
   }
@@ -154,17 +217,17 @@ export function OrganizerPromosPage() {
       await promotionService.updatePromo(selectedPromo.id, submissionData)
       setShowEditModal(false)
       resetForm()
-      fetchData()
+      fetchData(filters)
     } catch (error) {
        if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
          const issues = error.response.data.data || []
          const errors = {}
          issues.forEach(issue => {
-           errors[issue.path[0]] = issue.message
+           errors[issue.path[0]] = getPromoMessage(issue.message, 'Dữ liệu không hợp lệ')
          })
          setFormErrors(errors)
        } else {
-         alert(error?.response?.data?.message || 'Error updating promo code')
+         alert(getPromoMessage(error?.response?.data?.message, 'Không thể cập nhật mã khuyến mãi'))
        }
     }
   }
@@ -173,7 +236,7 @@ export function OrganizerPromosPage() {
     try {
       await promotionService.deactivatePromo(selectedPromo.id)
       setShowDeleteModal(false)
-      fetchData()
+      fetchData(filters)
     } catch (error) {
        console.error('Error deactivating promo:', error)
     }
@@ -216,36 +279,20 @@ export function OrganizerPromosPage() {
     setFormErrors({})
   }
 
-  const formatDateRange = (start, end) => {
-    const s = new Date(start).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
-    const e = new Date(end).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-    return `${s} - ${e}`
-  }
-
   const getDiscountLabel = (promo) => {
     const value = parseFloat(promo.discount_value).toLocaleString()
     if (promo.discount_type === 'PERCENTAGE') {
-      return `${value}% Off ${promo.event_name ? 'Tickets' : 'All Tickets'}`
+      return `Giảm ${value}% cho ${promo.event_name ? 'vé sự kiện' : 'tất cả vé'}`
     }
-    return `$${value} Flat Discount`
-  }
-
-  const getStatusTone = (status) => {
-    switch (status) {
-      case 'Active': return 'green'
-      case 'Scheduled': return 'blue'
-      case 'Expired': return 'gray'
-      case 'Inactive': return 'red'
-      default: return 'blue'
-    }
+    return `Giảm cố định $${value}`
   }
 
   const hasEvents = events && events.length > 0;
 
   return (
     <OrganizerPage
-      title="Promotion Management"
-      description="Create and track performance of event discount codes."
+      title="Quản lý mã khuyến mãi"
+      description="Tạo và theo dõi hiệu quả sử dụng mã khuyến mãi cho sự kiện."
       action={
         <button 
           className={`flex items-center gap-2 ${hasEvents ? 'admin-primary' : 'bg-gray-300 text-gray-500 cursor-not-allowed px-4 py-2 rounded-md font-bold text-sm'}`} 
@@ -256,10 +303,10 @@ export function OrganizerPromosPage() {
             }
           }}
           disabled={!hasEvents}
-          title={!hasEvents ? "Vui lòng tạo sự kiện trước khi tạo promo code" : "Create Promo Code"}
+          title={!hasEvents ? "Vui lòng tạo sự kiện trước khi tạo mã khuyến mãi" : "Tạo mã khuyến mãi"}
         >
           <Plus className="size-4" />
-          Create Promo Code
+          Tạo mã khuyến mãi
         </button>
       }
     >
@@ -269,7 +316,7 @@ export function OrganizerPromosPage() {
               <AlertCircle className="size-5 shrink-0" />
               <div>
                 <p className="text-sm font-bold">Bạn chưa có sự kiện nào</p>
-                <p className="text-sm mt-1">Vui lòng tạo ít nhất một sự kiện trước khi có thể quản lý Promo Code.</p>
+                <p className="text-sm mt-1">Vui lòng tạo ít nhất một sự kiện trước khi có thể quản lý mã khuyến mãi.</p>
               </div>
            </div>
         </div>
@@ -281,34 +328,32 @@ export function OrganizerPromosPage() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
             <input
               className="h-10 w-full rounded-md border border-[#c3c6d7] bg-[#f7f9fb] pl-10 pr-3 text-sm text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              placeholder="Search by Promo Code or Event Name..."
+              placeholder="Tìm kiếm theo mã khuyến mãi hoặc tên sự kiện..."
               value={filters.keyword}
               onChange={(e) => handleFilterChange('keyword', e.target.value)}
             />
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-[#434655]">Status:</span>
+            <span className="text-sm font-semibold text-[#434655]">Trạng thái:</span>
             <select 
               className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm min-w-[140px]"
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
             >
-              <option>All Statuses</option>
-              <option>Active</option>
-              <option>Scheduled</option>
-              <option>Expired</option>
-              <option>Inactive</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
           <button 
             className="text-sm font-bold text-primary hover:underline"
             onClick={() => {
-              const resetFilters = { keyword: '', status: 'All Statuses' }
+              const resetFilters = DEFAULT_FILTERS
               setFilters(resetFilters)
               fetchData(resetFilters)
             }}
           >
-            Clear All
+            Xóa bộ lọc
           </button>
         </div>
       </OrganizerPanel>
@@ -316,29 +361,29 @@ export function OrganizerPromosPage() {
       {loading ? (
         <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-md border border-[#c3c6d7] bg-white">
           <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-sm text-[#737686]">Loading promotion data...</p>
+          <p className="text-sm text-[#737686]">Đang tải dữ liệu khuyến mãi...</p>
         </div>
       ) : (
         <OrganizerTable
-          headers={['Promo Code', 'Sự kiện áp dụng', 'Discount Type', 'Usage Tracking', 'Valid Period', 'Status', 'Actions']}
+          headers={['Mã khuyến mãi', 'Sự kiện áp dụng', 'Loại giảm giá', 'Theo dõi sử dụng', 'Thời gian áp dụng', 'Trạng thái', 'Thao tác']}
           rows={promos.map((promo) => [
             <span key="promo" className="font-extrabold text-lg text-primary">{promo.code}</span>,
             <span key="event" className="text-sm font-semibold text-[#434655]">{promo.event_name || 'Tất cả sự kiện'}</span>,
             <span key="type" className="font-medium text-[#434655]">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
-            <span key="period" className="text-sm text-[#434655]">{formatDateRange(promo.start_time, promo.end_time)}</span>,
-            <Badge key="status" tone={getStatusTone(promo.status)}>{promo.status}</Badge>,
+            <span key="period" className="whitespace-nowrap text-sm text-[#434655]">{formatDateRange(promo.start_time, promo.end_time)}</span>,
+            <StatusBadge key="status" status={promo.status} />,
             <div key="actions" className="flex items-center gap-3 text-[#737686]">
-              <button onClick={() => openDetail(promo)} className="hover:text-primary transition-colors" title="View Detail"><Eye className="size-4" /></button>
+              <button onClick={() => openDetail(promo)} className="hover:text-primary transition-colors" title="Xem chi tiết"><Eye className="size-4" /></button>
               <button 
                 onClick={() => openEdit(promo)} 
                 className={`hover:text-primary transition-colors ${promo.status === 'Expired' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title="Edit"
+                title="Chỉnh sửa"
                 disabled={promo.status === 'Expired'}
               >
                 <Pencil className="size-4" />
               </button>
-              <button onClick={() => { setSelectedPromo(promo); setShowDeleteModal(true); }} className="hover:text-error transition-colors" title="Deactivate"><Trash2 className="size-4 text-error" /></button>
+              <button onClick={() => { setSelectedPromo(promo); setShowDeleteModal(true); }} className="hover:text-error transition-colors" title="Ngừng hoạt động"><Trash2 className="size-4 text-error" /></button>
             </div>,
           ])}
         />
@@ -348,7 +393,7 @@ export function OrganizerPromosPage() {
       <PromoFormModal 
         open={showCreateModal} 
         onClose={() => setShowCreateModal(false)}
-        title="Create New Promo Code"
+        title="Tạo mã khuyến mãi mới"
         onSubmit={handleCreate}
         formData={formData}
         setFormData={setFormData}
@@ -359,7 +404,7 @@ export function OrganizerPromosPage() {
       <PromoFormModal 
         open={showEditModal} 
         onClose={() => setShowEditModal(false)}
-        title="Edit Promo Code"
+        title="Chỉnh sửa mã khuyến mãi"
         onSubmit={handleEdit}
         formData={formData}
         setFormData={setFormData}
@@ -377,12 +422,12 @@ export function OrganizerPromosPage() {
 
       <Modal
         open={showDeleteModal}
-        title="Confirm Deactivation"
+        title="Xác nhận ngừng hoạt động"
         onClose={() => setShowDeleteModal(false)}
         footer={
           <>
-            <button className="admin-secondary" onClick={() => setShowDeleteModal(false)}>Cancel</button>
-            <button className="bg-error text-white px-4 py-2 rounded-md font-bold text-sm" onClick={handleDelete}>Deactivate</button>
+            <button className="admin-secondary" onClick={() => setShowDeleteModal(false)}>Hủy</button>
+            <button className="bg-error text-white px-4 py-2 rounded-md font-bold text-sm" onClick={handleDelete}>Ngừng hoạt động</button>
           </>
         }
       >
@@ -391,10 +436,10 @@ export function OrganizerPromosPage() {
             <AlertCircle className="size-8 text-error" />
           </div>
           <div>
-            <h4 className="font-bold text-lg">Are you sure?</h4>
+            <h4 className="font-bold text-lg">Bạn có chắc chắn?</h4>
             <p className="text-sm text-[#737686] mt-2">
-              This will deactivate the promo code <strong>{selectedPromo?.code}</strong>. 
-              Users will no longer be able to use it, but existing records will be kept.
+              Thao tác này sẽ ngừng hoạt động mã khuyến mãi <strong>{selectedPromo?.code}</strong>. 
+              Người dùng sẽ không thể sử dụng mã này nữa, nhưng các bản ghi hiện có vẫn được giữ lại.
             </p>
           </div>
         </div>
@@ -405,7 +450,7 @@ export function OrganizerPromosPage() {
 
 function Usage({ used, limit, percent }) {
   if (limit === null || limit === undefined || limit === 0) {
-    return <span className="font-bold text-[#434655]">Unlimited</span>
+    return <span className="font-bold text-[#434655]">Không giới hạn</span>
   }
 
   return (
@@ -424,39 +469,47 @@ function Usage({ used, limit, percent }) {
   )
 }
 
+function StatusBadge({ status }) {
+  return (
+    <span className="flex min-w-[140px] justify-center whitespace-nowrap">
+      <Badge tone={getStatusTone(status)}>{getStatusLabel(status)}</Badge>
+    </span>
+  )
+}
+
 function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData, errors = {}, events, isEdit, currentUsage }) {
   return (
     <Modal open={open} title={title} onClose={onClose} maxWidth="max-w-2xl"
       footer={
         <>
-          <button className="admin-secondary" onClick={onClose}>Cancel</button>
-          <button className="admin-primary" onClick={onSubmit}>{isEdit ? 'Save Changes' : 'Create Promo Code'}</button>
+          <button className="admin-secondary" onClick={onClose}>Hủy</button>
+          <button className="admin-primary" onClick={onSubmit}>{isEdit ? 'Lưu thay đổi' : 'Tạo mã khuyến mãi'}</button>
         </>
       }
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         {isEdit && currentUsage !== null && (
           <div className="mb-6 rounded-md bg-primary/5 p-4 border border-primary/20">
-            <p className="text-xs font-extrabold uppercase text-primary">Current Usage Performance</p>
+            <p className="text-xs font-extrabold uppercase text-primary">Hiệu quả sử dụng hiện tại</p>
             <div className="mt-2 flex items-center gap-4">
               <div className="flex-1 h-3 rounded-full bg-white border border-[#c3c6d7] overflow-hidden">
                  <div className="h-full bg-primary" style={{ width: `${currentUsage}%` }} />
               </div>
               <span className="font-extrabold text-primary">{currentUsage}%</span>
             </div>
-            <p className="text-xs text-[#737686] mt-2 italic">Be careful when reducing usage limits below current usage count.</p>
+            <p className="text-xs text-[#737686] mt-2 italic">Hãy cẩn thận khi giảm giới hạn sử dụng xuống thấp hơn số lượt đã dùng hiện tại.</p>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-[#434655]'}`}>Promo Code</span>
+            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-[#434655]'}`}>Mã khuyến mãi</span>
             <input 
               type="text"
               className={`mt-1.5 h-11 w-full rounded border px-3 text-sm font-bold uppercase tracking-widest outline-none transition-all ${
                 errors.code ? 'border-error bg-error/5 ring-1 ring-error/20' : 'border-[#c3c6d7] bg-white focus:border-primary focus:ring-2 focus:ring-primary/20'
               }`}
-              placeholder="e.g. SUMMER50"
+              placeholder="VD: SUMMER50"
               value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
               required
@@ -474,7 +527,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             >
               <option value="" disabled>-- Chọn sự kiện --</option>
               <option value="ALL">Tất cả sự kiện</option>
-              {(events || []).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id}>{ev.title || ev.name || ev.eventName || 'Unnamed Event'}</option>)}
+              {(events || []).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id}>{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
             </select>
             {errors.event_id && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.event_id}</p>}
           </label>
@@ -482,18 +535,18 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
-            <span className="text-xs font-bold text-[#434655] uppercase font-display tracking-tight">Discount Type</span>
+            <span className="text-xs font-bold text-[#434655] uppercase font-display tracking-tight">Loại giảm giá</span>
             <select 
               className="mt-1.5 h-11 w-full rounded border border-[#c3c6d7] bg-white px-3 text-sm outline-none focus:border-primary"
               value={formData.discount_type}
               onChange={(e) => setFormData({ ...formData, discount_type: e.target.value })}
             >
-              <option value="PERCENTAGE">Percentage (%)</option>
-              <option value="FIXED">Fixed Amount ($)</option>
+              <option value="PERCENTAGE">Phần trăm (%)</option>
+              <option value="FIXED">Số tiền cố định ($)</option>
             </select>
           </label>
           <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-[#434655]'}`}>Discount Value</span>
+            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-[#434655]'}`}>Giá trị giảm</span>
             <div className="relative mt-1.5">
               <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-[#737686]'}`}>
                 {formData.discount_type === 'PERCENTAGE' ? <Percent className="size-4" /> : <DollarSign className="size-4" />}
@@ -515,20 +568,20 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-[#434655]'}`}>Usage Limit</span>
+            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-[#434655]'}`}>Giới hạn lượt dùng</span>
             <input 
               type="number"
               className={`mt-1.5 h-11 w-full rounded border px-3 text-sm outline-none transition-all ${
                  errors.usage_limit ? 'border-error bg-error/5 ring-1 ring-error/20' : 'border-[#c3c6d7] bg-white focus:border-primary'
               }`}
-              placeholder="Leave empty for unlimited"
+              placeholder="Để trống nếu không giới hạn"
               value={formData.usage_limit}
               onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value })}
             />
             {errors.usage_limit && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.usage_limit}</p>}
           </label>
           <label className="block">
-            <span className="text-xs font-bold text-[#434655] uppercase font-display tracking-tight">Min Order Value</span>
+            <span className="text-xs font-bold text-[#434655] uppercase font-display tracking-tight">Giá trị đơn hàng tối thiểu</span>
             <input 
               type="number"
               className="mt-1.5 h-11 w-full rounded border border-[#c3c6d7] bg-white px-3 text-sm outline-none focus:border-primary"
@@ -541,7 +594,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-[#434655]'}`}>Start Date & Time</span>
+            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-[#434655]'}`}>Thời gian bắt đầu</span>
             <input 
               type="datetime-local"
               className={`mt-1.5 h-11 w-full rounded border px-3 text-sm outline-none transition-all ${
@@ -554,7 +607,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             {errors.start_time && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.start_time}</p>}
           </label>
           <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-[#434655]'}`}>End Date & Time</span>
+            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-[#434655]'}`}>Thời gian kết thúc</span>
             <input 
               type="datetime-local"
               className={`mt-1.5 h-11 w-full rounded border px-3 text-sm outline-none transition-all ${
@@ -575,98 +628,149 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 function PromoDetailModal({ open, onClose, promo }) {
   if (!promo) return null
 
-  const getStatusTone = (status) => {
-    switch (status) {
-      case 'Active': return 'green'
-      case 'Scheduled': return 'blue'
-      case 'Expired': return 'gray'
-      case 'Inactive': return 'red'
-      default: return 'blue'
-    }
-  }
-
-  const formatFullDate = (date) => new Date(date).toLocaleString('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  })
+  const discountValue = parseFloat(promo.discount_value).toLocaleString('vi-VN')
+  const discountIcon = promo.discount_type === 'PERCENTAGE' ? Percent : DollarSign
+  const discountTypeLabel = promo.discount_type === 'PERCENTAGE' ? 'Giảm theo phần trăm' : 'Giảm số tiền cố định'
+  const discountDisplay = promo.discount_type === 'PERCENTAGE' ? `Giảm ${discountValue}%` : `Giảm ${discountValue}đ`
+  const usageLimit = promo.usage_limit || 'Không giới hạn'
+  const remainingUsage = promo.usage_limit ? promo.remaining_usage : 'Không giới hạn'
+  const usagePercentage = Number(promo.usage_percentage || 0)
 
   return (
-    <Modal open={open} title={`Promo Detail: ${promo.code}`} onClose={onClose} maxWidth="max-w-3xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <DetailItem label="PROMO CODE" value={promo.code} highlight />
-          <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
-            <DetailItem label="SỰ KIỆN ÁP DỤNG" value={promo.event_name ? 'Sự kiện cụ thể' : 'Tất cả sự kiện'} />
-            <div className="mt-2 text-sm">
-              <span className="font-bold text-gray-500">Tên sự kiện: </span>
-              <span className="font-medium">{promo.event_name || 'N/A'}</span>
-            </div>
-            {promo.event_id && (
-              <div className="mt-1 text-xs">
-                <span className="font-bold text-gray-500">Event ID: </span>
-                <span className="font-mono text-gray-600">{promo.event_id}</span>
+    <Modal open={open} title={`Chi tiết mã khuyến mãi: ${promo.code}`} onClose={onClose} maxWidth="max-w-5xl">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="space-y-5">
+          <DetailCard className="bg-[#f8fbff]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#737686]">Mã khuyến mãi</p>
+                <p className="mt-1 font-display text-3xl font-extrabold text-primary">{promo.code}</p>
               </div>
-            )}
-          </div>
-          <DetailItem label="DISCOUNT" value={
-            promo.discount_type === 'PERCENTAGE' 
-              ? `${parseFloat(promo.discount_value)}% Off` 
-              : `$${parseFloat(promo.discount_value).toLocaleString()} Flat`
-          } />
-          <DetailItem label="STATUS" value={<Badge tone={getStatusTone(promo.status)}>{promo.status}</Badge>} />
+              <StatusDetailRow status={promo.status} />
+            </div>
+          </DetailCard>
+
+          <DetailCard>
+            <DetailItem label="Sự kiện áp dụng" value={promo.event_name ? 'Sự kiện cụ thể' : 'Tất cả sự kiện'} />
+            <div className="mt-3 space-y-1 text-sm">
+              <p>
+                <span className="font-bold text-gray-500">Tên sự kiện: </span>
+                <span className="font-medium text-[#191c1e]">{promo.event_name || 'Không có'}</span>
+              </p>
+              {promo.event_id && (
+                <p className="text-xs">
+                  <span className="font-bold text-gray-500">Mã sự kiện: </span>
+                  <span className="font-mono text-gray-600">{promo.event_id}</span>
+                </p>
+              )}
+            </div>
+          </DetailCard>
+
+          <OfferCard
+            icon={discountIcon}
+            typeLabel={discountTypeLabel}
+            value={discountDisplay}
+          />
         </div>
-        
-        <div className="bg-[#f7f9fb] rounded-md p-5 border border-[#c3c6d7]">
-          <p className="text-xs font-extrabold uppercase text-[#737686] mb-4">Usage Performance</p>
-          
-          <div className="space-y-4">
-             <div className="flex justify-between items-end">
-                <div className="text-3xl font-extrabold text-primary">{promo.used_count}</div>
-                <div className="text-sm text-[#434655] font-bold">/ {promo.usage_limit || '∞'} Used</div>
-             </div>
 
-             {promo.usage_limit && (
-               <>
-                 <div className="h-4 rounded-full bg-[#e0e3e5] overflow-hidden relative">
-                    <div className="h-full bg-primary" style={{ width: `${promo.usage_percentage}%` }} />
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-sm">
-                      {promo.usage_percentage}% REACHED
-                    </span>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="bg-white p-3 rounded border border-[#c3c6d7]">
-                       <p className="text-[10px] font-bold text-[#737686] uppercase">Remaining</p>
-                       <p className="text-lg font-extrabold text-primary-dark">{promo.remaining_usage}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded border border-[#c3c6d7]">
-                       <p className="text-[10px] font-bold text-[#737686] uppercase">Capacity</p>
-                       <p className="text-lg font-extrabold">{promo.usage_limit}</p>
-                    </div>
-                 </div>
-               </>
-             )}
+        <div className="rounded-md border border-[#c3c6d7] bg-[#f7f9fb] p-5">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <p className="text-xs font-extrabold uppercase text-[#737686]">Hiệu quả sử dụng</p>
+            <span className="whitespace-nowrap rounded bg-white px-2 py-1 text-xs font-bold text-primary">
+              {usagePercentage}% đã dùng
+            </span>
+          </div>
 
-             {!promo.usage_limit && (
-               <div className="bg-white p-4 rounded border border-primary/20 text-center">
-                  <p className="text-sm font-bold text-primary italic">No usage limit set for this promo code.</p>
-               </div>
-             )}
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-[#737686]">Số đã dùng</p>
+              <p className="text-4xl font-extrabold text-primary">{promo.used_count}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase text-[#737686]">Tổng giới hạn</p>
+              <p className="whitespace-nowrap text-xl font-extrabold text-[#191c1e]">{usageLimit}</p>
+            </div>
+          </div>
+
+          <div className="mb-5">
+            <div className="relative h-5 overflow-hidden rounded-full bg-[#e0e3e5]">
+              <div className="h-full bg-primary transition-all duration-500" style={{ width: `${usagePercentage}%` }} />
+              <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap text-[10px] font-extrabold text-[#111827]">
+                {usagePercentage}% đã dùng
+              </span>
+            </div>
+          </div>
+
+          {!promo.usage_limit && (
+            <div className="mb-5 rounded-md border border-primary/20 bg-white p-3 text-sm font-bold text-primary">
+              Mã khuyến mãi này không giới hạn lượt sử dụng.
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <UsageStat label="Số còn lại" value={remainingUsage} />
+            <UsageStat label="Giới hạn" value={usageLimit} />
           </div>
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-[#e0e3e5]">
-         <div className="grid grid-cols-2 gap-4">
-            <DetailItem label="START DATE" value={formatFullDate(promo.start_time)} />
-            <DetailItem label="END DATE" value={formatFullDate(promo.end_time)} />
-         </div>
-         <div className="grid grid-cols-2 gap-4">
-            <DetailItem label="CREATED AT" value={formatFullDate(promo.created_at || new Date())} />
-            <DetailItem label="UPDATED AT" value={formatFullDate(promo.updated_at || new Date())} />
-         </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 border-t border-[#e0e3e5] pt-5 md:grid-cols-3">
+        <DetailCard>
+          <DetailItem label="Thời gian áp dụng" value={formatDateRange(promo.start_time, promo.end_time)} />
+        </DetailCard>
+        <DetailCard>
+          <DetailItem label="Ngày tạo" value={formatPromoDateTime(promo.created_at || new Date())} />
+        </DetailCard>
+        <DetailCard>
+          <DetailItem label="Cập nhật" value={formatPromoDateTime(promo.updated_at || new Date())} />
+        </DetailCard>
       </div>
     </Modal>
+  )
+}
+
+function DetailCard({ children, className = '' }) {
+  return (
+    <div className={`rounded-md border border-[#c3c6d7] bg-white p-4 ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function StatusDetailRow({ status }) {
+  return (
+    <div className="flex shrink-0 items-center gap-3 whitespace-nowrap rounded-md border border-[#d7dbe8] bg-white px-3 py-2">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-[#737686]">Trạng thái</p>
+      <StatusBadge status={status} />
+    </div>
+  )
+}
+
+function OfferCard({ icon: Icon, typeLabel, value }) {
+  return (
+    <div className="rounded-md border border-primary/30 bg-primary/10 p-5">
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary text-slate-950">
+          <Icon className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#737686]">Ưu đãi</p>
+          <p className="mt-1 text-sm font-bold text-[#434655]">{typeLabel}</p>
+          <div className="mt-3 inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-md bg-white px-3 py-2 text-lg font-extrabold text-primary shadow-sm">
+            {value}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function UsageStat({ label, value }) {
+  return (
+    <div className="rounded border border-[#c3c6d7] bg-white p-3">
+      <p className="text-[10px] font-bold uppercase text-[#737686]">{label}</p>
+      <p className="mt-1 break-words text-lg font-extrabold text-[#191c1e]">{value}</p>
+    </div>
   )
 }
 
