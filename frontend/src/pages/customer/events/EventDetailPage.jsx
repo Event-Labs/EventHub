@@ -69,6 +69,10 @@ function isSaleOpen(ticketType) {
   return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now)
 }
 
+function isPastTime(value) {
+  return value ? new Date(value).getTime() < Date.now() : false
+}
+
 export function EventDetailPage() {
   const { eventId } = useParams()
   const location = useLocation()
@@ -127,11 +131,21 @@ export function EventDetailPage() {
 
   const selectSession = (sessionId) => {
     if (requireLogin()) return
+    const session = event?.sessions?.find((item) => String(item.id) === String(sessionId))
+    if (isPastTime(event?.end_time) || isPastTime(session?.end_time)) {
+      setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
+      return
+    }
     setExpandedSessionId((current) => (current === sessionId ? null : sessionId))
   }
 
   const selectTicket = (ticketType) => {
     if (requireLogin()) return
+    const session = event?.sessions?.find((item) => String(item.id) === String(ticketType.event_session_id))
+    if (isPastTime(event?.end_time) || isPastTime(session?.end_time)) {
+      setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
+      return
+    }
     if (!isSaleOpen(ticketType)) return
     setBookingError('')
     setSelectedTickets((current) => {
@@ -157,6 +171,15 @@ export function EventDetailPage() {
   const handleBook = async () => {
     if (requireLogin()) return
     if (selectedTicketItems.length === 0) return
+    const sessionMap = new Map((event.sessions || []).map((session) => [String(session.id), session]))
+    const hasExpiredItem = selectedTicketItems.some((item) => {
+      const session = sessionMap.get(String(item.ticketType.event_session_id))
+      return isPastTime(event.end_time) || isPastTime(session?.end_time)
+    })
+    if (hasExpiredItem) {
+      setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
+      return
+    }
     setBookingError('')
     const unseatedItems = selectedTicketItems.filter((item) => !item.ticketType.is_seated)
     if (unseatedItems.length) {
@@ -182,7 +205,6 @@ export function EventDetailPage() {
         setCheckingAvailability(false)
       }
     }
-    const sessionMap = new Map((event.sessions || []).map((session) => [String(session.id), session]))
     navigate('/booking/seats', {
       state: {
         cart: {
@@ -218,6 +240,7 @@ export function EventDetailPage() {
     (sum, item) => sum + Number(item.ticketType.price || 0) * item.quantity,
     0,
   )
+  const eventExpired = isPastTime(event.end_time)
 
   return (
     <>
@@ -292,6 +315,7 @@ export function EventDetailPage() {
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
                   const expanded = expandedSessionId === session.id
+                  const sessionExpired = eventExpired || isPastTime(session.end_time)
 
                   return (
                     <div key={session.id} className="rounded-lg bg-[#333945]">
@@ -320,7 +344,7 @@ export function EventDetailPage() {
                           </div>
                         </div>
                         <span className="rounded-md bg-white px-5 py-2 text-sm font-bold text-muted">
-                          {tickets.some(isSaleOpen) ? 'Chọn vé' : 'Vé chưa mở bán'}
+                          {sessionExpired ? 'Đã hết hạn' : tickets.some(isSaleOpen) ? 'Chọn vé' : 'Vé chưa mở bán'}
                         </span>
                       </button>
 
@@ -330,7 +354,7 @@ export function EventDetailPage() {
                           <div className="space-y-3">
                             {tickets.length ? (
                               tickets.map((ticketType) => {
-                                const saleOpen = isSaleOpen(ticketType)
+                                const saleOpen = !sessionExpired && isSaleOpen(ticketType)
                                 return (
                                   <button
                                     key={ticketType.id}
@@ -356,7 +380,7 @@ export function EventDetailPage() {
                                       </p>
                                       {!saleOpen && (
                                         <span className="mt-2 inline-flex rounded-full bg-orange-200 px-3 py-1 text-xs font-bold text-orange-700">
-                                          Vé chưa mở bán
+                                          {sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
                                       )}
                                     </div>
@@ -495,10 +519,10 @@ export function EventDetailPage() {
             <button
               type="button"
               onClick={handleBook}
-              disabled={checkingAvailability || selectedTicketItems.length === 0}
+              disabled={eventExpired || checkingAvailability || selectedTicketItems.length === 0}
               className="mt-6 flex w-full items-center justify-center rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Đặt vé
+              {eventExpired ? 'Đã hết hạn' : 'Đặt vé'}
             </button>
           </div>
         </aside>

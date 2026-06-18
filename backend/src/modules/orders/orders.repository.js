@@ -88,6 +88,7 @@ class OrdersRepository {
           e.id AS event_id,
           e.title AS event_title,
           e.slug AS event_slug,
+          e.end_time AS event_end_time,
           e.organizer_id,
           e.status AS event_status,
           e.visibility,
@@ -118,6 +119,10 @@ class OrdersRepository {
         firstTicket.approval_status !== 'APPROVED'
       ) {
         throw new AppError('Event is not available for booking', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      if (firstTicket.event_end_time && new Date(firstTicket.event_end_time).getTime() < Date.now()) {
+        throw new AppError('Event has ended and tickets can no longer be sold', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
       }
 
       if (firstTicket.organizer_id !== paymentChannel.organizer_id) {
@@ -224,6 +229,11 @@ class OrdersRepository {
         }
 
         const now = Date.now();
+        const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
+        if (sessionEnd && sessionEnd < now) {
+          throw new AppError('Event session has ended and tickets can no longer be sold', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+        }
+
         const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null;
         const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null;
         if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {

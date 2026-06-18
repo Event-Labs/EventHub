@@ -2,12 +2,6 @@ import { Calendar, Heart, MapPin } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils.js'
 
-const badgeClasses = {
-  primary: 'border-tertiary/50 bg-tertiary/20 text-white',
-  secondary: 'border-tertiary/50 bg-tertiary/20 text-white',
-  tertiary: 'border-tertiary/50 bg-tertiary/20 text-white',
-}
-
 function formatDateTime(value) {
   if (!value) return 'Chưa cập nhật'
 
@@ -107,14 +101,6 @@ export function EventCard({
             />
           </button>
         )}
-        <span
-          className={cn(
-            'absolute left-4 top-4 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide',
-            badgeClasses[item.badgeColor],
-          )}
-        >
-          {item.category}
-        </span>
       </div>
       <div className={cn('flex flex-1 flex-col space-y-4 p-5', !compact && '-mt-28 relative z-10')}>
         <div className="min-h-[92px]">

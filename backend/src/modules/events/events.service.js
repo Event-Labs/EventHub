@@ -164,6 +164,8 @@ class EventsService {
       const now = Date.now();
       const saleStart = row.sale_start ? new Date(row.sale_start).getTime() : null;
       const saleEnd = row.sale_end ? new Date(row.sale_end).getTime() : null;
+      const eventEnd = row.event_end_time ? new Date(row.event_end_time).getTime() : null;
+      const sessionEnd = row.session_end_time ? new Date(row.session_end_time).getTime() : null;
       const selectedSeats = row.selected_seats || [];
 
       if (!row.ticket_type_id || row.event_id !== payload.event_id) {
@@ -178,6 +180,10 @@ class EventsService {
         row.session_status !== 'UPCOMING'
       ) {
         issues.push('Sự kiện hoặc suất diễn hiện không khả dụng.');
+      }
+
+      if ((eventEnd && eventEnd < now) || (sessionEnd && sessionEnd < now)) {
+        issues.push('Event or session has ended and tickets can no longer be sold.');
       }
 
       if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
