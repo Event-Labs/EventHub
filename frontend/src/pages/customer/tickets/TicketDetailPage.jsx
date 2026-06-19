@@ -1,16 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
-  CalendarDays,
   CheckCircle2,
+  Clock3,
   Download,
-  Mail,
-  MapPin,
   ReceiptText,
-  Ticket,
-  User,
 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { downloadTicket, fetchTicketDetail } from '@/services/tickets.js'
 
@@ -41,21 +37,38 @@ function venueLine(ticket) {
 }
 
 function statusText(ticket) {
-  if (ticket?.status === 'USED') return 'Đã dùng'
-  if (ticket?.status === 'CANCELLED') return 'Đã hủy'
-  if (ticket?.checked_in_at) return 'Đã check-in'
-  return 'Hợp lệ'
+  if (ticket?.status === 'USED') return '\u0110\u00e3 d\u00f9ng'
+  if (ticket?.status === 'CANCELLED') return '\u0110\u00e3 h\u1ee7y'
+  if (ticket?.checked_in_at) return '\u0110\u00e3 check-in'
+  return 'H\u1ee3p l\u1ec7'
 }
 
-function buildQrCells(code) {
-  const safeCode = code || 'EVENTHUB'
-  return Array.from({ length: 21 * 21 }, (_, index) => {
-    const row = Math.floor(index / 21)
-    const col = index % 21
-    const marker = (row < 7 && col < 7) || (row < 7 && col > 13) || (row > 13 && col < 7)
-    const hash = safeCode.charCodeAt(index % safeCode.length) + row * 17 + col * 31
-    return marker || hash % 3 === 0
+
+function countdownParts(target, now) {
+  if (!target) return null
+  const diff = Math.max(0, new Date(target).getTime() - now)
+  const totalMinutes = Math.floor(diff / 60000)
+  return {
+    days: Math.floor(totalMinutes / 1440),
+    hours: Math.floor((totalMinutes % 1440) / 60),
+    minutes: totalMinutes % 60,
+    ended: diff === 0,
+  }
+}
+
+function qrPayload(ticket) {
+  return JSON.stringify({
+    type: 'EVENTHUB_TICKET',
+    ticket_id: ticket.id,
+    ticket_code: ticket.ticket_code,
+    qr_code: ticket.qr_code || ticket.ticket_code,
+    event_id: ticket.event?.id,
+    session_id: ticket.session?.id,
   })
+}
+
+function qrImageSrc(ticket) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=14&data=${encodeURIComponent(qrPayload(ticket))}`
 }
 
 export function TicketDetailPage() {
@@ -107,106 +120,107 @@ export function TicketDetailPage() {
   }
 
   const ticket = ticketQuery.data
-  const cells = buildQrCells(ticket.ticket_code)
   const venue = venueLine(ticket)
   const seat = ticket.seat?.label || 'Free seating'
+  const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
   const isEntryEligible = ticket.status === 'VALID'
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link to="/my-tickets" className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <Link to="/my-tickets" className="inline-flex items-center gap-2 text-sm font-bold text-primary">
         <ArrowLeft className="size-4" />
-        Vé của tôi
+        {'V\u00e9 c\u1ee7a t\u00f4i'}
       </Link>
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="overflow-hidden rounded-lg border border-border-soft bg-panel">
-          <div className="relative min-h-72 overflow-hidden">
-            {ticket.event.banner_url ? (
-              <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,620px)_320px] lg:items-start">
+        <aside className="order-2 space-y-5 lg:order-2 lg:sticky lg:top-24">
+          <Panel title={'Thanh to\u00e1n'} icon={ReceiptText}>
+            <Info label={'M\u00e3 giao d\u1ecbch'} value={ticket.payment?.transaction_code || 'N/A'} />
+            <Info label={'Ph\u01b0\u01a1ng th\u1ee9c'} value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
+            <Info label={'T\u1ed5ng thanh to\u00e1n'} value={formatCurrency(ticket.order.total_amount)} />
+            <Info label={'Thanh to\u00e1n l\u00fac'} value={formatDateTime(ticket.payment?.paid_at)} />
+          </Panel>
+          <Panel title={'Th\u00f4ng tin check-in'} icon={CheckCircle2}>
+            <Info label={'Tr\u1ea1ng th\u00e1i'} value={statusText(ticket)} />
+            {ticket.checked_in_at ? (
+              <Info label={'Check-in l\u00fac'} value={formatDateTime(ticket.checked_in_at)} />
             ) : (
-              <div className="absolute inset-0 bg-panel-soft" />
+              <CheckInCountdown target={ticket.session.checkin_start_time} />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-panel via-panel/50 to-transparent" />
-            <div className="relative flex min-h-72 flex-col justify-end p-6 md:p-8">
-              <span className={`w-fit rounded-full px-3 py-1 text-xs font-extrabold uppercase ${isEntryEligible ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
-                {statusText(ticket)}
-              </span>
-              <h1 className="mt-4 max-w-3xl font-display text-3xl font-black leading-tight text-white md:text-4xl">
-                {ticket.event.title}
-              </h1>
-              <p className="mt-2 text-muted">{ticket.ticket_type.name}</p>
-            </div>
-          </div>
+            <Info label={'M\u1edf check-in'} value={formatDateTime(ticket.session.checkin_start_time)} />
+          </Panel>
+        </aside>
 
-          <div className="grid gap-8 p-6 md:grid-cols-[260px_minmax(0,1fr)] md:p-8">
-            <div className="h-fit w-fit self-start rounded-lg bg-white p-5 shadow-2xl shadow-primary/10">
-              <div className="grid size-56 gap-0 overflow-hidden" style={{ gridTemplateColumns: 'repeat(21, minmax(0, 1fr))' }}>
-                {cells.map((filled, index) => (
-                  <span
-                    key={index}
-                    className={`aspect-square ${filled ? 'bg-slate-950' : 'bg-white'}`}
-                  />
-                ))}
+        <div className="order-1 lg:justify-self-start">
+          <section className="mx-auto max-w-[620px] overflow-hidden rounded-xl border border-white/10 bg-[#101a33] shadow-2xl shadow-slate-950/30 lg:mx-0">
+            <div className="relative min-h-56 overflow-hidden">
+              {ticket.event.banner_url ? (
+                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-65" />
+              ) : (
+                <div className="absolute inset-0 bg-panel-soft" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#101a33] via-[#101a33]/60 to-transparent" />
+              <div className="relative flex min-h-56 flex-col justify-end p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold uppercase ${isEntryEligible ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
+                    {statusText(ticket)}
+                  </span>
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase text-slate-200">
+                    {ticket.ticket_type.name}
+                  </span>
+                </div>
+                <h1 className="mt-3 font-display text-2xl font-black leading-tight text-white sm:text-3xl">
+                  {ticket.event.title}
+                </h1>
               </div>
-              <p className="mt-4 text-center font-mono text-sm font-black text-slate-950">{ticket.ticket_code}</p>
             </div>
 
-            <div className="grid content-start gap-5 sm:grid-cols-2">
-              <Detail icon={User} label="Người tham dự" value={ticket.attendee_name} />
-              <Detail icon={Mail} label="Email" value={ticket.attendee_email} />
-              <Detail icon={CalendarDays} label="Session" value={formatDateTime(ticket.session.start_time)} />
-              <Detail icon={Ticket} label="Loại vé / Ghế" value={`${ticket.ticket_type.name} - ${seat}`} />
-              <Detail icon={MapPin} label="Địa điểm" value={ticket.venue.name} wide />
-              {venue && <Detail icon={MapPin} label="Địa chỉ" value={venue} wide />}
-              <Detail icon={CheckCircle2} label="Check-in" value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at) : 'Chưa check-in'} />
-              <Detail icon={ReceiptText} label="Đơn hàng" value={ticket.order.order_code} />
-            </div>
-          </div>
+            <div className="space-y-6 p-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <CompactDetail label={'Ng\u01b0\u1eddi tham d\u1ef1'} value={ticket.attendee_name} />
+                <CompactDetail label="Email" value={ticket.attendee_email} />
+                <CompactDetail label={'Th\u1eddi gian'} value={formatDateTime(ticket.session.start_time)} />
+                <CompactDetail label={'\u0110\u01a1n h\u00e0ng'} value={ticket.order.order_code} />
+                <CompactDetail label={'Lo\u1ea1i v\u00e9 / Gh\u1ebf'} value={`${ticket.ticket_type.name} - ${seat}`} />
+                <CompactDetail label="Check-in" value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at) : 'Ch\u01b0a check-in'} />
+                <CompactDetail label={'\u0110\u1ecba \u0111i\u1ec3m'} value={venueText || 'N/A'} wide />
+              </div>
 
-          <div className="border-t border-dashed border-border-soft bg-surface/60 p-6">
+              <div className="relative border-t border-dashed border-white/10 pt-6 before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-[#071022] after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-[#071022]">
+                <div className="mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
+                  <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-48 rounded-md" />
+                </div>
+                <p className="mt-4 text-center font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
+              </div>
+            </div>
+          </section>
+
+          <div className="mx-auto mt-5 max-w-[620px] lg:mx-0">
             <button
               type="button"
               onClick={handleDownload}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-5 py-4 font-extrabold text-slate-950 transition hover:bg-sky-300 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-[#111a31] px-5 py-4 text-sm font-extrabold text-white transition hover:bg-[#17213b]"
             >
-              <Download className="size-5" />
-              Tải vé
+              <Download className="size-4" />
+              {'T\u1ea3i v\u00e9'}
             </button>
             {!isEntryEligible && (
               <p className="mt-3 text-sm text-warning">
-                Vé không còn hợp lệ để vào cổng. File tải xuống sẽ có watermark trạng thái.
+                {'V\u00e9 kh\u00f4ng c\u00f2n h\u1ee3p l\u1ec7 \u0111\u1ec3 v\u00e0o c\u1ed5ng. File t\u1ea3i xu\u1ed1ng s\u1ebd c\u00f3 watermark tr\u1ea1ng th\u00e1i.'}
               </p>
             )}
           </div>
-        </section>
-
-        <aside className="space-y-5">
-          <Panel title="Thanh toán" icon={ReceiptText}>
-            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || 'N/A'} />
-            <Info label="Phương thức" value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
-            <Info label="Tổng thanh toán" value={formatCurrency(ticket.order.total_amount)} />
-            <Info label="Thanh toán lúc" value={formatDateTime(ticket.payment?.paid_at)} />
-          </Panel>
-          <Panel title="Thông tin check-in" icon={CheckCircle2}>
-            <Info label="Trạng thái" value={statusText(ticket)} />
-            <Info label="Check-in lúc" value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at) : 'Chưa check-in'} />
-            <Info label="Mở check-in" value={formatDateTime(ticket.session.checkin_start_time)} />
-          </Panel>
-        </aside>
+        </div>
       </div>
     </div>
   )
 }
 
-function Detail({ icon: Icon, label, value, wide }) {
+function CompactDetail({ label, value, wide }) {
   return (
     <div className={wide ? 'sm:col-span-2' : ''}>
-      <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted">
-        <Icon className="size-4 text-primary" />
-        {label}
-      </p>
-      <p className="mt-1 break-words font-display text-xl font-bold text-white">{value || 'N/A'}</p>
+      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-bold leading-relaxed text-white">{value || 'N/A'}</p>
     </div>
   )
 }
@@ -220,6 +234,44 @@ function Panel({ title, icon: Icon, children }) {
       </div>
       <div className="space-y-4">{children}</div>
     </section>
+  )
+}
+
+
+function CheckInCountdown({ target }) {
+  const [now, setNow] = useState(() => Date.now())
+  const parts = countdownParts(target, now)
+
+  useEffect(() => {
+    if (!target || parts?.ended) return undefined
+    const timer = window.setInterval(() => setNow(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [parts?.ended, target])
+
+  if (!target) return <Info label={'Check-in l\u00fac'} value="N/A" />
+  if (parts?.ended) return <Info label={'Check-in l\u00fac'} value={'\u0110\u00e3 m\u1edf'} />
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#121b3a] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-300">Check-in starts in</p>
+        <Clock3 className="size-6 text-slate-500" />
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-3 text-white">
+        <CountdownUnit label="Days" value={parts.days} />
+        <CountdownUnit label="Hours" value={parts.hours} />
+        <CountdownUnit label="Min" value={parts.minutes} />
+      </div>
+    </div>
+  )
+}
+
+function CountdownUnit({ label, value }) {
+  return (
+    <div>
+      <p className="font-mono text-2xl font-black leading-none">{String(value).padStart(2, '0')}</p>
+      <p className="mt-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+    </div>
   )
 }
 

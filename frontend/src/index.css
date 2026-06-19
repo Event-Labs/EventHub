@@ -236,25 +236,25 @@ textarea {
   position: relative;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .ticket-card::before,
   .ticket-card::after {
     content: '';
     position: absolute;
-    right: calc(38% - 20px);
+    right: calc(36% - 14px);
     z-index: 3;
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: 999px;
     background: #0b1120;
   }
 
   .ticket-card::before {
-    top: -20px;
+    top: -14px;
   }
 
   .ticket-card::after {
-    bottom: -20px;
+    bottom: -14px;
   }
 
   .ticket-card-main::after {
@@ -265,7 +265,6 @@ textarea {
     top: 0;
     border-right: 2px dashed rgba(15, 23, 42, 0.95);
   }
-
 }
 
 .success-glow {
