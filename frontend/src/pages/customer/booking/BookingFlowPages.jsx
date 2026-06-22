@@ -14,6 +14,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
 import { checkTicketAvailability, fetchSessionSeats } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
+import promotionService from '@/services/promotions.js'
 
 function formatPrice(value) {
   const number = Number(value)
@@ -69,12 +70,20 @@ function cartTotal(cart) {
 }
 
 function promoDiscount(cart) {
-  const code = cart?.promoCode?.trim().toUpperCase()
+  const promo = cart?.promo
   const subtotal = cartTotal(cart)
-  if (!code || subtotal <= 0) return 0
-  if (code === 'BLUE50' && subtotal >= 300000) return Math.min(50000, subtotal)
-  if (code === 'EVENTHUB100' && subtotal >= 300000) return Math.min(100000, subtotal)
-  return 0
+  if (!promo || subtotal <= 0 || subtotal < Number(promo.min_order_value || 0)) return 0
+
+  const rawDiscount =
+    promo.discount_type === 'PERCENTAGE'
+      ? Math.round((subtotal * Number(promo.discount_value || 0)) / 100)
+      : Number(promo.discount_value || 0)
+  const cappedDiscount =
+    promo.max_discount !== null && promo.max_discount !== undefined
+      ? Math.min(rawDiscount, Number(promo.max_discount))
+      : rawDiscount
+
+  return Math.min(Math.max(0, cappedDiscount), subtotal)
 }
 
 function payableTotal(cart) {
@@ -315,6 +324,7 @@ export function BookingReviewPage() {
   const navigate = useNavigate()
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
   const [promoCode, setPromoCode] = useState(cart?.promoCode || '')
+  const [selectedPromo, setSelectedPromo] = useState(cart?.promo || null)
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [availabilityError, setAvailabilityError] = useState('')
   const [checkingAvailability, setCheckingAvailability] = useState(false)
@@ -322,7 +332,7 @@ export function BookingReviewPage() {
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
   const continueFlow = async () => {
-    const nextCart = { ...cart, promoCode }
+    const nextCart = { ...cart, promoCode, promo: selectedPromo }
     setAvailabilityError('')
     setCheckingAvailability(true)
     try {
@@ -384,7 +394,6 @@ export function BookingReviewPage() {
           </Panel>
           <PromoPanel
             promoCode={promoCode}
-            setPromoCode={setPromoCode}
             onOpenVoucher={() => setVoucherOpen(true)}
           />
           {availabilityError && (
@@ -394,7 +403,7 @@ export function BookingReviewPage() {
           )}
         </section>
         <OrderCard
-          cart={{ ...cart, promoCode }}
+          cart={{ ...cart, promoCode, promo: selectedPromo }}
           setCart={setCart}
           cta="Xác nhận và thanh toán"
           onClick={continueFlow}
@@ -402,9 +411,12 @@ export function BookingReviewPage() {
         />
       </div>
       {voucherOpen && (
-        <VoucherModal
+        <OrganizerVoucherModal
           promoCode={promoCode}
           setPromoCode={setPromoCode}
+          selectedPromo={selectedPromo}
+          setSelectedPromo={setSelectedPromo}
+          cart={cart}
           onClose={() => setVoucherOpen(false)}
         />
       )}
@@ -681,9 +693,180 @@ function PromoPanel({ promoCode, onOpenVoucher }) {
   )
 }
 
-function VoucherModal({ promoCode, setPromoCode, onClose }) {
+function formatDateOnly(value) {
+  if (!value) return 'Chưa cập nhật'
+  return new Intl.DateTimeFormat('vi-VN').format(new Date(value))
+}
+
+function formatPromoTitle(promo) {
+  if (promo.discount_type === 'PERCENTAGE') {
+    return `Giảm ${Number(promo.discount_value || 0)}%`
+  }
+  return `Giảm ${formatPrice(promo.discount_value || 0)}`
+}
+
+function isPromoUsable(promo, subtotal) {
+  return subtotal >= Number(promo.min_order_value || 0)
+}
+
+function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, cart, onClose }) {
   const [draft, setDraft] = useState(promoCode || '')
-  const suggested = ['BLUE50', 'EVENTHUB100']
+  const subtotal = cartTotal(cart)
+  const promosQuery = useQuery({
+    queryKey: ['available-event-promos', cart?.eventId],
+    queryFn: async () => {
+      const response = await promotionService.getAvailableEventPromos(cart.eventId)
+      return response.data.data || []
+    },
+    enabled: Boolean(cart?.eventId),
+  })
+  const organizerPromos = promosQuery.data || []
+  const promoByCode = useMemo(
+    () => new Map(organizerPromos.map((promo) => [String(promo.code).toUpperCase(), promo])),
+    [organizerPromos],
+  )
+  const draftPromo = promoByCode.get(draft.trim().toUpperCase()) || null
+
+  const applyDraft = () => {
+    const nextCode = draft.trim()
+    setPromoCode(nextCode)
+    setSelectedPromo(draftPromo)
+  }
+
+  const choosePromo = (promo) => {
+    if (!isPromoUsable(promo, subtotal)) return
+    setDraft(promo.code)
+    setPromoCode(promo.code)
+    setSelectedPromo(promo)
+  }
+
+  return (
+    <ModalFrame onClose={onClose} light>
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <h2 className="text-xl font-bold text-slate-900">Chọn 1 voucher</h2>
+        <button type="button" onClick={onClose} className="text-slate-500">
+          <X className="size-5" />
+        </button>
+      </div>
+      <div className="mt-5 flex gap-3">
+        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-md border border-slate-300 px-3">
+          <Ticket className="size-5 text-slate-500" />
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Nhập mã voucher"
+            className="w-full outline-none"
+          />
+        </div>
+        <button type="button" onClick={applyDraft} className="rounded-md bg-slate-200 px-5 font-bold text-slate-600">
+          Áp dụng
+        </button>
+      </div>
+
+      <h3 className="mt-6 font-bold text-slate-900">Voucher từ Ban tổ chức</h3>
+      <div className="mt-4 space-y-3">
+        {promosQuery.isLoading && (
+          <p className="py-8 text-center text-lg font-semibold text-slate-400">Đang tải voucher...</p>
+        )}
+        {!promosQuery.isLoading && organizerPromos.length === 0 && (
+          <p className="py-8 text-center text-lg font-semibold text-slate-400">Chưa có voucher nào</p>
+        )}
+        {organizerPromos.map((promo) => {
+          const checked =
+            selectedPromo?.id === promo.id ||
+            draft.trim().toUpperCase() === String(promo.code).toUpperCase()
+          const usable = isPromoUsable(promo, subtotal)
+
+          return (
+            <button
+              key={promo.id}
+              type="button"
+              disabled={!usable}
+              onClick={() => choosePromo(promo)}
+              className={`flex w-full items-center justify-between rounded-lg border p-4 text-left transition ${
+                checked ? 'border-primary bg-primary/10' : 'border-slate-200'
+              } ${usable ? 'hover:border-primary' : 'cursor-not-allowed bg-slate-100 opacity-70'}`}
+            >
+              <div>
+                <p className="font-bold text-slate-900">{formatPromoTitle(promo)}</p>
+                <p className="mt-1 text-sm text-slate-600">Mã: {promo.code}</p>
+                <p className="mt-1 text-sm text-slate-600">Đơn tối thiểu {formatPrice(promo.min_order_value || 0)}</p>
+                {promo.max_discount !== null && promo.max_discount !== undefined && (
+                  <p className="mt-1 text-sm text-slate-600">Giảm tối đa {formatPrice(promo.max_discount)}</p>
+                )}
+                <p className="mt-2 text-sm text-primary">HSD: {formatDateOnly(promo.end_time)}</p>
+                {!usable && (
+                  <p className="mt-2 text-xs font-bold text-error">Đơn hàng chưa đủ điều kiện áp dụng</p>
+                )}
+              </div>
+              <span className="grid size-8 place-items-center rounded-full border border-primary">
+                {checked && <span className="size-4 rounded-full bg-primary" />}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <button type="button" onClick={onClose} className="rounded-md border border-primary py-3 font-bold text-primary">
+          Hủy bỏ
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            applyDraft()
+            onClose()
+          }}
+          className="rounded-md bg-primary py-3 font-bold text-slate-950"
+        >
+          Xong
+        </button>
+      </div>
+    </ModalFrame>
+  )
+}
+
+function VoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, cart, onClose }) {
+  return (
+    <OrganizerVoucherModal
+      promoCode={promoCode}
+      setPromoCode={setPromoCode}
+      selectedPromo={selectedPromo}
+      setSelectedPromo={setSelectedPromo}
+      cart={cart}
+      onClose={onClose}
+    />
+  )
+
+  const [draft, setDraft] = useState(promoCode || '')
+  const subtotal = cartTotal(cart)
+  const promosQuery = useQuery({
+    queryKey: ['available-event-promos', cart?.eventId],
+    queryFn: async () => {
+      const response = await promotionService.getAvailableEventPromos(cart.eventId)
+      return response.data.data || []
+    },
+    enabled: Boolean(cart?.eventId),
+  })
+  const organizerPromos = promosQuery.data || []
+  const promoByCode = useMemo(
+    () => new Map(organizerPromos.map((promo) => [String(promo.code).toUpperCase(), promo])),
+    [organizerPromos],
+  )
+  const draftPromo = promoByCode.get(draft.trim().toUpperCase()) || null
+
+  const applyDraft = () => {
+    const nextCode = draft.trim()
+    setPromoCode(nextCode)
+    setSelectedPromo(draftPromo)
+  }
+
+  const choosePromo = (promo) => {
+    if (!isPromoUsable(promo, subtotal)) return
+    setDraft(promo.code)
+    setPromoCode(promo.code)
+    setSelectedPromo(promo)
+  }
 
   return (
     <ModalFrame onClose={onClose} light>
