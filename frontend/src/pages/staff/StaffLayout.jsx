@@ -25,6 +25,8 @@ const navItems = [
   { label: 'Thống kê check-in', to: '/staff/check-in-count', icon: BarChart3 },
 ]
 
+const logoSrc = '/images/LogoEH.png'
+
 export function StaffLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -56,7 +58,7 @@ export function StaffLayout() {
     <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e]">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[240px] flex-col bg-background px-3 py-6 text-content lg:flex">
         <div className="px-3">
-          <h1 className="font-display text-xl font-extrabold text-primary">EventHub</h1>
+          <img src={logoSrc} alt="EventHub" className="h-10 w-[176px] object-cover object-center mix-blend-screen" />
         </div>
         <nav className="mt-9 flex-1 space-y-1">
           {navItems.map(({ label, to, icon: Icon, end }) => (

@@ -227,6 +227,9 @@ class EventsRepository {
           'description', tt.description,
           'price', tt.price,
           'quantity', tt.quantity,
+          'sold_quantity', COALESCE(ticket_usage.sold_quantity, 0),
+          'active_hold_quantity', COALESCE(ticket_usage.active_hold_quantity, 0),
+          'available_quantity', GREATEST(tt.quantity - COALESCE(ticket_usage.sold_quantity, 0) - COALESCE(ticket_usage.active_hold_quantity, 0), 0),
           'max_per_order', tt.max_per_order,
           'sale_start', tt.sale_start,
           'sale_end', tt.sale_end,
@@ -234,6 +237,20 @@ class EventsRepository {
         ) ORDER BY tt.price ASC) AS ticket_types
         FROM event_sessions es_tt
         JOIN ticket_types tt ON tt.event_session_id = es_tt.id
+        LEFT JOIN LATERAL (
+          SELECT
+            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+            COALESCE((
+              SELECT SUM(th.quantity)::int
+              FROM ticket_holds th
+              WHERE th.ticket_type_id = tt.id
+                AND th.status = 'ACTIVE'
+                AND th.expires_at > now()
+            ), 0)::int AS active_hold_quantity
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          WHERE oi.ticket_type_id = tt.id
+        ) ticket_usage ON true
         WHERE es_tt.event_id = e.id
       ) ticket_types ON true
       WHERE ${PUBLIC_EVENT_WHERE}

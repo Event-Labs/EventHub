@@ -64,6 +64,10 @@ function mapDetail(row) {
     ticket_types: (row.ticket_types || []).map((ticketType) => ({
       ...ticketType,
       price: toNumber(ticketType.price),
+      quantity: Number(ticketType.quantity || 0),
+      sold_quantity: Number(ticketType.sold_quantity || 0),
+      active_hold_quantity: Number(ticketType.active_hold_quantity || 0),
+      available_quantity: Math.max(0, Number(ticketType.available_quantity || 0)),
     })),
   };
 }
