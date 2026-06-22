@@ -54,6 +54,8 @@ const footerSections = [
   },
 ]
 
+const logoSrc = '/images/LogoEH.png'
+
 const navLinkClass = ({ isActive }) =>
   `relative z-10 px-3 py-2 text-sm font-bold transition ${
     isActive ? 'text-primary' : 'text-subtle hover:text-primary'
@@ -181,9 +183,7 @@ export function AppLayout() {
       <header className="sticky top-0 z-50 border-b border-primary/15 bg-[#081126]/95 shadow-xl backdrop-blur">
         <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
-            <span className="font-display text-xl font-extrabold text-primary">
-              EventHub
-            </span>
+            <img src={logoSrc} alt="EventHub" className="h-10 w-[176px] object-cover object-center mix-blend-screen" />
           </NavLink>
 
           <nav className="relative hidden items-center justify-center gap-1 md:flex">
@@ -370,9 +370,7 @@ export function AppLayout() {
       <footer className="border-t border-primary/15 bg-[#081126]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
-            <div className="font-display text-2xl font-extrabold text-primary">
-              EventHub
-            </div>
+            <img src={logoSrc} alt="EventHub" className="h-12 w-[212px] object-cover object-center mix-blend-screen" />
             <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
               Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành, check-in QR
               và hỗ trợ ban tổ chức bằng AI.
