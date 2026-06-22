@@ -7,6 +7,8 @@ import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
 import { LockedAccountModal } from '@/components/LockedAccountModal'
 
+const logoSrc = '/images/LogoEH.png'
+
 export function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -111,9 +113,7 @@ export function LoginPage() {
     <AuthShell>
       <div className="glass-panel mx-auto w-full max-w-md rounded-lg p-7 shadow-2xl">
         <div className="text-center">
-          <h1 className="font-display text-3xl font-extrabold text-primary">
-            EventHub
-          </h1>
+          <AuthLogo />
           <p className="mt-2 text-muted">
             Đăng nhập để tiếp tục đặt vé và quản lý sự kiện
           </p>
@@ -205,6 +205,16 @@ export function LoginPage() {
         }}
       />
     </AuthShell>
+  )
+}
+
+export function AuthLogo() {
+  return (
+    <img
+      src={logoSrc}
+      alt="EventHub"
+      className="mx-auto h-12 w-[212px] object-cover object-center mix-blend-screen"
+    />
   )
 }
 

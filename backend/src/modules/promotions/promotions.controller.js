@@ -3,6 +3,15 @@ const promotionsService = require('./promotions.service');
 const { promoCodeSchema, updatePromoCodeSchema, listPromosQuerySchema } = require('./promotions.validation');
 
 class PromotionsController {
+  getAvailableEventPromos = async (req, res, next) => {
+    try {
+      const data = await promotionsService.getAvailablePromosForPublicEvent(req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, 'Available event promotions fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   getPromos = async (req, res, next) => {
     try {
       const query = listPromosQuerySchema.parse(req.query);

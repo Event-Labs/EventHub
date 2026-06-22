@@ -73,6 +73,21 @@ function isPastTime(value) {
   return value ? new Date(value).getTime() < Date.now() : false
 }
 
+function ticketTotal(ticketType) {
+  return Math.max(0, Number(ticketType.quantity || 0))
+}
+
+function ticketAvailable(ticketType) {
+  if (ticketType.available_quantity === null || ticketType.available_quantity === undefined) {
+    return ticketTotal(ticketType)
+  }
+  return Math.max(0, Number(ticketType.available_quantity || 0))
+}
+
+function isSoldOut(ticketType) {
+  return ticketAvailable(ticketType) <= 0
+}
+
 export function EventDetailPage() {
   const { eventId } = useParams()
   const location = useLocation()
@@ -146,7 +161,7 @@ export function EventDetailPage() {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
-    if (!isSaleOpen(ticketType)) return
+    if (!isSaleOpen(ticketType) || isSoldOut(ticketType)) return
     setBookingError('')
     setSelectedTickets((current) => {
       const next = { ...current }
@@ -163,7 +178,7 @@ export function EventDetailPage() {
       const nextQuantity = Math.max(0, (current[ticketType.id] || 0) + delta)
       const next = { ...current }
       if (nextQuantity === 0) delete next[ticketType.id]
-      else next[ticketType.id] = Math.min(nextQuantity, ticketType.max_per_order || 10)
+      else next[ticketType.id] = Math.min(nextQuantity, ticketType.max_per_order || 10, ticketAvailable(ticketType))
       return next
     })
   }
@@ -316,6 +331,8 @@ export function EventDetailPage() {
                   const tickets = ticketsBySession.get(String(session.id)) || []
                   const expanded = expandedSessionId === session.id
                   const sessionExpired = eventExpired || isPastTime(session.end_time)
+                  const hasOpenTickets = tickets.some((ticketType) => isSaleOpen(ticketType) && !isSoldOut(ticketType))
+                  const hasSoldOutTickets = tickets.some(isSoldOut)
 
                   return (
                     <div key={session.id} className="rounded-lg bg-[#333945]">
@@ -343,8 +360,16 @@ export function EventDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <span className="rounded-md bg-white px-5 py-2 text-sm font-bold text-muted">
-                          {sessionExpired ? 'Đã hết hạn' : tickets.some(isSaleOpen) ? 'Chọn vé' : 'Vé chưa mở bán'}
+                        <span
+                          className={cn(
+                            'rounded-md px-5 py-2 text-sm font-bold',
+                            sessionExpired && 'bg-slate-300 text-slate-950',
+                            !sessionExpired && hasOpenTickets && 'bg-tertiary text-white',
+                            !sessionExpired && !hasOpenTickets && hasSoldOutTickets && 'bg-rose-200 text-rose-950',
+                            !sessionExpired && !hasOpenTickets && !hasSoldOutTickets && 'bg-slate-200 text-slate-950',
+                          )}
+                        >
+                          {sessionExpired ? 'Đã hết hạn' : hasOpenTickets ? 'Chọn vé' : hasSoldOutTickets ? 'Hết vé' : 'Vé chưa mở bán'}
                         </span>
                       </button>
 
@@ -354,7 +379,11 @@ export function EventDetailPage() {
                           <div className="space-y-3">
                             {tickets.length ? (
                               tickets.map((ticketType) => {
-                                const saleOpen = !sessionExpired && isSaleOpen(ticketType)
+                                const soldOut = isSoldOut(ticketType)
+                                const saleOpen = !sessionExpired && isSaleOpen(ticketType) && !soldOut
+                                const totalQuantity = ticketTotal(ticketType)
+                                const availableQuantity = ticketAvailable(ticketType)
+                                const selected = Boolean(selectedTickets[ticketType.id])
                                 return (
                                   <button
                                     key={ticketType.id}
@@ -362,25 +391,31 @@ export function EventDetailPage() {
                                     onClick={() => selectTicket(ticketType)}
                                     disabled={!saleOpen}
                                     className={cn(
-                                      'grid min-h-20 w-full gap-4 rounded-lg border border-slate-500 bg-[#414856] px-5 py-4 text-left transition md:grid-cols-[minmax(0,1fr)_140px]',
-                                      saleOpen ? 'hover:border-primary' : 'cursor-not-allowed opacity-85',
+                                      'grid min-h-20 w-full gap-4 rounded-lg border px-5 py-4 text-left transition md:grid-cols-[minmax(0,1fr)_170px]',
+                                      saleOpen && 'border-slate-500 bg-[#414856] text-white hover:border-tertiary hover:bg-[#47505f]',
+                                      selected && 'border-tertiary ring-2 ring-tertiary/60',
+                                      !saleOpen && !soldOut && 'cursor-not-allowed border-slate-400 bg-slate-300 text-slate-950',
+                                      soldOut && 'cursor-not-allowed border-rose-400 bg-rose-100 text-rose-950',
                                     )}
                                   >
                                     <div className="max-w-3xl min-w-0">
-                                      <p className="font-bold text-white">{ticketType.name}</p>
+                                      <p className={cn('font-bold', saleOpen ? 'text-white' : 'text-slate-950')}>{ticketType.name}</p>
                                       {ticketType.description && (
-                                        <p className="mt-1 max-w-2xl whitespace-pre-line text-sm leading-6 text-muted">
+                                        <p className={cn('mt-1 max-w-2xl whitespace-pre-line text-sm leading-6', saleOpen ? 'text-muted' : 'text-slate-800')}>
                                           {ticketType.description}
                                         </p>
                                       )}
                                     </div>
                                     <div className="self-start text-right">
-                                      <p className="font-display text-lg font-bold text-primary">
+                                      <p className={cn('font-display text-lg font-bold', saleOpen ? 'text-primary' : soldOut ? 'text-rose-950' : 'text-slate-950')}>
                                         {formatPrice(ticketType.price)}
                                       </p>
+                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-extrabold', saleOpen ? 'bg-tertiary/20 text-orange-100 ring-1 ring-tertiary/40' : soldOut ? 'bg-rose-300 text-rose-950' : 'bg-slate-100 text-slate-950')}>
+                                        Còn {availableQuantity}/{totalQuantity}
+                                      </span>
                                       {!saleOpen && (
-                                        <span className="mt-2 inline-flex rounded-full bg-orange-200 px-3 py-1 text-xs font-bold text-orange-700">
-                                          {sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
+                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', soldOut ? 'bg-rose-300 text-rose-950' : 'bg-slate-100 text-slate-950')}>
+                                          {soldOut ? 'Hết vé' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
                                       )}
                                     </div>

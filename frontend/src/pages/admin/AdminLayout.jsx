@@ -33,6 +33,8 @@ const navItems = [
   { label: 'Gói dịch vụ', to: '/admin/plans', icon: BriefcaseBusiness },
 ]
 
+const logoSrc = '/images/LogoEH.png'
+
 export function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -64,7 +66,7 @@ export function AdminLayout() {
     <div className="min-h-screen bg-[#f7f9fb] text-content">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] flex-col bg-background px-3 py-6 text-content lg:flex">
         <div className="px-3">
-          <h1 className="font-display text-xl font-extrabold text-primary">EventHub</h1>
+          <img src={logoSrc} alt="EventHub" className="h-10 w-[176px] object-cover object-center mix-blend-screen" />
         </div>
         <nav className="mt-10 flex-1 space-y-1">
           {navItems.map((item) => (
