@@ -103,13 +103,10 @@ export function EventCard({
         )}
       </div>
       <div className={cn('flex flex-1 flex-col space-y-4 p-5', !compact && '-mt-28 relative z-10')}>
-        <div className="min-h-[92px]">
+        <div>
           <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white">
             {item.title}
           </h3>
-          <p className="mt-1 line-clamp-2 text-sm text-muted">
-            {item.subtitle}
-          </p>
         </div>
         <div className="min-h-[84px] space-y-2 text-sm leading-6 text-muted">
           <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">

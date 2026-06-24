@@ -1,7 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
+  ArrowLeft,
   Check,
   ExternalLink,
+  Minus,
+  Plus,
   RefreshCw,
   ShieldCheck,
   Tag,
@@ -106,31 +109,52 @@ export function BookingSeatsPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
-  const seatedItem = (cart?.items || []).find((item) => item.ticketType.is_seated)
-  const [selectedSeatIds, setSelectedSeatIds] = useState(seatedItem?.sessionSeatIds || [])
+  const session = cart?.selectedSession || cart?.items?.[0]?.session
+  const ticketTypes = (cart?.availableTicketTypes || []).filter((ticketType) =>
+    session ? String(ticketType.event_session_id) === String(session.id) : true,
+  )
+  const [selectedSeatIds, setSelectedSeatIds] = useState(
+    cart?.items?.flatMap((item) => item.sessionSeatIds || []) || [],
+  )
   const [availabilityError, setAvailabilityError] = useState('')
   const [checkingAvailability, setCheckingAvailability] = useState(false)
 
   const seatsQuery = useQuery({
-    queryKey: ['session-seats', seatedItem?.ticketType.event_session_id, seatedItem?.ticketType.id],
-    queryFn: () =>
-      fetchSessionSeats(seatedItem.ticketType.event_session_id, {
-        ticket_type_id: seatedItem.ticketType.id,
-      }),
-    enabled: Boolean(seatedItem),
+    queryKey: ['session-seats', session?.id],
+    queryFn: () => fetchSessionSeats(session.id),
+    enabled: Boolean(session),
   })
 
-  if (!cart?.items?.length) return <NavigateBackToEvents />
+  const displayItems = useMemo(() => {
+    if (!seatsQuery.data?.seats) return []
+    const groups = {}
+    selectedSeatIds.forEach((seatId) => {
+      const seat = seatsQuery.data.seats.find((s) => s.session_seat_id === seatId)
+      if (seat && seat.ticket_type_id) {
+        if (!groups[seat.ticket_type_id]) groups[seat.ticket_type_id] = []
+        groups[seat.ticket_type_id].push(seatId)
+      }
+    })
+
+    return Object.keys(groups)
+      .map((ticketTypeId) => {
+        const ticketType = ticketTypes.find((t) => String(t.id) === String(ticketTypeId))
+        return {
+          ticketType,
+          quantity: groups[ticketTypeId].length,
+          sessionSeatIds: groups[ticketTypeId],
+          session,
+        }
+      })
+      .filter((item) => item.ticketType)
+  }, [selectedSeatIds, seatsQuery.data?.seats, ticketTypes, session])
+
+  const displayCart = cart ? { ...cart, selectedSession: session, items: displayItems } : cart
+
+  if (!cart || !session) return <NavigateBackToEvents />
 
   const continueFlow = async () => {
-    const nextCart = {
-      ...cart,
-      items: cart.items.map((item) =>
-        seatedItem && item.ticketType.id === seatedItem.ticketType.id
-          ? { ...item, sessionSeatIds: selectedSeatIds }
-          : item,
-      ),
-    }
+    const nextCart = { ...displayCart }
     setAvailabilityError('')
     setCheckingAvailability(true)
     try {
@@ -152,56 +176,50 @@ export function BookingSeatsPage() {
     setAvailabilityError('')
     setSelectedSeatIds((current) => {
       if (current.includes(seatId)) return current.filter((id) => id !== seatId)
-      if (current.length >= seatedItem.quantity) return current
       return [...current, seatId]
     })
   }
 
   return (
-    <BookingShell step={1} cart={cart}>
+    <BookingShell step={1} cart={displayCart}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
-          <PageTitle title="Chọn ghế" subtitle="Sơ đồ dưới đây là loại ghế cứng cố định" />
-          {!seatedItem ? (
-            <Panel>
-              <p className="text-muted">
-                Vé bạn chọn không yêu cầu ghế cố định. Bạn có thể tiếp tục nhập thông tin người tham gia.
-              </p>
-              {availabilityError && (
-                <p className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
-                  {availabilityError}
-                </p>
-              )}
-            </Panel>
-          ) : (
-            <Panel>
-              <div className="mx-auto mb-8 h-8 max-w-lg rounded-b-full bg-gradient-to-r from-primary via-sky-300 to-primary text-center text-xs font-extrabold leading-8 text-slate-950 shadow-lg shadow-primary/20">
-                SÂN KHẤU
-              </div>
-              <div className="mb-5 flex flex-wrap gap-4 text-xs text-muted">
-                <Legend color="bg-primary" label="Đang chọn" />
-                <Legend color="bg-panel-soft" label="Còn trống" />
-                <Legend color="bg-slate-700" label="Đã giữ/bán" />
-              </div>
-              {seatsQuery.isLoading ? (
-                <p className="text-muted">Đang tải sơ đồ ghế...</p>
-              ) : (
+          <PageTitle
+            title="Chọn ghế"
+            subtitle="Chọn ghế trực tiếp trên sơ đồ sân khấu"
+          />
+          <Panel>
+            {seatsQuery.isLoading ? (
+              <p className="text-muted">Đang tải sơ đồ ghế...</p>
+            ) : seatsQuery.data?.seats?.length ? (
+              <>
+                <div className="mx-auto mb-8 h-8 max-w-lg rounded-b-full bg-gradient-to-r from-primary via-sky-300 to-primary text-center text-xs font-extrabold leading-8 text-slate-950 shadow-lg shadow-primary/20">
+                  SÂN KHẤU
+                </div>
+                <div className="mb-5 flex flex-wrap gap-4 text-xs text-muted">
+                  <Legend color="bg-primary" label="Đang chọn" />
+                  <Legend color="bg-panel-soft" label="Còn trống" />
+                  <Legend color="bg-slate-700" label="Đã giữ/bán" />
+                </div>
                 <div
-                  className="grid gap-2 rounded-lg bg-surface/60 p-4"
+                  className="grid gap-2 rounded-lg bg-surface/60 p-4 overflow-x-auto"
                   style={{
-                    gridTemplateColumns: `repeat(${seatsQuery.data?.seat_map?.cols_count || 8}, minmax(0, 1fr))`,
+                    gridTemplateColumns: `repeat(${seatsQuery.data?.seat_map?.cols_count || 8}, minmax(40px, 1fr))`,
                   }}
                 >
                   {(seatsQuery.data?.seats || []).map((seat) => {
                     const selected = selectedSeatIds.includes(seat.session_seat_id)
                     const disabled = seat.status !== 'AVAILABLE'
+                    const ticketType = ticketTypes.find((t) => t.id === seat.ticket_type_id)
+                    const title = `${seat.label} - ${ticketType ? ticketType.name : ''}`
+
                     return (
                       <button
                         key={seat.session_seat_id}
                         type="button"
                         disabled={disabled}
                         onClick={() => toggleSeat(seat.session_seat_id)}
-                        title={seat.label}
+                        title={title}
                         className={`min-h-10 rounded-t-lg border text-xs font-bold transition ${
                           selected
                             ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
@@ -215,24 +233,30 @@ export function BookingSeatsPage() {
                     )
                   })}
                 </div>
-              )}
+              </>
+            ) : (
+              <p className="text-muted text-center font-medium">Sự kiện này hiện không có sơ đồ chỗ ngồi.</p>
+            )}
+            
+            {seatsQuery.data?.seats?.length > 0 && (
               <p className="mt-4 text-sm text-muted">
-                Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{seatedItem.quantity} ghế.
+                Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span> ghế.
               </p>
-              {availabilityError && (
-                <p className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
-                  {availabilityError}
-                </p>
-              )}
-            </Panel>
-          )}
+            )}
+
+            {availabilityError && (
+              <p className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
+                {availabilityError}
+              </p>
+            )}
+          </Panel>
         </section>
         <OrderCard
-          cart={cart}
+          cart={displayCart}
           setCart={setCart}
           cta="Tiếp tục"
           onClick={continueFlow}
-          disabled={checkingAvailability || (Boolean(seatedItem) && selectedSeatIds.length !== seatedItem.quantity)}
+          disabled={checkingAvailability || displayItems.length === 0}
         />
       </div>
     </BookingShell>
@@ -592,6 +616,16 @@ function BookingShell({ step, cart, children }) {
             </div>
           </div>
         )}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="flex w-fit items-center gap-2 text-sm font-bold text-muted transition hover:text-primary"
+          >
+            <ArrowLeft className="size-4" />
+            Quay về bước trước
+          </button>
+        </div>
         {children}
       </div>
     </div>
@@ -607,7 +641,6 @@ function OrderCard({ cart, cta, onClick, disabled }) {
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-bold text-white">Thông tin đặt vé</h2>
-          <p className="mt-1 text-sm text-muted">Giữ chỗ trong {formatCountdown(remaining)}</p>
         </div>
         <button
           type="button"
@@ -618,22 +651,35 @@ function OrderCard({ cart, cta, onClick, disabled }) {
         </button>
       </div>
       <div className="space-y-3 border-y border-border-soft py-4">
-        {(cart?.items || []).map((item) => (
-          <div key={item.ticketType.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
-            <div>
-              <p className="font-semibold text-white">{item.ticketType.name}</p>
-              <p className="text-muted">{formatPrice(item.ticketType.price)} × {String(item.quantity).padStart(2, '0')}</p>
+        {(cart?.availableTicketTypes || []).map((ticketType) => {
+          const item = (cart?.items || []).find((i) => i.ticketType.id === ticketType.id)
+          const qty = item?.quantity || 0
+
+          return (
+            <div key={ticketType.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
+              <div>
+                <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticketType.name}</p>
+                {qty > 0 ? (
+                  <p className="text-primary">
+                    {formatPrice(ticketType.price)} × {String(qty).padStart(2, '0')}
+                  </p>
+                ) : (
+                  <p className="text-slate-500">{formatPrice(ticketType.price)} / vé</p>
+                )}
+              </div>
+              <p className={qty > 0 ? 'font-bold text-primary' : 'font-bold text-slate-500'}>
+                {qty > 0 ? formatPrice(Number(ticketType.price || 0) * qty) : '-'}
+              </p>
             </div>
-            <p className="font-bold text-primary">{formatPrice(Number(item.ticketType.price || 0) * item.quantity)}</p>
-          </div>
-        ))}
+          )
+        })}
       </div>
       {cart?.promoCode && (
         <div className="mt-4 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
           Mã khuyến mãi: {cart.promoCode}
         </div>
       )}
-      <Line label={`Tạm tính ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart))} large />
+      <Line label={`Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart))} large />
       {promoDiscount(cart) > 0 && (
         <Line label="Giảm giá" value={`-${formatPrice(promoDiscount(cart))}`} tone="discount" />
       )}
