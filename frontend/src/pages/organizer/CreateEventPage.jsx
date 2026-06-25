@@ -68,9 +68,9 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
   return (
     <div className="mb-10 w-full max-w-4xl mx-auto">
       <div className="flex items-center justify-between relative">
-        <div className="absolute top-5 left-0 w-full h-[2px] bg-[#e0e3e5] -z-10" />
+        <div className="absolute top-5 left-0 w-full h-[2px] bg-border-soft/30 -z-10" />
         <div
-          className="absolute top-5 left-0 h-[2px] bg-[#2563eb] -z-10 transition-all"
+          className="absolute top-5 left-0 h-[2px] bg-secondary -z-10 transition-all"
           style={{ width: `${progress}%` }}
         />
         {STEP_LABELS.map((label, index) => {
@@ -85,15 +85,15 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
               type="button"
               disabled={!isClickable}
               onClick={() => isClickable && onStepClick(step)}
-              className={`flex flex-col items-center gap-2 bg-[#f7f9fb] px-2 ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
+              className={`flex flex-col items-center gap-2 bg-background px-2 ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
             >
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md transition-all ${
                   isActive
-                    ? 'bg-[#2563eb] text-white'
+                    ? 'bg-secondary text-white'
                     : isCompleted
-                      ? 'bg-[#2563eb] text-white'
-                      : 'bg-[#e0e3e5] text-[#434655]'
+                      ? 'bg-secondary text-white'
+                      : 'bg-panel-soft text-subtle'
                 }`}
               >
                 {isCompleted && !isActive ? (
@@ -104,7 +104,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
               </div>
               <span
                 className={`font-medium text-[13px] leading-[18px] text-center max-w-[120px] ${
-                  isActive || isCompleted ? 'text-[#004ac6] font-bold' : 'text-[#434655]'
+                  isActive || isCompleted ? 'text-primary font-bold' : 'text-subtle'
                 }`}
               >
                 {label}
@@ -138,16 +138,16 @@ function Step1EventInfo({
   return (
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-24">
-        <section className="bg-white border border-[#E2E8F0] rounded-xl p-6 hover:border-[#CBD5E1] transition-shadow">
-          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-[#191c1e]">
-            <Icon name="info" className="text-[#004ac6]" />
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 hover:border-border-soft/60 transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
+            <Icon name="info" className="text-secondary" />
             Thông tin cơ bản
           </h3>
           <div className="space-y-6">
             <div>
-              <label className="block text-[13px] font-medium mb-2 text-[#191c1e]">Tên sự kiện*</label>
+              <label className="block text-[13px] font-medium mb-2 text-subtle">Tên sự kiện*</label>
               <input
-                className="w-full px-4 py-2.5 border border-[#c3c6d7] rounded-lg text-sm focus:ring-2 focus:ring-[#004ac6] focus:border-[#004ac6] outline-none"
+                className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none transition"
                 placeholder="e.g. Global Tech Summit 2024"
                 value={formData.title}
                 onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
@@ -155,9 +155,9 @@ function Step1EventInfo({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[13px] font-medium mb-2 text-[#191c1e]">Danh mục*</label>
+                <label className="block text-[13px] font-medium mb-2 text-subtle">Danh mục*</label>
                 <select
-                  className="w-full px-4 py-2.5 border border-[#c3c6d7] rounded-lg text-sm focus:ring-2 focus:ring-[#004ac6] outline-none bg-white"
+                  className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none"
                   value={formData.category_id}
                   onChange={(e) => setFormData((p) => ({ ...p, category_id: e.target.value }))}
                 >
@@ -168,12 +168,12 @@ function Step1EventInfo({
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-medium mb-2 text-[#191c1e]">Tags</label>
-                <div className="flex flex-wrap gap-2 items-center p-1.5 border border-[#c3c6d7] rounded-lg bg-white">
+                <label className="block text-[13px] font-medium mb-2 text-subtle">Tags</label>
+                <div className="flex flex-wrap gap-2 items-center p-1.5 border border-border-soft/40 rounded-lg bg-panel-soft">
                   {formData.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="flex items-center gap-1 px-2 py-1 bg-[#dae2fd] text-[#5c647a] rounded text-xs font-semibold"
+                      className="flex items-center gap-1 px-2 py-1 bg-secondary/20 text-primary rounded text-xs font-semibold"
                     >
                       {tag}
                       <button
@@ -185,12 +185,12 @@ function Step1EventInfo({
                           }))
                         }
                       >
-                        <Icon name="close" className="text-[14px] hover:text-[#ba1a1a]" />
+                        <Icon name="close" className="text-[14px] hover:text-error" />
                       </button>
                     </span>
                   ))}
                   <input
-                    className="border-none bg-transparent outline-none p-1 text-sm flex-1 min-w-[80px]"
+                    className="border-none bg-transparent outline-none p-1 text-sm flex-1 min-w-[80px] text-content placeholder:text-muted"
                     placeholder="Add tag..."
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
@@ -205,7 +205,7 @@ function Step1EventInfo({
               </div>
             </div>
             <div>
-              <label className="block text-[13px] font-medium mb-3 text-[#191c1e]">Hình thức sự kiện*</label>
+              <label className="block text-[13px] font-medium mb-3 text-subtle">Hình thức sự kiện*</label>
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { value: 'OFFLINE', icon: 'location_on', label: 'Offline' },
@@ -218,16 +218,16 @@ function Step1EventInfo({
                     onClick={() => setFormData((p) => ({ ...p, format: opt.value }))}
                     className={`p-4 border-2 rounded-xl flex flex-col items-center text-center gap-2 transition-all ${
                       formData.format === opt.value
-                        ? 'border-[#2563eb] bg-[#eeefff]/10'
-                        : 'border-[#c3c6d7] hover:border-[#2563eb]'
+                        ? 'border-secondary bg-secondary/10'
+                        : 'border-border-soft/40 hover:border-secondary/50'
                     }`}
                   >
                     <Icon
                       name={opt.icon}
-                      className={formData.format === opt.value ? 'text-[#004ac6]' : 'text-[#434655]'}
+                      className={formData.format === opt.value ? 'text-secondary' : 'text-subtle'}
                       style={{ fontSize: 32 }}
                     />
-                    <span className={`text-[13px] font-medium ${formData.format === opt.value ? 'font-bold' : ''}`}>
+                    <span className={`text-[13px] font-medium text-content ${formData.format === opt.value ? 'font-bold' : ''}`}>
                       {opt.label}
                     </span>
                   </button>
@@ -235,7 +235,7 @@ function Step1EventInfo({
               </div>
             </div>
             <div>
-              <label className="block text-[13px] font-medium mb-3 text-[#191c1e]">Hiển thị sự kiện*</label>
+              <label className="block text-[13px] font-medium mb-3 text-subtle">Hiển thị sự kiện*</label>
               <div className="flex gap-4">
                 {[
                   { value: 'PUBLIC', icon: 'public', title: 'Công khai', desc: 'Hiển thị cho mọi người trên nền tảng' },
@@ -249,12 +249,12 @@ function Step1EventInfo({
                       checked={formData.visibility === opt.value}
                       onChange={() => setFormData((p) => ({ ...p, visibility: opt.value }))}
                     />
-                    <div className="p-4 border-2 border-[#c3c6d7] rounded-xl peer-checked:border-[#004ac6] peer-checked:bg-[#2563eb]/5 transition-all">
+                    <div className="p-4 border-2 border-border-soft/40 rounded-xl peer-checked:border-secondary peer-checked:bg-secondary/8 transition-all">
                       <div className="flex items-center gap-3">
-                        <Icon name={opt.icon} className="text-[#434655]" />
+                        <Icon name={opt.icon} className="text-subtle" />
                         <div>
-                          <p className="text-[13px] font-bold">{opt.title}</p>
-                          <p className="text-xs opacity-70">{opt.desc}</p>
+                          <p className="text-[13px] font-bold text-content">{opt.title}</p>
+                          <p className="text-xs text-muted">{opt.desc}</p>
                         </div>
                       </div>
                     </div>
@@ -265,19 +265,19 @@ function Step1EventInfo({
           </div>
         </section>
 
-        <section className="bg-white border border-[#E2E8F0] rounded-xl p-6">
-          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2">
-            <Icon name="description" className="text-[#004ac6]" />
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
+            <Icon name="description" className="text-secondary" />
             Mô tả
           </h3>
           <div className="space-y-6">
             <div>
               <div className="flex justify-between mb-2">
-                <label className="text-[13px] font-medium text-[#191c1e]">Mô tả ngắn*</label>
-                <span className="text-xs text-[#737686]">{formData.short_description.length} / 150</span>
+                <label className="text-[13px] font-medium text-subtle">Mô tả ngắn*</label>
+                <span className="text-xs text-muted">{formData.short_description.length} / 150</span>
               </div>
               <textarea
-                className="w-full px-4 py-2.5 border border-[#c3c6d7] rounded-lg text-sm focus:ring-2 focus:ring-[#004ac6] outline-none resize-none"
+                className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none resize-none placeholder:text-muted"
                 placeholder="Briefly explain what your event is about..."
                 rows={2}
                 maxLength={150}
@@ -286,9 +286,9 @@ function Step1EventInfo({
               />
             </div>
             <div>
-              <label className="block text-[13px] font-medium mb-2 text-[#191c1e]">Mô tả chi tiết*</label>
+              <label className="block text-[13px] font-medium mb-2 text-subtle">Mô tả chi tiết*</label>
               <textarea
-                className="w-full px-4 py-4 border border-[#c3c6d7] rounded-lg text-sm focus:ring-2 focus:ring-[#004ac6] outline-none resize-y"
+                className="w-full px-4 py-4 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none resize-y placeholder:text-muted"
                 placeholder="Write the full details of your event..."
                 rows={6}
                 value={formData.description}
@@ -298,22 +298,22 @@ function Step1EventInfo({
           </div>
         </section>
 
-        <section className="bg-white border border-[#E2E8F0] rounded-xl p-6">
-          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2">
-            <Icon name="image" className="text-[#004ac6]" />
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
+            <Icon name="image" className="text-secondary" />
             Ảnh sự kiện
           </h3>
           <div className="grid md:grid-cols-12 gap-6">
             <div className="md:col-span-4">
-              <label className="block text-[13px] font-medium mb-2">Ảnh đại diện (1:1)*</label>
-              <label className="upload-dashed aspect-square rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-[#CBD5E1] hover:border-[#2563eb] cursor-pointer overflow-hidden">
+              <label className="block text-[13px] font-medium mb-2 text-subtle">Ảnh đại diện (1:1)*</label>
+              <label className="aspect-square rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-secondary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.thumbnail_url ? (
                   <img src={formData.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" />
                 ) : (
                   <>
-                    <Icon name="cloud_upload" className="text-[#737686] mb-2" style={{ fontSize: 32 }} />
-                    <p className="text-xs font-semibold mb-1">{uploadingThumb ? 'Uploading...' : 'Click to Upload'}</p>
-                    <p className="text-[10px] text-[#737686]">Recommended: 1080x1080px</p>
+                    <Icon name="cloud_upload" className="text-muted mb-2" style={{ fontSize: 32 }} />
+                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingThumb ? 'Uploading...' : 'Click to Upload'}</p>
+                    <p className="text-[10px] text-muted">Recommended: 1080x1080px</p>
                   </>
                 )}
                 <input
@@ -326,15 +326,15 @@ function Step1EventInfo({
               </label>
             </div>
             <div className="md:col-span-8">
-              <label className="block text-[13px] font-medium mb-2">Ảnh bìa (16:9)*</label>
-              <label className="upload-dashed aspect-video rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-[#CBD5E1] hover:border-[#2563eb] cursor-pointer overflow-hidden">
+              <label className="block text-[13px] font-medium mb-2 text-subtle">Ảnh bìa (16:9)*</label>
+              <label className="aspect-video rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-secondary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.banner_url ? (
                   <img src={formData.banner_url} alt="Banner" className="w-full h-full object-cover" />
                 ) : (
                   <>
-                    <Icon name="landscape" className="text-[#737686] mb-2" style={{ fontSize: 40 }} />
-                    <p className="text-xs font-semibold mb-1">{uploadingBanner ? 'Uploading...' : 'Drag and drop or click to browse'}</p>
-                    <p className="text-[10px] text-[#737686]">Recommended: 1920x1080px. JPG, PNG (Max 5MB)</p>
+                    <Icon name="landscape" className="text-muted mb-2" style={{ fontSize: 40 }} />
+                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingBanner ? 'Uploading...' : 'Drag and drop or click to browse'}</p>
+                    <p className="text-[10px] text-muted">Recommended: 1920x1080px. JPG, PNG (Max 5MB)</p>
                   </>
                 )}
                 <input
@@ -351,42 +351,42 @@ function Step1EventInfo({
       </div>
 
       <div className="col-span-12 lg:col-span-4 space-y-6 sticky top-24">
-        <div className="bg-white border border-[#c3c6d7] rounded-xl overflow-hidden shadow-sm">
-          <div className="relative aspect-video bg-[#f2f4f6]">
+        <div className="bg-surface border border-border-soft/30 rounded-xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
+          <div className="relative aspect-video bg-panel-soft">
             {formData.banner_url ? (
               <img src={formData.banner_url} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                <Icon name="image" style={{ fontSize: 48 }} />
+                <Icon name="image" className="text-muted" style={{ fontSize: 48 }} />
               </div>
             )}
-            <div className="absolute top-3 left-3 px-2 py-1 bg-[#d8dadc]/80 backdrop-blur-md rounded text-[10px] font-bold uppercase text-[#434655]">
+            <div className="absolute top-3 left-3 px-2 py-1 bg-panel-soft/80 backdrop-blur-md rounded text-[10px] font-bold uppercase text-subtle">
               Xem trước
             </div>
           </div>
           <div className="p-5">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h4 className={`text-[20px] font-semibold leading-tight ${formData.title ? 'text-[#191c1e]' : 'text-[#737686] italic'}`}>
+                <h4 className={`text-[20px] font-semibold leading-tight ${formData.title ? 'text-content' : 'text-muted italic'}`}>
                   {formData.title || 'Untitled Event'}
                 </h4>
-                <p className="text-xs text-[#737686] mt-1 italic">
+                <p className="text-xs text-muted mt-1 italic">
                   {categories.find((c) => c.id === formData.category_id)?.name || 'Category not selected'}
                 </p>
               </div>
-              <span className="px-2 py-1 bg-[#e0e3e5] text-[#434655] rounded text-xs font-semibold">Draft</span>
+              <span className="px-2 py-1 bg-panel-soft text-subtle rounded text-xs font-semibold border border-border-soft/30">Draft</span>
             </div>
             <div className="flex items-center gap-2 mb-2">
-              <Icon name="location_on" className="text-[#004ac6] text-[18px]" />
-              <span className="text-sm">{formData.format === 'ONLINE' ? 'Sự kiện trực tuyến' : formData.format === 'HYBRID' ? 'Sự kiện kết hợp' : 'Sự kiện trực tiếp'}</span>
+              <Icon name="location_on" className="text-secondary text-[18px]" />
+              <span className="text-sm text-content">{formData.format === 'ONLINE' ? 'Sự kiện trực tuyến' : formData.format === 'HYBRID' ? 'Sự kiện kết hợp' : 'Sự kiện trực tiếp'}</span>
             </div>
             <div className="mt-6">
               <div className="flex justify-between mb-2">
-                <span className="text-[13px] font-medium">Tiến độ thiết lập</span>
-                <span className="text-[13px] text-[#004ac6] font-bold">20%</span>
+                <span className="text-[13px] font-medium text-subtle">Tiến độ thiết lập</span>
+                <span className="text-[13px] text-secondary font-bold">20%</span>
               </div>
-              <div className="w-full h-2 bg-[#e0e3e5] rounded-full overflow-hidden">
-                <div className="w-1/5 h-full bg-[#2563eb]" />
+              <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
+                <div className="w-1/5 h-full bg-secondary rounded-full" />
               </div>
             </div>
           </div>
@@ -440,16 +440,16 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
   return (
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-24">
-        <section className="bg-white rounded-xl border border-[#c3c6d7] p-8 shadow-sm">
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Icon name="calendar_today" className="text-[#004ac6]" />
-              <h2 className="text-[20px] font-semibold">Lịch sự kiện</h2>
+              <Icon name="calendar_today" className="text-secondary" />
+              <h2 className="text-[20px] font-semibold text-content">Lịch sự kiện</h2>
             </div>
             <button
               type="button"
               onClick={addSession}
-              className="flex items-center gap-2 px-4 py-2 text-[#004ac6] font-medium text-sm hover:bg-[#004ac6]/5 rounded-lg"
+              className="flex items-center gap-2 px-4 py-2 text-primary font-medium text-sm hover:bg-secondary/10 rounded-lg transition"
             >
               <Icon name="add" className="text-[18px]" />
               Thêm phiên
@@ -459,33 +459,33 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
             {formData.sessions.map((session, index) => {
               const key = session.id || session.clientKey
               return (
-                <div key={key} className="border border-[#c3c6d7] rounded-xl p-6 relative">
+                <div key={key} className="border border-border-soft/30 rounded-xl p-6 relative bg-panel-soft/40">
                   {formData.sessions.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeSession(key)}
-                      className="absolute top-4 right-4 text-[#737686] hover:text-[#ba1a1a]"
+                      className="absolute top-4 right-4 text-muted hover:text-error transition"
                     >
                       <Icon name="close" />
                     </button>
                   )}
-                  <p className="text-sm font-bold mb-4 text-[#434655]">Phiên {index + 1}</p>
+                  <p className="text-sm font-bold mb-4 text-subtle">Phiên {index + 1}</p>
                   <div className="grid grid-cols-2 gap-6 mb-4">
                     <div className="space-y-4">
                       <div>
-                        <label className="text-[13px] text-[#434655] block mb-2">Ngày bắt đầu</label>
+                        <label className="text-[13px] text-subtle block mb-2">Ngày bắt đầu</label>
                         <input
                           type="date"
-                          className="w-full h-11 px-4 rounded-lg border border-[#c3c6d7] text-sm focus:border-[#004ac6] focus:ring-1 focus:ring-[#004ac6] outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary focus:ring-1 focus:ring-secondary/30 outline-none"
                           value={session.start_date || ''}
                           onChange={(e) => updateSession(key, 'start_date', e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-[13px] text-[#434655] block mb-2">Thời gian bắt đầu</label>
+                        <label className="text-[13px] text-subtle block mb-2">Thời gian bắt đầu</label>
                         <input
                           type="time"
-                          className="w-full h-11 px-4 rounded-lg border border-[#c3c6d7] text-sm focus:border-[#004ac6] outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
                           value={session.start_time || ''}
                           onChange={(e) => updateSession(key, 'start_time', e.target.value)}
                         />
@@ -493,19 +493,19 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <label className="text-[13px] text-[#434655] block mb-2">Ngày kết thúc</label>
+                        <label className="text-[13px] text-subtle block mb-2">Ngày kết thúc</label>
                         <input
                           type="date"
-                          className="w-full h-11 px-4 rounded-lg border border-[#c3c6d7] text-sm focus:border-[#004ac6] outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
                           value={session.end_date || ''}
                           onChange={(e) => updateSession(key, 'end_date', e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-[13px] text-[#434655] block mb-2">Thời gian kết thúc</label>
+                        <label className="text-[13px] text-subtle block mb-2">Thời gian kết thúc</label>
                         <input
                           type="time"
-                          className="w-full h-11 px-4 rounded-lg border border-[#c3c6d7] text-sm focus:border-[#004ac6] outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
                           value={session.end_time || ''}
                           onChange={(e) => updateSession(key, 'end_time', e.target.value)}
                         />
@@ -513,9 +513,9 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[13px] text-[#434655] block mb-2">Chọn địa điểm*</label>
+                    <label className="text-[13px] text-subtle block mb-2">Chọn địa điểm*</label>
                     <select
-                      className="w-full h-11 px-4 rounded-lg border border-[#c3c6d7] text-sm focus:border-[#004ac6] outline-none bg-white"
+                      className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
                       value={session.venue_id || ''}
                       onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
                     >
@@ -534,7 +534,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
               <button
                 type="button"
                 onClick={addSession}
-                className="w-full py-8 border-2 border-dashed border-[#c3c6d7] rounded-xl text-[#434655] hover:border-[#2563eb] hover:text-[#004ac6]"
+                className="w-full py-8 border-2 border-dashed border-border-soft/40 rounded-xl text-subtle hover:border-secondary hover:text-primary transition"
               >
                 + Thêm phiên đầu tiên
               </button>
@@ -543,19 +543,19 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
         </section>
 
         {selectedVenue && (
-          <section className="bg-white rounded-xl border border-[#c3c6d7] p-8 shadow-sm">
+          <section className="bg-surface rounded-xl border border-border-soft/30 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
             <div className="flex items-center gap-3 mb-6">
-              <Icon name="location_on" className="text-[#004ac6]" />
-              <h2 className="text-[20px] font-semibold">Chi tiết địa điểm</h2>
+              <Icon name="location_on" className="text-secondary" />
+              <h2 className="text-[20px] font-semibold text-content">Chi tiết địa điểm</h2>
             </div>
-            <div className="p-6 bg-[#f7f9fb] rounded-xl border border-[#c3c6d7]">
-              <h3 className="text-[20px] font-semibold">{selectedVenue.name}</h3>
-              <p className="text-sm text-[#434655] flex items-center gap-1 mt-2">
+            <div className="p-6 bg-panel-soft rounded-xl border border-border-soft/30">
+              <h3 className="text-[20px] font-semibold text-content">{selectedVenue.name}</h3>
+              <p className="text-sm text-subtle flex items-center gap-1 mt-2">
                 <Icon name="pin_drop" className="text-[16px]" />
                 {[selectedVenue.address_line, selectedVenue.district, selectedVenue.city].filter(Boolean).join(', ')}
               </p>
               {selectedVenue.seat_count > 0 && (
-                <p className="text-sm mt-2 text-[#434655]">Sức chứa: {selectedVenue.seat_count} chỗ</p>
+                <p className="text-sm mt-2 text-subtle">Sức chứa: {selectedVenue.seat_count} chỗ</p>
               )}
             </div>
           </section>
@@ -563,10 +563,10 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
       </div>
 
       <div className="col-span-12 lg:col-span-4 sticky top-24">
-        <div className="bg-white rounded-xl border border-[#c3c6d7] overflow-hidden shadow-md">
-          <div className="bg-[#2d3133] p-6 text-white">
-            <h3 className="text-[20px] font-semibold mb-4">{formData.title || 'Event Draft'}</h3>
-            <div className="space-y-3 text-sm text-[#e0e3e5]">
+        <div className="bg-surface rounded-xl border border-border-soft/30 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
+          <div className="bg-secondary/20 p-6 border-b border-border-soft/30">
+            <h3 className="text-[20px] font-semibold text-content mb-4">{formData.title || 'Event Draft'}</h3>
+            <div className="space-y-3 text-sm text-subtle">
               <div className="flex items-center gap-2">
                 <Icon name="calendar_month" className="text-sm" />
                 <span>{formData.sessions.length} phiên</span>
@@ -581,11 +581,11 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
           </div>
           <div className="p-6">
             <div className="flex justify-between mb-2">
-              <span className="text-[13px] font-medium">Tiến độ thiết lập</span>
-              <span className="text-xs text-[#004ac6] font-bold">45%</span>
+              <span className="text-[13px] font-medium text-subtle">Tiến độ thiết lập</span>
+              <span className="text-xs text-secondary font-bold">45%</span>
             </div>
-            <div className="w-full h-2 bg-[#eceef0] rounded-full overflow-hidden">
-              <div className="w-[45%] h-full bg-[#004ac6] rounded-full" />
+            <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
+              <div className="w-[45%] h-full bg-secondary rounded-full" />
             </div>
           </div>
         </div>
@@ -762,10 +762,10 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 key={s.id || s.clientKey}
                 type="button"
                 onClick={() => setActiveTab(i)}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
                   activeTab === i
-                    ? 'border-[#2563eb] bg-[#2563eb]/10 text-[#004ac6]'
-                    : 'border-[#c3c6d7] text-[#434655]'
+                    ? 'border-secondary bg-secondary/10 text-primary'
+                    : 'border-border-soft/40 text-subtle hover:border-secondary/50'
                 }`}
               >
                 {s.session_name || `Session ${i + 1}`}
@@ -774,47 +774,47 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           </div>
         )}
 
-        <section className="rounded-xl border border-[#c3c6d7] bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-[20px] font-semibold">Loại tổ chức</h2>
+        <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+          <h2 className="mb-4 text-[20px] font-semibold text-content">Loại tổ chức</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <button
               type="button"
               onClick={() => setSeatingType('GENERAL')}
               className={`rounded-xl border-2 p-5 text-left transition ${
                 seatingType === 'GENERAL'
-                  ? 'border-[#2563eb] bg-[#2563eb]/5'
-                  : 'border-[#c3c6d7] hover:border-[#2563eb]/50'
+                  ? 'border-secondary bg-secondary/8'
+                  : 'border-border-soft/40 hover:border-secondary/50'
               }`}
             >
               <span className="text-2xl">🎟</span>
-              <p className="mt-2 font-bold">Không chỗ ngồi</p>
-              <p className="text-sm text-[#434655]">General Admission</p>
+              <p className="mt-2 font-bold text-content">Không chỗ ngồi</p>
+              <p className="text-sm text-subtle">General Admission</p>
             </button>
             <button
               type="button"
               onClick={() => setSeatingType('ASSIGNED')}
               className={`rounded-xl border-2 p-5 text-left transition ${
                 seatingType === 'ASSIGNED'
-                  ? 'border-[#2563eb] bg-[#2563eb]/5'
-                  : 'border-[#c3c6d7] hover:border-[#2563eb]/50'
+                  ? 'border-secondary bg-secondary/8'
+                  : 'border-border-soft/40 hover:border-secondary/50'
               }`}
             >
               <span className="text-2xl">💺</span>
-              <p className="mt-2 font-bold">Có chỗ ngồi</p>
-              <p className="text-sm text-[#434655]">Có chỗ ngồi</p>
+              <p className="mt-2 font-bold text-content">Có chỗ ngồi</p>
+              <p className="text-sm text-subtle">Có chỗ ngồi</p>
             </button>
           </div>
         </section>
 
         {seatingType === 'ASSIGNED' && (
           <>
-            <section className="rounded-xl border border-[#c3c6d7] bg-white p-6 shadow-sm">
-              <h2 className="mb-2 text-[20px] font-semibold">Sơ đồ ghế</h2>
-              <p className="mb-4 text-sm text-[#434655]">
+            <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+              <h2 className="mb-2 text-[20px] font-semibold text-content">Sơ đồ ghế</h2>
+              <p className="mb-4 text-sm text-subtle">
                 Chọn sơ đồ cho địa điểm &quot;{venue?.name || '...'}&quot;
               </p>
               <select
-                className="h-11 w-full rounded-lg border border-[#c3c6d7] bg-white px-4 text-sm"
+                className="h-11 w-full rounded-lg border border-border-soft/40 bg-panel-soft text-content px-4 text-sm focus:border-secondary outline-none"
                 value={activeSession?.seat_map_id || ''}
                 onChange={(e) => handleSeatMapSelect(e.target.value)}
               >
@@ -826,7 +826,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 ))}
               </select>
               {loadingMaps && (
-                <p className="mt-2 text-sm text-[#737686]">Đang tải sơ đồ...</p>
+                <p className="mt-2 text-sm text-muted">Đang tải sơ đồ...</p>
               )}
               {loadedSeatMap && (
                 <div className="mt-4">
@@ -841,12 +841,12 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
             </section>
 
             {loadedSeatMap && (
-              <section className="rounded-xl border border-[#c3c6d7] bg-white p-6 shadow-sm">
-                <h2 className="mb-4 text-[20px] font-semibold">Gán zone → ticket type</h2>
+              <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+                <h2 className="mb-4 text-[20px] font-semibold text-content">Gán zone → ticket type</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#c3c6d7] text-left text-xs uppercase text-[#737686]">
+                      <tr className="border-b border-border-soft/30 text-left text-xs uppercase text-muted">
                         <th className="py-2 pr-4">Zone</th>
                         <th className="py-2 pr-4">Ghế</th>
                         <th className="py-2 pr-4">Ticket Type</th>
@@ -861,7 +861,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                         const ticket = sessionTickets.find((tt) => tt.zone_id === zone.id)
                         const ticketKey = ticket ? ticket.id || ticket.clientKey : null
                         return (
-                          <tr key={zone.id} className="border-b border-[#e0e3e5]">
+                          <tr key={zone.id} className="border-b border-border-soft/20 text-content">
                             <td className="py-3 pr-4">
                               <span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ background: zone.color }} />
                               {zone.name}
@@ -869,7 +869,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                             <td className="py-3 pr-4">{seatCount}</td>
                             <td className="py-3 pr-4">
                               <select
-                                className="h-9 w-full rounded border border-[#c3c6d7] px-2 text-sm"
+                                className="h-9 w-full rounded border border-border-soft/40 bg-panel-soft text-content px-2 text-sm"
                                 value={ticketKey || ''}
                                 onChange={(e) => {
                                   const selected = sessionTickets.find(
@@ -914,7 +914,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                                 <input
                                   type="number"
                                   min="0"
-                                  className="h-9 w-32 rounded border border-[#c3c6d7] px-2 text-sm"
+                                  className="h-9 w-32 rounded border border-border-soft/40 bg-panel-soft text-content px-2 text-sm"
                                   value={ticket?.price ?? 0}
                                   onChange={(e) =>
                                     updateTicket(ticketKey, 'price', Number(e.target.value))
@@ -927,9 +927,9 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                       })}
                       {unassignedCount > 0 && (
                         <tr>
-                          <td className="py-3 pr-4 text-[#737686]">Chưa gán</td>
-                          <td className="py-3 pr-4">{unassignedCount}</td>
-                          <td className="py-3 pr-4 text-[#737686]">—</td>
+                          <td className="py-3 pr-4 text-muted">Chưa gán</td>
+                          <td className="py-3 pr-4 text-content">{unassignedCount}</td>
+                          <td className="py-3 pr-4 text-muted">—</td>
                           <td />
                         </tr>
                       )}
@@ -942,16 +942,16 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
         )}
 
         {seatingType === 'GENERAL' && (
-          <section className="rounded-xl border border-[#c3c6d7] bg-white p-6 shadow-sm">
+          <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-[20px] font-semibold">Ticket Types</h2>
-                <p className="text-sm text-[#434655]">Define your pricing tiers and availability.</p>
+                <h2 className="text-[20px] font-semibold text-content">Ticket Types</h2>
+                <p className="text-sm text-subtle">Define your pricing tiers and availability.</p>
               </div>
               <button
                 type="button"
                 onClick={addTicketType}
-                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#004ac6] hover:bg-[#dbe1ff]"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-primary hover:bg-secondary/10 transition"
               >
                 <Icon name="add" />
                 Add Ticket Type
@@ -963,34 +963,34 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 return (
                   <div
                     key={key}
-                    className="rounded-xl border border-[#c3c6d7] bg-[#f7f9fb] p-4 hover:border-[#004ac6]"
+                    className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 hover:border-secondary/50 transition"
                   >
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                       <div className="md:col-span-2">
-                        <label className="mb-1 block text-xs text-[#737686]">Name*</label>
+                        <label className="mb-1 block text-xs text-muted">Tên*</label>
                         <input
-                          className="w-full rounded-lg border border-[#c3c6d7] px-3 py-2 text-sm"
+                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-secondary outline-none"
                           value={tt.name}
                           onChange={(e) => updateTicket(key, 'name', e.target.value)}
                           placeholder="Early Bird"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs text-[#737686]">Price*</label>
+                        <label className="mb-1 block text-xs text-muted">Giá*</label>
                         <input
                           type="number"
                           min="0"
-                          className="w-full rounded-lg border border-[#c3c6d7] px-3 py-2 text-sm"
+                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-secondary outline-none"
                           value={tt.price}
                           onChange={(e) => updateTicket(key, 'price', Number(e.target.value))}
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs text-[#737686]">Quantity*</label>
+                        <label className="mb-1 block text-xs text-muted">Số lượng*</label>
                         <input
                           type="number"
                           min="1"
-                          className="w-full rounded-lg border border-[#c3c6d7] px-3 py-2 text-sm"
+                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-secondary outline-none"
                           value={tt.quantity}
                           onChange={(e) => updateTicket(key, 'quantity', Number(e.target.value))}
                         />
@@ -1000,7 +1000,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                       <button
                         type="button"
                         onClick={() => removeTicket(key)}
-                        className="text-[#737686] hover:text-[#ba1a1a]"
+                        className="text-muted hover:text-error transition"
                       >
                         <Icon name="delete" />
                       </button>
@@ -1009,8 +1009,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 )
               })}
               {!sessionTickets.length && (
-                <p className="py-6 text-center text-sm text-[#434655]">
-                  No ticket types yet. Click &quot;Add Ticket Type&quot;.
+                <p className="py-6 text-center text-sm text-subtle">
+                  Chưa có loại vé. Click &quot;Add Ticket Type&quot;.
                 </p>
               )}
             </div>
@@ -1019,22 +1019,22 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
       </div>
 
       <div className="col-span-12 space-y-6 lg:col-span-4 lg:sticky lg:top-20">
-        <div className="overflow-hidden rounded-xl border border-[#c3c6d7] bg-white shadow-sm">
-          <div className="border-b border-[#c3c6d7] bg-[#e6e8ea] px-6 py-4">
-            <h3 className="text-sm font-bold">Tóm tắt sự kiện</h3>
+        <div className="overflow-hidden rounded-xl border border-border-soft/30 bg-surface shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
+          <div className="border-b border-border-soft/30 bg-panel-soft px-6 py-4">
+            <h3 className="text-sm font-bold text-content">Tóm tắt sự kiện</h3>
           </div>
           <div className="space-y-4 p-6">
             <div className="flex justify-between">
-              <span className="text-sm text-[#434655]">Loại vé</span>
-              <span className="font-bold">{formData.ticketTypes.length}</span>
+              <span className="text-sm text-subtle">Loại vé</span>
+              <span className="font-bold text-content">{formData.ticketTypes.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-[#434655]">Tổng số lượng</span>
-              <span className="font-bold">{totalQty}</span>
+              <span className="text-sm text-subtle">Tổng số lượng</span>
+              <span className="font-bold text-content">{totalQty}</span>
             </div>
-            <div className="flex justify-between border-t border-[#c3c6d7] pt-4">
-              <span className="text-sm font-bold">Tổng Doanh Thu</span>
-              <span className="text-[20px] font-bold text-[#004ac6]">
+            <div className="flex justify-between border-t border-border-soft/30 pt-4">
+              <span className="text-sm font-bold text-content">Tổng Doanh Thu</span>
+              <span className="text-[20px] font-bold text-secondary">
                 {totalRevenue.toLocaleString('vi-VN')} VND
               </span>
             </div>
@@ -1051,13 +1051,13 @@ function Step4PoliciesSettings({ formData, setFormData }) {
   return (
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-6 pb-24">
-        <section className="bg-white rounded-xl border border-[#c3c6d7] p-6 hover:shadow-md transition-shadow">
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#004ac6]/10 flex items-center justify-center text-[#004ac6]">
+              <div className="w-10 h-10 rounded-lg bg-secondary/15 flex items-center justify-center text-secondary">
                 <Icon name="payments" />
               </div>
-              <h3 className="text-[20px] font-semibold">Chính sách hoàn tiền</h3>
+              <h3 className="text-[20px] font-semibold text-content">Chính sách hoàn tiền</h3>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -1071,15 +1071,15 @@ function Step4PoliciesSettings({ formData, setFormData }) {
                   }))
                 }
               />
-              <div className="w-11 h-6 bg-[#c3c6d7] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2563eb]" />
-              <span className="ml-3 text-sm font-medium">Cho phép hoàn tiền</span>
+              <div className="w-11 h-6 bg-border-soft/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary" />
+              <span className="ml-3 text-sm font-medium text-content">Cho phép hoàn tiền</span>
             </label>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="text-[13px] text-[#434655] block mb-1">Hạn chót yêu cầu hoàn tiền</label>
+              <label className="text-[13px] text-subtle block mb-1">Hạn chót yêu cầu hoàn tiền</label>
               <select
-                className="w-full border border-[#c3c6d7] rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+                className="w-full border border-border-soft/40 rounded-lg px-4 py-2 text-sm outline-none bg-panel-soft text-content focus:ring-2 focus:ring-secondary/20"
                 value={rp.deadline_days || 7}
                 onChange={(e) =>
                   setFormData((p) => ({
@@ -1095,9 +1095,9 @@ function Step4PoliciesSettings({ formData, setFormData }) {
             </div>
           </div>
           <div>
-            <label className="text-[13px] text-[#434655] block mb-1">Điều khoản bổ sung</label>
+            <label className="text-[13px] text-subtle block mb-1">Điều khoản bổ sung</label>
             <textarea
-              className="w-full border border-[#c3c6d7] rounded-lg px-4 py-2 text-sm h-24 resize-none outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+              className="w-full border border-border-soft/40 rounded-lg px-4 py-2 text-sm h-24 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:ring-2 focus:ring-secondary/20"
               placeholder="Thêm các điều khoản hoặc hướng dẫn bổ sung cho người giữ vé..."
               value={formData.additional_terms}
               onChange={(e) => setFormData((p) => ({ ...p, additional_terms: e.target.value }))}
@@ -1107,32 +1107,32 @@ function Step4PoliciesSettings({ formData, setFormData }) {
       </div>
 
       <div className="col-span-12 lg:col-span-4 sticky top-24">
-        <div className="bg-white rounded-xl border border-[#c3c6d7] overflow-hidden shadow-sm">
-          <div className="bg-[#e6e8ea] p-4 border-b border-[#c3c6d7]">
-            <h3 className="font-bold flex items-center gap-2">
-              <Icon name="description" className="text-[#004ac6]" />
+        <div className="bg-surface rounded-xl border border-border-soft/30 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
+          <div className="bg-panel-soft p-4 border-b border-border-soft/30">
+            <h3 className="font-bold flex items-center gap-2 text-content">
+              <Icon name="description" className="text-secondary" />
               Tóm tắt chính sách
             </h3>
           </div>
           <div className="p-6 space-y-4">
             <div className="flex items-start gap-3">
-              <Icon name="check_circle" className="text-green-600" />
+              <Icon name="check_circle" className="text-success" />
               <div>
-                <p className="text-sm font-bold">Chính sách hoàn tiền</p>
-                <p className="text-xs text-[#737686]">
+                <p className="text-sm font-bold text-content">Chính sách hoàn tiền</p>
+                <p className="text-xs text-muted">
                   {rp.allow_refunds
                     ? `${rp.deadline_days || 7}-day refund enabled`
                     : 'Refunds disabled'}
                 </p>
               </div>
             </div>
-            <div className="pt-4 border-t border-[#c3c6d7]">
+            <div className="pt-4 border-t border-border-soft/30">
               <div className="flex justify-between mb-2">
-                <span className="text-xs font-bold uppercase">Tiến độ bản nháp</span>
-                <span className="text-xs font-bold text-[#004ac6]">80%</span>
+                <span className="text-xs font-bold uppercase text-subtle">Tiến độ bản nháp</span>
+                <span className="text-xs font-bold text-secondary">80%</span>
               </div>
-              <div className="w-full h-2 bg-[#eceef0] rounded-full overflow-hidden">
-                <div className="h-full bg-[#2563eb] rounded-full" style={{ width: '80%' }} />
+              <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
+                <div className="h-full bg-secondary rounded-full" style={{ width: '80%' }} />
               </div>
             </div>
           </div>
@@ -1150,7 +1150,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
   return (
     <div className="grid grid-cols-12 gap-6">
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-24">
-        <section className="bg-white border border-[#c3c6d7] rounded-xl overflow-hidden shadow-sm">
+        <section className="bg-surface border border-border-soft/30 rounded-xl overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="h-48 relative">
             {formData.banner_url && (
               <img src={formData.banner_url} alt="" className="w-full h-full object-cover" />
@@ -1158,7 +1158,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <div className="absolute bottom-4 left-6 flex items-end gap-4">
               {formData.thumbnail_url && (
-                <div className="w-20 h-20 bg-white p-1 rounded-lg border-2 border-[#004ac6] shadow-xl">
+                <div className="w-20 h-20 bg-surface p-1 rounded-lg border-2 border-secondary shadow-xl">
                   <img src={formData.thumbnail_url} alt="" className="w-full h-full object-cover rounded-md" />
                 </div>
               )}
@@ -1166,7 +1166,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
                 <h3 className="text-[20px] font-bold">{formData.title}</h3>
                 <div className="flex gap-2 mt-1 flex-wrap">
                   {formData.tags.map((tag) => (
-                    <span key={tag} className="bg-[#004ac6]/20 backdrop-blur-md px-2 py-0.5 rounded text-[11px] font-bold uppercase border border-white/20">
+                    <span key={tag} className="bg-secondary/20 backdrop-blur-md px-2 py-0.5 rounded text-[11px] font-bold uppercase border border-white/20">
                       {tag}
                     </span>
                   ))}
@@ -1175,76 +1175,76 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
             </div>
           </div>
           <div className="p-6">
-            <p className="text-sm text-[#434655]">{formData.short_description}</p>
-            <p className="text-xs text-[#737686] mt-2">{categoryName} · {formData.format}</p>
+            <p className="text-sm text-subtle">{formData.short_description}</p>
+            <p className="text-xs text-muted mt-2">{categoryName} · {formData.format}</p>
           </div>
         </section>
 
-        <section className="bg-white border border-[#c3c6d7] rounded-xl p-6 shadow-sm">
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center gap-2 mb-4">
-            <Icon name="calendar_today" className="text-[#004ac6]" />
-            <h4 className="text-sm font-bold uppercase tracking-wider">Lịch trình & Địa điểm</h4>
+            <Icon name="calendar_today" className="text-secondary" />
+            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Lịch trình & Địa điểm</h4>
           </div>
           <div className="grid grid-cols-3 gap-6">
             <div>
-              <label className="block text-xs text-[#737686] mb-1 uppercase">Phiên</label>
-              <p className="font-semibold">{formData.sessions.length} phiên</p>
+              <label className="block text-xs text-muted mb-1 uppercase">Phiên</label>
+              <p className="font-semibold text-content">{formData.sessions.length} phiên</p>
             </div>
             <div>
-              <label className="block text-xs text-[#737686] mb-1 uppercase">Địa điểm</label>
-              <p className="font-semibold">{venue?.name || '—'}</p>
+              <label className="block text-xs text-muted mb-1 uppercase">Địa điểm</label>
+              <p className="font-semibold text-content">{venue?.name || '—'}</p>
             </div>
             <div>
-              <label className="block text-xs text-[#737686] mb-1 uppercase">Hiển thị</label>
-              <p className="font-semibold">{formData.visibility}</p>
+              <label className="block text-xs text-muted mb-1 uppercase">Hiển thị</label>
+              <p className="font-semibold text-content">{formData.visibility}</p>
             </div>
           </div>
         </section>
 
-        <section className="bg-white border border-[#c3c6d7] rounded-xl p-6 shadow-sm">
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center gap-2 mb-4">
-            <Icon name="confirmation_number" className="text-[#004ac6]" />
-            <h4 className="text-sm font-bold uppercase tracking-wider">Vé & Chỗ ngồi</h4>
+            <Icon name="confirmation_number" className="text-secondary" />
+            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Vé & Chỗ ngồi</h4>
           </div>
           <div className="space-y-3">
             {formData.ticketTypes.map((tt) => (
-              <div key={tt.id || tt.clientKey} className="flex justify-between p-3 bg-[#f2f4f6] rounded-lg border border-[#c3c6d7]/50">
+              <div key={tt.id || tt.clientKey} className="flex justify-between p-3 bg-panel-soft rounded-lg border border-border-soft/30">
                 <div>
-                  <p className="font-bold text-sm">{tt.name}</p>
-                  <p className="text-xs text-[#434655]">{tt.quantity} vé · {tt.is_seated ? 'Có chỗ ngồi' : 'Không chỗ ngồi'}</p>
+                  <p className="font-bold text-sm text-content">{tt.name}</p>
+                  <p className="text-xs text-subtle">{tt.quantity} vé · {tt.is_seated ? 'Có chỗ ngồi' : 'Không chỗ ngồi'}</p>
                 </div>
-                <p className="font-bold text-sm">{Number(tt.price).toLocaleString('vi-VN')} VND</p>
+                <p className="font-bold text-sm text-content">{Number(tt.price).toLocaleString('vi-VN')} VND</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="bg-white border border-[#c3c6d7] rounded-xl p-6 shadow-sm">
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center gap-2 mb-4">
-            <Icon name="policy" className="text-[#004ac6]" />
-            <h4 className="text-sm font-bold uppercase tracking-wider">Chính sách</h4>
+            <Icon name="policy" className="text-secondary" />
+            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Chính sách</h4>
           </div>
-          <p className="text-sm text-[#434655]">
+          <p className="text-sm text-subtle">
             {formData.refund_policy.allow_refunds
               ? `Hoàn tiền trước sự kiện ${formData.refund_policy.deadline_days} ngày.`
               : 'Không hoàn tiền.'}
           </p>
           {formData.additional_terms && (
-            <p className="text-sm text-[#434655] mt-2">{formData.additional_terms}</p>
+            <p className="text-sm text-subtle mt-2">{formData.additional_terms}</p>
           )}
         </section>
       </div>
 
       <aside className="col-span-12 lg:col-span-4">
-        <div className="sticky top-24 bg-white border border-[#c3c6d7] rounded-xl p-6 shadow-md border-t-4 border-t-[#004ac6]">
+        <div className="sticky top-24 bg-surface border border-border-soft/30 border-t-secondary border-t-4 rounded-xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
           <div className="flex justify-between mb-4">
-            <span className="text-sm font-bold">Tiến độ 100%</span>
-            <span className="px-2 py-0.5 bg-[#e6e8ea] rounded text-xs font-bold uppercase">Bản nháp</span>
+            <span className="text-sm font-bold text-content">Tiến độ 100%</span>
+            <span className="px-2 py-0.5 bg-panel-soft rounded text-xs font-bold uppercase text-subtle border border-border-soft/30">Bản nháp</span>
           </div>
-          <div className="w-full bg-[#e6e8ea] h-2 rounded-full mb-6 overflow-hidden">
-            <div className="bg-[#004ac6] h-full w-full" />
+          <div className="w-full bg-panel-soft h-2 rounded-full mb-6 overflow-hidden border border-border-soft/20">
+            <div className="bg-secondary h-full w-full rounded-full" />
           </div>
-          <p className="text-xs text-[#434655] text-center">
+          <p className="text-xs text-subtle text-center">
             Gửi để gửi sự kiện của bạn để ban tổ chức xem xét.
           </p>
         </div>
@@ -1660,7 +1660,7 @@ export function CreateEventPage() {
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin w-8 h-8 border-4 border-[#2563eb] border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-secondary border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -1668,13 +1668,13 @@ export function CreateEventPage() {
   return (
     <div className="pb-28">
       <div className="mb-6">
-        <h1 className="font-display text-3xl font-extrabold text-[#111827]">
-          {isEditMode ? 'Chỉnh sửa sự kiện' : 'Create Event'}
+        <h1 className="font-display text-3xl font-extrabold text-content">
+          {isEditMode ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện'}
         </h1>
-        <p className="mt-1 text-sm text-[#434655]">
+        <p className="mt-1 text-sm text-subtle">
           {isEditMode
             ? 'Cập nhật thông tin sự kiện qua 5 bước.'
-            : 'Set up your event in 5 simple steps.'}
+            : 'Thiết lập sự kiện của bạn trong 5 bước đơn giản.'}
         </p>
       </div>
 
@@ -1690,22 +1690,22 @@ export function CreateEventPage() {
       />
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-[#ba1a1a]/20 bg-[#ffdad6] p-4 text-sm text-[#ba1a1a]">
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error">
           <Icon name="error" />
           <span>{error}</span>
           {paymentSetupRequired && (
             <button
               type="button"
               onClick={() => navigate('/organizer/settings/payment')}
-              className="ml-auto rounded-md border border-[#ba1a1a]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#ba1a1a] hover:bg-[#fff1ee]"
+              className="ml-auto rounded-md border border-error/30 bg-surface px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/10 transition"
             >
-              Go to Payment Setup
+              Đến cài đặt thanh toán
             </button>
           )}
         </div>
       )}
       {successMessage && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
           <Icon name="check_circle" />
           {successMessage}
         </div>
@@ -1737,13 +1737,13 @@ export function CreateEventPage() {
         <Step5ReviewSubmit formData={formData} categories={categories} venues={venues} />
       )}
 
-      <footer className="fixed bottom-0 right-0 left-0 lg:left-[240px] bg-white/80 backdrop-blur-md border-t border-[#c3c6d7] p-4 px-8 flex justify-between items-center z-40">
+      <footer className="fixed bottom-0 right-0 left-0 lg:left-[240px] bg-surface/90 backdrop-blur-md border-t border-border-soft/30 p-4 px-8 flex justify-between items-center z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.25)]">
         <button
           type="button"
           onClick={() => navigate('/organizer/events')}
-          className="px-6 py-2.5 rounded-lg border border-[#c3c6d7] text-[#191c1e] text-sm font-medium hover:bg-[#f2f4f6]"
+          className="px-6 py-2.5 rounded-lg border border-border-soft/40 text-content text-sm font-medium hover:bg-panel-soft transition"
         >
-          Cancel
+          Hủy
         </button>
         <div className="flex gap-3">
           {currentStep > 1 && (
@@ -1751,10 +1751,10 @@ export function CreateEventPage() {
               type="button"
               onClick={handleBack}
               disabled={loading}
-              className="px-6 py-2.5 rounded-lg border border-[#c3c6d7] text-sm font-medium hover:bg-[#f2f4f6] flex items-center gap-2"
+              className="px-6 py-2.5 rounded-lg border border-border-soft/40 text-sm font-medium hover:bg-panel-soft transition flex items-center gap-2 text-content disabled:opacity-50"
             >
               <Icon name="arrow_back" className="text-[18px]" />
-              Back
+              Quay lại
             </button>
           )}
           {currentStep < 5 ? (
@@ -1762,9 +1762,9 @@ export function CreateEventPage() {
               type="button"
               onClick={handleNext}
               disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-[#2563eb] px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-secondary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50 transition"
             >
-              {loading ? 'Saving...' : nextLabel}
+              {loading ? 'Đang lưu...' : nextLabel}
               {!loading && <Icon name="arrow_forward" className="text-[18px]" />}
             </button>
           ) : isEditMode ? (
@@ -1774,7 +1774,7 @@ export function CreateEventPage() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="rounded-lg border border-[#c3c6d7] px-6 py-2.5 text-sm font-medium hover:bg-[#f2f4f6] disabled:opacity-50"
+                  className="rounded-lg border border-border-soft/40 px-6 py-2.5 text-sm font-medium hover:bg-panel-soft text-content disabled:opacity-50 transition"
                 >
                   {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
                 </button>
@@ -1783,7 +1783,7 @@ export function CreateEventPage() {
                 type="button"
                 onClick={handleUpdateEvent}
                 disabled={loading}
-                className="flex items-center gap-2 rounded-lg bg-[#2563eb] px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-secondary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50 transition"
               >
                 {loading ? 'Đang cập nhật...' : 'Cập nhật sự kiện'}
               </button>
@@ -1793,9 +1793,9 @@ export function CreateEventPage() {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-[#2563eb] px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-secondary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50 transition"
             >
-              {loading ? 'Submitting...' : 'Submit for Approval'}
+              {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
             </button>
           )}
         </div>

@@ -42,18 +42,18 @@ function fmtDate(iso) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor, accent }) {
+function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-secondary/20', accentColor = 'text-primary', accentBar }) {
   return (
     <Panel className="relative overflow-hidden">
-      {accent && <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />}
-      <div className="flex items-center gap-4 pt-1">
-        <span className={`grid size-12 shrink-0 place-items-center rounded-xl ${iconBg}`}>
-          <Icon className={`size-6 ${iconColor}`} />
-        </span>
+      {accentBar && <div className={`absolute inset-x-0 top-0 h-0.5 rounded-t-2xl ${accentBar}`} />}
+      <div className="flex items-start gap-4 pt-1">
+        <div className={`grid size-11 shrink-0 place-items-center rounded-xl ${accentBg}`}>
+          <Icon className={`size-5 ${accentColor}`} />
+        </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#737686]">{label}</p>
-          <p className="mt-0.5 truncate text-2xl font-extrabold text-[#111827]">{value}</p>
-          {sub && <p className="mt-0.5 text-xs text-[#737686]">{sub}</p>}
+          <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
+          <p className="mt-1 truncate text-xl font-extrabold text-content">{value}</p>
+          {sub && <p className="mt-0.5 text-xs text-muted truncate">{sub}</p>}
         </div>
       </div>
     </Panel>
@@ -62,14 +62,15 @@ function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor, accent }) 
 
 function MiniStatRow({ label, value, tone = 'default' }) {
   const colors = {
-    default: 'text-[#111827]',
-    green:   'text-green-700',
-    red:     'text-red-700',
-    blue:    'text-[#0057c2]',
+    default: 'text-content',
+    green:   'text-success',
+    red:     'text-error',
+    blue:    'text-primary',
+    amber:   'text-warning',
   }
   return (
-    <div className="flex items-center justify-between border-b border-[#f2f4f6] py-2 last:border-0 text-sm">
-      <span className="text-[#5c647a]">{label}</span>
+    <div className="flex items-center justify-between border-b border-border-soft/20 py-2.5 last:border-0 text-sm">
+      <span className="text-subtle">{label}</span>
       <span className={`font-bold ${colors[tone]}`}>{value}</span>
     </div>
   )
@@ -78,7 +79,7 @@ function MiniStatRow({ label, value, tone = 'default' }) {
 function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
   if (!data || data.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-[#737686]">
+      <div className="flex h-40 items-center justify-center text-sm text-subtle">
         Không có dữ liệu trong khoảng thời gian này.
       </div>
     )
@@ -93,7 +94,7 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
     <div className="overflow-x-auto">
       <svg width={svgWidth} height={height + 30} className="block">
         {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-          <line key={pct} x1={0} x2={svgWidth} y1={height - pct * height} y2={height - pct * height} stroke="#e5e7eb" strokeWidth={1} />
+          <line key={pct} x1={0} x2={svgWidth} y1={height - pct * height} y2={height - pct * height} stroke="rgba(43,92,146,0.3)" strokeWidth={1} />
         ))}
         {data.map((d, i) => {
           const barH = Math.max((Number(d[valueKey]) / maxVal) * height, 2)
@@ -102,7 +103,7 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
           const isHighest = Number(d[valueKey]) === maxVal
           return (
             <g key={`${d.period ?? d.day}-${i}`}>
-              <rect x={x} y={y} width={barWidth} height={barH} rx={3} fill={isHighest ? '#2563eb' : '#93c5fd'}>
+              <rect x={x} y={y} width={barWidth} height={barH} rx={3} fill={isHighest ? '#b3cde0' : 'rgba(43,92,146,0.6)'}>
                 <title>{`${d.period ?? d.day}: ${fmtCurrency(d[valueKey])}`}</title>
               </rect>
             </g>
@@ -113,7 +114,7 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
           if (i % step !== 0) return null
           const label = String(d.period ?? d.day ?? '').slice(5)
           return (
-            <text key={`lbl-${i}`} x={i * gap + gap / 2} y={height + 20} textAnchor="middle" fontSize={10} fill="#737686">
+            <text key={`lbl-${i}`} x={i * gap + gap / 2} y={height + 20} textAnchor="middle" fontSize={10} fill="#72787c">
               {label}
             </text>
           )
@@ -187,21 +188,57 @@ export function AdminAnalyticsPage() {
       title="Tổng quan nền tảng"
       description="Thống kê toàn hệ thống: người dùng, sự kiện, doanh thu và hoạt động giao dịch."
     >
+      {/* ── Attention Required ── */}
+      {overview && (
+        <div className="mb-6 rounded-2xl border border-warning/30 bg-warning/[0.06] p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="grid size-7 place-items-center rounded-lg bg-warning/20">
+              <span className="text-sm">⚠️</span>
+            </div>
+            <p className="text-sm font-extrabold uppercase tracking-wider text-warning">
+              Cần xử lý ngay
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              ['Sự kiện chờ duyệt', Number(events?.pending_events || 0), Number(events?.pending_events || 0) > 5 ? 'critical' : 'warn'],
+              ['Yêu cầu Organizer', Number(orgReqs?.pending_requests || 0), Number(orgReqs?.pending_requests || 0) > 3 ? 'critical' : 'warn'],
+              ['Sự kiện đã hủy', Number(events?.cancelled_events || 0), 'warn'],
+              ['Đơn hàng đang xử lý', Number(orders?.pending_orders || 0), 'warn'],
+            ].map(([label, count, severity]) => (
+              <div
+                key={label}
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                  severity === 'critical'
+                    ? 'border-error/30 bg-error/[0.07]'
+                    : 'border-warning/30 bg-warning/[0.05]'
+                }`}
+              >
+                <span className="text-sm font-semibold text-subtle">{label}</span>
+                <span className={`text-xl font-extrabold ${severity === 'critical' ? 'text-error' : 'text-warning'}`}>
+                  {count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Filters ── */}
       <Panel className="mb-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className="block text-sm font-semibold text-[#434655]">Khoảng thời gian (xu hướng)</span>
+            <span className="block text-sm font-semibold text-subtle">Khoảng thời gian (xu hướng)</span>
             <div className="mt-2 flex gap-2">
               {PRESETS.map((p) => (
                 <button
                   key={p.days}
                   type="button"
                   onClick={() => setPreset(p.days)}
-                  className={`h-9 rounded-md border px-4 text-sm font-semibold transition ${
+                  className={`h-9 rounded-xl border px-4 text-sm font-semibold transition ${
                     preset === p.days
-                      ? 'border-primary bg-primary text-slate-950'
-                      : 'border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff]'
+                      ? 'border-primary/60 bg-secondary/25 text-primary'
+                      : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-primary/40 hover:text-primary'
                   }`}
                 >
                   {p.label}
@@ -212,17 +249,17 @@ export function AdminAnalyticsPage() {
 
           <div className="flex items-end gap-3">
             <div>
-              <span className="block text-sm font-semibold text-[#434655]">Nhóm theo</span>
+              <span className="block text-sm font-semibold text-subtle">Nhóm theo</span>
               <div className="mt-2 flex gap-2">
                 {[['day', 'Ngày'], ['week', 'Tuần'], ['month', 'Tháng']].map(([val, lbl]) => (
                   <button
                     key={val}
                     type="button"
                     onClick={() => setTrendGroupBy(val)}
-                    className={`h-9 rounded-md border px-3 text-sm font-semibold transition ${
+                    className={`h-9 rounded-xl border px-3 text-sm font-semibold transition ${
                       trendGroupBy === val
-                        ? 'border-primary bg-primary text-slate-950'
-                        : 'border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff]'
+                        ? 'border-primary/60 bg-secondary/25 text-primary'
+                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-primary/40 hover:text-primary'
                     }`}
                   >
                     {lbl}
@@ -235,7 +272,7 @@ export function AdminAnalyticsPage() {
               type="button"
               onClick={load}
               disabled={loading}
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-[#c3c6d7] bg-white px-4 text-sm font-semibold text-[#434655] transition hover:border-primary hover:bg-[#f1fbff] disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
             >
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
               Làm mới
@@ -245,7 +282,7 @@ export function AdminAnalyticsPage() {
       </Panel>
 
       {error && (
-        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mb-5 rounded-xl border border-error/30 bg-error/[0.07] px-4 py-3 text-sm text-error">
           {error}
         </div>
       )}
@@ -263,36 +300,36 @@ export function AdminAnalyticsPage() {
               label="Tổng người dùng"
               value={Number(users.total_users).toLocaleString('vi-VN')}
               sub={`${Number(users.active_users).toLocaleString()} hoạt động · ${Number(users.locked_users).toLocaleString()} bị khóa`}
-              iconBg="bg-blue-50"
-              iconColor="text-blue-600"
-              accent="bg-[#0057c2]"
+              accentBg="bg-secondary/20"
+              accentColor="text-primary"
+              accentBar="bg-secondary"
             />
             <StatCard
               icon={Building2}
               label="Nhà tổ chức"
               value={Number(users.total_organizers).toLocaleString('vi-VN')}
               sub={`${Number(users.total_staff).toLocaleString()} nhân viên`}
-              iconBg="bg-violet-50"
-              iconColor="text-violet-600"
-              accent="bg-violet-500"
+              accentBg="bg-ai/15"
+              accentColor="text-ai"
+              accentBar="bg-ai"
             />
             <StatCard
               icon={Calendar}
               label="Sự kiện đã đăng"
               value={Number(events.published_events).toLocaleString('vi-VN')}
               sub={`${Number(events.pending_events).toLocaleString()} đang chờ duyệt`}
-              iconBg="bg-amber-50"
-              iconColor="text-amber-600"
-              accent="bg-amber-400"
+              accentBg="bg-warning/15"
+              accentColor="text-warning"
+              accentBar="bg-warning"
             />
             <StatCard
               icon={ClipboardList}
               label="Yêu cầu Organizer"
               value={Number(orgReqs.total_requests).toLocaleString('vi-VN')}
               sub={`${Number(orgReqs.pending_requests).toLocaleString()} đang chờ xử lý`}
-              iconBg="bg-orange-50"
-              iconColor="text-orange-600"
-              accent="bg-orange-400"
+              accentBg="bg-tertiary/15"
+              accentColor="text-tertiary"
+              accentBar="bg-tertiary"
             />
           </div>
 
@@ -303,36 +340,36 @@ export function AdminAnalyticsPage() {
               label="Tổng doanh thu"
               value={fmtShort(orders.gross_revenue)}
               sub={fmtCurrency(orders.gross_revenue)}
-              iconBg="bg-green-50"
-              iconColor="text-green-600"
-              accent="bg-green-500"
+              accentBg="bg-success/15"
+              accentColor="text-success"
+              accentBar="bg-success"
             />
             <StatCard
               icon={TrendingUp}
               label="Phí nền tảng"
               value={fmtShort(orders.total_platform_fee)}
               sub={fmtCurrency(orders.total_platform_fee)}
-              iconBg="bg-teal-50"
-              iconColor="text-teal-600"
-              accent="bg-teal-500"
+              accentBg="bg-primary/20"
+              accentColor="text-primary"
+              accentBar="bg-primary"
             />
             <StatCard
               icon={Ticket}
               label="Đơn đã thanh toán"
               value={Number(orders.paid_orders).toLocaleString('vi-VN')}
               sub={`/${Number(orders.total_orders).toLocaleString()} tổng đơn`}
-              iconBg="bg-pink-50"
-              iconColor="text-pink-600"
-              accent="bg-pink-400"
+              accentBg="bg-error/15"
+              accentColor="text-error"
+              accentBar="bg-error"
             />
             <StatCard
               icon={BarChart3}
               label="Sự kiện (toàn hệ thống)"
               value={Number(events.total_events).toLocaleString('vi-VN')}
               sub={`${Number(events.completed_events).toLocaleString()} hoàn thành`}
-              iconBg="bg-sky-50"
-              iconColor="text-sky-600"
-              accent="bg-sky-400"
+              accentBg="bg-muted/20"
+              accentColor="text-muted"
+              accentBar="bg-muted"
             />
           </div>
 
@@ -342,16 +379,16 @@ export function AdminAnalyticsPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="size-5 text-primary" />
-                  <h2 className="font-bold text-[#111827]">Xu hướng doanh thu</h2>
+                  <h2 className="font-bold text-content">Xu hướng doanh thu</h2>
                 </div>
-                <span className="flex items-center gap-1 text-xs text-[#737686]">
+                <span className="flex items-center gap-1 text-xs text-subtle">
                   <CalendarRange className="size-3" />
                   {PRESETS.find((p) => p.days === preset)?.label}
                 </span>
               </div>
               <BarChartSimple data={revenueTrend} valueKey="gross_revenue" />
               {revenueTrend.length > 0 && (
-                <div className="mt-3 flex justify-between text-xs text-[#737686]">
+                <div className="mt-3 flex justify-between text-xs text-subtle">
                   <span>Tổng: {fmtCurrency(revenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}</span>
                   <span>{revenueTrend.length} điểm dữ liệu</span>
                 </div>
@@ -360,7 +397,7 @@ export function AdminAnalyticsPage() {
 
             {/* ── Events Status Breakdown ── */}
             <Panel>
-              <h2 className="mb-4 font-bold text-[#111827]">Trạng thái sự kiện</h2>
+              <h2 className="mb-4 font-bold text-content">Trạng thái sự kiện</h2>
               <MiniStatRow label="Đã đăng (Published)" value={Number(events.published_events).toLocaleString('vi-VN')} tone="green" />
               <MiniStatRow label="Chờ duyệt" value={Number(events.pending_events).toLocaleString('vi-VN')} tone="blue" />
               <MiniStatRow label="Bản nháp" value={Number(events.draft_events).toLocaleString('vi-VN')} />
@@ -368,8 +405,8 @@ export function AdminAnalyticsPage() {
               <MiniStatRow label="Đã hủy" value={Number(events.cancelled_events).toLocaleString('vi-VN')} tone="red" />
               <MiniStatRow label="Đã ẩn" value={Number(events.hidden_events).toLocaleString('vi-VN')} tone="red" />
 
-              <div className="mt-5 border-t border-[#e0e3e5] pt-4">
-                <h3 className="mb-3 text-xs font-bold uppercase text-[#737686]">Yêu cầu Organizer</h3>
+              <div className="mt-5 border-t border-border-soft/30 pt-4">
+                <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-subtle">Yêu cầu Organizer</h3>
                 <MiniStatRow label="Chờ duyệt" value={Number(orgReqs.pending_requests).toLocaleString('vi-VN')} tone="blue" />
                 <MiniStatRow label="Đã duyệt" value={Number(orgReqs.approved_requests).toLocaleString('vi-VN')} tone="green" />
                 <MiniStatRow label="Từ chối" value={Number(orgReqs.rejected_requests).toLocaleString('vi-VN')} tone="red" />
@@ -381,11 +418,11 @@ export function AdminAnalyticsPage() {
             {/* ── Top Organizers ── */}
             {topOrganizers.length > 0 && (
               <Panel>
-                <h2 className="mb-4 font-bold text-[#111827]">Top nhà tổ chức (theo doanh thu)</h2>
+                <h2 className="mb-4 font-bold text-content">Top nhà tổ chức (theo doanh thu)</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#e5e7eb] text-xs uppercase text-[#737686]">
+                      <tr className="border-b border-border-soft/30 text-[11px] uppercase text-subtle">
                         <th className="pb-3 text-left font-bold">#</th>
                         <th className="pb-3 text-left font-bold">Tên tổ chức</th>
                         <th className="pb-3 text-right font-bold">Sự kiện</th>
@@ -394,21 +431,21 @@ export function AdminAnalyticsPage() {
                     </thead>
                     <tbody>
                       {topOrganizers.map((org, i) => (
-                        <tr key={org.organizer_id} className="border-b border-[#f2f4f6] last:border-0 hover:bg-[#f7f9fb]">
-                          <td className="py-2.5 pr-2 text-xs font-bold text-[#737686]">{i + 1}</td>
+                        <tr key={org.organizer_id} className="border-b border-border-soft/20 last:border-0 transition-colors hover:bg-panel-soft/60">
+                          <td className="py-2.5 pr-2 text-xs font-bold text-subtle">{i + 1}</td>
                           <td className="py-2.5">
                             <div className="flex items-center gap-2">
-                              <p className="font-semibold text-[#111827] truncate max-w-[140px]">{org.organizer_name}</p>
+                              <p className="font-semibold text-content truncate max-w-[140px]">{org.organizer_name}</p>
                               {org.subscription_name && (
-                                <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-[#dbe1ff] text-[#003ea8]">
+                                <span className="shrink-0 rounded-full border border-secondary/30 bg-secondary/20 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
                                   {org.subscription_name}
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-[#737686] truncate max-w-[200px]">{org.organizer_email}</p>
+                            <p className="text-xs text-subtle truncate max-w-[200px]">{org.organizer_email}</p>
                           </td>
-                          <td className="py-2.5 text-right text-[#434655]">{org.total_events}</td>
-                          <td className="py-2.5 text-right font-semibold text-green-700">{fmtShort(org.gross_revenue)}</td>
+                          <td className="py-2.5 text-right text-subtle">{org.total_events}</td>
+                          <td className="py-2.5 text-right font-semibold text-success">{fmtShort(org.gross_revenue)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -420,22 +457,22 @@ export function AdminAnalyticsPage() {
             {/* ── Events by Category ── */}
             {eventsByCategory.length > 0 && (
               <Panel>
-                <h2 className="mb-4 font-bold text-[#111827]">Sự kiện theo danh mục</h2>
-                <div className="space-y-3">
+                <h2 className="mb-4 font-bold text-content">Sự kiện theo danh mục</h2>
+                <div className="space-y-4">
                   {eventsByCategory.map((cat) => {
                     const pct = Math.round((Number(cat.total_events) / maxCatEvents) * 100)
                     return (
                       <div key={cat.id}>
-                        <div className="mb-1 flex items-center justify-between text-sm">
-                          <span className="font-semibold text-[#111827] truncate max-w-[200px]">{cat.name}</span>
-                          <span className="ml-2 shrink-0 text-xs font-bold text-[#737686]">
+                        <div className="mb-1.5 flex items-center justify-between text-sm">
+                          <span className="font-semibold text-content truncate max-w-[200px]">{cat.name}</span>
+                          <span className="ml-2 shrink-0 text-xs font-bold text-subtle">
                             {Number(cat.total_events).toLocaleString()} sự kiện
                           </span>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-[#e0e3e5]">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-border-soft/30">
                           <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
                         </div>
-                        <p className="mt-0.5 text-xs text-[#737686]">
+                        <p className="mt-1 text-xs text-muted">
                           {Number(cat.published_events).toLocaleString()} đã đăng · {Number(cat.completed_events).toLocaleString()} hoàn thành
                         </p>
                       </div>
@@ -448,17 +485,17 @@ export function AdminAnalyticsPage() {
 
           {/* ── Order Stats Summary ── */}
           <Panel>
-            <h2 className="mb-4 font-bold text-[#111827]">Tóm tắt đơn hàng (toàn thời gian)</h2>
+            <h2 className="mb-4 font-bold text-content">Tóm tắt đơn hàng (toàn thời gian)</h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
-                ['Tổng đơn', Number(orders.total_orders).toLocaleString('vi-VN'), ''],
-                ['Đã thanh toán', Number(orders.paid_orders).toLocaleString('vi-VN'), 'text-green-700'],
-                ['Đang xử lý', Number(orders.pending_orders).toLocaleString('vi-VN'), 'text-amber-600'],
-                ['Đã hủy', Number(orders.cancelled_orders).toLocaleString('vi-VN'), 'text-red-600'],
+                ['Tổng đơn', Number(orders.total_orders).toLocaleString('vi-VN'), 'text-content'],
+                ['Đã thanh toán', Number(orders.paid_orders).toLocaleString('vi-VN'), 'text-success'],
+                ['Đang xử lý', Number(orders.pending_orders).toLocaleString('vi-VN'), 'text-warning'],
+                ['Đã hủy', Number(orders.cancelled_orders).toLocaleString('vi-VN'), 'text-error'],
               ].map(([label, value, color]) => (
-                <div key={label} className="rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-[#737686]">{label}</p>
-                  <p className={`mt-1 text-xl font-extrabold ${color || 'text-[#111827]'}`}>{value}</p>
+                <div key={label} className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
+                  <p className={`mt-2 text-xl font-extrabold ${color}`}>{value}</p>
                 </div>
               ))}
             </div>
@@ -467,71 +504,70 @@ export function AdminAnalyticsPage() {
           {/* ── Subscription Revenue ── */}
           {subscriptionRevenue && (
             <Panel className="mt-6">
-              <h2 className="mb-4 font-bold text-[#111827]">Doanh thu từ gói dịch vụ</h2>
+              <h2 className="mb-4 font-bold text-content">Doanh thu từ gói dịch vụ</h2>
               <div className="mb-5 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-[#737686]">Tổng lượt đăng ký</p>
-                  <p className="mt-1 text-xl font-extrabold text-[#111827]">
+                <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">Tổng lượt đăng ký</p>
+                  <p className="mt-2 text-xl font-extrabold text-content">
                     {Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}
                   </p>
-                  <p className="mt-0.5 text-xs text-[#737686]">
+                  <p className="mt-0.5 text-xs text-subtle">
                     {Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')} đang active
                   </p>
                 </div>
-                <div className="rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-[#737686]">Số gói đang active</p>
-                  <p className="mt-1 text-xl font-extrabold text-green-700">
+                <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">Số gói đang active</p>
+                  <p className="mt-2 text-xl font-extrabold text-success">
                     {Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}
                   </p>
                 </div>
-                <div className="rounded-lg border border-green-100 bg-green-50 p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-green-700">Tổng doanh thu thu được</p>
-                  <p className="mt-1 text-xl font-extrabold text-green-800">
+                <div className="rounded-xl border border-success/30 bg-success/[0.07] p-4 text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-success">Tổng doanh thu</p>
+                  <p className="mt-2 text-xl font-extrabold text-success">
                     {fmtCurrency(subscriptionRevenue.total_revenue)}
                   </p>
-                  <p className="mt-0.5 text-xs text-green-600">Bao gồm cả gói đã hủy</p>
+                  <p className="mt-0.5 text-xs text-muted">Bao gồm cả gói đã hủy</p>
                 </div>
               </div>
 
-              {/* Per-plan breakdown — mỗi plan 1 dòng */}
               {Array.isArray(subscriptionRevenue.by_plan) && subscriptionRevenue.by_plan.length > 0 && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-xl border border-border-soft/30">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#e5e7eb] text-xs uppercase text-[#737686]">
-                        <th className="pb-3 text-left font-bold">Gói dịch vụ</th>
-                        <th className="pb-3 text-right font-bold">Giá / lần</th>
-                        <th className="pb-3 text-right font-bold">Tổng doanh thu</th>
+                      <tr className="border-b border-border-soft/30 text-[11px] uppercase text-subtle">
+                        <th className="px-4 pb-3 pt-3 text-left font-bold">Gói dịch vụ</th>
+                        <th className="px-4 pb-3 pt-3 text-right font-bold">Giá / lần</th>
+                        <th className="px-4 pb-3 pt-3 text-right font-bold">Tổng doanh thu</th>
                       </tr>
                     </thead>
                     <tbody>
                       {subscriptionRevenue.by_plan.map((plan) => (
-                        <tr key={plan.plan_id} className="border-b border-[#f2f4f6] last:border-0 hover:bg-[#f7f9fb]">
-                          <td className="py-3">
+                        <tr key={plan.plan_id} className="border-b border-border-soft/20 last:border-0 transition-colors hover:bg-panel-soft/60">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="rounded px-2 py-1 text-xs font-bold bg-[#dbe1ff] text-[#003ea8]">
+                              <span className="rounded-full border border-secondary/30 bg-secondary/20 px-2.5 py-0.5 text-xs font-bold text-primary">
                                 {plan.plan_name}
                               </span>
-                              <span className="text-xs text-[#737686]">
+                              <span className="text-xs text-subtle">
                                 {Number(plan.total).toLocaleString('vi-VN')} lượt đăng ký
                               </span>
                             </div>
                           </td>
-                          <td className="py-3 text-right text-[#434655]">{fmtCurrency(plan.price)}</td>
-                          <td className="py-3 text-right font-semibold text-green-700">{fmtCurrency(plan.revenue)}</td>
+                          <td className="px-4 py-3 text-right text-subtle">{fmtCurrency(plan.price)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-success">{fmtCurrency(plan.revenue)}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-[#e0e3e5] bg-[#f7f9fb]">
-                        <td className="py-3 font-bold text-[#111827]">
+                      <tr className="border-t border-border-soft/40 bg-panel-soft">
+                        <td className="px-4 py-3 font-bold text-content">
                           Tổng cộng
-                          <span className="ml-2 text-xs font-normal text-[#737686]">
+                          <span className="ml-2 text-xs font-normal text-subtle">
                             ({Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')} lượt)
                           </span>
                         </td>
                         <td />
-                        <td className="py-3 text-right font-bold text-green-700">
+                        <td className="px-4 py-3 text-right font-bold text-success">
                           {fmtCurrency(subscriptionRevenue.total_revenue)}
                         </td>
                       </tr>

@@ -46,7 +46,7 @@ export function StaffTasksPage() {
       title="Công việc được giao"
       description="Theo dõi checklist và công việc vận hành từ ban tổ chức."
     >
-      {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
+      {error && <div className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">{error}</div>}
 
       {loading ? (
         <StaffPanel>Đang tải dữ liệu...</StaffPanel>
@@ -60,7 +60,7 @@ export function StaffTasksPage() {
                   <TaskPanel key={task.id} task={task} />
                 ))}
                 {(groupedTasks[status] || []).length === 0 && (
-                  <StaffPanel className="text-sm text-[#737686]">Chưa có công việc.</StaffPanel>
+                  <StaffPanel className="text-sm text-muted">Chưa có công việc.</StaffPanel>
                 )}
               </div>
             </div>
@@ -78,11 +78,11 @@ function TaskPanel({ task }) {
     <StaffPanel>
       <div className="flex items-start justify-between">
         <Badge tone={tone}>{task.status}</Badge>
-        <MoreVertical className="size-4 text-[#737686]" />
+        <MoreVertical className="size-4 text-muted" />
       </div>
       <h4 className="mt-4 font-extrabold">{task.title}</h4>
-      <p className="mt-2 text-sm font-semibold text-[#434655]">{task.event_title}</p>
-      {task.description && <p className="mt-3 text-sm leading-6 text-[#565e74]">{task.description}</p>}
+      <p className="mt-2 text-sm font-semibold text-subtle">{task.event_title}</p>
+      {task.description && <p className="mt-3 text-sm leading-6 text-subtle">{task.description}</p>}
       <div className="mt-5 flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm">
           <Avatar name={task.event_title || 'EventHub'} className="size-7" />
