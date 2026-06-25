@@ -128,12 +128,12 @@ export function AdminEventCategoriesPage() {
         <MetricCard
           label="Tổng loại sự kiện"
           value={categories.length}
-          accent="bg-[#0057c2]"
+          accent="bg-secondary"
         />
         <MetricCard
           label="Đang hoạt động"
           value={categories.filter((category) => category.is_active).length}
-          accent="bg-green-600"
+          accent="bg-success"
         />
         <MetricCard
           label="Chưa dùng"
@@ -153,7 +153,7 @@ export function AdminEventCategoriesPage() {
 
         {categoriesQuery.isLoading && (
           <Panel>
-            <p className="text-sm font-semibold text-[#434655]">Đang tải loại sự kiện...</p>
+            <p className="text-sm font-semibold text-subtle">Đang tải loại sự kiện...</p>
           </Panel>
         )}
 
@@ -169,12 +169,12 @@ export function AdminEventCategoriesPage() {
           <Table
             headers={['Tên loại', 'Slug', 'Mô tả', 'Số sự kiện', 'Trạng thái', 'Hành động']}
             rows={categories.map((category) => [
-              <span key="name" className="font-extrabold text-[#111827]">{category.name}</span>,
-              <span key="slug" className="font-semibold text-[#434655]">{category.slug}</span>,
-              <span key="description" className="line-clamp-2 text-[#434655]">
+              <span key="name" className="font-extrabold text-content">{category.name}</span>,
+              <span key="slug" className="font-semibold text-subtle">{category.slug}</span>,
+              <span key="description" className="line-clamp-2 text-subtle">
                 {category.description || 'Chưa có mô tả'}
               </span>,
-              <span key="count" className="font-extrabold text-[#111827]">
+              <span key="count" className="font-extrabold text-content">
                 {category.event_count ?? 0}
               </span>,
               <Badge key="status" tone={category.is_active ? 'green' : 'blue'}>
@@ -185,7 +185,7 @@ export function AdminEventCategoriesPage() {
                   type="button"
                   title="Sửa"
                   onClick={() => openEdit(category)}
-                  className="grid size-9 place-items-center rounded-md border border-[#c3c6d7] text-[#434655] transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-[#f1fbff] hover:text-primary"
+                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-panel-soft hover:text-primary"
                 >
                   <Edit3 className="size-4" />
                 </button>
@@ -194,7 +194,7 @@ export function AdminEventCategoriesPage() {
                   title={category.is_active ? 'Tạm ẩn' : 'Kích hoạt'}
                   onClick={() => toggleActive(category)}
                   disabled={updateMutation.isPending}
-                  className="grid size-9 place-items-center rounded-md border border-[#c3c6d7] text-[#434655] transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-[#f1fbff] hover:text-primary disabled:opacity-60"
+                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-panel-soft hover:text-primary disabled:opacity-60"
                 >
                   <Power className="size-4" />
                 </button>
@@ -203,7 +203,7 @@ export function AdminEventCategoriesPage() {
                   title="Xóa"
                   onClick={() => deleteCategory(category)}
                   disabled={deleteMutation.isPending}
-                  className="grid size-9 place-items-center rounded-md border border-[#f3b8b8] text-error transition duration-200 hover:-translate-y-0.5 hover:bg-[#fff1f1] disabled:opacity-60"
+                  className="grid size-9 place-items-center rounded-xl border border-error/30 text-error transition duration-200 hover:-translate-y-0.5 hover:bg-error/10 disabled:opacity-60"
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -214,28 +214,28 @@ export function AdminEventCategoriesPage() {
       </div>
 
       {modalMode && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
           <form
             onSubmit={submitForm}
-            className="w-full max-w-lg rounded-md border border-[#c3c6d7] bg-white p-5 shadow-2xl"
+            className="w-full max-w-lg rounded-2xl border border-border-soft/40 bg-surface p-5 shadow-2xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-extrabold text-[#111827]">
+                <h3 className="text-xl font-extrabold text-content">
                   {modalMode === 'edit' ? 'Cập nhật loại sự kiện' : 'Thêm loại sự kiện'}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
-                className="grid size-9 place-items-center rounded-md text-[#434655] transition hover:bg-[#f2f4f6]"
+                className="grid size-9 place-items-center rounded-xl text-subtle transition hover:bg-panel-soft"
               >
                 <X className="size-4" />
               </button>
             </div>
 
             <label className="mt-5 block">
-              <span className="text-xs font-bold text-[#434655]">Tên loại</span>
+              <span className="text-xs font-bold text-subtle">Tên loại</span>
               <input
                 required
                 maxLength={100}
@@ -248,34 +248,34 @@ export function AdminEventCategoriesPage() {
                     slug: modalMode === 'create' && !current.slug ? slugifyText(name) : current.slug,
                   }))
                 }}
-                className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary"
+                className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary placeholder:text-muted"
               />
             </label>
 
             <label className="mt-4 block">
-              <span className="text-xs font-bold text-[#434655]">Slug</span>
+              <span className="text-xs font-bold text-subtle">Slug</span>
               <input
                 required
                 maxLength={150}
                 value={form.slug}
                 onChange={(event) => setForm({ ...form, slug: slugifyText(event.target.value) })}
                 placeholder="am-nhac-bieu-dien"
-                className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary"
+                className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary placeholder:text-muted"
               />
             </label>
 
             <label className="mt-4 block">
-              <span className="text-xs font-bold text-[#434655]">Mô tả</span>
+              <span className="text-xs font-bold text-subtle">Mô tả</span>
               <textarea
                 rows={4}
                 maxLength={1000}
                 value={form.description}
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
-                className="mt-2 w-full resize-none rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-3 text-sm text-[#191c1e] outline-none focus:border-primary"
+                className="mt-2 w-full resize-none rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
               />
             </label>
 
-            <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-[#434655]">
+            <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-subtle">
               <input
                 type="checkbox"
                 checked={form.is_active}
@@ -292,7 +292,7 @@ export function AdminEventCategoriesPage() {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSaving ? 'Đang lưu...' : 'Lưu'}
               </button>
@@ -302,23 +302,23 @@ export function AdminEventCategoriesPage() {
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-md border border-[#c3c6d7] bg-white p-5 text-[#111827] shadow-2xl">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-5 text-content shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-extrabold">
+                <h3 className="text-xl font-extrabold text-content">
                   Xóa loại sự kiện?
                 </h3>
-                <p className="mt-2 text-sm font-semibold text-[#434655]">
-                  Loại <span className="font-bold text-[#111827]">{deleteTarget.name}</span> sẽ
+                <p className="mt-2 text-sm font-semibold text-subtle">
+                  Loại <span className="font-bold text-content">{deleteTarget.name}</span> sẽ
                   bị ẩn khỏi hệ thống nhưng dữ liệu vẫn được giữ trong database.
                 </p>
               </div>
-              <button type="button" onClick={() => setDeleteTarget(null)} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+              <button type="button" onClick={() => setDeleteTarget(null)} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft">
                 <X className="size-4" />
               </button>
             </div>
-            <div className="mt-6 flex justify-end gap-3 border-t border-[#e0e3e5] pt-4">
+            <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
@@ -330,7 +330,7 @@ export function AdminEventCategoriesPage() {
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
               </button>
@@ -347,8 +347,8 @@ function MetricCard({ label, value, accent }) {
     <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-sm font-extrabold text-[#434655]">{label}</p>
-        <p className="mt-5 text-4xl font-black leading-none text-[#111827]">{value}</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="mt-5 text-4xl font-display font-extrabold leading-none text-content tracking-tight">{value}</p>
       </div>
     </Panel>
   )

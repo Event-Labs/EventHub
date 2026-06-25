@@ -96,8 +96,8 @@ export function OrganizerAnnouncementsPage() {
           <OrganizerPanel>
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-[#191c1e]">Thông báo mới</h3>
-                <p className="mt-1 text-sm text-[#737686]">
+                <h3 className="text-lg font-extrabold text-content">Thông báo mới</h3>
+                <p className="mt-1 text-sm text-muted">
                   Người tham dự sẽ nhận notification ngay trên web nếu đang online.
                 </p>
               </div>
@@ -106,16 +106,16 @@ export function OrganizerAnnouncementsPage() {
 
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="text-xs font-bold text-[#434655]">Sự kiện</span>
+                <span className="text-xs font-bold text-subtle">Sự kiện</span>
                 <select
                   required
                   value={form.event_id}
                   onChange={update('event_id')}
-                  className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-white px-3 text-sm outline-none focus:border-primary"
+                  className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                 >
-                  <option value="">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
+                  <option value="" className="bg-surface text-content">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
                   {events.map((event) => (
-                    <option key={event.id} value={event.id}>
+                    <option key={event.id} value={event.id} className="bg-surface text-content">
                       {event.title}
                     </option>
                   ))}
@@ -130,14 +130,14 @@ export function OrganizerAnnouncementsPage() {
               />
 
               <div>
-                <span className="text-xs font-bold text-[#434655]">Kênh gửi</span>
-                <div className="mt-3 flex flex-wrap gap-5 text-sm font-semibold text-[#191c1e]">
-                  <label className="flex items-center gap-2">
+                <span className="text-xs font-bold text-subtle">Kênh gửi</span>
+                <div className="mt-3 flex flex-wrap gap-5 text-sm font-semibold text-content">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.web} onChange={update('web')} className="accent-primary" />
                     <Smartphone className="size-4 text-primary" />
                     Web realtime
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.email} onChange={update('email')} className="accent-primary" />
                     <Mail className="size-4 text-primary" />
                     Email
@@ -146,27 +146,27 @@ export function OrganizerAnnouncementsPage() {
               </div>
 
               <label className="block">
-                <span className="text-xs font-bold text-[#434655]">Nội dung</span>
+                <span className="text-xs font-bold text-subtle">Nội dung</span>
                 <textarea
                   required
                   minLength={5}
                   value={form.content}
                   onChange={update('content')}
-                  className="mt-2 min-h-44 w-full resize-y rounded border border-[#c3c6d7] bg-white p-4 text-sm outline-none focus:border-primary"
+                  className="mt-2 min-h-44 w-full resize-y rounded-xl border border-border-soft/40 bg-panel-soft p-4 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
                   placeholder="Nhập thay đổi về thời gian, địa điểm, hướng dẫn check-in hoặc cập nhật quan trọng..."
                 />
               </label>
 
               {success && (
-                <p className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm font-semibold text-green-700">
-                  <CheckCircle2 className="size-4" />
+                <p className="flex items-center gap-2 rounded-xl bg-success/10 border border-success/30 p-3 text-sm font-semibold text-success">
+                  <CheckCircle2 className="size-4 animate-bounce" />
                   {success}
                 </p>
               )}
-              {error && <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
+              {error && <p className="rounded-xl bg-error/10 border border-error/30 p-3 text-sm font-semibold text-error">{error}</p>}
 
               <button
-                className="admin-primary ml-auto disabled:cursor-not-allowed disabled:opacity-60"
+                className="org-btn-primary ml-auto disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={sendMutation.isPending || !form.event_id || (!form.web && !form.email)}
               >
                 <Send className="size-4" />
@@ -181,12 +181,12 @@ export function OrganizerAnnouncementsPage() {
 
         <aside className="space-y-5">
           <OrganizerPanel>
-            <h3 className="mb-4 text-sm font-extrabold uppercase text-[#434655]">Preview</h3>
-            <div className="mx-auto max-w-72 rounded-[2rem] bg-[#111827] p-4 text-white shadow-xl">
-              <div className="rounded-[1.5rem] bg-gradient-to-br from-slate-900 via-sky-900 to-blue-700 p-5">
+            <h3 className="mb-4 text-sm font-extrabold uppercase text-subtle">Preview</h3>
+            <div className="mx-auto max-w-72 rounded-[2rem] bg-black/80 border border-border-soft/20 p-4 text-white shadow-xl">
+              <div className="rounded-[1.5rem] bg-gradient-to-br from-slate-900 via-sky-950 to-blue-900 p-5">
                 <p className="text-xs font-bold text-primary">EventHub</p>
-                <p className="mt-6 text-xs text-slate-300">{selectedEvent?.title || 'Sự kiện đã chọn'}</p>
-                <p className="mt-5 text-lg font-bold">{form.title || 'Tiêu đề thông báo'}</p>
+                <p className="mt-6 text-xs text-slate-300 truncate">{selectedEvent?.title || 'Sự kiện đã chọn'}</p>
+                <p className="mt-5 text-lg font-bold truncate">{form.title || 'Tiêu đề thông báo'}</p>
                 <p className="mt-2 line-clamp-5 text-xs leading-5 text-slate-200">
                   {form.content || 'Nội dung thông báo sẽ hiển thị tại đây.'}
                 </p>
@@ -197,21 +197,21 @@ export function OrganizerAnnouncementsPage() {
 
           <OrganizerPanel>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-extrabold uppercase text-[#434655]">Lịch sử gửi</h3>
+              <h3 className="text-sm font-extrabold uppercase text-subtle">Lịch sử gửi</h3>
               <Badge tone="blue">{announcements.length}</Badge>
             </div>
-            {announcementsQuery.isLoading && <p className="text-sm text-[#737686]">Đang tải...</p>}
+            {announcementsQuery.isLoading && <p className="text-sm text-muted">Đang tải...</p>}
             {!announcementsQuery.isLoading && announcements.length === 0 && (
-              <p className="text-sm text-[#737686]">Chưa có thông báo nào.</p>
+              <p className="text-sm text-muted">Chưa có thông báo nào.</p>
             )}
             {announcements.map((item) => (
-              <div key={item.id} className="border-t border-[#e0e3e5] py-4 first:border-t-0">
+              <div key={item.id} className="border-t border-border-soft/20 py-4 first:border-t-0 text-content">
                 <div className="flex items-center justify-between gap-3">
                   <p className="line-clamp-1 font-bold">{item.title}</p>
                   <Badge tone="green">Sent</Badge>
                 </div>
-                <p className="mt-1 line-clamp-1 text-xs text-[#737686]">{item.event_title}</p>
-                <p className="mt-1 text-xs text-[#737686]">{formatDateTime(item.sent_at || item.created_at)}</p>
+                <p className="mt-1 line-clamp-1 text-xs text-muted">{item.event_title}</p>
+                <p className="mt-1 text-xs text-muted">{formatDateTime(item.sent_at || item.created_at)}</p>
               </div>
             ))}
           </OrganizerPanel>
@@ -224,13 +224,13 @@ export function OrganizerAnnouncementsPage() {
 function Field({ label, value, onChange, placeholder }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-[#434655]">{label}</span>
+      <span className="text-xs font-bold text-subtle">{label}</span>
       <input
         required
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-white px-3 text-sm outline-none focus:border-primary"
+        className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
       />
     </label>
   )

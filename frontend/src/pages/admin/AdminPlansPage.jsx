@@ -159,11 +159,11 @@ export function AdminPlansPage() {
       onAction={openCreate}
     >
       <div className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Tổng số gói" value={plans.length} accent="bg-[#0057c2]" />
+        <Metric label="Tổng số gói" value={plans.length} accent="bg-secondary" />
         <Metric
           label="Người đăng ký"
           value={plans.reduce((total, plan) => total + Number(plan.subscriber_count || 0), 0)}
-          accent="bg-green-600"
+          accent="bg-success"
         />
         <Metric
           label="Gói đang hiển thị"
@@ -181,7 +181,7 @@ export function AdminPlansPage() {
 
         {plansQuery.isLoading && (
           <Panel>
-            <p className="text-sm font-semibold text-[#434655]">Đang tải gói dịch vụ...</p>
+            <p className="text-sm font-semibold text-subtle">Đang tải gói dịch vụ...</p>
           </Panel>
         )}
 
@@ -195,8 +195,8 @@ export function AdminPlansPage() {
           <Table
             headers={['Tên gói', 'Giá', 'Giới hạn tổng', 'Giới hạn/sự kiện', 'Tính năng', 'Trạng thái', 'Người đăng ký', 'Hành động']}
             rows={plans.map((plan) => [
-              <span key="name" className="font-extrabold">{plan.name}</span>,
-              formatMoney(plan.price),
+              <span key="name" className="font-extrabold text-content">{plan.name}</span>,
+              <span key="price" className="font-bold text-primary">{formatMoney(plan.price)}</span>,
               <Stack key="total" items={[
                 `${limitText(plan.event_limit)} sự kiện`,
                 `${limitText(plan.max_active_events)} sự kiện hoạt động`,
@@ -212,7 +212,7 @@ export function AdminPlansPage() {
               ]} />,
               <FeatureList key="features" plan={plan} />,
               <StatusPill key="status" active={plan.is_active} />,
-              Number(plan.subscriber_count || 0),
+              <span key="subscribers" className="font-bold text-content">{Number(plan.subscriber_count || 0)}</span>,
               <div key="actions" className="flex items-center gap-2">
                 <IconButton title="Sửa" icon={Edit3} disabled={busy} onClick={() => openEdit(plan)} />
                 <IconButton
@@ -232,23 +232,23 @@ export function AdminPlansPage() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
           <form
             onSubmit={submitForm}
-            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-md border border-[#c3c6d7] bg-white shadow-2xl"
+            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border-soft/40 bg-surface shadow-2xl"
           >
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e0e3e5] bg-white px-5 py-4">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-soft/30 bg-surface px-5 py-4">
               <div>
-                <h3 className="text-xl font-extrabold text-[#111827]">
+                <h3 className="text-xl font-extrabold text-content">
                   {modal.mode === 'edit' ? 'Cập nhật gói dịch vụ' : 'Thêm gói dịch vụ'}
                 </h3>
               </div>
-              <button type="button" onClick={() => setModal(null)} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+              <button type="button" onClick={() => setModal(null)} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft transition">
                 <X className="size-4" />
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 text-content">
               <FormSection title="Thông tin gói">
                 <TextInput label="Tên gói" value={form.name} onChange={(name) => updateField('name', name)} required />
                 <TextInput inputMode="numeric" label="Giá gói" value={form.price} onChange={(price) => updateField('price', onlyNumberText(price))} placeholder="0" />
@@ -267,8 +267,8 @@ export function AdminPlansPage() {
                 <TextInput inputMode="numeric" label="Mã giảm giá/sự kiện" value={form.max_promo_codes_per_event} onChange={(value) => updateField('max_promo_codes_per_event', onlyNumberText(value))} placeholder="0" disabled={!form.promo_code_enabled} />
               </FormSection>
 
-              <section className="rounded-md border border-[#e0e3e5] bg-[#f7f9fb] p-4">
-                <h4 className="text-sm font-extrabold uppercase text-[#434655]">Tính năng</h4>
+              <section className="rounded-2xl border border-border-soft/30 bg-panel-soft/35 p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-subtle">Tính năng</h4>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {booleanFields.map(([field, label]) => (
                     <Checkbox
@@ -282,13 +282,13 @@ export function AdminPlansPage() {
               </section>
 
               {formError && (
-                <p className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
+                <p className="rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
                   {formError}
                 </p>
               )}
             </div>
 
-            <div className="flex shrink-0 justify-end gap-3 border-t border-[#e0e3e5] bg-white px-5 py-4">
+            <div className="flex shrink-0 justify-end gap-3 border-t border-border-soft/30 bg-surface px-5 py-4">
               <button type="button" onClick={() => setModal(null)} className="admin-secondary">
                 Hủy
               </button>
@@ -301,27 +301,27 @@ export function AdminPlansPage() {
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-md border border-[#c3c6d7] bg-white p-5 text-[#111827] shadow-2xl">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-5 text-content shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-extrabold">Xóa gói dịch vụ?</h3>
-                <p className="mt-2 text-sm font-semibold text-[#434655]">
+                <h3 className="text-xl font-extrabold text-content">Xóa gói dịch vụ?</h3>
+                <p className="mt-2 text-sm font-semibold text-subtle">
                   Gói "{deleteTarget.name}" sẽ được đánh dấu đã xóa và ẩn khỏi danh sách quản lý.
                 </p>
               </div>
-              <button type="button" onClick={() => setDeleteTarget(null)} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+              <button type="button" onClick={() => setDeleteTarget(null)} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft">
                 <X className="size-4" />
               </button>
             </div>
 
             {actionError && (
-              <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
+              <p className="mt-4 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
                 {actionError}
               </p>
             )}
 
-            <div className="mt-6 flex justify-end gap-3 border-t border-[#e0e3e5] pt-4">
+            <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
               <button type="button" onClick={() => setDeleteTarget(null)} className="admin-secondary">
                 Hủy
               </button>
@@ -329,7 +329,7 @@ export function AdminPlansPage() {
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
               </button>
@@ -346,8 +346,8 @@ function Metric({ label, value, accent }) {
     <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-sm font-extrabold text-[#434655]">{label}</p>
-        <p className="mt-5 text-4xl font-black leading-none text-[#111827]">{value}</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="mt-5 text-4xl font-display font-extrabold leading-none text-content tracking-tight">{value}</p>
       </div>
     </Panel>
   )
@@ -355,8 +355,8 @@ function Metric({ label, value, accent }) {
 
 function FormSection({ title, children }) {
   return (
-    <section className="rounded-md border border-[#e0e3e5] bg-white p-4">
-      <h4 className="text-sm font-extrabold uppercase text-[#434655]">{title}</h4>
+    <section className="rounded-2xl border border-border-soft/30 bg-panel-soft/30 p-4">
+      <h4 className="text-xs font-bold uppercase tracking-wider text-subtle">{title}</h4>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
     </section>
   )
@@ -365,11 +365,11 @@ function FormSection({ title, children }) {
 function TextInput({ label, value, onChange, ...props }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-[#434655]">{label}</span>
+      <span className="text-xs font-bold text-subtle">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#111827] placeholder:text-[#737686] outline-none disabled:cursor-not-allowed disabled:bg-[#e9edf2] disabled:text-[#737686] focus:border-primary"
+        className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content placeholder:text-muted outline-none disabled:cursor-not-allowed disabled:bg-panel-soft/50 disabled:text-muted focus:border-primary"
         {...props}
       />
     </label>
@@ -378,7 +378,7 @@ function TextInput({ label, value, onChange, ...props }) {
 
 function Checkbox({ label, checked, onChange }) {
   return (
-    <label className="flex items-center gap-3 text-sm font-semibold text-[#434655]">
+    <label className="flex items-center gap-3 text-sm font-semibold text-subtle cursor-pointer">
       <input
         type="checkbox"
         checked={checked}
@@ -394,10 +394,10 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
   return (
     <button
       type="button"
-      className={`grid size-9 place-items-center rounded-md border transition duration-200 hover:-translate-y-0.5 disabled:opacity-60 ${
+      className={`grid size-9 place-items-center rounded-xl border transition duration-200 hover:-translate-y-0.5 disabled:opacity-60 ${
         danger
-          ? 'border-[#f3b8b8] text-error hover:bg-[#fff1f1]'
-          : 'border-[#c3c6d7] text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'
+          ? 'border-error/30 text-error hover:bg-error/10'
+          : 'border-border-soft/40 text-subtle hover:border-primary hover:bg-panel-soft hover:text-primary'
       }`}
       {...props}
     >
@@ -408,7 +408,7 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
 
 function Stack({ items }) {
   return (
-    <div className="space-y-1 text-xs font-semibold text-[#434655]">
+    <div className="space-y-1 text-xs font-semibold text-subtle">
       {items.map((item) => <p key={item}>{item}</p>)}
     </div>
   )
@@ -419,17 +419,17 @@ function FeatureList({ plan }) {
     .filter(([field]) => Boolean(plan[field]))
     .map(([, label]) => label)
 
-  if (!enabled.length) return <span className="text-sm font-semibold text-[#737686]">Chưa bật tính năng</span>
+  if (!enabled.length) return <span className="text-sm font-semibold text-subtle">Chưa bật tính năng</span>
 
   return (
     <div className="flex max-w-xs flex-wrap gap-2">
       {enabled.slice(0, 4).map((feature) => (
-        <span key={feature} className="rounded-full bg-[#e8f7ff] px-2 py-1 text-xs font-bold text-[#0057c2]">
+        <span key={feature} className="rounded-full bg-secondary/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary border border-secondary/35">
           {feature}
         </span>
       ))}
       {enabled.length > 4 && (
-        <span className="rounded-full bg-[#f2f4f6] px-2 py-1 text-xs font-bold text-[#434655]">
+        <span className="rounded-full bg-panel-soft px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-subtle border border-border-soft/30">
           +{enabled.length - 4}
         </span>
       )}
@@ -439,8 +439,8 @@ function FeatureList({ plan }) {
 
 function StatusPill({ active }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-extrabold ${
-      active ? 'bg-[#e7f8ed] text-[#0f7a3b]' : 'bg-[#f2f4f6] text-[#737686]'
+    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+      active ? 'bg-success/15 text-success border-success/30' : 'bg-panel-soft text-subtle border-border-soft/30'
     }`}>
       {active ? 'Đang hiển thị' : 'Tạm ẩn'}
     </span>

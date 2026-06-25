@@ -3,8 +3,6 @@ import {
   ArrowLeft,
   Check,
   ExternalLink,
-  Minus,
-  Plus,
   RefreshCw,
   ShieldCheck,
   Tag,
