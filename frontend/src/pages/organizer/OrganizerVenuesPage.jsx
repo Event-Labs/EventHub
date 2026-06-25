@@ -204,7 +204,8 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   }
 
   async function geocodeFormAddress(payload) {
-    const results = await searchAddress(buildAddressQuery(payload), { limit: 1 })
+    const textAddress = buildAddressQuery(payload)
+    const results = await searchAddress(textAddress, { limit: 1 })
     const result = results[0]
     if (!result) {
       throw new Error('Không tìm thấy tọa độ cho địa chỉ này. Vui lòng nhập địa chỉ cụ thể hơn hoặc chọn trực tiếp trên bản đồ.')
@@ -283,31 +284,31 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-[800px] flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-[#c3c6d7] px-6 py-4">
-          <h2 className="text-lg font-bold text-[#111827]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content">
+        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+          <h2 className="text-lg font-bold text-content">
             {editVenue ? 'Sửa địa điểm' : 'Thêm địa điểm'}
           </h2>
-          <button type="button" onClick={onClose} className="text-2xl leading-none text-[#737686]">
+          <button type="button" onClick={onClose} className="text-2xl leading-none text-muted hover:text-content transition-colors">
             ×
           </button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
           <div className="grid flex-1 grid-cols-1 overflow-y-auto md:grid-cols-2">
-            <div className="space-y-3 border-b border-[#c3c6d7] p-5 md:border-b-0 md:border-r">
+            <div className="space-y-3 border-b border-border-soft/20 p-5 md:border-b-0 md:border-r">
               <div>
-                <label className="mb-1 block text-xs font-bold text-[#737686]">Tên địa điểm*</label>
+                <label className="mb-1 block text-xs font-bold text-muted">Tên địa điểm*</label>
                 <input
-                  className="h-10 w-full rounded-md border border-[#c3c6d7] px-3 text-sm"
+                  className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 />
               </div>
               <div className="relative">
-                <label className="mb-1 block text-xs font-bold text-[#737686]">Địa chỉ*</label>
+                <label className="mb-1 block text-xs font-bold text-muted">Địa chỉ*</label>
                 <input
-                  className="h-10 w-full rounded-md border border-[#c3c6d7] px-3 text-sm"
+                  className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
                   value={form.address_line}
                   onChange={(e) =>
                     setForm((f) => ({
@@ -323,15 +324,15 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                   autoComplete="off"
                 />
                 {searching && (
-                  <span className="absolute right-3 top-9 text-xs text-[#737686]">Đang tìm...</span>
+                  <span className="absolute right-3 top-9 text-xs text-muted">Đang tìm...</span>
                 )}
                 {showSuggestions && suggestions.length > 0 && (
-                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[#c3c6d7] bg-white shadow-lg">
+                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border-soft/30 bg-surface shadow-xl">
                     {suggestions.map((item) => (
                       <li key={item.place_id}>
                         <button
                           type="button"
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-[#f2f4f6]"
+                          className="w-full px-3 py-2 text-left text-sm text-content hover:bg-panel-soft/60 transition-colors"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => selectSuggestion(item)}
                         >
@@ -343,45 +344,45 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-xs font-bold text-[#737686]">Thành phố*</label>
+                <label className="mb-1 block text-xs font-bold text-muted">Thành phố*</label>
                 <input
-                  className="h-10 w-full rounded-md border border-[#c3c6d7] px-3 text-sm"
+                  className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                   value={form.city}
                   onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-[#737686]">Quận/Huyện</label>
+                  <label className="mb-1 block text-xs font-bold text-muted">Quận/Huyện</label>
                   <input
-                    className="h-10 w-full rounded-md border border-[#c3c6d7] px-3 text-sm"
+                    className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                     value={form.district}
                     onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-[#737686]">Phường/Xã</label>
+                  <label className="mb-1 block text-xs font-bold text-muted">Phường/Xã</label>
                   <input
-                    className="h-10 w-full rounded-md border border-[#c3c6d7] px-3 text-sm"
+                    className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                     value={form.ward}
                     onChange={(e) => setForm((f) => ({ ...f, ward: e.target.value }))}
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-bold text-[#737686]">Mô tả</label>
+                <label className="mb-1 block text-xs font-bold text-muted">Mô tả</label>
                 <textarea
                   rows={3}
-                  className="w-full rounded-md border border-[#c3c6d7] px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-sm text-content outline-none focus:border-primary"
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 />
               </div>
             </div>
             <div className="p-5">
-              <p className="mb-2 text-xs font-bold text-[#737686]">Bản đồ (OpenStreetMap)</p>
-              <div ref={mapRef} className="z-0 h-[380px] w-full cursor-crosshair rounded-md border border-[#c3c6d7]" />
-              <p className="mt-2 text-xs text-[#737686]">
+              <p className="mb-2 text-xs font-bold text-muted">Bản đồ (OpenStreetMap)</p>
+              <div ref={mapRef} className="z-0 h-[380px] w-full cursor-crosshair rounded-xl border border-border-soft/30 overflow-hidden" />
+              <p className="mt-2 text-xs text-muted">
                 Nhập địa chỉ để tự lấy tọa độ. Có thể click bản đồ hoặc kéo marker để chỉnh lại.
               </p>
               {geocoding && (
@@ -389,12 +390,12 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
               )}
             </div>
           </div>
-          {error && <p className="px-5 text-sm text-red-500">{error}</p>}
-          <div className="flex justify-end gap-3 border-t border-[#c3c6d7] px-5 py-4">
-            <button type="button" onClick={onClose} className="admin-secondary">
+          {error && <p className="px-5 text-sm text-error font-semibold">{error}</p>}
+          <div className="flex justify-end gap-3 border-t border-border-soft/20 px-5 py-4 bg-panel-soft/30">
+            <button type="button" onClick={onClose} className="org-btn-secondary">
               Hủy
             </button>
-            <button type="submit" disabled={saving} className="admin-primary">
+            <button type="submit" disabled={saving} className="org-btn-primary">
               {saving ? 'Đang lưu...' : 'Lưu'}
             </button>
           </div>
@@ -408,34 +409,34 @@ function VenueCard({ venue, onEdit, onDelete }) {
   const location = [venue.city, venue.district].filter(Boolean).join(', ')
 
   return (
-    <div className="rounded-md border border-[#c3c6d7] bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm text-content">
       <div className="mb-3 flex items-start gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#dbe1ff] text-primary">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary/20 text-primary border border-secondary/20">
           <MapPin className="size-5" />
         </div>
-        <div className="flex-1">
-          <h3 className="font-bold text-[#111827]">{venue.name}</h3>
-          <p className="mt-1 text-sm text-[#434655]">{location || venue.address_line}</p>
-          <p className="mt-2 text-xs text-[#737686]">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-content truncate">{venue.name}</h3>
+          <p className="mt-1 text-sm text-subtle truncate">{location || venue.address_line}</p>
+          <p className="mt-2 text-xs text-muted">
             {venue.seat_map_count || 0} sơ đồ · {venue.total_seats || 0} ghế
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 pt-2">
         <Link
           to={`/organizer/venues/${venue.id}/seat-maps`}
-          className="admin-secondary text-xs"
+          className="org-btn-secondary text-xs"
         >
           Sơ đồ ghế
         </Link>
-        <button type="button" onClick={() => onEdit(venue)} className="admin-secondary text-xs">
+        <button type="button" onClick={() => onEdit(venue)} className="org-btn-secondary text-xs">
           <Pencil className="size-3.5" />
           Sửa
         </button>
         <button
           type="button"
           onClick={() => onDelete(venue)}
-          className="flex items-center gap-1 rounded-md border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50"
+          className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-xs font-bold text-error hover:bg-error/20 transition-colors"
         >
           <Trash2 className="size-3.5" />
           Xóa
@@ -510,9 +511,9 @@ export function OrganizerVenuesPage() {
     >
       <div className="mb-5">
         <div className="relative w-72 max-w-full">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input
-            className="h-10 w-full rounded-md border border-[#c3c6d7] bg-[#f7f9fb] pl-10 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted"
             placeholder="Tìm theo tên, thành phố..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -520,14 +521,14 @@ export function OrganizerVenuesPage() {
         </div>
       </div>
 
-      {message && <p className="mb-4 text-sm text-[#434655]">{message}</p>}
+      {message && <p className="mb-4 text-sm text-subtle font-semibold">{message}</p>}
 
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       ) : !filtered.length ? (
-        <div className="rounded-md border border-dashed border-[#c3c6d7] py-16 text-center text-sm text-[#737686]">
+        <div className="rounded-xl border border-dashed border-border-soft/30 py-16 text-center text-sm text-muted">
           Chưa có địa điểm nào. Nhấn &quot;Thêm địa điểm&quot; để bắt đầu.
         </div>
       ) : (

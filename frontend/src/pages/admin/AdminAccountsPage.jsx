@@ -129,15 +129,15 @@ export function AdminAccountsPage() {
             footer={
               <>
                 <button className="admin-secondary" onClick={() => setUnlockModalOpen(false)}>Hủy bỏ</button>
-                <button className="admin-primary bg-success border-none text-white hover:bg-green-700" onClick={handleUnlock}>Xác nhận mở khóa</button>
+                <button className="admin-primary bg-success border-none text-slate-950 font-extrabold hover:bg-success/90" onClick={handleUnlock}>Xác nhận mở khóa</button>
               </>
             }
           >
             <div className="py-2">
-              <p className="text-sm text-[#434655]">
-                Bạn có chắc chắn muốn mở khóa tài khoản cho <span className="font-bold text-[#111827]">{targetUser?.full_name}</span>?
+              <p className="text-sm text-subtle">
+                Bạn có chắc chắn muốn mở khóa tài khoản cho <span className="font-bold text-content">{targetUser?.full_name}</span>?
               </p>
-              <p className="mt-2 text-sm text-[#434655]">
+              <p className="mt-2 text-sm text-subtle">
                 Sau khi mở khóa, người dùng có thể đăng nhập và sử dụng hệ thống bình thường.
               </p>
             </div>
@@ -165,42 +165,42 @@ export function AdminAccountsPage() {
       <div className="my-6 grid gap-4 lg:flex lg:items-center lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-4">
           <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
             <input
               type="text"
               placeholder="Tìm theo tên hoặc email..."
-              className="h-10 w-full rounded-md border border-[#c3c6d7] bg-white pl-10 pr-3 text-sm text-[#191c1e] outline-none focus:border-primary transition focus:ring-2 focus:ring-primary/10"
+              className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none focus:border-primary transition focus:ring-2 focus:ring-primary/10 placeholder:text-muted"
               value={filters.search}
               onChange={handleSearchChange}
             />
           </div>
           
           <select 
-            className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm text-[#191c1e] hover:border-primary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
+            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-primary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
             value={filters.role}
             onChange={handleRoleChange}
           >
-            <option value="">Tất cả vai trò</option>
-            <option value="ADMIN">Admin</option>
-            <option value="ORGANIZER">Organizer</option>
-            <option value="CUSTOMER">Customer</option>
-            <option value="STAFF">Staff</option>
+            <option value="" className="bg-surface text-content">Tất cả vai trò</option>
+            <option value="ADMIN" className="bg-surface text-content">Admin</option>
+            <option value="ORGANIZER" className="bg-surface text-content">Organizer</option>
+            <option value="CUSTOMER" className="bg-surface text-content">Customer</option>
+            <option value="STAFF" className="bg-surface text-content">Staff</option>
           </select>
 
           <select 
-            className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm text-[#191c1e] hover:border-primary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
+            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-primary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
             value={filters.status}
             onChange={handleStatusChange}
           >
-            <option value="">Mọi trạng thái</option>
-            <option value="ACTIVE">Hoạt động</option>
-            <option value="LOCKED">Đã khóa</option>
-            <option value="PENDING">Chờ xác nhận</option>
+            <option value="" className="bg-surface text-content">Mọi trạng thái</option>
+            <option value="ACTIVE" className="bg-surface text-content">Hoạt động</option>
+            <option value="LOCKED" className="bg-surface text-content">Đã khóa</option>
+            <option value="PENDING" className="bg-surface text-content">Chờ xác nhận</option>
           </select>
 
           <button 
             onClick={resetFilters}
-            className="flex items-center gap-1 text-sm font-bold text-[#737686] hover:text-primary transition"
+            className="flex items-center gap-1 text-sm font-bold text-subtle hover:text-primary transition"
           >
             <RotateCcw className="size-3" /> Đặt lại
           </button>
@@ -228,11 +228,11 @@ export function AdminAccountsPage() {
               <Badge tone="gray">CHƯA XÁC THỰC</Badge>
             )}
           </div>,
-          <span key="date" className="text-[#434655] font-medium">
+          <span key="date" className="text-subtle font-medium">
             {new Date(user.created_at).toLocaleDateString('vi-VN')}
           </span>,
           <Status key="status" value={user.status} />,
-          <div key="actions" className="flex items-center gap-4 text-[#737686]">
+          <div key="actions" className="flex items-center gap-4 text-subtle">
             <button onClick={() => handleAction('VIEW', user)} title="Xem chi tiết" className="hover:text-primary transition">
                <ShieldCheck className="size-5" />
             </button>
@@ -250,8 +250,8 @@ export function AdminAccountsPage() {
       />
 
       <div className="mt-6 flex items-center justify-between">
-        <p className="text-sm text-[#5c647a]">
-          Showing <span className="font-bold">{(filters.page - 1) * filters.limit + 1}</span> to <span className="font-bold">{Math.min(filters.page * filters.limit, total)}</span> of <span className="font-bold">{total}</span> users
+        <p className="text-sm text-subtle font-medium">
+          Hiển thị <span className="font-bold">{(filters.page - 1) * filters.limit + 1}</span> đến <span className="font-bold">{Math.min(filters.page * filters.limit, total)}</span> trong tổng số <span className="font-bold">{total}</span> người dùng
         </p>
         <div className="flex gap-2">
            <button 
@@ -259,14 +259,14 @@ export function AdminAccountsPage() {
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
             className="admin-secondary py-2 px-4 text-xs disabled:opacity-50"
            >
-            Previous
+            Trước
            </button>
            <button 
             disabled={filters.page * filters.limit >= total}
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
             className="admin-secondary py-2 px-4 text-xs disabled:opacity-50"
            >
-            Next
+            Sau
            </button>
         </div>
       </div>
@@ -291,15 +291,15 @@ export function AdminAccountsPage() {
           footer={
             <>
               <button className="admin-secondary" onClick={() => setUnlockModalOpen(false)}>Hủy bỏ</button>
-              <button className="admin-primary bg-success border-none text-white hover:bg-green-700" onClick={handleUnlock}>Xác nhận mở khóa</button>
+              <button className="admin-primary bg-success border-none text-slate-950 font-extrabold hover:bg-success/90" onClick={handleUnlock}>Xác nhận mở khóa</button>
             </>
           }
         >
           <div className="py-2">
-            <p className="text-sm text-[#434655]">
-              Bạn có chắc chắn muốn mở khóa tài khoản cho <span className="font-bold text-[#111827]">{targetUser?.full_name}</span>?
+            <p className="text-sm text-subtle">
+              Bạn có chắc chắn muốn mở khóa tài khoản cho <span className="font-bold text-content">{targetUser?.full_name}</span>?
             </p>
-            <p className="mt-2 text-sm text-[#434655]">
+            <p className="mt-2 text-sm text-subtle">
               Sau khi mở khóa, người dùng có thể đăng nhập và sử dụng hệ thống bình thường.
             </p>
           </div>

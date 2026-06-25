@@ -15,9 +15,9 @@ function ValidTicket() {
       <div className="grid gap-5 md:grid-cols-[1fr_320px]">
         <TicketInfo />
         <StaffPanel>
-          <h3 className="mb-4 text-sm font-bold uppercase text-[#737686]">Kiểm tra toàn vẹn</h3>
+          <h3 className="mb-4 text-sm font-bold uppercase text-muted">Kiểm tra toàn vẹn</h3>
           {['Thuộc sự kiện này', 'Chưa sử dụng', 'Không hoàn tiền', 'Đang hoạt động'].map((item) => (
-            <p key={item} className="mt-3 flex items-center justify-between text-sm">{item}<CheckCircle2 className="size-4 text-success" /></p>
+            <p key={item} className="mt-3 flex items-center justify-between text-sm text-content">{item}<CheckCircle2 className="size-4 text-success" /></p>
           ))}
         </StaffPanel>
       </div>
@@ -46,8 +46,8 @@ function AlreadyCheckedIn() {
     <ResultShell tone="yellow" icon={AlertTriangle} title="Đã check-in" subtitle="Vé này đã được dùng.">
       <TicketInfo />
       <StaffPanel className="mt-5">
-        <h3 className="font-bold">Thông tin check-in trước đó</h3>
-        <p className="mt-3 text-sm">09:42 AM hôm nay - Nhân sự Sarah J. - QR Scan</p>
+        <h3 className="font-bold text-content">Thông tin check-in trước đó</h3>
+        <p className="mt-3 text-sm text-subtle">09:42 AM hôm nay - Nhân sự Sarah J. - QR Scan</p>
       </StaffPanel>
       <div className="mt-6 flex justify-center gap-3">
         <Link to="/staff/qr-check-in" className="admin-primary"><RefreshCcw className="size-4" />Quét lại</Link>
@@ -82,12 +82,12 @@ function ResultShell({ tone, icon: Icon, title, subtitle, children }) {
   }
   return (
     <div className="mx-auto max-w-5xl">
-      <div className={`rounded-t-md p-8 text-center ${colors[tone]}`}>
+      <div className={`rounded-t-2xl p-8 text-center ${colors[tone]}`}>
         <Icon className="mx-auto size-14" />
         <h1 className="mt-4 text-3xl font-extrabold">{title}</h1>
         <p className="mt-2 text-sm opacity-90">{subtitle}</p>
       </div>
-      <div className="rounded-b-md border border-t-0 border-[#c3c6d7] bg-white p-6 shadow-sm">
+      <div className="rounded-b-2xl border border-t-0 border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm text-content">
         {children}
       </div>
     </div>
@@ -112,8 +112,8 @@ function TicketInfo() {
 function Info({ label, value }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase text-[#737686]">{label}</p>
-      <p className="mt-1 font-bold text-[#191c1e]">{value}</p>
+      <p className="text-xs font-bold uppercase text-muted">{label}</p>
+      <p className="mt-1 font-bold text-content">{value}</p>
     </div>
   )
 }

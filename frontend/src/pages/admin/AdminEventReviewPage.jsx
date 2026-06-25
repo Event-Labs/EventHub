@@ -195,7 +195,7 @@ export function AdminEventReviewPage() {
             className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
               activeStatus === tab.value
                 ? 'bg-primary text-slate-950 shadow-primary/20'
-                : 'border border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-primary hover:bg-surface hover:text-content'
             }`}
           >
             {tab.label}
@@ -211,13 +211,13 @@ export function AdminEventReviewPage() {
 
       {/* States */}
       {isLoading && (
-        <Panel className="mt-5 text-sm text-[#737686]">Đang tải danh sách sự kiện...</Panel>
+        <Panel className="mt-5 text-sm text-subtle">Đang tải danh sách sự kiện...</Panel>
       )}
       {isError && (
         <Panel className="mt-5 text-sm text-error">Không thể tải danh sách sự kiện.</Panel>
       )}
       {!isLoading && !isError && items.length === 0 && (
-        <Panel className="mt-5 text-sm text-[#737686]">
+        <Panel className="mt-5 text-sm text-subtle">
           Không có sự kiện nào ở trạng thái này.
         </Panel>
       )}
@@ -243,7 +243,7 @@ export function AdminEventReviewPage() {
                     key="img"
                     src={event.thumbnail_url}
                     alt={event.title}
-                    className="h-12 w-20 rounded object-cover"
+                    className="h-12 w-20 rounded-xl object-cover border border-border-soft/30"
                   />
                 ) : (
                   <ImagePlaceholder key="img" label="Event" />
@@ -251,24 +251,24 @@ export function AdminEventReviewPage() {
 
                 /* Event name */
                 <div key="name">
-                  <p className="max-w-[200px] truncate font-semibold text-[#191c1e]">
+                  <p className="max-w-[200px] truncate font-semibold text-content">
                     {event.title}
                   </p>
-                  <p className="text-xs text-[#737686]">{event.slug}</p>
+                  <p className="text-xs text-subtle">{event.slug}</p>
                 </div>,
 
                 /* Organizer */
-                <span key="org" className="text-sm text-[#434655]">
+                <span key="org" className="text-sm text-subtle">
                   {event.organizer_name || '—'}
                 </span>,
 
                 /* Event date */
-                <span key="date" className="text-sm text-[#434655]">
+                <span key="date" className="text-sm text-subtle">
                   {formatDate(event.start_time)}
                 </span>,
 
                 /* Submitted date */
-                <span key="sub" className="text-sm text-[#434655]">
+                <span key="sub" className="text-sm text-subtle">
                   {formatDate(event.created_at)}
                 </span>,
 
@@ -278,7 +278,7 @@ export function AdminEventReviewPage() {
                 /* Actions */
                 <div key="actions" className="flex flex-col gap-2">
                   <input
-                    className="h-9 rounded-md border border-[#c3c6d7] bg-white px-2 text-xs outline-none focus:border-primary"
+                    className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
                     placeholder="Ghi chú (tuỳ chọn)"
                     value={notes[event.id] ?? ''}
                     onChange={(e) => setNote(event.id, e.target.value)}
@@ -329,7 +329,7 @@ export function AdminEventReviewPage() {
                       type="button"
                       title="Xem chi tiết"
                       onClick={() => openModal(event)}
-                      className="rounded-md border border-[#c3c6d7] px-3 py-2 text-xs font-semibold text-[#434655] transition hover:border-primary hover:bg-[#f1fbff] hover:text-primary"
+                      className="rounded-xl border border-border-soft/40 px-3 py-2 text-xs font-semibold text-subtle transition hover:border-primary hover:bg-panel-soft hover:text-primary"
                     >
                       Chi tiết
                     </button>
@@ -341,7 +341,7 @@ export function AdminEventReviewPage() {
 
           {/* Pagination */}
           {pagination.total_pages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm text-[#434655]">
+            <div className="mt-4 flex items-center justify-between text-sm text-subtle">
               <span>
                 Trang {pagination.page} / {pagination.total_pages} · {pagination.total} sự kiện
               </span>
@@ -392,9 +392,9 @@ export function AdminEventReviewPage() {
 
 function ActionButton({ title, color, icon, onClick, disabled }) {
   const colorMap = {
-    green: 'border-green-200 text-green-600 hover:bg-green-50',
-    red: 'border-red-200 text-red-600 hover:bg-red-50',
-    gray: 'border-[#c3c6d7] text-[#434655] hover:border-primary hover:bg-[#f1fbff]',
+    green: 'border-success/30 text-success hover:bg-success/10',
+    red: 'border-error/30 text-error hover:bg-error/10',
+    gray: 'border-border-soft/40 text-subtle hover:border-primary hover:bg-panel-soft',
   }
   return (
     <button
@@ -402,7 +402,7 @@ function ActionButton({ title, color, icon, onClick, disabled }) {
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`grid size-9 place-items-center rounded-md border transition disabled:cursor-not-allowed disabled:opacity-50 ${colorMap[color]}`}
+      className={`grid size-9 place-items-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-50 ${colorMap[color]}`}
     >
       {icon}
     </button>
@@ -425,18 +425,18 @@ function EventReviewModal({
   const isHiddenApproved = event.status === 'HIDDEN' && event.approval_status === 'APPROVED'
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <Panel className="w-full max-w-xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
+      <Panel className="w-full max-w-xl border-border-soft/60">
         {/* Header */}
-        <h3 className="font-display text-2xl font-extrabold text-[#111827] leading-tight">
+        <h3 className="font-display text-2xl font-extrabold text-content leading-tight">
           {event.title}
         </h3>
-        <p className="mt-1 text-sm text-[#737686]">
-          Organizer: <span className="font-semibold text-[#434655]">{event.organizer_name}</span>
+        <p className="mt-1 text-sm text-subtle">
+          Organizer: <span className="font-semibold text-content">{event.organizer_name}</span>
         </p>
-        <p className="text-sm text-[#737686]">
+        <p className="text-sm text-subtle">
           Ngày diễn ra:{' '}
-          <span className="font-semibold text-[#434655]">
+          <span className="font-semibold text-content">
             {formatDate(event.start_time)}
             {event.end_time && event.end_time !== event.start_time
               ? ` — ${formatDate(event.end_time)}`
@@ -450,18 +450,18 @@ function EventReviewModal({
           <img
             src={event.thumbnail_url}
             alt={event.title}
-            className="mt-4 h-40 w-full rounded-md object-cover"
+            className="mt-4 h-40 w-full rounded-xl object-cover border border-border-soft/40"
           />
         )}
 
         {/* Note textarea — shown for PENDING_REVIEW and PUBLISHED (hide reason) */}
         {(isPending || isPublished) && (
           <label className="mt-5 block">
-            <span className="text-sm font-semibold text-[#434655]">
+            <span className="text-sm font-semibold text-subtle">
               {isPending ? 'Ghi chú (bắt buộc khi từ chối)' : 'Lý do ẩn (tuỳ chọn)'}
             </span>
             <textarea
-              className="mt-2 min-h-24 w-full rounded-md border border-[#c3c6d7] p-3 text-sm outline-none focus:border-primary"
+              className="mt-2 min-h-24 w-full rounded-xl border border-border-soft/40 bg-panel-soft p-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
               placeholder={
                 isPending
                   ? 'Nhập lý do duyệt hoặc từ chối...'
@@ -484,7 +484,7 @@ function EventReviewModal({
                 type="button"
                 disabled={isMutating}
                 onClick={() => onReview('APPROVED')}
-                className="inline-flex items-center gap-2 rounded-md bg-green-600 px-5 py-3 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-xl bg-success px-5 py-3 text-sm font-extrabold text-slate-950 shadow transition hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <CheckCircle2 className="size-4" />
                 Phê duyệt
@@ -493,7 +493,7 @@ function EventReviewModal({
                 type="button"
                 disabled={isMutating}
                 onClick={() => onReview('REJECTED')}
-                className="inline-flex items-center gap-2 rounded-md border border-error/40 px-5 py-3 text-sm font-bold text-error transition hover:-translate-y-0.5 hover:bg-[#fff1f1] disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-xl border border-error/40 px-5 py-3 text-sm font-bold text-error transition hover:-translate-y-0.5 hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <XCircle className="size-4" />
                 Từ chối
@@ -506,7 +506,7 @@ function EventReviewModal({
               type="button"
               disabled={isMutating}
               onClick={onHide}
-              className="inline-flex items-center gap-2 rounded-md bg-[#434655] px-5 py-3 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 hover:bg-[#2d2f3d] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center gap-2 rounded-xl bg-panel-soft border border-border-soft/40 px-5 py-3 text-sm font-bold text-content shadow transition hover:-translate-y-0.5 hover:bg-panel-soft/80 disabled:cursor-not-allowed disabled:opacity-70"
             >
               <EyeOff className="size-4" />
               Ẩn sự kiện
@@ -518,7 +518,7 @@ function EventReviewModal({
               type="button"
               disabled={isMutating}
               onClick={onUnhide}
-              className="inline-flex items-center gap-2 rounded-md bg-green-600 px-5 py-3 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center gap-2 rounded-xl bg-success px-5 py-3 text-sm font-extrabold text-slate-950 shadow transition hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               <Eye className="size-4" />
               Bỏ ẩn
