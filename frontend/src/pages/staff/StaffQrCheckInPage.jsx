@@ -13,41 +13,41 @@ export function StaffQrCheckInPage() {
           <StaffPanel>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase text-[#737686]">Sự kiện đang hoạt động</p>
-                <h3 className="mt-1 font-extrabold">TechSummit Global 2024</h3>
+                <p className="text-xs font-bold uppercase text-muted">Sự kiện đang hoạt động</p>
+                <h3 className="mt-1 font-extrabold text-content">TechSummit Global 2024</h3>
               </div>
               <div className="text-right">
                 <p className="text-3xl font-extrabold text-primary">1,420 / 2,500</p>
-                <p className="text-xs font-bold uppercase text-[#737686]">Đã check-in</p>
+                <p className="text-xs font-bold uppercase text-muted">Đã check-in</p>
               </div>
             </div>
           </StaffPanel>
-          <div className="relative grid min-h-[520px] place-items-center overflow-hidden rounded-md bg-[#06111f] text-white shadow-sm">
+          <div className="relative grid min-h-[520px] place-items-center overflow-hidden rounded-2xl bg-black/90 text-white shadow-sm border border-border-soft/20">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.18),transparent_55%)]" />
             <Smartphone className="relative size-40 text-primary" />
             <div className="absolute bottom-6 grid w-full grid-cols-3 gap-3 px-8">
-              <button className="rounded-md bg-white/10 py-4 text-xs font-bold uppercase">Đổi camera</button>
-              <button className="rounded-md bg-white/10 py-4 text-xs font-bold uppercase">Đèn flash</button>
-              <button className="rounded-md bg-primary py-4 text-xs font-bold uppercase text-slate-950" onClick={() => setConfirmOpen(true)}>Check-in thủ công</button>
+              <button className="rounded-xl bg-white/10 py-4 text-xs font-bold uppercase hover:bg-white/15 transition">Đổi camera</button>
+              <button className="rounded-xl bg-white/10 py-4 text-xs font-bold uppercase hover:bg-white/15 transition">Đèn flash</button>
+              <button className="rounded-xl bg-primary py-4 text-xs font-bold uppercase text-slate-950 hover:opacity-90 transition" onClick={() => setConfirmOpen(true)}>Check-in thủ công</button>
             </div>
           </div>
         </div>
         <aside className="space-y-5">
           <StaffPanel className="text-center">
-            <QrCode className="mx-auto size-16 text-[#737686]" />
-            <h3 className="mt-5 text-xl font-extrabold">Sẵn sàng quét</h3>
-            <p className="mt-2 text-sm text-[#434655]">Đưa QR code vào khung hình để bắt đầu.</p>
+            <QrCode className="mx-auto size-16 text-muted" />
+            <h3 className="mt-5 text-xl font-extrabold text-content">Sẵn sàng quét</h3>
+            <p className="mt-2 text-sm text-subtle">Đưa QR code vào khung hình để bắt đầu.</p>
             <div className="mt-5 space-y-2 text-left">
-              <button className="w-full rounded border border-[#c3c6d7] px-3 py-2 text-sm">Mô phỏng hợp lệ</button>
-              <button className="w-full rounded border border-[#c3c6d7] px-3 py-2 text-sm">Mô phỏng không hợp lệ</button>
-              <button className="w-full rounded border border-[#c3c6d7] px-3 py-2 text-sm">Mô phỏng đã check-in</button>
+              <button className="w-full rounded-xl border border-border-soft/40 bg-panel-soft/40 px-3 py-2 text-sm text-content hover:bg-panel-soft transition">Mô phỏng hợp lệ</button>
+              <button className="w-full rounded-xl border border-border-soft/40 bg-panel-soft/40 px-3 py-2 text-sm text-content hover:bg-panel-soft transition">Mô phỏng không hợp lệ</button>
+              <button className="w-full rounded-xl border border-border-soft/40 bg-panel-soft/40 px-3 py-2 text-sm text-content hover:bg-panel-soft transition">Mô phỏng đã check-in</button>
             </div>
           </StaffPanel>
           <StaffPanel>
-            <h3 className="font-bold">Lượt quét gần đây</h3>
+            <h3 className="font-bold text-content">Lượt quét gần đây</h3>
             {['Marcus Richardson', 'Elena Petrov', 'John Smith'].map((name) => (
               <div key={name} className="mt-4 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm"><Avatar name={name} className="size-8" />{name}</span>
+                <span className="flex items-center gap-2 text-sm text-content"><Avatar name={name} className="size-8" />{name}</span>
                 <CheckCircle2 className="size-4 text-success" />
               </div>
             ))}
@@ -64,9 +64,9 @@ export function CameraDeniedPage() {
     <div className="grid min-h-[calc(100vh-140px)] place-items-center">
       <StaffPanel className="max-w-xl text-center">
         <CameraOff className="mx-auto size-14 text-warning" />
-        <h1 className="mt-5 text-xl font-extrabold">Cần cấp quyền camera</h1>
-        <p className="mt-2 text-sm text-[#434655]">Vui lòng cho phép truy cập camera để quét vé QR.</p>
-        <div className="mt-6 rounded-md bg-[#f2f4f6] p-4 text-left text-sm">
+        <h1 className="mt-5 text-xl font-extrabold text-content">Cần cấp quyền camera</h1>
+        <p className="mt-2 text-sm text-subtle">Vui lòng cho phép truy cập camera để quét vé QR.</p>
+        <div className="mt-6 rounded-xl bg-panel-soft border border-border-soft/20 p-4 text-left text-sm text-content">
           <p>1. Nhấn biểu tượng khóa hoặc cài đặt trên thanh địa chỉ.</p>
           <p className="mt-2">2. Chọn Camera và bật Allow.</p>
           <p className="mt-2">3. Nhấn thử lại để khởi tạo máy quét.</p>
@@ -88,7 +88,11 @@ export function ManualCheckInPage() {
       <StaffPanel className="mb-5">
         <div className="grid gap-3 md:grid-cols-4">
           {['Mã vé', 'Tên người mua', 'Email', 'Số điện thoại'].map((label) => (
-            <input key={label} className="h-10 rounded border border-[#c3c6d7] px-3 text-sm" placeholder={label} />
+            <input
+              key={label}
+              className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
+              placeholder={label}
+            />
           ))}
         </div>
         <div className="mt-4 flex justify-end">
@@ -96,12 +100,12 @@ export function ManualCheckInPage() {
         </div>
       </StaffPanel>
       <StaffPanel>
-        <h3 className="font-bold">Kết quả tìm kiếm</h3>
+        <h3 className="font-bold text-content">Kết quả tìm kiếm</h3>
         {['Michael Stevenson', 'Sarah Connor'].map((name, index) => (
-          <div key={name} className="mt-4 grid gap-3 rounded-md border border-[#e0e3e5] p-4 md:grid-cols-[1fr_auto]">
+          <div key={name} className="mt-4 grid gap-3 rounded-xl border border-border-soft/20 bg-panel-soft/30 p-4 md:grid-cols-[1fr_auto]">
             <div>
-              <p className="font-bold">{name}</p>
-              <p className="text-sm text-[#434655]">EH-902{index + 1}-X - General Admission</p>
+              <p className="font-bold text-content">{name}</p>
+              <p className="text-sm text-subtle">EH-902{index + 1}-X - General Admission</p>
             </div>
             <button className="admin-primary py-2 text-xs" disabled={index === 1} onClick={() => setModalOpen(true)}>Check-in thủ công</button>
           </div>

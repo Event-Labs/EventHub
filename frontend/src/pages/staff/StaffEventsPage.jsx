@@ -45,12 +45,12 @@ export function StaffEventsPage({ empty = false }) {
 
   return (
     <StaffPage title="Sự kiện được giao" description="Quản lý ca check-in cho các sự kiện sắp tới.">
-      {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
+      {error && <div className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">{error}</div>}
       <div className="mb-5 grid gap-3 md:grid-cols-[1fr_auto]">
         <div onChange={(event) => setKeyword(event.target.value)}>
           <StaffSearch placeholder="Tìm theo tên sự kiện, địa điểm..." />
         </div>
-        <select className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm">
+        <select className="h-10 rounded-md border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary">
           <option>Tất cả vai trò</option>
         </select>
       </div>
@@ -83,26 +83,26 @@ function AssignedEventCard({ event }) {
 
   return (
     <StaffPanel>
-      <div className="mb-4 grid h-36 place-items-center rounded-md bg-[#dbe1ff] text-primary">
+      <div className="mb-4 grid h-36 place-items-center rounded-md bg-secondary/20 text-primary">
         <Calendar className="size-12" />
       </div>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-extrabold">{event.title}</h3>
         <Badge tone={statusTone}>{isOngoing ? 'Ongoing' : event.status}</Badge>
       </div>
-      <p className="mt-3 flex items-center gap-2 text-sm text-[#434655]">
+      <p className="mt-3 flex items-center gap-2 text-sm text-subtle">
         <Calendar className="size-4" />
         {new Date(event.start_time).toLocaleString('vi-VN')}
       </p>
-      <p className="mt-2 flex items-center gap-2 text-sm text-[#434655]">
+      <p className="mt-2 flex items-center gap-2 text-sm text-subtle">
         <MapPin className="size-4" />
         {venue || 'Chưa cập nhật địa điểm'}
       </p>
-      <p className="mt-3 text-sm font-semibold text-[#434655]">Vai trò: {event.staff_role || 'Staff'}</p>
+      <p className="mt-3 text-sm font-semibold text-subtle">Vai trò: {event.staff_role || 'Staff'}</p>
       <p className="mt-5 text-sm font-semibold">
         Tiến độ check-in <span className="float-right">{checkedIn} / {totalValid}</span>
       </p>
-      <div className="mt-2 h-2 rounded bg-[#e0e3e5]">
+      <div className="mt-2 h-2 rounded bg-panel-soft">
         <div className="h-full rounded bg-primary" style={{ width: `${progress}%` }} />
       </div>
       <div className="mt-5 flex gap-3">
@@ -117,11 +117,11 @@ export function NoAssignedEventsPage() {
   return (
     <div className="grid min-h-[calc(100vh-140px)] place-items-center">
       <div className="max-w-md text-center">
-        <div className="mx-auto grid size-32 place-items-center rounded-md bg-[#eceef0] text-[#a0a6b2]">
+        <div className="mx-auto grid size-32 place-items-center rounded-md bg-panel-soft text-muted">
           <Calendar className="size-16" />
         </div>
-        <h1 className="mt-6 text-xl font-extrabold text-[#191c1e]">Chưa có sự kiện được giao</h1>
-        <p className="mt-3 text-sm leading-6 text-[#434655]">
+        <h1 className="mt-6 text-xl font-extrabold text-content">Chưa có sự kiện được giao</h1>
+        <p className="mt-3 text-sm leading-6 text-subtle">
           Bạn chưa được phân công vào sự kiện nào. Vui lòng liên hệ ban tổ chức nếu có nhầm lẫn.
         </p>
         <div className="mt-7 flex justify-center gap-3">
