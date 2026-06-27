@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.cache/
+
+outputs/
+models/
+checkpoints/
+
+*.pyc
+*.pyo
+*.pyd
+
+.env
+.env.*
