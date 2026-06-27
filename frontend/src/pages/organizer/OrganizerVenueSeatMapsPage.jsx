@@ -109,7 +109,7 @@ export function OrganizerVenueSeatMapsPage() {
             </Badge>,
             <div key="actions" className="flex items-center gap-3 text-muted">
               <button type="button" onClick={() => openEditor(sm.id)} title="Sửa">
-                <Pencil className="size-4 hover:text-primary transition-colors" />
+                <Pencil className="size-4 hover:text-tertiary transition-colors" />
               </button>
               <button type="button" onClick={() => handleDelete(sm.id)} title="Xóa">
                 <Trash2 className="size-4 text-error hover:opacity-80 transition-opacity" />

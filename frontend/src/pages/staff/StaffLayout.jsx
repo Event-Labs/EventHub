@@ -1,5 +1,5 @@
 import { BarChart3, CalendarCheck, ClipboardList, LayoutDashboard, QrCode, UserCircle, UserPlus } from 'lucide-react'
-import { getUserRoles } from '@/lib/auth.js'
+import { getStoredUser, getUserRoles } from '@/lib/auth.js'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { Avatar } from './StaffComponents.jsx'
 
@@ -55,10 +55,6 @@ export function StaffLayout() {
 }
 
 function parseStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem('eventhub-user') || 'null')
-  } catch {
-    return null
-  }
+  return getStoredUser()
 }
 

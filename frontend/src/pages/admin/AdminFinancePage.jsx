@@ -658,7 +658,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
             type="file"
             accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx"
             onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })}
-            className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-sm font-semibold text-content file:mr-3 file:rounded-lg file:border-0 file:bg-secondary/20 file:px-3 file:py-1 file:text-sm file:font-bold file:text-primary placeholder:text-muted"
+            className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-sm font-semibold text-content file:mr-3 file:rounded-lg file:border-0 file:bg-tertiary/15 file:px-3 file:py-1 file:text-sm file:font-bold file:text-primary placeholder:text-muted"
           />
         </label>
         <label className="flex items-center gap-3 text-sm font-semibold text-subtle lg:col-span-2">
@@ -687,7 +687,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
                 rel="noreferrer"
                 title="Xem file"
                 aria-label="Xem file"
-                className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition hover:border-primary hover:bg-surface hover:text-primary"
+                className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition hover:border-tertiary hover:bg-surface hover:text-tertiary"
               >
                 <Eye className="size-4" />
               </a>
@@ -737,7 +737,7 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
   return (
     <button
       type="button"
-      className={`grid size-9 place-items-center rounded-xl border transition hover:-translate-y-0.5 disabled:opacity-60 ${danger ? 'border-error/30 text-error hover:bg-error/10' : 'border-border-soft/40 text-subtle hover:border-primary hover:bg-panel-soft hover:text-primary'}`}
+      className={`grid size-9 place-items-center rounded-xl border transition hover:-translate-y-0.5 disabled:opacity-60 ${danger ? 'border-error/30 text-error hover:bg-error/10' : 'border-border-soft/40 text-subtle hover:border-tertiary hover:bg-panel-soft hover:text-tertiary'}`}
       {...props}
     >
       <Icon className="size-4" />
@@ -751,8 +751,8 @@ function TabButton({ active, children, ...props }) {
       type="button"
       className={`inline-flex min-w-20 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
         active
-          ? 'bg-primary text-slate-950 shadow-primary/20 hover:bg-primary/95'
-          : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-primary hover:bg-surface hover:text-content'
+          ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
+          : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
       }`}
       {...props}
     >
@@ -825,7 +825,7 @@ function FormActions({ isSaving, onCancel }) {
 
 function MetricCard({ label, value, accent }) {
   return (
-    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>

@@ -130,19 +130,19 @@ export function AdminProfilePage() {
         <div className="flex gap-2">
            <button 
             onClick={() => { setMode('view'); setPreviewUrl(user.avatar_url || ''); setSelectedFile(null); }}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'view' ? 'bg-primary text-slate-950 border-primary' : ''}`}
+            className={`admin-secondary px-4 py-2 text-xs ${mode === 'view' ? 'bg-tertiary text-white border-tertiary' : ''}`}
            >
             Xem hồ sơ
            </button>
            <button 
             onClick={() => setMode('edit')}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'edit' ? 'bg-primary text-slate-950 border-primary' : ''}`}
+            className={`admin-secondary px-4 py-2 text-xs ${mode === 'edit' ? 'bg-tertiary text-white border-tertiary' : ''}`}
            >
             Chỉnh sửa
            </button>
            <button 
             onClick={() => setMode('password')}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'password' ? 'bg-primary text-slate-950 border-primary' : ''}`}
+            className={`admin-secondary px-4 py-2 text-xs ${mode === 'password' ? 'bg-tertiary text-white border-tertiary' : ''}`}
            >
             Đổi mật khẩu
            </button>
@@ -166,7 +166,7 @@ export function AdminProfilePage() {
               )}
               {mode === 'edit' && (
                 <div className="absolute -bottom-2 inset-x-0 flex justify-center gap-2">
-                   <label className="grid size-10 cursor-pointer place-items-center rounded-full bg-primary text-slate-950 shadow-lg hover:scale-110 transition border-4 border-surface">
+                   <label className="grid size-10 cursor-pointer place-items-center rounded-full bg-tertiary text-white shadow-lg hover:scale-110 transition border-4 border-surface">
                     <Camera className="size-5" />
                     <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                   </label>
@@ -202,7 +202,7 @@ export function AdminProfilePage() {
                 <h4 className="font-bold text-sm text-content">Trạng thái bảo mật</h4>
              </div>
              <p className="text-xs text-subtle mb-4">Tài khoản của bạn được bảo vệ với mức truy cập cao nhất.</p>
-             <button className="w-full rounded-xl bg-panel-soft border border-border-soft/30 py-2.5 text-xs font-bold text-subtle hover:text-primary transition flex items-center justify-center gap-2">
+             <button className="w-full rounded-xl bg-panel-soft border border-border-soft/30 py-2.5 text-xs font-bold text-subtle hover:text-tertiary transition flex items-center justify-center gap-2">
                 <Lock className="size-3" /> Kiểm tra bảo mật
              </button>
           </Panel>
@@ -267,7 +267,7 @@ export function AdminProfilePage() {
                    <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={e => setPasswordData({...passwordData, confirm: e.target.value})} />
                 </div>
                 <div className="mt-10 flex flex-col gap-3">
-                   <button onClick={handleChangePassword} disabled={saving} className="admin-primary w-full py-4 text-sm font-extrabold text-slate-950 bg-primary hover:bg-primary/90">{saving ? 'Đang thực hiện...' : 'Cập nhật mật khẩu'}</button>
+                   <button onClick={handleChangePassword} disabled={saving} className="admin-primary w-full py-4 text-sm font-extrabold text-slate-950 bg-tertiary hover:bg-orange-600">{saving ? 'Đang thực hiện...' : 'Cập nhật mật khẩu'}</button>
                    <button onClick={() => setMode('view')} className="text-sm font-bold text-subtle hover:text-content">Hủy bỏ</button>
                 </div>
              </Panel>
@@ -280,7 +280,7 @@ export function AdminProfilePage() {
 
 function InfoField({ icon: Icon, label, value, className = '' }) {
   return (
-    <div className={`p-5 rounded-xl border border-border-soft/30 bg-panel-soft transition hover:border-primary/30 ${className}`}>
+    <div className={`p-5 rounded-xl border border-border-soft/30 bg-panel-soft transition hover:border-tertiary/30 ${className}`}>
       <div className="flex items-center gap-2 text-subtle mb-2">
         <Icon className="size-4" />
         <span className="text-xs font-bold uppercase tracking-wider">{label}</span>

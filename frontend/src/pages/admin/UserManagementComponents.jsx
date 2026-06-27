@@ -55,7 +55,7 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-sm font-bold text-subtle hover:text-primary transition"
+        className="flex items-center gap-2 text-sm font-bold text-subtle hover:text-tertiary transition"
       >
         <ArrowLeft className="size-4" /> Quay lại danh sách
       </button>
@@ -194,7 +194,7 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
              <div className="flex items-center justify-between mb-6">
                 <h4 className="font-bold text-content">Hoạt động tài khoản</h4>
                 <div className="flex gap-2">
-                   <button className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-subtle hover:border-primary hover:text-primary transition">Xem tất cả nhật ký</button>
+                   <button className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-subtle hover:border-tertiary hover:text-tertiary transition">Xem tất cả nhật ký</button>
                 </div>
              </div>
              
@@ -307,7 +307,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
           <label className="text-xs font-bold uppercase text-subtle">Lý do khóa tài khoản</label>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {reasons.map(r => (
-               <label key={r} className={`flex items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition cursor-pointer ${reason === r ? 'border-primary bg-primary/10 text-primary' : 'border-border-soft/40 bg-panel-soft text-subtle hover:bg-panel-soft/80'}`}>
+               <label key={r} className={`flex items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition cursor-pointer ${reason === r ? 'border-primary bg-tertiary/10 text-tertiary' : 'border-border-soft/40 bg-panel-soft text-subtle hover:bg-panel-soft/80'}`}>
                   <input 
                     type="radio" 
                     name="reason" 
@@ -339,7 +339,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
                   key={d.value}
                   type="button"
                   onClick={() => setDuration(d.value)}
-                  className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${duration === d.value ? 'bg-primary text-slate-950 shadow-sm' : 'bg-panel-soft border border-border-soft/30 text-subtle hover:border-primary hover:text-primary'}`}
+                  className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${duration === d.value ? 'bg-tertiary text-white shadow-sm' : 'bg-panel-soft border border-border-soft/30 text-subtle hover:border-tertiary hover:text-tertiary'}`}
                 >
                   {d.label}
                 </button>

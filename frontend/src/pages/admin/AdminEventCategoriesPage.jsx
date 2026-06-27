@@ -128,7 +128,7 @@ export function AdminEventCategoriesPage() {
         <MetricCard
           label="Tổng loại sự kiện"
           value={categories.length}
-          accent="bg-secondary"
+          accent="bg-tertiary"
         />
         <MetricCard
           label="Đang hoạt động"
@@ -185,7 +185,7 @@ export function AdminEventCategoriesPage() {
                   type="button"
                   title="Sửa"
                   onClick={() => openEdit(category)}
-                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-panel-soft hover:text-primary"
+                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-tertiary hover:bg-panel-soft hover:text-tertiary"
                 >
                   <Edit3 className="size-4" />
                 </button>
@@ -194,7 +194,7 @@ export function AdminEventCategoriesPage() {
                   title={category.is_active ? 'Tạm ẩn' : 'Kích hoạt'}
                   onClick={() => toggleActive(category)}
                   disabled={updateMutation.isPending}
-                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-panel-soft hover:text-primary disabled:opacity-60"
+                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-tertiary hover:bg-panel-soft hover:text-tertiary disabled:opacity-60"
                 >
                   <Power className="size-4" />
                 </button>
@@ -344,7 +344,7 @@ export function AdminEventCategoriesPage() {
 
 function MetricCard({ label, value, accent }) {
   return (
-    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>

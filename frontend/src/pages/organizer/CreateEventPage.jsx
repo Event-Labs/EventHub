@@ -70,7 +70,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
       <div className="flex items-center justify-between relative">
         <div className="absolute top-5 left-0 w-full h-[2px] bg-border-soft/30 -z-10" />
         <div
-          className="absolute top-5 left-0 h-[2px] bg-secondary -z-10 transition-all"
+          className="absolute top-5 left-0 h-[2px] bg-tertiary -z-10 transition-all"
           style={{ width: `${progress}%` }}
         />
         {STEP_LABELS.map((label, index) => {
@@ -90,9 +90,9 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md transition-all ${
                   isActive
-                    ? 'bg-secondary text-white'
+                    ? 'bg-tertiary text-white'
                     : isCompleted
-                      ? 'bg-secondary text-white'
+                      ? 'bg-tertiary text-white'
                       : 'bg-panel-soft text-subtle'
                 }`}
               >
@@ -140,14 +140,14 @@ function Step1EventInfo({
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-24">
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 hover:border-border-soft/60 transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
-            <Icon name="info" className="text-secondary" />
+            <Icon name="info" className="text-tertiary" />
             Thông tin cơ bản
           </h3>
           <div className="space-y-6">
             <div>
               <label className="block text-[13px] font-medium mb-2 text-subtle">Tên sự kiện*</label>
               <input
-                className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none transition"
+                className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 focus:border-tertiary outline-none transition"
                 placeholder="e.g. Global Tech Summit 2024"
                 value={formData.title}
                 onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
@@ -173,7 +173,7 @@ function Step1EventInfo({
                   {formData.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="flex items-center gap-1 px-2 py-1 bg-secondary/20 text-primary rounded text-xs font-semibold"
+                      className="flex items-center gap-1 px-2 py-1 bg-tertiary/15 text-tertiary rounded text-xs font-semibold"
                     >
                       {tag}
                       <button
@@ -218,13 +218,13 @@ function Step1EventInfo({
                     onClick={() => setFormData((p) => ({ ...p, format: opt.value }))}
                     className={`p-4 border-2 rounded-xl flex flex-col items-center text-center gap-2 transition-all ${
                       formData.format === opt.value
-                        ? 'border-secondary bg-secondary/10'
-                        : 'border-border-soft/40 hover:border-secondary/50'
+                        ? 'border-tertiary bg-tertiary/10'
+                        : 'border-border-soft/40 hover:border-tertiary/50'
                     }`}
                   >
                     <Icon
                       name={opt.icon}
-                      className={formData.format === opt.value ? 'text-secondary' : 'text-subtle'}
+                      className={formData.format === opt.value ? 'text-tertiary' : 'text-subtle'}
                       style={{ fontSize: 32 }}
                     />
                     <span className={`text-[13px] font-medium text-content ${formData.format === opt.value ? 'font-bold' : ''}`}>
@@ -249,7 +249,7 @@ function Step1EventInfo({
                       checked={formData.visibility === opt.value}
                       onChange={() => setFormData((p) => ({ ...p, visibility: opt.value }))}
                     />
-                    <div className="p-4 border-2 border-border-soft/40 rounded-xl peer-checked:border-secondary peer-checked:bg-secondary/8 transition-all">
+                    <div className="p-4 border-2 border-border-soft/40 rounded-xl peer-checked:border-tertiary peer-checked:bg-tertiary/10 transition-all">
                       <div className="flex items-center gap-3">
                         <Icon name={opt.icon} className="text-subtle" />
                         <div>
@@ -267,7 +267,7 @@ function Step1EventInfo({
 
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
-            <Icon name="description" className="text-secondary" />
+            <Icon name="description" className="text-tertiary" />
             Mô tả
           </h3>
           <div className="space-y-6">
@@ -300,13 +300,13 @@ function Step1EventInfo({
 
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
-            <Icon name="image" className="text-secondary" />
+            <Icon name="image" className="text-tertiary" />
             Ảnh sự kiện
           </h3>
           <div className="grid md:grid-cols-12 gap-6">
             <div className="md:col-span-4">
               <label className="block text-[13px] font-medium mb-2 text-subtle">Ảnh đại diện (1:1)*</label>
-              <label className="aspect-square rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-secondary cursor-pointer overflow-hidden transition bg-panel-soft">
+              <label className="aspect-square rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-tertiary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.thumbnail_url ? (
                   <img src={formData.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" />
                 ) : (
@@ -327,7 +327,7 @@ function Step1EventInfo({
             </div>
             <div className="md:col-span-8">
               <label className="block text-[13px] font-medium mb-2 text-subtle">Ảnh bìa (16:9)*</label>
-              <label className="aspect-video rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-secondary cursor-pointer overflow-hidden transition bg-panel-soft">
+              <label className="aspect-video rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-tertiary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.banner_url ? (
                   <img src={formData.banner_url} alt="Banner" className="w-full h-full object-cover" />
                 ) : (
@@ -377,16 +377,16 @@ function Step1EventInfo({
               <span className="px-2 py-1 bg-panel-soft text-subtle rounded text-xs font-semibold border border-border-soft/30">Draft</span>
             </div>
             <div className="flex items-center gap-2 mb-2">
-              <Icon name="location_on" className="text-secondary text-[18px]" />
+              <Icon name="location_on" className="text-tertiary text-[18px]" />
               <span className="text-sm text-content">{formData.format === 'ONLINE' ? 'Sự kiện trực tuyến' : formData.format === 'HYBRID' ? 'Sự kiện kết hợp' : 'Sự kiện trực tiếp'}</span>
             </div>
             <div className="mt-6">
               <div className="flex justify-between mb-2">
                 <span className="text-[13px] font-medium text-subtle">Tiến độ thiết lập</span>
-                <span className="text-[13px] text-secondary font-bold">20%</span>
+                <span className="text-[13px] text-tertiary font-bold">20%</span>
               </div>
               <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
-                <div className="w-1/5 h-full bg-secondary rounded-full" />
+                <div className="w-1/5 h-full bg-tertiary rounded-full" />
               </div>
             </div>
           </div>
@@ -443,13 +443,13 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
         <section className="bg-surface rounded-xl border border-border-soft/30 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Icon name="calendar_today" className="text-secondary" />
+              <Icon name="calendar_today" className="text-tertiary" />
               <h2 className="text-[20px] font-semibold text-content">Lịch sự kiện</h2>
             </div>
             <button
               type="button"
               onClick={addSession}
-              className="flex items-center gap-2 px-4 py-2 text-primary font-medium text-sm hover:bg-secondary/10 rounded-lg transition"
+              className="flex items-center gap-2 px-4 py-2 text-primary font-medium text-sm hover:bg-tertiary/10 rounded-lg transition"
             >
               <Icon name="add" className="text-[18px]" />
               Thêm phiên
@@ -476,7 +476,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                         <label className="text-[13px] text-subtle block mb-2">Ngày bắt đầu</label>
                         <input
                           type="date"
-                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary focus:ring-1 focus:ring-secondary/30 outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
                           value={session.start_date || ''}
                           onChange={(e) => updateSession(key, 'start_date', e.target.value)}
                         />
@@ -485,7 +485,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                         <label className="text-[13px] text-subtle block mb-2">Thời gian bắt đầu</label>
                         <input
                           type="time"
-                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
                           value={session.start_time || ''}
                           onChange={(e) => updateSession(key, 'start_time', e.target.value)}
                         />
@@ -496,7 +496,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                         <label className="text-[13px] text-subtle block mb-2">Ngày kết thúc</label>
                         <input
                           type="date"
-                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
                           value={session.end_date || ''}
                           onChange={(e) => updateSession(key, 'end_date', e.target.value)}
                         />
@@ -505,7 +505,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                         <label className="text-[13px] text-subtle block mb-2">Thời gian kết thúc</label>
                         <input
                           type="time"
-                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
                           value={session.end_time || ''}
                           onChange={(e) => updateSession(key, 'end_time', e.target.value)}
                         />
@@ -515,7 +515,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                   <div>
                     <label className="text-[13px] text-subtle block mb-2">Chọn địa điểm*</label>
                     <select
-                      className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-secondary outline-none"
+                      className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
                       value={session.venue_id || ''}
                       onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
                     >
@@ -534,7 +534,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
               <button
                 type="button"
                 onClick={addSession}
-                className="w-full py-8 border-2 border-dashed border-border-soft/40 rounded-xl text-subtle hover:border-secondary hover:text-primary transition"
+                className="w-full py-8 border-2 border-dashed border-border-soft/40 rounded-xl text-subtle hover:border-tertiary hover:text-tertiary transition"
               >
                 + Thêm phiên đầu tiên
               </button>
@@ -545,7 +545,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
         {selectedVenue && (
           <section className="bg-surface rounded-xl border border-border-soft/30 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
             <div className="flex items-center gap-3 mb-6">
-              <Icon name="location_on" className="text-secondary" />
+              <Icon name="location_on" className="text-tertiary" />
               <h2 className="text-[20px] font-semibold text-content">Chi tiết địa điểm</h2>
             </div>
             <div className="p-6 bg-panel-soft rounded-xl border border-border-soft/30">
@@ -564,7 +564,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
 
       <div className="col-span-12 lg:col-span-4 sticky top-24">
         <div className="bg-surface rounded-xl border border-border-soft/30 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
-          <div className="bg-secondary/20 p-6 border-b border-border-soft/30">
+          <div className="bg-tertiary/15 p-6 border-b border-border-soft/30">
             <h3 className="text-[20px] font-semibold text-content mb-4">{formData.title || 'Event Draft'}</h3>
             <div className="space-y-3 text-sm text-subtle">
               <div className="flex items-center gap-2">
@@ -582,10 +582,10 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
           <div className="p-6">
             <div className="flex justify-between mb-2">
               <span className="text-[13px] font-medium text-subtle">Tiến độ thiết lập</span>
-              <span className="text-xs text-secondary font-bold">45%</span>
+              <span className="text-xs text-tertiary font-bold">45%</span>
             </div>
             <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
-              <div className="w-[45%] h-full bg-secondary rounded-full" />
+              <div className="w-[45%] h-full bg-tertiary rounded-full" />
             </div>
           </div>
         </div>
@@ -764,8 +764,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 onClick={() => setActiveTab(i)}
                 className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
                   activeTab === i
-                    ? 'border-secondary bg-secondary/10 text-primary'
-                    : 'border-border-soft/40 text-subtle hover:border-secondary/50'
+                    ? 'border-tertiary bg-tertiary/10 text-primary'
+                    : 'border-border-soft/40 text-subtle hover:border-tertiary/50'
                 }`}
               >
                 {s.session_name || `Session ${i + 1}`}
@@ -782,8 +782,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
               onClick={() => setSeatingType('GENERAL')}
               className={`rounded-xl border-2 p-5 text-left transition ${
                 seatingType === 'GENERAL'
-                  ? 'border-secondary bg-secondary/8'
-                  : 'border-border-soft/40 hover:border-secondary/50'
+                  ? 'border-tertiary bg-tertiary/10'
+                  : 'border-border-soft/40 hover:border-tertiary/50'
               }`}
             >
               <span className="text-2xl">🎟</span>
@@ -795,8 +795,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
               onClick={() => setSeatingType('ASSIGNED')}
               className={`rounded-xl border-2 p-5 text-left transition ${
                 seatingType === 'ASSIGNED'
-                  ? 'border-secondary bg-secondary/8'
-                  : 'border-border-soft/40 hover:border-secondary/50'
+                  ? 'border-tertiary bg-tertiary/10'
+                  : 'border-border-soft/40 hover:border-tertiary/50'
               }`}
             >
               <span className="text-2xl">💺</span>
@@ -814,7 +814,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 Chọn sơ đồ cho địa điểm &quot;{venue?.name || '...'}&quot;
               </p>
               <select
-                className="h-11 w-full rounded-lg border border-border-soft/40 bg-panel-soft text-content px-4 text-sm focus:border-secondary outline-none"
+                className="h-11 w-full rounded-lg border border-border-soft/40 bg-panel-soft text-content px-4 text-sm focus:border-tertiary outline-none"
                 value={activeSession?.seat_map_id || ''}
                 onChange={(e) => handleSeatMapSelect(e.target.value)}
               >
@@ -951,7 +951,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
               <button
                 type="button"
                 onClick={addTicketType}
-                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-primary hover:bg-secondary/10 transition"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-primary hover:bg-tertiary/10 transition"
               >
                 <Icon name="add" />
                 Add Ticket Type
@@ -963,13 +963,13 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 return (
                   <div
                     key={key}
-                    className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 hover:border-secondary/50 transition"
+                    className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 hover:border-tertiary/50 transition"
                   >
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                       <div className="md:col-span-2">
                         <label className="mb-1 block text-xs text-muted">Tên*</label>
                         <input
-                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-secondary outline-none"
+                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-tertiary outline-none"
                           value={tt.name}
                           onChange={(e) => updateTicket(key, 'name', e.target.value)}
                           placeholder="Early Bird"
@@ -980,7 +980,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                         <input
                           type="number"
                           min="0"
-                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-secondary outline-none"
+                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-tertiary outline-none"
                           value={tt.price}
                           onChange={(e) => updateTicket(key, 'price', Number(e.target.value))}
                         />
@@ -990,7 +990,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                         <input
                           type="number"
                           min="1"
-                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-secondary outline-none"
+                          className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-tertiary outline-none"
                           value={tt.quantity}
                           onChange={(e) => updateTicket(key, 'quantity', Number(e.target.value))}
                         />
@@ -1034,7 +1034,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
             </div>
             <div className="flex justify-between border-t border-border-soft/30 pt-4">
               <span className="text-sm font-bold text-content">Tổng Doanh Thu</span>
-              <span className="text-[20px] font-bold text-secondary">
+              <span className="text-[20px] font-bold text-tertiary">
                 {totalRevenue.toLocaleString('vi-VN')} VND
               </span>
             </div>
@@ -1054,7 +1054,7 @@ function Step4PoliciesSettings({ formData, setFormData }) {
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-secondary/15 flex items-center justify-center text-secondary">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
                 <Icon name="payments" />
               </div>
               <h3 className="text-[20px] font-semibold text-content">Chính sách hoàn tiền</h3>
@@ -1071,7 +1071,7 @@ function Step4PoliciesSettings({ formData, setFormData }) {
                   }))
                 }
               />
-              <div className="w-11 h-6 bg-border-soft/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary" />
+              <div className="w-11 h-6 bg-border-soft/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary" />
               <span className="ml-3 text-sm font-medium text-content">Cho phép hoàn tiền</span>
             </label>
           </div>
@@ -1110,7 +1110,7 @@ function Step4PoliciesSettings({ formData, setFormData }) {
         <div className="bg-surface rounded-xl border border-border-soft/30 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
           <div className="bg-panel-soft p-4 border-b border-border-soft/30">
             <h3 className="font-bold flex items-center gap-2 text-content">
-              <Icon name="description" className="text-secondary" />
+              <Icon name="description" className="text-tertiary" />
               Tóm tắt chính sách
             </h3>
           </div>
@@ -1129,10 +1129,10 @@ function Step4PoliciesSettings({ formData, setFormData }) {
             <div className="pt-4 border-t border-border-soft/30">
               <div className="flex justify-between mb-2">
                 <span className="text-xs font-bold uppercase text-subtle">Tiến độ bản nháp</span>
-                <span className="text-xs font-bold text-secondary">80%</span>
+                <span className="text-xs font-bold text-tertiary">80%</span>
               </div>
               <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
-                <div className="h-full bg-secondary rounded-full" style={{ width: '80%' }} />
+                <div className="h-full bg-tertiary rounded-full" style={{ width: '80%' }} />
               </div>
             </div>
           </div>
@@ -1158,7 +1158,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <div className="absolute bottom-4 left-6 flex items-end gap-4">
               {formData.thumbnail_url && (
-                <div className="w-20 h-20 bg-surface p-1 rounded-lg border-2 border-secondary shadow-xl">
+                <div className="w-20 h-20 bg-surface p-1 rounded-lg border-2 border-tertiary shadow-xl">
                   <img src={formData.thumbnail_url} alt="" className="w-full h-full object-cover rounded-md" />
                 </div>
               )}
@@ -1166,7 +1166,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
                 <h3 className="text-[20px] font-bold">{formData.title}</h3>
                 <div className="flex gap-2 mt-1 flex-wrap">
                   {formData.tags.map((tag) => (
-                    <span key={tag} className="bg-secondary/20 backdrop-blur-md px-2 py-0.5 rounded text-[11px] font-bold uppercase border border-white/20">
+                    <span key={tag} className="bg-tertiary/15 backdrop-blur-md px-2 py-0.5 rounded text-[11px] font-bold uppercase border border-white/20">
                       {tag}
                     </span>
                   ))}
@@ -1182,7 +1182,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
 
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center gap-2 mb-4">
-            <Icon name="calendar_today" className="text-secondary" />
+            <Icon name="calendar_today" className="text-tertiary" />
             <h4 className="text-sm font-bold uppercase tracking-wider text-content">Lịch trình & Địa điểm</h4>
           </div>
           <div className="grid grid-cols-3 gap-6">
@@ -1203,7 +1203,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
 
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center gap-2 mb-4">
-            <Icon name="confirmation_number" className="text-secondary" />
+            <Icon name="confirmation_number" className="text-tertiary" />
             <h4 className="text-sm font-bold uppercase tracking-wider text-content">Vé & Chỗ ngồi</h4>
           </div>
           <div className="space-y-3">
@@ -1221,7 +1221,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
 
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center gap-2 mb-4">
-            <Icon name="policy" className="text-secondary" />
+            <Icon name="policy" className="text-tertiary" />
             <h4 className="text-sm font-bold uppercase tracking-wider text-content">Chính sách</h4>
           </div>
           <p className="text-sm text-subtle">
@@ -1242,7 +1242,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
             <span className="px-2 py-0.5 bg-panel-soft rounded text-xs font-bold uppercase text-subtle border border-border-soft/30">Bản nháp</span>
           </div>
           <div className="w-full bg-panel-soft h-2 rounded-full mb-6 overflow-hidden border border-border-soft/20">
-            <div className="bg-secondary h-full w-full rounded-full" />
+            <div className="bg-tertiary h-full w-full rounded-full" />
           </div>
           <p className="text-xs text-subtle text-center">
             Gửi để gửi sự kiện của bạn để ban tổ chức xem xét.
@@ -1660,7 +1660,7 @@ export function CreateEventPage() {
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin w-8 h-8 border-4 border-secondary border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-tertiary border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -1762,7 +1762,7 @@ export function CreateEventPage() {
               type="button"
               onClick={handleNext}
               disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-secondary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50 transition"
+              className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
             >
               {loading ? 'Đang lưu...' : nextLabel}
               {!loading && <Icon name="arrow_forward" className="text-[18px]" />}
@@ -1774,7 +1774,7 @@ export function CreateEventPage() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="rounded-lg border border-border-soft/40 px-6 py-2.5 text-sm font-medium hover:bg-panel-soft text-content disabled:opacity-50 transition"
+                  className="rounded-lg border border-tertiary/50 px-6 py-2.5 text-sm font-bold text-tertiary hover:bg-tertiary/10 disabled:opacity-50 transition"
                 >
                   {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
                 </button>
@@ -1783,7 +1783,7 @@ export function CreateEventPage() {
                 type="button"
                 onClick={handleUpdateEvent}
                 disabled={loading}
-                className="flex items-center gap-2 rounded-lg bg-secondary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50 transition"
+                className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
               >
                 {loading ? 'Đang cập nhật...' : 'Cập nhật sự kiện'}
               </button>
@@ -1793,7 +1793,7 @@ export function CreateEventPage() {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-secondary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50 transition"
+              className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
             >
               {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
             </button>

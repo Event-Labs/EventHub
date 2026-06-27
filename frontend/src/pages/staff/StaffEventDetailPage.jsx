@@ -23,7 +23,7 @@ export function StaffEventDetailPage() {
           <div className="grid gap-5 md:grid-cols-2">
             <StaffPanel>
               <h3 className="font-bold text-content">Sơ đồ khu vực</h3>
-              <div className="mt-4 grid h-44 place-items-center rounded-xl bg-secondary/20 text-primary font-extrabold border border-border-soft/20">Gate B-2</div>
+              <div className="mt-4 grid h-44 place-items-center rounded-xl bg-tertiary/15 text-tertiary font-extrabold border border-border-soft/20">Gate B-2</div>
             </StaffPanel>
             <StaffPanel>
               <h3 className="font-bold text-content">Nhân sự cùng ca</h3>

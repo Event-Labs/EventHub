@@ -28,7 +28,7 @@ export function StaffQrCheckInPage() {
             <div className="absolute bottom-6 grid w-full grid-cols-3 gap-3 px-8">
               <button className="rounded-xl bg-white/10 py-4 text-xs font-bold uppercase hover:bg-white/15 transition">Đổi camera</button>
               <button className="rounded-xl bg-white/10 py-4 text-xs font-bold uppercase hover:bg-white/15 transition">Đèn flash</button>
-              <button className="rounded-xl bg-primary py-4 text-xs font-bold uppercase text-slate-950 hover:opacity-90 transition" onClick={() => setConfirmOpen(true)}>Check-in thủ công</button>
+              <button className="rounded-xl bg-tertiary py-4 text-xs font-bold uppercase text-white hover:opacity-90 transition" onClick={() => setConfirmOpen(true)}>Check-in thủ công</button>
             </div>
           </div>
         </div>

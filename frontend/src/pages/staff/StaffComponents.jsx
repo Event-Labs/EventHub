@@ -93,7 +93,7 @@ export function StaffSearch({ placeholder = 'Tìm kiếm...' }) {
  */
 export function Badge({ children, tone = 'blue' }) {
   const tones = {
-    blue: 'bg-secondary/20 text-primary border-secondary/30',
+    blue: 'bg-tertiary/15 text-tertiary border-tertiary/30',
     green: 'bg-success/15 text-success border-success/30',
     red: 'bg-error/15 text-error border-error/30',
     yellow: 'bg-warning/15 text-warning border-warning/30',
@@ -120,7 +120,7 @@ export function Avatar({ name, className = 'size-9' }) {
     .toUpperCase()
   return (
     <span
-      className={`${className} grid place-items-center rounded-full bg-secondary/25 text-sm font-extrabold text-primary ring-2 ring-secondary/20`}
+      className={`${className} grid place-items-center rounded-full bg-tertiary/15 text-sm font-extrabold text-tertiary ring-2 ring-tertiary/20`}
     >
       {initials}
     </span>
