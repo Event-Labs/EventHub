@@ -1,3 +1,4 @@
+import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BriefcaseBusiness,
@@ -187,7 +188,7 @@ export function HomePage() {
   }
 
   const handleFavorite = (event) => {
-    if (!localStorage.getItem('eventhub-token')) {
+    if (!getAuthToken()) {
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
       return
     }

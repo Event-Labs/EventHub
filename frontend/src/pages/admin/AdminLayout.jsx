@@ -1,5 +1,5 @@
 import { BriefcaseBusiness, Calendar, ClipboardList, CreditCard, LayoutDashboard, ShieldCheck, Tags, Users } from 'lucide-react'
-import { isAdminUser } from '@/lib/auth.js'
+import { getStoredUser, isAdminUser } from '@/lib/auth.js'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { AvatarFallback } from './AdminComponents.jsx'
 
@@ -57,9 +57,5 @@ export function AdminLayout() {
 }
 
 function parseStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem('eventhub-user') || 'null')
-  } catch {
-    return null
-  }
+  return getStoredUser()
 }

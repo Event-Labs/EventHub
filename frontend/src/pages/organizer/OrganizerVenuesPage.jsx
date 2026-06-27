@@ -386,7 +386,7 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                 Nhập địa chỉ để tự lấy tọa độ. Có thể click bản đồ hoặc kéo marker để chỉnh lại.
               </p>
               {geocoding && (
-                <p className="mt-1 text-xs font-medium text-primary">Đang lấy tọa độ...</p>
+                <p className="mt-1 text-xs font-medium text-tertiary">Đang lấy tọa độ...</p>
               )}
             </div>
           </div>
@@ -411,7 +411,7 @@ function VenueCard({ venue, onEdit, onDelete }) {
   return (
     <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm text-content">
       <div className="mb-3 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary/20 text-primary border border-secondary/20">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20">
           <MapPin className="size-5" />
         </div>
         <div className="flex-1 min-w-0">

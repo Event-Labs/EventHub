@@ -100,8 +100,8 @@ export function AdminOrganizerRequestsPage() {
             onClick={() => setStatusFilter(filter.value)}
             className={`inline-flex min-w-24 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
               statusFilter === filter.value
-                ? 'bg-primary text-slate-950 shadow-primary/20 hover:bg-primary/95'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-primary hover:bg-surface hover:text-content'
+                ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
             }`}
           >
             {filter.label}
@@ -113,7 +113,7 @@ export function AdminOrganizerRequestsPage() {
         <MetricCard
           label="Hàng đợi chờ duyệt"
           value={pendingCountQuery.isLoading ? '...' : pendingCount}
-          accent="bg-secondary"
+          accent="bg-tertiary"
         />
         <MetricCard
           label="Đang hiển thị"
@@ -277,7 +277,7 @@ export function AdminOrganizerRequestsPage() {
 
 function MetricCard({ label, value, accent, compact = false }) {
   return (
-    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>

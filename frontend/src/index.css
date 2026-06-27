@@ -89,7 +89,7 @@ textarea {
   justify-content: center;
   gap: 0.5rem;
   border-radius: 0.75rem;
-  background: var(--color-secondary);
+  background: var(--color-tertiary);
   padding: 0.6rem 1.1rem;
   color: #ffffff;
   font-size: 0.875rem;
@@ -101,7 +101,7 @@ textarea {
 .admin-primary:hover,
 .org-btn-primary:hover {
   filter: brightness(1.15);
-  box-shadow: 0 4px 14px rgba(43, 92, 146, 0.25);
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.28);
 }
 
 .admin-primary:active,
@@ -127,7 +127,7 @@ textarea {
 
 .admin-secondary:hover,
 .org-btn-secondary:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-tertiary);
   background: var(--color-panel-soft);
   color: var(--color-content);
 }
@@ -150,7 +150,7 @@ textarea {
 
 .admin-input:focus,
 .org-input:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-tertiary);
   box-shadow: 0 0 0 3px rgba(179, 205, 224, 0.15);
 }
 

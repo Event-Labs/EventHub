@@ -1,3 +1,4 @@
+import { clearAuthSession, getAuthToken, updateStoredUser } from '@/lib/auth.js'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Camera, Mail, Phone, Save, UserCircle, Loader2, CheckCircle2, AlertCircle, MapPin, Calendar, Eye, EyeOff, Check, X } from 'lucide-react'
@@ -11,7 +12,7 @@ export function ProfilePage() {
   const { data: user, isLoading, error } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
-      const token = localStorage.getItem('eventhub-token')
+      const token = getAuthToken()
       if (!token) {
         throw { response: { status: 401 }, message: 'Vui lòng đăng nhập để xem hồ sơ.' }
       }
@@ -183,9 +184,7 @@ function ProfileEdit({ user, onDone }) {
     mutationFn: updateProfile,
     onSuccess: (updatedUser) => {
       setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' })
-      const storedUser = JSON.parse(localStorage.getItem('eventhub-user') || '{}')
-      localStorage.setItem('eventhub-user', JSON.stringify({ ...storedUser, ...updatedUser }))
-      window.dispatchEvent(new Event('eventhub-auth'))
+      updateStoredUser(updatedUser)
       
       setTimeout(onDone, 1500)
     },
@@ -377,9 +376,7 @@ function ChangePassword({ user, onDone }) {
     onSuccess: () => {
       setMessage({ type: 'success', text: 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.' })
       setTimeout(() => {
-        localStorage.removeItem('eventhub-token')
-        localStorage.removeItem('eventhub-user')
-        localStorage.removeItem('eventhub-auth')
+        clearAuthSession()
         window.location.href = '/login'
       }, 2000)
     },

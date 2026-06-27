@@ -42,7 +42,7 @@ function fmtDate(iso) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-secondary/20', accentColor = 'text-primary', accentBar }) {
+function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-tertiary/15', accentColor = 'text-tertiary', accentBar }) {
   return (
     <Panel className="relative overflow-hidden">
       {accentBar && <div className={`absolute inset-x-0 top-0 h-0.5 rounded-t-2xl ${accentBar}`} />}
@@ -65,7 +65,7 @@ function MiniStatRow({ label, value, tone = 'default' }) {
     default: 'text-content',
     green:   'text-success',
     red:     'text-error',
-    blue:    'text-primary',
+    blue:    'text-tertiary',
     amber:   'text-warning',
   }
   return (
@@ -237,8 +237,8 @@ export function AdminAnalyticsPage() {
                   onClick={() => setPreset(p.days)}
                   className={`h-9 rounded-xl border px-4 text-sm font-semibold transition ${
                     preset === p.days
-                      ? 'border-primary/60 bg-secondary/25 text-primary'
-                      : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-primary/40 hover:text-primary'
+                      ? 'border-primary/60 bg-tertiary/15 text-tertiary'
+                      : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
                   }`}
                 >
                   {p.label}
@@ -258,8 +258,8 @@ export function AdminAnalyticsPage() {
                     onClick={() => setTrendGroupBy(val)}
                     className={`h-9 rounded-xl border px-3 text-sm font-semibold transition ${
                       trendGroupBy === val
-                        ? 'border-primary/60 bg-secondary/25 text-primary'
-                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-primary/40 hover:text-primary'
+                        ? 'border-primary/60 bg-tertiary/15 text-tertiary'
+                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
                     }`}
                   >
                     {lbl}
@@ -272,7 +272,7 @@ export function AdminAnalyticsPage() {
               type="button"
               onClick={load}
               disabled={loading}
-              className="inline-flex h-9 items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
             >
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
               Làm mới
@@ -289,7 +289,7 @@ export function AdminAnalyticsPage() {
 
       {loading && !overview ? (
         <Panel className="flex items-center justify-center py-20">
-          <Loader2 className="size-8 animate-spin text-primary" />
+          <Loader2 className="size-8 animate-spin text-tertiary" />
         </Panel>
       ) : overview ? (
         <>
@@ -300,9 +300,9 @@ export function AdminAnalyticsPage() {
               label="Tổng người dùng"
               value={Number(users.total_users).toLocaleString('vi-VN')}
               sub={`${Number(users.active_users).toLocaleString()} hoạt động · ${Number(users.locked_users).toLocaleString()} bị khóa`}
-              accentBg="bg-secondary/20"
-              accentColor="text-primary"
-              accentBar="bg-secondary"
+              accentBg="bg-tertiary/15"
+              accentColor="text-tertiary"
+              accentBar="bg-tertiary"
             />
             <StatCard
               icon={Building2}
@@ -350,8 +350,8 @@ export function AdminAnalyticsPage() {
               value={fmtShort(orders.total_platform_fee)}
               sub={fmtCurrency(orders.total_platform_fee)}
               accentBg="bg-primary/20"
-              accentColor="text-primary"
-              accentBar="bg-primary"
+              accentColor="text-tertiary"
+              accentBar="bg-tertiary"
             />
             <StatCard
               icon={Ticket}
@@ -378,7 +378,7 @@ export function AdminAnalyticsPage() {
             <Panel>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="size-5 text-primary" />
+                  <BarChart3 className="size-5 text-tertiary" />
                   <h2 className="font-bold text-content">Xu hướng doanh thu</h2>
                 </div>
                 <span className="flex items-center gap-1 text-xs text-subtle">
@@ -437,7 +437,7 @@ export function AdminAnalyticsPage() {
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-content truncate max-w-[140px]">{org.organizer_name}</p>
                               {org.subscription_name && (
-                                <span className="shrink-0 rounded-full border border-secondary/30 bg-secondary/20 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                                <span className="shrink-0 rounded-full border border-tertiary/30 bg-tertiary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-tertiary">
                                   {org.subscription_name}
                                 </span>
                               )}
@@ -470,7 +470,7 @@ export function AdminAnalyticsPage() {
                           </span>
                         </div>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-border-soft/30">
-                          <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+                          <div className="h-full rounded-full bg-tertiary transition-all duration-500" style={{ width: `${pct}%` }} />
                         </div>
                         <p className="mt-1 text-xs text-muted">
                           {Number(cat.published_events).toLocaleString()} đã đăng · {Number(cat.completed_events).toLocaleString()} hoàn thành
@@ -545,7 +545,7 @@ export function AdminAnalyticsPage() {
                         <tr key={plan.plan_id} className="border-b border-border-soft/20 last:border-0 transition-colors hover:bg-panel-soft/60">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="rounded-full border border-secondary/30 bg-secondary/20 px-2.5 py-0.5 text-xs font-bold text-primary">
+                              <span className="rounded-full border border-tertiary/30 bg-tertiary/15 px-2.5 py-0.5 text-xs font-bold text-tertiary">
                                 {plan.plan_name}
                               </span>
                               <span className="text-xs text-subtle">

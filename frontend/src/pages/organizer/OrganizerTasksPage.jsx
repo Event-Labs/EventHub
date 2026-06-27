@@ -33,8 +33,8 @@ const STATUS_CONFIG = {
     label: 'Đang làm',
     icon: Clock,
     color: 'text-primary',
-    bg: 'bg-secondary/15',
-    border: 'border-secondary/30',
+    bg: 'bg-tertiary/10',
+    border: 'border-tertiary/30',
     badge: 'blue',
   },
   DONE: {
@@ -243,7 +243,7 @@ export function OrganizerTasksPage() {
           {/* Clear filters */}
           {(filterStaffId || filterStatus) && (
             <button
-              className="flex h-10 items-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-subtle hover:border-primary hover:text-primary transition-colors"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-subtle hover:border-tertiary hover:text-tertiary transition-colors"
               onClick={() => { setFilterStaffId(''); setFilterStatus('') }}
             >
               <X className="size-3.5" /> Xóa lọc
@@ -278,7 +278,7 @@ export function OrganizerTasksPage() {
           </div>
           <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-panel-soft">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
+              className="h-full rounded-full bg-tertiary transition-all duration-500"
               style={{ width: `${stats.progress}%` }}
             />
           </div>
@@ -466,7 +466,7 @@ function StaffProgressTable({ tasks, staffOptions }) {
                 <div className="flex items-center gap-3">
                   <div className="h-2 w-28 overflow-hidden rounded-full bg-panel-soft">
                     <div
-                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      className="h-full rounded-full bg-tertiary transition-all duration-300"
                       style={{ width: `${row.progress}%` }}
                     />
                   </div>
@@ -659,9 +659,9 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
 
 function StatCard({ label, value, icon: Icon, tone = 'primary' }) {
   const styles = {
-    primary: { bg: 'bg-secondary/15 border-secondary/20', text: 'text-primary', val: 'text-content' },
+    primary: { bg: 'bg-tertiary/10 border-tertiary/20', text: 'text-primary', val: 'text-content' },
     gray: { bg: 'bg-panel-soft/60 border-border-soft/20', text: 'text-muted', val: 'text-content' },
-    blue: { bg: 'bg-secondary/15 border-secondary/20', text: 'text-primary', val: 'text-content' },
+    blue: { bg: 'bg-tertiary/10 border-tertiary/20', text: 'text-primary', val: 'text-content' },
     green: { bg: 'bg-success/15 border-success/20', text: 'text-success', val: 'text-content' },
   }
   const s = styles[tone] || styles.primary

@@ -1,3 +1,4 @@
+import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Calendar,
@@ -115,7 +116,7 @@ export function EventDetailPage() {
   })
 
   const requireLogin = () => {
-    if (localStorage.getItem('eventhub-token')) return false
+    if (getAuthToken()) return false
     navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
     return true
   }

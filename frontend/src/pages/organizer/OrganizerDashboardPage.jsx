@@ -36,7 +36,7 @@ function fmtDate(iso) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-secondary/20', accentColor = 'text-primary' }) {
+function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-tertiary/15', accentColor = 'text-primary' }) {
   return (
     <div className="flex items-start gap-4 rounded-2xl border border-border-soft/40 bg-surface/80 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm">
       <div className={`grid size-11 shrink-0 place-items-center rounded-xl ${accentBg}`}>
@@ -193,8 +193,8 @@ export function OrganizerDashboardPage() {
                     onClick={() => setPreset(p.days)}
                     className={`h-10 rounded-xl border px-4 text-sm font-semibold transition ${
                       preset === p.days
-                        ? 'border-primary/60 bg-secondary/25 text-primary'
-                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-primary/40 hover:text-primary'
+                        ? 'border-primary/60 bg-tertiary/15 text-primary'
+                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
                     }`}
                   >
                     {p.label}
@@ -208,7 +208,7 @@ export function OrganizerDashboardPage() {
             type="button"
             onClick={loadStats}
             disabled={loading}
-            className="inline-flex h-10 items-center gap-2 self-end rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
+            className="inline-flex h-10 items-center gap-2 self-end rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
             Làm mới
@@ -235,7 +235,7 @@ export function OrganizerDashboardPage() {
               label="Doanh thu gộp"
               value={fmtShort(overall.gross_revenue)}
               sub={fmtCurrency(overall.gross_revenue)}
-              accentBg="bg-secondary/20"
+              accentBg="bg-tertiary/15"
               accentColor="text-primary"
             />
             <StatCard
@@ -332,7 +332,7 @@ export function OrganizerDashboardPage() {
                           <td className="py-3 pl-6">
                             <div className="flex items-center gap-2">
                               <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border-soft/30">
-                                <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+                                <div className="h-full rounded-full bg-tertiary transition-all duration-500" style={{ width: `${pct}%` }} />
                               </div>
                               <span className="text-xs text-subtle">{pct}%</span>
                             </div>
