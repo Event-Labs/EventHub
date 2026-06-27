@@ -265,7 +265,7 @@ export function OrganizerOrdersPage() {
                   </td>
                   <td className="px-5 py-4">
                     <button
-                      className="flex items-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-subtle hover:border-primary hover:text-primary transition"
+                      className="flex items-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-subtle hover:border-tertiary hover:text-tertiary transition"
                       onClick={() => setDetailOrderId(order.id)}
                     >
                       <Eye className="size-3.5" />
@@ -289,7 +289,7 @@ export function OrganizerOrdersPage() {
           </span>
           <div className="flex items-center gap-2">
             <button
-              className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-primary hover:text-primary disabled:opacity-40"
+              className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-40"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
             >
@@ -299,7 +299,7 @@ export function OrganizerOrdersPage() {
               {pagination.page} / {pagination.total_pages}
             </span>
             <button
-              className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-primary hover:text-primary disabled:opacity-40"
+              className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-40"
               disabled={page >= pagination.total_pages}
               onClick={() => setPage((p) => p + 1)}
             >

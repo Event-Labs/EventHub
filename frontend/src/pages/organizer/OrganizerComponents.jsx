@@ -16,7 +16,7 @@ export function OrganizerPage({ title, eyebrow, description, action, actionTo, o
             <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-subtle">
               {eyebrow.split('/').map((item, index, items) => (
                 <span key={`${item}-${index}`} className="flex items-center gap-2">
-                  <span className={index === items.length - 1 ? 'text-primary' : ''}>
+                  <span className={index === items.length - 1 ? 'text-tertiary' : ''}>
                     {item.trim()}
                   </span>
                   {index < items.length - 1 && <ChevronRight className="size-3" />}
@@ -119,7 +119,7 @@ export function SearchBar({ placeholder = 'Search...' }) {
  */
 export function Badge({ children, tone = 'blue' }) {
   const tones = {
-    blue: 'bg-secondary/20 text-primary border-secondary/30',
+    blue: 'bg-tertiary/15 text-tertiary border-tertiary/30',
     purple: 'bg-ai/15 text-ai border-ai/30',
     green: 'bg-success/15 text-success border-success/30',
     red: 'bg-error/15 text-error border-error/30',
@@ -170,7 +170,7 @@ export function AvatarInitials({ name, className = 'size-9' }) {
 
   return (
     <span
-      className={`${className} grid shrink-0 place-items-center rounded-full bg-secondary text-sm font-extrabold text-white`}
+      className={`${className} grid shrink-0 place-items-center rounded-full bg-tertiary text-sm font-extrabold text-white`}
     >
       {initials || 'EH'}
     </span>
@@ -180,7 +180,7 @@ export function AvatarInitials({ name, className = 'size-9' }) {
 /**
  * StatCard – dark-themed KPI metric card
  */
-export function StatCard({ icon: Icon, label, value, sub, trend, accentColor = 'text-primary', accentBg = 'bg-secondary/20' }) {
+export function StatCard({ icon: Icon, label, value, sub, trend, accentColor = 'text-tertiary', accentBg = 'bg-tertiary/15' }) {
   return (
     <div className="flex items-start gap-4 rounded-2xl border border-border-soft/40 bg-surface/80 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.18)]">
       <div className={`grid size-11 shrink-0 place-items-center rounded-xl ${accentBg}`}>

@@ -374,10 +374,10 @@ export function OrganizerPromosPage() {
             <span key="period" className="whitespace-nowrap text-sm text-subtle">{formatDateRange(promo.start_time, promo.end_time)}</span>,
             <StatusBadge key="status" status={promo.status} />,
             <div key="actions" className="flex items-center gap-3 text-muted">
-              <button onClick={() => openDetail(promo)} className="hover:text-primary transition-colors" title="Xem chi tiết"><Eye className="size-4" /></button>
+              <button onClick={() => openDetail(promo)} className="hover:text-tertiary transition-colors" title="Xem chi tiết"><Eye className="size-4" /></button>
               <button 
                 onClick={() => openEdit(promo)} 
-                className={`hover:text-primary transition-colors ${promo.status === 'Expired' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`hover:text-tertiary transition-colors ${promo.status === 'Expired' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title="Chỉnh sửa"
                 disabled={promo.status === 'Expired'}
               >
@@ -489,11 +489,11 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         {isEdit && currentUsage !== null && (
-          <div className="mb-6 rounded-xl bg-primary/5 p-4 border border-primary/20">
+          <div className="mb-6 rounded-xl bg-tertiary/5 p-4 border border-tertiary/20">
             <p className="text-xs font-extrabold uppercase text-primary">Hiệu quả sử dụng hiện tại</p>
             <div className="mt-2 flex items-center gap-4">
               <div className="flex-1 h-3 rounded-full bg-panel-soft border border-border-soft/20 overflow-hidden">
-                 <div className="h-full bg-primary" style={{ width: `${currentUsage}%` }} />
+                 <div className="h-full bg-tertiary" style={{ width: `${currentUsage}%` }} />
               </div>
               <span className="font-extrabold text-primary">{currentUsage}%</span>
             </div>
@@ -640,7 +640,7 @@ function PromoDetailModal({ open, onClose, promo }) {
     <Modal open={open} title={`Chi tiết mã khuyến mãi: ${promo.code}`} onClose={onClose} maxWidth="max-w-5xl">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="space-y-5">
-          <DetailCard className="bg-secondary/15 border-secondary/30">
+          <DetailCard className="bg-tertiary/10 border-tertiary/30">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Mã khuyến mãi</p>
@@ -694,7 +694,7 @@ function PromoDetailModal({ open, onClose, promo }) {
 
           <div className="mb-5">
             <div className="relative h-5 overflow-hidden rounded-full bg-surface border border-border-soft/20">
-              <div className="h-full bg-primary transition-all duration-500" style={{ width: `${usagePercentage}%` }} />
+              <div className="h-full bg-tertiary transition-all duration-500" style={{ width: `${usagePercentage}%` }} />
               <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap text-[10px] font-extrabold text-content">
                 {usagePercentage}% đã dùng
               </span>
@@ -748,9 +748,9 @@ function StatusDetailRow({ status }) {
 
 function OfferCard({ icon: Icon, typeLabel, value }) {
   return (
-    <div className="rounded-xl border border-primary/30 bg-primary/10 p-5">
+    <div className="rounded-xl border border-tertiary/30 bg-tertiary/10 p-5">
       <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-slate-950">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-tertiary text-white">
           <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">

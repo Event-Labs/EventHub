@@ -1,4 +1,5 @@
-﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
@@ -9,7 +10,7 @@ export function FavoriteEventsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  const isAuthenticated = Boolean(localStorage.getItem('eventhub-token'))
+  const isAuthenticated = hasAuthSession()
 
   useEffect(() => {
     if (!isAuthenticated) {

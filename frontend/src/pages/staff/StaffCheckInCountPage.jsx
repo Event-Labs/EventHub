@@ -74,7 +74,7 @@ export function StaffCheckInCountPage() {
           ]}
         />
       </div>
-      <button className="fixed bottom-6 right-6 grid size-12 place-items-center rounded-xl bg-primary text-slate-950 shadow-lg hover:opacity-90 transition">
+      <button className="fixed bottom-6 right-6 grid size-12 place-items-center rounded-xl bg-tertiary text-white shadow-lg hover:opacity-90 transition">
         <Plus className="size-5" />
       </button>
     </StaffPage>

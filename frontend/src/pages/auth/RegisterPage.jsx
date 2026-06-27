@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
 import { AuthLogo, AuthShell, Field } from './LoginPage.jsx'
 import { GoogleLogin } from '@react-oauth/google'
-import { getPostLoginPath } from '@/lib/auth.js'
+import { getPostLoginPath, setAuthSession } from '@/lib/auth.js'
 
 export function RegisterPage() {
     const [form, setForm] = useState({
@@ -56,10 +56,7 @@ export function RegisterPage() {
         try {
             const res = await authService.googleLogin(credentialResponse.credential)
             const { accessToken, user } = res.data
-            localStorage.setItem('eventhub-token', accessToken)
-            localStorage.setItem('eventhub-user', JSON.stringify(user))
-            localStorage.setItem('eventhub-auth', 'true')
-            window.dispatchEvent(new Event('eventhub-auth'))
+            setAuthSession({ accessToken, user, remember: true })
             window.location.href = getPostLoginPath(user)
         } catch (err) {
             setError(err.response?.data?.message || 'Đăng ký bằng Google thất bại.')

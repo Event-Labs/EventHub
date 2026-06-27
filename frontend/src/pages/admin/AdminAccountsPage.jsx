@@ -176,7 +176,7 @@ export function AdminAccountsPage() {
           </div>
           
           <select 
-            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-primary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
+            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-tertiary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
             value={filters.role}
             onChange={handleRoleChange}
           >
@@ -188,7 +188,7 @@ export function AdminAccountsPage() {
           </select>
 
           <select 
-            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-primary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
+            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-tertiary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
             value={filters.status}
             onChange={handleStatusChange}
           >
@@ -200,7 +200,7 @@ export function AdminAccountsPage() {
 
           <button 
             onClick={resetFilters}
-            className="flex items-center gap-1 text-sm font-bold text-subtle hover:text-primary transition"
+            className="flex items-center gap-1 text-sm font-bold text-subtle hover:text-tertiary transition"
           >
             <RotateCcw className="size-3" /> Đặt lại
           </button>
@@ -233,7 +233,7 @@ export function AdminAccountsPage() {
           </span>,
           <Status key="status" value={user.status} />,
           <div key="actions" className="flex items-center gap-4 text-subtle">
-            <button onClick={() => handleAction('VIEW', user)} title="Xem chi tiết" className="hover:text-primary transition">
+            <button onClick={() => handleAction('VIEW', user)} title="Xem chi tiết" className="hover:text-tertiary transition">
                <ShieldCheck className="size-5" />
             </button>
             {user.status === 'LOCKED' ? (

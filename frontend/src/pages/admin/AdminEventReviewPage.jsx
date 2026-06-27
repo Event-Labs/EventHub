@@ -194,8 +194,8 @@ export function AdminEventReviewPage() {
             onClick={() => { setActiveStatus(tab.value); setPage(1) }}
             className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
               activeStatus === tab.value
-                ? 'bg-primary text-slate-950 shadow-primary/20'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-primary hover:bg-surface hover:text-content'
+                ? 'bg-tertiary text-white shadow-tertiary/20'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
             }`}
           >
             {tab.label}
@@ -329,7 +329,7 @@ export function AdminEventReviewPage() {
                       type="button"
                       title="Xem chi tiết"
                       onClick={() => openModal(event)}
-                      className="rounded-xl border border-border-soft/40 px-3 py-2 text-xs font-semibold text-subtle transition hover:border-primary hover:bg-panel-soft hover:text-primary"
+                      className="rounded-xl border border-border-soft/40 px-3 py-2 text-xs font-semibold text-subtle transition hover:border-tertiary hover:bg-panel-soft hover:text-tertiary"
                     >
                       Chi tiết
                     </button>
@@ -394,7 +394,7 @@ function ActionButton({ title, color, icon, onClick, disabled }) {
   const colorMap = {
     green: 'border-success/30 text-success hover:bg-success/10',
     red: 'border-error/30 text-error hover:bg-error/10',
-    gray: 'border-border-soft/40 text-subtle hover:border-primary hover:bg-panel-soft',
+    gray: 'border-border-soft/40 text-subtle hover:border-tertiary hover:bg-panel-soft',
   }
   return (
     <button

@@ -159,7 +159,7 @@ export function OrganizerCheckinDashboardPage() {
 
       {loading && !stats ? (
         <OrganizerPanel className="flex items-center justify-center py-20">
-          <Loader2 className="size-8 animate-spin text-primary" />
+          <Loader2 className="size-8 animate-spin text-tertiary" />
         </OrganizerPanel>
       ) : stats ? (
         <>
@@ -170,8 +170,8 @@ export function OrganizerCheckinDashboardPage() {
               label="Tổng vé"
               value={overall.total_tickets.toLocaleString('vi-VN')}
               sub="Vé đã bán (đơn PAID)"
-              accentBg="bg-secondary/20"
-              accentColor="text-primary"
+              accentBg="bg-tertiary/15"
+              accentColor="text-tertiary"
             />
             <StatCard
               icon={CheckCircle2}
@@ -203,7 +203,7 @@ export function OrganizerCheckinDashboardPage() {
           <OrganizerPanel className="mb-6">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-bold text-content">Tiến độ check-in tổng thể</h2>
-              <span className="text-sm font-bold text-primary">{overall.checkin_rate}%</span>
+              <span className="text-sm font-bold text-tertiary">{overall.checkin_rate}%</span>
             </div>
             <ProgressBar
               value={overall.checkin_rate}
@@ -239,7 +239,7 @@ export function OrganizerCheckinDashboardPage() {
                             {fmtDate(s.start_time)} · {s.venue_name}
                           </p>
                         </div>
-                        <span className="shrink-0 text-sm font-bold text-primary">
+                        <span className="shrink-0 text-sm font-bold text-tertiary">
                           {s.checkin_rate}%
                         </span>
                       </div>
@@ -282,7 +282,7 @@ export function OrganizerCheckinDashboardPage() {
                           <td className="py-3 text-right">
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold border ${
                               tt.checkin_rate >= 80 ? 'bg-success/15 text-success border-success/30' :
-                              tt.checkin_rate >= 50 ? 'bg-secondary/20 text-primary border-secondary/30' :
+                              tt.checkin_rate >= 50 ? 'bg-tertiary/15 text-tertiary border-tertiary/30' :
                               'bg-warning/15 text-warning border-warning/30'
                             }`}>
                               {tt.checkin_rate}%
@@ -301,7 +301,7 @@ export function OrganizerCheckinDashboardPage() {
           {recentCheckins.length > 0 && (
             <OrganizerPanel>
               <div className="mb-4 flex items-center gap-2">
-                <ScanLine className="size-5 text-primary" />
+                <ScanLine className="size-5 text-tertiary" />
                 <h2 className="font-bold text-content">Check-in gần nhất (20 lần)</h2>
               </div>
               <div className="overflow-x-auto">

@@ -1,3 +1,4 @@
+import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarDays, CheckCircle2, Clock3, MapPin, Ticket } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -49,7 +50,7 @@ export function MyTicketsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [status, setStatus] = useState('ALL')
-  const isAuthenticated = Boolean(localStorage.getItem('eventhub-token'))
+  const isAuthenticated = hasAuthSession()
 
   useEffect(() => {
     if (!isAuthenticated) {

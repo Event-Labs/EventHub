@@ -1,5 +1,5 @@
 import { Calendar, LayoutDashboard, Settings, Settings2, ShoppingCart, User, Users } from 'lucide-react'
-import { getUserRoles } from '@/lib/auth.js'
+import { getStoredUser, getUserRoles } from '@/lib/auth.js'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { AvatarInitials } from './OrganizerComponents.jsx'
 
@@ -88,9 +88,5 @@ export function OrganizerLayout() {
 }
 
 function parseStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem('eventhub-user') || 'null')
-  } catch {
-    return null
-  }
+  return getStoredUser()
 }

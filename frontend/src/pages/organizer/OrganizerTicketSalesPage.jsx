@@ -38,7 +38,7 @@ function fmtDate(iso) {
 function OccupancyBadge({ rate }) {
   const num = Number(rate) || 0
   if (num >= 80) return <span className="inline-flex rounded-full border border-success/30 px-2 py-0.5 text-xs font-bold bg-success/15 text-success">{num}%</span>
-  if (num >= 50) return <span className="inline-flex rounded-full border border-secondary/30 px-2 py-0.5 text-xs font-bold bg-secondary/20 text-primary">{num}%</span>
+  if (num >= 50) return <span className="inline-flex rounded-full border border-tertiary/30 px-2 py-0.5 text-xs font-bold bg-tertiary/15 text-primary">{num}%</span>
   if (num > 0)   return <span className="inline-flex rounded-full border border-warning/30 px-2 py-0.5 text-xs font-bold bg-warning/15 text-warning">{num}%</span>
   return <span className="inline-flex rounded-full border border-border-soft/30 px-2 py-0.5 text-xs font-bold bg-panel-soft text-subtle">0%</span>
 }
@@ -183,8 +183,8 @@ export function OrganizerTicketSalesPage() {
                     onClick={() => setPreset(p.days)}
                     className={`h-10 rounded-xl border px-4 text-sm font-semibold transition ${
                       preset === p.days
-                        ? 'border-primary bg-secondary text-white'
-                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-primary hover:text-content'
+                        ? 'border-primary bg-tertiary text-white'
+                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-content'
                     }`}
                   >
                     {p.label}
@@ -225,7 +225,7 @@ export function OrganizerTicketSalesPage() {
               label="Tổng vé đã bán"
               value={Number(overall.total_tickets_sold).toLocaleString('vi-VN')}
               sub={`${Number(overall.total_orders).toLocaleString()} đơn hàng`}
-              accentBg="bg-secondary/20"
+              accentBg="bg-tertiary/15"
               accentColor="text-primary"
             />
             <StatCard

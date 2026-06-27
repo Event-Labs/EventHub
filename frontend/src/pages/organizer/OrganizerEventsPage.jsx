@@ -68,7 +68,7 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
         </div>
 
         {/* Info note */}
-        <div className="mt-4 rounded-xl border border-secondary/30 bg-secondary/[0.08] p-3 text-xs text-primary">
+        <div className="mt-4 rounded-xl border border-tertiary/30 bg-tertiary/[0.08] p-3 text-xs text-primary">
           <ul className="list-inside list-disc space-y-1">
             <li>Sự kiện sẽ xuất hiện trong danh sách tìm kiếm và trang chủ.</li>
             <li>Người dùng có thể mua vé ngay sau khi xuất bản.</li>
@@ -364,7 +364,7 @@ export function OrganizerEventsPage() {
               {event.thumbnail_url ? (
                 <img src={event.thumbnail_url} alt="" className="size-10 rounded-md object-cover" />
               ) : (
-                <span className="grid size-10 place-items-center rounded-xl bg-secondary/20 text-primary">
+                <span className="grid size-10 place-items-center rounded-xl bg-tertiary/15 text-primary">
                   <CalendarDays className="size-5" />
                 </span>
               )}
@@ -413,7 +413,7 @@ export function OrganizerEventsPage() {
               <Link
                 to={`/organizer/events/${event.id}/edit`}
                 title="Chỉnh sửa"
-                className="inline-flex h-8 w-16 items-center justify-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft text-xs font-semibold text-primary transition hover:border-primary/50 hover:bg-secondary/20"
+                className="inline-flex h-8 w-16 items-center justify-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft text-xs font-semibold text-primary transition hover:border-tertiary/50 hover:bg-tertiary/15"
               >
                 <Edit className="size-3.5 shrink-0" />
                 Sửa

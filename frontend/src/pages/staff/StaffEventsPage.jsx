@@ -83,7 +83,7 @@ function AssignedEventCard({ event }) {
 
   return (
     <StaffPanel>
-      <div className="mb-4 grid h-36 place-items-center rounded-md bg-secondary/20 text-primary">
+      <div className="mb-4 grid h-36 place-items-center rounded-md bg-tertiary/15 text-tertiary">
         <Calendar className="size-12" />
       </div>
       <div className="flex items-start justify-between gap-3">

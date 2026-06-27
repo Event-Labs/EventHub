@@ -1,3 +1,4 @@
+import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -14,7 +15,7 @@ function formatPrice(value) {
 export function BookingCheckoutPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const isAuthenticated = Boolean(localStorage.getItem('eventhub-token'))
+  const isAuthenticated = hasAuthSession()
 
   const cart = location.state?.cart
   const [buyerName, setBuyerName] = useState('')

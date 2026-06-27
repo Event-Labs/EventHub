@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api',
@@ -8,7 +9,7 @@ export const http = axios.create({
 })
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('eventhub-token')
+  const token = getAuthToken()
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -22,10 +23,7 @@ http.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Clear token and user if unauthorized
-      localStorage.removeItem('eventhub-token')
-      localStorage.removeItem('eventhub-user')
-      localStorage.setItem('eventhub-auth', 'false')
-      window.dispatchEvent(new Event('eventhub-auth'))
+      clearAuthSession()
       
       // Redirect to login if not already there
       if (!window.location.pathname.includes('/login')) {
@@ -35,10 +33,7 @@ http.interceptors.response.use(
 
     if (error.response?.status === 403 && (error.response?.data?.errorCode === 'ACCOUNT_LOCKED' || error.response?.data?.error === 'ACCOUNT_LOCKED')) {
       const lockData = error.response.data.data || error.response.data;
-      localStorage.removeItem('eventhub-token')
-      localStorage.removeItem('eventhub-user')
-      localStorage.setItem('eventhub-auth', 'false')
-      window.dispatchEvent(new Event('eventhub-auth'))
+      clearAuthSession()
 
       // Nếu đang ở trang login, KHÔNG lưu sessionStorage và KHÔNG dispatch event.
       // Để local catch trong LoginPage tự xử lý và hiển thị modal trực tiếp,
