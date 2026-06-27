@@ -33,6 +33,12 @@ python train_lora.py
 python test_model.py
 ```
 
+## Chay Local AI Service
+
+```bat
+uvicorn serve_model:app --host 127.0.0.1 --port 8001
+```
+
 ## Luu Y
 
 `.venv/` va `outputs/` khong duoc commit len Git.
