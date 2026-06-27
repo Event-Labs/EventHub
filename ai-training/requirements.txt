@@ -1,0 +1,11 @@
+transformers
+datasets
+peft
+trl
+accelerate
+safetensors
+sentencepiece
+protobuf
+fastapi
+uvicorn
+pydantic
