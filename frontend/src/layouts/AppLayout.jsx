@@ -8,6 +8,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
+import { clearAuthSession, getAuthToken, getStoredUser, isAuthenticated } from '@/lib/auth.js'
 
 const centerNavItems = [
   ['Sự kiện', '/events'],
@@ -75,19 +76,8 @@ export function AppLayout() {
 
   useEffect(() => {
     const syncAuth = () => {
-      const isLoggedIn =
-        Boolean(localStorage.getItem('eventhub-token')) ||
-        localStorage.getItem('eventhub-auth') === 'true'
-      const storedUser = localStorage.getItem('eventhub-user')
-      let parsedUser = null
-
-      if (isLoggedIn && storedUser) {
-        try {
-          parsedUser = JSON.parse(storedUser)
-        } catch {
-          parsedUser = null
-        }
-      }
+      const isLoggedIn = isAuthenticated()
+      const parsedUser = isLoggedIn ? getStoredUser() : null
 
       setLoggedIn(isLoggedIn)
       setCurrentUser(parsedUser)
@@ -103,10 +93,7 @@ export function AppLayout() {
   }, [])
 
   const logout = () => {
-    localStorage.removeItem('eventhub-auth')
-    localStorage.removeItem('eventhub-token')
-    localStorage.removeItem('eventhub-user')
-    window.dispatchEvent(new Event('eventhub-auth'))
+    clearAuthSession()
     setOpen(false)
     setNotificationOpen(false)
     navigate('/')
@@ -157,7 +144,7 @@ export function AppLayout() {
   useEffect(() => {
     if (!loggedIn) return undefined
 
-    const token = localStorage.getItem('eventhub-token')
+    const token = getAuthToken()
     if (!token) return undefined
 
     const source = new EventSource(getNotificationStreamUrl(token))

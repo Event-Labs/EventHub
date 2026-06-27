@@ -168,7 +168,7 @@ export function OrganizerSubscriptionsPage() {
             <button
               onClick={handlePayment}
               disabled={isProcessing}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-extrabold text-slate-950 transition duration-200 hover:brightness-95 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-tertiary px-4 py-3 text-sm font-extrabold text-white transition duration-200 hover:brightness-95 disabled:opacity-60"
             >
               {isProcessing && <Loader2 className="size-4 animate-spin" />}
               {isProcessing
@@ -214,14 +214,14 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
         isCurrentPlan
           ? 'border-success ring-2 ring-success/20'
           : highlighted
-            ? 'border-primary ring-2 ring-primary/20'
+            ? 'border-tertiary ring-2 ring-tertiary/20'
             : 'border-border-soft/30'
       }`}
     >
       {/* Top accent */}
       <div
         className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl ${
-          isCurrentPlan ? 'bg-success' : highlighted ? 'bg-primary' : 'bg-border-soft/20'
+          isCurrentPlan ? 'bg-success' : highlighted ? 'bg-tertiary' : 'bg-border-soft/20'
         }`}
       />
 
@@ -230,7 +230,7 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
         {isCurrentPlan ? (
           <Badge tone="green">Đang sử dụng</Badge>
         ) : highlighted ? (
-          <Badge tone="blue">Phổ biến</Badge>
+          <Badge tone="orange">Phổ biến</Badge>
         ) : (
           <span className="inline-block h-5" />
         )}
@@ -243,7 +243,7 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
             isCurrentPlan
               ? 'bg-success/15 text-success border border-success/25'
               : highlighted
-                ? 'bg-primary/10 text-primary border border-primary/25'
+                ? 'bg-tertiary/10 text-tertiary border border-tertiary/25'
                 : 'bg-panel-soft text-muted border border-border-soft/25'
           }`}
         >
@@ -292,8 +292,8 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
             isCurrentPlan
               ? 'bg-success text-white'
               : highlighted
-                ? 'bg-primary text-slate-950 hover:brightness-95'
-                : 'border border-border-soft/40 text-content hover:border-primary hover:text-primary hover:bg-panel-soft'
+                ? 'bg-tertiary text-white hover:bg-orange-600'
+                : 'border border-border-soft/40 text-content hover:border-tertiary hover:text-tertiary hover:bg-panel-soft'
           }`}
         >
           {isCurrentPlan ? 'Đang sử dụng' : plan.price === 0 ? 'Kích hoạt' : 'Chọn gói này'}

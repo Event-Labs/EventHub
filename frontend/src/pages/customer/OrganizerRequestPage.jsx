@@ -3,7 +3,7 @@ import { Building2, CheckCircle2, Clock3, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
-import { getUserRoles } from '@/lib/auth.js'
+import { getUserRoles, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import {
   fetchMyOrganizerRequest,
   submitOrganizerRequest,
@@ -88,7 +88,7 @@ export function OrganizerRequestPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  const isAuthenticated = Boolean(localStorage.getItem('eventhub-token'))
+  const isAuthenticated = hasAuthSession()
 
   const profileQuery = useQuery({
     queryKey: ['user-profile'],

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, ChevronRight, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
+import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
 
 const logoSrc = '/images/LogoEH.png'
 const collapsedWidth = 76
@@ -21,7 +22,7 @@ export function RolePortalLayout({
   const [searchOpen, setSearchOpen] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [theme, setTheme] = useState(() => localStorage.getItem('eventhub-theme') || 'dark')
-  const token = localStorage.getItem('eventhub-token')
+  const token = getAuthToken()
 
   const activeSection = useMemo(() => {
     const byRoute = navSections.find((section) => isSectionActive(section, location.pathname))
@@ -39,10 +40,7 @@ export function RolePortalLayout({
   }
 
   const logout = () => {
-    localStorage.removeItem('eventhub-auth')
-    localStorage.removeItem('eventhub-token')
-    localStorage.removeItem('eventhub-user')
-    window.dispatchEvent(new Event('eventhub-auth'))
+    clearAuthSession()
     navigate('/login', { replace: true })
   }
 
@@ -155,7 +153,7 @@ function SidebarSection({ section, expanded, active, showDivider, pathname }) {
           to={target}
           title={section.label}
           className={`grid size-10 place-items-center rounded-2xl transition-all duration-200 ${
-            active ? 'bg-secondary/25 text-primary' : 'text-subtle hover:bg-panel-soft hover:text-primary'
+            active ? 'bg-tertiary/15 text-tertiary' : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
           }`}
         >
           <Icon className="size-[18px]" />
@@ -192,14 +190,14 @@ function SidebarItem({ item, expanded, active }) {
           const current = active ?? isActive
           return `grid size-10 place-items-center rounded-2xl transition-all duration-200 ${
             current
-              ? 'bg-secondary/25 text-primary shadow-[inset_0_1px_0_rgba(179,205,224,0.1)]'
-              : 'text-subtle hover:bg-panel-soft hover:text-primary'
+              ? 'bg-tertiary/15 text-tertiary shadow-[inset_0_1px_0_rgba(249,115,22,0.14)]'
+              : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
           }`
         }}
       >
         {({ isActive }) => {
           const current = active ?? isActive
-          return Icon ? <Icon className={`size-[18px] ${current ? 'text-primary' : 'text-subtle'}`} /> : null
+          return Icon ? <Icon className={`size-[18px] ${current ? 'text-tertiary' : 'text-subtle'}`} /> : null
         }}
       </NavLink>
     )
@@ -214,8 +212,8 @@ function SidebarItem({ item, expanded, active }) {
         const current = active ?? isActive
         return `group flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-all duration-200 ${
           current
-            ? 'bg-secondary/25 text-primary shadow-[inset_0_1px_0_rgba(179,205,224,0.1)]'
-            : 'text-subtle hover:bg-panel-soft hover:text-primary'
+            ? 'bg-tertiary/15 text-tertiary shadow-[inset_0_1px_0_rgba(249,115,22,0.14)]'
+            : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
         }`
       }}
     >
@@ -223,9 +221,9 @@ function SidebarItem({ item, expanded, active }) {
         const current = active ?? isActive
         return (
           <>
-            {Icon && <Icon className={`size-[18px] shrink-0 ${current ? 'text-primary' : 'text-subtle group-hover:text-primary'}`} />}
+            {Icon && <Icon className={`size-[18px] shrink-0 ${current ? 'text-tertiary' : 'text-subtle group-hover:text-tertiary'}`} />}
             <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">{item.label}</span>
-            {current && <ChevronRight className="size-3.5 shrink-0 text-primary" />}
+            {current && <ChevronRight className="size-3.5 shrink-0 text-tertiary" />}
           </>
         )
       }}
@@ -256,7 +254,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex h-12 w-full max-w-2xl items-center gap-3 rounded-full border border-border-soft/30 bg-surface px-5 text-base text-subtle shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-primary hover:text-content"
+            className="flex h-12 w-full max-w-2xl items-center gap-3 rounded-full border border-border-soft/30 bg-surface px-5 text-base text-subtle shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-tertiary hover:text-content"
           >
             <Search className="size-5" />
             <span>{'\u0054\u00ecm ki\u1ebfm...'}</span>
@@ -273,7 +271,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
         </div>
         <NavLink
           to={profileTo}
-          className="flex h-12 items-center gap-2.5 rounded-full border border-border-soft/30 bg-surface px-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-primary hover:bg-panel-soft"
+          className="flex h-12 items-center gap-2.5 rounded-full border border-border-soft/30 bg-surface px-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-tertiary hover:bg-panel-soft"
           title={'\u0048\u1ed3 s\u01a1'}
         >
           {avatar}

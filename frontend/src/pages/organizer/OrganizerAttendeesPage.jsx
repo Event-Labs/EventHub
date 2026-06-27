@@ -369,7 +369,7 @@ export function OrganizerAttendeesPage() {
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle hover:border-primary hover:text-primary disabled:opacity-40"
+                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-tertiary disabled:opacity-40"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
                 >
@@ -379,7 +379,7 @@ export function OrganizerAttendeesPage() {
                   {pagination.page} / {pagination.total_pages}
                 </span>
                 <button
-                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle hover:border-primary hover:text-primary disabled:opacity-40"
+                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-tertiary disabled:opacity-40"
                   disabled={page >= pagination.total_pages}
                   onClick={() => setPage((p) => p + 1)}
                 >

@@ -35,7 +35,7 @@ export function StaffDashboardPage() {
             <Badge tone="red">Live now</Badge>
           </div>
           <div className="mt-5 grid gap-5 md:grid-cols-[220px_1fr]">
-            <div className="grid h-36 place-items-center rounded-xl bg-secondary/20 text-primary">
+            <div className="grid h-36 place-items-center rounded-xl bg-tertiary/15 text-primary">
               <QrCode className="size-14" />
             </div>
             <div>
@@ -43,7 +43,7 @@ export function StaffDashboardPage() {
               <p className="mt-2 text-sm text-subtle">Grand Convention Center - 09:00 AM</p>
               <p className="mt-4 text-sm font-semibold text-content">Check-in progress</p>
               <div className="mt-2 h-2 rounded-full bg-panel-soft">
-                <div className="h-full w-[68%] rounded-full bg-primary" />
+                <div className="h-full w-[68%] rounded-full bg-tertiary" />
               </div>
               <div className="mt-5 flex gap-3">
                 <Link to="/staff/qr-check-in" className="admin-primary">Bắt đầu check-in</Link>
@@ -76,8 +76,8 @@ function Shortcut({ to, icon: Icon, label, primary }) {
       to={to}
       className={`rounded-2xl border p-6 text-center font-bold transition-all hover:scale-[1.02] ${
         primary
-          ? 'border-primary/40 bg-secondary text-white shadow-[0_4px_20px_rgba(43,92,146,0.3)]'
-          : 'border-border-soft/40 bg-surface/80 text-content hover:border-primary hover:bg-panel-soft'
+          ? 'border-primary/40 bg-tertiary text-white shadow-[0_4px_20px_rgba(43,92,146,0.3)]'
+          : 'border-border-soft/40 bg-surface/80 text-content hover:border-tertiary hover:bg-panel-soft'
       }`}
     >
       <Icon className="mx-auto mb-3 size-7" />

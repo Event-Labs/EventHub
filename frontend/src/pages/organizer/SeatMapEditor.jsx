@@ -601,7 +601,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     onClick={() => setLayoutType(type)}
                     className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${
                       layoutType === type
-                        ? 'bg-primary text-slate-950 shadow-sm'
+                        ? 'bg-tertiary text-white shadow-sm'
                         : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
                     }`}
                   >
@@ -683,7 +683,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       onClick={() => setActiveZoneId(isActive ? null : zone.localId)}
                       className={`group flex cursor-pointer items-center gap-2 rounded-xl border-2 p-2 transition-all ${
                         isActive
-                          ? 'border-primary bg-secondary/15 shadow-sm'
+                          ? 'border-primary bg-tertiary/10 shadow-sm'
                           : 'border-transparent hover:border-border-soft/20 hover:bg-panel-soft/60'
                       }`}
                     >
@@ -821,7 +821,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
           {/* Selection action bar */}
           {selectedCount > 0 && (
-            <div className="flex shrink-0 items-center gap-3 border-b border-secondary/20 bg-secondary/10 px-4 py-2 text-content animate-in slide-in-from-top duration-200">
+            <div className="flex shrink-0 items-center gap-3 border-b border-tertiary/20 bg-tertiary/10 px-4 py-2 text-content animate-in slide-in-from-top duration-200">
               <span className="text-sm font-bold text-primary">
                 {selectedCount} ghế đã chọn
               </span>

@@ -25,7 +25,7 @@ export function Page({
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-secondary">
+          <p className="text-[11px] font-extrabold uppercase tracking-wider text-tertiary">
             Admin Portal
           </p>
           <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-content">
@@ -39,7 +39,7 @@ export function Page({
         {!actions && action && (
           <button
             type="button"
-            className={actionClassName || 'admin-btn-primary'}
+            className={actionClassName || 'admin-primary'}
             onClick={onAction}
           >
             <ActionIcon className="size-4" /> {action}
@@ -168,7 +168,7 @@ export function FilterBar({ labels }) {
           <option>{label}</option>
         </select>
       ))}
-      <button className="ml-auto text-sm font-semibold text-subtle hover:text-primary transition">
+      <button className="ml-auto text-sm font-semibold text-subtle hover:text-tertiary transition">
         Xóa bộ lọc
       </button>
     </Panel>
@@ -244,7 +244,7 @@ export function UserCell({ name, email, image, onClick, className = '' }) {
 export function AvatarFallback({ name, className = 'size-10' }) {
   return (
     <div
-      className={`${className} grid shrink-0 place-items-center rounded-full bg-secondary/25 text-sm font-extrabold text-primary ring-2 ring-secondary/20`}
+      className={`${className} grid shrink-0 place-items-center rounded-full bg-tertiary/15 text-sm font-extrabold text-tertiary ring-2 ring-secondary/20`}
     >
       {getInitials(name)}
     </div>
@@ -269,7 +269,7 @@ export function ImagePlaceholder({ label, className = 'h-12 w-20' }) {
  */
 export function Badge({ children, tone = 'blue', className = '' }) {
   const tones = {
-    blue: 'bg-secondary/20 text-primary border-secondary/30',
+    blue: 'bg-tertiary/15 text-tertiary border-tertiary/30',
     purple: 'bg-ai/15 text-ai border-ai/30',
     green: 'bg-success/15 text-success border-success/30',
     red: 'bg-error/15 text-error border-error/30',
@@ -314,7 +314,7 @@ export function Status({ value }) {
 export function Actions({ locked }) {
   return (
     <div className="flex items-center gap-3 text-subtle">
-      <Eye className="size-4 cursor-pointer transition hover:text-primary" />
+      <Eye className="size-4 cursor-pointer transition hover:text-tertiary" />
       {locked ? (
         <Lock className="size-4 cursor-pointer text-error transition hover:text-error/70" />
       ) : (
@@ -339,7 +339,7 @@ export function PlanCard({ plan, featured }) {
       )}
       <div className="mb-5 border-b border-border-soft/30 pb-5">
         <div className="flex items-start justify-between">
-          <h3 className={`text-xl font-extrabold ${featured ? 'text-primary' : 'text-content'}`}>
+          <h3 className={`text-xl font-extrabold ${featured ? 'text-tertiary' : 'text-content'}`}>
             {plan[0]}
           </h3>
           <Badge tone="blue">Active</Badge>
@@ -357,10 +357,10 @@ export function PlanCard({ plan, featured }) {
       <p className="mt-6 text-[11px] font-bold uppercase tracking-wider text-subtle">Sử dụng</p>
       <p className="mt-1 text-sm font-bold text-content">{plan[4]}</p>
       <div className="mt-7 flex items-center gap-2 border-t border-border-soft/30 pt-4">
-        <button className="rounded-xl border border-border-soft/40 px-3 py-1.5 text-xs font-bold text-subtle transition hover:border-primary hover:text-primary">
+        <button className="rounded-xl border border-border-soft/40 px-3 py-1.5 text-xs font-bold text-subtle transition hover:border-tertiary hover:text-tertiary">
           Edit
         </button>
-        <button className="rounded-xl border border-border-soft/40 px-3 py-1.5 text-xs font-bold text-subtle transition hover:border-primary hover:text-primary">
+        <button className="rounded-xl border border-border-soft/40 px-3 py-1.5 text-xs font-bold text-subtle transition hover:border-tertiary hover:text-tertiary">
           Users
         </button>
         <MoreVertical className="ml-auto size-4 text-subtle" />
@@ -391,7 +391,7 @@ export function Row({ label, value, strong }) {
   return (
     <div className="flex justify-between border-b border-border-soft/20 py-2.5 last:border-0">
       <span className="text-sm text-subtle">{label}</span>
-      <span className={strong ? 'font-extrabold text-primary' : 'font-semibold text-content'}>
+      <span className={strong ? 'font-extrabold text-tertiary' : 'font-semibold text-content'}>
         {value}
       </span>
     </div>
@@ -407,7 +407,7 @@ export function Legend({ rows }) {
       {rows.map(([label, value]) => (
         <div key={label} className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-primary" />
+            <span className="size-2 rounded-full bg-tertiary" />
             <span className="text-subtle">{label}</span>
           </span>
           <span className="font-semibold text-content">{value}</span>

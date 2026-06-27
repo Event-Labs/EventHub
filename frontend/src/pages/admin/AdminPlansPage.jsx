@@ -159,7 +159,7 @@ export function AdminPlansPage() {
       onAction={openCreate}
     >
       <div className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Tổng số gói" value={plans.length} accent="bg-secondary" />
+        <Metric label="Tổng số gói" value={plans.length} accent="bg-tertiary" />
         <Metric
           label="Người đăng ký"
           value={plans.reduce((total, plan) => total + Number(plan.subscriber_count || 0), 0)}
@@ -196,7 +196,7 @@ export function AdminPlansPage() {
             headers={['Tên gói', 'Giá', 'Giới hạn tổng', 'Giới hạn/sự kiện', 'Tính năng', 'Trạng thái', 'Người đăng ký', 'Hành động']}
             rows={plans.map((plan) => [
               <span key="name" className="font-extrabold text-content">{plan.name}</span>,
-              <span key="price" className="font-bold text-primary">{formatMoney(plan.price)}</span>,
+              <span key="price" className="font-bold text-tertiary">{formatMoney(plan.price)}</span>,
               <Stack key="total" items={[
                 `${limitText(plan.event_limit)} sự kiện`,
                 `${limitText(plan.max_active_events)} sự kiện hoạt động`,
@@ -343,7 +343,7 @@ export function AdminPlansPage() {
 
 function Metric({ label, value, accent }) {
   return (
-    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
@@ -397,7 +397,7 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
       className={`grid size-9 place-items-center rounded-xl border transition duration-200 hover:-translate-y-0.5 disabled:opacity-60 ${
         danger
           ? 'border-error/30 text-error hover:bg-error/10'
-          : 'border-border-soft/40 text-subtle hover:border-primary hover:bg-panel-soft hover:text-primary'
+          : 'border-border-soft/40 text-subtle hover:border-tertiary hover:bg-panel-soft hover:text-tertiary'
       }`}
       {...props}
     >
@@ -424,7 +424,7 @@ function FeatureList({ plan }) {
   return (
     <div className="flex max-w-xs flex-wrap gap-2">
       {enabled.slice(0, 4).map((feature) => (
-        <span key={feature} className="rounded-full bg-secondary/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary border border-secondary/35">
+        <span key={feature} className="rounded-full bg-tertiary/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tertiary border border-tertiary/35">
           {feature}
         </span>
       ))}
