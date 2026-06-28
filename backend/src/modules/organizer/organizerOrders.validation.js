@@ -29,9 +29,30 @@ const listAttendeesSchema = z.object({
   search: z.string().trim().max(200).optional(),
 });
 
+const financialSummarySchema = z.object({
+  eventId: z.string().uuid(),
+  dateFrom: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .refine((value) => !value || !Number.isNaN(new Date(value).getTime()), {
+      message: 'Invalid dateFrom',
+    }),
+  dateTo: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .refine((value) => !value || !Number.isNaN(new Date(value).getTime()), {
+      message: 'Invalid dateTo',
+    }),
+});
+
 module.exports = {
   listOrdersSchema,
   orderIdParamSchema,
   eventIdParamSchema,
   listAttendeesSchema,
+  financialSummarySchema,
 };
