@@ -44,7 +44,7 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
   }, [userId, refreshKey])
 
   if (loading) {
-    return <div className="py-20 text-center font-bold text-[#5c647a]">Đang tải hồ sơ người dùng...</div>
+    return <div className="py-20 text-center font-bold text-subtle">Đang tải hồ sơ người dùng...</div>
   }
 
   if (!user) {
@@ -55,7 +55,7 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-sm font-bold text-[#434655] hover:text-primary transition"
+        className="flex items-center gap-2 text-sm font-bold text-subtle hover:text-tertiary transition"
       >
         <ArrowLeft className="size-4" /> Quay lại danh sách
       </button>
@@ -66,12 +66,12 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
           <Panel className="text-center">
             <div className="flex justify-center">
               {user.avatar_url ? (
-                <img src={user.avatar_url} alt={user.full_name} className="size-32 rounded-full object-cover shadow-lg border-4 border-white" />
+                <img src={user.avatar_url} alt={user.full_name} className="size-32 rounded-full object-cover shadow-lg border-4 border-border-soft/40" />
               ) : (
                 <AvatarFallback name={user.full_name} className="size-32 rounded-full text-3xl" />
               )}
             </div>
-            <h3 className="mt-4 font-display text-2xl font-extrabold text-[#111827]">{user.full_name}</h3>
+            <h3 className="mt-4 font-display text-2xl font-extrabold text-content">{user.full_name}</h3>
             <div className="mt-2 flex justify-center gap-2">
               {user.roles && user.roles.filter(Boolean).length > 0 ? (
                 user.roles.filter(Boolean).map(role => (
@@ -81,13 +81,13 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
                 <Badge tone="gray">CHƯA XÁC THỰC</Badge>
               )}
             </div>
-            <div className="mt-6 border-t border-[#e0e3e5] pt-6 flex justify-around">
+            <div className="mt-6 border-t border-border-soft/30 pt-6 flex justify-around">
                <div className="text-center">
-                  <p className="text-xs font-bold text-[#737686] uppercase">Ngày tạo</p>
-                  <p className="mt-1 font-bold text-[#111827]">{new Date(user.created_at).toLocaleDateString('vi-VN')}</p>
+                  <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Ngày tạo</p>
+                  <p className="mt-1 font-extrabold text-content">{new Date(user.created_at).toLocaleDateString('vi-VN')}</p>
                </div>
-               <div className="text-center text-error">
-                  <p className="text-xs font-bold text-[#737686] uppercase">Trạng thái</p>
+               <div className="text-center">
+                  <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Trạng thái</p>
                   <div className="mt-1 flex justify-center"><Status value={user.status} /></div>
                </div>
             </div>
@@ -96,14 +96,14 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
                {user.status === 'LOCKED' ? (
                  <button 
                   onClick={() => onStatusChange('UNLOCK', user)}
-                  className="w-full flex items-center justify-center gap-2 rounded-md bg-[#008a3d] py-3 text-sm font-bold text-white hover:bg-green-700 transition"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-extrabold text-slate-950 hover:bg-success/90 transition shadow-lg shadow-success/15"
                 >
                    <Unlock className="size-4" /> Mở khóa tài khoản
                  </button>
                ) : (
                  <button 
                   onClick={() => onStatusChange('LOCK', user)}
-                  className="w-full flex items-center justify-center gap-2 rounded-md bg-[#ba1a1a] py-3 text-sm font-bold text-white hover:bg-red-700 transition"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-error py-3 text-sm font-extrabold text-white hover:bg-error/90 transition shadow-lg shadow-error/15"
                 >
                    <Lock className="size-4" /> Khóa tài khoản
                  </button>
@@ -112,36 +112,36 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
           </Panel>
 
           <Panel>
-            <h4 className="font-bold text-[#111827] mb-4">Thông tin liên hệ</h4>
+            <h4 className="font-bold text-content mb-4">Thông tin liên hệ</h4>
             <div className="space-y-4 text-sm">
                <div className="flex items-start gap-3">
-                  <Mail className="size-4 text-[#737686] mt-0.5" />
+                  <Mail className="size-4 text-subtle mt-0.5" />
                   <div>
-                    <p className="font-bold">Email</p>
-                    <p className="text-[#434655]">{user.email}</p>
+                    <p className="font-bold text-content">Email</p>
+                    <p className="text-subtle mt-0.5">{user.email}</p>
                   </div>
                </div>
                <div className="flex items-start gap-3">
-                  <Phone className="size-4 text-[#737686] mt-0.5" />
+                  <Phone className="size-4 text-subtle mt-0.5" />
                   <div>
-                    <p className="font-bold">Số điện thoại</p>
-                    <p className="text-[#434655]">{user.phone || 'Chưa cung cấp'}</p>
+                    <p className="font-bold text-content">Số điện thoại</p>
+                    <p className="text-subtle mt-0.5">{user.phone || 'Chưa cung cấp'}</p>
                   </div>
                </div>
                <div className="flex items-start gap-3">
-                  <MapPin className="size-4 text-[#737686] mt-0.5" />
+                  <MapPin className="size-4 text-subtle mt-0.5" />
                   <div>
-                    <p className="font-bold">Địa chỉ</p>
-                    <p className="text-[#434655]">
+                    <p className="font-bold text-content">Địa chỉ</p>
+                    <p className="text-subtle mt-0.5">
                       {user.address ? `${user.address}, ${user.city}` : 'Chưa cung cấp địa chỉ'}
                     </p>
                   </div>
                </div>
                <div className="flex items-start gap-3">
-                  <Calendar className="size-4 text-[#737686] mt-0.5" />
+                  <Calendar className="size-4 text-subtle mt-0.5" />
                   <div>
-                    <p className="font-bold">Ngày sinh</p>
-                    <p className="text-[#434655]">{user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Chưa cung cấp'}</p>
+                    <p className="font-bold text-content">Ngày sinh</p>
+                    <p className="text-subtle mt-0.5">{user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Chưa cung cấp'}</p>
                   </div>
                </div>
             </div>
@@ -160,29 +160,29 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
           />
 
           {user.status === 'LOCKED' && (
-            <Panel className="border-error/20 bg-error/5">
+            <Panel className="border-error/30 bg-error/[0.06]">
                <div className="flex items-start gap-4">
-                  <div className="rounded-full bg-error/10 p-2 text-error">
+                  <div className="rounded-full bg-error/15 p-2 text-error">
                     <Info className="size-6" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-bold text-[#ba1a1a]">Chi tiết khóa tài khoản</h4>
+                    <h4 className="font-bold text-error">Chi tiết khóa tài khoản</h4>
                     <div className="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Lý do</p>
-                          <p className="mt-1 font-semibold">{user.lock_reason}</p>
+                          <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Lý do</p>
+                          <p className="mt-1 font-semibold text-content">{user.lock_reason}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Khóa đến</p>
-                          <p className="mt-1 font-semibold">{user.locked_until ? new Date(user.locked_until).toLocaleString('vi-VN') : 'Vĩnh viễn'}</p>
+                          <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Khóa đến</p>
+                          <p className="mt-1 font-semibold text-content">{user.locked_until ? new Date(user.locked_until).toLocaleString('vi-VN') : 'Vĩnh viễn'}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Khóa bởi</p>
-                          <p className="mt-1 font-semibold">{user.locked_by_name || 'Hệ thống'}</p>
+                          <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Khóa bởi</p>
+                          <p className="mt-1 font-semibold text-content">{user.locked_by_name || 'Hệ thống'}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-bold text-[#737686] uppercase">Thời gian khóa</p>
-                          <p className="mt-1 font-semibold">{new Date(user.locked_at).toLocaleString('vi-VN')}</p>
+                          <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Thời gian khóa</p>
+                          <p className="mt-1 font-semibold text-content">{new Date(user.locked_at).toLocaleString('vi-VN')}</p>
                        </div>
                     </div>
                   </div>
@@ -192,37 +192,37 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
 
           <Panel className="min-h-[300px]">
              <div className="flex items-center justify-between mb-6">
-                <h4 className="font-bold text-[#111827]">Hoạt động tài khoản</h4>
+                <h4 className="font-bold text-content">Hoạt động tài khoản</h4>
                 <div className="flex gap-2">
-                   <button className="rounded bg-[#f2f4f6] px-3 py-1.5 text-xs font-bold text-[#434655]">Xem tất cả nhật ký</button>
+                   <button className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-subtle hover:border-tertiary hover:text-tertiary transition">Xem tất cả nhật ký</button>
                 </div>
              </div>
              
              {/* Mock activity timeline */}
-             <div className="relative space-y-6 before:absolute before:inset-y-0 before:left-2 before:w-0.5 before:bg-[#e0e3e5] pl-8">
+             <div className="relative space-y-6 before:absolute before:inset-y-0 before:left-2 before:w-0.5 before:bg-border-soft/30 pl-8">
                 <div className="relative">
-                   <span className="absolute -left-8 top-1.5 size-4 rounded-full bg-primary border-4 border-white shadow-sm ring-1 ring-primary/20" />
+                   <span className="absolute -left-8 top-1.5 size-4 rounded-full bg-primary border-4 border-surface shadow-sm ring-1 ring-primary/20" />
                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-sm text-[#191c1e]">Tài khoản đã xác thực qua email</p>
-                      <span className="text-xs text-[#737686] font-semibold">12 phút trước</span>
+                      <p className="font-bold text-sm text-content">Tài khoản đã xác thực qua email</p>
+                      <span className="text-xs text-subtle font-semibold">12 phút trước</span>
                    </div>
-                   <p className="text-xs text-[#5c647a] mt-1">Xác thực tự động bởi hệ thống</p>
+                   <p className="text-xs text-muted mt-1">Xác thực tự động bởi hệ thống</p>
                 </div>
                 <div className="relative">
-                   <span className="absolute -left-8 top-1.5 size-4 rounded-full bg-[#c3c6d7] border-4 border-white shadow-sm" />
+                   <span className="absolute -left-8 top-1.5 size-4 rounded-full bg-border-soft border-4 border-surface shadow-sm" />
                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-sm text-[#191c1e]">Đăng ký tài khoản</p>
-                      <span className="text-xs text-[#737686] font-semibold">24 Thg 10, 2023</span>
+                      <p className="font-bold text-sm text-content">Đăng ký tài khoản</p>
+                      <span className="text-xs text-subtle font-semibold">24 Thg 10, 2023</span>
                    </div>
-                   <p className="text-xs text-[#5c647a] mt-1">Đăng ký nền tảng qua {user.email || 'alex@gmail.com'}</p>
+                   <p className="text-xs text-muted mt-1">Đăng ký nền tảng qua {user.email || 'alex@gmail.com'}</p>
                 </div>
              </div>
              
-             <div className="mt-12 text-center py-10 border-2 border-dashed border-[#e0e3e5] rounded-xl flex flex-col items-center gap-3">
-                <div className="size-12 rounded-full bg-[#f2f4f6] grid place-items-center text-[#737686]">
+             <div className="mt-12 text-center py-10 border-2 border-dashed border-border-soft/30 rounded-2xl flex flex-col items-center gap-3">
+                <div className="size-12 rounded-full bg-panel-soft grid place-items-center text-subtle">
                    <History className="size-6" />
                 </div>
-                <p className="text-sm font-bold text-[#5c647a]">Không có hoạt động nào gần đây</p>
+                <p className="text-sm font-bold text-subtle">Không có hoạt động nào gần đây</p>
              </div>
           </Panel>
         </div>
@@ -283,7 +283,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
         <>
           <button className="admin-secondary px-6 shrink-0" onClick={onClose}>Hủy bỏ</button>
           <button 
-            className="admin-primary bg-[#ba1a1a] border-none text-white hover:bg-red-700 w-full" 
+            className="admin-primary bg-error border-none text-white hover:bg-error/90 w-full font-extrabold rounded-xl" 
             onClick={handleSubmit} 
             disabled={loading}
           >
@@ -293,21 +293,21 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
       }
     >
       <div className="space-y-6">
-        <div className="flex items-center gap-4 rounded-md bg-[#fdf2f2] p-4 border border-error/10">
-          <div className="size-12 rounded-full bg-error/10 grid place-items-center text-error">
+        <div className="flex items-center gap-4 rounded-xl bg-error/[0.07] p-4 border border-error/20">
+          <div className="size-12 rounded-full bg-error/15 grid place-items-center text-error">
              <User className="size-6" />
           </div>
           <div>
-            <p className="text-xs font-bold text-error uppercase">Khóa tài khoản cho</p>
-            <p className="font-bold text-[#111827]">{user?.full_name}</p>
+            <p className="text-[10px] font-extrabold text-error uppercase tracking-wider">Khóa tài khoản cho</p>
+            <p className="font-extrabold text-content">{user?.full_name}</p>
           </div>
         </div>
 
         <div>
-          <label className="text-xs font-bold uppercase text-[#737686]">Lý do khóa tài khoản</label>
+          <label className="text-xs font-bold uppercase text-subtle">Lý do khóa tài khoản</label>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {reasons.map(r => (
-               <label key={r} className={`flex items-center gap-2 rounded-md border p-3 text-sm font-semibold transition cursor-pointer ${reason === r ? 'border-primary bg-primary/5 text-primary' : 'border-[#c3c6d7] text-[#434655] hover:bg-[#f7f9fb]'}`}>
+               <label key={r} className={`flex items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition cursor-pointer ${reason === r ? 'border-primary bg-tertiary/10 text-tertiary' : 'border-border-soft/40 bg-panel-soft text-subtle hover:bg-panel-soft/80'}`}>
                   <input 
                     type="radio" 
                     name="reason" 
@@ -322,7 +322,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
           </div>
           {reason === 'Khác' && (
             <textarea
-              className="mt-3 w-full rounded-md border border-[#c3c6d7] p-3 text-sm font-medium outline-none focus:border-primary"
+              className="mt-3 w-full rounded-xl border border-border-soft/40 bg-panel-soft p-3 text-sm font-medium text-content outline-none focus:border-primary placeholder:text-muted"
               placeholder="Nhập lý do cụ thể..."
               value={customReason}
               onChange={(e) => setCustomReason(e.target.value)}
@@ -332,14 +332,14 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
         </div>
 
         <div>
-           <label className="text-xs font-bold uppercase text-[#737686]">Thời gian khóa</label>
+           <label className="text-xs font-bold uppercase text-subtle">Thời gian khóa</label>
            <div className="mt-3 flex flex-wrap gap-2">
               {durations.map(d => (
                 <button
                   key={d.value}
                   type="button"
                   onClick={() => setDuration(d.value)}
-                  className={`rounded px-3 py-2 text-xs font-bold transition ${duration === d.value ? 'bg-primary text-slate-950 shadow-sm' : 'bg-[#f2f4f6] text-[#434655] hover:bg-[#e0e3e5]'}`}
+                  className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${duration === d.value ? 'bg-tertiary text-white shadow-sm' : 'bg-panel-soft border border-border-soft/30 text-subtle hover:border-tertiary hover:text-tertiary'}`}
                 >
                   {d.label}
                 </button>
@@ -348,7 +348,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
            {duration === 'CUSTOM' && (
              <input
                type="datetime-local"
-               className="mt-3 h-11 w-full rounded border border-[#c3c6d7] px-3 text-sm font-medium outline-none focus:border-primary"
+               className="mt-3 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-medium text-content outline-none focus:border-primary"
                value={customDate}
                onChange={(e) => setCustomDate(e.target.value)}
              />

@@ -1,3 +1,4 @@
+import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Star } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -12,7 +13,7 @@ export function FeedbackPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  const isAuthenticated = Boolean(localStorage.getItem('eventhub-token'))
+  const isAuthenticated = hasAuthSession()
 
   const [eventId, setEventId] = useState('')
   const [rating, setRating] = useState(0)

@@ -24,25 +24,25 @@ const STATUS_CONFIG = {
   TODO: {
     label: 'Cần làm',
     icon: CircleDashed,
-    color: 'text-[#737686]',
-    bg: 'bg-[#f2f4f6]',
-    border: 'border-[#c3c6d7]',
+    color: 'text-muted',
+    bg: 'bg-panel-soft/60',
+    border: 'border-border-soft/20',
     badge: 'gray',
   },
   IN_PROGRESS: {
     label: 'Đang làm',
     icon: Clock,
-    color: 'text-blue-600',
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
+    color: 'text-primary',
+    bg: 'bg-tertiary/10',
+    border: 'border-tertiary/30',
     badge: 'blue',
   },
   DONE: {
     label: 'Hoàn thành',
     icon: CheckCircle2,
-    color: 'text-green-600',
-    bg: 'bg-green-50',
-    border: 'border-green-200',
+    color: 'text-success',
+    bg: 'bg-success/15',
+    border: 'border-success/30',
     badge: 'green',
   },
 }
@@ -167,7 +167,7 @@ export function OrganizerTasksPage() {
       description="Theo dõi tiến độ và giao việc cho từng staff theo sự kiện."
     >
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
           {error}
         </div>
       )}
@@ -176,74 +176,74 @@ export function OrganizerTasksPage() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-wrap items-end gap-3">
           {/* Event selector */}
-          <label className="flex flex-col gap-1 text-xs font-bold text-[#434655]">
+          <label className="flex flex-col gap-1 text-xs font-bold text-subtle">
             Sự kiện
             <div className="relative">
               <select
-                className="h-10 w-56 appearance-none rounded-md border border-[#c3c6d7] bg-white pl-3 pr-8 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-56 appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-8 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={selectedEventId}
                 onChange={(e) => handleEventChange(e.target.value)}
                 disabled={loading}
               >
-                <option value="">Tất cả sự kiện</option>
+                <option value="" className="bg-surface text-content">Tất cả sự kiện</option>
                 {(overview?.events || []).map((ev) => (
-                  <option key={ev.id} value={ev.id}>
+                  <option key={ev.id} value={ev.id} className="bg-surface text-content">
                     {ev.title}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted" />
             </div>
           </label>
 
           {/* Staff filter */}
-          <label className="flex flex-col gap-1 text-xs font-bold text-[#434655]">
+          <label className="flex flex-col gap-1 text-xs font-bold text-subtle">
             <span className="flex items-center gap-1">
               <Filter className="size-3" /> Lọc theo staff
             </span>
             <div className="relative">
               <select
-                className="h-10 w-48 appearance-none rounded-md border border-[#c3c6d7] bg-white pl-3 pr-8 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-48 appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-8 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={filterStaffId}
                 onChange={(e) => setFilterStaffId(e.target.value)}
                 disabled={loading}
               >
-                <option value="">Tất cả staff</option>
+                <option value="" className="bg-surface text-content">Tất cả staff</option>
                 {staffOptions.map((s) => (
-                  <option key={s.staff_id} value={s.staff_id}>
+                  <option key={s.staff_id} value={s.staff_id} className="bg-surface text-content">
                     {s.staff_name || s.staff_email || 'Staff'}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted" />
             </div>
           </label>
 
           {/* Status filter */}
-          <label className="flex flex-col gap-1 text-xs font-bold text-[#434655]">
+          <label className="flex flex-col gap-1 text-xs font-bold text-subtle">
             Trạng thái
             <div className="relative">
               <select
-                className="h-10 w-40 appearance-none rounded-md border border-[#c3c6d7] bg-white pl-3 pr-8 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-40 appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-8 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 disabled={loading}
               >
-                <option value="">Tất cả</option>
+                <option value="" className="bg-surface text-content">Tất cả</option>
                 {STATUSES.map((s) => (
-                  <option key={s} value={s}>
+                  <option key={s} value={s} className="bg-surface text-content">
                     {STATUS_CONFIG[s].label}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted" />
             </div>
           </label>
 
           {/* Clear filters */}
           {(filterStaffId || filterStatus) && (
             <button
-              className="flex h-10 items-center gap-1.5 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold text-[#565e74] hover:border-primary hover:text-primary"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-subtle hover:border-tertiary hover:text-tertiary transition-colors"
               onClick={() => { setFilterStaffId(''); setFilterStatus('') }}
             >
               <X className="size-3.5" /> Xóa lọc
@@ -252,7 +252,7 @@ export function OrganizerTasksPage() {
         </div>
 
         <button
-          className="admin-primary self-end"
+          className="org-btn-primary self-end"
           onClick={() => setShowCreateModal(true)}
           disabled={loading || !selectedEventId}
         >
@@ -272,17 +272,17 @@ export function OrganizerTasksPage() {
       {/* ── Progress bar ── */}
       {stats.total > 0 && (
         <OrganizerPanel className="mb-5">
-          <div className="flex items-center justify-between text-sm font-bold text-[#191c1e]">
+          <div className="flex items-center justify-between text-sm font-bold text-content">
             <span>Tiến độ tổng thể{selectedEvent ? ` — ${selectedEvent.title}` : ''}</span>
             <span className="text-primary">{stats.progress}%</span>
           </div>
-          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-[#e0e3e5]">
+          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-panel-soft">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
+              className="h-full rounded-full bg-tertiary transition-all duration-500"
               style={{ width: `${stats.progress}%` }}
             />
           </div>
-          <div className="mt-2 flex gap-4 text-xs text-[#565e74]">
+          <div className="mt-2 flex gap-4 text-xs text-muted">
             <span>{stats.done} hoàn thành</span>
             <span>{stats.inProgress} đang làm</span>
             <span>{stats.todo} chưa bắt đầu</span>
@@ -296,14 +296,14 @@ export function OrganizerTasksPage() {
           <Loader2 className="size-7 animate-spin text-primary" />
         </OrganizerPanel>
       ) : !selectedEventId ? (
-        <OrganizerPanel className="py-12 text-center text-sm text-[#737686]">
+        <OrganizerPanel className="py-12 text-center text-sm text-muted">
           Chọn một sự kiện để xem công việc.
         </OrganizerPanel>
       ) : filteredTasks.length === 0 ? (
-        <OrganizerPanel className="py-12 text-center">
-          <ClipboardList className="mx-auto mb-3 size-10 text-[#c3c6d7]" />
-          <p className="text-sm font-semibold text-[#565e74]">Chưa có công việc nào.</p>
-          <p className="mt-1 text-xs text-[#737686]">
+        <OrganizerPanel className="py-12 text-center border-dashed">
+          <ClipboardList className="mx-auto mb-3 size-10 text-muted" />
+          <p className="text-sm font-semibold text-subtle">Chưa có công việc nào.</p>
+          <p className="mt-1 text-xs text-muted">
             Nhấn &ldquo;Tạo công việc&rdquo; để giao việc cho staff.
           </p>
         </OrganizerPanel>
@@ -323,7 +323,7 @@ export function OrganizerTasksPage() {
       {/* ── Staff breakdown table ── */}
       {!loading && tasks.length > 0 && (
         <div className="mt-7">
-          <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-[#434655]">
+          <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-subtle">
             Tiến độ theo nhân sự
           </h2>
           <StaffProgressTable tasks={tasks} staffOptions={staffOptions} />
@@ -354,14 +354,14 @@ function KanbanColumn({ status, tasks }) {
   const Icon = cfg.icon
 
   return (
-    <div className={`rounded-lg border ${cfg.border} ${cfg.bg} p-3`}>
+    <div className={`rounded-2xl border ${cfg.border} ${cfg.bg} p-4 shadow-sm`}>
       {/* Column header */}
       <div className="mb-3 flex items-center justify-between px-1">
         <div className={`flex items-center gap-2 font-extrabold ${cfg.color}`}>
           <Icon className="size-4" />
           {cfg.label}
         </div>
-        <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-[#434655] shadow-sm">
+        <span className="rounded-full bg-surface/80 border border-border-soft/20 px-2 py-0.5 text-xs font-bold text-content shadow-sm">
           {tasks.length}
         </span>
       </div>
@@ -372,7 +372,7 @@ function KanbanColumn({ status, tasks }) {
           <TaskCard key={task.id} task={task} />
         ))}
         {tasks.length === 0 && (
-          <div className="rounded-md border border-dashed border-[#c3c6d7] px-3 py-6 text-center text-xs text-[#737686]">
+          <div className="rounded-xl border border-dashed border-border-soft/20 px-3 py-6 text-center text-xs text-muted bg-surface/20">
             Trống
           </div>
         )}
@@ -390,22 +390,22 @@ function TaskCard({ task }) {
     : null
 
   return (
-    <div className="rounded-md border border-[#e0e3e5] bg-white p-4 shadow-sm">
-      <p className="font-bold leading-snug text-[#191c1e]">{task.title}</p>
+    <div className="rounded-xl border border-border-soft/20 bg-surface/80 p-4 shadow-[0_2px_8px_rgba(0,0,0,0.12)] text-content">
+      <p className="font-bold leading-snug text-content">{task.title}</p>
       {task.description && (
-        <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-[#565e74]">{task.description}</p>
+        <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-subtle">{task.description}</p>
       )}
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <AvatarInitials name={task.staff_name || 'Staff'} className="size-6" />
-          <span className="max-w-[100px] truncate text-xs font-semibold text-[#434655]">
+          <span className="max-w-[100px] truncate text-xs font-semibold text-subtle">
             {task.staff_name || 'Staff'}
           </span>
         </div>
         <Badge tone={cfg.badge}>{cfg.label}</Badge>
       </div>
       {createdDate && (
-        <p className="mt-2 text-right text-[10px] text-[#a0a3af]">{createdDate}</p>
+        <p className="mt-2 text-right text-[10px] text-muted">{createdDate}</p>
       )}
     </div>
   )
@@ -432,9 +432,9 @@ function StaffProgressTable({ tasks, staffOptions }) {
   if (rows.length === 0) return null
 
   return (
-    <div className="overflow-x-auto rounded-md border border-[#c3c6d7] bg-white">
+    <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
       <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="bg-[#f2f4f6] text-xs uppercase text-[#5c647a]">
+        <thead className="border-b border-border-soft/30 bg-panel-soft/30 text-xs uppercase text-muted">
           <tr>
             <th className="px-5 py-3 font-bold">Nhân sự</th>
             <th className="px-5 py-3 font-bold">Tổng</th>
@@ -446,31 +446,31 @@ function StaffProgressTable({ tasks, staffOptions }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.staff_id} className="border-t border-[#e0e3e5] hover:bg-[#f7f9fb]">
+            <tr key={row.staff_id} className="border-t border-border-soft/20 hover:bg-panel-soft/60 transition-colors">
               <td className="px-5 py-3">
                 <div className="flex items-center gap-3">
                   <AvatarInitials name={row.staff_name || 'Staff'} className="size-8" />
                   <div>
-                    <p className="font-bold text-[#191c1e]">{row.staff_name || 'Staff'}</p>
+                    <p className="font-bold text-content">{row.staff_name || 'Staff'}</p>
                     {row.staff_email && (
-                      <p className="text-xs text-[#737686]">{row.staff_email}</p>
+                      <p className="text-xs text-muted">{row.staff_email}</p>
                     )}
                   </div>
                 </div>
               </td>
-              <td className="px-5 py-3 font-bold text-[#191c1e]">{row.total}</td>
-              <td className="px-5 py-3 text-[#737686]">{row.todo}</td>
-              <td className="px-5 py-3 text-blue-600 font-semibold">{row.inProgress}</td>
-              <td className="px-5 py-3 text-green-600 font-semibold">{row.done}</td>
+              <td className="px-5 py-3 font-bold text-content">{row.total}</td>
+              <td className="px-5 py-3 text-muted">{row.todo}</td>
+              <td className="px-5 py-3 text-primary font-semibold">{row.inProgress}</td>
+              <td className="px-5 py-3 text-success font-semibold">{row.done}</td>
               <td className="px-5 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-2 w-28 overflow-hidden rounded-full bg-[#e0e3e5]">
+                  <div className="h-2 w-28 overflow-hidden rounded-full bg-panel-soft">
                     <div
-                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      className="h-full rounded-full bg-tertiary transition-all duration-300"
                       style={{ width: `${row.progress}%` }}
                     />
                   </div>
-                  <span className="w-9 text-right text-xs font-bold text-[#434655]">
+                  <span className="w-9 text-right text-xs font-bold text-subtle">
                     {row.progress}%
                   </span>
                 </div>
@@ -522,19 +522,19 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-xl bg-white shadow-2xl"
+        className="w-full max-w-lg rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#e0e3e5] px-6 py-4">
-          <div className="flex items-center gap-2 font-extrabold text-[#111827]">
+        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+          <div className="flex items-center gap-2 font-extrabold text-content">
             <ClipboardList className="size-5 text-primary" />
             Tạo công việc mới
           </div>
           <button
-            className="grid size-8 place-items-center rounded-full text-[#737686] hover:bg-[#f2f4f6] hover:text-[#191c1e]"
+            className="grid size-8 place-items-center rounded-full text-muted hover:bg-panel-soft/60 hover:text-content transition-colors"
             onClick={onClose}
           >
             <X className="size-4" />
@@ -544,63 +544,63 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
         {/* Form */}
         <form className="px-6 py-5" onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+            <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-2 text-sm font-semibold text-error">
               {error}
             </div>
           )}
 
           <div className="grid gap-4">
             {/* Event */}
-            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
               Sự kiện
               <select
-                className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={form.event_id}
                 onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value, staff_id: '' }))}
                 required
               >
-                <option value="">Chọn sự kiện...</option>
+                <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
                 {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>{ev.title}</option>
+                  <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
                 ))}
               </select>
             </label>
 
             {/* Staff */}
-            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
               <span className="flex items-center gap-1">
                 <User className="size-3" /> Staff phụ trách
               </span>
               <select
-                className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-50"
                 value={form.staff_id}
                 onChange={(e) => setForm((f) => ({ ...f, staff_id: e.target.value }))}
                 disabled={staffForEvent.length === 0}
                 required
               >
-                <option value="">
+                <option value="" className="bg-surface text-content">
                   {staffForEvent.length === 0
                     ? 'Không có staff cho sự kiện này'
                     : 'Chọn staff...'}
                 </option>
                 {staffForEvent.map((s) => (
-                  <option key={s.staff_id} value={s.staff_id}>
+                  <option key={s.staff_id} value={s.staff_id} className="bg-surface text-content">
                     {s.staff_name || s.staff_email} {s.staff_role ? `— ${s.staff_role}` : ''}
                   </option>
                 ))}
               </select>
               {staffForEvent.length === 0 && form.event_id && (
-                <p className="text-xs text-[#737686]">
+                <p className="text-xs text-muted">
                   Chưa có staff được phân công. Thêm nhân sự tại trang Quản lý nhân sự.
                 </p>
               )}
             </label>
 
             {/* Title */}
-            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
               Tên công việc
               <input
-                className="h-10 rounded-md border border-[#c3c6d7] px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                 placeholder="VD: Kiểm tra check-in, Hỗ trợ khu A..."
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -610,10 +610,10 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
             </label>
 
             {/* Description */}
-            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
               Mô tả
               <textarea
-                className="min-h-[88px] rounded-md border border-[#c3c6d7] px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="min-h-[88px] rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                 placeholder="Chi tiết công việc, vị trí, thời gian..."
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -625,7 +625,7 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
           <div className="mt-5 flex justify-end gap-3">
             <button
               type="button"
-              className="admin-secondary"
+              className="org-btn-secondary"
               onClick={onClose}
               disabled={saving}
             >
@@ -633,7 +633,7 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
             </button>
             <button
               type="submit"
-              className="admin-primary"
+              className="org-btn-primary"
               disabled={saving || !form.event_id || !form.staff_id || !form.title.trim()}
             >
               {saving ? (
@@ -659,15 +659,15 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
 
 function StatCard({ label, value, icon: Icon, tone = 'primary' }) {
   const styles = {
-    primary: { bg: 'bg-primary/10', text: 'text-primary', val: 'text-primary' },
-    gray: { bg: 'bg-[#f2f4f6]', text: 'text-[#737686]', val: 'text-[#434655]' },
-    blue: { bg: 'bg-blue-50', text: 'text-blue-500', val: 'text-blue-700' },
-    green: { bg: 'bg-green-50', text: 'text-green-500', val: 'text-green-700' },
+    primary: { bg: 'bg-tertiary/10 border-tertiary/20', text: 'text-primary', val: 'text-content' },
+    gray: { bg: 'bg-panel-soft/60 border-border-soft/20', text: 'text-muted', val: 'text-content' },
+    blue: { bg: 'bg-tertiary/10 border-tertiary/20', text: 'text-primary', val: 'text-content' },
+    green: { bg: 'bg-success/15 border-success/20', text: 'text-success', val: 'text-content' },
   }
   const s = styles[tone] || styles.primary
 
   return (
-    <div className={`rounded-lg border border-[#e0e3e5] ${s.bg} px-4 py-3`}>
+    <div className={`rounded-2xl border ${s.bg} px-4 py-3 shadow-sm text-content`}>
       <div className={`flex items-center gap-2 text-xs font-bold uppercase ${s.text}`}>
         <Icon className="size-3.5" />
         {label}

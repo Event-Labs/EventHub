@@ -130,19 +130,19 @@ export function AdminProfilePage() {
         <div className="flex gap-2">
            <button 
             onClick={() => { setMode('view'); setPreviewUrl(user.avatar_url || ''); setSelectedFile(null); }}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'view' ? 'bg-primary text-slate-950 border-primary' : ''}`}
+            className={`admin-secondary px-4 py-2 text-xs ${mode === 'view' ? 'bg-tertiary text-white border-tertiary' : ''}`}
            >
             Xem hồ sơ
            </button>
            <button 
             onClick={() => setMode('edit')}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'edit' ? 'bg-primary text-slate-950 border-primary' : ''}`}
+            className={`admin-secondary px-4 py-2 text-xs ${mode === 'edit' ? 'bg-tertiary text-white border-tertiary' : ''}`}
            >
             Chỉnh sửa
            </button>
            <button 
             onClick={() => setMode('password')}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'password' ? 'bg-primary text-slate-950 border-primary' : ''}`}
+            className={`admin-secondary px-4 py-2 text-xs ${mode === 'password' ? 'bg-tertiary text-white border-tertiary' : ''}`}
            >
             Đổi mật khẩu
            </button>
@@ -160,20 +160,20 @@ export function AdminProfilePage() {
                   className="mx-auto size-40 rounded-full object-cover ring-4 ring-primary/20"
                 />
               ) : (
-                <div className="mx-auto flex size-40 items-center justify-center rounded-full bg-[#f2f4f6] ring-4 ring-primary/20">
-                  <UserCircle className="size-20 text-[#c3c6d7]" />
+                <div className="mx-auto flex size-40 items-center justify-center rounded-full bg-panel-soft ring-4 ring-primary/20">
+                  <UserCircle className="size-20 text-subtle" />
                 </div>
               )}
               {mode === 'edit' && (
                 <div className="absolute -bottom-2 inset-x-0 flex justify-center gap-2">
-                   <label className="grid size-10 cursor-pointer place-items-center rounded-full bg-primary text-slate-950 shadow-lg hover:scale-110 transition border-4 border-white">
+                   <label className="grid size-10 cursor-pointer place-items-center rounded-full bg-tertiary text-white shadow-lg hover:scale-110 transition border-4 border-surface">
                     <Camera className="size-5" />
                     <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                   </label>
-                  {selectedFile && (
+                   {selectedFile && (
                     <button 
                       onClick={() => { setSelectedFile(null); setPreviewUrl(user.avatar_url || ''); }}
-                      className="grid size-10 place-items-center rounded-full bg-error text-white shadow-lg hover:scale-110 transition border-4 border-white"
+                      className="grid size-10 place-items-center rounded-full bg-error text-white shadow-lg hover:scale-110 transition border-4 border-surface"
                     >
                       <X className="size-5" />
                     </button>
@@ -186,7 +186,7 @@ export function AdminProfilePage() {
                 </div>
               )}
             </div>
-            <h2 className="mt-8 font-display text-2xl font-extrabold text-[#111827]">
+            <h2 className="mt-8 font-display text-2xl font-extrabold text-content">
               {user.full_name}
             </h2>
             <div className="mt-2 flex justify-center gap-2">
@@ -196,13 +196,13 @@ export function AdminProfilePage() {
             </div>
           </Panel>
 
-          <Panel className="bg-slate-900 border-none text-white p-6">
+          <Panel className="border-border-soft/40 p-6">
              <div className="flex items-center gap-3 mb-4">
                 <Shield className="size-5 text-primary" />
-                <h4 className="font-bold text-sm">Trạng thái bảo mật</h4>
+                <h4 className="font-bold text-sm text-content">Trạng thái bảo mật</h4>
              </div>
-             <p className="text-xs text-slate-400 mb-4">Tài khoản của bạn được bảo vệ với mức truy cập cao nhất.</p>
-             <button className="w-full rounded-md bg-white/10 py-2.5 text-xs font-bold hover:bg-white/20 transition flex items-center justify-center gap-2">
+             <p className="text-xs text-subtle mb-4">Tài khoản của bạn được bảo vệ với mức truy cập cao nhất.</p>
+             <button className="w-full rounded-xl bg-panel-soft border border-border-soft/30 py-2.5 text-xs font-bold text-subtle hover:text-tertiary transition flex items-center justify-center gap-2">
                 <Lock className="size-3" /> Kiểm tra bảo mật
              </button>
           </Panel>
@@ -211,8 +211,8 @@ export function AdminProfilePage() {
         <div className="space-y-6">
            {mode === 'view' && (
              <Panel className="p-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="flex items-center justify-between mb-8 border-b border-[#e0e3e5] pb-4">
-                   <h3 className="font-display text-xl font-extrabold text-[#111827]">Thông tin cá nhân</h3>
+                <div className="flex items-center justify-between mb-8 border-b border-border-soft/30 pb-4">
+                   <h3 className="font-display text-xl font-extrabold text-content">Thông tin cá nhân</h3>
                    <button onClick={() => setMode('edit')} className="flex items-center gap-2 text-sm font-bold text-primary hover:underline">
                       <Edit className="size-4" /> Chỉnh sửa
                    </button>
@@ -230,8 +230,8 @@ export function AdminProfilePage() {
 
            {mode === 'edit' && (
              <Panel className="p-8 animate-in fade-in zoom-in-95 duration-300">
-                <h3 className="font-display text-xl font-extrabold text-[#111827] mb-8 border-b border-[#e0e3e5] pb-4">
-                  Chỉnh sửa hồ sơ
+                <h3 className="font-display text-xl font-extrabold text-content mb-8 border-b border-border-soft/30 pb-4">
+                   Chỉnh sửa hồ sơ
                 </h3>
                 <div className="grid gap-5 md:grid-cols-2">
                    <InputField label="Họ và tên" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
@@ -255,11 +255,11 @@ export function AdminProfilePage() {
 
            {mode === 'password' && (
              <Panel className="p-8 max-w-2xl mx-auto">
-                <h3 className="font-display text-xl font-extrabold text-[#111827] mb-4 text-center">
-                  Đổi mật khẩu
+                <h3 className="font-display text-xl font-extrabold text-content mb-4 text-center">
+                   Đổi mật khẩu
                 </h3>
-                <p className="text-center text-sm text-[#737686] mb-8">
-                  Sử dụng mật khẩu mạnh để bảo vệ tài khoản quản trị của bạn.
+                <p className="text-center text-sm text-subtle mb-8">
+                   Sử dụng mật khẩu mạnh để bảo vệ tài khoản quản trị của bạn.
                 </p>
                 <div className="space-y-5">
                    <InputField label="Mật khẩu hiện tại" type="password" value={passwordData.current} onChange={e => setPasswordData({...passwordData, current: e.target.value})} />
@@ -267,8 +267,8 @@ export function AdminProfilePage() {
                    <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={e => setPasswordData({...passwordData, confirm: e.target.value})} />
                 </div>
                 <div className="mt-10 flex flex-col gap-3">
-                   <button onClick={handleChangePassword} disabled={saving} className="admin-primary w-full py-4 text-sm">{saving ? 'Đang thực hiện...' : 'Cập nhật mật khẩu'}</button>
-                   <button onClick={() => setMode('view')} className="text-sm font-bold text-[#737686] hover:text-[#111827]">Hủy bỏ</button>
+                   <button onClick={handleChangePassword} disabled={saving} className="admin-primary w-full py-4 text-sm font-extrabold text-slate-950 bg-tertiary hover:bg-orange-600">{saving ? 'Đang thực hiện...' : 'Cập nhật mật khẩu'}</button>
+                   <button onClick={() => setMode('view')} className="text-sm font-bold text-subtle hover:text-content">Hủy bỏ</button>
                 </div>
              </Panel>
            )}
@@ -280,12 +280,12 @@ export function AdminProfilePage() {
 
 function InfoField({ icon: Icon, label, value, className = '' }) {
   return (
-    <div className={`p-5 rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] transition hover:border-primary/30 ${className}`}>
-      <div className="flex items-center gap-2 text-[#737686] mb-2">
+    <div className={`p-5 rounded-xl border border-border-soft/30 bg-panel-soft transition hover:border-tertiary/30 ${className}`}>
+      <div className="flex items-center gap-2 text-subtle mb-2">
         <Icon className="size-4" />
         <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
       </div>
-      <p className="font-bold text-[#191c1e] text-lg">{value}</p>
+      <p className="font-bold text-content text-lg">{value}</p>
     </div>
   )
 }
@@ -293,10 +293,10 @@ function InfoField({ icon: Icon, label, value, className = '' }) {
 function InputField({ label, className = '', type = 'text', ...props }) {
   return (
     <div className={`space-y-2 ${className}`}>
-      <label className="text-xs font-bold text-[#434655] uppercase tracking-wider">{label}</label>
+      <label className="text-xs font-bold text-subtle uppercase tracking-wider">{label}</label>
       <input
         type={type}
-        className="w-full rounded-md border border-[#c3c6d7] bg-white px-4 py-3 text-sm font-semibold text-[#191c1e] outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+        className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-3 text-sm font-semibold text-content outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 placeholder:text-muted"
         {...props}
       />
     </div>

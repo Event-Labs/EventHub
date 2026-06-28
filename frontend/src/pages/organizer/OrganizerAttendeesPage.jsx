@@ -152,22 +152,22 @@ export function OrganizerAttendeesPage() {
       {/* ── Event selector ── */}
       <OrganizerPanel className="mb-5">
         {eventsLoading ? (
-          <div className="flex items-center gap-2 text-sm text-[#737686]">
-            <Loader2 className="size-4 animate-spin" />
+          <div className="flex items-center gap-2 text-sm text-subtle">
+            <Loader2 className="size-4 animate-spin text-primary" />
             Đang tải sự kiện...
           </div>
         ) : events.length === 0 ? (
-          <p className="text-sm text-[#737686]">Bạn chưa có sự kiện nào.</p>
+          <p className="text-sm text-subtle">Bạn chưa có sự kiện nào.</p>
         ) : (
           <label className="block max-w-xl">
-            <span className="text-sm font-semibold text-[#434655]">Chọn sự kiện</span>
+            <span className="text-sm font-semibold text-subtle">Chọn sự kiện</span>
             <select
-              className="mt-2 h-10 w-full rounded-md border border-[#c3c6d7] bg-white px-3 text-sm"
+              className="mt-2 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content"
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
             >
               {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>
+                <option key={ev.id} value={ev.id} className="bg-surface text-content">
                   {ev.title}
                 </option>
               ))}
@@ -200,9 +200,9 @@ export function OrganizerAttendeesPage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
               {/* Search */}
               <form className="relative flex-1" onSubmit={handleSearch}>
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
                 <input
-                  className="h-10 w-full rounded-md border border-[#c3c6d7] bg-[#f7f9fb] pl-10 pr-8 text-sm text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-8 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted"
                   placeholder="Tìm tên, email hoặc mã vé..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
@@ -210,7 +210,7 @@ export function OrganizerAttendeesPage() {
                 {searchInput && (
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737686] hover:text-[#191c1e]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-content"
                     onClick={clearSearch}
                   >
                     <X className="size-4" />
@@ -221,13 +221,13 @@ export function OrganizerAttendeesPage() {
               {/* Session filter */}
               {sessions.length > 0 && (
                 <select
-                  className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm lg:w-52"
+                  className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content lg:w-52"
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
                 >
-                  <option value="">Tất cả phiên</option>
+                  <option value="" className="bg-surface text-content">Tất cả phiên</option>
                   {sessions.map((s) => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.id} value={s.id} className="bg-surface text-content">
                       {s.session_name || new Date(s.start_time).toLocaleDateString('vi-VN')}
                     </option>
                   ))}
@@ -237,13 +237,13 @@ export function OrganizerAttendeesPage() {
               {/* Ticket type filter */}
               {ticketTypes.length > 0 && (
                 <select
-                  className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm lg:w-44"
+                  className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content lg:w-44"
                   value={selectedTicketTypeId}
                   onChange={(e) => setSelectedTicketTypeId(e.target.value)}
                 >
-                  <option value="">Tất cả loại vé</option>
+                  <option value="" className="bg-surface text-content">Tất cả loại vé</option>
                   {ticketTypes.map((tt) => (
-                    <option key={tt.id} value={tt.id}>
+                    <option key={tt.id} value={tt.id} className="bg-surface text-content">
                       {tt.name}
                     </option>
                   ))}
@@ -252,12 +252,12 @@ export function OrganizerAttendeesPage() {
 
               {/* Status filter */}
               <select
-                className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm lg:w-44"
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content lg:w-44"
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
               >
                 {TICKET_STATUSES.map((s) => (
-                  <option key={s.value} value={s.value}>
+                  <option key={s.value} value={s.value} className="bg-surface text-content">
                     {s.label}
                   </option>
                 ))}
@@ -276,7 +276,7 @@ export function OrganizerAttendeesPage() {
 
           {/* ── Error ── */}
           {error && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
               {error}
             </div>
           )}
@@ -288,57 +288,57 @@ export function OrganizerAttendeesPage() {
             </OrganizerPanel>
           ) : attendees.length === 0 ? (
             <OrganizerPanel className="py-14 text-center">
-              <p className="font-bold text-[#565e74]">Không tìm thấy người tham dự nào.</p>
-              <p className="mt-1 text-sm text-[#737686]">
+              <p className="font-bold text-content">Không tìm thấy người tham dự nào.</p>
+              <p className="mt-1 text-sm text-subtle">
                 Thử thay đổi bộ lọc hoặc sự kiện khác.
               </p>
             </OrganizerPanel>
           ) : (
-            <div className="overflow-x-auto rounded-md border border-[#c3c6d7] bg-white">
+            <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
               <table className="w-full min-w-[860px] text-left text-sm">
-                <thead className="bg-[#f2f4f6] text-xs uppercase text-[#5c647a]">
+                <thead className="border-b border-border-soft/30 text-xs uppercase text-subtle">
                   <tr>
-                    <th className="px-5 py-4 font-bold">Người đặt vé</th>
-                    <th className="px-5 py-4 font-bold">Loại vé</th>
-                    <th className="px-5 py-4 font-bold">Phiên</th>
-                    <th className="px-5 py-4 font-bold">Ghế / Khu vực</th>
-                    <th className="px-5 py-4 font-bold">Mã vé</th>
-                    <th className="px-5 py-4 font-bold">Trạng thái</th>
-                    <th className="px-5 py-4 font-bold">Check-in lúc</th>
+                    <th className="px-5 py-4 font-extrabold">Người đặt vé</th>
+                    <th className="px-5 py-4 font-extrabold">Loại vé</th>
+                    <th className="px-5 py-4 font-extrabold">Phiên</th>
+                    <th className="px-5 py-4 font-extrabold">Ghế / Khu vực</th>
+                    <th className="px-5 py-4 font-extrabold">Mã vé</th>
+                    <th className="px-5 py-4 font-extrabold">Trạng thái</th>
+                    <th className="px-5 py-4 font-extrabold">Check-in lúc</th>
                   </tr>
                 </thead>
                 <tbody>
                   {attendees.map((att) => (
                     <tr
                       key={att.id}
-                      className="border-t border-[#e0e3e5] hover:bg-[#f7f9fb]"
+                      className="border-b border-border-soft/20 transition-colors last:border-0 hover:bg-panel-soft/60"
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <AvatarInitials
                             name={att.attendee_name || att.attendee_email || 'A'}
-                            className="size-8"
+                            className="size-8 animate-pulse-slow"
                           />
                           <div>
-                            <p className="font-semibold text-[#191c1e]">{att.attendee_name}</p>
-                            <p className="text-xs text-[#737686]">{att.attendee_email}</p>
+                            <p className="font-semibold text-content">{att.attendee_name}</p>
+                            <p className="text-xs text-subtle">{att.attendee_email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <Badge tone="blue">{att.ticket_type_name}</Badge>
                       </td>
-                      <td className="px-5 py-4 text-[#565e74]">
-                        <p className="font-medium">{att.session_name || '—'}</p>
-                        <p className="text-xs">{att.venue_name}</p>
+                      <td className="px-5 py-4 text-subtle">
+                        <p className="font-semibold text-content">{att.session_name || '—'}</p>
+                        <p className="text-xs mt-0.5">{att.venue_name}</p>
                       </td>
-                      <td className="px-5 py-4 text-[#565e74]">
+                      <td className="px-5 py-4 text-subtle">
                         {att.row_label && att.seat_number
                           ? `${att.row_label}${att.seat_number}`
                           : 'Không có ghế'}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="font-mono text-xs font-bold text-[#191c1e]">
+                        <span className="font-mono text-xs font-bold text-content">
                           {att.ticket_code}
                         </span>
                       </td>
@@ -349,7 +349,7 @@ export function OrganizerAttendeesPage() {
                           {TICKET_STATUS_LABEL[att.status] || att.status}
                         </Badge>
                       </td>
-                      <td className="px-5 py-4 text-[#737686]">
+                      <td className="px-5 py-4 text-subtle">
                         {formatDateTime(att.checked_in_at)}
                       </td>
                     </tr>
@@ -361,7 +361,7 @@ export function OrganizerAttendeesPage() {
 
           {/* ── Pagination ── */}
           {!loading && pagination.total > 0 && (
-            <div className="mt-4 flex items-center justify-between text-sm text-[#434655]">
+            <div className="mt-4 flex items-center justify-between text-sm text-subtle">
               <span>
                 Hiển thị {(pagination.page - 1) * pagination.limit + 1}–
                 {Math.min(pagination.page * pagination.limit, pagination.total)} trong{' '}
@@ -369,17 +369,17 @@ export function OrganizerAttendeesPage() {
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  className="grid size-8 place-items-center rounded-md border border-[#c3c6d7] disabled:opacity-40"
+                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-tertiary disabled:opacity-40"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <span className="font-bold">
+                <span className="font-bold text-content">
                   {pagination.page} / {pagination.total_pages}
                 </span>
                 <button
-                  className="grid size-8 place-items-center rounded-md border border-[#c3c6d7] disabled:opacity-40"
+                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-tertiary disabled:opacity-40"
                   disabled={page >= pagination.total_pages}
                   onClick={() => setPage((p) => p + 1)}
                 >
@@ -399,15 +399,15 @@ export function OrganizerAttendeesPage() {
 function KpiCard({ label, value, tone }) {
   const valueClass =
     tone === 'green'
-      ? 'text-green-700'
+      ? 'text-success'
       : tone === 'blue'
         ? 'text-primary'
-        : 'text-[#111827]'
+        : 'text-content'
 
   return (
-    <div className="rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] px-4 py-3">
-      <p className="text-xs font-bold uppercase text-[#737686]">{label}</p>
-      <p className={`mt-1 text-2xl font-extrabold ${valueClass}`}>{value}</p>
+    <div className="rounded-xl border border-border-soft/30 bg-panel-soft px-4 py-3">
+      <p className="text-[10px] font-extrabold uppercase tracking-wider text-subtle">{label}</p>
+      <p className={`mt-1 text-2xl font-display font-extrabold ${valueClass}`}>{value}</p>
     </div>
   )
 }

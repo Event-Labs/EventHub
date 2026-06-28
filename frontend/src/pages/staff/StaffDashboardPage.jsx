@@ -23,26 +23,28 @@ export function StaffDashboardPage() {
       <div className="mt-5 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         {kpis.map(([label, value]) => (
           <StaffPanel key={label}>
-            <p className="text-xs font-bold uppercase text-[#737686]">{label}</p>
-            <p className="mt-2 text-2xl font-extrabold">{value}</p>
+            <p className="text-xs font-bold uppercase text-subtle">{label}</p>
+            <p className="mt-2 text-2xl font-extrabold text-content">{value}</p>
           </StaffPanel>
         ))}
       </div>
       <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_360px]">
         <StaffPanel>
           <div className="flex items-start justify-between">
-            <h3 className="font-bold">Sự kiện hôm nay</h3>
+            <h3 className="font-bold text-content">Sự kiện hôm nay</h3>
             <Badge tone="red">Live now</Badge>
           </div>
           <div className="mt-5 grid gap-5 md:grid-cols-[220px_1fr]">
-            <div className="grid h-36 place-items-center rounded-md bg-[#dbe1ff] text-primary">
+            <div className="grid h-36 place-items-center rounded-xl bg-tertiary/15 text-primary">
               <QrCode className="size-14" />
             </div>
             <div>
               <h4 className="font-extrabold text-primary">Global Innovation Summit 2024</h4>
-              <p className="mt-2 text-sm text-[#434655]">Grand Convention Center - 09:00 AM</p>
-              <p className="mt-4 text-sm font-semibold">Check-in progress</p>
-              <div className="mt-2 h-2 rounded bg-[#e0e3e5]"><div className="h-full w-[68%] rounded bg-primary" /></div>
+              <p className="mt-2 text-sm text-subtle">Grand Convention Center - 09:00 AM</p>
+              <p className="mt-4 text-sm font-semibold text-content">Check-in progress</p>
+              <div className="mt-2 h-2 rounded-full bg-panel-soft">
+                <div className="h-full w-[68%] rounded-full bg-tertiary" />
+              </div>
               <div className="mt-5 flex gap-3">
                 <Link to="/staff/qr-check-in" className="admin-primary">Bắt đầu check-in</Link>
                 <Link to="/staff/events/detail" className="admin-secondary">Chi tiết</Link>
@@ -51,12 +53,12 @@ export function StaffDashboardPage() {
           </div>
         </StaffPanel>
         <StaffPanel>
-          <h3 className="font-bold">Công việc đang hoạt động</h3>
+          <h3 className="font-bold text-content">Công việc đang hoạt động</h3>
           {['Verify VIP Lounge Credentials', 'East Gate Water Supply'].map((task, index) => (
-            <div key={task} className="mt-4 rounded-md border border-[#e0e3e5] p-4">
+            <div key={task} className="mt-4 rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
               <Badge tone={index === 0 ? 'red' : 'gray'}>{index === 0 ? 'Khẩn cấp' : 'Bình thường'}</Badge>
-              <p className="mt-3 font-bold">{task}</p>
-              <p className="mt-1 text-sm text-[#565e74]">Cập nhật trạng thái sau khi hoàn tất.</p>
+              <p className="mt-3 font-bold text-content">{task}</p>
+              <p className="mt-1 text-sm text-subtle">Cập nhật trạng thái sau khi hoàn tất.</p>
             </div>
           ))}
         </StaffPanel>
@@ -70,9 +72,17 @@ export function StaffDashboardPage() {
 
 function Shortcut({ to, icon: Icon, label, primary }) {
   return (
-    <Link to={to} className={`rounded-md border p-6 text-center font-bold shadow-sm ${primary ? 'border-primary bg-primary text-slate-950' : 'border-[#c3c6d7] bg-white text-[#191c1e]'}`}>
+    <Link
+      to={to}
+      className={`rounded-2xl border p-6 text-center font-bold transition-all hover:scale-[1.02] ${
+        primary
+          ? 'border-primary/40 bg-tertiary text-white shadow-[0_4px_20px_rgba(43,92,146,0.3)]'
+          : 'border-border-soft/40 bg-surface/80 text-content hover:border-tertiary hover:bg-panel-soft'
+      }`}
+    >
       <Icon className="mx-auto mb-3 size-7" />
       {label}
     </Link>
   )
 }
+

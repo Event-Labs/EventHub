@@ -8,7 +8,7 @@ import {
 import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
 
 const primaryActionClass =
-  'inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
+  'inline-flex items-center justify-center gap-2 rounded-xl bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
 
 const statusFilters = [
   { label: 'Tất cả', value: '' },
@@ -100,8 +100,8 @@ export function AdminOrganizerRequestsPage() {
             onClick={() => setStatusFilter(filter.value)}
             className={`inline-flex min-w-24 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
               statusFilter === filter.value
-                ? 'bg-primary text-slate-950 shadow-primary/20 hover:bg-sky-300'
-                : 'border border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'
+                ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
             }`}
           >
             {filter.label}
@@ -113,12 +113,12 @@ export function AdminOrganizerRequestsPage() {
         <MetricCard
           label="Hàng đợi chờ duyệt"
           value={pendingCountQuery.isLoading ? '...' : pendingCount}
-          accent="bg-[#0057c2]"
+          accent="bg-tertiary"
         />
         <MetricCard
           label="Đang hiển thị"
           value={requestsQuery.isLoading ? '...' : requests.length}
-          accent="bg-green-600"
+          accent="bg-success"
         />
         <MetricCard
           label="Bộ lọc hiện tại"
@@ -148,23 +148,25 @@ export function AdminOrganizerRequestsPage() {
           ]}
           rows={requests.map((request) => [
             <div key="org">
-              <p className="font-semibold">{request.organization_name}</p>
-              <p className="line-clamp-1 text-xs text-[#737686]">
+              <p className="font-semibold text-content">{request.organization_name}</p>
+              <p className="line-clamp-1 text-xs text-subtle">
                 {request.organization_description}
               </p>
             </div>,
             <div key="user">
-              <p className="font-semibold">{request.applicant?.full_name}</p>
-              <p className="text-xs text-[#737686]">{request.applicant?.email}</p>
+              <p className="font-semibold text-content">{request.applicant?.full_name}</p>
+              <p className="text-xs text-subtle">{request.applicant?.email}</p>
             </div>,
             <div key="contact" className="text-sm">
-              <p>{request.business_email}</p>
-              <p className="text-[#737686]">{request.business_phone}</p>
+              <p className="text-content font-medium">{request.business_email}</p>
+              <p className="text-subtle text-xs mt-0.5">{request.business_phone}</p>
             </div>,
             <Badge key="status" tone={statusTone(request.status)}>
               {statusLabel(request.status)}
             </Badge>,
-            new Date(request.created_at).toLocaleDateString('vi-VN'),
+            <span key="date" className="text-subtle font-medium">
+              {new Date(request.created_at).toLocaleDateString('vi-VN')}
+            </span>,
             request.status === 'PENDING' ? (
               <button
                 key="action"
@@ -189,33 +191,33 @@ export function AdminOrganizerRequestsPage() {
       )}
 
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <Panel className="w-full max-w-xl">
-            <h3 className="font-display text-2xl font-extrabold">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
+          <Panel className="w-full max-w-xl border-border-soft/60">
+            <h3 className="font-display text-2xl font-extrabold text-content">
               {selectedRequest.organization_name}
             </h3>
-            <p className="mt-1 text-sm text-[#434655]">
+            <p className="mt-1 text-sm text-subtle font-medium">
               {selectedRequest.applicant?.full_name} · {selectedRequest.applicant?.email}
             </p>
-            <p className="mt-4 whitespace-pre-wrap text-sm text-[#434655]">
+            <p className="mt-4 whitespace-pre-wrap text-sm text-subtle leading-relaxed bg-panel-soft p-4 rounded-xl border border-border-soft/30">
               {selectedRequest.organization_description}
             </p>
 
             {selectedRequest.status === 'PENDING' ? (
               <>
                 <label className="mt-5 block">
-                  <span className="text-sm font-semibold text-[#434655]">
+                  <span className="text-sm font-semibold text-subtle">
                     Ghi chú (bắt buộc khi từ chối)
                   </span>
                   <textarea
-                    className="mt-2 min-h-24 w-full rounded-md border border-[#c3c6d7] p-3 text-sm outline-none focus:border-primary"
+                    className="mt-2 min-h-24 w-full rounded-xl border border-border-soft/40 bg-panel-soft p-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
                     value={reviewNote}
                     onChange={(event) => setReviewNote(event.target.value)}
                     placeholder="Lý do duyệt / từ chối..."
                   />
                 </label>
                 {reviewError && (
-                  <p className="mt-3 text-sm text-error">{reviewError}</p>
+                  <p className="mt-3 text-sm text-error font-semibold">{reviewError}</p>
                 )}
                 <div className="mt-5 flex flex-wrap gap-3">
                 <button
@@ -229,7 +231,7 @@ export function AdminOrganizerRequestsPage() {
                   </button>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-error/40 px-5 py-3 text-sm font-bold text-error transition duration-200 hover:-translate-y-0.5 hover:bg-[#fff1f1] disabled:cursor-not-allowed disabled:opacity-70"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-error/40 px-5 py-3 text-sm font-bold text-error transition duration-200 hover:-translate-y-0.5 hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={reviewMutation.isPending}
                   onClick={() => submitReview('REJECTED')}
                   >
@@ -247,13 +249,13 @@ export function AdminOrganizerRequestsPage() {
               </>
             ) : (
               <div className="mt-5 space-y-3 text-sm">
-                <p>
-                  <span className="font-semibold">Trạng thái: </span>
+                <p className="text-subtle font-medium">
+                  <span className="text-content font-bold">Trạng thái: </span>
                   {statusLabel(selectedRequest.status)}
                 </p>
                 {selectedRequest.review_note && (
-                  <p>
-                    <span className="font-semibold">Ghi chú: </span>
+                  <p className="text-subtle font-medium">
+                    <span className="text-content font-bold">Ghi chú: </span>
                     {selectedRequest.review_note}
                   </p>
                 )}
@@ -275,11 +277,11 @@ export function AdminOrganizerRequestsPage() {
 
 function MetricCard({ label, value, accent, compact = false }) {
   return (
-    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-sm font-extrabold text-[#434655]">{label}</p>
-        <p className={`mt-5 font-black leading-none text-[#111827] ${compact ? 'text-2xl' : 'text-4xl'}`}>
+        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className={`mt-5 font-display font-extrabold leading-none text-content tracking-tight ${compact ? 'text-2xl' : 'text-4xl'}`}>
           {value}
         </p>
       </div>

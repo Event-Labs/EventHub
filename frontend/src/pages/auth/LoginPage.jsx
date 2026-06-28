@@ -2,15 +2,18 @@ import { Eye, Lock, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import heroImage from '@/assets/hero.png'
-import { getPostLoginPath } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getPostLoginPath, getRememberLoginPreference, getStoredUser, setAuthSession } from '@/lib/auth.js'
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
 import { LockedAccountModal } from '@/components/LockedAccountModal'
+
+const logoSrc = '/images/LogoEH.png'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ email: '', password: '' })
+  const [rememberLogin, setRememberLogin] = useState(getRememberLoginPreference)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [lockModalOpen, setLockModalOpen] = useState(false)
@@ -40,18 +43,16 @@ export function LoginPage() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('eventhub-token')
+    const token = getAuthToken()
     if (!token) return
 
     try {
-      const user = JSON.parse(localStorage.getItem('eventhub-user') || 'null')
+      const user = getStoredUser()
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'), {
         replace: true,
       })
     } catch {
-      localStorage.removeItem('eventhub-token')
-      localStorage.removeItem('eventhub-user')
-      localStorage.removeItem('eventhub-auth')
+      clearAuthSession()
     }
   }, [navigate, searchParams])
 
@@ -61,10 +62,7 @@ export function LoginPage() {
     try {
       const res = await authService.login(form)
       const { accessToken, user } = res.data
-      localStorage.setItem('eventhub-token', accessToken)
-      localStorage.setItem('eventhub-user', JSON.stringify(user))
-      localStorage.setItem('eventhub-auth', 'true')
-      window.dispatchEvent(new Event('eventhub-auth'))
+      setAuthSession({ accessToken, user, remember: rememberLogin })
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
       const errorData = err.response?.data;
@@ -85,10 +83,7 @@ export function LoginPage() {
     try {
       const res = await authService.googleLogin(credentialResponse.credential)
       const { accessToken, user } = res.data
-      localStorage.setItem('eventhub-token', accessToken)
-      localStorage.setItem('eventhub-user', JSON.stringify(user))
-      localStorage.setItem('eventhub-auth', 'true')
-      window.dispatchEvent(new Event('eventhub-auth'))
+      setAuthSession({ accessToken, user, remember: rememberLogin })
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
       const errorData = err.response?.data;
@@ -111,9 +106,7 @@ export function LoginPage() {
     <AuthShell>
       <div className="glass-panel mx-auto w-full max-w-md rounded-lg p-7 shadow-2xl">
         <div className="text-center">
-          <h1 className="font-display text-3xl font-extrabold text-primary">
-            EventHub
-          </h1>
+          <AuthLogo />
           <p className="mt-2 text-muted">
             Đăng nhập để tiếp tục đặt vé và quản lý sự kiện
           </p>
@@ -164,7 +157,16 @@ export function LoginPage() {
             value={form.password}
             onChange={(event) => setForm({ ...form, password: event.target.value })}
           />
-          <div className="text-right">
+          <div className="flex items-center justify-between gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted">
+              <input
+                type="checkbox"
+                checked={rememberLogin}
+                onChange={(event) => setRememberLogin(event.target.checked)}
+                className="size-4 rounded border-border-soft bg-surface accent-tertiary"
+              />
+              <span>Ghi nhớ đăng nhập</span>
+            </label>
             <Link
               to="/forgot-password"
               className="text-sm font-bold text-primary hover:underline"
@@ -180,7 +182,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-primary py-4 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
@@ -205,6 +207,16 @@ export function LoginPage() {
         }}
       />
     </AuthShell>
+  )
+}
+
+export function AuthLogo() {
+  return (
+    <img
+      src={logoSrc}
+      alt="EventHub"
+      className="mx-auto h-12 w-[212px] object-cover object-center mix-blend-screen"
+    />
   )
 }
 

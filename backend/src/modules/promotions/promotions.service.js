@@ -52,6 +52,11 @@ class PromotionsService {
     return this._calculateStatusAndUsage(promo);
   }
 
+  async getAvailablePromosForPublicEvent(eventId) {
+    const promos = await promotionsRepository.findAvailableForPublicEvent(eventId);
+    return promos.map(this._calculateStatusAndUsage);
+  }
+
   async createPromo(data, userId) {
     const organizerId = await this._getOrganizerId(userId);
     

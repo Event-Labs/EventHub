@@ -1,3 +1,4 @@
+import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Filter, RotateCcw, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -91,7 +92,7 @@ export function EventsPage() {
   }
 
   const handleFavorite = (event) => {
-    if (!localStorage.getItem('eventhub-token')) {
+    if (!getAuthToken()) {
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
       return
     }

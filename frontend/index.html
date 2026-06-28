@@ -2,9 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/images/ava.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EventHub - Event Operations And Management Platform</title>
+    <script>
+      const theme = localStorage.getItem('eventhub-theme') || 'dark';
+      if (theme === 'light') {
+        document.documentElement.classList.add('light');
+      } else {
+        document.documentElement.classList.remove('light');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
