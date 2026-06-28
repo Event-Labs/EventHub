@@ -45,3 +45,11 @@ export async function fetchTicketSalesAnalytics(params = {}) {
   const response = await http.get('/organizer/orders/ticket-sales', { params })
   return response.data.data
 }
+
+/**
+ * @param {object} payload - { eventId, dateFrom?, dateTo? }
+ */
+export async function generateFinancialSummary(payload) {
+  const response = await http.post('/organizer/orders/financial-summary', payload)
+  return response.data.data
+}

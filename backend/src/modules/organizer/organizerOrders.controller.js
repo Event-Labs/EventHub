@@ -5,6 +5,7 @@ const {
   listOrdersSchema,
   orderIdParamSchema,
   eventIdParamSchema,
+  financialSummarySchema,
   listAttendeesSchema,
 } = require('./organizerOrders.validation');
 
@@ -130,6 +131,26 @@ class OrganizerOrdersController {
       res.status(200).json(ApiResponse.success(data, 'Ticket sales analytics fetched successfully'));
     } catch (err) {
       logger.error('[OrganizerOrdersController] getTicketSalesAnalytics error:', err);
+      next(err);
+    }
+  };
+
+  generateFinancialSummary = async (req, res, next) => {
+    try {
+      const payload = financialSummarySchema.parse(req.body);
+      const data = await organizerOrdersService.generateFinancialSummary(req.user.sub, {
+        eventId: payload.eventId,
+        dateFrom: payload.dateFrom || null,
+        dateTo: payload.dateTo || null,
+      });
+      res.status(200).json(ApiResponse.success(data, 'Financial summary generated successfully'));
+    } catch (err) {
+      logger.error('[OrganizerOrdersController] generateFinancialSummary error:', {
+        message: err.message,
+        stack: err.stack,
+        userId: req.user?.sub,
+        body: req.body,
+      });
       next(err);
     }
   };
