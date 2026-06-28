@@ -1,18 +1,17 @@
-﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { getAuthToken } from '@/lib/auth.js'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Calendar,
   ChevronDown,
   ChevronUp,
   Heart,
   MapPin,
-  Minus,
-  Plus,
   ShieldCheck,
   UserCircle,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { checkTicketAvailability, fetchEventDetail, toggleFavorite } from '@/services/events.js'
+import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
 
 function formatDateTime(value) {
@@ -73,6 +72,25 @@ function isPastTime(value) {
   return value ? new Date(value).getTime() < Date.now() : false
 }
 
+function ticketTotal(ticketType) {
+  return Math.max(0, Number(ticketType.quantity || 0))
+}
+
+function ticketAvailable(ticketType) {
+  if (ticketType.available_quantity === null || ticketType.available_quantity === undefined) {
+    return ticketTotal(ticketType)
+  }
+  return Math.max(0, Number(ticketType.available_quantity || 0))
+}
+
+function isSoldOut(ticketType) {
+  return ticketAvailable(ticketType) <= 0
+}
+
+function createHoldExpiresAt() {
+  return new Date(Date.now() + 15 * 60 * 1000).toISOString()
+}
+
 export function EventDetailPage() {
   const { eventId } = useParams()
   const location = useLocation()
@@ -80,9 +98,8 @@ export function EventDetailPage() {
   const queryClient = useQueryClient()
   const [overviewOpen, setOverviewOpen] = useState(false)
   const [expandedSessionId, setExpandedSessionId] = useState(null)
-  const [selectedTickets, setSelectedTickets] = useState({})
+  const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [bookingError, setBookingError] = useState('')
-  const [checkingAvailability, setCheckingAvailability] = useState(false)
 
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
@@ -99,7 +116,7 @@ export function EventDetailPage() {
   })
 
   const requireLogin = () => {
-    if (localStorage.getItem('eventhub-token')) return false
+    if (getAuthToken()) return false
     navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
     return true
   }
@@ -121,13 +138,15 @@ export function EventDetailPage() {
     return map
   }, [event?.ticket_types])
 
-  const selectedTicketItems = useMemo(() => {
-    if (!event) return []
-    const byId = new Map((event.ticket_types || []).map((ticketType) => [String(ticketType.id), ticketType]))
-    return Object.entries(selectedTickets)
-      .map(([id, quantity]) => ({ ticketType: byId.get(id), quantity }))
-      .filter((item) => item.ticketType && item.quantity > 0)
-  }, [event, selectedTickets])
+  const selectedSession = useMemo(() => {
+    if (!event || !selectedSessionId) return null
+    return (event.sessions || []).find((session) => String(session.id) === String(selectedSessionId)) || null
+  }, [event, selectedSessionId])
+
+  const selectedSessionTickets = useMemo(() => {
+    if (!selectedSessionId) return []
+    return ticketsBySession.get(String(selectedSessionId)) || []
+  }, [selectedSessionId, ticketsBySession])
 
   const selectSession = (sessionId) => {
     if (requireLogin()) return
@@ -136,75 +155,18 @@ export function EventDetailPage() {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
-    setExpandedSessionId((current) => (current === sessionId ? null : sessionId))
-  }
-
-  const selectTicket = (ticketType) => {
-    if (requireLogin()) return
-    const session = event?.sessions?.find((item) => String(item.id) === String(ticketType.event_session_id))
-    if (isPastTime(event?.end_time) || isPastTime(session?.end_time)) {
-      setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
-      return
-    }
-    if (!isSaleOpen(ticketType)) return
     setBookingError('')
-    setSelectedTickets((current) => {
-      const next = { ...current }
-      if (next[ticketType.id]) delete next[ticketType.id]
-      else next[ticketType.id] = 1
-      return next
-    })
+    setSelectedSessionId((current) => (String(current) === String(sessionId) ? null : sessionId))
   }
 
-  const updateQuantity = (ticketType, delta) => {
+  const handleBook = () => {
     if (requireLogin()) return
-    setBookingError('')
-    setSelectedTickets((current) => {
-      const nextQuantity = Math.max(0, (current[ticketType.id] || 0) + delta)
-      const next = { ...current }
-      if (nextQuantity === 0) delete next[ticketType.id]
-      else next[ticketType.id] = Math.min(nextQuantity, ticketType.max_per_order || 10)
-      return next
-    })
-  }
-
-  const handleBook = async () => {
-    if (requireLogin()) return
-    if (selectedTicketItems.length === 0) return
-    const sessionMap = new Map((event.sessions || []).map((session) => [String(session.id), session]))
-    const hasExpiredItem = selectedTicketItems.some((item) => {
-      const session = sessionMap.get(String(item.ticketType.event_session_id))
-      return isPastTime(event.end_time) || isPastTime(session?.end_time)
-    })
-    if (hasExpiredItem) {
+    if (!selectedSession) return
+    if (isPastTime(event.end_time) || isPastTime(selectedSession?.end_time)) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
     setBookingError('')
-    const unseatedItems = selectedTicketItems.filter((item) => !item.ticketType.is_seated)
-    if (unseatedItems.length) {
-      setCheckingAvailability(true)
-      try {
-        const result = await checkTicketAvailability({
-          event_id: event.id,
-          items: unseatedItems.map((item) => ({
-            ticket_type_id: item.ticketType.id,
-            quantity: item.quantity,
-            session_seat_ids: [],
-          })),
-        })
-        if (!result.available) {
-          setBookingError(result.message || 'Vé bạn chọn không còn khả dụng. Vui lòng chọn lại.')
-          queryClient.invalidateQueries({ queryKey: ['event-detail', eventId] })
-          return
-        }
-      } catch (err) {
-        setBookingError(err.response?.data?.message || 'Không thể kiểm tra tình trạng vé. Vui lòng thử lại.')
-        return
-      } finally {
-        setCheckingAvailability(false)
-      }
-    }
     navigate('/booking/seats', {
       state: {
         cart: {
@@ -214,12 +176,10 @@ export function EventDetailPage() {
           eventStartTime: event.start_time,
           eventEndTime: event.end_time,
           venueSummary: event.venue?.summary || venueSummary(firstVenue),
-          holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-          availableTicketTypes: event.ticket_types || [],
-          items: selectedTicketItems.map((item) => ({
-            ...item,
-            session: sessionMap.get(String(item.ticketType.event_session_id)),
-          })),
+          holdExpiresAt: createHoldExpiresAt(),
+          selectedSession,
+          availableTicketTypes: selectedSessionTickets,
+          items: [],
         },
       },
     })
@@ -236,10 +196,6 @@ export function EventDetailPage() {
   const heroImage = event.banner_url || event.thumbnail_url
   const firstVenue = event.venues?.[0]
   const overview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
-  const total = selectedTicketItems.reduce(
-    (sum, item) => sum + Number(item.ticketType.price || 0) * item.quantity,
-    0,
-  )
   const eventExpired = isPastTime(event.end_time)
 
   return (
@@ -314,77 +270,106 @@ export function EventDetailPage() {
               {event.sessions?.length ? (
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
-                  const expanded = expandedSessionId === session.id
                   const sessionExpired = eventExpired || isPastTime(session.end_time)
+                  const selected = String(selectedSessionId) === String(session.id)
+                  const expanded = expandedSessionId === session.id
 
                   return (
-                    <div key={session.id} className="rounded-lg bg-[#333945]">
-                      <button
-                        type="button"
-                        onClick={() => selectSession(session.id)}
-                        className="flex w-full items-start justify-between gap-4 rounded-md px-1 py-3 text-left"
-                      >
-                        <div className="flex gap-4">
+                    <div
+                      key={session.id}
+                      className={cn(
+                        'rounded-lg bg-[#333945]',
+                        selected && 'ring-2 ring-tertiary/70',
+                      )}
+                    >
+                      {/* Header row: expand toggle + info + select button */}
+                      <div className="flex w-full items-start gap-3 px-1 py-3">
+                        {/* Nút mũi tên expand — chỉ xổ/thu thông tin vé */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSessionId((cur) => (cur === session.id ? null : session.id))
+                          }
+                          className="mt-1 shrink-0 text-white transition hover:text-primary"
+                          aria-label={expanded ? 'Thu gọn' : 'Xem thông tin vé'}
+                        >
                           <ChevronDown
-                            className={cn(
-                              'mt-2 size-5 text-white transition',
-                              expanded && 'rotate-180',
-                            )}
+                            className={cn('size-5 transition', expanded && 'rotate-180')}
                           />
-                          <div>
-                            <p className="text-sm font-semibold text-white">
-                              {formatTime(session.start_time)} - {formatTime(session.end_time)}
-                            </p>
-                            <p className="font-bold text-primary">
-                              {formatShortDate(session.start_time)}
-                            </p>
-                            <p className="mt-2 text-sm text-muted">
-                              {session.session_name || venueSummary(session.venue)}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="rounded-md bg-white px-5 py-2 text-sm font-bold text-muted">
-                          {sessionExpired ? 'Đã hết hạn' : tickets.some(isSaleOpen) ? 'Chọn vé' : 'Vé chưa mở bán'}
-                        </span>
-                      </button>
+                        </button>
 
+                        {/* Thông tin suất diễn */}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-white">
+                            {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                          </p>
+                          <p className="font-bold text-primary">
+                            {formatShortDate(session.start_time)}
+                          </p>
+                          <p className="mt-1 text-sm text-muted">
+                            {session.session_name || venueSummary(session.venue)}
+                          </p>
+                        </div>
+
+                        {/* Nút Chọn — chỉ chọn suất diễn cho booking */}
+                        <button
+                          type="button"
+                          onClick={() => selectSession(session.id)}
+                          disabled={sessionExpired}
+                          className={cn(
+                            'shrink-0 rounded-md px-5 py-2 text-sm font-bold transition',
+                            sessionExpired && 'cursor-not-allowed bg-slate-300 text-slate-950',
+                            !sessionExpired && selected && 'bg-primary text-slate-950',
+                            !sessionExpired && !selected && 'bg-tertiary text-white hover:bg-orange-600',
+                          )}
+                        >
+                          {sessionExpired ? 'Đã hết hạn' : selected ? 'Đã chọn' : 'Chọn'}
+                        </button>
+                      </div>
+
+                      {/* Danh sách vé (chỉ hiện khi expanded) */}
                       {expanded && (
-                        <div className="pt-4">
-                          <h3 className="mb-4 font-bold text-white">Thông tin vé</h3>
+                        <div className="pb-4 pt-1 px-4">
+                          <h3 className="mb-3 font-bold text-white">Thông tin vé</h3>
                           <div className="space-y-3">
                             {tickets.length ? (
                               tickets.map((ticketType) => {
-                                const saleOpen = !sessionExpired && isSaleOpen(ticketType)
+                                const soldOut = isSoldOut(ticketType)
+                                const saleOpen = !sessionExpired && isSaleOpen(ticketType) && !soldOut
+                                const totalQuantity = ticketTotal(ticketType)
+                                const availableQuantity = ticketAvailable(ticketType)
                                 return (
-                                  <button
+                                  <div
                                     key={ticketType.id}
-                                    type="button"
-                                    onClick={() => selectTicket(ticketType)}
-                                    disabled={!saleOpen}
                                     className={cn(
-                                      'grid min-h-20 w-full gap-4 rounded-lg border border-slate-500 bg-[#414856] px-5 py-4 text-left transition md:grid-cols-[minmax(0,1fr)_140px]',
-                                      saleOpen ? 'hover:border-primary' : 'cursor-not-allowed opacity-85',
+                                      'grid min-h-20 w-full gap-4 rounded-lg border px-5 py-4 text-left md:grid-cols-[minmax(0,1fr)_170px]',
+                                      saleOpen && 'border-slate-500 bg-[#414856] text-white',
+                                      !saleOpen && !soldOut && 'border-slate-400 bg-slate-300 text-slate-950',
+                                      soldOut && 'border-rose-400 bg-rose-100 text-rose-950',
                                     )}
                                   >
                                     <div className="max-w-3xl min-w-0">
-                                      <p className="font-bold text-white">{ticketType.name}</p>
+                                      <p className={cn('font-bold', saleOpen ? 'text-white' : 'text-slate-950')}>{ticketType.name}</p>
                                       {ticketType.description && (
-                                        <p className="mt-1 max-w-2xl whitespace-pre-line text-sm leading-6 text-muted">
+                                        <p className={cn('mt-1 max-w-2xl whitespace-pre-line text-sm leading-6', saleOpen ? 'text-muted' : 'text-slate-800')}>
                                           {ticketType.description}
                                         </p>
                                       )}
                                     </div>
                                     <div className="self-start text-right">
-                                      <p className="font-display text-lg font-bold text-primary">
+                                      <p className={cn('font-display text-lg font-bold', saleOpen ? 'text-primary' : soldOut ? 'text-rose-950' : 'text-slate-950')}>
                                         {formatPrice(ticketType.price)}
                                       </p>
+                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-extrabold', saleOpen ? 'bg-tertiary/20 text-orange-100 ring-1 ring-tertiary/40' : soldOut ? 'bg-rose-300 text-rose-950' : 'bg-slate-100 text-slate-950')}>
+                                        Còn {availableQuantity}/{totalQuantity}
+                                      </span>
                                       {!saleOpen && (
-                                        <span className="mt-2 inline-flex rounded-full bg-orange-200 px-3 py-1 text-xs font-bold text-orange-700">
-                                          {sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
+                                        <span className={cn('mt-1 inline-flex rounded-full px-3 py-1 text-xs font-bold', soldOut ? 'bg-rose-300 text-rose-950' : 'bg-slate-100 text-slate-950')}>
+                                          {soldOut ? 'Hết vé' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
                                       )}
                                     </div>
-                                  </button>
+                                  </div>
                                 )
                               })
                             ) : (
@@ -448,9 +433,6 @@ export function EventDetailPage() {
               <h2 className="font-display text-2xl font-bold text-white">
                 Vé sự kiện
               </h2>
-              <p className="mt-1 text-sm text-muted">
-                Vé đã chọn sẽ hiển thị tại đây
-              </p>
             </div>
             <ShieldCheck className="size-6 shrink-0 text-primary" />
           </div>
@@ -469,48 +451,32 @@ export function EventDetailPage() {
           </button>
 
           <div className="mt-6 space-y-3">
-            {selectedTicketItems.length ? (
-              selectedTicketItems.map(({ ticketType, quantity }) => (
-                <div key={ticketType.id} className="rounded-md border border-border-soft bg-panel-soft p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-bold text-white">{ticketType.name}</h3>
-                      <p className="mt-1 text-sm text-muted">{formatPrice(ticketType.price)}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(ticketType, -1)}
-                        className="grid size-8 place-items-center rounded-full border border-border-soft text-subtle hover:border-primary hover:text-primary"
-                      >
-                        <Minus className="size-4" />
-                      </button>
-                      <span className="w-6 text-center font-display text-xl font-bold text-primary">
-                        {quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(ticketType, 1)}
-                        className="grid size-8 place-items-center rounded-full border border-border-soft text-subtle hover:border-primary hover:text-primary"
-                      >
-                        <Plus className="size-4" />
-                      </button>
-                    </div>
-                  </div>
+            {selectedSession ? (
+              <>
+                <div className="rounded-md border border-tertiary/50 bg-panel-soft p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-tertiary">
+                    Suất diễn đã chọn
+                  </p>
+                  <h3 className="mt-2 font-bold text-white">
+                    {formatShortDate(selectedSession.start_time)}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted">
+                    {formatTime(selectedSession.start_time)} - {formatTime(selectedSession.end_time)}
+                  </p>
+                  <p className="mt-2 text-sm text-muted">
+                    {selectedSession.session_name || venueSummary(selectedSession.venue)}
+                  </p>
                 </div>
-              ))
+                <p className="mt-3 text-sm italic text-white">
+                  Số lượng &amp; chỗ ngồi sẽ chọn ở bước kế tiếp
+                </p>
+              </>
             ) : (
-              <StatePanel message="Chọn suất diễn và hạng vé ở phần Lịch diễn" compact />
+              <StatePanel message="Chọn suất diễn để tiếp tục" compact />
             )}
           </div>
 
           <div className="mt-6 border-t border-border-soft pt-5">
-            <div className="flex items-center justify-between">
-              <span className="text-muted">Tạm tính</span>
-              <span className="font-display text-2xl font-bold text-primary">
-                {formatPrice(total)}
-              </span>
-            </div>
             {bookingError && (
               <p className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
                 {bookingError}
@@ -519,10 +485,10 @@ export function EventDetailPage() {
             <button
               type="button"
               onClick={handleBook}
-              disabled={eventExpired || checkingAvailability || selectedTicketItems.length === 0}
+              disabled={eventExpired || !selectedSession}
               className="mt-6 flex w-full items-center justify-center rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {eventExpired ? 'Đã hết hạn' : 'Đặt vé'}
+              {eventExpired ? 'Đã hết hạn' : selectedSession ? 'Đặt vé ngay' : 'Đặt vé'}
             </button>
           </div>
         </aside>

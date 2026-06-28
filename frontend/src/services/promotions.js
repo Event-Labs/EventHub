@@ -1,6 +1,7 @@
 import { http } from './http'
 
 const promotionService = {
+  getAvailableEventPromos: (eventId) => http.get(`/promotions/public/events/${eventId}/available`),
   getAllPromos: (params) => http.get('/promotions', { params }),
   getPromoDetail: (id) => http.get(`/promotions/${id}`),
   createPromo: (data) => http.post('/promotions', data),

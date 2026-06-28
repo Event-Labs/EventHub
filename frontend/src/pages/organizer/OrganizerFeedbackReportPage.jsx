@@ -18,7 +18,7 @@ function RatingStars({ value }) {
         <Star
           key={star}
           className={`size-4 ${
-            star <= value ? 'fill-amber-400 text-amber-400' : 'text-[#c3c6d7]'
+            star <= value ? 'fill-amber-400 text-amber-400' : 'text-border-soft/40'
           }`}
         />
       ))}
@@ -59,26 +59,26 @@ export function OrganizerFeedbackReportPage() {
     >
       <OrganizerPanel className="mb-5">
         {eventsQuery.isLoading && (
-          <p className="text-sm text-[#737686]">Đang tải sự kiện...</p>
+          <p className="text-sm text-muted animate-pulse">Đang tải sự kiện...</p>
         )}
         {eventsQuery.isError && (
           <p className="text-sm text-error">Không thể tải danh sách sự kiện.</p>
         )}
         {!eventsQuery.isLoading && events.length === 0 && (
-          <p className="text-sm text-[#737686]">
+          <p className="text-sm text-muted">
             Bạn chưa có sự kiện nào trong hệ thống.
           </p>
         )}
         {events.length > 0 && (
           <label className="block max-w-xl">
-            <span className="text-sm font-semibold text-[#434655]">Chọn sự kiện</span>
+            <span className="text-sm font-semibold text-subtle">Chọn sự kiện</span>
             <select
-              className="mt-2 h-10 w-full rounded-md border border-[#c3c6d7] bg-white px-3 text-sm"
+              className="mt-2 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
               value={eventId}
               onChange={(e) => setEventId(e.target.value)}
             >
               {events.map((event) => (
-                <option key={event.id} value={event.id}>
+                <option key={event.id} value={event.id} className="bg-surface text-content">
                   {event.title}
                   {event.average_rating != null
                     ? ` — ★ ${event.average_rating} (${event.feedback_count})`
@@ -91,7 +91,7 @@ export function OrganizerFeedbackReportPage() {
       </OrganizerPanel>
 
       {reportQuery.isLoading && eventId && (
-        <OrganizerPanel>Đang tải báo cáo...</OrganizerPanel>
+        <OrganizerPanel className="animate-pulse">Đang tải báo cáo...</OrganizerPanel>
       )}
 
       {reportQuery.isError && (
@@ -117,8 +117,8 @@ export function OrganizerFeedbackReportPage() {
             <Kpi label="Trạng thái sự kiện" value={report.event.status} />
           </div>
 
-          <OrganizerPanel className="mb-5">
-            <h3 className="font-bold text-[#191c1e]">Phân bố đánh giá</h3>
+          <OrganizerPanel className="mb-5 text-content">
+            <h3 className="font-bold text-content">Phân bố đánh giá</h3>
             <div className="mt-4 space-y-2">
               {[5, 4, 3, 2, 1].map((star) => {
                 const count = distribution[star] || 0
@@ -129,13 +129,13 @@ export function OrganizerFeedbackReportPage() {
                 return (
                   <div key={star} className="flex items-center gap-3 text-sm">
                     <span className="w-8 font-semibold">{star}★</span>
-                    <div className="h-2 flex-1 rounded-full bg-[#eceef0]">
+                    <div className="h-2 flex-1 rounded-full bg-panel-soft border border-border-soft/10">
                       <div
                         className="h-2 rounded-full bg-primary"
                         style={{ width }}
                       />
                     </div>
-                    <span className="w-10 text-right text-[#737686]">{count}</span>
+                    <span className="w-10 text-right text-muted">{count}</span>
                   </div>
                 )
               })}
@@ -145,22 +145,22 @@ export function OrganizerFeedbackReportPage() {
           <OrganizerTable
             headers={['Khách hàng', 'Đánh giá', 'Nội dung', 'Thời gian']}
             rows={(report.feedbacks || []).map((item) => [
-              <div key="user">
+              <div key="user" className="text-content">
                 <p className="font-semibold">{item.user?.full_name || '—'}</p>
-                <p className="text-xs text-[#737686]">{item.user?.email}</p>
+                <p className="text-xs text-muted">{item.user?.email}</p>
               </div>,
               <RatingStars key="rating" value={item.rating} />,
-              <p key="content" className="max-w-md text-sm text-[#434655]">
+              <p key="content" className="max-w-md text-sm text-subtle">
                 {item.content}
               </p>,
-              <span key="time" className="text-sm text-[#737686]">
+              <span key="time" className="text-sm text-muted whitespace-nowrap">
                 {new Date(item.created_at).toLocaleString('vi-VN')}
               </span>,
             ])}
           />
 
           {report.feedbacks?.length === 0 && (
-            <p className="mt-4 text-sm text-[#737686]">
+            <p className="mt-4 text-sm text-muted text-center py-4 bg-panel-soft/30 rounded-xl border border-border-soft/20">
               Chưa có phản hồi nào cho sự kiện này.
             </p>
           )}
@@ -172,9 +172,9 @@ export function OrganizerFeedbackReportPage() {
 
 function Kpi({ label, value }) {
   return (
-    <OrganizerPanel className="min-h-24">
-      <p className="text-xs font-bold text-[#5c647a]">{label}</p>
-      <p className="mt-3 text-2xl font-extrabold">{value}</p>
+    <OrganizerPanel className="min-h-24 flex flex-col justify-between">
+      <p className="text-xs font-bold text-muted uppercase tracking-wider">{label}</p>
+      <p className="mt-3 text-2xl font-extrabold text-content">{value}</p>
     </OrganizerPanel>
   )
 }

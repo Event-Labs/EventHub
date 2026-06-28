@@ -92,32 +92,32 @@ export function OrganizerStaffManagementPage() {
       description="Phân công, mời và quản lý nhân sự cho từng sự kiện."
     >
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error animate-in fade-in duration-200">
           {error}
         </div>
       )}
 
       {/* ── Toolbar ── */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <label className="flex flex-col gap-1 text-xs font-bold text-[#434655]">
+        <label className="flex flex-col gap-1 text-xs font-bold text-subtle">
           Sự kiện
           <div className="relative">
             <select
-              className="h-10 w-64 appearance-none rounded-md border border-[#c3c6d7] bg-white pl-3 pr-8 text-sm font-semibold text-[#191c1e] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="h-10 w-64 appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-8 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
               disabled={loading}
             >
               {(data?.events || []).map((ev) => (
-                <option key={ev.id} value={ev.id}>{ev.title}</option>
+                <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted" />
           </div>
         </label>
 
         <button
-          className="admin-primary self-end"
+          className="org-btn-primary self-end disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setShowInviteModal(true)}
           disabled={loading || !subscriptionActive || limitReached || !selectedEventId}
         >
@@ -151,14 +151,14 @@ export function OrganizerStaffManagementPage() {
         </OrganizerPanel>
       ) : !subscriptionActive ? (
         <OrganizerPanel className="py-10 text-center">
-          <p className="font-bold text-red-700">Cần gói subscription đang hoạt động để mời staff.</p>
-          <p className="mt-1 text-sm text-[#565e74]">Vui lòng nâng cấp gói dịch vụ tại mục Gói dịch vụ.</p>
+          <p className="font-bold text-error">Cần gói subscription đang hoạt động để mời staff.</p>
+          <p className="mt-1 text-sm text-subtle">Vui lòng nâng cấp gói dịch vụ tại mục Gói dịch vụ.</p>
         </OrganizerPanel>
       ) : (
         <>
           {/* ── Staff list ── */}
           <section className="mb-7">
-            <h2 className="mb-3 flex items-center gap-2 font-extrabold text-[#111827]">
+            <h2 className="mb-3 flex items-center gap-2 font-extrabold text-content">
               <UserCheck className="size-5 text-primary" />
               Nhân sự đã phân công
               <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
@@ -167,14 +167,14 @@ export function OrganizerStaffManagementPage() {
             </h2>
 
             {assignedStaff.length === 0 ? (
-              <OrganizerPanel className="py-10 text-center">
-                <Users className="mx-auto mb-3 size-10 text-[#c3c6d7]" />
-                <p className="text-sm text-[#565e74]">Chưa có staff nào được phân công.</p>
+              <OrganizerPanel className="py-10 text-center border-dashed">
+                <Users className="mx-auto mb-3 size-10 text-muted" />
+                <p className="text-sm text-subtle">Chưa có staff nào được phân công.</p>
               </OrganizerPanel>
             ) : (
-              <div className="overflow-x-auto rounded-md border border-[#c3c6d7] bg-white">
+              <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
                 <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead className="bg-[#f2f4f6] text-xs uppercase text-[#5c647a]">
+                  <thead className="border-b border-border-soft/30 bg-panel-soft/30 text-xs uppercase text-muted">
                     <tr>
                       <th className="px-5 py-3 font-bold">Nhân sự</th>
                       <th className="px-5 py-3 font-bold">Email</th>
@@ -185,23 +185,23 @@ export function OrganizerStaffManagementPage() {
                   </thead>
                   <tbody>
                     {assignedStaff.map((staff) => (
-                      <tr key={staff.id} className="border-t border-[#e0e3e5] hover:bg-[#f7f9fb]">
+                      <tr key={staff.id} className="border-t border-border-soft/20 hover:bg-panel-soft/60 transition-colors">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
                             <AvatarInitials name={staff.staff_name || 'Staff'} className="size-9" />
-                            <span className="font-bold text-[#191c1e]">{staff.staff_name}</span>
+                            <span className="font-bold text-content">{staff.staff_name}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-[#565e74]">{staff.staff_email}</td>
+                        <td className="px-5 py-3 text-subtle">{staff.staff_email}</td>
                         <td className="px-5 py-3">
                           <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
                         </td>
-                        <td className="px-5 py-3 text-[#565e74]">
+                        <td className="px-5 py-3 text-subtle">
                           {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
                         </td>
                         <td className="px-5 py-3">
                           <button
-                            className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                            className="flex items-center gap-1.5 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/20 disabled:opacity-50 transition-colors"
                             onClick={() =>
                               setRemoveConfirm({ staffId: staff.staff_id, staffName: staff.staff_name })
                             }
@@ -221,7 +221,7 @@ export function OrganizerStaffManagementPage() {
 
           {/* ── Invitations list ── */}
           <section>
-            <h2 className="mb-3 flex items-center gap-2 font-extrabold text-[#111827]">
+            <h2 className="mb-3 flex items-center gap-2 font-extrabold text-content">
               <MailCheck className="size-5 text-primary" />
               Lời mời nhân sự
               <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
@@ -230,13 +230,13 @@ export function OrganizerStaffManagementPage() {
             </h2>
 
             {invitations.length === 0 ? (
-              <OrganizerPanel className="py-8 text-center">
-                <p className="text-sm text-[#565e74]">Chưa có lời mời nào.</p>
+              <OrganizerPanel className="py-8 text-center border-dashed">
+                <p className="text-sm text-subtle">Chưa có lời mời nào.</p>
               </OrganizerPanel>
             ) : (
-              <div className="overflow-x-auto rounded-md border border-[#c3c6d7] bg-white">
+              <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
                 <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead className="bg-[#f2f4f6] text-xs uppercase text-[#5c647a]">
+                  <thead className="border-b border-border-soft/30 bg-panel-soft/30 text-xs uppercase text-muted">
                     <tr>
                       <th className="px-5 py-3 font-bold">Email</th>
                       <th className="px-5 py-3 font-bold">Người nhận</th>
@@ -247,14 +247,14 @@ export function OrganizerStaffManagementPage() {
                   </thead>
                   <tbody>
                     {invitations.map((inv) => (
-                      <tr key={inv.id} className="border-t border-[#e0e3e5] hover:bg-[#f7f9fb]">
-                        <td className="px-5 py-3 font-semibold text-[#191c1e]">{inv.invited_email}</td>
-                        <td className="px-5 py-3 text-[#565e74]">{inv.invited_user_name || '—'}</td>
-                        <td className="px-5 py-3">{inv.staff_role || 'Staff'}</td>
+                      <tr key={inv.id} className="border-t border-border-soft/20 hover:bg-panel-soft/60 transition-colors">
+                        <td className="px-5 py-3 font-semibold text-content">{inv.invited_email}</td>
+                        <td className="px-5 py-3 text-subtle">{inv.invited_user_name || '—'}</td>
+                        <td className="px-5 py-3 text-content">{inv.staff_role || 'Staff'}</td>
                         <td className="px-5 py-3">
                           <InvitationStatusBadge status={inv.status} />
                         </td>
-                        <td className="px-5 py-3 text-[#737686]">
+                        <td className="px-5 py-3 text-muted">
                           {inv.expires_at
                             ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
                             : '—'}
@@ -354,16 +354,16 @@ function InviteStaffModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#e0e3e5] px-6 py-4">
-          <div className="flex items-center gap-2 font-extrabold text-[#111827]">
+        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+          <div className="flex items-center gap-2 font-extrabold text-content">
             <UserPlus className="size-5 text-primary" />
             Mời nhân sự
           </div>
           <button
-            className="grid size-8 place-items-center rounded-full text-[#737686] hover:bg-[#f2f4f6]"
+            className="grid size-8 place-items-center rounded-full text-muted hover:bg-panel-soft/60 transition-colors"
             onClick={onClose}
           >
             <X className="size-4" />
@@ -372,42 +372,42 @@ function InviteStaffModal({
 
         <form className="px-6 py-5" onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+            <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-2 text-sm font-semibold text-error animate-in fade-in">
               {error}
             </div>
           )}
 
           {limitReached && (
-            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">
+            <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
               Gói {subscriptionName} đã đạt giới hạn {perEventLimit} staff/sự kiện.
             </div>
           )}
 
           <div className="grid gap-4">
             {/* Event */}
-            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
               Sự kiện
               <select
-                className="h-10 rounded-md border border-[#c3c6d7] bg-white px-3 text-sm font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary"
                 value={form.event_id}
                 onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value }))}
                 required
               >
-                <option value="">Chọn sự kiện...</option>
+                <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
                 {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>{ev.title}</option>
+                  <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
                 ))}
               </select>
             </label>
 
             {/* Email with autocomplete */}
-            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
               Email tài khoản customer
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#737686]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
                 <input
                   type="search"
-                  className="h-10 w-full rounded-md border border-[#c3c6d7] pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-9 pr-3 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted"
                   placeholder="Tìm tên hoặc email..."
                   value={candidateSearch}
                   onChange={(e) => {
@@ -417,16 +417,16 @@ function InviteStaffModal({
                   disabled={limitReached || saving}
                 />
                 {candidates.length > 0 && (
-                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-[#c3c6d7] bg-white shadow-lg">
+                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-border-soft/30 bg-surface shadow-xl">
                     {candidates.map((c) => (
                       <li key={c.id}>
                         <button
                           type="button"
-                          className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-[#f7f9fb]"
+                          className="flex w-full flex-col px-3 py-2 text-left text-sm text-content hover:bg-panel-soft/60 transition-colors"
                           onClick={() => pickCandidate(c)}
                         >
-                          <span className="font-bold text-[#191c1e]">{c.full_name}</span>
-                          <span className="text-xs text-[#737686]">{c.email}</span>
+                          <span className="font-bold text-content">{c.full_name}</span>
+                          <span className="text-xs text-muted">{c.email}</span>
                         </button>
                       </li>
                     ))}
@@ -436,10 +436,10 @@ function InviteStaffModal({
             </label>
 
             {/* Role */}
-            <label className="grid gap-1.5 text-xs font-bold text-[#434655]">
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
               Vai trò
               <input
-                className="h-10 rounded-md border border-[#c3c6d7] px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                 placeholder="VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
                 value={form.staff_role}
                 onChange={(e) => setForm((f) => ({ ...f, staff_role: e.target.value }))}
@@ -448,17 +448,17 @@ function InviteStaffModal({
             </label>
           </div>
 
-          <p className="mt-3 text-xs leading-5 text-[#737686]">
+          <p className="mt-3 text-xs leading-5 text-muted">
             Customer sẽ nhận thông báo. Sau khi chấp nhận, họ được gán role STAFF cho sự kiện này.
           </p>
 
           <div className="mt-5 flex justify-end gap-3">
-            <button type="button" className="admin-secondary" onClick={onClose} disabled={saving}>
+            <button type="button" className="org-btn-secondary" onClick={onClose} disabled={saving}>
               Hủy
             </button>
             <button
               type="submit"
-              className="admin-primary"
+              className="org-btn-primary"
               disabled={saving || limitReached || !form.email.trim() || !form.event_id}
             >
               {saving ? (
@@ -478,19 +478,19 @@ function InviteStaffModal({
 
 function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfirm, onCancel }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
-        <h3 className="font-extrabold text-[#111827]">{title}</h3>
-        <p className="mt-2 text-sm text-[#565e74]">{message}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-sm rounded-2xl bg-surface border border-border-soft/30 p-6 shadow-2xl text-content">
+        <h3 className="font-extrabold text-content">{title}</h3>
+        <p className="mt-2 text-sm text-subtle">{message}</p>
         <div className="mt-5 flex justify-end gap-3">
-          <button className="admin-secondary" onClick={onCancel} disabled={loading}>
+          <button className="org-btn-secondary" onClick={onCancel} disabled={loading}>
             Hủy
           </button>
           <button
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold transition ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
               danger
-                ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
-                : 'admin-primary'
+                ? 'bg-error text-white hover:opacity-90 disabled:opacity-50'
+                : 'org-btn-primary'
             }`}
             onClick={onConfirm}
             disabled={loading}
@@ -509,15 +509,15 @@ function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfir
 function QuotaCard({ label, value, sub, warn }) {
   return (
     <div
-      className={`rounded-lg border px-4 py-3 ${
-        warn ? 'border-red-200 bg-red-50' : 'border-[#e0e3e5] bg-[#f7f9fb]'
+      className={`rounded-2xl border px-4 py-3 shadow-sm ${
+        warn ? 'border-error/30 bg-error/10 text-error' : 'border-border-soft/30 bg-panel-soft text-content'
       }`}
     >
-      <p className="text-xs font-bold uppercase text-[#737686]">{label}</p>
-      <p className={`mt-1 text-2xl font-extrabold ${warn ? 'text-red-700' : 'text-[#111827]'}`}>
+      <p className="text-xs font-bold uppercase text-muted">{label}</p>
+      <p className={`mt-1 text-2xl font-extrabold ${warn ? 'text-error' : 'text-content'}`}>
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-xs font-semibold text-[#565e74]">{sub}</p>}
+      {sub && <p className="mt-0.5 text-xs font-semibold text-subtle">{sub}</p>}
     </div>
   )
 }

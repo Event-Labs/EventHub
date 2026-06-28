@@ -452,7 +452,7 @@ function PaginationControls({ page, pageSize, total, label, onPageChange }) {
 
   return (
     <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-[#5c647a]">
+      <p className="text-sm text-subtle font-medium">
         Hiển thị <span className="font-bold">{start}</span> đến <span className="font-bold">{end}</span> trong tổng số <span className="font-bold">{total}</span> {label}
       </p>
       <div className="flex gap-2">
@@ -482,29 +482,29 @@ function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
   const itemName = target.item.name || target.item.title
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-md border border-[#c3c6d7] bg-white p-5 text-[#111827] shadow-2xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-5 text-content shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-xl font-extrabold">{isFee ? 'Xóa cấu hình phí?' : 'Xóa chính sách?'}</h3>
-            <p className="mt-2 text-sm font-semibold text-[#434655]">
+            <h3 className="text-xl font-extrabold text-content">{isFee ? 'Xóa cấu hình phí?' : 'Xóa chính sách?'}</h3>
+            <p className="mt-2 text-sm font-semibold text-subtle">
               {isFee
                 ? `Cấu hình phí "${itemName}" sẽ được xóa khỏi danh sách quản lý.`
                 : `Chính sách "${itemName}" sẽ được xóa khỏi danh sách quản lý.`}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft">
             <X className="size-4" />
           </button>
         </div>
 
         {error && (
-          <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
+          <p className="mt-4 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
             {error}
           </p>
         )}
 
-        <div className="mt-6 flex justify-end gap-3 border-t border-[#e0e3e5] pt-4">
+        <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
           <button type="button" onClick={onClose} className="admin-secondary">
             Hủy
           </button>
@@ -512,7 +512,7 @@ function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
             type="button"
             disabled={isDeleting}
             onClick={onConfirm}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDeleting ? 'Đang xóa...' : 'Xóa'}
           </button>
@@ -535,15 +535,15 @@ function PolicyConfigFields({ form, setForm }) {
   }
 
   return (
-    <div className="rounded-md border border-[#e0e3e5] bg-[#fbfcfd] p-4">
-      <p className="text-sm font-extrabold text-[#111827]">Cấu hình chi tiết</p>
+    <div className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
+      <p className="text-sm font-extrabold text-content">Cấu hình chi tiết</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {fields.map(([key, label, type]) => {
           const value = form.config?.[key]
 
           if (type === 'boolean') {
             return (
-              <label key={key} className="flex items-center gap-3 rounded-md border border-[#c3c6d7] bg-white px-3 py-3 text-sm font-semibold text-[#434655]">
+              <label key={key} className="flex items-center gap-3 rounded-xl border border-border-soft/40 bg-surface px-3 py-3 text-sm font-semibold text-subtle">
                 <input
                   type="checkbox"
                   checked={Boolean(value)}
@@ -647,21 +647,21 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
           event.preventDefault()
           uploadMutation.mutate()
         }}
-        className="grid gap-4 border-b border-[#e0e3e5] pb-5 lg:grid-cols-[minmax(320px,1.5fr)_minmax(120px,0.55fr)_minmax(260px,0.95fr)]"
+        className="grid gap-4 border-b border-border-soft/30 pb-5 lg:grid-cols-[minmax(320px,1.5fr)_minmax(120px,0.55fr)_minmax(260px,0.95fr)]"
       >
         <TextInput label="Tiêu đề tài liệu" value={form.title} onChange={(title) => setForm({ ...form, title })} required />
         <TextInput label="Phiên bản" value={form.version} onChange={(version) => setForm({ ...form, version })} />
         <label className="block">
-          <span className="text-xs font-bold text-[#434655]">File PDF hoặc DOCX</span>
+          <span className="text-xs font-bold text-subtle">File PDF hoặc DOCX</span>
           <input
             required
             type="file"
             accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx"
             onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })}
-            className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-2 text-sm font-semibold text-[#111827] file:mr-3 file:rounded file:border-0 file:bg-[#e8f7ff] file:px-3 file:py-1 file:text-sm file:font-bold file:text-[#0057c2]"
+            className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-sm font-semibold text-content file:mr-3 file:rounded-lg file:border-0 file:bg-tertiary/15 file:px-3 file:py-1 file:text-sm file:font-bold file:text-primary placeholder:text-muted"
           />
         </label>
-        <label className="flex items-center gap-3 text-sm font-semibold text-[#434655] lg:col-span-2">
+        <label className="flex items-center gap-3 text-sm font-semibold text-subtle lg:col-span-2">
           <input type="checkbox" checked={form.is_public} onChange={(event) => setForm({ ...form, is_public: event.target.checked })} className="size-4 accent-primary" />
           Công khai tài liệu
         </label>
@@ -671,12 +671,12 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
       </form>
 
       <div className="mt-5 space-y-3">
-        {documentsQuery.isLoading && <p className="text-sm font-semibold">Đang tải tài liệu...</p>}
+        {documentsQuery.isLoading && <p className="text-sm font-semibold text-subtle">Đang tải tài liệu...</p>}
         {documents.map((document) => (
-          <div key={document.id} className="flex flex-col gap-3 rounded-md border border-[#e0e3e5] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div key={document.id} className="flex flex-col gap-3 rounded-xl border border-border-soft/30 bg-panel-soft p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="truncate text-base font-black text-[#111827]">{document.title}</p>
-              <p className="text-xs font-semibold text-[#737686]">
+              <p className="truncate text-base font-black text-content">{document.title}</p>
+              <p className="text-xs font-semibold text-subtle">
                 {document.file_name || 'policy-document'} · phiên bản {document.version}
               </p>
             </div>
@@ -687,18 +687,18 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
                 rel="noreferrer"
                 title="Xem file"
                 aria-label="Xem file"
-                className="grid size-9 place-items-center rounded-md border border-[#c3c6d7] text-[#111827] transition hover:border-primary hover:bg-[#f1fbff] hover:text-primary"
+                className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition hover:border-tertiary hover:bg-surface hover:text-tertiary"
               >
                 <Eye className="size-4" />
               </a>
-              <button type="button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(document.id)} className="grid size-9 place-items-center rounded-md border border-[#f3b8b8] text-error hover:bg-[#fff1f1]">
+              <button type="button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(document.id)} className="grid size-9 place-items-center rounded-xl border border-error/30 text-error hover:bg-error/10">
                 <Trash2 className="size-4" />
               </button>
             </div>
           </div>
         ))}
         {!documentsQuery.isLoading && documents.length === 0 && (
-          <p className="text-sm font-semibold text-[#737686]">Chưa có tài liệu chính sách.</p>
+          <p className="text-sm font-semibold text-subtle">Chưa có tài liệu chính sách.</p>
         )}
       </div>
     </Modal>
@@ -707,15 +707,15 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
 
 function Modal({ title, onClose, children, wide = false }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 backdrop-blur-sm">
-      <div className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-[#c3c6d7] bg-white shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-2xl'}`}>
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e0e3e5] bg-white px-5 py-4">
-          <h3 className="text-xl font-extrabold text-[#111827]">{title}</h3>
-          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-md text-[#434655] hover:bg-[#f2f4f6]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
+      <div className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-border-soft/40 bg-surface shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-2xl'}`}>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-soft/30 bg-surface px-5 py-4">
+          <h3 className="text-xl font-extrabold text-content">{title}</h3>
+          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft transition">
             <X className="size-4" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-content">
           {children}
         </div>
       </div>
@@ -737,7 +737,7 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
   return (
     <button
       type="button"
-      className={`grid size-9 place-items-center rounded-md border transition hover:-translate-y-0.5 disabled:opacity-60 ${danger ? 'border-[#f3b8b8] text-error hover:bg-[#fff1f1]' : 'border-[#c3c6d7] text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'}`}
+      className={`grid size-9 place-items-center rounded-xl border transition hover:-translate-y-0.5 disabled:opacity-60 ${danger ? 'border-error/30 text-error hover:bg-error/10' : 'border-border-soft/40 text-subtle hover:border-tertiary hover:bg-panel-soft hover:text-tertiary'}`}
       {...props}
     >
       <Icon className="size-4" />
@@ -751,8 +751,8 @@ function TabButton({ active, children, ...props }) {
       type="button"
       className={`inline-flex min-w-20 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
         active
-          ? 'bg-primary text-slate-950 shadow-primary/20 hover:bg-sky-300'
-          : 'border border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff] hover:text-primary'
+          ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
+          : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
       }`}
       {...props}
     >
@@ -764,8 +764,8 @@ function TabButton({ active, children, ...props }) {
 function TextInput({ label, value, onChange, ...props }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-[#434655]">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#111827] placeholder:text-[#737686] outline-none focus:border-primary" {...props} />
+      <span className="text-xs font-bold text-subtle">{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content placeholder:text-muted outline-none focus:border-primary" {...props} />
     </label>
   )
 }
@@ -777,10 +777,10 @@ function NumberInput({ label, value, onChange }) {
 function SelectInput({ label, value, options, onChange }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-[#434655]">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 text-sm font-semibold text-[#111827] outline-none focus:border-primary">
+      <span className="text-xs font-bold text-subtle">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary">
         {options.map(([optionValue, labelText]) => (
-          <option key={optionValue || 'empty'} value={optionValue}>{labelText}</option>
+          <option key={optionValue || 'empty'} value={optionValue} className="bg-surface text-content">{labelText}</option>
         ))}
       </select>
     </label>
@@ -790,8 +790,8 @@ function SelectInput({ label, value, options, onChange }) {
 function TextareaInput({ label, value, onChange, rows = 4 }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-[#434655]">{label}</span>
-      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full resize-none rounded border border-[#c3c6d7] bg-[#f7f9fb] px-3 py-3 text-sm font-semibold text-[#111827] placeholder:text-[#737686] outline-none focus:border-primary" />
+      <span className="text-xs font-bold text-subtle">{label}</span>
+      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full resize-none rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-3 text-sm font-semibold text-content placeholder:text-muted outline-none focus:border-primary" />
     </label>
   )
 }
@@ -807,7 +807,7 @@ function DateInputs({ form, setForm }) {
 
 function ActiveInput({ checked, onChange }) {
   return (
-    <label className="flex items-center gap-3 text-sm font-semibold text-[#434655]">
+    <label className="flex items-center gap-3 text-sm font-semibold text-subtle cursor-pointer">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="size-4 accent-primary" />
       Đang áp dụng
     </label>
@@ -816,7 +816,7 @@ function ActiveInput({ checked, onChange }) {
 
 function FormActions({ isSaving, onCancel }) {
   return (
-    <div className="flex justify-end gap-3 border-t border-[#e0e3e5] pt-4">
+    <div className="flex justify-end gap-3 border-t border-border-soft/30 pt-4">
       <button type="button" onClick={onCancel} className="admin-secondary">Hủy</button>
       <button type="submit" disabled={isSaving} className={primaryActionClass}>{isSaving ? 'Đang lưu...' : 'Lưu'}</button>
     </div>
@@ -825,11 +825,11 @@ function FormActions({ isSaving, onCancel }) {
 
 function MetricCard({ label, value, accent }) {
   return (
-    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
+    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-sm font-extrabold text-[#434655]">{label}</p>
-        <p className="mt-5 text-3xl font-black leading-none text-[#111827]">{value}</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="mt-5 text-3xl font-display font-extrabold leading-none text-content tracking-tight">{value}</p>
       </div>
     </Panel>
   )
@@ -902,7 +902,7 @@ function formatMoney(value) {
 function formatRange(from, to) {
   if (!from && !to) return 'Luôn áp dụng'
   return (
-    <div className="text-xs font-semibold text-[#434655]">
+    <div className="text-xs font-semibold text-subtle">
       <Row label="Từ" value={from ? new Date(from).toLocaleString('vi-VN') : 'Không giới hạn'} />
       <Row label="Đến" value={to ? new Date(to).toLocaleString('vi-VN') : 'Không giới hạn'} />
     </div>

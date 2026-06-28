@@ -2,9 +2,9 @@ import { Lock, Mail, Phone, User } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
-import { AuthShell, Field } from './LoginPage.jsx'
+import { AuthLogo, AuthShell, Field } from './LoginPage.jsx'
 import { GoogleLogin } from '@react-oauth/google'
-import { getPostLoginPath } from '@/lib/auth.js'
+import { getPostLoginPath, setAuthSession } from '@/lib/auth.js'
 
 export function RegisterPage() {
     const [form, setForm] = useState({
@@ -56,10 +56,7 @@ export function RegisterPage() {
         try {
             const res = await authService.googleLogin(credentialResponse.credential)
             const { accessToken, user } = res.data
-            localStorage.setItem('eventhub-token', accessToken)
-            localStorage.setItem('eventhub-user', JSON.stringify(user))
-            localStorage.setItem('eventhub-auth', 'true')
-            window.dispatchEvent(new Event('eventhub-auth'))
+            setAuthSession({ accessToken, user, remember: true })
             window.location.href = getPostLoginPath(user)
         } catch (err) {
             setError(err.response?.data?.message || 'Đăng ký bằng Google thất bại.')
@@ -72,7 +69,8 @@ export function RegisterPage() {
         return (
             <AuthShell>
                 <div className="glass-panel mx-auto w-full max-w-lg rounded-lg p-7 shadow-2xl text-center">
-                    <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success">
+                    <AuthLogo />
+                    <div className="mb-6 mt-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success">
                         <Mail className="size-10" />
                     </div>
                     <h1 className="font-display text-3xl font-extrabold text-primary">
@@ -99,7 +97,8 @@ export function RegisterPage() {
         <AuthShell>
             <div className="glass-panel mx-auto w-full max-w-lg rounded-lg p-7 shadow-2xl">
                 <div className="text-center">
-                    <h1 className="font-display text-3xl font-extrabold text-primary">
+                    <AuthLogo />
+                    <h1 className="mt-3 font-display text-3xl font-extrabold text-primary">
                         Tạo tài khoản
                     </h1>
                     <p className="mt-2 text-muted">

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import { fetchTicketSalesAnalytics } from '@/services/organizerOrders.js'
-import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { OrganizerPage, OrganizerPanel, StatCard } from './OrganizerComponents.jsx'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -35,33 +35,18 @@ function fmtDate(iso) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor }) {
-  return (
-    <div className="flex items-center gap-4 rounded-xl border border-[#e0e3e5] bg-white p-5 shadow-sm">
-      <span className={`grid size-12 shrink-0 place-items-center rounded-xl ${iconBg}`}>
-        <Icon className={`size-6 ${iconColor}`} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-bold uppercase tracking-wider text-[#737686]">{label}</p>
-        <p className="mt-0.5 truncate text-2xl font-extrabold text-[#111827]">{value}</p>
-        {sub && <p className="mt-0.5 text-xs text-[#737686]">{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
 function OccupancyBadge({ rate }) {
   const num = Number(rate) || 0
-  if (num >= 80) return <span className="inline-flex rounded px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700">{num}%</span>
-  if (num >= 50) return <span className="inline-flex rounded px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700">{num}%</span>
-  if (num > 0)   return <span className="inline-flex rounded px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700">{num}%</span>
-  return <span className="inline-flex rounded px-2 py-0.5 text-xs font-bold bg-[#f2f4f6] text-[#737686]">0%</span>
+  if (num >= 80) return <span className="inline-flex rounded-full border border-success/30 px-2 py-0.5 text-xs font-bold bg-success/15 text-success">{num}%</span>
+  if (num >= 50) return <span className="inline-flex rounded-full border border-tertiary/30 px-2 py-0.5 text-xs font-bold bg-tertiary/15 text-primary">{num}%</span>
+  if (num > 0)   return <span className="inline-flex rounded-full border border-warning/30 px-2 py-0.5 text-xs font-bold bg-warning/15 text-warning">{num}%</span>
+  return <span className="inline-flex rounded-full border border-border-soft/30 px-2 py-0.5 text-xs font-bold bg-panel-soft text-subtle">0%</span>
 }
 
 function BarChartSimple({ data, height = 160 }) {
   if (!data || data.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-[#737686]">
+      <div className="flex h-40 items-center justify-center text-sm text-subtle">
         Không có dữ liệu trong khoảng thời gian này.
       </div>
     )
@@ -76,7 +61,7 @@ function BarChartSimple({ data, height = 160 }) {
     <div className="overflow-x-auto">
       <svg width={svgWidth} height={height + 30} className="block">
         {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-          <line key={pct} x1={0} x2={svgWidth} y1={height - pct * height} y2={height - pct * height} stroke="#e5e7eb" strokeWidth={1} />
+          <line key={pct} x1={0} x2={svgWidth} y1={height - pct * height} y2={height - pct * height} stroke="rgba(43,92,146,0.2)" strokeWidth={1} />
         ))}
         {data.map((d, i) => {
           const barH = Math.max((Number(d.tickets_sold) / maxVal) * height, 2)
@@ -85,7 +70,7 @@ function BarChartSimple({ data, height = 160 }) {
           const isHighest = Number(d.tickets_sold) === maxVal
           return (
             <g key={`${d.day}-${i}`}>
-              <rect x={x} y={y} width={barWidth} height={barH} rx={3} fill={isHighest ? '#2563eb' : '#93c5fd'}>
+              <rect x={x} y={y} width={barWidth} height={barH} rx={3} fill={isHighest ? '#2b5c92' : '#b3cde0'}>
                 <title>{`${d.day}: ${Number(d.tickets_sold).toLocaleString('vi-VN')} vé · ${fmtCurrency(d.revenue)}`}</title>
               </rect>
             </g>
@@ -95,7 +80,7 @@ function BarChartSimple({ data, height = 160 }) {
           const step = Math.max(1, Math.floor(data.length / 6))
           if (i % step !== 0) return null
           return (
-            <text key={`lbl-${i}`} x={i * gap + gap / 2} y={height + 20} textAnchor="middle" fontSize={10} fill="#737686">
+            <text key={`lbl-${i}`} x={i * gap + gap / 2} y={height + 20} textAnchor="middle" fontSize={10} fill="#b3cde0">
               {d.day ? String(d.day).slice(5) : ''}
             </text>
           )
@@ -169,14 +154,14 @@ export function OrganizerTicketSalesPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-4 sm:flex-row">
             <label className="flex-1">
-              <span className="block text-sm font-semibold text-[#434655]">Sự kiện</span>
+              <span className="block text-sm font-semibold text-subtle">Sự kiện</span>
               {eventsLoading ? (
-                <div className="mt-2 flex h-10 items-center gap-2 text-sm text-[#737686]">
+                <div className="mt-2 flex h-10 items-center gap-2 text-sm text-subtle">
                   <Loader2 className="size-4 animate-spin" /> Đang tải...
                 </div>
               ) : (
                 <select
-                  className="mt-2 h-10 w-full rounded-md border border-[#c3c6d7] bg-white px-3 text-sm"
+                  className="org-input"
                   value={selectedEventId}
                   onChange={(e) => setSelectedEventId(e.target.value)}
                 >
@@ -189,17 +174,17 @@ export function OrganizerTicketSalesPage() {
             </label>
 
             <div>
-              <span className="block text-sm font-semibold text-[#434655]">Khoảng thời gian</span>
+              <span className="block text-sm font-semibold text-subtle">Khoảng thời gian</span>
               <div className="mt-2 flex gap-2">
                 {PRESETS.map((p) => (
                   <button
                     key={p.days}
                     type="button"
                     onClick={() => setPreset(p.days)}
-                    className={`h-10 rounded-md border px-4 text-sm font-semibold transition ${
+                    className={`h-10 rounded-xl border px-4 text-sm font-semibold transition ${
                       preset === p.days
-                        ? 'border-primary bg-primary text-white'
-                        : 'border-[#c3c6d7] bg-white text-[#434655] hover:border-primary hover:bg-[#f1fbff]'
+                        ? 'border-primary bg-tertiary text-white'
+                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-content'
                     }`}
                   >
                     {p.label}
@@ -213,7 +198,7 @@ export function OrganizerTicketSalesPage() {
             type="button"
             onClick={loadAnalytics}
             disabled={loading}
-            className="inline-flex h-10 items-center gap-2 self-end rounded-md border border-[#c3c6d7] bg-white px-4 text-sm font-semibold text-[#434655] transition hover:border-primary hover:bg-[#f1fbff] disabled:opacity-50"
+            className="admin-secondary inline-flex h-10 items-center gap-2 self-end disabled:opacity-50"
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
             Làm mới
@@ -222,7 +207,7 @@ export function OrganizerTicketSalesPage() {
       </OrganizerPanel>
 
       {error && (
-        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mb-5 rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
           {error}
         </div>
       )}
@@ -240,24 +225,24 @@ export function OrganizerTicketSalesPage() {
               label="Tổng vé đã bán"
               value={Number(overall.total_tickets_sold).toLocaleString('vi-VN')}
               sub={`${Number(overall.total_orders).toLocaleString()} đơn hàng`}
-              iconBg="bg-blue-50"
-              iconColor="text-blue-600"
+              accentBg="bg-tertiary/15"
+              accentColor="text-primary"
             />
             <StatCard
               icon={CircleDollarSign}
               label="Doanh thu từ vé"
               value={fmtShort(overall.total_revenue)}
               sub={fmtCurrency(overall.total_revenue)}
-              iconBg="bg-green-50"
-              iconColor="text-green-600"
+              accentBg="bg-success/15"
+              accentColor="text-success"
             />
             <StatCard
               icon={TrendingUp}
               label="Giá vé trung bình"
               value={fmtCurrency(overall.avg_ticket_price)}
               sub="Trung bình mỗi vé"
-              iconBg="bg-amber-50"
-              iconColor="text-amber-600"
+              accentBg="bg-warning/15"
+              accentColor="text-warning"
             />
             <StatCard
               icon={ShoppingCart}
@@ -266,8 +251,8 @@ export function OrganizerTicketSalesPage() {
               sub={overall.total_orders > 0
                 ? `TB ${(Number(overall.total_tickets_sold) / Number(overall.total_orders)).toFixed(1)} vé/đơn`
                 : '—'}
-              iconBg="bg-purple-50"
-              iconColor="text-purple-600"
+              accentBg="bg-ai/15"
+              accentColor="text-ai"
             />
           </div>
 
@@ -275,15 +260,15 @@ export function OrganizerTicketSalesPage() {
           <OrganizerPanel className="mb-6">
             <div className="mb-4 flex items-center gap-2">
               <BarChart3 className="size-5 text-primary" />
-              <h2 className="font-bold text-[#111827]">Lượng vé bán theo ngày</h2>
-              <span className="ml-auto text-xs text-[#737686]">
+              <h2 className="font-bold text-content">Lượng vé bán theo ngày</h2>
+              <span className="ml-auto text-xs text-subtle">
                 <CalendarRange className="mr-1 inline size-3" />
                 {PRESETS.find((p) => p.days === preset)?.label}
               </span>
             </div>
             <BarChartSimple data={dailySales} />
             {dailySales.length > 0 && (
-              <p className="mt-2 text-center text-xs text-[#737686]">
+              <p className="mt-2 text-center text-xs text-subtle">
                 Tổng: {dailySales.reduce((s, d) => s + Number(d.tickets_sold), 0).toLocaleString('vi-VN')} vé
                 · {fmtCurrency(dailySales.reduce((s, d) => s + Number(d.revenue), 0))}
               </p>
@@ -296,12 +281,12 @@ export function OrganizerTicketSalesPage() {
               <OrganizerPanel>
                 <div className="mb-4 flex items-center gap-2">
                   <Ticket className="size-5 text-primary" />
-                  <h2 className="font-bold text-[#111827]">Bán hàng theo loại vé</h2>
+                  <h2 className="font-bold text-content">Bán hàng theo loại vé</h2>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#e5e7eb] text-xs uppercase text-[#737686]">
+                      <tr className="border-b border-border-soft/30 text-xs uppercase text-subtle">
                         <th className="pb-3 text-left font-bold">Loại vé</th>
                         <th className="pb-3 text-right font-bold">Sức chứa</th>
                         <th className="pb-3 text-right font-bold">Đã bán</th>
@@ -311,18 +296,18 @@ export function OrganizerTicketSalesPage() {
                     </thead>
                     <tbody>
                       {byTicketType.map((tt) => (
-                        <tr key={tt.ticket_type_id} className="border-b border-[#f2f4f6] last:border-0 hover:bg-[#f7f9fb]">
+                        <tr key={tt.ticket_type_id} className="border-b border-border-soft/20 last:border-0 hover:bg-panel-soft/50">
                           <td className="py-3">
-                            <p className="font-semibold text-[#111827]">{tt.ticket_type_name}</p>
-                            <p className="text-xs text-[#737686]">{fmtCurrency(tt.unit_price)}/vé</p>
+                            <p className="font-semibold text-content">{tt.ticket_type_name}</p>
+                            <p className="text-xs text-subtle">{fmtCurrency(tt.unit_price)}/vé</p>
                           </td>
-                          <td className="py-3 text-right text-[#434655]">
+                          <td className="py-3 text-right text-subtle">
                             {Number(tt.capacity).toLocaleString('vi-VN')}
                           </td>
-                          <td className="py-3 text-right font-semibold text-[#111827]">
+                          <td className="py-3 text-right font-semibold text-content">
                             {Number(tt.sold_quantity).toLocaleString('vi-VN')}
                           </td>
-                          <td className="py-3 text-right font-semibold text-green-700">
+                          <td className="py-3 text-right font-semibold text-success">
                             {fmtShort(tt.revenue)}
                           </td>
                           <td className="py-3 text-right">
@@ -332,15 +317,15 @@ export function OrganizerTicketSalesPage() {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-[#e0e3e5] bg-[#f7f9fb]">
-                        <td className="py-3 font-bold text-[#111827]">Tổng cộng</td>
-                        <td className="py-3 text-right font-bold text-[#434655]">
+                      <tr className="border-t-2 border-border-soft/40 bg-panel-soft/50">
+                        <td className="py-3 font-bold text-content">Tổng cộng</td>
+                        <td className="py-3 text-right font-bold text-subtle">
                           {byTicketType.reduce((s, tt) => s + Number(tt.capacity), 0).toLocaleString('vi-VN')}
                         </td>
-                        <td className="py-3 text-right font-bold text-[#111827]">
+                        <td className="py-3 text-right font-bold text-content">
                           {Number(overall.total_tickets_sold).toLocaleString('vi-VN')}
                         </td>
-                        <td className="py-3 text-right font-bold text-green-700">
+                        <td className="py-3 text-right font-bold text-success">
                           {fmtCurrency(overall.total_revenue)}
                         </td>
                         <td />
@@ -356,30 +341,30 @@ export function OrganizerTicketSalesPage() {
               <OrganizerPanel>
                 <div className="mb-4 flex items-center gap-2">
                   <Users className="size-5 text-primary" />
-                  <h2 className="font-bold text-[#111827]">Tỷ lệ lấp đầy theo sự kiện</h2>
+                  <h2 className="font-bold text-content">Tỷ lệ lấp đầy theo sự kiện</h2>
                 </div>
                 <div className="space-y-4">
                   {byEvent.map((ev) => (
-                    <div key={ev.event_id} className="rounded-lg border border-[#e5e7eb] p-4">
+                    <div key={ev.event_id} className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-[#111827]">{ev.event_title}</p>
-                          <p className="text-xs text-[#737686]">
+                          <p className="truncate font-semibold text-content">{ev.event_title}</p>
+                          <p className="text-xs text-subtle">
                             {fmtDate(ev.start_time)} · {Number(ev.sold_quantity).toLocaleString('vi-VN')}/{Number(ev.total_capacity).toLocaleString('vi-VN')} vé
                           </p>
                         </div>
                         <OccupancyBadge rate={ev.occupancy_rate} />
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#e0e3e5]">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-panel-soft">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
-                            ev.occupancy_rate >= 80 ? 'bg-green-500' : ev.occupancy_rate >= 50 ? 'bg-primary' : 'bg-amber-400'
+                            ev.occupancy_rate >= 80 ? 'bg-success' : ev.occupancy_rate >= 50 ? 'bg-primary' : 'bg-warning'
                           }`}
                           style={{ width: `${Math.min(ev.occupancy_rate, 100)}%` }}
                         />
                       </div>
-                      <p className="mt-2 flex items-center justify-between text-xs text-[#737686]">
-                        <span>Doanh thu: <span className="font-semibold text-green-700">{fmtShort(ev.revenue)}</span></span>
+                      <p className="mt-2 flex items-center justify-between text-xs text-subtle">
+                        <span>Doanh thu: <span className="font-semibold text-success">{fmtShort(ev.revenue)}</span></span>
                         <span>{ev.total_orders} đơn</span>
                       </p>
                     </div>
@@ -391,9 +376,9 @@ export function OrganizerTicketSalesPage() {
 
           {overall.total_tickets_sold === 0 && (
             <OrganizerPanel className="py-14 text-center">
-              <Ticket className="mx-auto size-10 text-[#c3c6d7]" />
-              <p className="mt-3 font-bold text-[#565e74]">Chưa có vé nào được bán trong khoảng thời gian này.</p>
-              <p className="mt-1 text-sm text-[#737686]">
+              <Ticket className="mx-auto size-10 text-subtle" />
+              <p className="mt-3 font-bold text-content">Chưa có vé nào được bán trong khoảng thời gian này.</p>
+              <p className="mt-1 text-sm text-subtle">
                 Thử mở rộng khoảng thời gian hoặc chọn sự kiện khác.
               </p>
             </OrganizerPanel>

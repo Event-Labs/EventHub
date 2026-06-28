@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
-@theme {
+:root {
   --color-primary: #b3cde0;
   --color-secondary: #2b5c92;
   --color-tertiary: #f97316;
@@ -18,6 +18,44 @@
   --color-content: #f8fafc;
   --color-subtle: #cbd5e1;
   --color-muted: #b3cde0;
+}
+
+html.light {
+  --color-primary: #2b5c92;
+  --color-secondary: #1e3a8a;
+  --color-tertiary: #ea580c;
+  --color-ai: #8b5cf6;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-neutral: #6b7280;
+  --color-background: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-panel: #ffffff;
+  --color-panel-soft: #f8fafc;
+  --color-border-soft: #cbd5e1;
+  --color-content: #0f172a;
+  --color-subtle: #475569;
+  --color-muted: #64748b;
+}
+
+@theme {
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-tertiary: var(--color-tertiary);
+  --color-ai: var(--color-ai);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-neutral: var(--color-neutral);
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-panel: var(--color-panel);
+  --color-panel-soft: var(--color-panel-soft);
+  --color-border-soft: var(--color-border-soft);
+  --color-content: var(--color-content);
+  --color-subtle: var(--color-subtle);
+  --color-muted: var(--color-muted);
   --font-sans: Inter, system-ui, sans-serif;
   --font-display: Geist, Inter, system-ui, sans-serif;
 }
@@ -25,9 +63,10 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: #081126;
-  color: #f8fafc;
+  background: var(--color-background);
+  color: var(--color-content);
   font-family: Inter, system-ui, sans-serif;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 * {
@@ -42,66 +81,82 @@ textarea {
   font: inherit;
 }
 
-.admin-primary {
+/* â”€â”€ Portal Button System (dark & light theme) â”€â”€ */
+.admin-primary,
+.org-btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 0.375rem;
-  background: #38bdf8;
-  padding: 0.625rem 1rem;
-  color: #020617;
+  border-radius: 0.75rem;
+  background: var(--color-tertiary);
+  padding: 0.6rem 1.1rem;
+  color: #ffffff;
   font-size: 0.875rem;
-  font-weight: 800;
-  transition: background-color 150ms ease, transform 150ms ease;
+  font-weight: 700;
+  transition: all 150ms ease;
+  white-space: nowrap;
 }
 
-.admin-primary:hover {
-  background: #7dd3fc;
+.admin-primary:hover,
+.org-btn-primary:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.28);
 }
 
-.admin-primary:active {
-  transform: scale(0.98);
+.admin-primary:active,
+.org-btn-primary:active {
+  transform: scale(0.97);
 }
 
-.admin-secondary {
+.admin-secondary,
+.org-btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border: 1px solid #c3c6d7;
-  border-radius: 0.375rem;
-  background: #ffffff;
-  padding: 0.625rem 0.875rem;
-  color: #191c1e;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.75rem;
+  background: transparent;
+  padding: 0.6rem 1rem;
+  color: var(--color-subtle);
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 700;
+  transition: all 150ms ease;
 }
 
-.admin-secondary:hover {
-  background: #f2f4f6;
-  color: #191c1e;
+.admin-secondary:hover,
+.org-btn-secondary:hover {
+  border-color: var(--color-tertiary);
+  background: var(--color-panel-soft);
+  color: var(--color-content);
 }
 
-.admin-input {
+.admin-input,
+.org-input {
   margin-top: 0.5rem;
   min-height: 2.75rem;
   width: 100%;
-  border-radius: 0.25rem;
-  border: 1px solid #c3c6d7;
-  background: #f7f9fb;
-  padding: 0 0.75rem;
-  color: #191c1e;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-panel-soft);
+  padding: 0 0.875rem;
+  color: var(--color-content);
   font-size: 0.875rem;
   font-weight: 600;
   outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  transition: all 150ms ease;
 }
 
-.admin-input:focus {
-  border-color: #38bdf8;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+.admin-input:focus,
+.org-input:focus {
+  border-color: var(--color-tertiary);
+  box-shadow: 0 0 0 3px rgba(179, 205, 224, 0.15);
+}
+
+.admin-input::placeholder,
+.org-input::placeholder {
+  color: var(--color-neutral);
 }
 
 .glass-panel {
@@ -116,11 +171,9 @@ textarea {
 }
 
 .event-card-gradient {
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(8, 17, 38, 0.96) 100%
-  );
+  background: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(8, 17, 38, 0.96) 100%);
 }
 
 .event-card-stage {
@@ -147,9 +200,7 @@ textarea {
 
 .stage-orbit-card {
   transform:
-    translate3d(var(--stage-x), var(--stage-y), var(--stage-z))
-    rotateY(var(--stage-rotate))
-    scale(var(--stage-scale));
+    translate3d(var(--stage-x), var(--stage-y), var(--stage-z)) rotateY(var(--stage-rotate)) scale(var(--stage-scale));
   opacity: var(--stage-opacity);
   filter: blur(var(--stage-blur));
   transition:
@@ -220,11 +271,9 @@ textarea {
 }
 
 .ticket-mesh {
-  background-image: radial-gradient(
-    circle at 2px 2px,
-    rgba(255, 255, 255, 0.06) 1px,
-    transparent 0
-  );
+  background-image: radial-gradient(circle at 2px 2px,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 0);
   background-size: 24px 24px;
 }
 
@@ -236,25 +285,26 @@ textarea {
   position: relative;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
+
   .ticket-card::before,
   .ticket-card::after {
     content: '';
     position: absolute;
-    right: calc(38% - 20px);
+    right: calc(36% - 14px);
     z-index: 3;
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: 999px;
     background: #0b1120;
   }
 
   .ticket-card::before {
-    top: -20px;
+    top: -14px;
   }
 
   .ticket-card::after {
-    bottom: -20px;
+    bottom: -14px;
   }
 
   .ticket-card-main::after {
@@ -265,7 +315,6 @@ textarea {
     top: 0;
     border-right: 2px dashed rgba(15, 23, 42, 0.95);
   }
-
 }
 
 .success-glow {
@@ -286,11 +335,47 @@ textarea {
     top: 0%;
     opacity: 0;
   }
+
   50% {
     opacity: 1;
   }
+
   100% {
     top: 100%;
     opacity: 0;
   }
 }
+.portal-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-tertiary) 70%, var(--color-primary) 30%) transparent;
+}
+
+.portal-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.portal-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 32px;
+  border-radius: 999px;
+}
+
+.portal-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-tertiary));
+  border-radius: 999px;
+}
+
+.portal-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-tertiary), var(--color-primary));
+}
+
+/* Logo luôn giữ nguyên màu gốc, không bị ảnh hưởng bởi light/dark mode */
+.logo-fixed {
+  filter: none !important;
+}
+
+html.light .logo-fixed {
+  filter: none !important;
+  /* Nếu logo có màu trắng/sáng, dùng drop-shadow để làm nổi trên nền sáng */
+}
+

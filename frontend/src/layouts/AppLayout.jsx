@@ -8,6 +8,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
+import { clearAuthSession, getAuthToken, getStoredUser, isAuthenticated } from '@/lib/auth.js'
 
 const centerNavItems = [
   ['Sự kiện', '/events'],
@@ -54,6 +55,8 @@ const footerSections = [
   },
 ]
 
+const logoSrc = '/images/LogoEH.png'
+
 const navLinkClass = ({ isActive }) =>
   `relative z-10 px-3 py-2 text-sm font-bold transition ${
     isActive ? 'text-primary' : 'text-subtle hover:text-primary'
@@ -73,19 +76,8 @@ export function AppLayout() {
 
   useEffect(() => {
     const syncAuth = () => {
-      const isLoggedIn =
-        Boolean(localStorage.getItem('eventhub-token')) ||
-        localStorage.getItem('eventhub-auth') === 'true'
-      const storedUser = localStorage.getItem('eventhub-user')
-      let parsedUser = null
-
-      if (isLoggedIn && storedUser) {
-        try {
-          parsedUser = JSON.parse(storedUser)
-        } catch {
-          parsedUser = null
-        }
-      }
+      const isLoggedIn = isAuthenticated()
+      const parsedUser = isLoggedIn ? getStoredUser() : null
 
       setLoggedIn(isLoggedIn)
       setCurrentUser(parsedUser)
@@ -101,10 +93,7 @@ export function AppLayout() {
   }, [])
 
   const logout = () => {
-    localStorage.removeItem('eventhub-auth')
-    localStorage.removeItem('eventhub-token')
-    localStorage.removeItem('eventhub-user')
-    window.dispatchEvent(new Event('eventhub-auth'))
+    clearAuthSession()
     setOpen(false)
     setNotificationOpen(false)
     navigate('/')
@@ -155,7 +144,7 @@ export function AppLayout() {
   useEffect(() => {
     if (!loggedIn) return undefined
 
-    const token = localStorage.getItem('eventhub-token')
+    const token = getAuthToken()
     if (!token) return undefined
 
     const source = new EventSource(getNotificationStreamUrl(token))
@@ -181,9 +170,7 @@ export function AppLayout() {
       <header className="sticky top-0 z-50 border-b border-primary/15 bg-[#081126]/95 shadow-xl backdrop-blur">
         <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
-            <span className="font-display text-xl font-extrabold text-primary">
-              EventHub
-            </span>
+            <img src={logoSrc} alt="EventHub" className="h-10 w-[176px] object-cover object-center mix-blend-screen" />
           </NavLink>
 
           <nav className="relative hidden items-center justify-center gap-1 md:flex">
@@ -370,9 +357,7 @@ export function AppLayout() {
       <footer className="border-t border-primary/15 bg-[#081126]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
-            <div className="font-display text-2xl font-extrabold text-primary">
-              EventHub
-            </div>
+            <img src={logoSrc} alt="EventHub" className="h-12 w-[212px] object-cover object-center mix-blend-screen" />
             <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
               Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành, check-in QR
               và hỗ trợ ban tổ chức bằng AI.

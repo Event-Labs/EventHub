@@ -1,3 +1,4 @@
+import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BriefcaseBusiness,
@@ -13,7 +14,7 @@ import {
   Utensils,
   Waves,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
 import {
@@ -187,7 +188,7 @@ export function HomePage() {
   }
 
   const handleFavorite = (event) => {
-    if (!localStorage.getItem('eventhub-token')) {
+    if (!getAuthToken()) {
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
       return
     }
@@ -222,6 +223,7 @@ export function HomePage() {
       </section>
 
       <section className="relative -mt-1 bg-[linear-gradient(180deg,#081126_0%,#0a1538_46%,#081126_100%)] pb-28 pt-12">
+        <ScrollReveal>
         <form
           onSubmit={handleSearch}
           className="relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
@@ -241,6 +243,7 @@ export function HomePage() {
             </button>
           </div>
         </form>
+        </ScrollReveal>
 
         <section className="hidden">
           <SectionTitle title="Sự kiện nổi bật gần bạn" />
@@ -258,41 +261,44 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="bg-transparent pt-12">
+        <ScrollReveal as="section" className="bg-transparent pt-12">
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionTitle
               title="Xu hướng tuần này"
               action="Xem tất cả"
             />
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-              {(trendingEvents.length ? trendingEvents : featuredEvents).slice(0, 4).map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  compact
-                  onFavoriteToggle={handleFavorite}
-                  favoriteBusy={favoriteMutation.isPending}
-                />
+              {(trendingEvents.length ? trendingEvents : featuredEvents).slice(0, 4).map((event, index) => (
+                <ScrollReveal key={event.id} delay={index * 90}>
+                  <EventCard
+                    event={event}
+                    compact
+                    onFavoriteToggle={handleFavorite}
+                    favoriteBusy={favoriteMutation.isPending}
+                  />
+                </ScrollReveal>
               ))}
             </div>
           </div>
-        </section>
+        </ScrollReveal>
       </section>
 
       <section className="relative -mt-32 bg-[linear-gradient(180deg,rgba(8,17,38,0)_0%,#081126_18%,#081126_72%,#071022_100%)] pb-12 pt-40">
         <div className="category-light-ribbon" />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,rgba(7,16,34,0)_0%,#071022_100%)]" />
         <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SectionTitle title="Khám phá thể loại" />
+          <ScrollReveal>
+            <SectionTitle title="Khám phá thể loại" />
+          </ScrollReveal>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
             {categories.slice(0, 6).map((category, index) => {
               const Icon = categoryIcons[index % categoryIcons.length]
               return (
+                <ScrollReveal key={category.id} delay={index * 70}>
                 <button
-                  key={category.id}
                   type="button"
                   onClick={() => handleCategorySearch(category.slug)}
-                  className="glass-panel group min-h-36 rounded-[24px] p-5 text-center transition duration-500 ease-out hover:border-primary/60 hover:bg-primary/10"
+                  className="glass-panel group min-h-36 w-full rounded-[24px] p-5 text-center transition duration-500 ease-out hover:border-primary/60 hover:bg-primary/10"
                 >
                   <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/10 text-primary transition group-hover:scale-110">
                     <Icon className="size-6" />
@@ -300,6 +306,7 @@ export function HomePage() {
                   <span className="mt-4 block font-bold text-white">{category.name}</span>
                   <span className="mt-1 block text-xs text-muted">{category.event_count || 0} sự kiện</span>
                 </button>
+                </ScrollReveal>
               )
             })}
           </div>
@@ -525,6 +532,43 @@ function HeroCard({ event, active, offset, onClick }) {
   )
 }
 
+function ScrollReveal({ as: Component = 'div', children, className = '', delay = 0 }) {
+  const ref = useRef(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return undefined
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        setVisible(true)
+        observer.unobserve(entry.target)
+      },
+      {
+        rootMargin: '0px 0px -12% 0px',
+        threshold: 0.12,
+      },
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <Component
+      ref={ref}
+      className={`${className} transform-gpu transition-all duration-700 ease-out ${
+        visible ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-8 opacity-0 blur-sm'
+      }`}
+      style={{ transitionDelay: visible ? `${delay}ms` : '0ms' }}
+    >
+      {children}
+    </Component>
+  )
+}
+
 function TimelineEventSection({
   title,
   events,
@@ -534,12 +578,16 @@ function TimelineEventSection({
   expired = false,
 }) {
   return (
-    <section>
+    <ScrollReveal as="section">
       <SectionTitle title={title} tight />
       {events.length ? (
         <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {events.map((event) => (
-            <div key={event.id} className={expired ? 'relative opacity-75 grayscale-[0.25]' : 'relative'}>
+          {events.map((event, index) => (
+            <ScrollReveal
+              key={event.id}
+              className={expired ? 'relative grayscale-[0.25]' : 'relative'}
+              delay={index * 90}
+            >
               {expired && (
                 <span className="absolute left-4 top-4 z-30 rounded-full border border-white/20 bg-slate-950/75 px-3 py-1 text-xs font-extrabold uppercase text-white backdrop-blur">
                   Hết hạn
@@ -551,7 +599,7 @@ function TimelineEventSection({
                 onFavoriteToggle={onFavoriteToggle}
                 favoriteBusy={favoriteBusy}
               />
-            </div>
+            </ScrollReveal>
           ))}
         </div>
       ) : (
@@ -559,7 +607,7 @@ function TimelineEventSection({
           {emptyMessage}
         </div>
       )}
-    </section>
+    </ScrollReveal>
   )
 }
 

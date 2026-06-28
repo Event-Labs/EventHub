@@ -61,6 +61,30 @@ class PromotionsRepository {
     return rows[0];
   }
 
+  async findAvailableForPublicEvent(eventId) {
+    const query = `
+      SELECT
+        pc.*,
+        e.title as event_name,
+        (SELECT COUNT(*) FROM promo_code_usages pcu WHERE pcu.promo_code_id = pc.id) as usage_count
+      FROM events e
+      JOIN promo_codes pc ON pc.organizer_id = e.organizer_id
+      WHERE e.id = $1
+        AND e.status = 'PUBLISHED'
+        AND e.visibility = 'PUBLIC'
+        AND e.approval_status = 'APPROVED'
+        AND e.deleted_at IS NULL
+        AND pc.is_active = true
+        AND (pc.event_id = e.id OR pc.event_id IS NULL)
+        AND (pc.start_time IS NULL OR pc.start_time <= now())
+        AND (pc.end_time IS NULL OR pc.end_time >= now())
+        AND (pc.usage_limit IS NULL OR pc.used_count < pc.usage_limit)
+      ORDER BY pc.discount_value DESC, pc.end_time ASC
+    `;
+    const { rows } = await db.query(query, [eventId]);
+    return rows;
+  }
+
   async create(data) {
     const {
       organizer_id,

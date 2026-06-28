@@ -1,3 +1,4 @@
+import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarDays, CheckCircle2, Clock3, MapPin, Ticket } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -49,7 +50,7 @@ export function MyTicketsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [status, setStatus] = useState('ALL')
-  const isAuthenticated = Boolean(localStorage.getItem('eventhub-token'))
+  const isAuthenticated = hasAuthSession()
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -74,16 +75,16 @@ export function MyTicketsPage() {
           title="Vé của tôi"
           description="Quản lý vé đã mua, trạng thái sử dụng và thông tin check-in"
         />
-        <div className="inline-flex w-full rounded-lg border border-border-soft bg-panel p-1 md:w-auto">
+        <div className="grid w-full grid-cols-4 rounded-full border border-white/10 bg-[#151d34] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:w-[460px]">
           {FILTERS.map((item) => (
             <button
               key={item.value}
               type="button"
               onClick={() => setStatus(item.value)}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-bold transition md:flex-none ${
+              className={`min-w-0 rounded-full px-3 py-3 text-sm font-extrabold tracking-wide transition ${
                 status === item.value
-                  ? 'bg-primary text-slate-950'
-                  : 'text-muted hover:bg-panel-soft hover:text-white'
+                  ? 'bg-[#101848] text-slate-100 shadow-sm'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
               }`}
             >
               {item.label}
@@ -108,7 +109,7 @@ export function MyTicketsPage() {
         </div>
       )}
 
-      <div className="mt-8 space-y-6">
+      <div className="mt-8 grid gap-5 md:grid-cols-2">
         {tickets.map((ticket) => (
           <TicketCard key={ticket.id} ticket={ticket} />
         ))}
@@ -120,37 +121,36 @@ export function MyTicketsPage() {
 function TicketCard({ ticket }) {
   const meta = statusMeta(ticket)
   const venue = venueLine(ticket)
+  const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ') || 'N/A'
   const seat = ticket.seat?.label || 'Free seating'
 
   return (
     <Link
       to={`/tickets/${ticket.id}`}
-      className="ticket-card group grid overflow-hidden rounded-lg border border-border-soft bg-panel transition hover:border-primary/70 md:grid-cols-[minmax(0,1fr)_38%]"
+      className="ticket-card group grid min-h-full overflow-hidden rounded-lg bg-panel transition sm:grid-cols-[minmax(0,1fr)_36%]"
     >
-      <section className="ticket-card-main flex min-h-72 flex-col justify-between p-6 md:p-8">
+      <section className="ticket-card-main flex min-h-56 flex-col justify-between p-4">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase ${meta.className}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase ${meta.className}`}>
               {meta.label}
             </span>
-            <span className="font-mono text-xs font-bold text-subtle">{ticket.ticket_code}</span>
+            <span className="font-mono text-[11px] font-bold text-subtle">{ticket.ticket_code}</span>
           </div>
-          <h2 className="mt-4 max-w-2xl font-display text-2xl font-black leading-tight text-white md:text-3xl">
+          <h2 className="mt-3 line-clamp-2 font-display text-xl font-black leading-tight text-white">
             {ticket.event.title}
           </h2>
         </div>
 
-        <div className="mt-8 grid gap-4 text-sm text-muted sm:grid-cols-2">
+        <div className="mt-5 grid gap-3 text-xs text-muted">
           <InfoLine icon={CalendarDays} value={formatDateTime(ticket.session?.start_time)} />
           <InfoLine icon={Ticket} value={`${ticket.ticket_type.name} - ${seat}`} />
-          <InfoLine icon={MapPin} value={ticket.venue?.name || 'N/A'} />
-          <InfoLine icon={CheckCircle2} value={ticket.check_in_status === 'CHECKED_IN' ? 'Đã check-in' : 'Chưa check-in'} />
+          <InfoLine icon={MapPin} value={venueText} wrap />
+          <InfoLine icon={CheckCircle2} value={ticket.check_in_status === 'CHECKED_IN' ? '\u0110\u00e3 check-in' : 'Ch\u01b0a check-in'} />
         </div>
-
-        {venue && <p className="mt-4 text-sm text-subtle">{venue}</p>}
       </section>
 
-      <section className="relative min-h-64 overflow-hidden bg-slate-950 md:min-h-full">
+      <section className="relative min-h-56 overflow-hidden bg-slate-950">
         {ticket.event.thumbnail_url ? (
           <img
             src={ticket.event.thumbnail_url}
@@ -158,25 +158,25 @@ function TicketCard({ ticket }) {
             className="h-full w-full object-cover opacity-80 transition duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="grid h-full min-h-64 place-items-center bg-panel-soft">
-            <Ticket className="size-14 text-primary" />
+          <div className="grid h-full min-h-56 place-items-center bg-panel-soft">
+            <Ticket className="size-10 text-primary" />
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-slate-950/20" />
-        <div className="absolute bottom-5 left-5 right-5 flex items-center gap-2 rounded-md bg-slate-950/70 px-3 py-2 text-sm font-bold text-white backdrop-blur">
-          <Clock3 className="size-4 text-primary" />
-          Mua lúc {formatDateTime(ticket.order?.created_at)}
+        <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2 rounded-md bg-slate-950/70 px-2.5 py-2 text-xs font-bold text-white backdrop-blur">
+          <Clock3 className="size-3.5 shrink-0 text-primary" />
+          <span className="truncate">{'Mua l\u00fac '}{formatDateTime(ticket.order?.created_at)}</span>
         </div>
       </section>
     </Link>
   )
 }
 
-function InfoLine({ icon: Icon, value }) {
+function InfoLine({ icon: Icon, value, wrap = false }) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-2">
-      <Icon className="size-4 shrink-0 text-primary" />
-      <span className="truncate">{value}</span>
+    <span className={`inline-flex min-w-0 gap-2 ${wrap ? 'items-start' : 'items-center'}`}>
+      <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
+      <span className={wrap ? 'whitespace-normal break-words leading-relaxed' : 'truncate'}>{value}</span>
     </span>
   )
 }

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Check, Clock, Crown, Layers, Loader2, Shield, Star, Users, Zap, X, CalendarDays, TrendingUp } from 'lucide-react'
+import { Check, Clock, Crown, Layers, Loader2, Shield, Star, Users, Zap, X, CalendarDays } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchSubscriptionsForOrganizer, fetchCurrentPlan, subscribeToPlan } from '@/services/subscriptions.js'
@@ -55,14 +55,14 @@ export function OrganizerSubscriptionsPage() {
       {isLoading && (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="size-6 animate-spin text-primary" />
-          <span className="ml-3 text-sm font-semibold text-[#434655]">Đang tải danh sách gói...</span>
+          <span className="ml-3 text-sm font-semibold text-subtle">Đang tải danh sách gói...</span>
         </div>
       )}
 
       {/* Error state */}
       {isError && (
-        <OrganizerPanel className="border-red-200 bg-red-50">
-          <p className="text-sm font-semibold text-red-700">
+        <OrganizerPanel className="border-error/30 bg-error/10">
+          <p className="text-sm font-semibold text-error">
             Không thể tải danh sách gói dịch vụ. Vui lòng thử lại sau.
           </p>
         </OrganizerPanel>
@@ -73,15 +73,13 @@ export function OrganizerSubscriptionsPage() {
           {/* All plans in one row */}
           {activePlans.length === 0 ? (
             <OrganizerPanel>
-              <p className="text-center text-sm font-semibold text-[#737686]">
+              <p className="text-center text-sm font-semibold text-muted">
                 Hiện chưa có gói dịch vụ nào đang hoạt động.
               </p>
             </OrganizerPanel>
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-2">
               {activePlans.map((plan, index) => {
-                // currentPlan comes from organizer_subscriptions JOIN subscriptions,
-                // so subscription_id is the plan's id
                 const isCurrentPlan = currentPlan?.subscription_id === plan.id
                 return (
                   <PlanCard
@@ -104,7 +102,7 @@ export function OrganizerSubscriptionsPage() {
           ) : (
             <div className="mt-8">
               <OrganizerPanel className="border-dashed">
-                <p className="text-center text-sm font-semibold text-[#737686]">
+                <p className="text-center text-sm font-semibold text-muted">
                   Bạn chưa đăng ký gói dịch vụ nào. Hãy chọn một gói phù hợp bên trên.
                 </p>
               </OrganizerPanel>
@@ -123,38 +121,38 @@ export function OrganizerSubscriptionsPage() {
 
       {/* Payment Modal */}
       {selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl bg-surface border border-border-soft/30 p-6 shadow-2xl text-content">
             <button
               onClick={() => !isProcessing && setSelectedPlan(null)}
-              className="absolute right-4 top-4 text-[#737686] transition hover:text-[#111827]"
+              className="absolute right-4 top-4 text-muted transition hover:text-content"
             >
               <X className="size-5" />
             </button>
-            <h3 className="mb-1 text-xl font-extrabold text-[#111827]">Xác nhận đăng ký</h3>
-            <p className="mb-5 text-sm text-[#434655]">
-              Bạn đang chọn gói <strong className="text-[#111827]">{selectedPlan.name}</strong>
+            <h3 className="mb-1 text-xl font-extrabold text-content">Xác nhận đăng ký</h3>
+            <p className="mb-5 text-sm text-subtle">
+              Bạn đang chọn gói <strong className="text-content">{selectedPlan.name}</strong>
             </p>
 
-            <div className="mb-6 space-y-2 rounded-lg bg-[#f7f9fb] p-4 text-sm">
+            <div className="mb-6 space-y-2 rounded-xl bg-panel-soft p-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-[#737686]">Thời hạn</span>
-                <span className="font-semibold text-[#111827]">{selectedPlan.duration_days} ngày</span>
+                <span className="text-muted">Thời hạn</span>
+                <span className="font-semibold text-content">{selectedPlan.duration_days} ngày</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#737686]">Giới hạn sự kiện</span>
-                <span className="font-semibold text-[#111827]">
+                <span className="text-muted">Giới hạn sự kiện</span>
+                <span className="font-semibold text-content">
                   {selectedPlan.event_limit === 0 ? 'Không giới hạn' : `${selectedPlan.event_limit} sự kiện`}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#737686]">Giới hạn nhân sự</span>
-                <span className="font-semibold text-[#111827]">
+                <span className="text-muted">Giới hạn nhân sự</span>
+                <span className="font-semibold text-content">
                   {selectedPlan.staff_limit === 0 ? 'Không giới hạn' : `${selectedPlan.staff_limit} người`}
                 </span>
               </div>
-              <div className="flex justify-between border-t border-[#e0e3e5] pt-2">
-                <span className="font-bold text-[#111827]">Tổng thanh toán</span>
+              <div className="flex justify-between border-t border-border-soft/20 pt-2">
+                <span className="font-bold text-content">Tổng thanh toán</span>
                 <span className="text-lg font-extrabold text-primary">
                   {selectedPlan.price === 0 ? 'Miễn phí' : formatMoney(selectedPlan.price)}
                 </span>
@@ -162,7 +160,7 @@ export function OrganizerSubscriptionsPage() {
             </div>
 
             {error && (
-              <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="mb-4 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
                 {error}
               </p>
             )}
@@ -170,7 +168,7 @@ export function OrganizerSubscriptionsPage() {
             <button
               onClick={handlePayment}
               disabled={isProcessing}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-extrabold text-slate-950 transition duration-200 hover:brightness-95 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-tertiary px-4 py-3 text-sm font-extrabold text-white transition duration-200 hover:brightness-95 disabled:opacity-60"
             >
               {isProcessing && <Loader2 className="size-4 animate-spin" />}
               {isProcessing
@@ -190,18 +188,18 @@ export function OrganizerSubscriptionsPage() {
 function StatLine({ icon: Icon, label, value }) {
   return (
     <div className="flex items-center justify-between text-xs">
-      <span className="flex items-center gap-1.5 text-[#737686]">
+      <span className="flex items-center gap-1.5 text-muted">
         <Icon className="size-3 shrink-0" />
         {label}
       </span>
-      <span className="font-bold text-[#111827]">{value}</span>
+      <span className="font-bold text-content">{value}</span>
     </div>
   )
 }
 
 function Pill({ label }) {
   return (
-    <span className="rounded-full bg-[#f2f4f6] px-2 py-0.5 text-[10px] font-bold text-[#434655]">
+    <span className="rounded-full bg-panel-soft px-2 py-0.5 text-[10px] font-bold text-subtle border border-border-soft/10">
       {label}
     </span>
   )
@@ -212,18 +210,18 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
 
   return (
     <div
-      className={`relative flex min-w-[220px] flex-1 flex-col rounded-xl border bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md ${
+      className={`relative flex min-w-[220px] flex-1 flex-col rounded-2xl border bg-surface/80 p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md text-content ${
         isCurrentPlan
-          ? 'border-green-500 ring-2 ring-green-500/20'
+          ? 'border-success ring-2 ring-success/20'
           : highlighted
-            ? 'border-primary ring-2 ring-primary/20'
-            : 'border-[#c3c6d7]'
+            ? 'border-tertiary ring-2 ring-tertiary/20'
+            : 'border-border-soft/30'
       }`}
     >
       {/* Top accent */}
       <div
-        className={`absolute inset-x-0 top-0 h-1 rounded-t-xl ${
-          isCurrentPlan ? 'bg-green-500' : highlighted ? 'bg-primary' : 'bg-[#c3c6d7]'
+        className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl ${
+          isCurrentPlan ? 'bg-success' : highlighted ? 'bg-tertiary' : 'bg-border-soft/20'
         }`}
       />
 
@@ -232,7 +230,7 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
         {isCurrentPlan ? (
           <Badge tone="green">Đang sử dụng</Badge>
         ) : highlighted ? (
-          <Badge tone="blue">Phổ biến</Badge>
+          <Badge tone="orange">Phổ biến</Badge>
         ) : (
           <span className="inline-block h-5" />
         )}
@@ -241,33 +239,33 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
       {/* Icon + Name */}
       <div className="mb-3 flex items-center gap-2">
         <span
-          className={`grid size-8 shrink-0 place-items-center rounded-lg ${
+          className={`grid size-8 shrink-0 place-items-center rounded-xl ${
             isCurrentPlan
-              ? 'bg-green-100 text-green-600'
+              ? 'bg-success/15 text-success border border-success/25'
               : highlighted
-                ? 'bg-primary/10 text-primary'
-                : 'bg-[#f2f4f6] text-[#737686]'
+                ? 'bg-tertiary/10 text-tertiary border border-tertiary/25'
+                : 'bg-panel-soft text-muted border border-border-soft/25'
           }`}
         >
           <Icon className="size-4" />
         </span>
-        <h2 className="text-base font-extrabold text-[#111827]">{plan.name}</h2>
+        <h2 className="text-base font-extrabold text-content">{plan.name}</h2>
       </div>
 
       {/* Price */}
-      <p className="mb-4 text-2xl font-black text-[#111827]">
+      <p className="mb-4 text-2xl font-black text-content">
         {plan.price === 0 ? (
           'Miễn phí'
         ) : (
           <>
             {formatMoney(plan.price)}
-            <span className="text-xs font-semibold text-[#737686]"> /{plan.duration_days} ngày</span>
+            <span className="text-xs font-semibold text-muted"> /{plan.duration_days} ngày</span>
           </>
         )}
       </p>
 
       {/* Key stats */}
-      <div className="mb-4 space-y-2 border-t border-[#f2f4f6] pt-4">
+      <div className="mb-4 space-y-2 border-t border-border-soft/10 pt-4">
         <StatLine icon={Layers} label="Sự kiện / kỳ"
           value={plan.event_limit === 0 ? 'Không giới hạn' : `${plan.event_limit} sự kiện`} />
         <StatLine icon={Users}  label="Nhân sự / sự kiện"
@@ -290,12 +288,12 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
         <button
           onClick={onSubscribe}
           disabled={isCurrentPlan}
-          className={`block w-full rounded-lg py-2.5 text-center text-xs font-extrabold transition duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
+          className={`block w-full rounded-xl py-2.5 text-center text-xs font-extrabold transition duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
             isCurrentPlan
-              ? 'bg-green-500 text-white'
+              ? 'bg-success text-white'
               : highlighted
-                ? 'bg-primary text-slate-950 hover:brightness-95'
-                : 'border border-[#c3c6d7] text-[#111827] hover:border-primary hover:text-primary'
+                ? 'bg-tertiary text-white hover:bg-orange-600'
+                : 'border border-border-soft/40 text-content hover:border-tertiary hover:text-tertiary hover:bg-panel-soft'
           }`}
         >
           {isCurrentPlan ? 'Đang sử dụng' : plan.price === 0 ? 'Kích hoạt' : 'Chọn gói này'}
@@ -321,8 +319,8 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
     : 100
 
   const urgency = (daysRemaining ?? 99) <= 3 ? 'red' : (daysRemaining ?? 99) <= 7 ? 'amber' : 'green'
-  const barColor = urgency === 'red' ? 'bg-red-500' : urgency === 'amber' ? 'bg-amber-400' : 'bg-green-500'
-  const textColor = urgency === 'red' ? 'text-red-600' : urgency === 'amber' ? 'text-amber-600' : 'text-green-600'
+  const barColor = urgency === 'red' ? 'bg-error' : urgency === 'amber' ? 'bg-warning' : 'bg-success'
+  const textColor = urgency === 'red' ? 'text-error' : urgency === 'amber' ? 'text-warning' : 'text-success'
 
   // Feature flags to display
   const features = [
@@ -337,28 +335,28 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
   ]
 
   return (
-    <OrganizerPanel className="overflow-hidden p-0">
+    <OrganizerPanel className="overflow-hidden p-0 border border-border-soft/30 bg-surface/80 shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#e0e3e5] px-6 py-4">
+      <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4 bg-panel-soft/30 text-content">
         <div className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-lg bg-green-100 text-green-600">
+          <span className="grid size-9 place-items-center rounded-xl bg-success/15 text-success border border-success/20">
             <Shield className="size-5" />
           </span>
           <div>
-            <p className="text-xs font-semibold uppercase text-[#737686]">Gói hiện tại</p>
-            <p className="text-lg font-extrabold text-[#111827]">{plan.name}</p>
+            <p className="text-xs font-semibold uppercase text-muted">Gói hiện tại</p>
+            <p className="text-lg font-extrabold text-content">{plan.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-sm font-bold text-[#111827]">{formatMoney(plan.price)}</p>
+          <p className="text-sm font-bold text-content">{formatMoney(plan.price)}</p>
           <Badge tone="green">Đang hoạt động</Badge>
         </div>
       </div>
 
       <div className="grid gap-0 md:grid-cols-3">
         {/* Col 1: Limits */}
-        <div className="space-y-3 border-r border-[#e0e3e5] px-6 py-5">
-          <h3 className="text-sm font-extrabold text-[#111827]">Giới hạn sử dụng</h3>
+        <div className="space-y-3 border-r border-border-soft/20 px-6 py-5">
+          <h3 className="text-sm font-extrabold text-content">Giới hạn sử dụng</h3>
           <StatRow icon={Layers}      label="Sự kiện / kỳ"         value={plan.event_limit === 0 ? 'Không giới hạn' : plan.event_limit} />
           <StatRow icon={Zap}         label="Sự kiện active cùng lúc" value={plan.max_active_events === 0 ? 'Không giới hạn' : plan.max_active_events} />
           <StatRow icon={Users}       label="Nhân sự / sự kiện"    value={plan.max_staff_per_event === 0 ? 'Không giới hạn' : plan.max_staff_per_event} />
@@ -368,15 +366,15 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
         </div>
 
         {/* Col 2: Feature flags */}
-        <div className="border-r border-[#e0e3e5] px-6 py-5">
-          <h3 className="mb-3 text-sm font-extrabold text-[#111827]">Tính năng</h3>
+        <div className="border-r border-border-soft/20 px-6 py-5">
+          <h3 className="mb-3 text-sm font-extrabold text-content">Tính năng</h3>
           <div className="space-y-2">
             {features.map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between text-sm">
-                <span className="text-[#737686]">{label}</span>
+                <span className="text-muted">{label}</span>
                 {value
-                  ? <span className="flex items-center gap-1 font-bold text-green-600"><Check className="size-3.5" /> Có</span>
-                  : <span className="flex items-center gap-1 text-[#c3c6d7]"><X className="size-3.5" /> Không</span>
+                  ? <span className="flex items-center gap-1 font-bold text-success"><Check className="size-3.5" /> Có</span>
+                  : <span className="flex items-center gap-1 text-muted opacity-60"><X className="size-3.5" /> Không</span>
                 }
               </div>
             ))}
@@ -385,38 +383,38 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
 
         {/* Col 3: Countdown */}
         <div className="flex flex-col justify-center px-6 py-5">
-          <h3 className="mb-4 text-sm font-extrabold text-[#111827]">Thời gian còn lại</h3>
+          <h3 className="mb-4 text-sm font-extrabold text-content">Thời gian còn lại</h3>
 
           <div className="mb-5 flex items-end gap-2">
             <CountdownUnit value={countdown.days}    label="Ngày"  urgent={urgency === 'red'} />
-            <span className="mb-2 text-2xl font-extrabold text-[#c3c6d7]">:</span>
+            <span className="mb-2 text-2xl font-extrabold text-border-soft/40">:</span>
             <CountdownUnit value={countdown.hours}   label="Giờ"   urgent={urgency === 'red'} />
-            <span className="mb-2 text-2xl font-extrabold text-[#c3c6d7]">:</span>
+            <span className="mb-2 text-2xl font-extrabold text-border-soft/40">:</span>
             <CountdownUnit value={countdown.minutes} label="Phút"  urgent={urgency === 'red'} />
-            <span className="mb-2 text-2xl font-extrabold text-[#c3c6d7]">:</span>
+            <span className="mb-2 text-2xl font-extrabold text-border-soft/40">:</span>
             <CountdownUnit value={countdown.seconds} label="Giây"  urgent={urgency === 'red'} />
           </div>
 
           <div>
             <div className="mb-1 flex justify-between text-xs">
-              <span className="font-semibold text-[#737686]">Thời gian còn lại</span>
+              <span className="font-semibold text-muted">Thời gian còn lại</span>
               <span className={`font-extrabold ${textColor}`}>{pct}%</span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-[#e0e3e5]">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-panel-soft">
               <div
                 className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
             {plan.end_date && (
-              <p className="mt-2 text-xs text-[#737686]">
-                Hết hạn: <span className="font-semibold text-[#434655]">{formatDate(plan.end_date)}</span>
+              <p className="mt-2 text-xs text-muted">
+                Hết hạn: <span className="font-semibold text-subtle">{formatDate(plan.end_date)}</span>
               </p>
             )}
           </div>
 
           {urgency === 'red' && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+            <p className="mt-3 rounded-xl bg-error/10 border border-error/30 px-3 py-2 text-xs font-semibold text-error">
               ⚠️ Gói sắp hết hạn! Hãy gia hạn để không bị gián đoạn.
             </p>
           )}
@@ -431,13 +429,13 @@ function CountdownUnit({ value, label, urgent }) {
   return (
     <div className="flex flex-col items-center">
       <span
-        className={`flex h-12 w-12 items-center justify-center rounded-lg text-xl font-extrabold tabular-nums ${
-          urgent ? 'bg-red-100 text-red-600' : 'bg-[#f2f4f6] text-[#111827]'
+        className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl font-extrabold tabular-nums border ${
+          urgent ? 'bg-error/15 text-error border-error/30' : 'bg-panel-soft text-content border-border-soft/20'
         }`}
       >
         {String(value).padStart(2, '0')}
       </span>
-      <span className="mt-1 text-[10px] font-semibold uppercase text-[#737686]">{label}</span>
+      <span className="mt-1 text-[10px] font-semibold uppercase text-muted">{label}</span>
     </div>
   )
 }
@@ -445,11 +443,11 @@ function CountdownUnit({ value, label, urgent }) {
 function StatRow({ icon: Icon, label, value, highlight }) {
   return (
     <div className="flex items-center justify-between gap-2 text-sm">
-      <span className="flex items-center gap-2 text-[#737686]">
+      <span className="flex items-center gap-2 text-muted">
         <Icon className="size-4 shrink-0" />
         {label}
       </span>
-      <span className={`font-extrabold ${highlight ? 'text-green-600' : 'text-[#111827]'}`}>{value}</span>
+      <span className={`font-extrabold ${highlight ? 'text-success' : 'text-content'}`}>{value}</span>
     </div>
   )
 }

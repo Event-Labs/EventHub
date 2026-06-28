@@ -109,7 +109,6 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const svgRef = useRef(null)
   const paintVisited = useRef(new Set())
   const seatCounter = useRef(1)
-  
 
   const [tool, setTool] = useState('SELECT')
   const [layoutType, setLayoutType] = useState('GRID')
@@ -515,10 +514,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f7f9fb]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-[#737686]">Đang tải sơ đồ ghế...</p>
+          <p className="text-sm text-muted">Đang tải sơ đồ ghế...</p>
         </div>
       </div>
     )
@@ -535,51 +534,51 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           : 'default'
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#f7f9fb]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background text-content">
       {/* Header */}
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[#c3c6d7] bg-white px-4 shadow-sm">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-soft/30 bg-surface/90 px-4 shadow-md backdrop-blur-sm">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md px-2 py-1 text-sm text-[#737686] transition hover:bg-[#f2f4f6] hover:text-[#111827]"
+          className="rounded-xl px-3 py-1.5 text-sm text-muted transition hover:bg-panel-soft hover:text-content"
         >
           ← Đóng
         </button>
-        <div className="h-6 w-px bg-[#e0e3e5]" />
+        <div className="h-6 w-px bg-border-soft/20" />
         <input
           value={mapName}
           onChange={(e) => setMapName(e.target.value)}
           placeholder="Tên sơ đồ ghế..."
-          className="min-w-0 flex-1 border-0 bg-transparent text-lg font-bold text-[#111827] outline-none placeholder:text-[#c3c6d7]"
+          className="min-w-0 flex-1 border-0 bg-transparent text-lg font-bold text-content outline-none placeholder:text-muted"
         />
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="rounded-full bg-[#f2f4f6] px-3 py-1 text-xs font-semibold text-[#434655]">
+          <span className="rounded-xl bg-panel-soft border border-border-soft/20 px-3 py-1 text-xs font-semibold text-content">
             {stats.total} ghế
           </span>
           {stats.total > 1800 && (
-            <span className="text-xs font-medium text-amber-600">Gần giới hạn 2000</span>
+            <span className="text-xs font-medium text-warning animate-pulse">Gần giới hạn 2000</span>
           )}
         </div>
-        {error && <span className="max-w-[200px] truncate text-sm text-red-500">{error}</span>}
-        <button type="button" onClick={handleSave} disabled={saving} className="admin-primary min-w-[100px]">
+        {error && <span className="max-w-[200px] truncate text-sm text-error font-semibold">{error}</span>}
+        <button type="button" onClick={handleSave} disabled={saving} className="org-btn-primary min-w-[100px]">
           {saving ? 'Đang lưu...' : 'Lưu sơ đồ'}
         </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="flex w-[300px] shrink-0 flex-col overflow-y-auto border-r border-[#c3c6d7] bg-white">
+        <aside className="flex w-[300px] shrink-0 flex-col overflow-y-auto border-r border-border-soft/30 bg-surface/90 backdrop-blur-sm text-content">
           <div className="space-y-4 p-4">
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                ['Tổng ghế', stats.total, '#111827'],
-                ['Hoạt động', stats.active, '#10B981'],
-                ['Đã gán zone', stats.zoned, '#3B82F6'],
-                ['Chưa gán', stats.unassigned, '#9CA3AF'],
+                ['Tổng ghế', stats.total, 'var(--color-content)'],
+                ['Hoạt động', stats.active, 'var(--color-success)'],
+                ['Đã gán zone', stats.zoned, 'var(--color-primary)'],
+                ['Chưa gán', stats.unassigned, 'var(--color-neutral)'],
               ].map(([label, value, color]) => (
-                <div key={label} className="rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#737686]">{label}</p>
+                <div key={label} className="rounded-xl border border-border-soft/30 bg-panel-soft p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</p>
                   <p className="text-xl font-extrabold" style={{ color }}>
                     {value}
                   </p>
@@ -588,8 +587,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             </div>
 
             {/* Layout type */}
-            <section className="rounded-lg border border-[#e0e3e5] p-3">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#737686]">Loại layout</p>
+            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Loại layout</p>
               <div className="grid grid-cols-3 gap-1">
                 {[
                   ['GRID', 'Lưới'],
@@ -600,10 +599,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     key={type}
                     type="button"
                     onClick={() => setLayoutType(type)}
-                    className={`rounded-md px-2 py-2 text-xs font-bold transition ${
+                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${
                       layoutType === type
-                        ? 'bg-primary text-slate-950'
-                        : 'bg-[#f2f4f6] text-[#434655] hover:bg-[#e6e8ea]'
+                        ? 'bg-tertiary text-white shadow-sm'
+                        : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
                     }`}
                   >
                     {label}
@@ -614,10 +613,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
             {/* Grid config */}
             {layoutType === 'GRID' && (
-              <section className="rounded-lg border border-[#e0e3e5] p-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#737686]">Cấu hình lưới</p>
+              <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Cấu hình lưới</p>
                 <div className="mb-3 grid grid-cols-2 gap-2">
-                  <label className="text-xs text-[#434655]">
+                  <label className="text-xs text-subtle">
                     Hàng
                     <input
                       type="number"
@@ -625,10 +624,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       max={50}
                       value={gridConfig.rows}
                       onChange={(e) => setGridConfig((g) => ({ ...g, rows: Number(e.target.value) }))}
-                      className="mt-1 w-full rounded-md border border-[#c3c6d7] px-2 py-1.5 text-sm"
+                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
                     />
                   </label>
-                  <label className="text-xs text-[#434655]">
+                  <label className="text-xs text-subtle">
                     Cột
                     <input
                       type="number"
@@ -636,44 +635,44 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       max={100}
                       value={gridConfig.cols}
                       onChange={(e) => setGridConfig((g) => ({ ...g, cols: Number(e.target.value) }))}
-                      className="mt-1 w-full rounded-md border border-[#c3c6d7] px-2 py-1.5 text-sm"
+                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
                     />
                   </label>
                 </div>
-                <button type="button" onClick={generateGrid} className="admin-primary w-full text-sm">
+                <button type="button" onClick={generateGrid} className="org-btn-primary w-full text-sm">
                   Tạo lưới ghế
                 </button>
               </section>
             )}
 
             {layoutType !== 'GRID' && (
-              <section className="rounded-lg border border-[#e0e3e5] p-3">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-[#434655]">
+              <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-subtle">
                   <input
                     type="checkbox"
                     checked={snapEnabled}
                     onChange={(e) => setSnapEnabled(e.target.checked)}
-                    className="rounded"
+                    className="rounded border-border-soft/40 bg-panel-soft accent-primary"
                   />
                   Snap vào lưới khi vẽ
                 </label>
-                <p className="mt-2 text-xs leading-relaxed text-[#737686]">
+                <p className="mt-2 text-xs leading-relaxed text-muted">
                   Dùng công cụ <b>Vẽ ghế</b> — click hoặc kéo để đặt nhiều ghế cùng lúc.
                 </p>
               </section>
             )}
 
             {/* Zones */}
-            <section className="rounded-lg border border-[#e0e3e5] p-3">
+            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#737686]">Khu vực (Zones)</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Khu vực (Zones)</p>
                 <button type="button" onClick={addZone} className="text-xs font-bold text-primary hover:underline">
                   + Thêm zone
                 </button>
               </div>
               <div className="space-y-1.5">
                 {zones.length === 0 && (
-                  <p className="py-2 text-center text-xs text-[#737686]">Chưa có zone nào</p>
+                  <p className="py-2 text-center text-xs text-muted">Chưa có zone nào</p>
                 )}
                 {zones.map((zone) => {
                   const count = seats.filter((s) => s.zoneLocalId === zone.localId).length
@@ -682,10 +681,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <div
                       key={zone.localId}
                       onClick={() => setActiveZoneId(isActive ? null : zone.localId)}
-                      className={`group flex cursor-pointer items-center gap-2 rounded-lg border-2 p-2 transition ${
+                      className={`group flex cursor-pointer items-center gap-2 rounded-xl border-2 p-2 transition-all ${
                         isActive
-                          ? 'border-[#111827] bg-[#f7f9fb] shadow-sm'
-                          : 'border-transparent hover:border-[#e0e3e5] hover:bg-[#f7f9fb]'
+                          ? 'border-primary bg-tertiary/10 shadow-sm'
+                          : 'border-transparent hover:border-border-soft/20 hover:bg-panel-soft/60'
                       }`}
                     >
                       <input
@@ -699,7 +698,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           )
                         }
                         onClick={(e) => e.stopPropagation()}
-                        className="h-6 w-6 cursor-pointer rounded-md border-0 p-0"
+                        className="h-6 w-6 cursor-pointer rounded-md border-0 p-0 bg-transparent"
                       />
                       <input
                         type="text"
@@ -712,9 +711,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           )
                         }
                         onClick={(e) => e.stopPropagation()}
-                        className="min-w-0 flex-1 border-0 bg-transparent text-sm font-semibold outline-none"
+                        className="min-w-0 flex-1 border-0 bg-transparent text-sm font-semibold outline-none text-content"
                       />
-                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-[#737686] shadow-sm">
+                      <span className="rounded-full bg-surface/50 border border-border-soft/20 px-2 py-0.5 text-[10px] font-bold text-muted shadow-sm">
                         {count}
                       </span>
                       <button
@@ -723,7 +722,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           e.stopPropagation()
                           deleteZone(zone.localId)
                         }}
-                        className="opacity-0 transition group-hover:opacity-100 text-[#737686] hover:text-red-500"
+                        className="opacity-0 transition-opacity group-hover:opacity-100 text-muted hover:text-error text-sm font-bold"
                       >
                         ×
                       </button>
@@ -734,11 +733,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             </section>
 
             {/* Help */}
-            <section className="rounded-lg border border-dashed border-[#c3c6d7] bg-[#f7f9fb] p-3">
-              <p className="mb-1 text-xs font-bold text-[#434655]">Phím tắt</p>
-              <ul className="space-y-0.5 text-[11px] leading-relaxed text-[#737686]">
-                <li><kbd className="rounded bg-white px-1">V</kbd> Chọn · <kbd className="rounded bg-white px-1">A</kbd> Vẽ · <kbd className="rounded bg-white px-1">P</kbd> Tô zone</li>
-                <li><kbd className="rounded bg-white px-1">E</kbd> Xóa · <kbd className="rounded bg-white px-1">Del</kbd> Xóa đã chọn</li>
+            <section className="rounded-xl border border-dashed border-border-soft/30 bg-panel-soft/30 p-3">
+              <p className="mb-1 text-xs font-bold text-subtle">Phím tắt</p>
+              <ul className="space-y-0.5 text-[11px] leading-relaxed text-muted">
+                <li><kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">V</kbd> Chọn · <kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">A</kbd> Vẽ · <kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">P</kbd> Tô zone</li>
+                <li><kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">E</kbd> Xóa · <kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">Del</kbd> Xóa đã chọn</li>
                 <li>Shift+click chọn nhiều · Kéo vùng chọn hàng loạt</li>
                 <li>Alt+kéo hoặc giữ chuột giữa để pan</li>
               </ul>
@@ -749,18 +748,18 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         {/* Canvas area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Toolbar */}
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#c3c6d7] bg-white px-4 py-2">
-            <div className="flex items-center gap-1 rounded-lg border border-[#e0e3e5] bg-[#f7f9fb] p-1">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-soft/30 bg-surface/90 backdrop-blur-sm px-4 py-2">
+            <div className="flex items-center gap-1 rounded-xl border border-border-soft/30 bg-panel-soft p-1">
               {visibleTools.map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   type="button"
                   title={label}
                   onClick={() => setTool(id)}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                     tool === id
-                      ? 'bg-white text-[#111827] shadow-sm'
-                      : 'text-[#434655] hover:bg-white/60'
+                      ? 'bg-surface text-content border border-border-soft/20 shadow-md'
+                      : 'text-subtle hover:bg-panel-soft/60'
                   }`}
                 >
                   <Icon className="size-3.5" />
@@ -769,24 +768,24 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               ))}
             </div>
 
-            <div className="h-6 w-px bg-[#e0e3e5]" />
+            <div className="h-6 w-px bg-border-soft/20" />
 
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))}
-                className="rounded-md p-1.5 text-[#434655] hover:bg-[#f2f4f6]"
+                className="rounded-lg p-1.5 text-subtle hover:bg-panel-soft"
                 title="Thu nhỏ"
               >
                 <ZoomOut className="size-4" />
               </button>
-              <span className="min-w-[44px] text-center text-xs font-semibold text-[#434655]">
+              <span className="min-w-[44px] text-center text-xs font-semibold text-subtle">
                 {Math.round(zoom * 100)}%
               </span>
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.min(3, z + 0.1))}
-                className="rounded-md p-1.5 text-[#434655] hover:bg-[#f2f4f6]"
+                className="rounded-lg p-1.5 text-subtle hover:bg-panel-soft"
                 title="Phóng to"
               >
                 <ZoomIn className="size-4" />
@@ -797,48 +796,48 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   setZoom(1)
                   setPan({ x: 40, y: 80 })
                 }}
-                className="ml-1 rounded-md px-2 py-1 text-xs text-[#737686] hover:bg-[#f2f4f6]"
+                className="ml-1 rounded-lg px-2.5 py-1 text-xs text-muted hover:bg-panel-soft transition-colors"
               >
                 Reset
               </button>
             </div>
 
             {activeZone && (tool === 'PAINT' || tool === 'SELECT') && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs">
+              <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs text-warning animate-in fade-in">
                 <div className="h-3 w-3 rounded-full ring-2 ring-white" style={{ background: activeZone.color }} />
                 <span>
                   Đang tô: <b>{activeZone.name}</b>
                 </span>
-                <button type="button" onClick={() => setActiveZoneId(null)} className="text-[#737686] hover:text-[#111827]">
+                <button type="button" onClick={() => setActiveZoneId(null)} className="text-muted hover:text-warning ml-1">
                   ✕
                 </button>
               </div>
             )}
 
             {tool === 'PAINT' && !activeZone && (
-              <span className="text-xs text-amber-600">← Chọn zone ở panel trái để tô màu</span>
+              <span className="text-xs text-warning font-semibold">← Chọn zone ở panel trái để tô màu</span>
             )}
           </div>
 
           {/* Selection action bar */}
           {selectedCount > 0 && (
-            <div className="flex shrink-0 items-center gap-3 border-b border-[#dbe1ff] bg-[#eff3ff] px-4 py-2">
-              <span className="text-sm font-bold text-[#004ac6]">
+            <div className="flex shrink-0 items-center gap-3 border-b border-tertiary/20 bg-tertiary/10 px-4 py-2 text-content animate-in slide-in-from-top duration-200">
+              <span className="text-sm font-bold text-primary">
                 {selectedCount} ghế đã chọn
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 {zones.length > 0 && (
                   <select
-                    className="h-8 rounded-md border border-[#c3c6d7] bg-white px-2 text-xs"
+                    className="h-8 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
                     defaultValue=""
                     onChange={(e) => {
                       if (e.target.value) applyZoneToSelected(e.target.value)
                       e.target.value = ''
                     }}
                   >
-                    <option value="">Gán zone...</option>
+                    <option value="" className="bg-surface text-content">Gán zone...</option>
                     {zones.map((z) => (
-                      <option key={z.localId} value={z.localId}>
+                      <option key={z.localId} value={z.localId} className="bg-surface text-content">
                         {z.name}
                       </option>
                     ))}
@@ -847,7 +846,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={disableSelected}
-                  className="flex items-center gap-1 rounded-md border border-[#c3c6d7] bg-white px-3 py-1.5 text-xs font-semibold text-[#434655] hover:bg-[#f2f4f6]"
+                  className="flex items-center gap-1 rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-semibold text-content hover:bg-panel-soft/80 transition-colors"
                 >
                   <Ban className="size-3" />
                   Vô hiệu
@@ -855,7 +854,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={deleteSelected}
-                  className="flex items-center gap-1 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                  className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/20 transition-colors"
                 >
                   <Trash2 className="size-3" />
                   Xóa ({selectedCount})
@@ -863,7 +862,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-xs text-[#737686] hover:text-[#111827]"
+                  className="text-xs text-muted hover:text-content font-bold transition-colors"
                 >
                   Bỏ chọn
                 </button>
@@ -875,13 +874,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           <div
             className="relative flex-1 overflow-hidden"
             style={{
-              backgroundColor: '#e8eaed',
-              backgroundImage: 'radial-gradient(circle, #c3c6d7 1px, transparent 1px)',
+              backgroundColor: 'var(--color-background)',
+              backgroundImage: 'radial-gradient(circle, var(--color-border-soft) 1px, transparent 1px)',
               backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
             }}
             onWheel={handleWheel}
           >
-            <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-md bg-white/90 px-2 py-1 text-[10px] text-[#737686] shadow-sm backdrop-blur">
+            <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-xl bg-surface/90 border border-border-soft/20 px-2.5 py-1 text-[10px] text-muted shadow-lg backdrop-blur">
               <Hand className="size-3" />
               Alt + kéo để di chuyển bản đồ
             </div>
@@ -898,13 +897,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             >
               <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
                 {/* Stage */}
-                <rect x={0} y={0} width={900} height={52} fill="#1F2937" rx={8} />
-                <rect x={0} y={48} width={900} height={4} fill="#374151" rx={0} />
+                <rect x={0} y={0} width={900} height={52} fill="var(--color-panel-soft)" rx={12} />
+                <rect x={0} y={48} width={900} height={4} fill="var(--color-border-soft)" rx={0} />
                 <text
                   x={450}
                   y={32}
                   textAnchor="middle"
-                  fill="white"
+                  fill="var(--color-content)"
                   fontSize={13}
                   fontWeight="bold"
                   style={{ userSelect: 'none' }}
@@ -915,7 +914,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 {/* Seats */}
                 {seats.map((seat) => {
                   const zone = zones.find((z) => z.localId === seat.zoneLocalId)
-                  const fill = seat.isDisabled ? '#EF4444' : zone ? zone.color : '#9CA3AF'
+                  const fill = seat.isDisabled ? '#EF4444' : zone ? zone.color : '#72787c'
                   const isSelected = selectedIds.has(seat.localId)
                   return (
                     <g
@@ -927,14 +926,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       <rect
                         width={SEAT_W}
                         height={SEAT_H}
-                        rx={5}
+                        rx={6}
                         fill={fill}
                         stroke={
                           isSelected
-                            ? '#FBBF24'
+                            ? 'var(--color-tertiary)'
                             : activeZoneId && !seat.isDisabled
                               ? '#ffffff50'
-                              : 'rgba(0,0,0,0.08)'
+                              : 'rgba(255,255,255,0.08)'
                         }
                         strokeWidth={isSelected ? 2.5 : 1}
                         opacity={seat.isDisabled ? 0.4 : 1}
@@ -998,7 +997,7 @@ export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
   const scale = Math.min(scaleX, scaleY, 1)
 
   return (
-    <svg width={width} height={height} className="rounded border border-[#c3c6d7] bg-gray-50">
+    <svg width={width} height={height} className="rounded-xl border border-border-soft/30 bg-panel-soft/30">
       <g transform={`translate(10,10) scale(${scale})`}>
         {seats.map((s) => {
           const x = (s.x_position ?? s.x) - minX
@@ -1011,8 +1010,8 @@ export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
               y={y}
               width={28}
               height={28}
-              rx={3}
-              fill={zone?.color ?? '#9CA3AF'}
+              rx={4}
+              fill={zone?.color ?? 'var(--color-neutral)'}
               opacity={0.85}
             />
           )

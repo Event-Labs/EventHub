@@ -80,16 +80,16 @@ export function OrganizerVenueSeatMapsPage() {
         <button
           type="button"
           onClick={() => navigate('/organizer/venues')}
-          className="text-sm text-[#737686] hover:text-[#111827]"
+          className="text-sm font-semibold text-muted hover:text-content transition-colors"
         >
           ← Quay lại địa điểm
         </button>
-        <button type="button" onClick={() => openEditor(null)} className="admin-primary">
+        <button type="button" onClick={() => openEditor(null)} className="org-btn-primary">
           + Tạo sơ đồ mới
         </button>
       </div>
 
-      {message && <p className="mb-4 text-sm text-[#434655]">{message}</p>}
+      {message && <p className="mb-4 text-sm text-subtle font-semibold">{message}</p>}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -107,12 +107,12 @@ export function OrganizerVenueSeatMapsPage() {
             <Badge key="status" tone={sm.is_active ? 'green' : 'gray'}>
               {sm.is_active ? 'Active' : 'Inactive'}
             </Badge>,
-            <div key="actions" className="flex items-center gap-3 text-[#737686]">
+            <div key="actions" className="flex items-center gap-3 text-muted">
               <button type="button" onClick={() => openEditor(sm.id)} title="Sửa">
-                <Pencil className="size-4 hover:text-primary" />
+                <Pencil className="size-4 hover:text-tertiary transition-colors" />
               </button>
               <button type="button" onClick={() => handleDelete(sm.id)} title="Xóa">
-                <Trash2 className="size-4 text-error hover:text-red-700" />
+                <Trash2 className="size-4 text-error hover:opacity-80 transition-opacity" />
               </button>
             </div>,
           ])}
@@ -120,7 +120,7 @@ export function OrganizerVenueSeatMapsPage() {
       )}
 
       {!loading && !seatMaps.length && (
-        <p className="mt-4 text-center text-sm text-[#737686]">
+        <p className="mt-4 text-center text-sm text-muted py-6 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">
           Chưa có sơ đồ ghế. Nhấn &quot;Tạo sơ đồ mới&quot; để bắt đầu.
         </p>
       )}
