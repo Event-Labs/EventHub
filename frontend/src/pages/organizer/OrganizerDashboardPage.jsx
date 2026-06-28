@@ -8,11 +8,12 @@ import {
   Loader2,
   RefreshCw,
   ReceiptText,
+  Sparkles,
   TrendingUp,
   Ticket,
 } from 'lucide-react'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
-import { fetchRevenueStats } from '@/services/organizerOrders.js'
+import { fetchRevenueStats, generateFinancialSummary } from '@/services/organizerOrders.js'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -34,6 +35,21 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+function riskLabel(level) {
+  const labels = {
+    LOW: 'Rủi ro thấp',
+    MEDIUM: 'Rủi ro vừa',
+    HIGH: 'Rủi ro cao',
+  }
+  return labels[level] || level || '—'
+}
+
+function riskClass(level) {
+  if (level === 'LOW') return 'border-success/30 bg-success/[0.08] text-success'
+  if (level === 'HIGH') return 'border-error/30 bg-error/[0.08] text-error'
+  return 'border-warning/30 bg-warning/[0.08] text-warning'
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-tertiary/15', accentColor = 'text-primary' }) {
@@ -52,6 +68,23 @@ function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-tertiar
             {sub}
           </p>
         )}
+      </div>
+    </div>
+  )
+}
+
+function InsightList({ title, items = [] }) {
+  if (!items.length) return null
+
+  return (
+    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+      <p className="text-xs font-bold uppercase text-subtle">{title}</p>
+      <div className="mt-2 space-y-2">
+        {items.map((item) => (
+          <p key={item} className="text-sm font-semibold leading-6 text-content">
+            {item}
+          </p>
+        ))}
       </div>
     </div>
   )
@@ -121,6 +154,9 @@ export function OrganizerDashboardPage() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [financialSummary, setFinancialSummary] = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState('')
 
   useEffect(() => {
     setEventsLoading(true)
@@ -148,6 +184,35 @@ export function OrganizerDashboardPage() {
   }, [selectedEventId, preset])
 
   useEffect(() => { loadStats() }, [loadStats])
+
+  const loadFinancialSummary = useCallback(async () => {
+    if (!selectedEventId) {
+      setSummaryError('Vui lòng chọn một sự kiện để tạo báo cáo tài chính.')
+      return
+    }
+
+    setSummaryLoading(true)
+    setSummaryError('')
+    try {
+      const dateTo = new Date().toISOString()
+      const dateFrom = new Date(Date.now() - preset * 24 * 60 * 60 * 1000).toISOString()
+      const data = await generateFinancialSummary({
+        eventId: selectedEventId,
+        dateFrom,
+        dateTo,
+      })
+      setFinancialSummary(data)
+    } catch (err) {
+      setSummaryError(err.response?.data?.message || 'Không thể tạo báo cáo tài chính AI.')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [preset, selectedEventId])
+
+  useEffect(() => {
+    setFinancialSummary(null)
+    setSummaryError('')
+  }, [preset, selectedEventId])
 
   const overall = stats?.overall
   const byEvent = stats?.by_event ?? []
@@ -203,16 +268,26 @@ export function OrganizerDashboardPage() {
               </div>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={loadStats}
-            disabled={loading}
-            className="inline-flex h-10 items-center gap-2 self-end rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:self-end">
+            <button
+              type="button"
+              onClick={loadStats}
+              disabled={loading}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
+            >
+              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </button>
+            <button
+              type="button"
+              onClick={loadFinancialSummary}
+              disabled={summaryLoading}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-tertiary px-4 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {summaryLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              Tạo báo cáo AI
+            </button>
+          </div>
         </div>
       </OrganizerPanel>
 
@@ -222,12 +297,95 @@ export function OrganizerDashboardPage() {
         </div>
       )}
 
+      {summaryError && (
+        <div className="mb-5 rounded-lg border border-error/30 bg-error/[0.07] px-4 py-3 text-sm font-semibold text-error">
+          {summaryError}
+        </div>
+      )}
+
       {loading && !stats ? (
         <OrganizerPanel className="flex items-center justify-center py-20">
           <Loader2 className="size-8 animate-spin text-primary" />
         </OrganizerPanel>
       ) : stats ? (
         <>
+          {financialSummary && (
+            <OrganizerPanel className="mb-6 border-ai/30 bg-ai/[0.06]">
+              {financialSummary.intelligence && (
+                <div className="mb-5 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+                    <p className="text-xs font-bold uppercase text-subtle">Financial Health Score</p>
+                    <p className="mt-1 text-3xl font-black text-content">
+                      {financialSummary.intelligence.health_score}
+                      <span className="text-base font-bold text-subtle">/100</span>
+                    </p>
+                  </div>
+                  <div className={`rounded-md border px-4 py-3 ${riskClass(financialSummary.intelligence.risk_level)}`}>
+                    <p className="text-xs font-bold uppercase opacity-75">Mức rủi ro</p>
+                    <p className="mt-1 text-xl font-black">{riskLabel(financialSummary.intelligence.risk_level)}</p>
+                  </div>
+                  <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+                    <p className="text-xs font-bold uppercase text-subtle">Dự báo 7 ngày</p>
+                    <p className="mt-1 text-lg font-black text-content">
+                      {fmtCurrency(financialSummary.intelligence.forecast?.next_7_days_revenue)}
+                    </p>
+                    <p className="text-xs font-semibold text-subtle">
+                      ~{Number(financialSummary.intelligence.forecast?.next_7_days_tickets || 0).toLocaleString('vi-VN')} vé
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-5 text-ai" />
+                  <h2 className="font-bold text-content">Báo cáo tài chính AI</h2>
+                </div>
+                <span className="w-fit rounded border border-border-soft/30 bg-surface/80 px-2 py-1 text-xs font-bold text-subtle">
+                  {financialSummary.source === 'LOCAL_AI_SERVICE' ? 'Local AI' : 'Rule-based'}
+                </span>
+              </div>
+              <p className="text-sm font-semibold leading-7 text-content">
+                {financialSummary.summary}
+              </p>
+              {financialSummary.insights && (
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {financialSummary.insights.occupancy && (
+                    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+                      <p className="text-xs font-bold uppercase text-subtle">Tỷ lệ lấp đầy</p>
+                      <p className="mt-1 text-sm font-semibold text-content">{financialSummary.insights.occupancy}</p>
+                    </div>
+                  )}
+                  {financialSummary.insights.recommendation && (
+                    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+                      <p className="text-xs font-bold uppercase text-subtle">Khuyến nghị</p>
+                      <p className="mt-1 text-sm font-semibold text-content">{financialSummary.insights.recommendation}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {financialSummary.intelligence && (
+                <div className="mt-4 grid gap-3 xl:grid-cols-3">
+                  <InsightList title="Insight chính" items={financialSummary.intelligence.key_insights || []} />
+                  <InsightList title="Rủi ro" items={financialSummary.intelligence.risks || []} />
+                  <InsightList title="Hành động đề xuất" items={financialSummary.intelligence.recommendations || []} />
+                  {financialSummary.intelligence.what_if && (
+                    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3 xl:col-span-3">
+                      <p className="text-xs font-bold uppercase text-subtle">What-if</p>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-content">
+                        Nếu bán thêm {Number(financialSummary.intelligence.what_if.additional_tickets || 0).toLocaleString('vi-VN')} vé
+                        với giá vé trung bình hiện tại, doanh thu gộp có thể tăng khoảng{' '}
+                        <span className="font-black text-success">
+                          {fmtCurrency(financialSummary.intelligence.what_if.estimated_gross_revenue)}
+                        </span>
+                        .
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </OrganizerPanel>
+          )}
+
           {/* ── KPI Cards ── */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
