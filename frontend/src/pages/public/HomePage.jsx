@@ -290,15 +290,15 @@ export function HomePage() {
           <ScrollReveal>
             <SectionTitle title="Khám phá thể loại" />
           </ScrollReveal>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 items-stretch gap-4 md:grid-cols-3 lg:grid-cols-6">
             {categories.slice(0, 6).map((category, index) => {
               const Icon = categoryIcons[index % categoryIcons.length]
               return (
-                <ScrollReveal key={category.id} delay={index * 70}>
+                <ScrollReveal key={category.id} className="h-full" delay={index * 70}>
                 <button
                   type="button"
                   onClick={() => handleCategorySearch(category.slug)}
-                  className="glass-panel group min-h-36 w-full rounded-[24px] p-5 text-center transition duration-500 ease-out hover:border-primary/60 hover:bg-primary/10"
+                  className="glass-panel group flex h-full min-h-[196px] w-full flex-col items-center justify-center rounded-[24px] p-5 text-center transition duration-500 ease-out hover:border-primary/60 hover:bg-primary/10 sm:min-h-[208px] lg:min-h-[196px]"
                 >
                   <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/10 text-primary transition group-hover:scale-110">
                     <Icon className="size-6" />
