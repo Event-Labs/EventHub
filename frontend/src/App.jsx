@@ -22,18 +22,6 @@ import { NotificationsPage } from '@/pages/customer/NotificationsPage.jsx'
 import { NotFoundPage } from '@/pages/public/NotFoundPage.jsx'
 import { PaymentConfirmationPage } from '@/pages/customer/booking/PaymentConfirmationPage.jsx'
 import {
-  AttendeeListPage,
-  CreateEventWizardPage,
-  OnSiteBookingPage,
-  OrderListPage,
-  OrganizerDashboardPage,
-  OrganizerEventListPage,
-  QrCheckInPage,
-  RequestRefundPage,
-  RevenueDashboardPage,
-  StaffDashboardPage,
-} from '@/pages/legacy/PlatformPages.jsx'
-import {
   AdminAccountsPage,
   AdminAnalyticsPage,
   AdminEventCategoriesPage,
@@ -386,10 +374,6 @@ const router = createBrowserRouter([
         element: <PlatformPoliciesPage />,
       },
       {
-        path: 'request-refund',
-        element: <RequestRefundPage />,
-      },
-      {
         path: 'notifications',
         element: <NotificationsPage />,
       },
@@ -400,42 +384,6 @@ const router = createBrowserRouter([
       {
         path: 'organizer-request',
         element: <OrganizerRequestPage />,
-      },
-      {
-        path: 'organizer',
-        element: <OrganizerDashboardPage />,
-      },
-      {
-        path: 'organizer/events',
-        element: <OrganizerEventListPage />,
-      },
-      {
-        path: 'organizer/events/create',
-        element: <CreateEventWizardPage />,
-      },
-      {
-        path: 'organizer/orders',
-        element: <OrderListPage />,
-      },
-      {
-        path: 'organizer/attendees',
-        element: <AttendeeListPage />,
-      },
-      {
-        path: 'organizer/revenue',
-        element: <RevenueDashboardPage />,
-      },
-      {
-        path: 'staff',
-        element: <StaffDashboardPage />,
-      },
-      {
-        path: 'staff/qr-check-in',
-        element: <QrCheckInPage />,
-      },
-      {
-        path: 'staff/on-site-booking',
-        element: <OnSiteBookingPage />,
       },
       {
         path: '*',
