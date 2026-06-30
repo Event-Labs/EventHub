@@ -5,6 +5,11 @@ export async function fetchMyOrganizerRequest() {
   return response.data.data
 }
 
+export async function fetchMyOrganizerRequests() {
+  const response = await http.get('/organizer-requests/me/history')
+  return response.data.data
+}
+
 export async function submitOrganizerRequest(payload) {
   const response = await http.post('/organizer-requests/me', payload)
   return response.data.data

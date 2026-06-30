@@ -28,6 +28,15 @@ class OrganizerRequestsController {
     }
   };
 
+  listMine = async (req, res, next) => {
+    try {
+      const data = await organizerRequestsService.getMyRequests(req.user.sub);
+      res.status(200).json(ApiResponse.success(data, 'Organizer requests fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   verifyBusinessEmail = async (req, res, next) => {
     try {
       const { token } = verifyOrganizerBusinessEmailSchema.parse(req.query);

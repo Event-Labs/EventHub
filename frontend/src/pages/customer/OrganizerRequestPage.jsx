@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Camera, CheckCircle2, Clock3, Loader2, UserCircle, XCircle } from 'lucide-react'
+import { Building2, Camera, CheckCircle2, Clock3, History, Loader2, UserCircle, X, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { getUserRoles, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import {
-  fetchMyOrganizerRequest,
+  fetchMyOrganizerRequests,
   submitOrganizerRequest,
 } from '@/services/organizerRequests.js'
 import { uploadOrganizerAvatar } from '@/services/uploads.js'
@@ -38,17 +38,81 @@ function requestTypeLabel(type) {
   return type === 'ORGANIZATION' ? 'Tổ chức' : 'Cá nhân'
 }
 
-function StatusBanner({ request }) {
-  if (!request) {
-    return (
-      <div className="rounded-lg border border-border-soft bg-panel p-5">
-        <p className="text-sm text-muted">
-          Bạn chưa gửi yêu cầu nào. Điền form bên trái để đăng ký trở thành ban tổ chức.
-        </p>
-      </div>
-    )
+function EmptyStatus() {
+  return (
+    <div className="rounded-lg border border-border-soft bg-panel p-5">
+      <p className="text-sm text-muted">
+        Bạn chưa gửi yêu cầu nào. Điền form bên trái để đăng ký trở thành ban tổ chức.
+      </p>
+    </div>
+  )
+}
+
+function StatusSummary({ requests }) {
+  const [historyOpen, setHistoryOpen] = useState(false)
+
+  if (!requests.length) {
+    return <EmptyStatus />
   }
 
+  const latestRequest = requests[requests.length - 1]
+
+  return (
+    <>
+      <div className="space-y-3">
+        <StatusCard request={latestRequest} />
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-soft bg-surface px-4 py-3 text-sm font-bold text-content transition hover:border-primary hover:bg-panel"
+        >
+          <History className="size-4" />
+          Xem lịch sử yêu cầu
+        </button>
+      </div>
+
+      {historyOpen && (
+        <div className="fixed inset-0 z-[10000] grid place-items-center bg-black/60 px-4 py-6 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-border-soft bg-background shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border-soft/40 px-5 py-4">
+              <div>
+                <p className="font-display text-xl font-extrabold text-content">Lịch sử yêu cầu Organizer</p>
+                <p className="text-sm text-muted">{requests.length} yêu cầu đã gửi</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                className="grid size-9 place-items-center rounded-full text-subtle transition hover:bg-panel hover:text-content"
+                aria-label="Đóng lịch sử yêu cầu"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="max-h-[calc(90vh-88px)] overflow-y-auto p-5">
+              <StatusList requests={requests} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function StatusList({ requests }) {
+  return (
+    <div className="space-y-4">
+      {requests.map((request, index) => (
+        <StatusCard
+          key={request.id}
+          request={request}
+          titlePrefix={requests.length > 1 ? `Yêu cầu ${index + 1}` : ''}
+        />
+      ))}
+    </div>
+  )
+}
+
+function StatusCard({ request, titlePrefix }) {
   const statusConfig = {
     PENDING: {
       icon: Clock3,
@@ -81,6 +145,11 @@ function StatusBanner({ request }) {
       <div className="flex items-start gap-3">
         <Icon className={`mt-0.5 size-5 shrink-0 ${config.tone}`} />
         <div>
+          {titlePrefix && (
+            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-subtle">
+              {titlePrefix}
+            </p>
+          )}
           <p className={`font-bold ${config.tone}`}>{config.title}</p>
           <p className="mt-1 text-sm text-muted">{config.body}</p>
           <dl className="mt-4 space-y-2 text-sm">
@@ -95,8 +164,11 @@ function StatusBanner({ request }) {
             {request.request_type === 'ORGANIZATION' && (
               <div>
                 <dt className="text-subtle">Email tổ chức</dt>
-                <dd className="font-semibold">
-                  {request.business_email_verified ? 'Đã xác thực' : 'Chưa xác thực'}
+                <dd className="space-y-1 font-semibold">
+                  <span className="block break-all">{request.business_email}</span>
+                  <span className={request.business_email_verified ? 'block text-success' : 'block text-warning'}>
+                    {request.business_email_verified ? 'Đã xác thực' : 'Chưa xác thực'}
+                  </span>
                 </dd>
               </div>
             )}
@@ -145,16 +217,17 @@ export function OrganizerRequestPage() {
   }, [isAuthenticated, location.pathname, navigate])
 
   const requestQuery = useQuery({
-    queryKey: ['my-organizer-request'],
-    queryFn: fetchMyOrganizerRequest,
+    queryKey: ['my-organizer-requests'],
+    queryFn: fetchMyOrganizerRequests,
     enabled: isAuthenticated,
   })
 
-  const request = requestQuery.data
+  const requests = requestQuery.data || []
+  const hasPendingIndividualRequest =
+    requests.some((request) => request.status === 'PENDING' && request.request_type === 'INDIVIDUAL')
   const canSubmit =
     !isOrganizer &&
-    (!request || request.status === 'REJECTED') &&
-    request?.status !== 'PENDING'
+    !hasPendingIndividualRequest
 
   const submitMutation = useMutation({
     mutationFn: submitOrganizerRequest,
@@ -168,7 +241,7 @@ export function OrganizerRequestPage() {
       setForm(emptyForm)
       setSelectedAvatar(null)
       setPreviewUrl('')
-      queryClient.invalidateQueries({ queryKey: ['my-organizer-request'] })
+      queryClient.invalidateQueries({ queryKey: ['my-organizer-requests'] })
     },
     onError: (err) => {
       const apiError = err.response?.data
@@ -302,9 +375,9 @@ export function OrganizerRequestPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="glass-panel rounded-lg p-6">
-          {!canSubmit && request?.status === 'PENDING' && (
+          {hasPendingIndividualRequest && (
             <p className="mb-4 text-sm text-muted">
-              Bạn đã có yêu cầu đang chờ duyệt. Vui lòng đợi Admin xử lý.
+              Bạn đã có yêu cầu cá nhân đang chờ duyệt. Vui lòng đợi Admin xử lý trước khi gửi yêu cầu mới.
             </p>
           )}
 
@@ -446,7 +519,7 @@ export function OrganizerRequestPage() {
               Không thể tải yêu cầu từ máy chủ. Vui lòng thử lại sau.
             </div>
           ) : (
-            <StatusBanner request={request} />
+            <StatusSummary requests={requests} />
           )}
         </aside>
       </div>

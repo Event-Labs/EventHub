@@ -68,10 +68,10 @@ class OrganizerRequestsService {
       );
     }
 
-    const pending = await organizerRequestsRepository.findPendingByUserId(userId);
-    if (pending) {
+    const pendingIndividual = await organizerRequestsRepository.findPendingIndividualByUserId(userId);
+    if (pendingIndividual) {
       throw new AppError(
-        'You already have a pending organizer request',
+        'You already have a pending individual organizer request',
         400,
         ErrorCodes.ORGANIZER_REQUEST_PENDING_EXISTS,
       );
@@ -168,6 +168,11 @@ class OrganizerRequestsService {
   async getMyRequest(userId) {
     const row = await organizerRequestsRepository.findLatestByUserId(userId);
     return mapRequest(row);
+  }
+
+  async getMyRequests(userId) {
+    const rows = await organizerRequestsRepository.findAllByUserId(userId);
+    return rows.map(mapRequest);
   }
 
   async listRequests(filters) {
