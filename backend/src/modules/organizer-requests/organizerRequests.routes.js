@@ -4,7 +4,9 @@ const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
+router.get('/verify-business-email', organizerRequestsController.verifyBusinessEmail);
 router.post('/me', protect, organizerRequestsController.submitMine);
 router.get('/me', protect, organizerRequestsController.getMine);
+router.get('/me/history', protect, organizerRequestsController.listMine);
 
 module.exports = router;

@@ -5,7 +5,7 @@ Chay cac lenh bat buoc sau sau khi pull code.
 ## Windows CMD
 
 ```bat
-cd D:\FPTU\Capstone\EventHub\ai-training
+cd ai-training
 python -m venv .venv
 .venv\Scripts\activate
 python -m pip install --upgrade pip
