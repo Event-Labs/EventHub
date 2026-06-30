@@ -4,21 +4,21 @@ export function Modal({ open, title, children, footer, onClose, maxWidth = 'max-
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <section className={`w-full ${maxWidth} overflow-hidden rounded-md bg-white shadow-2xl`}>
-        <header className="flex items-center justify-between border-b border-[#e0e3e5] px-5 py-4">
-          <h3 className="font-display text-lg font-extrabold text-[#191c1e]">{title}</h3>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm">
+      <section className={`w-full ${maxWidth} max-h-[92vh] overflow-hidden rounded-xl border border-border-soft/40 bg-surface text-content shadow-2xl shadow-black/30`}>
+        <header className="flex items-center justify-between gap-4 border-b border-border-soft/40 bg-panel px-5 py-4">
+          <h3 className="min-w-0 truncate font-display text-lg font-extrabold text-content">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="grid size-8 place-items-center rounded-full text-[#737686] hover:bg-[#eceef0]"
+            className="grid size-8 shrink-0 place-items-center rounded-full border border-transparent text-muted transition hover:border-border-soft/50 hover:bg-panel-soft hover:text-content"
           >
             <X className="size-4" />
           </button>
         </header>
-        <div className="px-5 py-5">{children}</div>
+        <div className="max-h-[calc(92vh-8rem)] overflow-y-auto px-5 py-5">{children}</div>
         {footer && (
-          <footer className="flex justify-end gap-3 border-t border-[#e0e3e5] bg-[#f7f9fb] px-5 py-4">
+          <footer className="flex flex-col-reverse gap-3 border-t border-border-soft/40 bg-panel px-5 py-4 sm:flex-row sm:justify-end">
             {footer}
           </footer>
         )}
