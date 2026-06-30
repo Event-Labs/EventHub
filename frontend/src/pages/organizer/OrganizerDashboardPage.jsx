@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Ticket,
 } from 'lucide-react'
+import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import { fetchRevenueStats, generateFinancialSummary } from '@/services/organizerOrders.js'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
@@ -91,6 +92,19 @@ function InsightList({ title, items = [] }) {
 }
 
 function BarChartSimple({ data, height = 160 }) {
+  const containerRef = useRef(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  useEffect(() => {
+    if (!containerRef.current) return undefined
+
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerWidth(Math.floor(entry.contentRect.width))
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
   if (!data || data.length === 0) return (
     <div className="flex h-40 items-center justify-center text-sm text-subtle">
       Không có dữ liệu trong khoảng thời gian này.
@@ -100,10 +114,10 @@ function BarChartSimple({ data, height = 160 }) {
   const maxVal = Math.max(...data.map((d) => Number(d.net_revenue)), 1)
   const gap = Math.max(Math.floor(600 / data.length), 8)
   const barWidth = Math.max(gap - 4, 4)
-  const svgWidth = data.length * gap + 10
+  const svgWidth = Math.max(data.length * gap + 10, containerWidth || 0)
 
   return (
-    <div className="overflow-x-auto">
+    <div ref={containerRef} className="w-full overflow-x-auto">
       <svg width={svgWidth} height={height + 30} className="block">
         {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
           <line key={pct} x1={0} x2={svgWidth} y1={height - pct * height} y2={height - pct * height} stroke="rgba(43,92,146,0.25)" strokeWidth={1} />
@@ -135,23 +149,27 @@ function BarChartSimple({ data, height = 160 }) {
   )
 }
 
-// ─── Preset config ────────────────────────────────────────────────────────────
-
-const PRESETS = [
-  { label: '7 ngày', days: 7 },
-  { label: '30 ngày', days: 30 },
-  { label: '90 ngày', days: 90 },
-]
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerDashboardPage() {
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState('')
-  const [preset, setPreset] = useState(30)
+  const [datePreset, setDatePreset] = useState('last30')
+  const defaultRange = getDateRange('last30')
+  const [customFrom, setCustomFrom] = useState(defaultRange.fromInput)
+  const [customTo, setCustomTo] = useState(defaultRange.toInput)
+  const [comparison, setComparison] = useState({
+    enabled: false,
+    mode: 'previousPeriod',
+    from: '',
+    to: '',
+    label: '',
+    rangeLabel: '',
+  })
 
   const [stats, setStats] = useState(null)
+  const [comparisonStats, setComparisonStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [financialSummary, setFinancialSummary] = useState(null)
@@ -170,18 +188,32 @@ export function OrganizerDashboardPage() {
     setLoading(true)
     setError('')
     try {
-      const dateTo = new Date().toISOString()
-      const dateFrom = new Date(Date.now() - preset * 24 * 60 * 60 * 1000).toISOString()
-      const params = { dateFrom, dateTo }
+      const range = getDateRange(datePreset, { from: customFrom, to: customTo })
+      const params = { dateFrom: range.dateFrom, dateTo: range.dateTo }
       if (selectedEventId) params.eventId = selectedEventId
       const data = await fetchRevenueStats(params)
       setStats(data)
+      if (comparison.enabled) {
+        const comparisonRange = getDateRange('custom', {
+          from: comparison.from,
+          to: comparison.to,
+        })
+        const comparisonParams = {
+          dateFrom: comparisonRange.dateFrom,
+          dateTo: comparisonRange.dateTo,
+        }
+        if (selectedEventId) comparisonParams.eventId = selectedEventId
+        const comparisonData = await fetchRevenueStats(comparisonParams)
+        setComparisonStats(comparisonData)
+      } else {
+        setComparisonStats(null)
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể tải dữ liệu doanh thu.')
     } finally {
       setLoading(false)
     }
-  }, [selectedEventId, preset])
+  }, [comparison, selectedEventId, datePreset, customFrom, customTo])
 
   useEffect(() => { loadStats() }, [loadStats])
 
@@ -194,12 +226,11 @@ export function OrganizerDashboardPage() {
     setSummaryLoading(true)
     setSummaryError('')
     try {
-      const dateTo = new Date().toISOString()
-      const dateFrom = new Date(Date.now() - preset * 24 * 60 * 60 * 1000).toISOString()
+      const range = getDateRange(datePreset, { from: customFrom, to: customTo })
       const data = await generateFinancialSummary({
         eventId: selectedEventId,
-        dateFrom,
-        dateTo,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
       })
       setFinancialSummary(data)
     } catch (err) {
@@ -207,17 +238,20 @@ export function OrganizerDashboardPage() {
     } finally {
       setSummaryLoading(false)
     }
-  }, [preset, selectedEventId])
+  }, [datePreset, customFrom, customTo, selectedEventId])
 
   useEffect(() => {
     setFinancialSummary(null)
     setSummaryError('')
-  }, [preset, selectedEventId])
+  }, [datePreset, customFrom, customTo, selectedEventId])
 
   const overall = stats?.overall
   const byEvent = stats?.by_event ?? []
   const dailyRevenue = stats?.daily_revenue ?? []
+  const comparisonDailyRevenue = comparisonStats?.daily_revenue ?? []
   const maxEventRevenue = Math.max(...byEvent.map((e) => Number(e.gross_revenue)), 1)
+  const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
+  const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
 
   return (
     <OrganizerPage
@@ -248,25 +282,20 @@ export function OrganizerDashboardPage() {
               )}
             </label>
 
-            <div>
-              <span className="block text-sm font-semibold text-subtle">Khoảng thời gian</span>
-              <div className="mt-2 flex gap-2">
-                {PRESETS.map((p) => (
-                  <button
-                    key={p.days}
-                    type="button"
-                    onClick={() => setPreset(p.days)}
-                    className={`h-10 rounded-xl border px-4 text-sm font-semibold transition ${
-                      preset === p.days
-                        ? 'border-primary/60 bg-tertiary/15 text-primary'
-                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <DateRangeFilter
+              value={datePreset}
+              customFrom={customFrom}
+              customTo={customTo}
+              comparisonEnabled={comparison.enabled}
+              comparisonMode={comparison.mode}
+              comparisonFrom={comparison.from}
+              comparisonTo={comparison.to}
+              onPresetChange={setDatePreset}
+              onCustomFromChange={setCustomFrom}
+              onCustomToChange={setCustomTo}
+              onComparisonChange={setComparison}
+              compact
+            />
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:self-end">
             <button
@@ -445,15 +474,37 @@ export function OrganizerDashboardPage() {
               <h2 className="font-bold text-content">Doanh thu ròng theo ngày</h2>
               <span className="ml-auto text-xs text-subtle">
                 <CalendarRange className="mr-1 inline size-3" />
-                {PRESETS.find((p) => p.days === preset)?.label}
+                {activeRangeLabel}
               </span>
             </div>
-            <BarChartSimple data={dailyRevenue} />
-            {dailyRevenue.length > 0 && (
-              <p className="mt-2 text-center text-xs text-subtle">
-                Tổng: {fmtCurrency(dailyRevenue.reduce((s, d) => s + Number(d.net_revenue), 0))}
-              </p>
-            )}
+            <div className={comparison.enabled ? 'grid gap-4 xl:grid-cols-2' : ''}>
+              <div>
+                {comparison.enabled && (
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                    Kỳ hiện tại
+                  </p>
+                )}
+                <BarChartSimple data={dailyRevenue} />
+                {dailyRevenue.length > 0 && (
+                  <p className="mt-2 text-center text-xs text-subtle">
+                    Tổng: {fmtCurrency(dailyRevenue.reduce((s, d) => s + Number(d.net_revenue), 0))}
+                  </p>
+                )}
+              </div>
+              {comparison.enabled && (
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                    {comparison.label || 'Kỳ so sánh'}
+                  </p>
+                  <BarChartSimple data={comparisonDailyRevenue} />
+                  {comparisonDailyRevenue.length > 0 && (
+                    <p className="mt-2 text-center text-xs text-subtle">
+                      Tổng: {fmtCurrency(comparisonDailyRevenue.reduce((s, d) => s + Number(d.net_revenue), 0))}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </OrganizerPanel>
 
           {/* ── Per-event breakdown ── */}

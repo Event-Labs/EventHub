@@ -15,7 +15,17 @@ class OrganizerEventsRepository {
   async findOrganizerByUserId(userId) {
     const { rows } = await db.query(
       `
-      SELECT id, user_id, organization_name, status
+      SELECT
+        id,
+        user_id,
+        request_type,
+        organization_name,
+        description,
+        business_email,
+        business_phone,
+        organization_avatar_url,
+        tax_code,
+        status
       FROM organizers
       WHERE user_id = $1
         AND status = 'ACTIVE'
