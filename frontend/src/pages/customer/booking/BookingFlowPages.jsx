@@ -75,14 +75,18 @@ function promoDiscount(cart) {
   const subtotal = cartTotal(cart)
   if (!promo || subtotal <= 0 || subtotal < Number(promo.min_order_value || 0)) return 0
 
-  const rawDiscount =
+  let cappedDiscount =
     promo.discount_type === 'PERCENTAGE'
       ? Math.round((subtotal * Number(promo.discount_value || 0)) / 100)
       : Number(promo.discount_value || 0)
-  const cappedDiscount =
-    promo.max_discount !== null && promo.max_discount !== undefined
-      ? Math.min(rawDiscount, Number(promo.max_discount))
-      : rawDiscount
+
+  if (
+    promo.discount_type === 'PERCENTAGE' &&
+    promo.max_discount !== null &&
+    promo.max_discount !== undefined
+  ) {
+    cappedDiscount = Math.min(cappedDiscount, Number(promo.max_discount))
+  }
 
   return Math.min(Math.max(0, cappedDiscount), subtotal)
 }
@@ -744,7 +748,10 @@ function formatDateOnly(value) {
 
 function formatPromoTitle(promo) {
   if (promo.discount_type === 'PERCENTAGE') {
-    return `Giảm ${Number(promo.discount_value || 0)}%`
+    const cap = promo.max_discount !== null && promo.max_discount !== undefined
+      ? `, tối đa ${formatPrice(promo.max_discount)}`
+      : ''
+    return `Giảm ${Number(promo.discount_value || 0)}%${cap}`
   }
   return `Giảm ${formatPrice(promo.discount_value || 0)}`
 }
@@ -835,7 +842,7 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
                 <p className="font-bold text-slate-900">{formatPromoTitle(promo)}</p>
                 <p className="mt-1 text-sm text-slate-600">Mã: {promo.code}</p>
                 <p className="mt-1 text-sm text-slate-600">Đơn tối thiểu {formatPrice(promo.min_order_value || 0)}</p>
-                {promo.max_discount !== null && promo.max_discount !== undefined && (
+                {promo.discount_type === 'PERCENTAGE' && promo.max_discount !== null && promo.max_discount !== undefined && (
                   <p className="mt-1 text-sm text-slate-600">Giảm tối đa {formatPrice(promo.max_discount)}</p>
                 )}
                 <p className="mt-2 text-sm text-primary">HSD: {formatDateOnly(promo.end_time)}</p>
