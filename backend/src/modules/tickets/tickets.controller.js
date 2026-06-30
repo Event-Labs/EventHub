@@ -30,6 +30,33 @@ class TicketsController {
       next(err);
     }
   };
+
+  staffCheckInByQr = async (req, res, next) => {
+    try {
+      const data = await ticketsService.staffCheckInByQr(req.user.sub, req.body);
+      res.status(200).json(ApiResponse.success(data, 'Ticket checked in successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  staffSearchTickets = async (req, res, next) => {
+    try {
+      const data = await ticketsService.staffSearchTickets(req.user.sub, req.body);
+      res.status(200).json(ApiResponse.success(data, 'Tickets searched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  staffCheckInTicket = async (req, res, next) => {
+    try {
+      const data = await ticketsService.staffCheckInTicket(req.user.sub, req.params.ticketId);
+      res.status(200).json(ApiResponse.success(data, 'Ticket checked in successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new TicketsController();
