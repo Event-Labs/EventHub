@@ -5,6 +5,7 @@ const {
   requestIdSchema,
   reviewOrganizerRequestSchema,
   submitOrganizerRequestSchema,
+  verifyOrganizerBusinessEmailSchema,
 } = require('./organizerRequests.validation');
 
 class OrganizerRequestsController {
@@ -22,6 +23,25 @@ class OrganizerRequestsController {
     try {
       const data = await organizerRequestsService.getMyRequest(req.user.sub);
       res.status(200).json(ApiResponse.success(data, 'Organizer request fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  listMine = async (req, res, next) => {
+    try {
+      const data = await organizerRequestsService.getMyRequests(req.user.sub);
+      res.status(200).json(ApiResponse.success(data, 'Organizer requests fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  verifyBusinessEmail = async (req, res, next) => {
+    try {
+      const { token } = verifyOrganizerBusinessEmailSchema.parse(req.query);
+      await organizerRequestsService.verifyBusinessEmail(token);
+      res.status(200).json(ApiResponse.success(null, 'Organization email verified successfully'));
     } catch (err) {
       next(err);
     }

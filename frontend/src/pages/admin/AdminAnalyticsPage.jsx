@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   BarChart3,
-  CalendarRange,
   CircleDollarSign,
   Loader2,
   RefreshCw,
@@ -12,6 +11,7 @@ import {
   Building2,
   Ticket,
 } from 'lucide-react'
+import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
 import {
   fetchAdminAnalyticsOverview,
   fetchAdminRevenueTrend,
@@ -77,6 +77,19 @@ function MiniStatRow({ label, value, tone = 'default' }) {
 }
 
 function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
+  const containerRef = useRef(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  useEffect(() => {
+    if (!containerRef.current) return undefined
+
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerWidth(Math.floor(entry.contentRect.width))
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
   if (!data || data.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-subtle">
@@ -88,10 +101,10 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
   const maxVal = Math.max(...data.map((d) => Number(d[valueKey])), 1)
   const gap = Math.max(Math.floor(700 / data.length), 8)
   const barWidth = Math.max(gap - 4, 4)
-  const svgWidth = data.length * gap + 10
+  const svgWidth = Math.max(data.length * gap + 10, containerWidth || 0)
 
   return (
-    <div className="overflow-x-auto">
+    <div ref={containerRef} className="w-full overflow-x-auto">
       <svg width={svgWidth} height={height + 30} className="block">
         {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
           <line key={pct} x1={0} x2={svgWidth} y1={height - pct * height} y2={height - pct * height} stroke="rgba(43,92,146,0.3)" strokeWidth={1} />
@@ -124,22 +137,26 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
   )
 }
 
-// ─── Preset config ────────────────────────────────────────────────────────────
-
-const PRESETS = [
-  { label: '7 ngày',  days: 7 },
-  { label: '30 ngày', days: 30 },
-  { label: '90 ngày', days: 90 },
-]
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function AdminAnalyticsPage() {
-  const [preset, setPreset] = useState(30)
+  const [datePreset, setDatePreset] = useState('last30')
+  const defaultRange = getDateRange('last30')
+  const [customFrom, setCustomFrom] = useState(defaultRange.fromInput)
+  const [customTo, setCustomTo] = useState(defaultRange.toInput)
+  const [comparison, setComparison] = useState({
+    enabled: false,
+    mode: 'previousPeriod',
+    from: '',
+    to: '',
+    label: '',
+    rangeLabel: '',
+  })
   const [trendGroupBy, setTrendGroupBy] = useState('day')
 
   const [overview, setOverview] = useState(null)
   const [revenueTrend, setRevenueTrend] = useState([])
+  const [comparisonRevenueTrend, setComparisonRevenueTrend] = useState([])
   const [topOrganizers, setTopOrganizers] = useState([])
   const [eventsByCategory, setEventsByCategory] = useState([])
   const [subscriptionRevenue, setSubscriptionRevenue] = useState(null)
@@ -151,12 +168,11 @@ export function AdminAnalyticsPage() {
     setLoading(true)
     setError('')
     try {
-      const dateTo   = new Date().toISOString()
-      const dateFrom = new Date(Date.now() - preset * 24 * 60 * 60 * 1000).toISOString()
+      const range = getDateRange(datePreset, { from: customFrom, to: customTo })
 
       const [ov, trend, orgs, cats, subRev] = await Promise.all([
-        fetchAdminAnalyticsOverview({ dateFrom, dateTo }),
-        fetchAdminRevenueTrend({ dateFrom, dateTo, groupBy: trendGroupBy }),
+        fetchAdminAnalyticsOverview({ dateFrom: range.dateFrom, dateTo: range.dateTo }),
+        fetchAdminRevenueTrend({ dateFrom: range.dateFrom, dateTo: range.dateTo, groupBy: trendGroupBy }),
         fetchAdminTopOrganizers({ limit: 10 }),
         fetchAdminEventsByCategory(),
         fetchAdminSubscriptionRevenue(),
@@ -164,6 +180,20 @@ export function AdminAnalyticsPage() {
 
       setOverview(ov)
       setRevenueTrend(trend)
+      if (comparison.enabled) {
+        const comparisonRange = getDateRange('custom', {
+          from: comparison.from,
+          to: comparison.to,
+        })
+        const comparisonTrend = await fetchAdminRevenueTrend({
+          dateFrom: comparisonRange.dateFrom,
+          dateTo: comparisonRange.dateTo,
+          groupBy: trendGroupBy,
+        })
+        setComparisonRevenueTrend(comparisonTrend)
+      } else {
+        setComparisonRevenueTrend([])
+      }
       setTopOrganizers(orgs)
       setEventsByCategory(cats)
       setSubscriptionRevenue(subRev)
@@ -172,7 +202,7 @@ export function AdminAnalyticsPage() {
     } finally {
       setLoading(false)
     }
-  }, [preset, trendGroupBy])
+  }, [comparison, datePreset, customFrom, customTo, trendGroupBy])
 
   useEffect(() => { load() }, [load])
 
@@ -180,6 +210,8 @@ export function AdminAnalyticsPage() {
   const events  = overview?.events
   const orders  = overview?.orders
   const orgReqs = overview?.organizer_requests
+  const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
+  const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
 
   const maxCatEvents = Math.max(...eventsByCategory.map((c) => Number(c.total_events)), 1)
 
@@ -227,25 +259,20 @@ export function AdminAnalyticsPage() {
       {/* ── Filters ── */}
       <Panel className="mb-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span className="block text-sm font-semibold text-subtle">Khoảng thời gian (xu hướng)</span>
-            <div className="mt-2 flex gap-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.days}
-                  type="button"
-                  onClick={() => setPreset(p.days)}
-                  className={`h-9 rounded-xl border px-4 text-sm font-semibold transition ${
-                    preset === p.days
-                      ? 'border-primary/60 bg-tertiary/15 text-tertiary'
-                      : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <DateRangeFilter
+            value={datePreset}
+            customFrom={customFrom}
+            customTo={customTo}
+            comparisonEnabled={comparison.enabled}
+            comparisonMode={comparison.mode}
+            comparisonFrom={comparison.from}
+            comparisonTo={comparison.to}
+            onPresetChange={setDatePreset}
+            onCustomFromChange={setCustomFrom}
+            onCustomToChange={setCustomTo}
+            onComparisonChange={setComparison}
+            compact
+          />
 
           <div className="flex items-end gap-3">
             <div>
@@ -382,17 +409,41 @@ export function AdminAnalyticsPage() {
                   <h2 className="font-bold text-content">Xu hướng doanh thu</h2>
                 </div>
                 <span className="flex items-center gap-1 text-xs text-subtle">
-                  <CalendarRange className="size-3" />
-                  {PRESETS.find((p) => p.days === preset)?.label}
+                  {activeRangeLabel}
                 </span>
               </div>
-              <BarChartSimple data={revenueTrend} valueKey="gross_revenue" />
-              {revenueTrend.length > 0 && (
-                <div className="mt-3 flex justify-between text-xs text-subtle">
-                  <span>Tổng: {fmtCurrency(revenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}</span>
-                  <span>{revenueTrend.length} điểm dữ liệu</span>
+              <div className={comparison.enabled ? 'grid gap-4 xl:grid-cols-2' : ''}>
+                <div>
+                  {comparison.enabled && (
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                      Kỳ hiện tại
+                    </p>
+                  )}
+                  <BarChartSimple data={revenueTrend} valueKey="gross_revenue" />
+                  {revenueTrend.length > 0 && (
+                    <div className="mt-3 flex justify-between text-xs text-subtle">
+                      <span>Tổng: {fmtCurrency(revenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}</span>
+                      <span>{revenueTrend.length} điểm dữ liệu</span>
+                    </div>
+                  )}
                 </div>
-              )}
+                {comparison.enabled && (
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                      {comparison.label || 'Kỳ so sánh'}
+                    </p>
+                    <BarChartSimple data={comparisonRevenueTrend} valueKey="gross_revenue" />
+                    {comparisonRevenueTrend.length > 0 && (
+                      <div className="mt-3 flex justify-between text-xs text-subtle">
+                        <span>
+                          Tổng: {fmtCurrency(comparisonRevenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}
+                        </span>
+                        <span>{comparisonRevenueTrend.length} điểm dữ liệu</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </Panel>
 
             {/* ── Events Status Breakdown ── */}
