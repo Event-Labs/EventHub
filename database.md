@@ -169,11 +169,18 @@ CREATE TABLE organizer_requests (
 
     user_id UUID NOT NULL REFERENCES users(id),
 
+    request_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL',
+    -- INDIVIDUAL, ORGANIZATION
+
     organization_name VARCHAR(255) NOT NULL,
     organization_description TEXT,
 
     business_email VARCHAR(255),
+    business_email_verified BOOLEAN NOT NULL DEFAULT false,
+    business_email_verified_at TIMESTAMPTZ,
     business_phone VARCHAR(20),
+    organization_avatar_url TEXT,
+    tax_code VARCHAR(30),
 
     status request_status_enum DEFAULT 'PENDING',
 
@@ -191,11 +198,16 @@ CREATE TABLE organizers (
 
     user_id UUID NOT NULL UNIQUE REFERENCES users(id),
 
+    request_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL',
+    -- INDIVIDUAL, ORGANIZATION
+
     organization_name VARCHAR(255) NOT NULL,
     description TEXT,
 
     business_email VARCHAR(255),
     business_phone VARCHAR(20),
+    organization_avatar_url TEXT,
+    tax_code VARCHAR(30),
 
     status VARCHAR(50) DEFAULT 'ACTIVE',
 
@@ -1245,11 +1257,16 @@ CREATE TABLE organizers (
 
     user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
+    request_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL',
+    -- INDIVIDUAL, ORGANIZATION
+
     organization_name VARCHAR(255) NOT NULL,
     description TEXT,
 
     business_email VARCHAR(255),
     business_phone VARCHAR(20),
+    organization_avatar_url TEXT,
+    tax_code VARCHAR(30),
 
     status VARCHAR(30) DEFAULT 'ACTIVE',
     -- ACTIVE, SUSPENDED, INACTIVE
