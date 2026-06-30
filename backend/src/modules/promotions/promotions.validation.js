@@ -1,12 +1,26 @@
 const { z } = require('zod');
 
+const uuidSchema = z.string().uuid({ message: "Invalid Event ID format" });
+const eventIdsSchema = z.preprocess(
+  (val) => {
+    if (val === null || val === undefined || val === '') return [];
+    return Array.isArray(val) ? val : [val];
+  },
+  z.array(uuidSchema),
+);
+
 const promoCodeSchema = z.object({
-  event_id: z.preprocess((val) => (val === '' ? null : val), z.string().uuid({ message: "Invalid Event ID format" }).optional().nullable()),
+  event_id: z.preprocess((val) => (val === '' || val === 'ALL' ? null : val), uuidSchema.optional().nullable()),
+  eventIds: eventIdsSchema.optional(),
+  event_ids: eventIdsSchema.optional(),
+  applyToAllEvents: z.coerce.boolean().optional(),
   code: z.string().trim().min(3, "Code must be at least 3 characters").max(50, "Code too long"),
   discount_type: z.enum(['PERCENTAGE', 'FIXED'], { errorMap: () => ({ message: "Discount type must be PERCENTAGE or FIXED" }) }),
   discount_value: z.coerce.number({ invalid_type_error: "Discount value must be a number" }).positive("Discount value must be positive"),
   min_order_value: z.coerce.number().min(0).optional().nullable(),
   max_discount: z.coerce.number().positive().optional().nullable(),
+  maxDiscountAmount: z.coerce.number().positive().optional().nullable(),
+  maximumDiscountAmount: z.coerce.number().positive().optional().nullable(),
   usage_limit: z.preprocess((val) => (val === '' ? null : val), z.coerce.number().int().min(0).optional().nullable()),
   start_time: z.coerce.date({ invalid_type_error: "Invalid start date" }),
   end_time: z.coerce.date({ invalid_type_error: "Invalid end date" }),
