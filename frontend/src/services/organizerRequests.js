@@ -10,6 +10,13 @@ export async function submitOrganizerRequest(payload) {
   return response.data.data
 }
 
+export async function verifyOrganizerBusinessEmail(token) {
+  const response = await http.get('/organizer-requests/verify-business-email', {
+    params: { token },
+  })
+  return response.data.data
+}
+
 export async function fetchAdminOrganizerRequests(params = {}) {
   const response = await http.get('/admin/organizer-requests', { params })
   return response.data.data

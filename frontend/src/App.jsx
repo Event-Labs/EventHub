@@ -14,6 +14,7 @@ import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPag
 import { AIFaqPage } from '@/pages/customer/AIFaqPage.jsx'
 import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
 import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
+import { OrganizerBusinessEmailVerifyPage } from '@/pages/customer/OrganizerBusinessEmailVerifyPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
 import { LockedAccountPage } from '@/pages/auth/LockedAccountPage.jsx'
@@ -400,6 +401,10 @@ const router = createBrowserRouter([
       {
         path: 'organizer-request',
         element: <OrganizerRequestPage />,
+      },
+      {
+        path: 'organizer-request/verify-email',
+        element: <OrganizerBusinessEmailVerifyPage />,
       },
       {
         path: 'organizer',
