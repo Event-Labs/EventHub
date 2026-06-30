@@ -447,6 +447,13 @@ CREATE TABLE promo_codes (
     is_active BOOLEAN DEFAULT TRUE
 );
 
+CREATE TABLE promo_code_events (
+    promo_code_id UUID NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (promo_code_id, event_id)
+);
+
 -- =========================================================
 -- PLATFORM FEES
 -- =========================================================
@@ -1092,7 +1099,7 @@ ALTER TABLE promo_codes
 DROP CONSTRAINT IF EXISTS promo_codes_code_key;
 
 ALTER TABLE promo_codes
-ALTER COLUMN event_id SET NOT NULL;
+ALTER COLUMN event_id DROP NOT NULL;
 
 CREATE UNIQUE INDEX uq_promo_code_per_event
 ON promo_codes(event_id, code);

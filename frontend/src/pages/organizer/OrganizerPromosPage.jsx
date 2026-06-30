@@ -18,7 +18,7 @@ import {
 } from './OrganizerComponents.jsx'
 import { Modal } from '../../components/Modal.jsx'
 import promotionService from '../../services/promotions'
-import { http } from '../../services/http'
+import { fetchOrganizerEvents } from '../../services/organizerEvents'
 
 const STATUS_LABELS = {
   Active: 'Đang hoạt động',
@@ -36,6 +36,11 @@ const STATUS_OPTIONS = [
 ]
 
 const DEFAULT_FILTERS = { keyword: '', status: 'All Statuses' }
+
+const formatVnd = (value) => Number(value || 0).toLocaleString('vi-VN', {
+  style: 'currency',
+  currency: 'VND',
+})
 
 const PROMO_MESSAGE_LABELS = {
   'Promo code already exists': 'Mã khuyến mãi đã tồn tại',
@@ -102,7 +107,8 @@ export function OrganizerPromosPage() {
   const [selectedPromo, setSelectedPromo] = useState(null)
   const [formData, setFormData] = useState({
     code: '',
-    event_id: undefined,
+    applyToAllEvents: true,
+    eventIds: [],
     discount_type: 'PERCENTAGE',
     discount_value: '',
     usage_limit: '',
@@ -127,20 +133,8 @@ export function OrganizerPromosPage() {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const response = await http.get('/events/my-events')
-      
-      // Safely extract the events array regardless of nesting
-      let eventsList = []
-      if (Array.isArray(response.data)) {
-        eventsList = response.data
-      } else if (response.data && Array.isArray(response.data.data)) {
-        eventsList = response.data.data
-      } else if (response.data && Array.isArray(response.data.items)) {
-        eventsList = response.data.items
-      }
-      
-      console.log('Fetched events:', eventsList)
-      setEvents(eventsList)
+      const eventsList = await fetchOrganizerEvents()
+      setEvents(Array.isArray(eventsList) ? eventsList : [])
     } catch (error) {
       console.error('Error fetching events:', error)
     }
@@ -162,8 +156,8 @@ export function OrganizerPromosPage() {
     e.preventDefault()
     setFormErrors({})
     
-    if (formData.event_id === undefined) {
-      setFormErrors({ event_id: 'Vui lòng chọn sự kiện áp dụng' })
+    if (!formData.applyToAllEvents && !formData.eventIds?.length) {
+      setFormErrors({ eventIds: 'Vui lòng chọn ít nhất 1 sự kiện áp dụng' })
       return
     }
 
@@ -171,10 +165,12 @@ export function OrganizerPromosPage() {
       // Clean data before sending
       const submissionData = {
         ...formData,
-        event_id: (formData.event_id === 'ALL' || formData.event_id === '') ? null : formData.event_id,
+        applyToAllEvents: Boolean(formData.applyToAllEvents),
+        eventIds: formData.applyToAllEvents ? [] : formData.eventIds,
+        event_id: formData.applyToAllEvents ? null : formData.eventIds[0],
         discount_value: Number(formData.discount_value),
         min_order_value: formData.min_order_value === '' ? 0 : Number(formData.min_order_value),
-        max_discount: formData.max_discount === '' ? null : Number(formData.max_discount),
+        max_discount: formData.discount_type === 'PERCENTAGE' && formData.max_discount !== '' ? Number(formData.max_discount) : null,
         usage_limit: formData.usage_limit === '' ? null : Number(formData.usage_limit),
       };
 
@@ -200,18 +196,20 @@ export function OrganizerPromosPage() {
     e.preventDefault()
     setFormErrors({})
 
-    if (formData.event_id === undefined) {
-      setFormErrors({ event_id: 'Vui lòng chọn sự kiện áp dụng' })
+    if (!formData.applyToAllEvents && !formData.eventIds?.length) {
+      setFormErrors({ eventIds: 'Vui lòng chọn ít nhất 1 sự kiện áp dụng' })
       return
     }
 
     try {
       const submissionData = {
         ...formData,
-        event_id: (formData.event_id === 'ALL' || formData.event_id === '') ? null : formData.event_id,
+        applyToAllEvents: Boolean(formData.applyToAllEvents),
+        eventIds: formData.applyToAllEvents ? [] : formData.eventIds,
+        event_id: formData.applyToAllEvents ? null : formData.eventIds[0],
         usage_limit: formData.usage_limit === '' ? null : Number(formData.usage_limit),
         min_order_value: formData.min_order_value === '' ? 0 : Number(formData.min_order_value),
-        max_discount: formData.max_discount === '' ? null : Number(formData.max_discount),
+        max_discount: formData.discount_type === 'PERCENTAGE' && formData.max_discount !== '' ? Number(formData.max_discount) : null,
         discount_value: Number(formData.discount_value),
       }
       await promotionService.updatePromo(selectedPromo.id, submissionData)
@@ -243,10 +241,19 @@ export function OrganizerPromosPage() {
   }
 
   const openEdit = (promo) => {
+    const promoEventIds = Array.isArray(promo.eventIds)
+      ? promo.eventIds
+      : Array.isArray(promo.event_ids)
+        ? promo.event_ids
+        : promo.event_id
+          ? [promo.event_id]
+          : []
+    const applyToAllEvents = promo.applyToAllEvents ?? (!promo.event_id && promoEventIds.length === 0)
     setSelectedPromo(promo)
     setFormData({
       code: promo.code,
-      event_id: promo.event_id || 'ALL',
+      applyToAllEvents,
+      eventIds: applyToAllEvents ? [] : promoEventIds,
       discount_type: promo.discount_type,
       discount_value: promo.discount_value,
       usage_limit: promo.usage_limit || '',
@@ -267,7 +274,8 @@ export function OrganizerPromosPage() {
     setSelectedPromo(null)
     setFormData({
       code: '',
-      event_id: undefined,
+      applyToAllEvents: true,
+      eventIds: [],
       discount_type: 'PERCENTAGE',
       discount_value: '',
       usage_limit: '',
@@ -282,9 +290,10 @@ export function OrganizerPromosPage() {
   const getDiscountLabel = (promo) => {
     const value = parseFloat(promo.discount_value).toLocaleString()
     if (promo.discount_type === 'PERCENTAGE') {
-      return `Giảm ${value}% cho ${promo.event_name ? 'vé sự kiện' : 'tất cả vé'}`
+      const cap = promo.max_discount ? `, tối đa ${formatVnd(promo.max_discount)}` : ''
+      return `Giảm ${value}%${cap} cho ${promo.applyToAllEvents ? 'tất cả sự kiện' : 'sự kiện đã chọn'}`
     }
-    return `Giảm cố định $${value}`
+    return `Giảm cố định ${formatVnd(promo.discount_value)}`
   }
 
   const hasEvents = events && events.length > 0;
@@ -368,7 +377,7 @@ export function OrganizerPromosPage() {
           headers={['Mã khuyến mãi', 'Sự kiện áp dụng', 'Loại giảm giá', 'Theo dõi sử dụng', 'Thời gian áp dụng', 'Trạng thái', 'Thao tác']}
           rows={promos.map((promo) => [
             <span key="promo" className="font-extrabold text-lg text-primary">{promo.code}</span>,
-            <span key="event" className="text-sm font-semibold text-subtle">{promo.event_name || 'Tất cả sự kiện'}</span>,
+            <span key="event" className="text-sm font-semibold text-subtle">{promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}</span>,
             <span key="type" className="font-medium text-subtle">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
             <span key="period" className="whitespace-nowrap text-sm text-subtle">{formatDateRange(promo.start_time, promo.end_time)}</span>,
@@ -478,8 +487,12 @@ function StatusBadge({ status }) {
 }
 
 function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData, errors = {}, events, isEdit, currentUsage }) {
+  const fieldClass = 'mt-1.5 h-11 w-full rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-muted'
+  const errorFieldClass = 'border-error bg-error/5 ring-1 ring-error/20 text-content'
+  const panelClass = 'rounded-xl border border-border-soft/30 bg-panel/60 p-4'
+
   return (
-    <Modal open={open} title={title} onClose={onClose} maxWidth="max-w-2xl"
+    <Modal open={open} title={title} onClose={onClose} maxWidth="max-w-3xl"
       footer={
         <>
           <button className="org-btn-secondary" onClick={onClose}>Hủy</button>
@@ -487,139 +500,178 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
         </>
       }
     >
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <form className="space-y-5" onSubmit={onSubmit}>
         {isEdit && currentUsage !== null && (
-          <div className="mb-6 rounded-xl bg-tertiary/5 p-4 border border-tertiary/20">
-            <p className="text-xs font-extrabold uppercase text-primary">Hiệu quả sử dụng hiện tại</p>
+          <div className="rounded-xl border border-tertiary/25 bg-tertiary/10 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs font-extrabold uppercase text-primary">Hiệu quả sử dụng hiện tại</p>
+              <span className="rounded-lg border border-tertiary/30 bg-surface/50 px-2.5 py-1 text-xs font-extrabold text-primary">{currentUsage}%</span>
+            </div>
             <div className="mt-2 flex items-center gap-4">
-              <div className="flex-1 h-3 rounded-full bg-panel-soft border border-border-soft/20 overflow-hidden">
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full border border-border-soft/20 bg-panel-soft">
                  <div className="h-full bg-tertiary" style={{ width: `${currentUsage}%` }} />
               </div>
-              <span className="font-extrabold text-primary">{currentUsage}%</span>
             </div>
-            <p className="text-xs text-muted mt-2 italic">Hãy cẩn thận khi giảm giới hạn sử dụng xuống thấp hơn số lượt đã dùng hiện tại.</p>
+            <p className="mt-2 text-xs text-muted">Hãy cẩn thận khi giảm giới hạn sử dụng xuống thấp hơn số lượt đã dùng hiện tại.</p>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-subtle'}`}>Mã khuyến mãi</span>
-            <input 
-              type="text"
-              className={`mt-1.5 h-11 w-full rounded-xl border px-3 text-sm font-bold uppercase tracking-widest outline-none transition-all ${
-                errors.code ? 'border-error bg-error/5 ring-1 ring-error/20 text-content' : 'border-border-soft/40 bg-panel-soft focus:border-primary focus:ring-2 focus:ring-primary/15 text-content'
-              }`}
-              placeholder="VD: SUMMER50"
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              required
-            />
-            {errors.code && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.code}</p>}
-          </label>
-          <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.event_id ? 'text-error' : 'text-subtle'}`}>Sự kiện áp dụng</span>
-            <select 
-              className={`mt-1.5 h-11 w-full rounded-xl border px-3 text-sm outline-none transition-all ${
-                errors.event_id ? 'border-error bg-error/5 ring-1 ring-error/20 text-content' : 'border-border-soft/40 bg-panel-soft text-content focus:border-primary'
-              }`}
-              value={formData.event_id === undefined ? '' : formData.event_id}
-              onChange={(e) => setFormData({ ...formData, event_id: e.target.value })}
-            >
-              <option value="" disabled className="bg-surface text-content">-- Chọn sự kiện --</option>
-              <option value="ALL" className="bg-surface text-content">Tất cả sự kiện</option>
-              {(events || []).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-surface text-content">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
-            </select>
-            {errors.event_id && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.event_id}</p>}
-          </label>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block">
-            <span className="text-xs font-bold text-subtle uppercase font-display tracking-tight">Loại giảm giá</span>
-            <select 
-              className="mt-1.5 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
-              value={formData.discount_type}
-              onChange={(e) => setFormData({ ...formData, discount_type: e.target.value })}
-            >
-              <option value="PERCENTAGE" className="bg-surface text-content">Phần trăm (%)</option>
-              <option value="FIXED" className="bg-surface text-content">Số tiền cố định ($)</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-subtle'}`}>Giá trị giảm</span>
-            <div className="relative mt-1.5">
-              <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-muted'}`}>
-                {formData.discount_type === 'PERCENTAGE' ? <Percent className="size-4" /> : <DollarSign className="size-4" />}
-              </span>
-              <input 
-                type="number"
-                className={`h-11 w-full rounded-xl border pl-10 pr-3 text-sm font-extrabold outline-none transition-all ${
-                  errors.discount_value ? 'border-error bg-error/5 ring-1 ring-error/20 text-content' : 'border-border-soft/40 bg-panel-soft text-content focus:border-primary'
-                }`}
-                placeholder="0"
-                value={formData.discount_value}
-                onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
+        <section className={panelClass}>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+            <label className="block">
+              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-subtle'}`}>Mã khuyến mãi</span>
+              <input
+                type="text"
+                className={`${fieldClass} font-extrabold uppercase tracking-widest ${errors.code ? errorFieldClass : ''}`}
+                placeholder="VD: SUMMER50"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 required
               />
+              {errors.code && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.code}</p>}
+            </label>
+
+            <div>
+              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.eventIds ? 'text-error' : 'text-subtle'}`}>Sự kiện áp dụng</span>
+              <label className={`mt-1.5 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-bold transition ${
+                formData.applyToAllEvents
+                  ? 'border-tertiary/40 bg-tertiary/10 text-content'
+                  : 'border-border-soft/40 bg-panel-soft text-content'
+              }`}>
+                <span>Áp dụng cho tất cả sự kiện</span>
+              <input
+                type="checkbox"
+                className="size-4 accent-tertiary"
+                checked={Boolean(formData.applyToAllEvents)}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  applyToAllEvents: e.target.checked,
+                  eventIds: e.target.checked ? [] : formData.eventIds,
+                })}
+              />
+              </label>
+
+              {!formData.applyToAllEvents && (
+                <select
+                  className={`${fieldClass} mt-2 ${errors.eventIds ? errorFieldClass : ''}`}
+                  value={formData.eventIds?.[0] || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    eventIds: e.target.value ? [e.target.value] : [],
+                  })}
+                >
+                  <option value="" className="bg-surface text-content">Chọn sự kiện cụ thể</option>
+                  {(events || []).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-surface text-content">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
+                </select>
+              )}
+              {errors.eventIds && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.eventIds}</p>}
             </div>
-            {errors.discount_value && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.discount_value}</p>}
-          </label>
-        </div>
+          </div>
+        </section>
 
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-subtle'}`}>Giới hạn lượt dùng</span>
-            <input 
-              type="number"
-              className={`mt-1.5 h-11 w-full rounded-xl border px-3 text-sm outline-none transition-all ${
-                 errors.usage_limit ? 'border-error bg-error/5 ring-1 ring-error/20 text-content' : 'border-border-soft/40 bg-panel-soft text-content focus:border-primary'
-              }`}
-              placeholder="Để trống nếu không giới hạn"
-              value={formData.usage_limit}
-              onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value })}
-            />
-            {errors.usage_limit && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.usage_limit}</p>}
-          </label>
-          <label className="block">
-            <span className="text-xs font-bold text-subtle uppercase font-display tracking-tight">Giá trị đơn hàng tối thiểu</span>
-            <input 
-              type="number"
-              className="mt-1.5 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
-              placeholder="0"
-              value={formData.min_order_value}
-              onChange={(e) => setFormData({ ...formData, min_order_value: e.target.value })}
-            />
-          </label>
-        </div>
+        <section className={panelClass}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <label className="block">
+              <span className="text-xs font-bold text-subtle uppercase font-display tracking-tight">Loại giảm giá</span>
+              <select
+                className={fieldClass}
+                value={formData.discount_type}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  discount_type: e.target.value,
+                  max_discount: e.target.value === 'PERCENTAGE' ? formData.max_discount : '',
+                })}
+              >
+                <option value="PERCENTAGE" className="bg-surface text-content">Phần trăm (%)</option>
+                <option value="FIXED" className="bg-surface text-content">Số tiền cố định (VND)</option>
+              </select>
+            </label>
 
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-subtle'}`}>Thời gian bắt đầu</span>
-            <input 
-              type="datetime-local"
-              className={`mt-1.5 h-11 w-full rounded-xl border px-3 text-sm outline-none transition-all ${
-                errors.start_time ? 'border-error bg-error/5 ring-1 ring-error/20 text-content' : 'border-border-soft/40 bg-panel-soft text-content focus:border-primary'
-              }`}
-              value={formData.start_time}
-              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-              required
-            />
-            {errors.start_time && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.start_time}</p>}
-          </label>
-          <label className="block">
-            <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-subtle'}`}>Thời gian kết thúc</span>
-            <input 
-              type="datetime-local"
-              className={`mt-1.5 h-11 w-full rounded-xl border px-3 text-sm outline-none transition-all ${
-                errors.end_time ? 'border-error bg-error/5 ring-1 ring-error/20 text-content' : 'border-border-soft/40 bg-panel-soft text-content focus:border-primary'
-              }`}
-              value={formData.end_time}
-              onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-              required
-            />
-            {errors.end_time && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.end_time}</p>}
-          </label>
-        </div>
+            <label className="block">
+              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-subtle'}`}>Giá trị giảm</span>
+              <div className="relative mt-1.5">
+                <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-muted'}`}>
+                  {formData.discount_type === 'PERCENTAGE' ? <Percent className="size-4" /> : <DollarSign className="size-4" />}
+                </span>
+                <input
+                  type="number"
+                  className={`${fieldClass} pl-10 font-extrabold ${errors.discount_value ? errorFieldClass : ''}`}
+                  placeholder="0"
+                  value={formData.discount_value}
+                  onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
+                  required
+                />
+              </div>
+              {errors.discount_value && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.discount_value}</p>}
+            </label>
+
+            {formData.discount_type === 'PERCENTAGE' && (
+              <label className="block">
+                <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.max_discount ? 'text-error' : 'text-subtle'}`}>Giảm tối đa</span>
+                <input
+                  type="number"
+                  min="0"
+                  className={`${fieldClass} font-extrabold ${errors.max_discount ? errorFieldClass : ''}`}
+                  placeholder="VND"
+                  value={formData.max_discount}
+                  onChange={(e) => setFormData({ ...formData, max_discount: e.target.value })}
+                />
+                {errors.max_discount && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.max_discount}</p>}
+              </label>
+            )}
+          </div>
+        </section>
+
+        <section className={panelClass}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-subtle'}`}>Giới hạn lượt dùng</span>
+              <input
+                type="number"
+                className={`${fieldClass} ${errors.usage_limit ? errorFieldClass : ''}`}
+                placeholder="Để trống nếu không giới hạn"
+                value={formData.usage_limit}
+                onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value })}
+              />
+              {errors.usage_limit && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.usage_limit}</p>}
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-subtle uppercase font-display tracking-tight">Giá trị đơn hàng tối thiểu</span>
+              <input
+                type="number"
+                className={fieldClass}
+                placeholder="0"
+                value={formData.min_order_value}
+                onChange={(e) => setFormData({ ...formData, min_order_value: e.target.value })}
+              />
+            </label>
+
+            <label className="block">
+              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-subtle'}`}>Thời gian bắt đầu</span>
+              <input
+                type="datetime-local"
+                className={`${fieldClass} ${errors.start_time ? errorFieldClass : ''}`}
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                required
+              />
+              {errors.start_time && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.start_time}</p>}
+            </label>
+
+            <label className="block">
+              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-subtle'}`}>Thời gian kết thúc</span>
+              <input
+                type="datetime-local"
+                className={`${fieldClass} ${errors.end_time ? errorFieldClass : ''}`}
+                value={formData.end_time}
+                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                required
+              />
+              {errors.end_time && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.end_time}</p>}
+            </label>
+          </div>
+        </section>
       </form>
     </Modal>
   )
@@ -631,7 +683,8 @@ function PromoDetailModal({ open, onClose, promo }) {
   const discountValue = parseFloat(promo.discount_value).toLocaleString('vi-VN')
   const discountIcon = promo.discount_type === 'PERCENTAGE' ? Percent : DollarSign
   const discountTypeLabel = promo.discount_type === 'PERCENTAGE' ? 'Giảm theo phần trăm' : 'Giảm số tiền cố định'
-  const discountDisplay = promo.discount_type === 'PERCENTAGE' ? `Giảm ${discountValue}%` : `Giảm ${discountValue}đ`
+  const discountDisplay = promo.discount_type === 'PERCENTAGE' ? `Giảm ${discountValue}%` : `Giảm ${formatVnd(promo.discount_value)}`
+  const maxDiscountDisplay = promo.discount_type === 'PERCENTAGE' && promo.max_discount ? formatVnd(promo.max_discount) : 'Không giới hạn'
   const usageLimit = promo.usage_limit || 'Không giới hạn'
   const remainingUsage = promo.usage_limit ? promo.remaining_usage : 'Không giới hạn'
   const usagePercentage = Number(promo.usage_percentage || 0)
@@ -651,16 +704,16 @@ function PromoDetailModal({ open, onClose, promo }) {
           </DetailCard>
 
           <DetailCard>
-            <DetailItem label="Sự kiện áp dụng" value={promo.event_name ? 'Sự kiện cụ thể' : 'Tất cả sự kiện'} />
+            <DetailItem label="Sự kiện áp dụng" value={promo.applyToAllEvents ? 'Tất cả sự kiện' : 'Sự kiện cụ thể'} />
             <div className="mt-3 space-y-1 text-sm text-content">
               <p>
                 <span className="font-bold text-muted">Tên sự kiện: </span>
-                <span className="font-semibold text-content">{promo.event_name || 'Không có'}</span>
+                <span className="font-semibold text-content">{promo.applyToAllEvents ? 'Tất cả sự kiện của organizer' : (promo.event_name || 'Không có')}</span>
               </p>
-              {promo.event_id && (
+              {!promo.applyToAllEvents && (promo.eventIds?.length || promo.event_id) && (
                 <p className="text-xs">
                   <span className="font-bold text-muted">Mã sự kiện: </span>
-                  <span className="font-mono text-muted">{promo.event_id}</span>
+                  <span className="font-mono text-muted">{(promo.eventIds || [promo.event_id]).join(', ')}</span>
                 </p>
               )}
             </div>
@@ -669,7 +722,7 @@ function PromoDetailModal({ open, onClose, promo }) {
           <OfferCard
             icon={discountIcon}
             typeLabel={discountTypeLabel}
-            value={discountDisplay}
+            value={promo.discount_type === 'PERCENTAGE' ? `${discountDisplay}, tối đa ${maxDiscountDisplay}` : discountDisplay}
           />
         </div>
 
