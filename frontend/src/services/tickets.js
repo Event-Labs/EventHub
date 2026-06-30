@@ -18,3 +18,18 @@ export async function downloadTicket(ticketId) {
   })
   return response.data
 }
+
+export async function checkInTicketByQr(payload) {
+  const response = await http.post('/staff/tickets/check-in/qr', payload)
+  return response.data.data
+}
+
+export async function searchStaffTickets(payload) {
+  const response = await http.post('/staff/tickets/search', payload)
+  return response.data.data
+}
+
+export async function checkInStaffTicket(ticketId) {
+  const response = await http.patch(`/staff/tickets/${ticketId}/check-in`)
+  return response.data.data
+}
