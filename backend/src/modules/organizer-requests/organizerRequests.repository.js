@@ -56,12 +56,12 @@ class OrganizerRequestsRepository {
     return rows[0];
   }
 
-  async findPendingByUserId(userId) {
+  async findPendingIndividualByUserId(userId) {
     const { rows } = await db.query(
       `
       SELECT id
       FROM organizer_requests
-      WHERE user_id = $1 AND status = 'PENDING'
+      WHERE user_id = $1 AND request_type = 'INDIVIDUAL' AND status = 'PENDING'
       LIMIT 1
       `,
       [userId],
@@ -84,6 +84,21 @@ class OrganizerRequestsRepository {
       [email],
     );
     return rows[0];
+  }
+
+  async findAllByUserId(userId) {
+    const { rows } = await db.query(
+      `
+      SELECT ${REQUEST_SELECT}
+      FROM organizer_requests r
+      JOIN users u ON u.id = r.user_id AND u.deleted_at IS NULL
+      LEFT JOIN users reviewer ON reviewer.id = r.reviewed_by
+      WHERE r.user_id = $1
+      ORDER BY r.created_at ASC
+      `,
+      [userId],
+    );
+    return rows;
   }
 
   async create({
