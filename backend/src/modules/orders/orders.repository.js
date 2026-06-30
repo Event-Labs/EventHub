@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const promotionsRepository = require('../promotions/promotions.repository');
 
 const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
 
@@ -143,11 +144,28 @@ class OrdersRepository {
       let discountAmount = 0;
 
       if (promoCode) {
+        await promotionsRepository.ensureSupportSchema(client);
         const promoResult = await client.query(
           `
           SELECT *
           FROM promo_codes
-          WHERE (event_id = $1 OR event_id IS NULL)
+          WHERE (
+              event_id = $1
+              OR EXISTS (
+                SELECT 1
+                FROM promo_code_events pce
+                WHERE pce.promo_code_id = promo_codes.id
+                  AND pce.event_id = $1
+              )
+              OR (
+                event_id IS NULL
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM promo_code_events pce_any
+                  WHERE pce_any.promo_code_id = promo_codes.id
+                )
+              )
+            )
             AND organizer_id = $3
             AND UPPER(code) = UPPER($2)
             AND is_active = true
@@ -166,13 +184,13 @@ class OrdersRepository {
 
         if (promo.discount_type === 'PERCENTAGE') {
           discountAmount = Math.round((subtotal * Number(promo.discount_value)) / 100);
+          if (promo.max_discount !== null && promo.max_discount !== undefined) {
+            discountAmount = Math.min(discountAmount, Number(promo.max_discount));
+          }
         } else {
           discountAmount = Number(promo.discount_value);
         }
 
-        if (promo.max_discount !== null && promo.max_discount !== undefined) {
-          discountAmount = Math.min(discountAmount, Number(promo.max_discount));
-        }
         discountAmount = Math.min(discountAmount, subtotal);
       }
 

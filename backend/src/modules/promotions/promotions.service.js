@@ -1,6 +1,5 @@
 const promotionsRepository = require('./promotions.repository');
 const eventsRepository = require('../events/events.repository');
-const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 
@@ -9,26 +8,7 @@ class PromotionsService {
     const organizer = await eventsRepository.findOrganizerByUserId(userId);
     if (organizer) return organizer.id;
 
-    // Check if user is admin
-    const { rows } = await db.query(
-      `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1`,
-      [userId]
-    );
-    const isAdmin = rows.some(r => r.name === 'ADMIN' || r.name === 'STAFF');
-    
-    // If admin but no organizer record, we might need a different logic or just return userId
-    // for now let's return userId as fallback if they are admin
-    if (isAdmin) return userId;
-
     throw new AppError('Organizer record not found. Please complete your organizer profile.', 403, ErrorCodes.FORBIDDEN);
-  }
-
-  async _isAdmin(userId) {
-    const { rows } = await db.query(
-      `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1`,
-      [userId]
-    );
-    return rows.some(r => r.name === 'ADMIN' || r.name === 'STAFF');
   }
 
   async getAllPromos(userId, query) {
@@ -44,9 +24,7 @@ class PromotionsService {
       throw new AppError('Promo code not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
     
-    const isAdmin = await this._isAdmin(userId);
-
-    if (!isAdmin && promo.organizer_id !== organizerId) {
+    if (promo.organizer_id !== organizerId) {
       throw new AppError('You do not have permission to view this promo code', 403, ErrorCodes.FORBIDDEN);
     }
     return this._calculateStatusAndUsage(promo);
@@ -57,15 +35,92 @@ class PromotionsService {
     return promos.map(this._calculateStatusAndUsage);
   }
 
-  async createPromo(data, userId) {
-    const organizerId = await this._getOrganizerId(userId);
-    
-    if (data.start_time >= data.end_time) {
+  _getEventIds(data) {
+    if (Array.isArray(data.eventIds)) return data.eventIds;
+    if (Array.isArray(data.event_ids)) return data.event_ids;
+    if (data.event_id) return [data.event_id];
+    return [];
+  }
+
+  async _assertOrganizerEvents(eventIds, organizerId) {
+    const uniqueEventIds = [...new Set(eventIds.filter(Boolean))];
+    if (!uniqueEventIds.length) return [];
+
+    const events = await promotionsRepository.findEventsByIds(uniqueEventIds, organizerId);
+    if (events.length !== uniqueEventIds.length) {
+      throw new AppError('All selected events must belong to your organizer', 400, ErrorCodes.INVALID_INPUT);
+    }
+    return uniqueEventIds;
+  }
+
+  async _normalizePromoData(data, organizerId, existingPromo = null) {
+    const isCreate = !existingPromo;
+    const normalized = {
+      ...data,
+    };
+
+    if (normalized.maxDiscountAmount !== undefined) {
+      normalized.max_discount = normalized.maxDiscountAmount;
+    }
+    if (normalized.maximumDiscountAmount !== undefined) {
+      normalized.max_discount = normalized.maximumDiscountAmount;
+    }
+
+    const discountType = normalized.discount_type || existingPromo?.discount_type;
+    if (discountType === 'FIXED') {
+      normalized.max_discount = null;
+    }
+
+    const hasApplyToAllEvents = Object.prototype.hasOwnProperty.call(normalized, 'applyToAllEvents');
+    const explicitEventIds = this._getEventIds(normalized);
+    const hasEventPayload =
+      hasApplyToAllEvents ||
+      Object.prototype.hasOwnProperty.call(normalized, 'eventIds') ||
+      Object.prototype.hasOwnProperty.call(normalized, 'event_ids') ||
+      Object.prototype.hasOwnProperty.call(normalized, 'event_id');
+
+    if (hasEventPayload || isCreate) {
+      const applyToAllEvents =
+        normalized.applyToAllEvents === true ||
+        (normalized.event_id === null && explicitEventIds.length === 0);
+
+      if (applyToAllEvents) {
+        normalized.event_id = null;
+        normalized.eventIds = [];
+      } else {
+        const eventIds = await this._assertOrganizerEvents(explicitEventIds, organizerId);
+        if (!eventIds.length) {
+          throw new AppError('Please select at least one event for this promotion', 400, ErrorCodes.INVALID_INPUT);
+        }
+        normalized.eventIds = eventIds;
+        normalized.event_id = eventIds[0];
+      }
+    }
+
+    delete normalized.applyToAllEvents;
+    delete normalized.event_ids;
+    delete normalized.maxDiscountAmount;
+    delete normalized.maximumDiscountAmount;
+
+    return normalized;
+  }
+
+  _assertValidTimeRange(data, existingPromo = null) {
+    const startTime = data.start_time || existingPromo?.start_time;
+    const endTime = data.end_time || existingPromo?.end_time;
+
+    if (startTime && endTime && new Date(startTime) >= new Date(endTime)) {
       throw new AppError('Start time must be before end_time', 400, ErrorCodes.INVALID_INPUT);
     }
+  }
+
+  async createPromo(data, userId) {
+    const organizerId = await this._getOrganizerId(userId);
+    this._assertValidTimeRange(data);
+    const normalizedData = await this._normalizePromoData(data, organizerId);
     
     const promoData = {
-      ...data,
+      ...normalizedData,
       organizer_id: organizerId
     };
     
@@ -79,17 +134,14 @@ class PromotionsService {
       throw new AppError('Promo code not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    const isAdmin = await this._isAdmin(userId);
-
-    if (!isAdmin && promo.organizer_id !== organizerId) {
+    if (promo.organizer_id !== organizerId) {
       throw new AppError('You do not have permission to edit this promo code', 403, ErrorCodes.FORBIDDEN);
     }
 
-    if (data.start_time && data.end_time && data.start_time >= data.end_time) {
-      throw new AppError('Start time must be before end_time', 400, ErrorCodes.INVALID_INPUT);
-    }
+    this._assertValidTimeRange(data, promo);
+    const normalizedData = await this._normalizePromoData(data, organizerId, promo);
 
-    return promotionsRepository.update(id, data);
+    return promotionsRepository.update(id, normalizedData);
   }
 
   async deactivatePromo(id, userId) {
@@ -99,9 +151,7 @@ class PromotionsService {
       throw new AppError('Promo code not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    const isAdmin = await this._isAdmin(userId);
-
-    if (!isAdmin && promo.organizer_id !== organizerId) {
+    if (promo.organizer_id !== organizerId) {
       throw new AppError('You do not have permission to deactivate this promo code', 403, ErrorCodes.FORBIDDEN);
     }
 
