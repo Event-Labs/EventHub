@@ -2,6 +2,15 @@ const ApiResponse = require('../../core/response/ApiResponse');
 const organizerEventsService = require('./organizerEvents.service');
 
 class OrganizerEventsController {
+  getMe = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.getActiveOrganizerProfile(req.user.sub);
+      res.status(200).json(ApiResponse.success(data, 'Organizer profile fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   getVenues = async (req, res, next) => {
     try {
       const data = await organizerEventsService.getVenues(req.user.sub);

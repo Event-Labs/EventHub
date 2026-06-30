@@ -1,6 +1,8 @@
-import { Calendar, LayoutDashboard, Settings, Settings2, ShoppingCart, User, Users } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Calendar, Home, LayoutDashboard, Settings, Settings2, ShoppingCart, User, Users } from 'lucide-react'
 import { getStoredUser, getUserRoles } from '@/lib/auth.js'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
+import { fetchOrganizerProfile } from '@/services/organizerEvents.js'
 import { AvatarInitials } from './OrganizerComponents.jsx'
 
 const navSections = [
@@ -14,7 +16,6 @@ const navSections = [
     icon: Calendar,
     children: [
       { label: 'Tất cả sự kiện', to: '/organizer/events' },
-      { label: 'Tạo sự kiện', to: '/organizer/events/create' },
     ],
   },
   {
@@ -60,12 +61,23 @@ const navSections = [
   },
 ]
 
-const bottomItems = [{ label: 'Hồ sơ', to: '/organizer/profile', icon: User }]
-
 export function OrganizerLayout() {
   const user = parseStoredUser()
   const roles = getUserRoles(user)
   const isAllowed = roles.some((role) => ['organizer', 'admin', 'super_admin'].includes(role))
+  const profileQuery = useQuery({
+    queryKey: ['organizer-profile'],
+    queryFn: fetchOrganizerProfile,
+    enabled: isAllowed,
+    retry: false,
+  })
+  const isIndividualOrganizer = profileQuery.data?.request_type === 'INDIVIDUAL'
+  const bottomItems = [
+    ...(isIndividualOrganizer
+      ? [{ label: 'Trang chủ', to: '/', icon: Home, end: true }]
+      : []),
+    { label: 'Hồ sơ', to: '/organizer/profile', icon: User },
+  ]
 
   return (
     <RolePortalLayout
