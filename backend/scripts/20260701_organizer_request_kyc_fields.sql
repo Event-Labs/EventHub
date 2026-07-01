@@ -1,0 +1,31 @@
+ALTER TABLE organizer_requests
+  ADD COLUMN IF NOT EXISTS legal_document_url TEXT,
+  ADD COLUMN IF NOT EXISTS business_license_url TEXT,
+  ADD COLUMN IF NOT EXISTS legal_representative_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_position VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_id_url TEXT,
+  ADD COLUMN IF NOT EXISTS authorization_letter_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_full_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS individual_identity_number VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS individual_id_front_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_id_back_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_selfie_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_tax_code VARCHAR(30),
+  ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+
+ALTER TABLE organizers
+  ADD COLUMN IF NOT EXISTS legal_document_url TEXT,
+  ADD COLUMN IF NOT EXISTS business_license_url TEXT,
+  ADD COLUMN IF NOT EXISTS legal_representative_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_position VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_id_url TEXT,
+  ADD COLUMN IF NOT EXISTS authorization_letter_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_full_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS individual_identity_number VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS individual_id_front_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_id_back_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_selfie_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_tax_code VARCHAR(30),
+  ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;

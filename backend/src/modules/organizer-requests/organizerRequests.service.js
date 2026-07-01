@@ -32,6 +32,20 @@ function mapRequest(row) {
     business_phone: row.business_phone,
     organization_avatar_url: row.organization_avatar_url,
     tax_code: row.tax_code,
+    legal_document_url: row.legal_document_url,
+    business_license_url: row.business_license_url,
+    legal_representative_name: row.legal_representative_name,
+    legal_representative_position: row.legal_representative_position,
+    legal_representative_id_url: row.legal_representative_id_url,
+    authorization_letter_url: row.authorization_letter_url,
+    individual_full_name: row.individual_full_name,
+    individual_identity_number: row.individual_identity_number,
+    individual_id_front_url: row.individual_id_front_url,
+    individual_id_back_url: row.individual_id_back_url,
+    individual_selfie_url: row.individual_selfie_url,
+    individual_tax_code: row.individual_tax_code,
+    terms_accepted: row.terms_accepted,
+    terms_accepted_at: row.terms_accepted_at,
     status: row.status,
     review_note: row.review_note,
     reviewed_by: row.reviewed_by,
@@ -55,6 +69,31 @@ function hashToken(token) {
 
 function generatePassword() {
   return crypto.randomBytes(9).toString('base64url');
+}
+
+function buildRequestInput(payload) {
+  return {
+    requestType: payload.request_type,
+    organizationName: payload.organization_name,
+    organizationDescription: payload.organization_description,
+    businessEmail: payload.business_email?.trim() ? payload.business_email.trim().toLowerCase() : null,
+    businessPhone: normalizePhone(payload.business_phone),
+    organizationAvatarUrl: payload.organization_avatar_url?.trim() || null,
+    taxCode: payload.tax_code?.trim() || null,
+    legalDocumentUrl: payload.legal_document_url?.trim() || null,
+    businessLicenseUrl: payload.business_license_url?.trim() || null,
+    legalRepresentativeName: payload.legal_representative_name?.trim() || null,
+    legalRepresentativePosition: payload.legal_representative_position?.trim() || null,
+    legalRepresentativeIdUrl: payload.legal_representative_id_url?.trim() || null,
+    authorizationLetterUrl: payload.authorization_letter_url?.trim() || null,
+    individualFullName: payload.individual_full_name?.trim() || null,
+    individualIdentityNumber: payload.individual_identity_number?.trim() || null,
+    individualIdFrontUrl: payload.individual_id_front_url?.trim() || null,
+    individualIdBackUrl: payload.individual_id_back_url?.trim() || null,
+    individualSelfieUrl: payload.individual_selfie_url?.trim() || null,
+    individualTaxCode: payload.individual_tax_code?.trim() || null,
+    termsAccepted: payload.terms_accepted,
+  };
 }
 
 class OrganizerRequestsService {
@@ -96,18 +135,77 @@ class OrganizerRequestsService {
 
     const row = await organizerRequestsRepository.create({
       userId,
-      requestType: payload.request_type,
-      organizationName: payload.organization_name,
-      organizationDescription: payload.organization_description,
-      businessEmail: payload.business_email?.trim() ? payload.business_email.trim().toLowerCase() : null,
-      businessPhone: normalizePhone(payload.business_phone),
-      organizationAvatarUrl: payload.organization_avatar_url?.trim() || null,
-      taxCode: payload.tax_code?.trim() || null,
+      ...buildRequestInput(payload),
     });
 
     const request = mapRequest(row);
 
     if (request.request_type === 'ORGANIZATION') {
+      await this.sendBusinessEmailVerification(request);
+    }
+
+    return request;
+  }
+
+  async updateMyRequest(userId, requestId, payload) {
+    const current = await this.getRequestById(requestId);
+    if (current.user_id !== userId) {
+      throw new AppError(
+        'Organizer request not found',
+        404,
+        ErrorCodes.ORGANIZER_REQUEST_NOT_FOUND,
+      );
+    }
+
+    if (current.status === 'APPROVED') {
+      throw new AppError(
+        'Approved organizer requests cannot be edited',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
+    const input = buildRequestInput(payload);
+    let businessEmailVerified = false;
+    const nextBusinessEmail = input.businessEmail;
+
+    if (payload.request_type === 'ORGANIZATION') {
+      const conflict = await organizerRequestsRepository.findBusinessEmailConflict(
+        nextBusinessEmail,
+        requestId,
+      );
+      if (conflict) {
+        throw new AppError(
+          'Organization email is already used by another account or pending request',
+          400,
+          ErrorCodes.RESOURCE_ALREADY_EXISTS,
+        );
+      }
+
+      businessEmailVerified =
+        current.request_type === 'ORGANIZATION' &&
+        current.business_email?.toLowerCase() === nextBusinessEmail &&
+        current.business_email_verified;
+    }
+
+    const row = await organizerRequestsRepository.updateByIdForUser({
+      requestId,
+      userId,
+      ...input,
+      businessEmailVerified,
+    });
+
+    if (!row) {
+      throw new AppError(
+        'Organizer request not found or cannot be edited',
+        404,
+        ErrorCodes.ORGANIZER_REQUEST_NOT_FOUND,
+      );
+    }
+
+    const request = mapRequest(row);
+
+    if (request.request_type === 'ORGANIZATION' && !request.business_email_verified) {
       await this.sendBusinessEmailVerification(request);
     }
 
