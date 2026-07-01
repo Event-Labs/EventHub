@@ -151,6 +151,7 @@ class EventsService {
           x_position: row.x_position,
           y_position: row.y_position,
           is_disabled: Boolean(row.is_disabled),
+          ticket_type_ids: row.ticket_type_ids || [],
           status: row.is_disabled ? 'BLOCKED' : holdExpired ? 'AVAILABLE' : row.status,
           held_until: row.held_until,
           seat_type: row.seat_type_name

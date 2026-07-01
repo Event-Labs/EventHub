@@ -3,13 +3,15 @@ import {
   ArrowLeft,
   Check,
   ExternalLink,
+  Minus,
+  Plus,
   RefreshCw,
   ShieldCheck,
   Tag,
   Ticket,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
@@ -95,6 +97,14 @@ function payableTotal(cart) {
   return Math.max(0, cartTotal(cart) - promoDiscount(cart))
 }
 
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim())
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value))
+}
+
 function normalizeCart(cart) {
   if (!cart) return cart
   return {
@@ -111,6 +121,7 @@ export function BookingSeatsPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const seatMapViewportRef = useRef(null)
   const session = cart?.selectedSession || cart?.items?.[0]?.session
   const ticketTypes = (cart?.availableTicketTypes || []).filter((ticketType) =>
     session ? String(ticketType.event_session_id) === String(session.id) : true,
@@ -120,6 +131,7 @@ export function BookingSeatsPage() {
   )
   const [availabilityError, setAvailabilityError] = useState('')
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+  const [seatZoom, setSeatZoom] = useState(1)
 
   const seatsQuery = useQuery({
     queryKey: ['session-seats', session?.id],
@@ -127,29 +139,54 @@ export function BookingSeatsPage() {
     enabled: Boolean(session),
   })
 
-  const displayItems = useMemo(() => {
-    if (!seatsQuery.data?.seats) return []
+  const fitSeatMapToViewport = useCallback(() => {
+    if (!seatMapViewportRef.current) return
+    const cols = Number(seatsQuery.data?.seat_map?.cols_count || 8)
+    const estimatedSeatMapWidth = cols * 56 + 32
+    const viewportWidth = seatMapViewportRef.current.clientWidth
+    const nextZoom = clamp((viewportWidth - 8) / estimatedSeatMapWidth, 0.5, 1)
+    setSeatZoom(Number(nextZoom.toFixed(2)))
+  }, [seatsQuery.data?.seat_map?.cols_count])
+
+  useEffect(() => {
+    if (!seatsQuery.data?.seats?.length) return
+    fitSeatMapToViewport()
+  }, [fitSeatMapToViewport, seatsQuery.data?.seats?.length])
+
+  const seatData = seatsQuery.data?.seats || []
+  const displayItems = (() => {
+    if (!seatData.length) return []
+    const seatsById = new Map(seatData.map((seat) => [seat.session_seat_id, seat]))
     const groups = {}
     selectedSeatIds.forEach((seatId) => {
-      const seat = seatsQuery.data.seats.find((s) => s.session_seat_id === seatId)
-      if (seat && seat.ticket_type_id) {
-        if (!groups[seat.ticket_type_id]) groups[seat.ticket_type_id] = []
-        groups[seat.ticket_type_id].push(seatId)
+      const seat = seatsById.get(seatId)
+      if (!seat) return
+      const mappedTicketTypeIds = seat.ticket_type_ids || []
+      const ticketType = mappedTicketTypeIds.length
+        ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
+        : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
+
+      if (ticketType) {
+        if (!groups[ticketType.id]) {
+          groups[ticketType.id] = {
+            ticketType,
+            sessionSeatIds: [],
+            seatLabels: [],
+          }
+        }
+        groups[ticketType.id].sessionSeatIds.push(seatId)
+        groups[ticketType.id].seatLabels.push(seat.label)
       }
     })
 
-    return Object.keys(groups)
-      .map((ticketTypeId) => {
-        const ticketType = ticketTypes.find((t) => String(t.id) === String(ticketTypeId))
-        return {
-          ticketType,
-          quantity: groups[ticketTypeId].length,
-          sessionSeatIds: groups[ticketTypeId],
-          session,
-        }
-      })
-      .filter((item) => item.ticketType)
-  }, [selectedSeatIds, seatsQuery.data?.seats, ticketTypes, session])
+    return Object.values(groups).map((group) => ({
+      ticketType: group.ticketType,
+      quantity: group.sessionSeatIds.length,
+      sessionSeatIds: group.sessionSeatIds,
+      seatLabels: group.seatLabels,
+      session,
+    }))
+  })()
 
   const displayCart = cart ? { ...cart, selectedSession: session, items: displayItems } : cart
 
@@ -203,41 +240,77 @@ export function BookingSeatsPage() {
                   <Legend color="bg-panel-soft" label="Còn trống" />
                   <Legend color="bg-slate-700" label="Đã giữ/bán" />
                 </div>
-                <div
-                  className="grid gap-2 rounded-lg bg-surface/60 p-4 overflow-x-auto"
-                  style={{
-                    gridTemplateColumns: `repeat(${seatsQuery.data?.seat_map?.cols_count || 8}, minmax(40px, 1fr))`,
-                  }}
-                >
-                  {(seatsQuery.data?.seats || []).map((seat) => {
-                    const selected = selectedSeatIds.includes(seat.session_seat_id)
-                    const disabled = seat.status !== 'AVAILABLE'
-                    const ticketType = ticketTypes.find((t) => t.id === seat.ticket_type_id)
-                    const title = `${seat.label} - ${ticketType ? ticketType.name : ''}`
+                <div className="flex items-start gap-3 rounded-lg bg-surface/60 p-4">
+                  <div ref={seatMapViewportRef} className="min-w-0 flex-1 overflow-auto">
+                    <div
+                      className="grid w-max gap-2"
+                      style={{
+                        gridTemplateColumns: `repeat(${seatsQuery.data?.seat_map?.cols_count || 8}, 48px)`,
+                        zoom: seatZoom,
+                      }}
+                    >
+                      {(seatsQuery.data?.seats || []).map((seat) => {
+                        const selected = selectedSeatIds.includes(seat.session_seat_id)
+                        const disabled = seat.status !== 'AVAILABLE'
+                        const mappedTicketTypeIds = seat.ticket_type_ids || []
+                        const ticketType = mappedTicketTypeIds.length
+                          ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
+                          : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
+                        const title = `${seat.label}${ticketType ? ` - ${ticketType.name}` : ''}`
 
-                    return (
-                      <button
-                        key={seat.session_seat_id}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => toggleSeat(seat.session_seat_id)}
-                        title={title}
-                        className={`min-h-10 rounded-t-lg border text-xs font-bold transition ${
-                          selected
-                            ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
-                            : disabled
-                              ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
-                              : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
-                        }`}
-                      >
-                        {seat.label}
-                      </button>
-                    )
-                  })}
+                        return (
+                          <button
+                            key={seat.session_seat_id}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => toggleSeat(seat.session_seat_id)}
+                            title={title}
+                            className={`h-10 rounded-t-lg border text-xs font-bold transition ${
+                              selected
+                                ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
+                                : disabled
+                                  ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+                                  : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
+                            }`}
+                          >
+                            {seat.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.5, 1.6))}
+                      className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                      disabled={seatZoom >= 1.6}
+                      title={'Ph\u00f3ng to'}
+                    >
+                      <Plus className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={fitSeatMapToViewport}
+                      className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
+                      title={'V\u1eeba khung'}
+                    >
+                      <RefreshCw className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.5, 1.6))}
+                      className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                      disabled={seatZoom <= 0.5}
+                      title={'Thu nh\u1ecf'}
+                    >
+                      <Minus className="size-4" />
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
-              <p className="text-muted text-center font-medium">Sự kiện này hiện không có sơ đồ chỗ ngồi.</p>
+              <p className="text-muted text-center font-medium">Sự kiện này hiện không có sơ đồ chỗ ngồi</p>
             )}
             
             {seatsQuery.data?.seats?.length > 0 && (
@@ -272,6 +345,8 @@ export function BookingAttendeesPage() {
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
   const [attendees, setAttendees] = useState(cart?.attendees || {})
   const [buyer, setBuyer] = useState(cart?.buyer || { name: '', email: '', phone: '' })
+  const [formError, setFormError] = useState('')
+  const formErrorRef = useRef(null)
 
   useEffect(() => {
     if (!buyer.email) {
@@ -289,7 +364,15 @@ export function BookingAttendeesPage() {
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
+  const showFormError = (message) => {
+    setFormError(message)
+    window.requestAnimationFrame(() => {
+      formErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }
+
   const updateAttendee = (slotId, field, value) => {
+    setFormError('')
     setAttendees((current) => ({
       ...current,
       [slotId]: {
@@ -300,7 +383,39 @@ export function BookingAttendeesPage() {
   }
 
   const continueFlow = () => {
-    navigate('/booking/review', { state: { cart: { ...cart, attendees, buyer } } })
+    const cleanBuyer = {
+      name: buyer.name?.trim() || '',
+      email: buyer.email?.trim() || '',
+      phone: buyer.phone?.trim() || '',
+    }
+
+    if (!cleanBuyer.name || !cleanBuyer.email || !cleanBuyer.phone) {
+      showFormError('Vui lòng nhập đầy đủ thông tin người mua.')
+      return
+    }
+
+    if (!isEmail(cleanBuyer.email)) {
+      showFormError('Email người mua không hợp lệ.')
+      return
+    }
+
+    const cleanAttendees = {}
+    const invalidSlotIndex = attendeeSlots.findIndex((slot) => {
+      const attendee = attendees[slot.id] || {}
+      const cleanAttendee = {
+        name: attendee.name?.trim() || '',
+        email: attendee.email?.trim() || '',
+      }
+      cleanAttendees[slot.id] = cleanAttendee
+      return !cleanAttendee.name || !cleanAttendee.email || !isEmail(cleanAttendee.email)
+    })
+
+    if (invalidSlotIndex >= 0) {
+      showFormError(`Vui lòng nhập đầy đủ họ tên và email hợp lệ cho vé ${invalidSlotIndex + 1}.`)
+      return
+    }
+
+    navigate('/booking/review', { state: { cart: { ...cart, attendees: cleanAttendees, buyer: cleanBuyer } } })
   }
 
   return (
@@ -308,12 +423,17 @@ export function BookingAttendeesPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
           <PageTitle title="Thông tin người tham gia" subtitle="Thông tin này sẽ được dùng khi xuất vé sau thanh toán" />
+          {formError && (
+            <p ref={formErrorRef} className="rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error">
+              {formError}
+            </p>
+          )}
           <Panel>
             <h2 className="mb-4 font-display text-xl font-bold text-white">Người mua</h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Họ và tên" value={buyer.name} onChange={(value) => setBuyer((current) => ({ ...current, name: value }))} />
-              <Input label="Email" type="email" value={buyer.email} onChange={(value) => setBuyer((current) => ({ ...current, email: value }))} />
-              <Input label="Số điện thoại" value={buyer.phone} onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))} />
+              <Input label="Họ và tên" value={buyer.name} onChange={(value) => { setFormError(''); setBuyer((current) => ({ ...current, name: value })) }} />
+              <Input label="Email" type="email" value={buyer.email} onChange={(value) => { setFormError(''); setBuyer((current) => ({ ...current, email: value })) }} />
+              <Input label="Số điện thoại" value={buyer.phone} onChange={(value) => { setFormError(''); setBuyer((current) => ({ ...current, phone: value })) }} />
             </div>
           </Panel>
           {attendeeSlots.map((slot, index) => (
@@ -324,14 +444,14 @@ export function BookingAttendeesPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Input
                   label="Họ và tên"
-                  value={attendees[slot.id]?.name || buyer.name}
+                  value={attendees[slot.id]?.name ?? ''}
                   onChange={(value) => updateAttendee(slot.id, 'name', value)}
                   placeholder="Nhập tên người tham gia"
                 />
                 <Input
                   label="Email"
                   type="email"
-                  value={attendees[slot.id]?.email || buyer.email}
+                  value={attendees[slot.id]?.email ?? ''}
                   onChange={(value) => updateAttendee(slot.id, 'email', value)}
                   placeholder="email@example.com"
                 />
@@ -572,6 +692,7 @@ export function BookingPaymentPage() {
 
 function BookingShell({ step, cart, children }) {
   const labels = ['Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
+  const navigate = useNavigate()
   const [tick, setTick] = useState(0)
   const remaining = secondsLeft(cart?.holdExpiresAt)
 
@@ -579,6 +700,22 @@ function BookingShell({ step, cart, children }) {
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000)
     return () => window.clearInterval(timer)
   }, [])
+
+  const goBackStep = () => {
+    const previousPathByStep = {
+      2: '/booking/seats',
+      3: '/booking/attendees',
+      4: '/booking/review',
+    }
+    const previousPath = previousPathByStep[step]
+
+    if (previousPath && cart) {
+      navigate(previousPath, { state: { cart } })
+      return
+    }
+
+    window.history.back()
+  }
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background text-content">
@@ -621,7 +758,7 @@ function BookingShell({ step, cart, children }) {
         <div className="mb-4">
           <button
             type="button"
-            onClick={() => window.history.back()}
+            onClick={goBackStep}
             className="flex w-fit items-center gap-2 text-sm font-bold text-muted transition hover:text-primary"
           >
             <ArrowLeft className="size-4" />
@@ -667,6 +804,9 @@ function OrderCard({ cart, cta, onClick, disabled }) {
                   </p>
                 ) : (
                   <p className="text-slate-500">{formatPrice(ticketType.price)} / vé</p>
+                )}
+                {item?.seatLabels?.length > 0 && (
+                  <p className="mt-1 text-xs text-muted">Ghế: {item.seatLabels.join(', ')}</p>
                 )}
               </div>
               <p className={qty > 0 ? 'font-bold text-primary' : 'font-bold text-slate-500'}>
@@ -1102,3 +1242,4 @@ function NavigateBackToEvents() {
     </div>
   )
 }
+
