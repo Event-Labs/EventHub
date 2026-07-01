@@ -307,12 +307,20 @@ class EventsRepository {
         s.is_disabled,
         st.name AS seat_type_name,
         st.color AS seat_type_color,
+        COALESCE(seat_ticket_types.ticket_type_ids, '[]'::jsonb) AS ticket_type_ids,
         sm.rows_count,
         sm.cols_count
       FROM session_seats ss
       JOIN seats s ON s.id = ss.seat_id
       JOIN seat_maps sm ON sm.id = s.seat_map_id
       LEFT JOIN seat_types st ON st.id = s.seat_type_id
+      LEFT JOIN LATERAL (
+        SELECT jsonb_agg(DISTINCT tts_all.ticket_type_id) AS ticket_type_ids
+        FROM ticket_type_seats tts_all
+        JOIN ticket_types tt_all ON tt_all.id = tts_all.ticket_type_id
+        WHERE tts_all.seat_id = s.id
+          AND tt_all.event_session_id = ss.event_session_id
+      ) seat_ticket_types ON true
       ${ticketTypeJoin}
       WHERE ss.event_session_id = $1
         ${ticketTypeWhere}
