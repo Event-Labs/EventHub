@@ -26,6 +26,102 @@ function formatMoney(value) {
   }).format(toNumber(value));
 }
 
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function csvCell(value) {
+  if (value === null || value === undefined) return '';
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
+function buildCsvRow(values) {
+  return values.map(csvCell).join(',');
+}
+
+function safeFilenamePart(value) {
+  const fallback = 'event';
+  const text = String(value || fallback)
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+    .replace(/\s+/g, ' ');
+  return text || fallback;
+}
+
+function buildExportFilename(eventTitle) {
+  const stamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+  return `${safeFilenamePart(eventTitle)}-attendee-list-${stamp}.csv`;
+}
+
+function formatSeat(row) {
+  if (row.row_label && row.seat_number) return `${row.row_label}${row.seat_number}`;
+  return 'Không có ghế';
+}
+
+function formatTicketStatus(status) {
+  const labels = {
+    VALID: 'Hợp lệ',
+    USED: 'Đã check-in',
+    CANCELLED: 'Đã hủy',
+  };
+  return labels[status] || status || '';
+}
+
+function buildAttendeesCsv(rows) {
+  const headers = [
+    'STT',
+    'Tên người đặt',
+    'Email người đặt',
+    'Mã vé',
+    'Trạng thái',
+    'Loại vé',
+    'Giá vé',
+    'Phiên',
+    'Bắt đầu',
+    'Kết thúc',
+    'Địa điểm',
+    'Thành phố',
+    'Ghế/Khu vực',
+    'Mã đơn hàng',
+    'Check-in lúc',
+    'Ngày tạo vé',
+  ];
+
+  const lines = [
+    buildCsvRow(headers),
+    ...rows.map((row, index) => buildCsvRow([
+      index + 1,
+      row.buyer_name,
+      row.buyer_email,
+      row.ticket_code,
+      formatTicketStatus(row.status),
+      row.ticket_type_name,
+      row.ticket_type_price,
+      row.session_name,
+      formatDateTime(row.session_start_time),
+      formatDateTime(row.session_end_time),
+      row.venue_name,
+      row.venue_city,
+      formatSeat(row),
+      row.order_code,
+      formatDateTime(row.checked_in_at),
+      formatDateTime(row.created_at),
+    ])),
+  ];
+
+  return `\uFEFF${lines.join('\r\n')}`;
+}
+
 function pickBestTicketType(ticketTypes = []) {
   return [...ticketTypes].sort((a, b) => {
     const revenueDiff = toNumber(b.revenue) - toNumber(a.revenue);
@@ -286,6 +382,22 @@ class OrganizerOrdersService {
       filters,
     );
     return { items, total };
+  }
+
+  async exportAttendees(userId, eventId, filters) {
+    const organizerId = await this._resolveOrganizerId(userId);
+    const event = await this._assertOwnsEvent(organizerId, eventId);
+    const rows = await organizerOrdersRepository.findAttendeesForExport(
+      organizerId,
+      eventId,
+      filters,
+    );
+
+    return {
+      filename: buildExportFilename(event.title),
+      content: buildAttendeesCsv(rows),
+      total: rows.length,
+    };
   }
 
   async getCheckinStats(userId, eventId) {
