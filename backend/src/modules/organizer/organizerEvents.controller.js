@@ -11,6 +11,15 @@ class OrganizerEventsController {
     }
   };
 
+  updateMe = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.updateActiveOrganizerProfile(req.user.sub, req.body);
+      res.status(200).json(ApiResponse.success(data, 'Organizer profile updated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   getVenues = async (req, res, next) => {
     try {
       const data = await organizerEventsService.getVenues(req.user.sub);

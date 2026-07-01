@@ -9,6 +9,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   ExternalLink,
   Eye,
@@ -31,7 +32,7 @@ import {
 } from 'lucide-react'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
-import { fetchOrganizerProfile } from '@/services/organizerEvents.js'
+import { fetchOrganizerProfile, updateOrganizerProfile } from '@/services/organizerEvents.js'
 
 const EMPTY_TEXT = 'Chưa cập nhật'
 
@@ -57,7 +58,7 @@ export function ProfilePage() {
   const organizerQuery = useQuery({
     queryKey: ['organizer-profile'],
     queryFn: fetchOrganizerProfile,
-    enabled: Boolean(user && isOrganizer && mode === 'view'),
+    enabled: Boolean(user && isOrganizer),
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
@@ -105,11 +106,11 @@ export function ProfilePage() {
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-display text-4xl font-extrabold text-white">
-            {isOrganizer ? 'Hồ sơ Organizer' : 'Hồ sơ cá nhân'}
+            {isOrganizer ? 'Hồ sơ nhà tổ chức' : 'Hồ sơ cá nhân'}
           </h1>
           <p className="mt-2 text-muted">
             {isOrganizer
-              ? 'Xem lại toàn bộ thông tin đã gửi khi đăng ký làm Organizer.'
+              ? 'Xem lại toàn bộ thông tin đã gửi khi đăng ký làm nhà tổ chức.'
               : 'Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub.'}
           </p>
         </div>
@@ -149,9 +150,17 @@ export function ProfilePage() {
         />
       )}
       {mode === 'view' && !isOrganizer && <ProfileView user={user} />}
-      {mode === 'edit' && (
+      {mode === 'edit' && isOrganizer && organizerQuery.isLoading && (
+        <div className="glass-panel flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-lg p-6">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
+        </div>
+      )}
+      {mode === 'edit' && (!isOrganizer || !organizerQuery.isLoading) && (
         <ProfileEdit
           user={user}
+          organizer={organizerQuery.data}
+          isOrganizer={isOrganizer}
           onDone={() => {
             setMode('view')
             queryClient.invalidateQueries({ queryKey: ['profile'] })
@@ -165,11 +174,13 @@ export function ProfilePage() {
 }
 
 function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
+  const [openSections, setOpenSections] = useState(() => new Set(['overview']))
+
   if (isLoading) {
     return (
       <div className="glass-panel flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg p-6">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-muted">Đang tải thông tin Organizer...</p>
+        <p className="text-muted">Đang tải thông tin nhà tổ chức...</p>
       </div>
     )
   }
@@ -178,7 +189,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
     return (
       <div className="glass-panel rounded-lg p-6 text-center">
         <AlertCircle className="mx-auto size-10 text-error" />
-        <h2 className="mt-3 font-display text-2xl font-bold text-white">Không thể tải hồ sơ Organizer</h2>
+        <h2 className="mt-3 font-display text-2xl font-bold text-white">Không thể tải hồ sơ nhà tổ chức</h2>
         <p className="mt-2 text-muted">{error?.response?.data?.message || 'Vui lòng thử lại sau.'}</p>
         <button onClick={onRetry} className="mt-5 rounded-md bg-primary px-5 py-3 font-bold text-slate-950">
           Tải lại
@@ -200,17 +211,30 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
   const avatarUrl = firstValue(request.organization_avatar_url, organizer?.organization_avatar_url, user.avatar_url)
   const phone = firstValue(request.business_phone, organizer?.business_phone, user.phone)
   const businessEmail = firstValue(request.business_email, organizer?.business_email)
-  const description = firstValue(request.organization_description, organizer?.description, user.bio)
+  const description = firstValue(organizer?.description, request.organization_description, user.bio)
+  const address = formatProfileAddress(user, organizer)
+
+  const toggleSection = (sectionId) => {
+    setOpenSections((current) => {
+      const next = new Set(current)
+      if (next.has(sectionId)) {
+        next.delete(sectionId)
+      } else {
+        next.add(sectionId)
+      }
+      return next
+    })
+  }
 
   return (
     <div className="space-y-6">
       <section className="glass-panel rounded-lg p-6">
-        <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
           <div className="flex flex-col items-center text-center">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
-                alt={displayName || 'Ảnh đại diện Organizer'}
+                alt={displayName || 'Ảnh đại diện nhà tổ chức'}
                 className="size-36 rounded-2xl object-cover ring-4 ring-primary/25"
               />
             ) : (
@@ -223,104 +247,157 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
             </span>
           </div>
 
-          <div className="min-w-0">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-muted">Tổng quan hồ sơ</p>
-                <h2 className="mt-1 break-words font-display text-3xl font-extrabold text-white">
-                  {valueOrEmpty(displayName)}
-                </h2>
-              </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="mt-1 break-words font-display text-3xl font-extrabold text-white">
+              {valueOrEmpty(displayName)}
+            </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <StatusPill status={request.status || organizer?.status} />
+              <span className="rounded-full border border-border-soft bg-surface px-3 py-1 text-xs font-bold text-muted">
+                {organizerTypeLabel(type)}
+              </span>
             </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <CompactLine icon={Users} label="Loại đăng ký" value={organizerTypeLabel(type)} />
-              <CompactLine icon={ShieldCheck} label="Trạng thái yêu cầu" value={requestStatusLabel(request.status || organizer?.status)} />
-              <CompactLine icon={Phone} label="Số điện thoại" value={phone} />
-              {!isPersonal && <CompactLine icon={Mail} label="Email tổ chức" value={businessEmail} />}
-              <CompactLine icon={Calendar} label="Ngày gửi" value={formatDateTime(request.created_at || organizer?.created_at)} />
-              <CompactLine icon={Clock} label="Ngày xử lý" value={formatDateTime(request.reviewed_at)} />
-            </div>
+            <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted">
+              {valueOrEmpty(description)}
+            </p>
           </div>
         </div>
       </section>
 
-      <InfoSection title="Thông tin hiển thị công khai" icon={InfoIcon}>
-        <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
-        <Info icon={ImageIcon} label="Ảnh đại diện/logo" value={avatarUrl} linkType="url" />
-        <Info icon={Phone} label="Số điện thoại" value={phone} />
-        {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
-        <Info icon={FileText} label="Mô tả/giới thiệu" value={description} className="md:col-span-2" multiline />
-      </InfoSection>
+      <div className="space-y-4">
+        <AccordionSection
+          id="overview"
+          title="Tổng quan hồ sơ"
+          icon={InfoIcon}
+          isOpen={openSections.has('overview')}
+          onToggle={toggleSection}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
+            <Info icon={Users} label="Loại nhà tổ chức" value={organizerTypeLabel(type)} />
+            <Info icon={ShieldCheck} label="Trạng thái yêu cầu/xác minh" value={requestStatusLabel(request.status || organizer?.status)} />
+            <Info icon={Phone} label="Số điện thoại" value={phone} />
+            {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
+          </div>
+        </AccordionSection>
 
-      <InfoSection title="Thông tin liên hệ" icon={Mail}>
-        <Info icon={Phone} label="Số điện thoại" value={phone} />
-        {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
-        {!isPersonal && (
-          <Info
-            icon={ShieldCheck}
-            label="Trạng thái xác thực email tổ chức"
-            value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
-          />
-        )}
-        <Info icon={UserCircle} label="Người đại diện/thông tin liên hệ" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name, user.full_name)} />
-      </InfoSection>
+        <AccordionSection
+          id="public"
+          title="Thông tin hiển thị công khai"
+          icon={FileText}
+          isOpen={openSections.has('public')}
+          onToggle={toggleSection}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
+            <Info icon={Phone} label="Số điện thoại" value={phone} />
+            {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
+            <Info icon={MapPin} label="Địa chỉ" value={address} />
+            <Info icon={ImageIcon} label="Trang web/mạng xã hội" value={firstValue(organizer?.website_url, organizer?.social_url)} linkType="url" />
+            <Info icon={FileText} label="Mô tả/giới thiệu" value={description} className="md:col-span-2" multiline />
+          </div>
+        </AccordionSection>
 
-      <InfoSection title="Thông tin pháp lý và xác minh" icon={IdCard}>
-        {isPersonal ? (
-          <>
-            <Info icon={UserCircle} label="Họ tên pháp lý" value={firstValue(request.individual_full_name, organizer?.individual_full_name)} />
-            <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={firstValue(request.individual_identity_number, organizer?.individual_identity_number)} />
-            <Info icon={IdCard} label="Mã số thuế cá nhân" value={firstValue(request.individual_tax_code, organizer?.individual_tax_code)} />
-            <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} />
-            <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} />
-            <DocumentCard label="Ảnh chân dung/Selfie" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} />
-          </>
-        ) : (
-          <>
-            <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
-            <Info icon={UserCircle} label="Người đại diện pháp luật" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name)} />
-            <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={firstValue(request.legal_representative_position, organizer?.legal_representative_position)} />
-            <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} />
-            <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} />
-            <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} />
-            <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} />
-          </>
-        )}
-      </InfoSection>
+        <AccordionSection
+          id="legal"
+          title="Thông tin pháp lý và xác minh"
+          icon={IdCard}
+          isOpen={openSections.has('legal')}
+          onToggle={toggleSection}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {isPersonal ? (
+              <>
+                <Info icon={UserCircle} label="Họ tên pháp lý" value={firstValue(request.individual_full_name, organizer?.individual_full_name)} />
+                <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={firstValue(request.individual_identity_number, organizer?.individual_identity_number)} />
+                <Info icon={IdCard} label="Mã số thuế cá nhân" value={firstValue(request.individual_tax_code, organizer?.individual_tax_code)} />
+                <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} />
+                <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} />
+                <DocumentCard label="Ảnh chân dung/tự chụp" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} />
+              </>
+            ) : (
+              <>
+                <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />
+                <Info
+                  icon={ShieldCheck}
+                  label="Trạng thái xác thực email tổ chức"
+                  value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
+                />
+                <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
+                <Info icon={UserCircle} label="Người đại diện pháp luật" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name)} />
+                <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={firstValue(request.legal_representative_position, organizer?.legal_representative_position)} />
+                <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} />
+                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} />
+                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} />
+                <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} />
+              </>
+            )}
+          </div>
+        </AccordionSection>
 
-      <InfoSection title="Cam kết và gửi yêu cầu" icon={CheckCircle2}>
-        <Info icon={CheckCircle2} label="Trạng thái cam kết pháp lý/điều khoản" value={booleanLabel(firstDefined(request.terms_accepted, organizer?.terms_accepted))} />
-        <Info icon={Calendar} label="Thời gian đồng ý điều khoản" value={formatDateTime(firstValue(request.terms_accepted_at, organizer?.terms_accepted_at))} />
-        <Info icon={Clock} label="Thời gian gửi yêu cầu" value={formatDateTime(request.created_at)} />
-        <Info
-          icon={FileCheck2}
-          label="Nội dung cam kết"
-          value="Organizer đã xác nhận thông tin cung cấp là chính xác và đồng ý với điều khoản dịch vụ dành cho nhà tổ chức, quy chế sự kiện, quy chế bán vé và chính sách hoàn tiền của EventHub."
-          className="md:col-span-2"
-          multiline
-        />
-      </InfoSection>
+        <AccordionSection
+          id="commitment"
+          title="Cam kết và điều khoản"
+          icon={CheckCircle2}
+          isOpen={openSections.has('commitment')}
+          onToggle={toggleSection}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Info icon={CheckCircle2} label="Trạng thái cam kết pháp lý/điều khoản" value={booleanLabel(firstDefined(request.terms_accepted, organizer?.terms_accepted))} />
+            <Info icon={Clock} label="Thời gian gửi yêu cầu" value={formatDateTime(request.created_at)} />
+            <Info
+              icon={FileCheck2}
+              label="Nội dung cam kết"
+              value="Nhà tổ chức đã xác nhận thông tin cung cấp là chính xác và đồng ý với điều khoản dịch vụ dành cho nhà tổ chức, quy chế sự kiện, quy chế bán vé và chính sách hoàn tiền của EventHub."
+              className="md:col-span-2"
+              multiline
+            />
+          </div>
+        </AccordionSection>
 
-      <section className="glass-panel rounded-lg p-6">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-            <History className="size-5" />
-          </span>
-          <h2 className="font-display text-2xl font-bold text-white">Lịch sử xét duyệt</h2>
-        </div>
-        <div className="mt-6 space-y-4">
-          {history.length ? (
-            history.map((item, index) => <ReviewHistoryCard key={item.id || index} request={item} index={index} />)
-          ) : (
-            <div className="rounded-lg border border-border-soft bg-surface p-4 text-sm font-semibold text-subtle">
-              Chưa cập nhật
-            </div>
-          )}
-        </div>
-      </section>
+        <AccordionSection
+          id="history"
+          title="Lịch sử xét duyệt"
+          icon={History}
+          isOpen={openSections.has('history')}
+          onToggle={toggleSection}
+        >
+          <div className="space-y-4">
+            {history.length ? (
+              history.map((item, index) => <ReviewHistoryCard key={item.id || index} request={item} index={index} />)
+            ) : (
+              <div className="rounded-lg border border-border-soft bg-surface p-4 text-sm font-semibold text-subtle">
+                Chưa cập nhật
+              </div>
+            )}
+          </div>
+        </AccordionSection>
+      </div>
     </div>
+  )
+}
+
+function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, children }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-border-soft bg-panel shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        aria-expanded={isOpen}
+        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-panel-soft"
+      >
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1 font-display text-xl font-bold text-white">{title}</span>
+        <ChevronDown className={`size-5 shrink-0 text-muted transition-transform ${isOpen ? 'rotate-180 text-primary' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="border-t border-border-soft/50 p-5">
+          {children}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -352,7 +429,11 @@ function ProfileView({ user }) {
   )
 }
 
-function ProfileEdit({ user, onDone }) {
+function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
+  const request = organizer?.source_request || {}
+  const initialDescription = firstValue(organizer?.description, request.organization_description, user.bio, '')
+  const initialWebsiteUrl = firstValue(organizer?.website_url, '')
+  const initialSocialUrl = firstValue(organizer?.social_url, '')
   const [formData, setFormData] = useState({
     full_name: user.full_name || '',
     phone: user.phone || '',
@@ -360,6 +441,9 @@ function ProfileEdit({ user, onDone }) {
     dob: user.dob ? user.dob.split('T')[0] : '',
     city: user.city || '',
     avatar_url: user.avatar_url || '',
+    description: initialDescription || '',
+    website_url: initialWebsiteUrl || '',
+    social_url: initialSocialUrl || '',
   })
   const [errors, setErrors] = useState({})
   const [selectedFile, setSelectedFile] = useState(null)
@@ -368,7 +452,13 @@ function ProfileEdit({ user, onDone }) {
   const [message, setMessage] = useState({ type: '', text: '' })
 
   const updateMutation = useMutation({
-    mutationFn: updateProfile,
+    mutationFn: async ({ userPayload, organizerPayload }) => {
+      const updatedUser = await updateProfile(userPayload)
+      if (isOrganizer && organizerPayload) {
+        await updateOrganizerProfile(organizerPayload)
+      }
+      return updatedUser
+    },
     onSuccess: (updatedUser) => {
       setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' })
       updateStoredUser(updatedUser)
@@ -385,11 +475,17 @@ function ProfileEdit({ user, onDone }) {
       newErrors.full_name = 'Vui lòng nhập họ và tên.'
     }
 
-    if (formData.phone) {
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Vui lòng nhập số điện thoại.'
+    } else {
       const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
       if (!phoneRegex.test(formData.phone)) {
         newErrors.phone = 'Số điện thoại không đúng định dạng Việt Nam. Ví dụ: 09xxxxxxxx hoặc +849xxxxxxxx.'
       }
+    }
+
+    if (formData.description.length > 5000) {
+      newErrors.description = 'Mô tả không được vượt quá 5000 ký tự.'
     }
 
     setErrors(newErrors)
@@ -422,7 +518,23 @@ function ProfileEdit({ user, onDone }) {
         finalAvatarUrl = uploadRes.secure_url
       }
 
-      updateMutation.mutate({ ...formData, avatar_url: finalAvatarUrl })
+      const userPayload = {
+        full_name: formData.full_name,
+        phone: formData.phone,
+        address: formData.address,
+        dob: formData.dob,
+        city: formData.city,
+        avatar_url: finalAvatarUrl,
+      }
+      const organizerPayload = isOrganizer
+        ? {
+            description: formData.description,
+            website_url: formData.website_url,
+            social_url: formData.social_url,
+          }
+        : null
+
+      updateMutation.mutate({ userPayload, organizerPayload })
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Lỗi tải ảnh lên Cloudinary.' })
     } finally {
@@ -460,15 +572,71 @@ function ProfileEdit({ user, onDone }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6">
-          <div className="grid gap-5 md:grid-cols-2">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+          <div className="rounded-lg border border-border-soft bg-surface/70 p-5">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                <UserCircle className="size-5" />
+              </span>
+              <h3 className="font-display text-xl font-bold text-white">Thông tin tài khoản</h3>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
             <Input label="Họ và tên" value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
-            <Input label="Số điện thoại" value={formData.phone} error={errors.phone} placeholder="09xxxxxxxx hoặc +849xxxxxxxx" onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+            <Input label="Số điện thoại" value={formData.phone} error={errors.phone} placeholder="09xxxxxxxx hoặc +849xxxxxxxx" onChange={(e) => setFormData({ ...formData, phone: e.target.value })} required />
             <Input label="Ngày sinh" type="date" value={formData.dob} error={errors.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
             <Input label="Thành phố" value={formData.city} error={errors.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
             <Input label="Địa chỉ" value={formData.address} error={errors.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="md:col-span-2" />
+            </div>
           </div>
-          <div className="mt-8 flex justify-end gap-3">
+
+          {isOrganizer && (
+            <div className="rounded-lg border border-border-soft bg-surface/70 p-5">
+              <div className="mb-5 flex items-center gap-3">
+                <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                  <Building2 className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-display text-xl font-bold text-white">Thông tin công khai của nhà tổ chức</h3>
+                  <p className="mt-1 text-sm text-subtle">Các nội dung này sẽ được dùng để giới thiệu hồ sơ nhà tổ chức.</p>
+                </div>
+              </div>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Input
+                  label="Trang web"
+                  value={formData.website_url}
+                  error={errors.website_url}
+                  placeholder="https://example.com"
+                  onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+                />
+                <Input
+                  label="Mạng xã hội"
+                  value={formData.social_url}
+                  error={errors.social_url}
+                  placeholder="https://facebook.com/ten-trang"
+                  onChange={(e) => setFormData({ ...formData, social_url: e.target.value })}
+                />
+                <label className="block space-y-2 md:col-span-2">
+                  <span className="text-sm font-semibold text-muted">Mô tả/giới thiệu</span>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={6}
+                    maxLength={5000}
+                    placeholder="Giới thiệu ngắn gọn về cá nhân, tổ chức hoặc lĩnh vực sự kiện của bạn."
+                    className={`w-full resize-y rounded-md border bg-panel p-3 text-content outline-none transition-all focus:ring-2 focus:ring-primary/20 ${
+                      errors.description ? 'border-error ring-error/10' : 'border-border-soft focus:border-primary'
+                    }`}
+                  />
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    {errors.description ? <p className="text-error">{errors.description}</p> : <span className="text-subtle">Tối đa 5000 ký tự.</span>}
+                    <span className="text-subtle">{formData.description.length}/5000</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={onDone} className="rounded-md px-5 py-3 font-bold text-muted transition-colors hover:bg-panel-soft" disabled={updateMutation.isPending || isUploading}>
               Hủy
             </button>
@@ -761,6 +929,14 @@ function valueOrEmpty(value) {
   return text || EMPTY_TEXT
 }
 
+function formatProfileAddress(user, organizer) {
+  const parts = [
+    firstValue(organizer?.address, user?.address),
+    firstValue(organizer?.city, user?.city),
+  ].filter(Boolean)
+  return parts.join(', ')
+}
+
 function normalizeOrganizerType(type) {
   const normalized = String(type || '').toLowerCase()
   if (['individual', 'personal', 'person'].includes(normalized)) return 'personal'
@@ -843,7 +1019,7 @@ function isImageUrl(url = '') {
 
 function roleLabel(roles = []) {
   const labels = {
-    organizer: 'Organizer',
+    organizer: 'Nhà tổ chức',
     admin: 'Quản trị viên',
     super_admin: 'Quản trị viên cấp cao',
     staff: 'Nhân sự',
