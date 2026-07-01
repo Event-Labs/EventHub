@@ -293,8 +293,12 @@ export function DateRangeFilter({
       const rect = triggerRef.current?.getBoundingClientRect()
       if (!rect) return
 
-      const width = Math.min(880, window.innerWidth - 32)
-      const left = Math.min(Math.max(16, rect.left), window.innerWidth - width - 16)
+      const width = Math.min(700, window.innerWidth - 32)
+      const triggerCenter = rect.left + rect.width / 2
+      const left = Math.min(
+        Math.max(16, Math.round(triggerCenter - width / 2)),
+        window.innerWidth - width - 16,
+      )
       const top = Math.min(rect.bottom + 8, window.innerHeight - 120)
 
       setPopupStyle({ left, top, width })
@@ -386,14 +390,14 @@ export function DateRangeFilter({
             width: popupStyle.width,
           }}
         >
-          <div className="grid md:grid-cols-[300px_1fr]">
-            <div className="date-range-filter-scroll max-h-[540px] overflow-y-auto overscroll-contain border-b border-border-soft/30 py-2 md:border-b-0 md:border-r">
+          <div className="grid md:grid-cols-[220px_1fr]">
+            <div className="date-range-filter-scroll max-h-[420px] overflow-y-auto overscroll-contain border-b border-border-soft/30 py-1 md:border-b-0 md:border-r">
               {DATE_RANGE_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => handlePresetClick(option.value)}
-                  className={`flex h-11 w-full items-center justify-between px-4 text-left text-sm font-semibold transition ${
+                  className={`flex h-9 w-full items-center justify-between px-3 text-left text-sm font-semibold transition ${
                     draftValue === option.value
                       ? 'bg-tertiary/15 text-tertiary'
                       : 'text-content hover:bg-panel-soft hover:text-tertiary'
@@ -404,8 +408,8 @@ export function DateRangeFilter({
                 </button>
               ))}
 
-              <div className="my-2 border-t border-border-soft/30" />
-              <div className="flex h-12 items-center justify-between px-4">
+              <div className="my-1 border-t border-border-soft/30" />
+              <div className="flex h-10 items-center justify-between px-3">
                 <span className="text-sm font-bold text-content">So sánh</span>
                 <button
                   type="button"
@@ -430,7 +434,7 @@ export function DateRangeFilter({
                   key={option.value}
                   type="button"
                   onClick={() => setDraftCompareMode(option.value)}
-                  className={`flex min-h-11 w-full items-center justify-between px-4 text-left text-sm font-semibold transition ${
+                  className={`flex min-h-9 w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold transition ${
                     draftCompareMode === option.value
                       ? 'bg-tertiary/15 text-tertiary'
                       : 'text-content hover:bg-panel-soft hover:text-tertiary'
