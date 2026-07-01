@@ -6,12 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EventHub - Event Operations And Management Platform</title>
     <script>
-      const theme = localStorage.getItem('eventhub-theme') || 'dark';
-      if (theme === 'light') {
-        document.documentElement.classList.add('light');
-      } else {
-        document.documentElement.classList.remove('light');
-      }
+      const getStoredUser = () => {
+        const rawUser = localStorage.getItem('eventhub-user') || sessionStorage.getItem('eventhub-user');
+        if (!rawUser) return null;
+        try {
+          return JSON.parse(rawUser);
+        } catch {
+          return null;
+        }
+      };
+
+      const user = getStoredUser();
+      const accountKey = user?.id || user?.user_id || user?._id || user?.email;
+      const theme = accountKey ? localStorage.getItem(`eventhub-theme:${String(accountKey).toLowerCase()}`) : 'dark';
+      document.documentElement.classList.toggle('light', theme === 'light');
     </script>
   </head>
   <body>
