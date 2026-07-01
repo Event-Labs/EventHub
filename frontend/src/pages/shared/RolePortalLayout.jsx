@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, ChevronRight, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
 import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
@@ -6,6 +6,20 @@ import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
 const logoSrc = '/images/LogoEH.png'
 const collapsedWidth = 76
 const expandedWidth = 232
+const defaultTheme = 'dark'
+
+function getPortalThemeKey(user) {
+  const accountKey = user?.id || user?.user_id || user?._id || user?.email || 'anonymous'
+  return `eventhub-theme:${String(accountKey).toLowerCase()}`
+}
+
+function getStoredPortalTheme(themeKey) {
+  return localStorage.getItem(themeKey) || defaultTheme
+}
+
+function applyPortalTheme(theme) {
+  document.documentElement.classList.toggle('light', theme === 'light')
+}
 
 export function RolePortalLayout({
   user,
@@ -21,8 +35,14 @@ export function RolePortalLayout({
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
-  const [theme, setTheme] = useState(() => localStorage.getItem('eventhub-theme') || 'dark')
+  const themeKey = useMemo(() => getPortalThemeKey(user), [user])
+  const [theme, setTheme] = useState(() => getStoredPortalTheme(getPortalThemeKey(user)))
   const token = getAuthToken()
+
+  useEffect(() => {
+    applyPortalTheme(theme)
+    return () => document.documentElement.classList.remove('light')
+  }, [theme])
 
   const activeSection = useMemo(() => {
     const byRoute = navSections.find((section) => isSectionActive(section, location.pathname))
@@ -31,12 +51,7 @@ export function RolePortalLayout({
 
   const setPortalTheme = (newTheme) => {
     setTheme(newTheme)
-    localStorage.setItem('eventhub-theme', newTheme)
-    if (newTheme === 'light') {
-      document.documentElement.classList.add('light')
-    } else {
-      document.documentElement.classList.remove('light')
-    }
+    localStorage.setItem(themeKey, newTheme)
   }
 
   const logout = () => {
