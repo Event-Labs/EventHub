@@ -8,6 +8,14 @@ const verifyOrganizerBusinessEmailSchema = z.object({
   token: z.string().trim().min(20),
 });
 
+const optionalUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .max(2000)
+  .optional()
+  .or(z.literal(''));
+
 const submitOrganizerRequestSchema = z.object({
   request_type: z.enum(['INDIVIDUAL', 'ORGANIZATION']).default('INDIVIDUAL'),
   organization_name: z.string().trim().min(2).max(255),
@@ -23,35 +31,88 @@ const submitOrganizerRequestSchema = z.object({
     .string()
     .trim()
     .regex(/^(0|\+84)(3|5|7|8|9)[0-9]{8}$/, 'Invalid Vietnamese phone number'),
-  organization_avatar_url: z
-    .string()
-    .trim()
-    .url()
-    .max(2000)
-    .optional()
-    .or(z.literal('')),
+  organization_avatar_url: optionalUrlSchema,
   tax_code: z
     .string()
     .trim()
     .regex(/^(\d{10}|\d{13})$/, 'Invalid Vietnamese tax code')
     .optional()
     .or(z.literal('')),
+  legal_document_url: optionalUrlSchema,
+  business_license_url: optionalUrlSchema,
+  legal_representative_name: z.string().trim().max(255).optional().or(z.literal('')),
+  legal_representative_position: z.string().trim().max(255).optional().or(z.literal('')),
+  legal_representative_id_url: optionalUrlSchema,
+  authorization_letter_url: optionalUrlSchema,
+  individual_full_name: z.string().trim().max(255).optional().or(z.literal('')),
+  individual_identity_number: z
+    .string()
+    .trim()
+    .regex(/^(\d{9}|\d{12}|[A-Z0-9]{6,20})$/, 'Invalid identity document number')
+    .optional()
+    .or(z.literal('')),
+  individual_id_front_url: optionalUrlSchema,
+  individual_id_back_url: optionalUrlSchema,
+  individual_selfie_url: optionalUrlSchema,
+  individual_tax_code: z
+    .string()
+    .trim()
+    .regex(/^(\d{10}|\d{13})$/, 'Invalid personal tax code')
+    .optional()
+    .or(z.literal('')),
+  terms_accepted: z.boolean().default(false),
 }).superRefine((data, ctx) => {
-  if (data.request_type !== 'ORGANIZATION') return;
-
-  if (!data.business_email?.trim()) {
+  if (!data.terms_accepted) {
     ctx.addIssue({
       code: 'custom',
-      message: 'Business email is required for organization requests',
-      path: ['business_email'],
+      message: 'Organizer terms must be accepted',
+      path: ['terms_accepted'],
     });
   }
 
   if (!data.organization_avatar_url?.trim()) {
     ctx.addIssue({
       code: 'custom',
-      message: 'Organization avatar is required for organization requests',
+      message: 'Organizer avatar is required',
       path: ['organization_avatar_url'],
+    });
+  }
+
+  if (data.request_type === 'INDIVIDUAL') {
+    if (!data.individual_full_name?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Legal full name is required for individual requests',
+        path: ['individual_full_name'],
+      });
+    } else if (data.individual_full_name.trim() !== data.individual_full_name.trim().toLocaleUpperCase('vi-VN')) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Legal full name must be uppercase and match the identity document',
+        path: ['individual_full_name'],
+      });
+    }
+
+    [
+      ['individual_identity_number', 'Identity document number is required for individual requests'],
+      ['individual_id_front_url', 'Identity document front image is required for individual requests'],
+      ['individual_id_back_url', 'Identity document back image is required for individual requests'],
+      ['individual_selfie_url', 'Selfie image is required for individual requests'],
+      ['individual_tax_code', 'Personal tax code is required for individual requests'],
+    ].forEach(([field, message]) => {
+      if (!data[field]?.trim()) {
+        ctx.addIssue({ code: 'custom', message, path: [field] });
+      }
+    });
+
+    return;
+  }
+
+  if (!data.business_email?.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Business email is required for organization requests',
+      path: ['business_email'],
     });
   }
 
@@ -62,6 +123,17 @@ const submitOrganizerRequestSchema = z.object({
       path: ['tax_code'],
     });
   }
+
+  [
+    ['legal_document_url', 'Business registration certificate is required for organization requests'],
+    ['legal_representative_name', 'Legal representative name is required for organization requests'],
+    ['legal_representative_position', 'Legal representative position is required for organization requests'],
+    ['legal_representative_id_url', 'Legal representative identity document is required for organization requests'],
+  ].forEach(([field, message]) => {
+    if (!data[field]?.trim()) {
+      ctx.addIssue({ code: 'custom', message, path: [field] });
+    }
+  });
 });
 
 const listOrganizerRequestsSchema = z.object({

@@ -72,6 +72,9 @@ export function OrganizerLayout() {
     retry: false,
   })
   const isIndividualOrganizer = profileQuery.data?.request_type === 'INDIVIDUAL'
+  const organizerAvatarUrl = profileQuery.data?.organization_avatar_url
+  const organizerDisplayName =
+    profileQuery.data?.organization_name || user?.full_name || user?.email || 'Organizer'
   const bottomItems = [
     ...(isIndividualOrganizer
       ? [{ label: 'Trang chủ', to: '/', icon: Home, end: true }]
@@ -89,10 +92,10 @@ export function OrganizerLayout() {
       navSections={navSections}
       bottomItems={bottomItems}
       avatar={
-        user?.avatar_url ? (
-          <img src={user.avatar_url} alt="Organizer" className="size-7 rounded-full object-cover" />
+        organizerAvatarUrl ? (
+          <img src={organizerAvatarUrl} alt="Organizer" className="size-7 rounded-full object-cover" />
         ) : (
-          <AvatarInitials name={user?.full_name || user?.email || 'Organizer'} className="size-7" />
+          <AvatarInitials name={organizerDisplayName} className="size-7" />
         )
       }
     />

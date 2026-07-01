@@ -15,6 +15,11 @@ export async function submitOrganizerRequest(payload) {
   return response.data.data
 }
 
+export async function updateOrganizerRequest(id, payload) {
+  const response = await http.put(`/organizer-requests/me/${id}`, payload)
+  return response.data.data
+}
+
 export async function verifyOrganizerBusinessEmail(token) {
   const response = await http.get('/organizer-requests/verify-business-email', {
     params: { token },
