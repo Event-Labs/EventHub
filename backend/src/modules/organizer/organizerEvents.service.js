@@ -26,6 +26,14 @@ function sanitizeEventPayload(payload) {
   return data;
 }
 
+function cleanOptionalText(value, maxLength) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  return text.slice(0, maxLength);
+}
+
 function assertValidSessionTimes(startTime, endTime) {
   if (!startTime || !endTime) {
     throw new AppError('start_time and end_time are required', 400, ErrorCodes.INVALID_INPUT);
@@ -54,6 +62,32 @@ class OrganizerEventsService {
       source_request: sourceRequest,
       request_history: requestHistory,
     };
+  }
+
+  async updateActiveOrganizerProfile(userId, payload = {}) {
+    const organizer = await organizerEventsRepository.findOrganizerByUserId(userId);
+    if (!organizer) {
+      throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const updates = {
+      description: cleanOptionalText(payload.description, 5000),
+      website_url: cleanOptionalText(payload.website_url, 2000),
+      social_url: cleanOptionalText(payload.social_url, 2000),
+    };
+
+    Object.keys(updates).forEach((key) => {
+      if (updates[key] === undefined) {
+        delete updates[key];
+      }
+    });
+
+    if (!Object.keys(updates).length) {
+      throw new AppError('No valid fields to update', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    await organizerEventsRepository.updateOrganizerProfileByUserId(userId, updates);
+    return this.getActiveOrganizerProfile(userId);
   }
 
   async resolveOrganizerId(userId) {

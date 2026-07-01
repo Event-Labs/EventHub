@@ -78,6 +78,47 @@ class OrganizerEventsRepository {
     return rows;
   }
 
+  async updateOrganizerProfileByUserId(userId, updates) {
+    const allowedFields = ['description', 'website_url', 'social_url'];
+    const { rows: columnRows } = await db.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'organizers'
+        AND column_name = ANY($1::text[])
+      `,
+      [allowedFields],
+    );
+    const existingColumns = new Set(columnRows.map((row) => row.column_name));
+    const setClauses = [];
+    const values = [userId];
+
+    allowedFields.forEach((field) => {
+      if (existingColumns.has(field) && updates[field] !== undefined) {
+        values.push(updates[field]);
+        setClauses.push(`${field} = $${values.length}`);
+      }
+    });
+
+    if (!setClauses.length) {
+      return this.findOrganizerByUserId(userId);
+    }
+
+    setClauses.push('updated_at = NOW()');
+
+    const { rows } = await db.query(
+      `
+      UPDATE organizers
+      SET ${setClauses.join(', ')}
+      WHERE user_id = $1
+        AND status = 'ACTIVE'
+      RETURNING *
+      `,
+      values,
+    );
+    return rows[0];
+  }
+
   async findVenueById(venueId, organizerId) {
     const { rows } = await db.query(
       `
