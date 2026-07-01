@@ -41,7 +41,19 @@ class OrganizerEventsService {
     if (!organizer) {
       throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
-    return organizer;
+    const requestHistory = await organizerEventsRepository.findProfileRequests(userId, organizer);
+    const sourceRequest =
+      [...requestHistory]
+        .reverse()
+        .find((request) => request.status === 'APPROVED') ||
+      requestHistory[requestHistory.length - 1] ||
+      null;
+
+    return {
+      ...organizer,
+      source_request: sourceRequest,
+      request_history: requestHistory,
+    };
   }
 
   async resolveOrganizerId(userId) {

@@ -1,6 +1,6 @@
-import { clearAuthSession, getAuthToken, updateStoredUser, getUserRoles } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getUserRoles, updateStoredUser } from '@/lib/auth.js'
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
   BriefcaseBusiness,
@@ -10,13 +10,15 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  ExternalLink,
   Eye,
   EyeOff,
   FileCheck2,
-  Globe,
+  FileText,
+  History,
   IdCard,
+  ImageIcon,
   InfoIcon,
-  Link2,
   Loader2,
   Mail,
   MapPin,
@@ -107,7 +109,7 @@ export function ProfilePage() {
           </h1>
           <p className="mt-2 text-muted">
             {isOrganizer
-              ? 'Thông tin định danh, liên hệ và trạng thái hồ sơ organizer của bạn.'
+              ? 'Xem lại toàn bộ thông tin đã gửi khi đăng ký làm Organizer.'
               : 'Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub.'}
           </p>
         </div>
@@ -167,7 +169,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
     return (
       <div className="glass-panel flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg p-6">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-muted">Đang tải thông tin organizer...</p>
+        <p className="text-muted">Đang tải thông tin Organizer...</p>
       </div>
     )
   }
@@ -176,7 +178,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
     return (
       <div className="glass-panel rounded-lg p-6 text-center">
         <AlertCircle className="mx-auto size-10 text-error" />
-        <h2 className="mt-3 font-display text-2xl font-bold text-white">Không thể tải hồ sơ organizer</h2>
+        <h2 className="mt-3 font-display text-2xl font-bold text-white">Không thể tải hồ sơ Organizer</h2>
         <p className="mt-2 text-muted">{error?.response?.data?.message || 'Vui lòng thử lại sau.'}</p>
         <button onClick={onRetry} className="mt-5 rounded-md bg-primary px-5 py-3 font-bold text-slate-950">
           Tải lại
@@ -185,86 +187,139 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
     )
   }
 
-  const type = normalizeOrganizerType(organizer?.request_type)
+  const history = Array.isArray(organizer?.request_history) ? organizer.request_history : []
+  const request = organizer?.source_request || history[history.length - 1] || {}
+  const type = normalizeOrganizerType(firstValue(request.request_type, organizer?.request_type))
   const isPersonal = type === 'personal'
-  const displayName = isPersonal
-    ? firstValue(organizer?.individual_full_name, user.full_name, organizer?.organization_name)
-    : firstValue(organizer?.organization_name, user.full_name)
-  const logoUrl = firstValue(organizer?.organization_avatar_url, user.avatar_url)
+  const displayName = firstValue(
+    request.organization_name,
+    organizer?.organization_name,
+    isPersonal ? request.individual_full_name : '',
+    user.full_name,
+  )
+  const avatarUrl = firstValue(request.organization_avatar_url, organizer?.organization_avatar_url, user.avatar_url)
+  const phone = firstValue(request.business_phone, organizer?.business_phone, user.phone)
+  const businessEmail = firstValue(request.business_email, organizer?.business_email)
+  const description = firstValue(request.organization_description, organizer?.description, user.bio)
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-      <aside className="glass-panel h-fit rounded-lg p-6">
-        <div className="flex flex-col items-center text-center">
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt={displayName || 'Organizer'}
-              className="size-36 rounded-2xl object-cover ring-4 ring-primary/25"
-            />
+    <div className="space-y-6">
+      <section className="glass-panel rounded-lg p-6">
+        <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
+          <div className="flex flex-col items-center text-center">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={displayName || 'Ảnh đại diện Organizer'}
+                className="size-36 rounded-2xl object-cover ring-4 ring-primary/25"
+              />
+            ) : (
+              <div className="flex size-36 items-center justify-center rounded-2xl bg-surface ring-4 ring-primary/25">
+                {isPersonal ? <UserCircle className="size-20 text-muted" /> : <Building2 className="size-20 text-muted" />}
+              </div>
+            )}
+            <span className="mt-4 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+              {organizerTypeLabel(type)}
+            </span>
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-muted">Tổng quan hồ sơ</p>
+                <h2 className="mt-1 break-words font-display text-3xl font-extrabold text-white">
+                  {valueOrEmpty(displayName)}
+                </h2>
+              </div>
+              <StatusPill status={request.status || organizer?.status} />
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <CompactLine icon={Users} label="Loại đăng ký" value={organizerTypeLabel(type)} />
+              <CompactLine icon={ShieldCheck} label="Trạng thái yêu cầu" value={requestStatusLabel(request.status || organizer?.status)} />
+              <CompactLine icon={Phone} label="Số điện thoại" value={phone} />
+              {!isPersonal && <CompactLine icon={Mail} label="Email tổ chức" value={businessEmail} />}
+              <CompactLine icon={Calendar} label="Ngày gửi" value={formatDateTime(request.created_at || organizer?.created_at)} />
+              <CompactLine icon={Clock} label="Ngày xử lý" value={formatDateTime(request.reviewed_at)} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <InfoSection title="Thông tin hiển thị công khai" icon={InfoIcon}>
+        <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
+        <Info icon={ImageIcon} label="Ảnh đại diện/logo" value={avatarUrl} linkType="url" />
+        <Info icon={Phone} label="Số điện thoại" value={phone} />
+        {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
+        <Info icon={FileText} label="Mô tả/giới thiệu" value={description} className="md:col-span-2" multiline />
+      </InfoSection>
+
+      <InfoSection title="Thông tin liên hệ" icon={Mail}>
+        <Info icon={Phone} label="Số điện thoại" value={phone} />
+        {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
+        {!isPersonal && (
+          <Info
+            icon={ShieldCheck}
+            label="Trạng thái xác thực email tổ chức"
+            value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
+          />
+        )}
+        <Info icon={UserCircle} label="Người đại diện/thông tin liên hệ" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name, user.full_name)} />
+      </InfoSection>
+
+      <InfoSection title="Thông tin pháp lý và xác minh" icon={IdCard}>
+        {isPersonal ? (
+          <>
+            <Info icon={UserCircle} label="Họ tên pháp lý" value={firstValue(request.individual_full_name, organizer?.individual_full_name)} />
+            <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={firstValue(request.individual_identity_number, organizer?.individual_identity_number)} />
+            <Info icon={IdCard} label="Mã số thuế cá nhân" value={firstValue(request.individual_tax_code, organizer?.individual_tax_code)} />
+            <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} />
+            <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} />
+            <DocumentCard label="Ảnh chân dung/Selfie" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} />
+          </>
+        ) : (
+          <>
+            <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
+            <Info icon={UserCircle} label="Người đại diện pháp luật" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name)} />
+            <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={firstValue(request.legal_representative_position, organizer?.legal_representative_position)} />
+            <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} />
+            <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} />
+            <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} />
+            <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} />
+          </>
+        )}
+      </InfoSection>
+
+      <InfoSection title="Cam kết và gửi yêu cầu" icon={CheckCircle2}>
+        <Info icon={CheckCircle2} label="Trạng thái cam kết pháp lý/điều khoản" value={booleanLabel(firstDefined(request.terms_accepted, organizer?.terms_accepted))} />
+        <Info icon={Calendar} label="Thời gian đồng ý điều khoản" value={formatDateTime(firstValue(request.terms_accepted_at, organizer?.terms_accepted_at))} />
+        <Info icon={Clock} label="Thời gian gửi yêu cầu" value={formatDateTime(request.created_at)} />
+        <Info
+          icon={FileCheck2}
+          label="Nội dung cam kết"
+          value="Organizer đã xác nhận thông tin cung cấp là chính xác và đồng ý với điều khoản dịch vụ dành cho nhà tổ chức, quy chế sự kiện, quy chế bán vé và chính sách hoàn tiền của EventHub."
+          className="md:col-span-2"
+          multiline
+        />
+      </InfoSection>
+
+      <section className="glass-panel rounded-lg p-6">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+            <History className="size-5" />
+          </span>
+          <h2 className="font-display text-2xl font-bold text-white">Lịch sử xét duyệt</h2>
+        </div>
+        <div className="mt-6 space-y-4">
+          {history.length ? (
+            history.map((item, index) => <ReviewHistoryCard key={item.id || index} request={item} index={index} />)
           ) : (
-            <div className="flex size-36 items-center justify-center rounded-2xl bg-surface ring-4 ring-primary/25">
-              {isPersonal ? <UserCircle className="size-20 text-muted" /> : <Building2 className="size-20 text-muted" />}
+            <div className="rounded-lg border border-border-soft bg-surface p-4 text-sm font-semibold text-subtle">
+              Chưa cập nhật
             </div>
           )}
-          <h2 className="mt-5 break-words font-display text-2xl font-bold text-white">{valueOrEmpty(displayName)}</h2>
-          <p className="mt-1 text-sm font-semibold text-primary">{organizerTypeLabel(organizer?.request_type)}</p>
         </div>
-
-        <div className="mt-6 space-y-3 rounded-lg border border-border-soft bg-surface p-4">
-          <CompactLine icon={ShieldCheck} label="Trạng thái" value={statusLabel(organizer?.status)} />
-          <CompactLine icon={Calendar} label="Ngày tạo" value={formatDateTime(organizer?.created_at)} />
-          <CompactLine icon={Clock} label="Cập nhật lần cuối" value={formatDateTime(organizer?.updated_at)} />
-        </div>
-      </aside>
-
-      <div className="space-y-6">
-        <InfoSection title="Thông tin cơ bản" icon={InfoIcon}>
-          <Info icon={isPersonal ? UserCircle : Building2} label={isPersonal ? 'Họ và tên' : 'Tên tổ chức/doanh nghiệp'} value={displayName} />
-          <Info icon={Users} label="Loại organizer" value={organizerTypeLabel(organizer?.request_type)} />
-          <Info icon={Mail} label={isPersonal ? 'Email' : 'Email liên hệ'} value={firstValue(organizer?.business_email, user.email)} linkType="email" />
-          <Info icon={Phone} label="Số điện thoại" value={firstValue(organizer?.business_phone, user.phone)} />
-        </InfoSection>
-
-        <InfoSection title="Thông tin liên hệ" icon={MapPin}>
-          <Info icon={MapPin} label="Địa chỉ" value={formatAddress(user)} className="md:col-span-2" />
-          <Info icon={Globe} label="Website" value={organizer?.website_url} linkType="url" />
-          <Info icon={Link2} label="Mạng xã hội" value={organizer?.social_url} linkType="url" />
-        </InfoSection>
-
-        {!isPersonal && (
-          <InfoSection title="Thông tin tổ chức" icon={BriefcaseBusiness}>
-            <Info icon={IdCard} label="Mã số thuế" value={organizer?.tax_code} />
-            <Info icon={FileCheck2} label="Giấy phép kinh doanh" value={organizer?.business_license_url} linkType="url" />
-            <Info icon={UserCircle} label="Người đại diện" value={organizer?.legal_representative_name} />
-            <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={organizer?.legal_representative_position} />
-            <Info icon={FileCheck2} label="Giấy ủy quyền" value={organizer?.authorization_letter_url} linkType="url" />
-            <Info icon={FileCheck2} label="Tài liệu pháp lý" value={organizer?.legal_document_url} linkType="url" />
-          </InfoSection>
-        )}
-
-        {isPersonal && (
-          <InfoSection title="Thông tin cá nhân" icon={UserCircle}>
-            <Info icon={UserCircle} label="Họ tên pháp lý" value={organizer?.individual_full_name} />
-            <Info icon={IdCard} label="Số giấy tờ cá nhân" value={organizer?.individual_identity_number} />
-            <Info icon={IdCard} label="Mã số thuế cá nhân" value={organizer?.individual_tax_code} />
-            <Info icon={FileCheck2} label="Giấy tờ mặt trước" value={organizer?.individual_id_front_url} linkType="url" />
-            <Info icon={FileCheck2} label="Giấy tờ mặt sau" value={organizer?.individual_id_back_url} linkType="url" />
-            <Info icon={FileCheck2} label="Ảnh xác minh" value={organizer?.individual_selfie_url} linkType="url" />
-          </InfoSection>
-        )}
-
-        <InfoSection title="Giới thiệu" icon={FileCheck2}>
-          <Info icon={FileCheck2} label="Mô tả/giới thiệu" value={organizer?.description || user.bio} className="md:col-span-2" multiline />
-        </InfoSection>
-
-        <InfoSection title="Trạng thái hồ sơ" icon={ShieldCheck}>
-          <Info icon={ShieldCheck} label="Trạng thái xác minh" value={statusLabel(organizer?.status)} />
-          <Info icon={CheckCircle2} label="Đã chấp nhận điều khoản" value={booleanLabel(organizer?.terms_accepted)} />
-          <Info icon={Calendar} label="Ngày chấp nhận điều khoản" value={formatDateTime(organizer?.terms_accepted_at)} />
-          <Info icon={Clock} label="Cập nhật lần cuối" value={formatDateTime(organizer?.updated_at)} />
-        </InfoSection>
-      </div>
+      </section>
     </div>
   )
 }
@@ -569,6 +624,81 @@ function Info({ icon: Icon, label, value, className = '', multiline = false, lin
   )
 }
 
+function DocumentCard({ label, url }) {
+  const displayUrl = valueOrEmpty(url)
+  const hasUrl = displayUrl !== EMPTY_TEXT
+  const href = hasUrl ? normalizeUrl(displayUrl) : ''
+
+  return (
+    <div className="rounded-lg border border-border-soft bg-surface p-4">
+      <div className="flex items-center gap-2 text-muted">
+        <FileCheck2 className="size-4 shrink-0" />
+        <span className="text-sm font-semibold">{label}</span>
+      </div>
+      <div className="mt-3 overflow-hidden rounded-lg border border-border-soft/60 bg-panel/60">
+        {hasUrl && isImageUrl(displayUrl) ? (
+          <img src={displayUrl} alt={label} className="h-32 w-full object-cover" />
+        ) : (
+          <div className="grid h-32 place-items-center px-4 text-center">
+            <FileText className={`size-8 ${hasUrl ? 'text-primary' : 'text-subtle'}`} />
+          </div>
+        )}
+      </div>
+      {hasUrl ? (
+        <a href={href} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 break-all text-sm font-bold text-primary hover:underline">
+          <ExternalLink className="size-4 shrink-0" />
+          Xem tài liệu
+        </a>
+      ) : (
+        <p className="mt-3 text-sm font-semibold text-subtle">Chưa cập nhật</p>
+      )}
+    </div>
+  )
+}
+
+function ReviewHistoryCard({ request, index }) {
+  const rejected = String(request.status || '').toUpperCase() === 'REJECTED'
+
+  return (
+    <div className={`rounded-lg border p-4 ${rejected ? 'border-error/30 bg-error/10' : 'border-border-soft bg-surface'}`}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-subtle">Yêu cầu {index + 1}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <StatusPill status={request.status} />
+            <span className="text-sm font-semibold text-muted">{organizerTypeLabel(request.request_type)}</span>
+          </div>
+        </div>
+        <div className="grid gap-2 text-sm md:min-w-[260px]">
+          <CompactLine icon={Calendar} label="Ngày gửi" value={formatDateTime(request.created_at)} />
+          <CompactLine icon={Clock} label="Ngày xử lý" value={formatDateTime(request.reviewed_at)} />
+        </div>
+      </div>
+      {rejected && (
+        <div className="mt-4 rounded-lg border border-error/30 bg-error/10 p-4">
+          <p className="text-sm font-bold text-error">Lý do từ chối</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-content">{valueOrEmpty(request.review_note)}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatusPill({ status }) {
+  const normalized = String(status || '').toUpperCase()
+  const tone = normalized === 'REJECTED'
+    ? 'border-error/30 bg-error/10 text-error'
+    : normalized === 'PENDING'
+      ? 'border-warning/30 bg-warning/10 text-warning'
+      : 'border-success/30 bg-success/10 text-success'
+
+  return (
+    <span className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-bold ${tone}`}>
+      {requestStatusLabel(status)}
+    </span>
+  )
+}
+
 function CompactLine({ icon: Icon, label, value }) {
   return (
     <div className="flex items-start gap-3">
@@ -621,6 +751,10 @@ function firstValue(...values) {
   return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '')
 }
 
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null)
+}
+
 function valueOrEmpty(value) {
   if (value === undefined || value === null) return EMPTY_TEXT
   const text = String(value).trim()
@@ -641,22 +775,32 @@ function organizerTypeLabel(type) {
   return EMPTY_TEXT
 }
 
-function statusLabel(status) {
+function requestStatusLabel(status) {
   const normalized = String(status || '').toLowerCase()
   const map = {
-    verified: 'Đã xác minh',
-    pending: 'Đang chờ xác minh',
+    pending: 'Đang chờ duyệt',
+    approved: 'Đã duyệt',
     rejected: 'Bị từ chối',
-    active: 'Đang hoạt động',
+    active: 'Đã duyệt',
+    verified: 'Đã xác minh',
+    unverified: 'Chưa xác minh',
     inactive: 'Ngừng hoạt động',
     suspended: 'Tạm ngừng',
   }
   return map[normalized] || valueOrEmpty(status)
 }
 
+function emailVerificationLabel(verified, verifiedAt) {
+  if (verified === true) {
+    return verifiedAt ? `Đã xác thực lúc ${formatDateTime(verifiedAt)}` : 'Đã xác thực'
+  }
+  if (verified === false) return 'Chưa xác thực'
+  return EMPTY_TEXT
+}
+
 function booleanLabel(value) {
-  if (value === true) return 'Đã chấp nhận'
-  if (value === false) return 'Chưa chấp nhận'
+  if (value === true) return 'Đã đồng ý'
+  if (value === false) return 'Chưa đồng ý'
   return EMPTY_TEXT
 }
 
@@ -684,14 +828,17 @@ function formatDateTime(dateString) {
   }).format(date)
 }
 
-function formatAddress(user) {
-  return [user?.address, user?.city].filter(Boolean).join(', ')
-}
-
 function normalizeUrl(url) {
   const text = valueOrEmpty(url)
   if (text === EMPTY_TEXT) return undefined
   return /^https?:\/\//i.test(text) ? text : `https://${text}`
+}
+
+function isImageUrl(url = '') {
+  return (
+    /\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url) ||
+    /\/image\/upload\//i.test(url)
+  )
 }
 
 function roleLabel(roles = []) {
