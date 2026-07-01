@@ -94,6 +94,35 @@ class OrganizerOrdersController {
     }
   };
 
+  exportAttendees = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdParamSchema.parse(req.params);
+      const filters = listAttendeesSchema.parse(req.query);
+      const { filename, content } = await organizerOrdersService.exportAttendees(
+        req.user.sub,
+        eventId,
+        filters,
+      );
+
+      const encodedFilename = encodeURIComponent(filename);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="attendee-list.csv"; filename*=UTF-8''${encodedFilename}`,
+      );
+      res.status(200).send(content);
+    } catch (err) {
+      logger.error('[OrganizerOrdersController] exportAttendees error:', {
+        message: err.message,
+        stack: err.stack,
+        userId: req.user?.sub,
+        params: req.params,
+        query: req.query,
+      });
+      next(err);
+    }
+  };
+
   getCheckinStats = async (req, res, next) => {
     try {
       const { eventId } = eventIdParamSchema.parse(req.params);

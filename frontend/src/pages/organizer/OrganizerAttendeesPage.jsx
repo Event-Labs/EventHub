@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   Loader2,
   RefreshCw,
   Search,
   X,
 } from 'lucide-react'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
-import { fetchOrganizerAttendees } from '@/services/organizerOrders.js'
+import {
+  exportOrganizerAttendees,
+  fetchOrganizerAttendees,
+} from '@/services/organizerOrders.js'
 import {
   AvatarInitials,
   Badge,
@@ -27,6 +31,22 @@ const TICKET_STATUSES = [
 
 const TICKET_STATUS_TONE = { VALID: 'blue', USED: 'green', CANCELLED: 'red' }
 const TICKET_STATUS_LABEL = { VALID: 'Hợp lệ', USED: 'Đã check-in', CANCELLED: 'Đã hủy' }
+
+function safeFilenamePart(value) {
+  return String(value || 'event')
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+    .replace(/\s+/g, ' ') || 'event'
+}
+
+function getExportFilename(contentDisposition, eventTitle) {
+  const fallback = `${safeFilenamePart(eventTitle)}-attendee-list-${new Date().toISOString().slice(0, 10)}.csv`
+  if (!contentDisposition) return fallback
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1])
+  const quotedMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
+  return quotedMatch?.[1] || fallback
+}
 
 function formatDateTime(dateStr) {
   if (!dateStr) return '—'
@@ -50,6 +70,7 @@ export function OrganizerAttendeesPage() {
   const [attendees, setAttendees] = useState([])
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, total_pages: 1 })
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
 
   // Filters
@@ -61,6 +82,15 @@ export function OrganizerAttendeesPage() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+
+  const buildAttendeeParams = useCallback((includePagination = true) => {
+    const params = includePagination ? { page, limit: 50 } : {}
+    if (selectedSessionId) params.sessionId = selectedSessionId
+    if (selectedTicketTypeId) params.ticketTypeId = selectedTicketTypeId
+    if (selectedStatus) params.status = selectedStatus
+    if (search) params.search = search
+    return params
+  }, [page, selectedSessionId, selectedTicketTypeId, selectedStatus, search])
 
   // Load events once
   useEffect(() => {
@@ -104,13 +134,7 @@ export function OrganizerAttendeesPage() {
     setLoading(true)
     setError('')
     try {
-      const params = { page, limit: 50 }
-      if (selectedSessionId) params.sessionId = selectedSessionId
-      if (selectedTicketTypeId) params.ticketTypeId = selectedTicketTypeId
-      if (selectedStatus) params.status = selectedStatus
-      if (search) params.search = search
-
-      const data = await fetchOrganizerAttendees(selectedEventId, params)
+      const data = await fetchOrganizerAttendees(selectedEventId, buildAttendeeParams())
       setAttendees(data.items || [])
       setPagination(data.pagination || { page: 1, limit: 50, total: 0, total_pages: 1 })
     } catch (err) {
@@ -118,7 +142,7 @@ export function OrganizerAttendeesPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedEventId, page, selectedSessionId, selectedTicketTypeId, selectedStatus, search])
+  }, [selectedEventId, buildAttendeeParams])
 
   useEffect(() => {
     if (selectedEventId) loadAttendees()
@@ -137,6 +161,32 @@ export function OrganizerAttendeesPage() {
   const clearSearch = () => {
     setSearchInput('')
     setSearch('')
+  }
+
+  const handleExport = async () => {
+    if (!selectedEventId || exporting) return
+    setExporting(true)
+    setError('')
+    try {
+      const response = await exportOrganizerAttendees(selectedEventId, buildAttendeeParams(false))
+      const selectedEvent = events.find((event) => event.id === selectedEventId)
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = getExportFilename(
+        response.headers?.['content-disposition'],
+        selectedEvent?.title,
+      )
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể xuất danh sách người tham dự.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   // Stats from current page data
@@ -265,9 +315,24 @@ export function OrganizerAttendeesPage() {
 
               <button
                 type="button"
+                className="admin-primary flex items-center gap-2"
+                onClick={handleExport}
+                disabled={exporting || loading}
+              >
+                {exporting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                <span>Xuất danh sách</span>
+              </button>
+
+              <button
+                type="button"
                 className="admin-secondary flex items-center gap-2"
                 onClick={loadAttendees}
                 disabled={loading}
+                title="Làm mới"
               >
                 <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
