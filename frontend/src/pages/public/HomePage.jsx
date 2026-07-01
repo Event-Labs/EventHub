@@ -9,7 +9,6 @@ import {
   Music,
   Palette,
   Search,
-  Sparkles,
   Trophy,
   Utensils,
   Waves,
@@ -375,14 +374,6 @@ export function HomePage() {
           </div>
         </div>
       </section>
-
-      <Link
-        to="/ai-faq"
-        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-[#0c1446]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_45px_rgba(3,8,24,0.45)] backdrop-blur transition hover:bg-[#2b5c92]"
-      >
-        Hỏi EventHub AI
-        <Sparkles className="size-4" />
-      </Link>
     </div>
   )
 }
