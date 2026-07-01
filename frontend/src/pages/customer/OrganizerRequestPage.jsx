@@ -7,8 +7,9 @@ import { getUserRoles, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import {
   fetchMyOrganizerRequests,
   submitOrganizerRequest,
+  updateOrganizerRequest,
 } from '@/services/organizerRequests.js'
-import { uploadOrganizerAvatar } from '@/services/uploads.js'
+import { uploadOrganizerAvatar, uploadOrganizerDocument } from '@/services/uploads.js'
 import { getProfile } from '@/services/user.service.js'
 
 const emptyForm = {
@@ -19,6 +20,19 @@ const emptyForm = {
   business_phone: '',
   organization_avatar_url: '',
   tax_code: '',
+  legal_document_url: '',
+  business_license_url: '',
+  legal_representative_name: '',
+  legal_representative_position: '',
+  legal_representative_id_url: '',
+  authorization_letter_url: '',
+  individual_full_name: '',
+  individual_identity_number: '',
+  individual_id_front_url: '',
+  individual_id_back_url: '',
+  individual_selfie_url: '',
+  individual_tax_code: '',
+  terms_accepted: false,
 }
 
 const requestTypeOptions = [
@@ -34,8 +48,82 @@ const requestTypeOptions = [
   },
 ]
 
+const validationLabels = {
+  organization_name: 'Tên tổ chức',
+  organization_description: 'Mô tả',
+  business_email: 'Email tổ chức',
+  business_phone: 'Số điện thoại',
+  organization_avatar_url: 'Ảnh đại diện',
+  tax_code: 'Mã số thuế',
+  legal_document_url: 'Giấy ĐKDN/ERC',
+  legal_representative_name: 'Người đại diện pháp luật',
+  legal_representative_position: 'Chức vụ',
+  legal_representative_id_url: 'Giấy tờ tùy thân người đại diện',
+  individual_full_name: 'Họ tên pháp lý',
+  individual_identity_number: 'Số CCCD/Hộ chiếu',
+  individual_id_front_url: 'CCCD mặt trước',
+  individual_id_back_url: 'CCCD mặt sau',
+  individual_selfie_url: 'Ảnh chân dung/Selfie',
+  individual_tax_code: 'Mã số thuế cá nhân',
+  terms_accepted: 'Cam kết pháp lý',
+}
+
 function requestTypeLabel(type) {
   return type === 'ORGANIZATION' ? 'Tổ chức' : 'Cá nhân'
+}
+
+function RequestTypeSelector({ value, onChange, disabled = false }) {
+  const selectedOption = requestTypeOptions.find((option) => option.value === value) || requestTypeOptions[0]
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        {requestTypeOptions.map((option) => {
+          const active = value === option.value
+          return (
+            <label
+              key={option.value}
+              className={`inline-flex items-center gap-2 text-sm font-bold ${
+                active ? 'text-content' : 'text-muted'
+              } ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+            >
+              <input
+                type="radio"
+                name="organizer-request-type"
+                value={option.value}
+                checked={active}
+                disabled={disabled}
+                onChange={() => onChange(option.value)}
+                className="size-4 accent-orange-500"
+              />
+              {option.label}
+            </label>
+          )
+        })}
+      </div>
+      <p className="mt-3 text-sm leading-6 text-subtle">
+        {selectedOption.description}
+      </p>
+    </section>
+  )
+}
+
+function formatApiValidationError(apiError) {
+  const issues = Array.isArray(apiError?.data)
+    ? apiError.data
+    : Array.isArray(apiError?.errors)
+      ? apiError.errors
+      : []
+
+  if (!issues.length) return apiError?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.'
+
+  return issues
+    .map((issue) => {
+      const field = Array.isArray(issue.path) ? issue.path.join('.') : issue.path
+      const label = validationLabels[field] || field || 'Dữ liệu'
+      return `${label}: ${issue.message}`
+    })
+    .join('\n')
 }
 
 function EmptyStatus() {
@@ -48,7 +136,7 @@ function EmptyStatus() {
   )
 }
 
-function StatusSummary({ requests }) {
+function StatusSummary({ requests, onEdit }) {
   const [historyOpen, setHistoryOpen] = useState(false)
 
   if (!requests.length) {
@@ -56,11 +144,15 @@ function StatusSummary({ requests }) {
   }
 
   const latestRequest = requests[requests.length - 1]
+  const handleHistoryEdit = (request) => {
+    setHistoryOpen(false)
+    onEdit?.(request)
+  }
 
   return (
     <>
       <div className="space-y-3">
-        <StatusCard request={latestRequest} />
+        <StatusCard request={latestRequest} onEdit={onEdit} />
         <button
           type="button"
           onClick={() => setHistoryOpen(true)}
@@ -89,7 +181,7 @@ function StatusSummary({ requests }) {
               </button>
             </div>
             <div className="max-h-[calc(90vh-88px)] overflow-y-auto p-5">
-              <StatusList requests={requests} />
+              <StatusList requests={requests} onEdit={handleHistoryEdit} />
             </div>
           </div>
         </div>
@@ -98,7 +190,7 @@ function StatusSummary({ requests }) {
   )
 }
 
-function StatusList({ requests }) {
+function StatusList({ requests, onEdit }) {
   return (
     <div className="space-y-4">
       {requests.map((request, index) => (
@@ -106,13 +198,14 @@ function StatusList({ requests }) {
           key={request.id}
           request={request}
           titlePrefix={requests.length > 1 ? `Yêu cầu ${index + 1}` : ''}
+          onEdit={onEdit}
         />
       ))}
     </div>
   )
 }
 
-function StatusCard({ request, titlePrefix }) {
+function StatusCard({ request, titlePrefix, onEdit }) {
   const statusConfig = {
     PENDING: {
       icon: Clock3,
@@ -183,6 +276,15 @@ function StatusCard({ request, titlePrefix }) {
               </div>
             )}
           </dl>
+          {request.status !== 'APPROVED' && onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(request)}
+              className="mt-4 inline-flex rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary hover:bg-panel"
+            >
+              Chỉnh sửa
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -205,10 +307,12 @@ export function OrganizerRequestPage() {
 
   const [form, setForm] = useState(emptyForm)
   const [selectedAvatar, setSelectedAvatar] = useState(null)
+  const [selectedDocuments, setSelectedDocuments] = useState({})
   const [previewUrl, setPreviewUrl] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [editingRequest, setEditingRequest] = useState(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -227,35 +331,46 @@ export function OrganizerRequestPage() {
     requests.some((request) => request.status === 'PENDING' && request.request_type === 'INDIVIDUAL')
   const canSubmit =
     !isOrganizer &&
-    !hasPendingIndividualRequest
+    (!hasPendingIndividualRequest || Boolean(editingRequest))
 
-  const submitMutation = useMutation({
-    mutationFn: submitOrganizerRequest,
+  const requestMutation = useMutation({
+    mutationFn: ({ id, payload }) =>
+      id ? updateOrganizerRequest(id, payload) : submitOrganizerRequest(payload),
     onSuccess: (request) => {
       setSuccess(
         request.request_type === 'ORGANIZATION'
           ? 'Yêu cầu đã được gửi. Vui lòng kiểm tra email tổ chức để xác thực trước khi admin duyệt.'
-          : 'Yêu cầu đã được gửi thành công.',
+          : editingRequest
+            ? 'Yêu cầu đã được cập nhật và gửi lại để admin xét duyệt.'
+            : 'Yêu cầu đã được gửi thành công.',
       )
       setError('')
       setForm(emptyForm)
       setSelectedAvatar(null)
+      setSelectedDocuments({})
       setPreviewUrl('')
+      setEditingRequest(null)
       queryClient.invalidateQueries({ queryKey: ['my-organizer-requests'] })
     },
     onError: (err) => {
       const apiError = err.response?.data
-      if (apiError?.errors && Array.isArray(apiError.errors)) {
-        setError(apiError.errors.map((item) => item.message).join(', '))
-      } else {
-        setError(apiError?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.')
-      }
+      setError(formatApiValidationError(apiError))
       setSuccess('')
     },
   })
 
   const handleChange = (field) => (event) => {
-    setForm((current) => ({ ...current, [field]: event.target.value }))
+    const value =
+      field === 'individual_full_name'
+        ? event.target.value.toLocaleUpperCase('vi-VN')
+        : field === 'individual_identity_number'
+          ? event.target.value.toUpperCase()
+        : event.target.value
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleCheckboxChange = (field) => (event) => {
+    setForm((current) => ({ ...current, [field]: event.target.checked }))
   }
 
   const handleTypeChange = (requestType) => {
@@ -276,6 +391,57 @@ export function OrganizerRequestPage() {
       setSelectedAvatar(null)
       setPreviewUrl('')
     }
+  }
+
+  const handleEditRequest = (request) => {
+    setEditingRequest(request)
+    setError('')
+    setSuccess('')
+    setSelectedAvatar(null)
+    setSelectedDocuments({})
+    setPreviewUrl(request.organization_avatar_url || '')
+    setForm({
+      ...emptyForm,
+      request_type: request.request_type || 'INDIVIDUAL',
+      organization_name: request.organization_name || '',
+      organization_description: request.organization_description || '',
+      business_email: request.business_email || '',
+      business_phone: request.business_phone || '',
+      organization_avatar_url: request.organization_avatar_url || '',
+      tax_code: request.tax_code || '',
+      legal_document_url: request.legal_document_url || '',
+      business_license_url: request.business_license_url || '',
+      legal_representative_name: request.legal_representative_name || '',
+      legal_representative_position: request.legal_representative_position || '',
+      legal_representative_id_url: request.legal_representative_id_url || '',
+      authorization_letter_url: request.authorization_letter_url || '',
+      individual_full_name: request.individual_full_name || '',
+      individual_identity_number: request.individual_identity_number || '',
+      individual_id_front_url: request.individual_id_front_url || '',
+      individual_id_back_url: request.individual_id_back_url || '',
+      individual_selfie_url: request.individual_selfie_url || '',
+      individual_tax_code: request.individual_tax_code || '',
+      terms_accepted: Boolean(request.terms_accepted),
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const cancelEdit = () => {
+    setEditingRequest(null)
+    setForm(emptyForm)
+    setSelectedAvatar(null)
+    setSelectedDocuments({})
+    setPreviewUrl('')
+    setError('')
+    setSuccess('')
+  }
+
+  const handleDocumentChange = (field) => (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setSelectedDocuments((current) => ({ ...current, [field]: file }))
+    setError('')
   }
 
   const handleAvatarChange = (event) => {
@@ -300,33 +466,96 @@ export function OrganizerRequestPage() {
     let avatarUrl = form.organization_avatar_url.trim()
     const isOrganization = form.request_type === 'ORGANIZATION'
 
-    if (isOrganization && !selectedAvatar && !avatarUrl) {
-      setError('Vui lòng tải ảnh đại diện của tổ chức.')
+    if (!selectedAvatar && !avatarUrl) {
+      setError('Vui lòng tải ảnh đại diện.')
       return
     }
 
+    if (!form.terms_accepted) {
+      setError('Vui lòng xác nhận đã đọc và đồng ý Điều khoản dành cho Nhà tổ chức.')
+      return
+    }
+
+    const requiredDocuments = isOrganization
+      ? [
+          ['legal_document_url', 'Vui lòng tải Giấy ĐKDN/ERC.'],
+          ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
+        ]
+      : [
+          ['individual_id_front_url', 'Vui lòng tải ảnh CCCD mặt trước.'],
+          ['individual_id_back_url', 'Vui lòng tải ảnh CCCD mặt sau.'],
+          ['individual_selfie_url', 'Vui lòng tải ảnh chân dung/Selfie.'],
+        ]
+
+    const missingDocument = requiredDocuments.find(
+      ([field]) => !selectedDocuments[field] && !form[field]?.trim(),
+    )
+
+    if (missingDocument) {
+      setError(missingDocument[1])
+      return
+    }
+
+    const uploadDocumentField = async (field) => {
+      if (selectedDocuments[field]) {
+        const uploadResult = await uploadOrganizerDocument(selectedDocuments[field])
+        return uploadResult.secure_url || uploadResult.url
+      }
+      return form[field]?.trim() || ''
+    }
+
     try {
-      if (isOrganization && selectedAvatar) {
+      setIsUploading(true)
+      if (selectedAvatar) {
         setIsUploading(true)
         const uploadResult = await uploadOrganizerAvatar(selectedAvatar)
         avatarUrl = uploadResult.secure_url || uploadResult.url
       }
+
+      const documentUrls = isOrganization
+        ? {
+            legal_document_url: await uploadDocumentField('legal_document_url'),
+            business_license_url: await uploadDocumentField('business_license_url'),
+            legal_representative_id_url: await uploadDocumentField('legal_representative_id_url'),
+            authorization_letter_url: await uploadDocumentField('authorization_letter_url'),
+          }
+        : {
+            individual_id_front_url: await uploadDocumentField('individual_id_front_url'),
+            individual_id_back_url: await uploadDocumentField('individual_id_back_url'),
+            individual_selfie_url: await uploadDocumentField('individual_selfie_url'),
+          }
+
+      requestMutation.mutate({
+        id: editingRequest?.id,
+        payload: {
+          request_type: form.request_type,
+          organization_name: form.organization_name.trim(),
+          organization_description: form.organization_description.trim(),
+          business_email: isOrganization ? form.business_email.trim() : '',
+          business_phone: form.business_phone.trim(),
+          organization_avatar_url: avatarUrl,
+          tax_code: isOrganization ? form.tax_code.trim() : '',
+          legal_document_url: documentUrls.legal_document_url || '',
+          business_license_url: documentUrls.business_license_url || '',
+          legal_representative_name: isOrganization ? form.legal_representative_name.trim() : '',
+          legal_representative_position: isOrganization ? form.legal_representative_position.trim() : '',
+          legal_representative_id_url: documentUrls.legal_representative_id_url || '',
+          authorization_letter_url: documentUrls.authorization_letter_url || '',
+          individual_full_name: isOrganization ? '' : form.individual_full_name.trim(),
+          individual_identity_number: isOrganization ? '' : form.individual_identity_number.trim(),
+          individual_id_front_url: documentUrls.individual_id_front_url || '',
+          individual_id_back_url: documentUrls.individual_id_back_url || '',
+          individual_selfie_url: documentUrls.individual_selfie_url || '',
+          individual_tax_code: isOrganization ? '' : form.individual_tax_code.trim(),
+          terms_accepted: form.terms_accepted,
+        },
+      })
     } catch (err) {
-      setError(err.message || 'Không thể tải ảnh đại diện lên hệ thống.')
+      setError(err.message || 'Không thể tải tài liệu lên hệ thống.')
       return
     } finally {
       setIsUploading(false)
     }
-
-    submitMutation.mutate({
-      request_type: form.request_type,
-      organization_name: form.organization_name.trim(),
-      organization_description: form.organization_description.trim(),
-      business_email: isOrganization ? form.business_email.trim() : '',
-      business_phone: form.business_phone.trim(),
-      organization_avatar_url: isOrganization ? avatarUrl : '',
-      tax_code: isOrganization ? form.tax_code.trim() : '',
-    })
   }
 
   if (!isAuthenticated) return null
@@ -375,7 +604,13 @@ export function OrganizerRequestPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="glass-panel rounded-lg p-6">
-          {hasPendingIndividualRequest && (
+          {editingRequest && (
+            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+              Bạn đang chỉnh sửa yêu cầu đã gửi. Sau khi lưu, yêu cầu sẽ được đưa về trạng thái chờ duyệt.
+            </div>
+          )}
+
+          {hasPendingIndividualRequest && !editingRequest && (
             <p className="mb-4 text-sm text-muted">
               Bạn đã có yêu cầu cá nhân đang chờ duyệt. Vui lòng đợi Admin xử lý trước khi gửi yêu cầu mới.
             </p>
@@ -383,31 +618,14 @@ export function OrganizerRequestPage() {
 
           {canSubmit && (
             <form className="space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <span className="text-sm font-semibold text-muted">Loại đăng ký</span>
-                <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                  {requestTypeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleTypeChange(option.value)}
-                      className={`rounded-lg border p-4 text-left transition ${
-                        form.request_type === option.value
-                          ? 'border-primary bg-primary/10 text-content'
-                          : 'border-border-soft bg-surface text-muted hover:border-primary/60'
-                      }`}
-                    >
-                      <span className="font-bold">{option.label}</span>
-                      <span className="mt-1 block text-xs leading-5 text-subtle">
-                        {option.description}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <RequestTypeSelector
+                value={form.request_type}
+                onChange={handleTypeChange}
+                disabled={Boolean(editingRequest)}
+              />
 
               <Field
-                label="Tên tổ chức"
+                label="Tên cá nhân/tổ chức"
                 value={form.organization_name}
                 onChange={handleChange('organization_name')}
                 placeholder={
@@ -434,6 +652,40 @@ export function OrganizerRequestPage() {
                 placeholder="0901234567 hoặc +84901234567"
                 required
               />
+              <div>
+                <span className="text-sm font-semibold text-muted">
+                  Ảnh đại diện
+                  <RequiredMark />
+                </span>
+                <div className="mt-2 flex items-center gap-4 rounded-lg border border-border-soft bg-surface p-4">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Ảnh đại diện"
+                      className="size-20 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="grid size-20 place-items-center rounded-lg bg-panel">
+                      <UserCircle className="size-10 text-muted" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary">
+                      <Camera className="size-4" />
+                      Chọn ảnh
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                      />
+                    </label>
+                    <p className="mt-2 text-xs text-subtle">
+                      Dùng logo, ảnh nhận diện thương hiệu hoặc ảnh đại diện rõ mặt.
+                    </p>
+                  </div>
+                </div>
+              </div>
               {form.request_type === 'ORGANIZATION' && (
                 <>
                   <Field
@@ -443,43 +695,107 @@ export function OrganizerRequestPage() {
                     placeholder="10 hoặc 13 chữ số"
                     required
                   />
-                  <div>
-                    <span className="text-sm font-semibold text-muted">
-                      Ảnh đại diện tổ chức
-                    </span>
-                    <div className="mt-2 flex items-center gap-4 rounded-lg border border-border-soft bg-surface p-4">
-                      {previewUrl ? (
-                        <img
-                          src={previewUrl}
-                          alt="Ảnh đại diện tổ chức"
-                          className="size-20 rounded-lg object-cover"
-                        />
-                      ) : (
-                        <div className="grid size-20 place-items-center rounded-lg bg-panel">
-                          <UserCircle className="size-10 text-muted" />
-                        </div>
-                      )}
-                      <div>
-                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary">
-                          <Camera className="size-4" />
-                          Chọn ảnh
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleAvatarChange}
-                          />
-                        </label>
-                        <p className="mt-2 text-xs text-subtle">
-                          JPG, PNG. Nên dùng logo hoặc ảnh nhận diện chính thức.
-                        </p>
-                      </div>
-                    </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                      label="Người đại diện pháp luật"
+                      value={form.legal_representative_name}
+                      onChange={handleChange('legal_representative_name')}
+                      placeholder="NGUYỄN VĂN A"
+                      required
+                    />
+                    <Field
+                      label="Chức vụ"
+                      value={form.legal_representative_position}
+                      onChange={handleChange('legal_representative_position')}
+                      placeholder="Giám đốc / Tổng giám đốc"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FileField
+                      label="Giấy ĐKDN/ERC"
+                      required
+                      file={selectedDocuments.legal_document_url}
+                      existingUrl={form.legal_document_url}
+                      onChange={handleDocumentChange('legal_document_url')}
+                    />
+                    <FileField
+                      label="Giấy phép kinh doanh đặc thù"
+                      file={selectedDocuments.business_license_url}
+                      existingUrl={form.business_license_url}
+                      onChange={handleDocumentChange('business_license_url')}
+                    />
+                    <FileField
+                      label="Giấy tờ tùy thân người đại diện"
+                      required
+                      file={selectedDocuments.legal_representative_id_url}
+                      existingUrl={form.legal_representative_id_url}
+                      onChange={handleDocumentChange('legal_representative_id_url')}
+                    />
+                    <FileField
+                      label="Giấy ủy quyền"
+                      file={selectedDocuments.authorization_letter_url}
+                      existingUrl={form.authorization_letter_url}
+                      onChange={handleDocumentChange('authorization_letter_url')}
+                    />
+                  </div>
+                </>
+              )}
+              {form.request_type === 'INDIVIDUAL' && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                      label="Họ tên pháp lý"
+                      value={form.individual_full_name}
+                      onChange={handleChange('individual_full_name')}
+                      placeholder="NGUYỄN VĂN A"
+                      required
+                    />
+                    <Field
+                      label="Số CCCD/Hộ chiếu"
+                      value={form.individual_identity_number}
+                      onChange={handleChange('individual_identity_number')}
+                      placeholder="12 số CCCD hoặc số hộ chiếu"
+                      required
+                    />
+                    <Field
+                      label="Mã số thuế cá nhân"
+                      value={form.individual_tax_code}
+                      onChange={handleChange('individual_tax_code')}
+                      placeholder="10 hoặc 13 chữ số"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <FileField
+                      label="CCCD mặt trước"
+                      required
+                      file={selectedDocuments.individual_id_front_url}
+                      existingUrl={form.individual_id_front_url}
+                      onChange={handleDocumentChange('individual_id_front_url')}
+                    />
+                    <FileField
+                      label="CCCD mặt sau"
+                      required
+                      file={selectedDocuments.individual_id_back_url}
+                      existingUrl={form.individual_id_back_url}
+                      onChange={handleDocumentChange('individual_id_back_url')}
+                    />
+                    <FileField
+                      label="Ảnh chân dung/Selfie"
+                      required
+                      file={selectedDocuments.individual_selfie_url}
+                      existingUrl={form.individual_selfie_url}
+                      onChange={handleDocumentChange('individual_selfie_url')}
+                    />
                   </div>
                 </>
               )}
               <label className="block">
-                <span className="text-sm font-semibold text-muted">Mô tả</span>
+                <span className="text-sm font-semibold text-muted">
+                  Mô tả
+                  <RequiredMark />
+                </span>
                 <textarea
                   className="mt-2 min-h-32 w-full rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-primary"
                   value={form.organization_description}
@@ -494,19 +810,68 @@ export function OrganizerRequestPage() {
                 />
               </label>
 
-              {error && <p className="text-sm text-error">{error}</p>}
+              <label className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface p-4">
+                <input
+                  type="checkbox"
+                  checked={form.terms_accepted}
+                  onChange={handleCheckboxChange('terms_accepted')}
+                  className="mt-1 size-4 shrink-0 accent-orange-500"
+                  required
+                />
+                <span className="text-sm leading-6 text-muted">
+                  <span className="font-semibold text-content">
+                    Cam kết pháp lý
+                    <RequiredMark />
+                  </span>
+                  <br />
+                  Tôi xác nhận thông tin cung cấp là chính xác và đồng ý với{' '}
+                  <PolicyLink to="/policies?policy_type=ORGANIZER_TERMS">
+                    Điều khoản dịch vụ dành cho Nhà tổ chức
+                  </PolicyLink>
+                  ,{' '}
+                  <PolicyLink to="/policies?policy_type=EVENT_CREATION_REVIEW">
+                    quy chế sự kiện
+                  </PolicyLink>
+                  ,{' '}
+                  <PolicyLink to="/policies?policy_type=TICKET_BOOKING">
+                    quy chế bán vé
+                  </PolicyLink>
+                  {' '}và{' '}
+                  <PolicyLink to="/policies?policy_type=REFUND">
+                    chính sách hoàn tiền
+                  </PolicyLink>
+                  {' '}của EventHub.
+                </span>
+              </label>
+
+              {error && <p className="whitespace-pre-line text-sm text-error">{error}</p>}
               {success && <p className="text-sm text-success">{success}</p>}
 
-              <div className="flex justify-end">
+              <div className="flex flex-wrap justify-end gap-3">
+                {editingRequest && (
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="rounded-md border border-border-soft px-5 py-3 text-sm font-bold text-content transition hover:border-primary"
+                  >
+                    Hủy chỉnh sửa
+                  </button>
+                )}
                 <button
                   type="submit"
-                  disabled={submitMutation.isPending || isUploading}
+                  disabled={requestMutation.isPending || isUploading}
                   className="inline-flex items-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-orange-400 active:scale-[0.98] disabled:opacity-60"
                 >
-                  {(submitMutation.isPending || isUploading) && (
+                  {(requestMutation.isPending || isUploading) && (
                     <Loader2 className="size-4 animate-spin" />
                   )}
-                  {isUploading ? 'Đang tải ảnh...' : submitMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                  {isUploading
+                    ? 'Đang tải tài liệu...'
+                    : requestMutation.isPending
+                      ? 'Đang lưu...'
+                      : editingRequest
+                        ? 'Cập nhật yêu cầu'
+                        : 'Gửi yêu cầu'}
                 </button>
               </div>
             </form>
@@ -519,7 +884,7 @@ export function OrganizerRequestPage() {
               Không thể tải yêu cầu từ máy chủ. Vui lòng thử lại sau.
             </div>
           ) : (
-            <StatusSummary requests={requests} />
+            <StatusSummary requests={requests} onEdit={handleEditRequest} />
           )}
         </aside>
       </div>
@@ -530,7 +895,10 @@ export function OrganizerRequestPage() {
 function Field({ label, value, onChange, placeholder, type = 'text', required = false }) {
   return (
     <label className="block">
-      <span className="text-sm font-semibold text-muted">{label}</span>
+      <span className="text-sm font-semibold text-muted">
+        {label}
+        {required && <RequiredMark />}
+      </span>
       <input
         type={type}
         value={value}
@@ -540,5 +908,113 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
         className="mt-2 h-11 w-full rounded-md border border-border-soft bg-surface px-3 outline-none focus:border-primary"
       />
     </label>
+  )
+}
+
+function FileField({ label, file, existingUrl = '', onChange, required = false }) {
+  return (
+    <label className="flex min-h-64 flex-col justify-between rounded-lg border border-border-soft bg-surface p-4">
+      <span className="block min-h-12 text-sm font-semibold leading-6 text-muted">
+        {label}
+        {required && <RequiredMark />}
+      </span>
+      <DocumentPreview file={file} existingUrl={existingUrl} />
+      <div>
+        <span className="inline-flex cursor-pointer rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary">
+          Chọn file
+          <input
+            type="file"
+            accept=".pdf,.docx,image/*"
+            className="hidden"
+            onChange={onChange}
+          />
+        </span>
+        <span className="mt-3 block truncate text-xs text-subtle">
+          {file ? file.name : existingUrl ? 'Đã có tài liệu. Chọn file mới để thay thế.' : 'PDF, DOCX hoặc ảnh JPG/PNG/WEBP'}
+        </span>
+      </div>
+    </label>
+  )
+}
+
+function DocumentPreview({ file, existingUrl = '' }) {
+  const [previewUrl, setPreviewUrl] = useState('')
+
+  useEffect(() => {
+    if (!file || !file.type?.startsWith('image/')) {
+      setPreviewUrl('')
+      return undefined
+    }
+
+    const nextUrl = URL.createObjectURL(file)
+    setPreviewUrl(nextUrl)
+
+    return () => URL.revokeObjectURL(nextUrl)
+  }, [file])
+
+  if (!file) {
+    if (existingUrl) {
+      if (isImageUrl(existingUrl)) {
+        return (
+          <img
+            src={existingUrl}
+            alt="Tài liệu đã tải"
+            className="my-3 h-28 w-full rounded-lg border border-border-soft/60 object-cover"
+          />
+        )
+      }
+
+      return (
+        <div className="my-3 grid h-28 place-items-center rounded-lg border border-border-soft/60 bg-panel/60 px-3 text-center text-xs font-semibold text-subtle">
+          Đã có tài liệu
+        </div>
+      )
+    }
+
+    return (
+      <div className="my-3 grid h-28 place-items-center rounded-lg border border-dashed border-border-soft/60 bg-panel/60 text-xs font-semibold text-subtle">
+        Chưa chọn file
+      </div>
+    )
+  }
+
+  if (!previewUrl) {
+    return (
+      <div className="my-3 grid h-28 place-items-center rounded-lg border border-border-soft/60 bg-panel/60 px-3 text-center text-xs font-semibold text-subtle">
+        {file.name}
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={previewUrl}
+      alt={file.name}
+      className="my-3 h-28 w-full rounded-lg border border-border-soft/60 object-cover"
+    />
+  )
+}
+
+function RequiredMark() {
+  return <span className="text-error"> *</span>
+}
+
+function isImageUrl(url = '') {
+  return (
+    /\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url) ||
+    /\/image\/upload\//i.test(url)
+  )
+}
+
+function PolicyLink({ to, children }) {
+  return (
+    <Link
+      to={to}
+      target="_blank"
+      rel="noreferrer"
+      className="font-semibold text-tertiary underline-offset-4 hover:underline"
+    >
+      {children}
+    </Link>
   )
 }

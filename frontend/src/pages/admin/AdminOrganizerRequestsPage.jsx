@@ -219,7 +219,7 @@ export function AdminOrganizerRequestsPage() {
 
       {selectedRequest && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-          <Panel className="w-full max-w-xl border-border-soft/60">
+          <Panel className="admin-review-modal-scroll max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto border-border-soft/60">
             {selectedRequest.organization_avatar_url && (
               <img
                 src={selectedRequest.organization_avatar_url}
@@ -247,6 +247,29 @@ export function AdminOrganizerRequestsPage() {
                 }
               />
               <Info label="Mã số thuế" value={selectedRequest.tax_code || 'Không áp dụng'} />
+              {selectedRequest.request_type === 'ORGANIZATION' ? (
+                <>
+                  <Info label="Người đại diện" value={selectedRequest.legal_representative_name || 'Chưa cung cấp'} />
+                  <Info label="Chức vụ" value={selectedRequest.legal_representative_position || 'Chưa cung cấp'} />
+                  <InfoLink label="Giấy ĐKDN/ERC" url={selectedRequest.legal_document_url} />
+                  <InfoLink label="Giấy phép đặc thù" url={selectedRequest.business_license_url} />
+                  <InfoLink label="Giấy tờ người đại diện" url={selectedRequest.legal_representative_id_url} />
+                  <InfoLink label="Giấy ủy quyền" url={selectedRequest.authorization_letter_url} />
+                </>
+              ) : (
+                <>
+                  <Info label="Họ tên pháp lý" value={selectedRequest.individual_full_name || 'Chưa cung cấp'} />
+                  <Info label="Số CCCD/Hộ chiếu" value={selectedRequest.individual_identity_number || 'Chưa cung cấp'} />
+                  <Info label="MST cá nhân" value={selectedRequest.individual_tax_code || 'Chưa cung cấp'} />
+                  <InfoLink label="CCCD mặt trước" url={selectedRequest.individual_id_front_url} />
+                  <InfoLink label="CCCD mặt sau" url={selectedRequest.individual_id_back_url} />
+                  <InfoLink label="Ảnh selfie" url={selectedRequest.individual_selfie_url} />
+                </>
+              )}
+              <Info
+                label="Điều khoản Organizer"
+                value={selectedRequest.terms_accepted ? 'Đã chấp nhận' : 'Chưa chấp nhận'}
+              />
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm text-subtle leading-relaxed bg-panel-soft p-4 rounded-xl border border-border-soft/30">
               {selectedRequest.organization_description}
@@ -347,6 +370,26 @@ function Info({ label, value }) {
     <div>
       <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
       <p className="mt-1 break-words font-semibold text-content">{value}</p>
+    </div>
+  )
+}
+
+function InfoLink({ label, url }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-flex font-semibold text-tertiary underline-offset-4 hover:underline"
+        >
+          Mở tài liệu
+        </a>
+      ) : (
+        <p className="mt-1 font-semibold text-content">Không áp dụng</p>
+      )}
     </div>
   )
 }

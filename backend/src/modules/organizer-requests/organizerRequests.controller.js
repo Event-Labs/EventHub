@@ -28,6 +28,17 @@ class OrganizerRequestsController {
     }
   };
 
+  updateMine = async (req, res, next) => {
+    try {
+      const { id } = requestIdSchema.parse(req.params);
+      const payload = submitOrganizerRequestSchema.parse(req.body);
+      const data = await organizerRequestsService.updateMyRequest(req.user.sub, id, payload);
+      res.status(200).json(ApiResponse.success(data, 'Organizer request updated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   listMine = async (req, res, next) => {
     try {
       const data = await organizerRequestsService.getMyRequests(req.user.sub);
