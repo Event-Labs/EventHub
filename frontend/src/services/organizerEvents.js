@@ -5,6 +5,11 @@ export async function fetchOrganizerProfile() {
   return response.data.data
 }
 
+export async function updateOrganizerProfile(payload) {
+  const response = await http.patch('/organizer/events/me', payload)
+  return response.data.data
+}
+
 export async function fetchOrganizerVenues() {
   const response = await http.get('/organizer/events/venues')
   return response.data.data
