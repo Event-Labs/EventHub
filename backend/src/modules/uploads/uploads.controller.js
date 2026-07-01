@@ -29,6 +29,15 @@ class UploadsController {
     }
   };
 
+  createOrganizerDocumentSignature = async (req, res, next) => {
+    try {
+      const data = uploadsService.createOrganizerDocumentSignature();
+      res.status(200).json(ApiResponse.success(data, 'Cloudinary upload signature for organizer document created'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   createPolicyPdfSignature = async (req, res, next) => {
     try {
       const data = uploadsService.createPolicyDocumentSignature();
