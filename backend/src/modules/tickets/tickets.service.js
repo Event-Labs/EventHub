@@ -154,7 +154,7 @@ function normalizeSearchPayload(payload = {}) {
   };
 }
 
-function extractQrTicketRef(payload = {}) {
+function extractQrTicketPayload(payload = {}) {
   const raw =
     payload.ticketId ||
     payload.ticket_id ||
@@ -167,25 +167,45 @@ function extractQrTicketRef(payload = {}) {
     '';
 
   if (!raw || typeof raw !== 'string') {
-    return '';
+    return { ticketRef: '' };
   }
 
   const value = raw.trim();
-  if (!value) return '';
+  if (!value) return { ticketRef: '' };
 
   try {
     const parsed = JSON.parse(value);
-    return trimString(
-      parsed.ticket_id ||
-        parsed.ticketId ||
-        parsed.ticket_code ||
-        parsed.ticketCode ||
-        parsed.qr_code ||
-        parsed.qrCode ||
-        parsed.id,
-    );
+    return {
+      type: trimString(parsed.type),
+      ticketRef: trimString(
+        parsed.ticket_id ||
+          parsed.ticketId ||
+          parsed.ticket_code ||
+          parsed.ticketCode ||
+          parsed.qr_code ||
+          parsed.qrCode ||
+          parsed.id,
+      ),
+      eventId: trimString(parsed.event_id || parsed.eventId),
+      sessionId: trimString(parsed.session_id || parsed.sessionId),
+      raw: value,
+    };
   } catch {
-    return value;
+    return { ticketRef: value, raw: value };
+  }
+}
+
+function assertQrMatchesTicket(qrPayload, ticket) {
+  if (qrPayload.type && qrPayload.type !== 'EVENTHUB_TICKET') {
+    throw new AppError('QR không đúng định dạng vé EventHub.', 400, ErrorCodes.INVALID_INPUT);
+  }
+
+  if (qrPayload.eventId && ticket.event_id && qrPayload.eventId !== ticket.event_id) {
+    throw new AppError('QR không khớp sự kiện của vé.', 400, ErrorCodes.INVALID_INPUT);
+  }
+
+  if (qrPayload.sessionId && ticket.event_session_id && qrPayload.sessionId !== ticket.event_session_id) {
+    throw new AppError('QR không khớp phiên của vé.', 400, ErrorCodes.INVALID_INPUT);
   }
 }
 
@@ -356,13 +376,13 @@ class TicketsService {
     };
   }
 
-  async staffCheckInByQr(staffId, payload = {}) {
-    const ticketRef = extractQrTicketRef(payload);
-    if (!ticketRef) {
+  async staffVerifyTicketByQr(staffId, payload = {}) {
+    const qrPayload = extractQrTicketPayload(payload);
+    if (!qrPayload.ticketRef) {
       throw new AppError('QR không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    const ticket = await ticketsRepository.findTicketAccessForStaff(ticketRef, staffId);
+    const ticket = await ticketsRepository.findTicketAccessForStaff(qrPayload.ticketRef, staffId);
     if (!ticket) {
       throw new AppError('Không tìm thấy vé.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
@@ -371,6 +391,13 @@ class TicketsService {
       throw new AppError('Staff không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
     }
 
+    assertQrMatchesTicket(qrPayload, ticket);
+
+    return buildStaffTicketPayload(ticket);
+  }
+
+  async staffCheckInByQr(staffId, payload = {}) {
+    const ticket = await this.staffVerifyTicketByQr(staffId, payload);
     return this.staffCheckInTicket(staffId, ticket.id, 'QR');
   }
 

@@ -24,6 +24,11 @@ export async function checkInTicketByQr(payload) {
   return response.data.data
 }
 
+export async function verifyStaffTicketByQr(payload) {
+  const response = await http.post('/staff/tickets/verify-qr', payload)
+  return response.data.data
+}
+
 export async function searchStaffTickets(payload) {
   const response = await http.post('/staff/tickets/search', payload)
   return response.data.data

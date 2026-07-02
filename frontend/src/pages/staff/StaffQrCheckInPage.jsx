@@ -16,6 +16,7 @@ import {
   checkInStaffTicket,
   checkInTicketByQr,
   searchStaffTickets,
+  verifyStaffTicketByQr,
 } from '@/services/tickets.js'
 import { StaffPage, StaffPanel } from './StaffComponents.jsx'
 
@@ -42,6 +43,47 @@ function statusTone(status) {
   if (status === 'USED') return 'border-success/40 bg-success/10 text-success'
   if (status === 'VALID') return 'border-tertiary/40 bg-tertiary/10 text-tertiary'
   return 'border-error/40 bg-error/10 text-error'
+}
+
+function isTicketCheckedIn(ticket) {
+  return ticket?.status === 'USED' || Boolean(ticket?.checkedInAt)
+}
+
+function ticketStatusLabel(ticket) {
+  if (isTicketCheckedIn(ticket)) return 'Đã check-in'
+  if (ticket?.status === 'VALID') return 'Chưa check-in'
+  if (ticket?.status === 'CANCELLED') return 'Đã hủy'
+  return ticket?.status || 'Không rõ'
+}
+
+function canCheckInTicket(ticket) {
+  return ticket?.status === 'VALID' && !isTicketCheckedIn(ticket)
+}
+
+function playScanBeep() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext
+  if (!AudioContext) return
+
+  try {
+    const context = new AudioContext()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    const now = context.currentTime
+
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(880, now)
+    gain.gain.setValueAtTime(0.001, now)
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.015)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14)
+
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start(now)
+    oscillator.stop(now + 0.15)
+    oscillator.onended = () => context.close()
+  } catch {
+    // Browser audio policies can block this; scanning should continue silently.
+  }
 }
 
 function normalizeTicket(ticket) {
@@ -94,6 +136,8 @@ export function StaffQrCheckInPage() {
   const [cameraMessage, setCameraMessage] = useState('Camera chưa bật.')
   const [qrMessage, setQrMessage] = useState('')
   const [checkInState, setCheckInState] = useState('idle')
+  const [scannedTicket, setScannedTicket] = useState(null)
+  const [scannedQrValue, setScannedQrValue] = useState('')
   const [resultTicket, setResultTicket] = useState(null)
   const [recentTickets, setRecentTickets] = useState([])
 
@@ -115,7 +159,7 @@ export function StaffQrCheckInPage() {
     setCameraMessage('Camera chưa bật.')
   }
 
-  const checkInFromQr = async (rawValue) => {
+  const inspectTicketFromQr = async (rawValue) => {
     const value = String(rawValue || '').trim()
     const now = Date.now()
 
@@ -130,21 +174,57 @@ export function StaffQrCheckInPage() {
     processingRef.current = true
     lastQrRef.current = { value, time: now }
     setCheckInState('checking')
+    setScannedTicket(null)
+    setScannedQrValue('')
+    setResultTicket(null)
     setQrMessage('Đã đọc QR, đang kiểm tra vé...')
 
     try {
-      const ticket = await checkInTicketByQr({ qrCode: value })
-      showSuccess(ticket)
-      setQrMessage('Check-in thành công.')
-      setCheckInState('success')
+      const ticket = await verifyStaffTicketByQr({ qrCode: value })
+      playScanBeep()
+      setScannedTicket(ticket)
+      setScannedQrValue(value)
+      setQrMessage('Đã tìm thấy vé. Kiểm tra thông tin rồi xác nhận check-in.')
+      setCheckInState('ready')
     } catch (error) {
       setQrMessage(getApiMessage(error, 'QR không hợp lệ hoặc vé không thể check-in.'))
       setCheckInState('error')
-    } finally {
       window.setTimeout(() => {
         processingRef.current = false
       }, 1500)
     }
+  }
+
+  const confirmQrCheckIn = async () => {
+    if (!scannedTicket?.id) return
+
+    setCheckInState('checking')
+    setQrMessage('Đang xác nhận check-in...')
+
+    try {
+      const ticket = scannedQrValue
+        ? await checkInTicketByQr({ qrCode: scannedQrValue })
+        : await checkInStaffTicket(scannedTicket.id)
+      showSuccess(ticket)
+      setScannedTicket(null)
+      setScannedQrValue('')
+      setQrMessage('Check-in thành công.')
+      setCheckInState('success')
+    } catch (error) {
+      setQrMessage(getApiMessage(error, 'Vé không thể check-in.'))
+      setCheckInState('error')
+      processingRef.current = false
+    }
+  }
+
+  const resetQrScan = () => {
+    processingRef.current = false
+    lastQrRef.current = { value: '', time: 0 }
+    setScannedTicket(null)
+    setScannedQrValue('')
+    setResultTicket(null)
+    setCheckInState('idle')
+    setQrMessage(cameraState === 'active' ? 'Đưa QR code vào khung hình để bắt đầu.' : '')
   }
 
   const startCamera = async () => {
@@ -169,7 +249,7 @@ export function StaffQrCheckInPage() {
         (result) => {
           const value = result?.getText?.()
           if (value) {
-            checkInFromQr(value)
+            inspectTicketFromQr(value)
           }
         },
       )
@@ -196,6 +276,7 @@ export function StaffQrCheckInPage() {
   }
 
   const normalizedResult = normalizeTicket(resultTicket)
+  const normalizedScanned = normalizeTicket(scannedTicket)
 
   return (
     <StaffPage
@@ -257,7 +338,14 @@ export function StaffQrCheckInPage() {
         </div>
 
         <aside className="space-y-5">
-          <ResultPanel ticket={normalizedResult} />
+          <SelectedTicketPanel
+            ticket={normalizedScanned}
+            onCheckIn={confirmQrCheckIn}
+            checking={checkInState === 'checking'}
+            onClear={resetQrScan}
+            emptyMessage="Quét QR để xem thông tin vé trước khi xác nhận check-in."
+          />
+          <ResultPanel ticket={normalizedResult} onClear={resetQrScan} />
           <StaffPanel>
             <h3 className="font-bold text-content">Lượt check-in gần đây</h3>
             {recentTickets.length === 0 ? (
@@ -457,14 +545,14 @@ function ManualSearchPanel({
                     <p className="mt-1 text-xs text-subtle">{normalized.eventName}</p>
                   </div>
                   <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(normalized.status)}`}>
-                    {normalized.status}
+                    {ticketStatusLabel(normalized)}
                   </span>
                 </div>
               </button>
             )
           })}
 
-          {selectedTicket && (
+          {selectedTicket && canCheckInTicket(normalizeTicket(selectedTicket)) && (
             <div className="flex justify-end">
               <button className="admin-primary" onClick={() => onCheckIn(selectedTicket)} disabled={checkInState === 'checking'}>
                 {checkInState === 'checking' ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
@@ -492,7 +580,7 @@ function ManualInput({ label, value, onChange }) {
   )
 }
 
-function ResultPanel({ ticket }) {
+function ResultPanel({ ticket, onClear }) {
   if (!ticket) {
     return (
       <StaffPanel className="text-center">
@@ -518,22 +606,28 @@ function ResultPanel({ ticket }) {
         <InfoRow label="Email" value={ticket.buyerEmail} />
         <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
         <InfoRow label="Hạng vé" value={ticket.ticketType} />
-        <InfoRow label="Trạng thái" value="USED" strong />
+        <InfoRow label="Trạng thái" value={ticketStatusLabel(ticket)} strong />
         <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} />
         <InfoRow label="Check-in bởi" value={ticket.checkedInBy} />
       </div>
+      {onClear && (
+        <button className="admin-secondary mt-5 w-full" onClick={onClear} type="button">
+          <RotateCcw className="size-4" />
+          Quét vé khác
+        </button>
+      )}
     </StaffPanel>
   )
 }
 
-function SelectedTicketPanel({ ticket, onCheckIn, checking }) {
+function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage }) {
   if (!ticket) {
     return (
       <StaffPanel>
         <div className="flex gap-3">
           <ShieldAlert className="mt-1 size-5 shrink-0 text-warning" />
           <p className="text-sm text-subtle">
-            Kết quả tìm kiếm thủ công chỉ hiển thị vé thuộc sự kiện bạn được phân công.
+            {emptyMessage || 'Kết quả tìm kiếm thủ công chỉ hiển thị vé thuộc sự kiện bạn được phân công.'}
           </p>
         </div>
       </StaffPanel>
@@ -548,7 +642,7 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking }) {
           <h3 className="mt-1 font-extrabold text-content">{ticket.ticketCode}</h3>
         </div>
         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(ticket.status)}`}>
-          {ticket.status}
+          {ticketStatusLabel(ticket)}
         </span>
       </div>
       <div className="mt-4 space-y-3 text-sm">
@@ -557,11 +651,23 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking }) {
         <InfoRow label="Email" value={ticket.buyerEmail} />
         <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
         <InfoRow label="Hạng vé" value={ticket.ticketType} />
+        <InfoRow label="Trạng thái vé" value={ticketStatusLabel(ticket)} strong={isTicketCheckedIn(ticket)} />
+        <InfoRow label="Thời gian check-in" value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa check-in'} />
       </div>
-      <button className="admin-primary mt-5 w-full" onClick={onCheckIn} disabled={checking}>
-        {checking ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
-        Xác nhận check-in
-      </button>
+      <div className="mt-5 grid gap-2">
+        {canCheckInTicket(ticket) && (
+          <button className="admin-primary w-full" onClick={onCheckIn} disabled={checking}>
+            {checking ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
+            Xác nhận check-in
+          </button>
+        )}
+        {onClear && (
+          <button className="admin-secondary w-full" onClick={onClear} type="button" disabled={checking}>
+            <RotateCcw className="size-4" />
+            Quét vé khác
+          </button>
+        )}
+      </div>
     </StaffPanel>
   )
 }
