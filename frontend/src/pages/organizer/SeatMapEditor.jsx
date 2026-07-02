@@ -24,7 +24,7 @@ const ZONE_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC
 const TOOLS = [
   { id: 'SELECT', label: 'Chọn', icon: MousePointer2, shortcut: 'V' },
   { id: 'ADD', label: 'Vẽ ghế', icon: Plus, shortcut: 'A', freeformOnly: true },
-  { id: 'PAINT', label: 'Tô zone', icon: Paintbrush, shortcut: 'P' },
+  { id: 'PAINT', label: 'Tô khu vực', icon: Paintbrush, shortcut: 'P' },
   { id: 'ERASE', label: 'Xóa', icon: Eraser, shortcut: 'E' },
   { id: 'DISABLE', label: 'Vô hiệu', icon: Ban, shortcut: 'D' },
 ]
@@ -250,7 +250,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       ...prev,
       {
         localId: newLocalId(),
-        name: `Zone ${prev.length + 1}`,
+        name: `Khu vực ${prev.length + 1}`,
         color: ZONE_COLORS[prev.length % ZONE_COLORS.length],
       },
     ])
@@ -481,7 +481,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       layout_type: layoutType,
       canvas_width: 900,
       canvas_height: 600,
-      config: { stageLabel: 'SÂN KHẤU / STAGE', stageHeight: 52 },
+      config: { stageLabel: 'SÂN KHẤU', stageHeight: 52 },
       rows_count: gridConfig.rows,
       cols_count: gridConfig.cols,
       zones: zones.map((z, i) => ({ name: z.name, color: z.color, sort_order: i })),
@@ -574,7 +574,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               {[
                 ['Tổng ghế', stats.total, 'var(--color-content)'],
                 ['Hoạt động', stats.active, 'var(--color-success)'],
-                ['Đã gán zone', stats.zoned, 'var(--color-primary)'],
+                ['Đã gán khu vực', stats.zoned, 'var(--color-primary)'],
                 ['Chưa gán', stats.unassigned, 'var(--color-neutral)'],
               ].map(([label, value, color]) => (
                 <div key={label} className="rounded-xl border border-border-soft/30 bg-panel-soft p-3">
@@ -599,11 +599,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     key={type}
                     type="button"
                     onClick={() => setLayoutType(type)}
-                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${
-                      layoutType === type
+                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${layoutType === type
                         ? 'bg-tertiary text-white shadow-sm'
                         : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
-                    }`}
+                      }`}
                   >
                     {label}
                   </button>
@@ -665,14 +664,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             {/* Zones */}
             <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">Khu vực (Zones)</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Khu vực</p>
                 <button type="button" onClick={addZone} className="text-xs font-bold text-primary hover:underline">
-                  + Thêm zone
+                  + Thêm khu vực
                 </button>
               </div>
               <div className="space-y-1.5">
                 {zones.length === 0 && (
-                  <p className="py-2 text-center text-xs text-muted">Chưa có zone nào</p>
+                  <p className="py-2 text-center text-xs text-muted">Chưa có khu vực nào</p>
                 )}
                 {zones.map((zone) => {
                   const count = seats.filter((s) => s.zoneLocalId === zone.localId).length
@@ -681,11 +680,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <div
                       key={zone.localId}
                       onClick={() => setActiveZoneId(isActive ? null : zone.localId)}
-                      className={`group flex cursor-pointer items-center gap-2 rounded-xl border-2 p-2 transition-all ${
-                        isActive
+                      className={`group flex cursor-pointer items-center gap-2 rounded-xl border-2 p-2 transition-all ${isActive
                           ? 'border-primary bg-tertiary/10 shadow-sm'
                           : 'border-transparent hover:border-border-soft/20 hover:bg-panel-soft/60'
-                      }`}
+                        }`}
                     >
                       <input
                         type="color"
@@ -756,11 +754,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   title={label}
                   onClick={() => setTool(id)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    tool === id
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${tool === id
                       ? 'bg-surface text-content border border-border-soft/20 shadow-md'
                       : 'text-subtle hover:bg-panel-soft/60'
-                  }`}
+                    }`}
                 >
                   <Icon className="size-3.5" />
                   <span className="hidden md:inline">{label}</span>
@@ -815,7 +812,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             )}
 
             {tool === 'PAINT' && !activeZone && (
-              <span className="text-xs text-warning font-semibold">← Chọn zone ở panel trái để tô màu</span>
+              <span className="text-xs text-warning font-semibold">← Chọn khu vực ở panel trái để tô màu</span>
             )}
           </div>
 
@@ -835,7 +832,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       e.target.value = ''
                     }}
                   >
-                    <option value="" className="bg-surface text-content">Gán zone...</option>
+                    <option value="" className="bg-surface text-content">Gán khu vực...</option>
                     {zones.map((z) => (
                       <option key={z.localId} value={z.localId} className="bg-surface text-content">
                         {z.name}
@@ -908,7 +905,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   fontWeight="bold"
                   style={{ userSelect: 'none' }}
                 >
-                  SÂN KHẤU / STAGE
+                  SÂN KHẤU
                 </text>
 
                 {/* Seats */}
@@ -995,6 +992,11 @@ export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
   const scaleX = (width - 20) / (maxX - minX + 28)
   const scaleY = (height - 20) / (maxY - minY + 28)
   const scale = Math.min(scaleX, scaleY, 1)
+  const zoneColorById = useMemo(() => {
+    const m = new Map()
+    ;(zones || []).forEach((z) => m.set(z.id, z.color))
+    return m
+  }, [zones])
 
   return (
     <svg width={width} height={height} className="rounded-xl border border-border-soft/30 bg-panel-soft/30">
@@ -1002,7 +1004,6 @@ export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
         {seats.map((s) => {
           const x = (s.x_position ?? s.x) - minX
           const y = (s.y_position ?? s.y) - minY
-          const zone = zones?.find((z) => z.id === (s.zone_id ?? s.zoneLocalId))
           return (
             <rect
               key={s.id || s.localId}
@@ -1011,7 +1012,7 @@ export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
               width={28}
               height={28}
               rx={4}
-              fill={zone?.color ?? 'var(--color-neutral)'}
+              fill={zoneColorById.get(s.zone_id ?? s.zoneLocalId) ?? 'var(--color-neutral)'}
               opacity={0.85}
             />
           )

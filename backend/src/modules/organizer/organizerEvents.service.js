@@ -5,9 +5,18 @@ const organizerPaymentsRepository = require('../organizer-payments/organizerPaym
 
 function mapEvent(row) {
   if (!row) return null;
+  const seatingRulesRaw =
+    typeof row.seating_rules === 'string'
+      ? JSON.parse(row.seating_rules)
+      : row.seating_rules || {};
   return {
     ...row,
     tags: row.tags || [],
+    seating_rules: {
+      require_adjacent_seats: Boolean(seatingRulesRaw.require_adjacent_seats),
+      require_same_row: Boolean(seatingRulesRaw.require_same_row),
+      disallow_single_seat_left: Boolean(seatingRulesRaw.disallow_single_seat_left),
+    },
     refund_policy:
       typeof row.refund_policy === 'string'
         ? JSON.parse(row.refund_policy)
@@ -23,6 +32,17 @@ function mapEvent(row) {
 function sanitizeEventPayload(payload) {
   const data = { ...payload };
   if (data.category_id === '') data.category_id = null;
+  if (data.seating_rules !== undefined) {
+    const input =
+      typeof data.seating_rules === 'string'
+        ? JSON.parse(data.seating_rules)
+        : data.seating_rules || {};
+    data.seating_rules = {
+      require_adjacent_seats: Boolean(input.require_adjacent_seats),
+      require_same_row: Boolean(input.require_same_row),
+      disallow_single_seat_left: Boolean(input.disallow_single_seat_left),
+    };
+  }
   return data;
 }
 
@@ -159,6 +179,7 @@ class OrganizerEventsService {
       'visibility',
       'format',
       'tags',
+      'seating_rules',
       'refund_policy',
       'additional_terms',
       'start_time',
