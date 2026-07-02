@@ -17,11 +17,19 @@ const removeStaffSchema = z.object({
   staffId: uuidSchema,
 });
 
+const taskIdParamSchema = z.object({
+  taskId: uuidSchema,
+});
+
 const createTaskSchema = z.object({
   event_id: uuidSchema,
   staff_id: uuidSchema,
   title: z.string().trim().min(3).max(255),
   description: z.string().trim().max(2000).optional().nullable(),
+});
+
+const updateTaskStatusSchema = z.object({
+  status: z.enum(['TODO', 'IN_PROGRESS', 'DONE']),
 });
 
 const eventIdQuerySchema = z.object({
@@ -32,6 +40,8 @@ module.exports = {
   inviteStaffSchema,
   invitationIdParamSchema,
   removeStaffSchema,
+  taskIdParamSchema,
   createTaskSchema,
+  updateTaskStatusSchema,
   eventIdQuerySchema,
 };

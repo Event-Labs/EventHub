@@ -42,13 +42,31 @@ class UserService {
         // Only allow certain fields to be updated
         const allowedFields = ['full_name', 'phone', 'address', 'dob', 'city', 'avatar_url', 'bio'];
         const updates = {};
-        
-        if (updateData.phone) {
-            if (!this.validateVietnamesePhone(updateData.phone)) {
-                throw new AppError('Số điện thoại không đúng định dạng Việt Nam. Vui lòng nhập theo dạng 09xxxxxxxx hoặc +849xxxxxxxx.', 400, ErrorCodes.BAD_REQUEST);
+
+        if ('full_name' in updateData) {
+            const fullName = String(updateData.full_name || '').trim();
+            if (!fullName) {
+                throw new AppError('Vui lòng nhập họ và tên.', 400, ErrorCodes.BAD_REQUEST);
             }
-            updateData.phone = this.normalizePhone(updateData.phone);
+            updateData.full_name = fullName;
         }
+        
+        if ('phone' in updateData) {
+            const phone = String(updateData.phone || '').trim();
+            if (!phone) {
+                updateData.phone = null;
+            } else if (!this.validateVietnamesePhone(phone)) {
+                throw new AppError('Số điện thoại không đúng định dạng Việt Nam. Vui lòng nhập theo dạng 09xxxxxxxx hoặc +849xxxxxxxx.', 400, ErrorCodes.BAD_REQUEST);
+            } else {
+                updateData.phone = this.normalizePhone(phone);
+            }
+        }
+
+        ['address', 'dob', 'city', 'avatar_url', 'bio'].forEach((field) => {
+            if (field in updateData && typeof updateData[field] === 'string' && !updateData[field].trim()) {
+                updateData[field] = null;
+            }
+        });
 
         Object.keys(updateData).forEach(key => {
             if (allowedFields.includes(key)) {

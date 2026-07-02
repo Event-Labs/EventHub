@@ -1,4 +1,4 @@
-﻿import { http } from '@/services/http.js'
+import { http } from '@/services/http.js'
 
 export async function fetchEvents(params = {}) {
   const response = await http.get('/events', { params })
@@ -44,6 +44,7 @@ export async function checkTicketAvailability(payload) {
   const response = await http.post('/events/availability/check', payload)
   return response.data.data
 }
+
 
 export async function fetchFavoriteEvents() {
   const response = await http.get('/events/favorites/me')

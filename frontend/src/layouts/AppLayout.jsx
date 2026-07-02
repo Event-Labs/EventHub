@@ -8,7 +8,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
-import { clearAuthSession, getAuthToken, getStoredUser, isAuthenticated } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated } from '@/lib/auth.js'
 import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
 
 const centerNavItems = [
@@ -222,6 +222,8 @@ export function AppLayout() {
   const notifications = notificationsQuery.data?.items || []
   const navNotifications = dedupeNavNotifications(notifications).slice(0, 5)
   const unreadCount = notificationsQuery.data?.unread_count || 0
+  const currentUserRoles = getUserRoles(currentUser)
+  const canOpenStaffPortal = currentUserRoles.includes('staff')
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-content">
@@ -271,6 +273,14 @@ export function AppLayout() {
             </div>
           ) : (
             <div className="relative flex items-center gap-3">
+              {canOpenStaffPortal && (
+                <NavLink
+                  to="/staff"
+                  className="hidden rounded-full border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:border-primary hover:bg-primary hover:text-[#081126] sm:inline-flex"
+                >
+                  Trang nhân sự
+                </NavLink>
+              )}
               <button
                 type="button"
                 className="relative grid size-10 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-primary"
@@ -367,6 +377,15 @@ export function AppLayout() {
               )}
               {open && (
                 <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-lg border border-border-soft bg-panel shadow-2xl">
+                  {canOpenStaffPortal && (
+                    <NavLink
+                      className="block px-4 py-3 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
+                      to="/staff"
+                      onClick={() => setOpen(false)}
+                    >
+                      Quay lại trang nhân sự
+                    </NavLink>
+                  )}
                   <NavLink
                     className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
                     to="/profile"

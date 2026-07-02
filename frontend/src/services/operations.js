@@ -40,6 +40,11 @@ export async function fetchAssignedStaffTasks(params = {}) {
   return response.data.data
 }
 
+export async function updateAssignedStaffTaskStatus(taskId, status) {
+  const response = await http.patch(`/operations/staff/tasks/${taskId}/status`, { status })
+  return response.data.data
+}
+
 export async function fetchMyStaffInvitations() {
   const response = await http.get('/operations/staff-invitations/me')
   return response.data.data

@@ -304,6 +304,14 @@ class OperationsService {
   async listStaffTasks(staffId, eventId = null) {
     return operationsRepository.listStaffTasks(staffId, eventId);
   }
+
+  async updateStaffTaskStatus(staffId, taskId, status) {
+    const task = await operationsRepository.updateStaffTaskStatus(taskId, staffId, status);
+    if (!task) {
+      throw new AppError('Task not found or you are not assigned to this task.', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+    return task;
+  }
 }
 
 module.exports = new OperationsService();
