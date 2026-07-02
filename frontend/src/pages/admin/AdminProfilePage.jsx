@@ -43,11 +43,11 @@ export function AdminProfilePage() {
         setUser(res)
         setPreviewUrl(res.avatar_url || '')
         setFormData({
-          full_name: res.full_name,
-          phone: res.phone,
-          dob: res.dob?.split('T')[0],
-          city: res.city,
-          address: res.address
+          full_name: res.full_name || '',
+          phone: res.phone || '',
+          dob: res.dob?.split('T')[0] || '',
+          city: res.city || '',
+          address: res.address || ''
         })
       } catch (err) {
         console.error('Failed to fetch admin profile', err)
@@ -71,6 +71,11 @@ export function AdminProfilePage() {
   }
 
   const handleSave = async () => {
+    if (!String(formData.full_name || '').trim()) {
+      alert('Vui lòng nhập họ và tên.')
+      return
+    }
+
     setSaving(true)
     try {
       let finalAvatarUrl = user.avatar_url
@@ -82,7 +87,14 @@ export function AdminProfilePage() {
         setUploadingAvatar(false)
       }
 
-      await updateProfile({ ...formData, avatar_url: finalAvatarUrl })
+      await updateProfile({
+        full_name: formData.full_name.trim(),
+        phone: String(formData.phone || '').trim() || null,
+        dob: formData.dob || null,
+        city: String(formData.city || '').trim() || null,
+        address: String(formData.address || '').trim() || null,
+        avatar_url: finalAvatarUrl || null,
+      })
       const updated = await getProfile()
       setUser(updated)
       setPreviewUrl(updated.avatar_url || '')
