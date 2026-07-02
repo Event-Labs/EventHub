@@ -1,6 +1,7 @@
 import { clearAuthSession, getAuthToken, getUserRoles, updateStoredUser } from '@/lib/auth.js'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import {
   AlertCircle,
   BriefcaseBusiness,
@@ -39,6 +40,7 @@ const EMPTY_TEXT = 'Chưa cập nhật'
 export function ProfilePage() {
   const [mode, setMode] = useState('view')
   const queryClient = useQueryClient()
+  const { pathname } = useLocation()
 
   const { data: user, isLoading, error } = useQuery({
     queryKey: ['profile'],
@@ -54,7 +56,8 @@ export function ProfilePage() {
   })
 
   const roles = getUserRoles(user)
-  const isOrganizer = roles.includes('organizer')
+  const isOrganizerProfileRoute = pathname.startsWith('/organizer')
+  const isOrganizer = isOrganizerProfileRoute && roles.includes('organizer')
   const organizerQuery = useQuery({
     queryKey: ['organizer-profile'],
     queryFn: fetchOrganizerProfile,
@@ -475,9 +478,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
       newErrors.full_name = 'Vui lòng nhập họ và tên.'
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Vui lòng nhập số điện thoại.'
-    } else {
+    if (formData.phone.trim()) {
       const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
       if (!phoneRegex.test(formData.phone)) {
         newErrors.phone = 'Số điện thoại không đúng định dạng Việt Nam. Ví dụ: 09xxxxxxxx hoặc +849xxxxxxxx.'
@@ -519,11 +520,11 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
       }
 
       const userPayload = {
-        full_name: formData.full_name,
-        phone: formData.phone,
-        address: formData.address,
-        dob: formData.dob,
-        city: formData.city,
+        full_name: formData.full_name.trim(),
+        phone: formData.phone.trim() || null,
+        address: formData.address.trim() || null,
+        dob: formData.dob || null,
+        city: formData.city.trim() || null,
         avatar_url: finalAvatarUrl,
       }
       const organizerPayload = isOrganizer
@@ -582,7 +583,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
             </div>
             <div className="grid gap-5 md:grid-cols-2">
             <Input label="Họ và tên" value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
-            <Input label="Số điện thoại" value={formData.phone} error={errors.phone} placeholder="09xxxxxxxx hoặc +849xxxxxxxx" onChange={(e) => setFormData({ ...formData, phone: e.target.value })} required />
+            <Input label="Số điện thoại" value={formData.phone} error={errors.phone} placeholder="09xxxxxxxx hoặc +849xxxxxxxx" onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
             <Input label="Ngày sinh" type="date" value={formData.dob} error={errors.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
             <Input label="Thành phố" value={formData.city} error={errors.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
             <Input label="Địa chỉ" value={formData.address} error={errors.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="md:col-span-2" />

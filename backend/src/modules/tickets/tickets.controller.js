@@ -40,6 +40,15 @@ class TicketsController {
     }
   };
 
+  staffVerifyTicketByQr = async (req, res, next) => {
+    try {
+      const data = await ticketsService.staffVerifyTicketByQr(req.user.sub, req.body);
+      res.status(200).json(ApiResponse.success(data, 'Ticket verified successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   staffSearchTickets = async (req, res, next) => {
     try {
       const data = await ticketsService.staffSearchTickets(req.user.sub, req.body);
