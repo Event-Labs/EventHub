@@ -40,7 +40,7 @@ export function StaffLayout() {
     <RolePortalLayout
       user={user}
       isAllowed={isAllowed}
-      portalLabel="Staff Portal"
+      portalLabel="Cổng nhân sự"
       roleLabel="Nhân viên"
       profileTo="/staff/profile"
       navSections={navSections}

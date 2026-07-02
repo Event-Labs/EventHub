@@ -54,14 +54,19 @@ class UserService {
         if ('phone' in updateData) {
             const phone = String(updateData.phone || '').trim();
             if (!phone) {
-                throw new AppError('Vui lòng nhập số điện thoại.', 400, ErrorCodes.BAD_REQUEST);
-            }
-            updateData.phone = phone;
-            if (!this.validateVietnamesePhone(updateData.phone)) {
+                updateData.phone = null;
+            } else if (!this.validateVietnamesePhone(phone)) {
                 throw new AppError('Số điện thoại không đúng định dạng Việt Nam. Vui lòng nhập theo dạng 09xxxxxxxx hoặc +849xxxxxxxx.', 400, ErrorCodes.BAD_REQUEST);
+            } else {
+                updateData.phone = this.normalizePhone(phone);
             }
-            updateData.phone = this.normalizePhone(updateData.phone);
         }
+
+        ['address', 'dob', 'city', 'avatar_url', 'bio'].forEach((field) => {
+            if (field in updateData && typeof updateData[field] === 'string' && !updateData[field].trim()) {
+                updateData[field] = null;
+            }
+        });
 
         Object.keys(updateData).forEach(key => {
             if (allowedFields.includes(key)) {
