@@ -5,6 +5,8 @@ const {
   invitationIdParamSchema,
   removeStaffSchema,
   createTaskSchema,
+  taskIdParamSchema,
+  updateTaskStatusSchema,
   eventIdQuerySchema,
 } = require('./operations.validation');
 
@@ -81,6 +83,17 @@ class OperationsController {
       const query = eventIdQuerySchema.parse(req.query);
       const data = await operationsService.listStaffTasks(req.user.sub, query.event_id || null);
       res.status(200).json(ApiResponse.success(data, 'Assigned tasks fetched successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateStaffTaskStatus = async (req, res, next) => {
+    try {
+      const params = taskIdParamSchema.parse(req.params);
+      const payload = updateTaskStatusSchema.parse(req.body);
+      const data = await operationsService.updateStaffTaskStatus(req.user.sub, params.taskId, payload.status);
+      res.status(200).json(ApiResponse.success(data, 'Staff task status updated successfully'));
     } catch (error) {
       next(error);
     }

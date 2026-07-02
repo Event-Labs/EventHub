@@ -690,6 +690,39 @@ class OperationsRepository {
     );
     return rows;
   }
+
+  async updateStaffTaskStatus(taskId, staffId, status) {
+    const { rows } = await db.query(
+      `
+      UPDATE staff_tasks st
+      SET status = $3
+      WHERE st.id = $1
+        AND st.staff_id = $2
+        AND EXISTS (
+          SELECT 1
+          FROM event_staffs es
+          WHERE es.event_id = st.event_id
+            AND es.staff_id = $2
+        )
+      RETURNING
+        st.id,
+        st.event_id,
+        (
+          SELECT e.title
+          FROM events e
+          WHERE e.id = st.event_id
+        ) AS event_title,
+        st.staff_id,
+        st.title,
+        st.description,
+        st.status,
+        st.created_at,
+        st.updated_at
+      `,
+      [taskId, staffId, status],
+    );
+    return rows[0];
+  }
 }
 
 module.exports = new OperationsRepository();

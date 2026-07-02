@@ -97,7 +97,7 @@ export function OrganizerVenueSeatMapsPage() {
         </div>
       ) : (
         <OrganizerTable
-          headers={['Tên', 'Loại', 'Cấu hình', 'Tổng ghế', 'Zones', 'Trạng thái', '']}
+          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', 'Tổng số ghế', 'Khu vực', 'Trạng thái', '']}
           rows={seatMaps.map((sm) => [
             sm.name,
             sm.layout_type,
@@ -105,7 +105,7 @@ export function OrganizerVenueSeatMapsPage() {
             sm.seat_count ?? 0,
             sm.zone_count ?? 0,
             <Badge key="status" tone={sm.is_active ? 'green' : 'gray'}>
-              {sm.is_active ? 'Active' : 'Inactive'}
+              {sm.is_active ? 'Đang hoạt động' : 'Không hoạt động'}
             </Badge>,
             <div key="actions" className="flex items-center gap-3 text-muted">
               <button type="button" onClick={() => openEditor(sm.id)} title="Sửa">

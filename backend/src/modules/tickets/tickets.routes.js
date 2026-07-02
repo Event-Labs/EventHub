@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/me', ticketsController.getMyTickets);
+router.post('/staff/verify-qr', authorize('STAFF'), ticketsController.staffVerifyTicketByQr);
 router.post('/staff/check-in/qr', authorize('STAFF'), ticketsController.staffCheckInByQr);
 router.post('/staff/search', authorize('STAFF'), ticketsController.staffSearchTickets);
 router.patch('/staff/:ticketId/check-in', authorize('STAFF'), ticketsController.staffCheckInTicket);

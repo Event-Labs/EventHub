@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
+import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
   if (!value) return 'Chưa cập nhật'
@@ -129,12 +130,12 @@ export function EventDetailPage() {
   const event = eventQuery.data
   const ticketsBySession = useMemo(() => {
     const map = new Map()
-    ;(event?.ticket_types || []).forEach((ticketType) => {
-      const key = String(ticketType.event_session_id)
-      const items = map.get(key) || []
-      items.push(ticketType)
-      map.set(key, items)
-    })
+      ; (event?.ticket_types || []).forEach((ticketType) => {
+        const key = String(ticketType.event_session_id)
+        const items = map.get(key) || []
+        items.push(ticketType)
+        map.set(key, items)
+      })
     return map
   }, [event?.ticket_types])
 
@@ -239,24 +240,25 @@ export function EventDetailPage() {
                 Tổng quan
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={() => setOverviewOpen((value) => !value)}
-              className="mt-5 block w-full text-left"
-              aria-expanded={overviewOpen}
+            <div
+              className="mt-5 block w-full text-left ql-bubble"
             >
-              <span
+              <div
                 className={cn(
-                  'block whitespace-pre-line text-lg leading-8 text-muted',
+                  'block text-lg leading-8 text-muted ql-editor ql-content description-html p-0',
                   !overviewOpen && 'line-clamp-5',
                 )}
+                dangerouslySetInnerHTML={{ __html: overview }}
+              />
+              <button
+                type="button"
+                onClick={() => setOverviewOpen((value) => !value)}
+                className="mt-5 grid w-full place-items-center text-white transition hover:text-primary outline-none cursor-pointer"
+                aria-expanded={overviewOpen}
               >
-                {overview}
-              </span>
-              <span className="mt-5 grid w-full place-items-center text-white transition hover:text-primary">
                 {overviewOpen ? <ChevronUp className="size-6" /> : <ChevronDown className="size-6" />}
-              </span>
-            </button>
+              </button>
+            </div>
           </article>
 
           <section className="overflow-hidden rounded-lg border border-border-soft bg-[#333945]">

@@ -5,9 +5,18 @@ const organizerPaymentsRepository = require('../organizer-payments/organizerPaym
 
 function mapEvent(row) {
   if (!row) return null;
+  const seatingRulesRaw =
+    typeof row.seating_rules === 'string'
+      ? JSON.parse(row.seating_rules)
+      : row.seating_rules || {};
   return {
     ...row,
     tags: row.tags || [],
+    seating_rules: {
+      require_adjacent_seats: Boolean(seatingRulesRaw.require_adjacent_seats),
+      require_same_row: Boolean(seatingRulesRaw.require_same_row),
+      disallow_single_seat_left: Boolean(seatingRulesRaw.disallow_single_seat_left),
+    },
     refund_policy:
       typeof row.refund_policy === 'string'
         ? JSON.parse(row.refund_policy)
@@ -23,7 +32,26 @@ function mapEvent(row) {
 function sanitizeEventPayload(payload) {
   const data = { ...payload };
   if (data.category_id === '') data.category_id = null;
+  if (data.seating_rules !== undefined) {
+    const input =
+      typeof data.seating_rules === 'string'
+        ? JSON.parse(data.seating_rules)
+        : data.seating_rules || {};
+    data.seating_rules = {
+      require_adjacent_seats: Boolean(input.require_adjacent_seats),
+      require_same_row: Boolean(input.require_same_row),
+      disallow_single_seat_left: Boolean(input.disallow_single_seat_left),
+    };
+  }
   return data;
+}
+
+function cleanOptionalText(value, maxLength) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  return text.slice(0, maxLength);
 }
 
 function assertValidSessionTimes(startTime, endTime) {
@@ -41,7 +69,45 @@ class OrganizerEventsService {
     if (!organizer) {
       throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
-    return organizer;
+    const requestHistory = await organizerEventsRepository.findProfileRequests(userId, organizer);
+    const sourceRequest =
+      [...requestHistory]
+        .reverse()
+        .find((request) => request.status === 'APPROVED') ||
+      requestHistory[requestHistory.length - 1] ||
+      null;
+
+    return {
+      ...organizer,
+      source_request: sourceRequest,
+      request_history: requestHistory,
+    };
+  }
+
+  async updateActiveOrganizerProfile(userId, payload = {}) {
+    const organizer = await organizerEventsRepository.findOrganizerByUserId(userId);
+    if (!organizer) {
+      throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const updates = {
+      description: cleanOptionalText(payload.description, 5000),
+      website_url: cleanOptionalText(payload.website_url, 2000),
+      social_url: cleanOptionalText(payload.social_url, 2000),
+    };
+
+    Object.keys(updates).forEach((key) => {
+      if (updates[key] === undefined) {
+        delete updates[key];
+      }
+    });
+
+    if (!Object.keys(updates).length) {
+      throw new AppError('No valid fields to update', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    await organizerEventsRepository.updateOrganizerProfileByUserId(userId, updates);
+    return this.getActiveOrganizerProfile(userId);
   }
 
   async resolveOrganizerId(userId) {
@@ -113,6 +179,7 @@ class OrganizerEventsService {
       'visibility',
       'format',
       'tags',
+      'seating_rules',
       'refund_policy',
       'additional_terms',
       'start_time',

@@ -1,4 +1,8 @@
 const db = require('../../infrastructure/database/db.client');
+const AppError = require('../../core/errors/AppError');
+const ErrorCodes = require('../../core/errors/errorCodes');
+
+const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
 
 const PUBLIC_EVENT_WHERE = `
   e.status = 'PUBLISHED'
@@ -295,6 +299,7 @@ class EventsRepository {
               AND o_sold.status = 'PAID'
               AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
           ) THEN 'SOLD'
+          WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
           WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
           ELSE ss.status
         END AS status,
@@ -307,12 +312,20 @@ class EventsRepository {
         s.is_disabled,
         st.name AS seat_type_name,
         st.color AS seat_type_color,
+        COALESCE(seat_ticket_types.ticket_type_ids, '[]'::jsonb) AS ticket_type_ids,
         sm.rows_count,
         sm.cols_count
       FROM session_seats ss
       JOIN seats s ON s.id = ss.seat_id
       JOIN seat_maps sm ON sm.id = s.seat_map_id
       LEFT JOIN seat_types st ON st.id = s.seat_type_id
+      LEFT JOIN LATERAL (
+        SELECT jsonb_agg(DISTINCT tts_all.ticket_type_id) AS ticket_type_ids
+        FROM ticket_type_seats tts_all
+        JOIN ticket_types tt_all ON tt_all.id = tts_all.ticket_type_id
+        WHERE tts_all.seat_id = s.id
+          AND tt_all.event_session_id = ss.event_session_id
+      ) seat_ticket_types ON true
       ${ticketTypeJoin}
       WHERE ss.event_session_id = $1
         ${ticketTypeWhere}
@@ -408,10 +421,12 @@ class EventsRepository {
                 AND o_sold.status = 'PAID'
                 AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
             ) THEN 'SOLD'
+            WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
             WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
             ELSE ss.status
           END AS status,
           ss.held_until,
+          ss.held_by,
           s.is_disabled,
           s.row_label,
           s.seat_number,
@@ -428,7 +443,7 @@ class EventsRepository {
           ON ss.id = selected_seat.session_seat_id
          AND ss.event_session_id = ti.event_session_id
         LEFT JOIN seats s ON s.id = ss.seat_id
-        WHERE ti.is_seated = true
+        WHERE ti.is_seated = true OR cardinality(ti.session_seat_ids) > 0
       )
       SELECT
         ti.*,
@@ -440,6 +455,7 @@ class EventsRepository {
               'label', concat(COALESCE(selected_seats.row_label, ''), COALESCE(selected_seats.seat_number, '')),
               'status', selected_seats.status,
               'held_until', selected_seats.held_until,
+              'held_by', selected_seats.held_by,
               'is_disabled', selected_seats.is_disabled,
               'requires_mapping', selected_seats.requires_mapping,
               'has_mapping', selected_seats.has_mapping
@@ -481,6 +497,305 @@ class EventsRepository {
     return rows;
   }
 
+  async expireStandaloneSeatHolds(client = db) {
+    await client.query(
+      `
+      WITH expired AS (
+        UPDATE ticket_holds
+        SET status = 'EXPIRED', updated_at = now()
+        WHERE status = 'ACTIVE'
+          AND order_id IS NULL
+          AND expires_at <= now()
+        RETURNING session_seat_id
+      )
+      UPDATE session_seats ss
+      SET status = 'AVAILABLE',
+          held_by = NULL,
+          held_until = NULL,
+          order_id = NULL
+      FROM expired e
+      WHERE ss.id = e.session_seat_id
+        AND ss.status = 'HELD'
+        AND ss.order_id IS NULL
+        AND ss.held_until <= now()
+      `,
+    );
+  }
+
+  async countPaidTicketsForEvent({ userId, eventId, email = null, phone = null }) {
+    const params = [eventId, userId, email, phone];
+    const { rows } = await db.query(
+      `
+      SELECT COALESCE(SUM(oi.quantity), 0)::int AS quantity
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      JOIN event_sessions es ON es.id = tt.event_session_id
+      WHERE es.event_id = $1
+        AND o.status = 'PAID'
+        AND (
+          o.user_id = $2
+          OR ($3::text IS NOT NULL AND lower(o.buyer_email) = lower($3::text))
+          OR ($4::text IS NOT NULL AND o.buyer_phone = $4::text)
+        )
+      `,
+      params,
+    );
+    return Number(rows[0]?.quantity || 0);
+  }
+
+  async holdSeats(userId, payload) {
+    const client = await db.getClient();
+    const requestedSeatIds = payload.items.flatMap((item) => item.session_seat_ids || []);
+
+    try {
+      await client.query('BEGIN');
+      await this.expireStandaloneSeatHolds(client);
+
+      await client.query(
+        `
+        UPDATE ticket_holds th
+        SET status = 'CANCELLED', updated_at = now()
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        WHERE th.ticket_type_id = tt.id
+          AND es.event_id = $1
+          AND th.user_id = $2
+          AND th.order_id IS NULL
+          AND th.status = 'ACTIVE'
+          AND (array_length($3::uuid[], 1) IS NULL OR th.session_seat_id <> ALL($3::uuid[]))
+        `,
+        [payload.event_id, userId, requestedSeatIds],
+      );
+
+      await client.query(
+        `
+        UPDATE session_seats ss
+        SET status = 'AVAILABLE', held_by = NULL, held_until = NULL, order_id = NULL
+        FROM event_sessions es
+        WHERE ss.event_session_id = es.id
+          AND es.event_id = $1
+          AND ss.held_by = $2
+          AND ss.order_id IS NULL
+          AND ss.status = 'HELD'
+          AND (array_length($3::uuid[], 1) IS NULL OR ss.id <> ALL($3::uuid[]))
+        `,
+        [payload.event_id, userId, requestedSeatIds],
+      );
+
+      if (requestedSeatIds.length === 0) {
+        await client.query('COMMIT');
+        return { hold_expires_at: null, hold_minutes: HOLD_MINUTES, seats: [] };
+      }
+
+      const expiresAtResult = await client.query(
+        `SELECT now() + ($1::text || ' minutes')::interval AS expired_at`,
+        [HOLD_MINUTES],
+      );
+      const expiresAt = expiresAtResult.rows[0].expired_at;
+      const ticketTypeIds = [...new Set(payload.items.map((item) => item.ticket_type_id))];
+      const ticketTypesResult = await client.query(
+        `
+        SELECT
+          tt.id, tt.event_session_id, tt.name, tt.max_per_order, tt.sale_start, tt.sale_end, tt.is_seated,
+          es.status AS session_status, es.end_time AS session_end_time,
+          e.id AS event_id, e.end_time AS event_end_time, e.status AS event_status, e.visibility,
+          e.approval_status, e.deleted_at
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
+        WHERE tt.id = ANY($1::uuid[])
+        FOR UPDATE OF tt
+        `,
+        [ticketTypeIds],
+      );
+
+      if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
+        throw new AppError('Th\u00f4ng tin v\u00e9 kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
+      const now = Date.now();
+      const heldSeats = [];
+
+      for (const item of payload.items) {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        const selectedSeatIds = item.session_seat_ids || [];
+
+        if (
+          !ticketType ||
+          ticketType.event_id !== payload.event_id ||
+          ticketType.deleted_at ||
+          ticketType.event_status !== 'PUBLISHED' ||
+          ticketType.visibility !== 'PUBLIC' ||
+          ticketType.approval_status !== 'APPROVED' ||
+          ticketType.session_status !== 'UPCOMING'
+        ) {
+          throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+
+        const eventEnd = ticketType.event_end_time ? new Date(ticketType.event_end_time).getTime() : null;
+        const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
+        const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null;
+        const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null;
+        if ((eventEnd && eventEnd < now) || (sessionEnd && sessionEnd < now)) {
+          throw new AppError('S\u1ef1 ki\u1ec7n ho\u1eb7c su\u1ea5t di\u1ec5n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+        }
+        if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
+          throw new AppError(`V\u00e9 "${ticketType.name}" hi\u1ec7n ch\u01b0a m\u1edf b\u00e1n ho\u1eb7c \u0111\u00e3 ng\u1eebng b\u00e1n.`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+        }
+        if (selectedSeatIds.length !== Number(item.quantity)) {
+          throw new AppError('Số ghế đã chọn không khớp với số lượng vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+        if (Number(item.quantity) > Math.min(Number(ticketType.max_per_order || 4), 4)) {
+          throw new AppError('Bạn chỉ được phép mua tối đa 4 vé trên một đơn hàng.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+
+        const hasSeatMapping = await client.query(
+          'SELECT EXISTS (SELECT 1 FROM ticket_type_seats WHERE ticket_type_id = $1) AS has_mapping',
+          [item.ticket_type_id],
+        );
+        const requiresMapping = Boolean(hasSeatMapping.rows[0]?.has_mapping);
+
+        const seatsResult = await client.query(
+          `
+          SELECT
+            ss.id, ss.status, ss.held_by, ss.held_until, ss.order_id,
+            s.is_disabled, s.row_label, s.seat_number,
+            tts.ticket_type_id AS mapped_ticket_type_id,
+            EXISTS (
+              SELECT 1
+              FROM order_items oi_sold
+              JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+              LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+              WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+                AND o_sold.status = 'PAID'
+                AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+            ) AS has_paid_ticket
+          FROM session_seats ss
+          JOIN seats s ON s.id = ss.seat_id
+          LEFT JOIN ticket_type_seats tts ON tts.seat_id = s.id AND tts.ticket_type_id = $2
+          WHERE ss.id = ANY($1::uuid[])
+            AND ss.event_session_id = $3
+          FOR UPDATE OF ss
+          `,
+          [selectedSeatIds, item.ticket_type_id, ticketType.event_session_id],
+        );
+
+        if (seatsResult.rows.length !== selectedSeatIds.length) {
+          throw new AppError('M\u1ed9t ho\u1eb7c nhi\u1ec1u gh\u1ebf \u0111\u00e3 ch\u1ecdn kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+
+        for (const seat of seatsResult.rows) {
+          const heldByOther =
+            seat.status === 'HELD' &&
+            seat.held_until &&
+            new Date(seat.held_until).getTime() > now &&
+            String(seat.held_by) !== String(userId);
+
+          if (
+            seat.is_disabled ||
+            seat.has_paid_ticket ||
+            seat.status === 'SOLD' ||
+            heldByOther ||
+            (requiresMapping && !seat.mapped_ticket_type_id)
+          ) {
+            throw new AppError('Rất tiếc, ghế bạn chọn vừa có người đặt. Vui lòng chọn ghế khác.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+          }
+
+          await client.query(
+            `
+            UPDATE session_seats
+            SET status = 'HELD', held_by = $2, held_until = $3, order_id = NULL
+            WHERE id = $1
+            `,
+            [seat.id, userId, expiresAt],
+          );
+
+          await client.query(
+            `
+            UPDATE ticket_holds
+            SET status = 'CANCELLED', updated_at = now()
+            WHERE user_id = $1
+              AND ticket_type_id = $2
+              AND session_seat_id = $3
+              AND order_id IS NULL
+              AND status = 'ACTIVE'
+            `,
+            [userId, item.ticket_type_id, seat.id],
+          );
+
+          await client.query(
+            `
+            INSERT INTO ticket_holds (user_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
+            VALUES ($1, $2, $3, 1, NULL, $4, 'ACTIVE')
+            `,
+            [userId, item.ticket_type_id, seat.id, expiresAt],
+          );
+
+          heldSeats.push({
+            session_seat_id: seat.id,
+            label: `${seat.row_label || ''}${seat.seat_number || ''}`,
+            ticket_type_id: item.ticket_type_id,
+          });
+        }
+      }
+
+      await client.query('COMMIT');
+      return { hold_expires_at: expiresAt, hold_minutes: HOLD_MINUTES, seats: heldSeats };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async releaseSeatHolds(userId, payload) {
+    const client = await db.getClient();
+    const seatIds = payload.session_seat_ids || [];
+    try {
+      await client.query('BEGIN');
+      await this.expireStandaloneSeatHolds(client);
+      await client.query(
+        `
+        UPDATE ticket_holds th
+        SET status = 'CANCELLED', updated_at = now()
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        WHERE th.ticket_type_id = tt.id
+          AND es.event_id = $1
+          AND th.user_id = $2
+          AND th.order_id IS NULL
+          AND th.status = 'ACTIVE'
+          AND (array_length($3::uuid[], 1) IS NULL OR th.session_seat_id = ANY($3::uuid[]))
+        `,
+        [payload.event_id, userId, seatIds],
+      );
+      const releasedResult = await client.query(
+        `
+        UPDATE session_seats ss
+        SET status = 'AVAILABLE', held_by = NULL, held_until = NULL, order_id = NULL
+        FROM event_sessions es
+        WHERE ss.event_session_id = es.id
+          AND es.event_id = $1
+          AND ss.held_by = $2
+          AND ss.order_id IS NULL
+          AND ss.status = 'HELD'
+          AND (array_length($3::uuid[], 1) IS NULL OR ss.id = ANY($3::uuid[]))
+        RETURNING ss.id
+        `,
+        [payload.event_id, userId, seatIds],
+      );
+      await client.query('COMMIT');
+      return { released_count: releasedResult.rowCount };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
   async findFavoriteEvents(userId) {
     const query = `
       SELECT ${EVENT_CARD_SELECT}, fe.created_at AS favorited_at
@@ -530,9 +845,9 @@ class EventsRepository {
 
       // 1. Get user roles to see if they are admin/staff
       const roleQuery = `
-        SELECT r.name 
-        FROM user_roles ur 
-        JOIN roles r ON ur.role_id = r.id 
+        SELECT r.name
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
         WHERE ur.user_id = $1
       `;
       const { rows: roles } = await db.query(roleQuery, [userId]);
