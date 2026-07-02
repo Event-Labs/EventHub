@@ -9,6 +9,12 @@ function normalizePhone(phone) {
   return phone;
 }
 
+const MAX_TICKETS_PER_ORDER = Number(process.env.MAX_TICKETS_PER_ORDER || 4);
+
+function requestedQuantity(items = []) {
+  return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+}
+
 function mapMoney(value) {
   return Number(value || 0);
 }
@@ -78,6 +84,11 @@ class OrdersService {
         line_total: unitPrice * quantity,
       };
     });
+
+    const totalRequested = requestedQuantity(normalizedItems);
+    if (totalRequested > MAX_TICKETS_PER_ORDER) {
+      throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+    }
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
     const paymentChannel = await paymentsService.getOrganizerPayosChannelForEvent(payload.event_id);
@@ -155,7 +166,7 @@ class OrdersService {
     }
     const row = await ordersRepository.findOrderStatus(orderId, userId);
     if (!row) {
-      throw new AppError('Order not found', 404, ErrorCodes.ORDER_NOT_FOUND);
+      throw new AppError('Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n h\u00e0ng.', 404, ErrorCodes.ORDER_NOT_FOUND);
     }
     return mapOrderStatus(row);
   }
@@ -163,7 +174,7 @@ class OrdersService {
   async cancel(userId, orderId) {
     const order = await ordersRepository.cancelOrder(orderId, userId);
     if (!order) {
-      throw new AppError('Order not found or cannot be cancelled', 404, ErrorCodes.ORDER_NOT_FOUND);
+      throw new AppError('Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n h\u00e0ng ho\u1eb7c kh\u00f4ng th\u1ec3 h\u1ee7y.', 404, ErrorCodes.ORDER_NOT_FOUND);
     }
     return { id: order.id, status: order.status };
   }
@@ -171,3 +182,5 @@ class OrdersService {
 }
 
 module.exports = new OrdersService();
+
+

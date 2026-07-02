@@ -5,6 +5,8 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
 
 const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
+const MAX_TICKETS_PER_ORDER = Number(process.env.MAX_TICKETS_PER_ORDER || 4);
+const MAX_TICKETS_PER_EVENT_ACCOUNT = Number(process.env.MAX_TICKETS_PER_EVENT_ACCOUNT || 6);
 
 function orderCode() {
   return `ORD-${Date.now()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
@@ -51,6 +53,29 @@ class OrdersRepository {
       `,
     );
 
+
+    await db.query(
+      `
+      WITH expired_holds AS (
+        UPDATE ticket_holds
+        SET status = 'EXPIRED', updated_at = now()
+        WHERE status = 'ACTIVE'
+          AND order_id IS NULL
+          AND expires_at <= now()
+        RETURNING session_seat_id
+      )
+      UPDATE session_seats ss
+      SET status = 'AVAILABLE',
+          held_by = NULL,
+          held_until = NULL,
+          order_id = NULL
+      FROM expired_holds eh
+      WHERE ss.id = eh.session_seat_id
+        AND ss.status = 'HELD'
+        AND ss.order_id IS NULL
+        AND ss.held_until <= now()
+      `,
+    );
     await db.query(
       `
       UPDATE payment_orders po
@@ -105,7 +130,7 @@ class OrdersRepository {
       );
 
       if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
-        throw new AppError('Invalid ticket items', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        throw new AppError('Th\u00f4ng tin v\u00e9 kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
       const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
@@ -119,17 +144,44 @@ class OrdersRepository {
         firstTicket.visibility !== 'PUBLIC' ||
         firstTicket.approval_status !== 'APPROVED'
       ) {
-        throw new AppError('Event is not available for booking', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
       if (firstTicket.event_end_time && new Date(firstTicket.event_end_time).getTime() < Date.now()) {
-        throw new AppError('Event has ended and tickets can no longer be sold', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+        throw new AppError('S\u1ef1 ki\u1ec7n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
       }
 
       if (firstTicket.organizer_id !== paymentChannel.organizer_id) {
-        throw new AppError('Invalid organizer payment channel', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        throw new AppError('K\u00eanh thanh to\u00e1n c\u1ee7a ban t\u1ed5 ch\u1ee9c kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
+
+      const totalRequested = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      if (totalRequested > MAX_TICKETS_PER_ORDER) {
+        throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      const purchasedResult = await client.query(
+        `
+        SELECT COALESCE(SUM(oi.quantity), 0)::int AS quantity
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        WHERE es.event_id = $1
+          AND o.status = 'PAID'
+          AND (
+            o.user_id = $2
+            OR lower(o.buyer_email) = lower($3::text)
+            OR ($4::text IS NOT NULL AND o.buyer_phone = $4::text)
+          )
+        `,
+        [eventId, userId, buyer.email, buyer.phone || null],
+      );
+      const purchasedQuantity = Number(purchasedResult.rows[0]?.quantity || 0);
+      if (purchasedQuantity + totalRequested > MAX_TICKETS_PER_EVENT_ACCOUNT) {
+        throw new AppError(`T\u00e0i kho\u1ea3n n\u00e0y ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${MAX_TICKETS_PER_EVENT_ACCOUNT} v\u00e9 cho s\u1ef1 ki\u1ec7n n\u00e0y.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
       const expiresAtResult = await client.query(
         `SELECT now() + ($1::text || ' minutes')::interval AS expired_at`,
         [HOLD_MINUTES],
@@ -179,7 +231,7 @@ class OrdersRepository {
         promo = promoResult.rows[0];
 
         if (!promo || subtotal < Number(promo.min_order_value || 0)) {
-          throw new AppError('Promo code is invalid for this order', 400, ErrorCodes.INVALID_INPUT);
+          throw new AppError('M\u00e3 khuy\u1ebfn m\u00e3i kh\u00f4ng h\u1ee3p l\u1ec7 cho \u0111\u01a1n h\u00e0ng n\u00e0y.', 400, ErrorCodes.INVALID_INPUT);
         }
 
         if (promo.discount_type === 'PERCENTAGE') {
@@ -239,36 +291,32 @@ class OrdersRepository {
         const selectedSeatIds = item.session_seat_ids || [];
 
         if (!ticketType || ticketType.event_id !== eventId) {
-          throw new AppError('Ticket type does not belong to this event', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          throw new AppError('Lo\u1ea1i v\u00e9 kh\u00f4ng thu\u1ed9c s\u1ef1 ki\u1ec7n n\u00e0y.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
         if (ticketType.session_status !== 'UPCOMING') {
-          throw new AppError('Event session is not available for booking', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          throw new AppError('Su\u1ea5t di\u1ec5n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
         const now = Date.now();
         const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
         if (sessionEnd && sessionEnd < now) {
-          throw new AppError('Event session has ended and tickets can no longer be sold', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+          throw new AppError('Su\u1ea5t di\u1ec5n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
 
         const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null;
         const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null;
         if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
-          throw new AppError(`Ticket "${ticketType.name}" is not on sale`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+          throw new AppError(`V\u00e9 "${ticketType.name}" hi\u1ec7n ch\u01b0a m\u1edf b\u00e1n ho\u1eb7c \u0111\u00e3 ng\u1eebng b\u00e1n.`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
 
-        if (item.quantity > (ticketType.max_per_order || 10)) {
-          throw new AppError(
-            `Bạn chỉ được phép mua tối đa ${ticketType.max_per_order || 10} vé trên một đơn hàng.`,
-            400,
-            ErrorCodes.ORDER_INVALID_ITEMS,
-          );
+        if (item.quantity > Math.min(ticketType.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)) {
+          throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${Math.min(ticketType.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
-        if (ticketType.is_seated) {
+        if (ticketType.is_seated || selectedSeatIds.length > 0) {
           if (selectedSeatIds.length !== item.quantity) {
-            throw new AppError('Selected seats must match ticket quantity', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+            throw new AppError('Số ghế đã chọn không khớp với số lượng vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
           }
 
           const seatsResult = await client.query(
@@ -277,6 +325,8 @@ class OrdersRepository {
               ss.id,
               ss.status,
               ss.held_until,
+              ss.held_by,
+              ss.order_id,
               ss.event_session_id,
               s.is_disabled,
               s.row_label,
@@ -304,7 +354,7 @@ class OrdersRepository {
           );
 
           if (seatsResult.rows.length !== selectedSeatIds.length) {
-            throw new AppError('One or more selected seats are invalid', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+            throw new AppError('M\u1ed9t ho\u1eb7c nhi\u1ec1u gh\u1ebf \u0111\u00e3 ch\u1ecdn kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
           }
 
           const hasSeatMapping = await client.query(
@@ -316,6 +366,7 @@ class OrdersRepository {
           for (const seat of seatsResult.rows) {
             const heldStillValid =
               seat.status === 'HELD' &&
+              seat.order_id &&
               seat.held_until &&
               new Date(seat.held_until).getTime() > Date.now();
             if (
@@ -353,18 +404,35 @@ class OrdersRepository {
                 AND (
                   status = 'AVAILABLE'
                   OR (status = 'HELD' AND held_until <= now())
+                  OR (status = 'HELD' AND order_id IS NULL)
                 )
               `,
               [seat.id, userId, expiredAt, order.id],
             );
 
-            await client.query(
+            const claimedHold = await client.query(
               `
-              INSERT INTO ticket_holds (user_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
-              VALUES ($1, $2, $3, 1, $4, $5, 'ACTIVE')
+              UPDATE ticket_holds
+              SET order_id = $4, expires_at = $5, updated_at = now()
+              WHERE user_id = $1
+                AND ticket_type_id = $2
+                AND session_seat_id = $3
+                AND order_id IS NULL
+                AND status = 'ACTIVE'
+              RETURNING id
               `,
               [userId, item.ticket_type_id, seat.id, order.id, expiredAt],
             );
+
+            if (!claimedHold.rows[0]) {
+              await client.query(
+                `
+                INSERT INTO ticket_holds (user_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
+                VALUES ($1, $2, $3, 1, $4, $5, 'ACTIVE')
+                `,
+                [userId, item.ticket_type_id, seat.id, order.id, expiredAt],
+              );
+            }
           }
         } else {
           const availabilityResult = await client.query(
@@ -389,7 +457,7 @@ class OrdersRepository {
           const held = Number(availabilityResult.rows[0]?.active_hold_quantity || 0);
           const available = Number(ticketType.quantity) - sold - held;
           if (item.quantity > available) {
-            throw new AppError('Not enough tickets available', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+            throw new AppError('S\u1ed1 l\u01b0\u1ee3ng v\u00e9 c\u00f2n l\u1ea1i kh\u00f4ng \u0111\u1ee7.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
           }
 
           const itemResult = await client.query(
@@ -605,7 +673,7 @@ class OrdersRepository {
       );
       const paymentOrder = paymentResult.rows[0];
       if (!paymentOrder) {
-        throw new AppError('Payment order not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+        throw new AppError('Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n thanh to\u00e1n.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
       }
 
       if (paymentOrder.status === 'PAID') {
@@ -614,7 +682,7 @@ class OrdersRepository {
       }
 
       if (Number(paymentOrder.amount) !== Number(amount)) {
-        throw new AppError('Invalid payment amount', 400, ErrorCodes.INVALID_INPUT);
+        throw new AppError('S\u1ed1 ti\u1ec1n thanh to\u00e1n kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.INVALID_INPUT);
       }
 
       const orderResult = await client.query(
@@ -623,11 +691,47 @@ class OrdersRepository {
       );
       const order = orderResult.rows[0];
       if (!order) {
-        throw new AppError('Order not found', 404, ErrorCodes.ORDER_NOT_FOUND);
+        throw new AppError('Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n h\u00e0ng.', 404, ErrorCodes.ORDER_NOT_FOUND);
       }
 
-      if (!['PENDING', 'EXPIRED'].includes(order.status)) {
-        throw new AppError('Order cannot be confirmed', 400, ErrorCodes.INVALID_INPUT);
+      if (order.status !== 'PENDING') {
+        throw new AppError('Kh\u00f4ng th\u1ec3 x\u00e1c nh\u1eadn \u0111\u01a1n h\u00e0ng.', 400, ErrorCodes.INVALID_INPUT);
+      }
+
+      if (order.expired_at && new Date(order.expired_at).getTime() <= Date.now()) {
+        await client.query(
+          `
+          UPDATE orders
+          SET status = 'EXPIRED', updated_at = now()
+          WHERE id = $1 AND status = 'PENDING'
+          `,
+          [order.id],
+        );
+        await client.query(
+          `
+          UPDATE payment_orders
+          SET status = 'EXPIRED', updated_at = now()
+          WHERE id = $1 AND status = 'PENDING'
+          `,
+          [paymentOrder.id],
+        );
+        await client.query(
+          `
+          UPDATE ticket_holds
+          SET status = 'EXPIRED', updated_at = now()
+          WHERE order_id = $1 AND status = 'ACTIVE'
+          `,
+          [order.id],
+        );
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'AVAILABLE', held_by = NULL, held_until = NULL, order_id = NULL
+          WHERE order_id = $1 AND status = 'HELD'
+          `,
+          [order.id],
+        );
+        throw new AppError('Th\u1eddi gian gi\u1eef \u0111\u01a1n h\u00e0ng \u0111\u00e3 h\u1ebft.', 400, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
       }
 
       await client.query(
