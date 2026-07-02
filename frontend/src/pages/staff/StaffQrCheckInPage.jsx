@@ -374,6 +374,7 @@ export function StaffQrCheckInPage() {
 }
 
 export function ManualCheckInPage() {
+  const searchRequestRef = useRef(0)
   const [manualForm, setManualForm] = useState(emptyManualForm)
   const [searchState, setSearchState] = useState('idle')
   const [searchMessage, setSearchMessage] = useState('')
@@ -429,6 +430,30 @@ export function ManualCheckInPage() {
       setSearchMessage(getApiMessage(error, 'Không thể tìm vé.'))
     }
   }
+
+  useEffect(() => {
+    const hasAnyFilter = Object.values(manualForm).some((value) => value.trim())
+
+    if (!hasAnyFilter) {
+      const timeoutId = window.setTimeout(() => {
+        searchRequestRef.current += 1
+        setSearchState('idle')
+        setSearchMessage('')
+        setSearchResults([])
+        setSelectedTicket(null)
+        setResultTicket(null)
+      }, 0)
+
+      return () => window.clearTimeout(timeoutId)
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      handleManualSearch({ preventDefault() {} })
+    }, 400)
+
+    return () => window.clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualForm])
 
   const handleManualCheckIn = async (ticket = selectedTicket) => {
     if (!ticket?.id) return
