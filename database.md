@@ -169,11 +169,18 @@ CREATE TABLE organizer_requests (
 
     user_id UUID NOT NULL REFERENCES users(id),
 
+    request_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL',
+    -- INDIVIDUAL, ORGANIZATION
+
     organization_name VARCHAR(255) NOT NULL,
     organization_description TEXT,
 
     business_email VARCHAR(255),
+    business_email_verified BOOLEAN NOT NULL DEFAULT false,
+    business_email_verified_at TIMESTAMPTZ,
     business_phone VARCHAR(20),
+    organization_avatar_url TEXT,
+    tax_code VARCHAR(30),
 
     status request_status_enum DEFAULT 'PENDING',
 
@@ -191,11 +198,16 @@ CREATE TABLE organizers (
 
     user_id UUID NOT NULL UNIQUE REFERENCES users(id),
 
+    request_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL',
+    -- INDIVIDUAL, ORGANIZATION
+
     organization_name VARCHAR(255) NOT NULL,
     description TEXT,
 
     business_email VARCHAR(255),
     business_phone VARCHAR(20),
+    organization_avatar_url TEXT,
+    tax_code VARCHAR(30),
 
     status VARCHAR(50) DEFAULT 'ACTIVE',
 
@@ -433,6 +445,13 @@ CREATE TABLE promo_codes (
     end_time TIMESTAMPTZ,
 
     is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE promo_code_events (
+    promo_code_id UUID NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (promo_code_id, event_id)
 );
 
 -- =========================================================
@@ -1059,6 +1078,39 @@ CREATE TABLE IF NOT EXISTS seat_zones (
 ALTER TABLE seats
   ADD COLUMN IF NOT EXISTS zone_id UUID REFERENCES seat_zones(id) ON DELETE SET NULL;
 
+-- Migration: organizer request legal/KYC verification fields
+ALTER TABLE organizer_requests
+  ADD COLUMN IF NOT EXISTS legal_document_url TEXT,
+  ADD COLUMN IF NOT EXISTS business_license_url TEXT,
+  ADD COLUMN IF NOT EXISTS legal_representative_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_position VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_id_url TEXT,
+  ADD COLUMN IF NOT EXISTS authorization_letter_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_full_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS individual_identity_number VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS individual_id_front_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_id_back_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_selfie_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_tax_code VARCHAR(30),
+  ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+
+ALTER TABLE organizers
+  ADD COLUMN IF NOT EXISTS legal_document_url TEXT,
+  ADD COLUMN IF NOT EXISTS business_license_url TEXT,
+  ADD COLUMN IF NOT EXISTS legal_representative_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_position VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS legal_representative_id_url TEXT,
+  ADD COLUMN IF NOT EXISTS authorization_letter_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_full_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS individual_identity_number VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS individual_id_front_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_id_back_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_selfie_url TEXT,
+  ADD COLUMN IF NOT EXISTS individual_tax_code VARCHAR(30),
+  ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+
 -- =========================================================
 -- END
 -- =========================================================
@@ -1080,7 +1132,7 @@ ALTER TABLE promo_codes
 DROP CONSTRAINT IF EXISTS promo_codes_code_key;
 
 ALTER TABLE promo_codes
-ALTER COLUMN event_id SET NOT NULL;
+ALTER COLUMN event_id DROP NOT NULL;
 
 CREATE UNIQUE INDEX uq_promo_code_per_event
 ON promo_codes(event_id, code);
@@ -1238,11 +1290,16 @@ CREATE TABLE organizers (
 
     user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
+    request_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL',
+    -- INDIVIDUAL, ORGANIZATION
+
     organization_name VARCHAR(255) NOT NULL,
     description TEXT,
 
     business_email VARCHAR(255),
     business_phone VARCHAR(20),
+    organization_avatar_url TEXT,
+    tax_code VARCHAR(30),
 
     status VARCHAR(30) DEFAULT 'ACTIVE',
     -- ACTIVE, SUSPENDED, INACTIVE

@@ -13,6 +13,7 @@ router.get('/', organizerOrdersController.listOrders);
 router.get('/revenue', organizerOrdersController.getRevenueStats);
 router.get('/ticket-sales', organizerOrdersController.getTicketSalesAnalytics);
 router.post('/financial-summary', organizerOrdersController.generateFinancialSummary);
+router.get('/events/:eventId/attendees/export', organizerOrdersController.exportAttendees);
 router.get('/events/:eventId/attendees', organizerOrdersController.listAttendees);
 router.get('/events/:eventId/checkin-stats', organizerOrdersController.getCheckinStats);
 router.get('/:orderId', organizerOrdersController.getOrderDetail);

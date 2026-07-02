@@ -1,5 +1,15 @@
 import { http } from '@/services/http.js'
 
+export async function fetchOrganizerProfile() {
+  const response = await http.get('/organizer/events/me')
+  return response.data.data
+}
+
+export async function updateOrganizerProfile(payload) {
+  const response = await http.patch('/organizer/events/me', payload)
+  return response.data.data
+}
+
 export async function fetchOrganizerVenues() {
   const response = await http.get('/organizer/events/venues')
   return response.data.data

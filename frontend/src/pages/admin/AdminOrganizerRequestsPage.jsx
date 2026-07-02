@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Eye, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import {
   fetchAdminOrganizerRequests,
@@ -27,6 +27,10 @@ function statusLabel(status) {
   if (status === 'APPROVED') return 'Đã duyệt'
   if (status === 'REJECTED') return 'Từ chối'
   return 'Chờ duyệt'
+}
+
+function requestTypeLabel(type) {
+  return type === 'ORGANIZATION' ? 'Tổ chức' : 'Cá nhân'
 }
 
 export function AdminOrganizerRequestsPage() {
@@ -77,6 +81,14 @@ export function AdminOrganizerRequestsPage() {
 
   const submitReview = (status) => {
     if (!selectedRequest) return
+    if (
+      status === 'APPROVED' &&
+      selectedRequest.request_type === 'ORGANIZATION' &&
+      !selectedRequest.business_email_verified
+    ) {
+      setReviewError('Email tổ chức chưa được xác thực. Chưa thể duyệt yêu cầu này.')
+      return
+    }
 
     reviewMutation.mutate({
       id: selectedRequest.id,
@@ -140,6 +152,7 @@ export function AdminOrganizerRequestsPage() {
         <Table
           headers={[
             'Tổ chức',
+            'Loại',
             'Người gửi',
             'Liên hệ',
             'Trạng thái',
@@ -153,13 +166,27 @@ export function AdminOrganizerRequestsPage() {
                 {request.organization_description}
               </p>
             </div>,
+            <Badge key="type" tone={request.request_type === 'ORGANIZATION' ? 'green' : 'blue'}>
+              {requestTypeLabel(request.request_type)}
+            </Badge>,
             <div key="user">
               <p className="font-semibold text-content">{request.applicant?.full_name}</p>
               <p className="text-xs text-subtle">{request.applicant?.email}</p>
             </div>,
             <div key="contact" className="text-sm">
-              <p className="text-content font-medium">{request.business_email}</p>
+              <p className="text-content font-medium">
+                {request.business_email || request.applicant?.email}
+              </p>
               <p className="text-subtle text-xs mt-0.5">{request.business_phone}</p>
+              {request.request_type === 'ORGANIZATION' && (
+                <p
+                  className={`mt-1 text-xs font-semibold ${
+                    request.business_email_verified ? 'text-success' : 'text-warning'
+                  }`}
+                >
+                  {request.business_email_verified ? 'Email đã xác thực' : 'Email chưa xác thực'}
+                </p>
+              )}
             </div>,
             <Badge key="status" tone={statusTone(request.status)}>
               {statusLabel(request.status)}
@@ -174,7 +201,7 @@ export function AdminOrganizerRequestsPage() {
                 className="admin-secondary !px-3 !py-2"
                 onClick={() => openReview(request)}
               >
-                <Eye className="size-4" />
+                Xem
               </button>
             ) : (
               <button
@@ -192,13 +219,58 @@ export function AdminOrganizerRequestsPage() {
 
       {selectedRequest && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-          <Panel className="w-full max-w-xl border-border-soft/60">
+          <Panel className="admin-review-modal-scroll max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto border-border-soft/60">
+            {selectedRequest.organization_avatar_url && (
+              <img
+                src={selectedRequest.organization_avatar_url}
+                alt={selectedRequest.organization_name}
+                className="mb-4 size-20 rounded-xl border border-border-soft/40 object-cover"
+              />
+            )}
             <h3 className="font-display text-2xl font-extrabold text-content">
               {selectedRequest.organization_name}
             </h3>
             <p className="mt-1 text-sm text-subtle font-medium">
               {selectedRequest.applicant?.full_name} · {selectedRequest.applicant?.email}
             </p>
+            <div className="mt-4 grid gap-3 rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm sm:grid-cols-2">
+              <Info label="Loại đăng ký" value={requestTypeLabel(selectedRequest.request_type)} />
+              <Info label="Số điện thoại" value={selectedRequest.business_phone} />
+              <Info
+                label="Email tổ chức"
+                value={
+                  selectedRequest.business_email
+                    ? `${selectedRequest.business_email} · ${
+                        selectedRequest.business_email_verified ? 'Đã xác thực' : 'Chưa xác thực'
+                      }`
+                    : 'Không áp dụng'
+                }
+              />
+              <Info label="Mã số thuế" value={selectedRequest.tax_code || 'Không áp dụng'} />
+              {selectedRequest.request_type === 'ORGANIZATION' ? (
+                <>
+                  <Info label="Người đại diện" value={selectedRequest.legal_representative_name || 'Chưa cung cấp'} />
+                  <Info label="Chức vụ" value={selectedRequest.legal_representative_position || 'Chưa cung cấp'} />
+                  <InfoLink label="Giấy ĐKDN/ERC" url={selectedRequest.legal_document_url} />
+                  <InfoLink label="Giấy phép đặc thù" url={selectedRequest.business_license_url} />
+                  <InfoLink label="Giấy tờ người đại diện" url={selectedRequest.legal_representative_id_url} />
+                  <InfoLink label="Giấy ủy quyền" url={selectedRequest.authorization_letter_url} />
+                </>
+              ) : (
+                <>
+                  <Info label="Họ tên pháp lý" value={selectedRequest.individual_full_name || 'Chưa cung cấp'} />
+                  <Info label="Số CCCD/Hộ chiếu" value={selectedRequest.individual_identity_number || 'Chưa cung cấp'} />
+                  <Info label="MST cá nhân" value={selectedRequest.individual_tax_code || 'Chưa cung cấp'} />
+                  <InfoLink label="CCCD mặt trước" url={selectedRequest.individual_id_front_url} />
+                  <InfoLink label="CCCD mặt sau" url={selectedRequest.individual_id_back_url} />
+                  <InfoLink label="Ảnh selfie" url={selectedRequest.individual_selfie_url} />
+                </>
+              )}
+              <Info
+                label="Điều khoản Organizer"
+                value={selectedRequest.terms_accepted ? 'Đã chấp nhận' : 'Chưa chấp nhận'}
+              />
+            </div>
             <p className="mt-4 whitespace-pre-wrap text-sm text-subtle leading-relaxed bg-panel-soft p-4 rounded-xl border border-border-soft/30">
               {selectedRequest.organization_description}
             </p>
@@ -222,8 +294,12 @@ export function AdminOrganizerRequestsPage() {
                 <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  className={primaryActionClass}
-                  disabled={reviewMutation.isPending}
+                  className={`${primaryActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                  disabled={
+                    reviewMutation.isPending ||
+                    (selectedRequest.request_type === 'ORGANIZATION' &&
+                      !selectedRequest.business_email_verified)
+                  }
                   onClick={() => submitReview('APPROVED')}
                   >
                     <CheckCircle2 className="size-4" />
@@ -286,5 +362,34 @@ function MetricCard({ label, value, accent, compact = false }) {
         </p>
       </div>
     </Panel>
+  )
+}
+
+function Info({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      <p className="mt-1 break-words font-semibold text-content">{value}</p>
+    </div>
+  )
+}
+
+function InfoLink({ label, url }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-flex font-semibold text-tertiary underline-offset-4 hover:underline"
+        >
+          Mở tài liệu
+        </a>
+      ) : (
+        <p className="mt-1 font-semibold text-content">Không áp dụng</p>
+      )}
+    </div>
   )
 }

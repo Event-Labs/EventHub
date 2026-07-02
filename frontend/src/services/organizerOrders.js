@@ -24,6 +24,17 @@ export async function fetchOrganizerAttendees(eventId, params = {}) {
 
 /**
  * @param {string} eventId
+ * @param {object} params - { sessionId, ticketTypeId, status, search }
+ */
+export async function exportOrganizerAttendees(eventId, params = {}) {
+  return http.get(`/organizer/orders/events/${eventId}/attendees/export`, {
+    params,
+    responseType: 'blob',
+  })
+}
+
+/**
+ * @param {string} eventId
  */
 export async function fetchCheckinStats(eventId) {
   const response = await http.get(`/organizer/orders/events/${eventId}/checkin-stats`)

@@ -73,6 +73,41 @@ body {
   box-sizing: border-box;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 115, 22, 0.75) rgba(18, 33, 85, 0.24);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(18, 33, 85, 0.24);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(179, 205, 224, 0.82), rgba(249, 115, 22, 0.92));
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(249, 115, 22, 1), rgba(179, 205, 224, 0.95));
+  background-clip: content-box;
+}
+
+html.light * {
+  scrollbar-color: rgba(249, 115, 22, 0.76) rgba(203, 213, 225, 0.42);
+}
+
+html.light *::-webkit-scrollbar-track {
+  background: rgba(203, 213, 225, 0.42);
+}
+
 button,
 a,
 input,
@@ -367,6 +402,170 @@ textarea {
 
 .portal-sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, var(--color-tertiary), var(--color-primary));
+}
+
+.date-range-filter-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 115, 22, 0.75) rgba(18, 33, 85, 0.35);
+}
+
+.date-range-filter-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.date-range-filter-scroll::-webkit-scrollbar-track {
+  background: rgba(18, 33, 85, 0.35);
+  border-radius: 999px;
+  margin-block: 10px;
+}
+
+.date-range-filter-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(179, 205, 224, 0.85), rgba(249, 115, 22, 0.9));
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+}
+
+.date-range-filter-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(249, 115, 22, 1), rgba(179, 205, 224, 0.95));
+}
+
+.ai-chat-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 115, 22, 0.75) transparent;
+}
+
+.ai-chat-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+  margin-block: 12px;
+}
+
+.ai-chat-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(179, 205, 224, 0.82), rgba(249, 115, 22, 0.9));
+  background-clip: content-box;
+}
+
+.ai-chat-scroll:hover::-webkit-scrollbar-thumb,
+.ai-chat-scroll:focus-within::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(249, 115, 22, 1), rgba(179, 205, 224, 0.95));
+  background-clip: content-box;
+}
+
+.ai-chat-suggestion-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 115, 22, 0.7) transparent;
+}
+
+.ai-chat-suggestion-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ai-chat-suggestion-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-chat-suggestion-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(179, 205, 224, 0.78), rgba(249, 115, 22, 0.88));
+}
+
+.ai-chat-suggestion-scroll:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(249, 115, 22, 1), rgba(179, 205, 224, 0.95));
+}
+
+.ai-chat-genie-open {
+  animation: ai-chat-genie-open 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  backface-visibility: hidden;
+  contain: paint;
+  transform: translateZ(0);
+  will-change: transform, opacity, border-radius;
+}
+
+.ai-chat-genie-close {
+  animation: ai-chat-genie-close 260ms cubic-bezier(0.55, 0, 0.3, 1) both;
+  backface-visibility: hidden;
+  contain: paint;
+  transform: translateZ(0);
+  will-change: transform, opacity, border-radius;
+}
+
+.ai-chat-genie-ready {
+  backface-visibility: hidden;
+  contain: paint;
+  transform: translateZ(0);
+}
+
+@keyframes ai-chat-genie-open {
+  0% {
+    border-radius: 999px;
+    opacity: 0;
+    transform: translate3d(18px, 20px, 0) scale(0.08);
+  }
+
+  68% {
+    border-radius: 24px;
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(0.985);
+  }
+
+  100% {
+    border-radius: 20px;
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ai-chat-genie-close {
+  0% {
+    border-radius: 20px;
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  100% {
+    border-radius: 999px;
+    opacity: 0;
+    transform: translate3d(24px, 28px, 0) scale(0.08);
+  }
+}
+
+.admin-review-modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 115, 22, 0.8) rgba(18, 33, 85, 0.35);
+}
+
+.admin-review-modal-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-review-modal-scroll::-webkit-scrollbar-track {
+  background: rgba(18, 33, 85, 0.35);
+  border-radius: 999px;
+  margin-block: 14px;
+}
+
+.admin-review-modal-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(179, 205, 224, 0.85), rgba(249, 115, 22, 0.9));
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+}
+
+.admin-review-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(249, 115, 22, 1), rgba(179, 205, 224, 0.95));
+}
+
+.portal-sidebar-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Logo luôn giữ nguyên màu gốc, không bị ảnh hưởng bởi light/dark mode */

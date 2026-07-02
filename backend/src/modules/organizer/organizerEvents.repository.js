@@ -11,17 +11,110 @@ function slugify(title) {
   return `${base || 'event'}-${Date.now().toString(36)}`;
 }
 
+const ORGANIZER_REQUEST_SELECT = `
+  r.id,
+  r.user_id,
+  r.request_type,
+  r.organization_name,
+  r.organization_description,
+  r.business_email,
+  r.business_email_verified,
+  r.business_email_verified_at,
+  r.business_phone,
+  r.organization_avatar_url,
+  r.tax_code,
+  r.legal_document_url,
+  r.business_license_url,
+  r.legal_representative_name,
+  r.legal_representative_position,
+  r.legal_representative_id_url,
+  r.authorization_letter_url,
+  r.individual_full_name,
+  r.individual_identity_number,
+  r.individual_id_front_url,
+  r.individual_id_back_url,
+  r.individual_selfie_url,
+  r.individual_tax_code,
+  r.terms_accepted,
+  r.terms_accepted_at,
+  r.status,
+  r.review_note,
+  r.reviewed_by,
+  r.created_at,
+  r.reviewed_at,
+  r.updated_at
+`;
+
 class OrganizerEventsRepository {
   async findOrganizerByUserId(userId) {
     const { rows } = await db.query(
       `
-      SELECT id, user_id, organization_name, status
+      SELECT *
       FROM organizers
       WHERE user_id = $1
         AND status = 'ACTIVE'
       LIMIT 1
       `,
       [userId],
+    );
+    return rows[0];
+  }
+
+  async findProfileRequests(userId, organizer) {
+    const { rows } = await db.query(
+      `
+      SELECT ${ORGANIZER_REQUEST_SELECT}
+      FROM organizer_requests r
+      WHERE r.user_id = $1
+        OR (
+          $2::text IS NOT NULL
+          AND r.request_type = 'ORGANIZATION'
+          AND lower(r.business_email) = lower($2::text)
+        )
+      ORDER BY r.created_at ASC
+      `,
+      [userId, organizer?.business_email || null],
+    );
+    return rows;
+  }
+
+  async updateOrganizerProfileByUserId(userId, updates) {
+    const allowedFields = ['description', 'website_url', 'social_url'];
+    const { rows: columnRows } = await db.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'organizers'
+        AND column_name = ANY($1::text[])
+      `,
+      [allowedFields],
+    );
+    const existingColumns = new Set(columnRows.map((row) => row.column_name));
+    const setClauses = [];
+    const values = [userId];
+
+    allowedFields.forEach((field) => {
+      if (existingColumns.has(field) && updates[field] !== undefined) {
+        values.push(updates[field]);
+        setClauses.push(`${field} = $${values.length}`);
+      }
+    });
+
+    if (!setClauses.length) {
+      return this.findOrganizerByUserId(userId);
+    }
+
+    setClauses.push('updated_at = NOW()');
+
+    const { rows } = await db.query(
+      `
+      UPDATE organizers
+      SET ${setClauses.join(', ')}
+      WHERE user_id = $1
+        AND status = 'ACTIVE'
+      RETURNING *
+      `,
+      values,
     );
     return rows[0];
   }

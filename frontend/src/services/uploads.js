@@ -68,6 +68,86 @@ export async function uploadAvatar(file) {
   }
 }
 
+export async function uploadOrganizerAvatar(file) {
+  if (!file) return null
+
+  const signatureResponse = await http.post('/uploads/cloudinary/organizer-avatar/signature')
+  const { upload_url: uploadUrl, fields } = signatureResponse.data.data
+  const formData = new FormData()
+
+  Object.entries(fields).forEach(([key, value]) => {
+    formData.append(key, value)
+  })
+  formData.append('file', file)
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!uploadResponse.ok) {
+    const errorData = await uploadResponse.json().catch(() => ({}))
+    console.error('Cloudinary upload error:', errorData)
+    throw new Error(errorData.error?.message || 'Không thể tải ảnh tổ chức lên Cloudinary')
+  }
+
+  const data = await uploadResponse.json()
+
+  return {
+    public_id: data.public_id,
+    url: data.secure_url,
+    secure_url: data.secure_url,
+  }
+}
+
+const ORGANIZER_DOCUMENT_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+
+export async function uploadOrganizerDocument(file) {
+  if (!file) return null
+
+  if (!ORGANIZER_DOCUMENT_TYPES.includes(file.type)) {
+    throw new Error('Vui lòng chọn file PDF, DOCX hoặc ảnh JPG/PNG/WEBP')
+  }
+
+  const signatureResponse = await http.post('/uploads/cloudinary/organizer-document/signature')
+  const { upload_url: uploadUrl, fields } = signatureResponse.data.data
+  const formData = new FormData()
+
+  Object.entries(fields).forEach(([key, value]) => {
+    formData.append(key, value)
+  })
+  formData.append('file', file)
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!uploadResponse.ok) {
+    const errorData = await uploadResponse.json().catch(() => ({}))
+    console.error('Cloudinary organizer document upload error:', errorData)
+    throw new Error(errorData.error?.message || 'Không thể tải tài liệu minh chứng lên Cloudinary')
+  }
+
+  const data = await uploadResponse.json()
+
+  return {
+    public_id: data.public_id,
+    url: data.secure_url,
+    secure_url: data.secure_url,
+    file_name: file.name,
+    file_size: file.size,
+    mime_type: file.type,
+    format: data.format,
+  }
+}
+
 const POLICY_DOCUMENT_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

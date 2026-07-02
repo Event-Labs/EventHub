@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, ChevronRight, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
 import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
@@ -6,6 +6,20 @@ import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
 const logoSrc = '/images/LogoEH.png'
 const collapsedWidth = 76
 const expandedWidth = 232
+const defaultTheme = 'dark'
+
+function getPortalThemeKey(user) {
+  const accountKey = user?.id || user?.user_id || user?._id || user?.email || 'anonymous'
+  return `eventhub-theme:${String(accountKey).toLowerCase()}`
+}
+
+function getStoredPortalTheme(themeKey) {
+  return localStorage.getItem(themeKey) || defaultTheme
+}
+
+function applyPortalTheme(theme) {
+  document.documentElement.classList.toggle('light', theme === 'light')
+}
 
 export function RolePortalLayout({
   user,
@@ -21,8 +35,14 @@ export function RolePortalLayout({
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
-  const [theme, setTheme] = useState(() => localStorage.getItem('eventhub-theme') || 'dark')
+  const themeKey = useMemo(() => getPortalThemeKey(user), [user])
+  const [theme, setTheme] = useState(() => getStoredPortalTheme(getPortalThemeKey(user)))
   const token = getAuthToken()
+
+  useEffect(() => {
+    applyPortalTheme(theme)
+    return () => document.documentElement.classList.remove('light')
+  }, [theme])
 
   const activeSection = useMemo(() => {
     const byRoute = navSections.find((section) => isSectionActive(section, location.pathname))
@@ -31,12 +51,7 @@ export function RolePortalLayout({
 
   const setPortalTheme = (newTheme) => {
     setTheme(newTheme)
-    localStorage.setItem('eventhub-theme', newTheme)
-    if (newTheme === 'light') {
-      document.documentElement.classList.add('light')
-    } else {
-      document.documentElement.classList.remove('light')
-    }
+    localStorage.setItem(themeKey, newTheme)
   }
 
   const logout = () => {
@@ -58,14 +73,14 @@ export function RolePortalLayout({
   return (
     <div className="flex min-h-screen bg-background text-content">
       <aside
-        className={`fixed bottom-0 left-0 top-24 z-50 flex flex-col items-center gap-3 bg-transparent px-2 pb-4 transition-[width] duration-300 ease-out ${
+        className={`fixed bottom-0 left-0 top-24 z-50 flex flex-col items-center gap-3 bg-transparent px-2 pb-4 transition-[width] duration-300 ease-out will-change-[width] ${
           sidebarExpanded ? 'w-[232px]' : 'w-20'
         }`}
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
       >
         <nav
-          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-all duration-300 ${
+          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width] duration-300 ease-out will-change-[width] ${
             sidebarExpanded ? 'w-full' : 'w-12'
           }`}
         >
@@ -88,7 +103,7 @@ export function RolePortalLayout({
         </nav>
 
         <div
-          className={`flex shrink-0 flex-col items-center gap-1 rounded-[2rem] border border-border-soft/30 bg-surface py-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-all duration-300 ${
+          className={`flex shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface py-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width,padding] duration-300 ease-out will-change-[width] ${
             sidebarExpanded ? 'w-full px-2' : 'w-12 items-center px-1'
           }`}
         >
@@ -98,10 +113,10 @@ export function RolePortalLayout({
               type="button"
               onClick={logout}
               title={'\u0110\u0103ng xu\u1ea5t'}
-              className="group flex h-10 w-full items-center gap-3 rounded-2xl px-3 text-sm font-semibold text-subtle transition-all duration-200 hover:bg-panel-soft hover:text-error"
+              className="group flex h-10 w-full items-center justify-start gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold text-subtle transition-all duration-200 hover:bg-panel-soft hover:text-error"
             >
               <LogOut className="size-[18px] shrink-0" />
-              <span className="overflow-hidden whitespace-nowrap">{'\u0110\u0103ng xu\u1ea5t'}</span>
+              <span className="portal-sidebar-label min-w-0">{'\u0110\u0103ng xu\u1ea5t'}</span>
             </button>
           ) : (
             <button
@@ -165,7 +180,7 @@ function SidebarSection({ section, expanded, active, showDivider, pathname }) {
   return (
     <div className="w-full">
       {showDivider && <div className="mx-3 my-2 h-px bg-border-soft/30" />}
-      <p className="px-3 pb-1 pt-1 text-[11px] font-extrabold uppercase tracking-wider text-muted/80">
+      <p className="portal-sidebar-label px-3 pb-1 pt-1 text-[11px] font-extrabold uppercase tracking-wider text-muted/80">
         {section.label}
       </p>
       <div className="space-y-1">
@@ -210,7 +225,7 @@ function SidebarItem({ item, expanded, active }) {
       title={item.label}
       className={({ isActive }) => {
         const current = active ?? isActive
-        return `group flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-all duration-200 ${
+        return `group flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold transition-all duration-200 ${
           current
             ? 'bg-tertiary/15 text-tertiary shadow-[inset_0_1px_0_rgba(249,115,22,0.14)]'
             : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
@@ -222,7 +237,7 @@ function SidebarItem({ item, expanded, active }) {
         return (
           <>
             {Icon && <Icon className={`size-[18px] shrink-0 ${current ? 'text-tertiary' : 'text-subtle group-hover:text-tertiary'}`} />}
-            <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">{item.label}</span>
+            <span className="portal-sidebar-label min-w-0 flex-1">{item.label}</span>
             {current && <ChevronRight className="size-3.5 shrink-0 text-tertiary" />}
           </>
         )

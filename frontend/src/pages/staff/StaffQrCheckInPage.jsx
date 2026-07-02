@@ -1,117 +1,582 @@
-import { useState } from 'react'
-import { CameraOff, CheckCircle2, QrCode, RotateCcw, Search, Smartphone } from 'lucide-react'
-import { ConfirmCheckInModal, ManualTicketModal } from '@/components/Modal.jsx'
-import { Avatar, StaffPage, StaffPanel } from './StaffComponents.jsx'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Camera,
+  CameraOff,
+  CheckCircle2,
+  Loader2,
+  QrCode,
+  RotateCcw,
+  Search,
+  ShieldAlert,
+  TicketCheck,
+  UserCheck,
+} from 'lucide-react'
+import { BrowserQRCodeReader } from '@zxing/browser'
+import {
+  checkInStaffTicket,
+  checkInTicketByQr,
+  searchStaffTickets,
+} from '@/services/tickets.js'
+import { StaffPage, StaffPanel } from './StaffComponents.jsx'
 
-export function StaffQrCheckInPage() {
-  const [confirmOpen, setConfirmOpen] = useState(false)
-
-  return (
-    <StaffPage title="QR Check-in">
-      <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
-        <div className="space-y-5">
-          <StaffPanel>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase text-muted">Sự kiện đang hoạt động</p>
-                <h3 className="mt-1 font-extrabold text-content">TechSummit Global 2024</h3>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-extrabold text-primary">1,420 / 2,500</p>
-                <p className="text-xs font-bold uppercase text-muted">Đã check-in</p>
-              </div>
-            </div>
-          </StaffPanel>
-          <div className="relative grid min-h-[520px] place-items-center overflow-hidden rounded-2xl bg-black/90 text-white shadow-sm border border-border-soft/20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.18),transparent_55%)]" />
-            <Smartphone className="relative size-40 text-primary" />
-            <div className="absolute bottom-6 grid w-full grid-cols-3 gap-3 px-8">
-              <button className="rounded-xl bg-white/10 py-4 text-xs font-bold uppercase hover:bg-white/15 transition">Đổi camera</button>
-              <button className="rounded-xl bg-white/10 py-4 text-xs font-bold uppercase hover:bg-white/15 transition">Đèn flash</button>
-              <button className="rounded-xl bg-tertiary py-4 text-xs font-bold uppercase text-white hover:opacity-90 transition" onClick={() => setConfirmOpen(true)}>Check-in thủ công</button>
-            </div>
-          </div>
-        </div>
-        <aside className="space-y-5">
-          <StaffPanel className="text-center">
-            <QrCode className="mx-auto size-16 text-muted" />
-            <h3 className="mt-5 text-xl font-extrabold text-content">Sẵn sàng quét</h3>
-            <p className="mt-2 text-sm text-subtle">Đưa QR code vào khung hình để bắt đầu.</p>
-            <div className="mt-5 space-y-2 text-left">
-              <button className="w-full rounded-xl border border-border-soft/40 bg-panel-soft/40 px-3 py-2 text-sm text-content hover:bg-panel-soft transition">Mô phỏng hợp lệ</button>
-              <button className="w-full rounded-xl border border-border-soft/40 bg-panel-soft/40 px-3 py-2 text-sm text-content hover:bg-panel-soft transition">Mô phỏng không hợp lệ</button>
-              <button className="w-full rounded-xl border border-border-soft/40 bg-panel-soft/40 px-3 py-2 text-sm text-content hover:bg-panel-soft transition">Mô phỏng đã check-in</button>
-            </div>
-          </StaffPanel>
-          <StaffPanel>
-            <h3 className="font-bold text-content">Lượt quét gần đây</h3>
-            {['Marcus Richardson', 'Elena Petrov', 'John Smith'].map((name) => (
-              <div key={name} className="mt-4 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm text-content"><Avatar name={name} className="size-8" />{name}</span>
-                <CheckCircle2 className="size-4 text-success" />
-              </div>
-            ))}
-          </StaffPanel>
-        </aside>
-      </div>
-      <ConfirmCheckInModal open={confirmOpen} onClose={() => setConfirmOpen(false)} />
-    </StaffPage>
-  )
+const emptyManualForm = {
+  ticketCode: '',
+  buyerName: '',
+  buyerEmail: '',
+  buyerPhone: '',
 }
 
-export function CameraDeniedPage() {
+function getApiMessage(error, fallback) {
+  return error?.response?.data?.message || error?.message || fallback
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Chưa có'
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(new Date(value))
+}
+
+function statusTone(status) {
+  if (status === 'USED') return 'border-success/40 bg-success/10 text-success'
+  if (status === 'VALID') return 'border-tertiary/40 bg-tertiary/10 text-tertiary'
+  return 'border-error/40 bg-error/10 text-error'
+}
+
+function normalizeTicket(ticket) {
+  if (!ticket) return null
+  return {
+    id: ticket.id,
+    ticketCode: ticket.ticket_code || ticket.ticketCode,
+    eventName: ticket.event?.title || 'Không rõ sự kiện',
+    buyerName: ticket.buyer?.name || ticket.order?.buyer_name || ticket.attendee_name || 'Không rõ',
+    buyerEmail: ticket.buyer?.email || ticket.order?.buyer_email || ticket.attendee_email || 'Không rõ',
+    buyerPhone: ticket.buyer?.phone || ticket.order?.buyer_phone || '',
+    ticketType: ticket.ticket_type?.name || 'Không rõ hạng vé',
+    status: ticket.status,
+    checkedInAt: ticket.checked_in_at,
+    checkedInBy: ticket.checked_in_by?.name || ticket.checked_in_by?.email || 'Staff hiện tại',
+  }
+}
+
+function CameraDeniedContent({ onRetry }) {
   return (
     <div className="grid min-h-[calc(100vh-140px)] place-items-center">
       <StaffPanel className="max-w-xl text-center">
         <CameraOff className="mx-auto size-14 text-warning" />
         <h1 className="mt-5 text-xl font-extrabold text-content">Cần cấp quyền camera</h1>
-        <p className="mt-2 text-sm text-subtle">Vui lòng cho phép truy cập camera để quét vé QR.</p>
-        <div className="mt-6 rounded-xl bg-panel-soft border border-border-soft/20 p-4 text-left text-sm text-content">
+        <p className="mt-2 text-sm text-subtle">Vui lòng cho phép truy cập camera để quét QR vé.</p>
+        <div className="mt-6 rounded-xl border border-border-soft/20 bg-panel-soft p-4 text-left text-sm text-content">
           <p>1. Nhấn biểu tượng khóa hoặc cài đặt trên thanh địa chỉ.</p>
           <p className="mt-2">2. Chọn Camera và bật Allow.</p>
           <p className="mt-2">3. Nhấn thử lại để khởi tạo máy quét.</p>
         </div>
-        <div className="mt-6 flex justify-center gap-3">
-          <button className="admin-primary"><RotateCcw className="size-4" />Thử lại</button>
-          <button className="admin-secondary">Dùng check-in thủ công</button>
+        <div className="mt-6 flex justify-center">
+          <button className="admin-primary" onClick={onRetry}>
+            <RotateCcw className="size-4" />
+            Thử lại
+          </button>
         </div>
       </StaffPanel>
     </div>
   )
 }
 
-export function ManualCheckInPage() {
-  const [modalOpen, setModalOpen] = useState(false)
+export function StaffQrCheckInPage() {
+  const videoRef = useRef(null)
+  const controlsRef = useRef(null)
+  const readerRef = useRef(null)
+  const processingRef = useRef(false)
+  const lastQrRef = useRef({ value: '', time: 0 })
+
+  const [cameraState, setCameraState] = useState('idle')
+  const [cameraMessage, setCameraMessage] = useState('Camera chưa bật.')
+  const [qrMessage, setQrMessage] = useState('')
+  const [checkInState, setCheckInState] = useState('idle')
+  const [resultTicket, setResultTicket] = useState(null)
+  const [recentTickets, setRecentTickets] = useState([])
+
+  const showSuccess = (ticket) => {
+    setResultTicket(ticket)
+    setRecentTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)].slice(0, 5))
+  }
+
+  const stopCamera = () => {
+    controlsRef.current?.stop()
+    controlsRef.current = null
+    processingRef.current = false
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+
+    setCameraState((current) => (current === 'active' || current === 'opening' ? 'idle' : current))
+    setCameraMessage('Camera chưa bật.')
+  }
+
+  const checkInFromQr = async (rawValue) => {
+    const value = String(rawValue || '').trim()
+    const now = Date.now()
+
+    if (
+      !value ||
+      processingRef.current ||
+      (lastQrRef.current.value === value && now - lastQrRef.current.time < 2500)
+    ) {
+      return
+    }
+
+    processingRef.current = true
+    lastQrRef.current = { value, time: now }
+    setCheckInState('checking')
+    setQrMessage('Đã đọc QR, đang kiểm tra vé...')
+
+    try {
+      const ticket = await checkInTicketByQr({ qrCode: value })
+      showSuccess(ticket)
+      setQrMessage('Check-in thành công.')
+      setCheckInState('success')
+    } catch (error) {
+      setQrMessage(getApiMessage(error, 'QR không hợp lệ hoặc vé không thể check-in.'))
+      setCheckInState('error')
+    } finally {
+      window.setTimeout(() => {
+        processingRef.current = false
+      }, 1500)
+    }
+  }
+
+  const startCamera = async () => {
+    stopCamera()
+    setQrMessage('')
+    setCameraState('opening')
+    setCameraMessage('Đang mở camera...')
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraState('error')
+      setCameraMessage('Trình duyệt không cho phép truy cập camera. Vui lòng dùng HTTPS hoặc localhost.')
+      return
+    }
+
+    try {
+      const reader = readerRef.current || new BrowserQRCodeReader()
+      readerRef.current = reader
+
+      const controls = await reader.decodeFromVideoDevice(
+        undefined,
+        videoRef.current,
+        (result) => {
+          const value = result?.getText?.()
+          if (value) {
+            checkInFromQr(value)
+          }
+        },
+      )
+
+      controlsRef.current = controls
+      setCameraState('active')
+      setCameraMessage('Camera đang mở. Đưa QR code vào khung hình để quét.')
+      setQrMessage('Đưa QR code vào khung hình để bắt đầu.')
+    } catch (error) {
+      const permissionDenied = ['NotAllowedError', 'SecurityError'].includes(error?.name)
+      setCameraState(permissionDenied ? 'denied' : 'error')
+      setCameraMessage(
+        permissionDenied
+          ? 'Không có quyền camera. Vui lòng cấp quyền rồi thử lại.'
+          : 'Camera không hoạt động hoặc không tìm thấy thiết bị camera.',
+      )
+    }
+  }
+
+  useEffect(() => () => stopCamera(), [])
+
+  if (cameraState === 'denied') {
+    return <CameraDeniedContent onRetry={startCamera} />
+  }
+
+  const normalizedResult = normalizeTicket(resultTicket)
 
   return (
-    <StaffPage title="Check-in thủ công" description="Tìm vé khi attendee không thể xuất trình QR có thể quét.">
-      <StaffPanel className="mb-5">
-        <div className="grid gap-3 md:grid-cols-4">
-          {['Mã vé', 'Tên người mua', 'Email', 'Số điện thoại'].map((label) => (
-            <input
-              key={label}
-              className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
-              placeholder={label}
-            />
-          ))}
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button className="admin-primary"><Search className="size-4" />Tìm vé</button>
-        </div>
-      </StaffPanel>
-      <StaffPanel>
-        <h3 className="font-bold text-content">Kết quả tìm kiếm</h3>
-        {['Michael Stevenson', 'Sarah Connor'].map((name, index) => (
-          <div key={name} className="mt-4 grid gap-3 rounded-xl border border-border-soft/20 bg-panel-soft/30 p-4 md:grid-cols-[1fr_auto]">
-            <div>
-              <p className="font-bold text-content">{name}</p>
-              <p className="text-sm text-subtle">EH-902{index + 1}-X - General Admission</p>
+    <StaffPage
+      title="QR Check-in"
+      description="Bật camera laptop để quét QR trên vé và check-in tự động."
+    >
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="space-y-5">
+          <StaffPanel>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase text-muted">QR check-in</p>
+                <h3 className="mt-1 text-lg font-extrabold text-content">Quét vé bằng camera laptop</h3>
+                <p className="mt-1 text-sm text-subtle">{cameraMessage}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button className="admin-secondary" onClick={stopCamera} disabled={cameraState !== 'active'}>
+                  <CameraOff className="size-4" />
+                  Tắt camera
+                </button>
+                <button className="admin-primary" onClick={startCamera} disabled={cameraState === 'opening'}>
+                  {cameraState === 'opening' ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
+                  Bật camera
+                </button>
+              </div>
             </div>
-            <button className="admin-primary py-2 text-xs" disabled={index === 1} onClick={() => setModalOpen(true)}>Check-in thủ công</button>
+          </StaffPanel>
+
+          <div className="relative grid min-h-[520px] overflow-hidden rounded-2xl border border-border-soft/20 bg-black text-white shadow-sm">
+            <video
+              ref={videoRef}
+              className="h-full min-h-[520px] w-full object-cover"
+              muted
+              playsInline
+            />
+            {cameraState !== 'active' && (
+              <div className="absolute inset-0 grid place-items-center bg-black/85 p-8 text-center">
+                <div>
+                  <QrCode className="mx-auto size-20 text-primary" />
+                  <h3 className="mt-4 text-xl font-extrabold">Sẵn sàng quét QR</h3>
+                  <p className="mt-2 max-w-md text-sm text-white/70">
+                    Nhấn bật camera, đưa QR code trên vé vào giữa khung hình, hệ thống sẽ tự check-in vé hợp lệ.
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-primary/70 shadow-[0_0_0_999px_rgba(0,0,0,0.25)]" />
+            <div className="absolute bottom-5 left-5 right-5 rounded-xl border border-white/15 bg-black/65 px-4 py-3 text-sm">
+              {checkInState === 'checking' ? (
+                <span className="flex items-center gap-2 text-primary">
+                  <Loader2 className="size-4 animate-spin" />
+                  Đang xử lý QR...
+                </span>
+              ) : (
+                qrMessage || 'Đưa QR code vào khung hình để bắt đầu.'
+              )}
+            </div>
           </div>
-        ))}
-      </StaffPanel>
-      <ManualTicketModal open={modalOpen} onClose={() => setModalOpen(false)} />
+        </div>
+
+        <aside className="space-y-5">
+          <ResultPanel ticket={normalizedResult} />
+          <StaffPanel>
+            <h3 className="font-bold text-content">Lượt check-in gần đây</h3>
+            {recentTickets.length === 0 ? (
+              <p className="mt-3 text-sm text-subtle">Chưa có lượt check-in trong phiên này.</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {recentTickets.map((ticket) => {
+                  const normalized = normalizeTicket(ticket)
+                  return (
+                    <div key={ticket.id} className="flex items-start justify-between gap-3 rounded-xl border border-border-soft/20 bg-panel-soft/30 p-3">
+                      <div>
+                        <p className="text-sm font-bold text-content">{normalized.buyerName}</p>
+                        <p className="text-xs text-subtle">{normalized.ticketCode}</p>
+                      </div>
+                      <CheckCircle2 className="size-4 shrink-0 text-success" />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </StaffPanel>
+        </aside>
+      </div>
     </StaffPage>
   )
+}
+
+export function ManualCheckInPage() {
+  const [manualForm, setManualForm] = useState(emptyManualForm)
+  const [searchState, setSearchState] = useState('idle')
+  const [searchMessage, setSearchMessage] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [selectedTicket, setSelectedTicket] = useState(null)
+  const [checkInState, setCheckInState] = useState('idle')
+  const [resultTicket, setResultTicket] = useState(null)
+
+  const updateManualField = (field, value) => {
+    setManualForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleManualSearch = async (event) => {
+    event.preventDefault()
+    setSearchMessage('')
+    setSelectedTicket(null)
+    setResultTicket(null)
+
+    const payload = Object.fromEntries(
+      Object.entries(manualForm).map(([key, value]) => [key, value.trim()]),
+    )
+
+    if (!Object.values(payload).some(Boolean)) {
+      setSearchState('error')
+      setSearchMessage('Vui lòng nhập ít nhất một thông tin để tìm vé.')
+      return
+    }
+
+    setSearchState('loading')
+
+    try {
+      const data = await searchStaffTickets(payload)
+      const tickets = data.tickets || []
+      setSearchResults(tickets)
+
+      if (tickets.length === 0) {
+        setSearchState('empty')
+        setSearchMessage('Không tìm thấy vé phù hợp trong các sự kiện bạn được phân công.')
+        return
+      }
+
+      if (tickets.length === 1) {
+        setSelectedTicket(tickets[0])
+        setSearchState('single')
+        setSearchMessage('Tìm thấy 1 vé phù hợp. Vui lòng xác nhận check-in.')
+        return
+      }
+
+      setSearchState('multiple')
+      setSearchMessage('Có nhiều kết quả, vui lòng chọn đúng vé để check-in.')
+    } catch (error) {
+      setSearchState('error')
+      setSearchMessage(getApiMessage(error, 'Không thể tìm vé.'))
+    }
+  }
+
+  const handleManualCheckIn = async (ticket = selectedTicket) => {
+    if (!ticket?.id) return
+
+    setCheckInState('checking')
+    setSearchMessage('Đang check-in vé...')
+
+    try {
+      const checkedTicket = await checkInStaffTicket(ticket.id)
+      setResultTicket(checkedTicket)
+      setSelectedTicket(checkedTicket)
+      setSearchMessage('Check-in thành công.')
+      setCheckInState('success')
+    } catch (error) {
+      setSearchMessage(getApiMessage(error, 'Vé không thể check-in.'))
+      setCheckInState('error')
+    }
+  }
+
+  const normalizedResult = normalizeTicket(resultTicket)
+  const normalizedSelected = normalizeTicket(selectedTicket)
+
+  return (
+    <StaffPage
+      title="Check-in thủ công"
+      description="Tìm vé bằng mã vé, tên, email hoặc số điện thoại người mua."
+    >
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <ManualSearchPanel
+          form={manualForm}
+          onChange={updateManualField}
+          onSubmit={handleManualSearch}
+          state={searchState}
+          message={searchMessage}
+          results={searchResults}
+          selectedTicket={selectedTicket}
+          onSelectTicket={setSelectedTicket}
+          onCheckIn={handleManualCheckIn}
+          checkInState={checkInState}
+        />
+
+        <aside className="space-y-5">
+          <ResultPanel ticket={normalizedResult} />
+          <SelectedTicketPanel ticket={normalizedSelected} onCheckIn={() => handleManualCheckIn()} checking={checkInState === 'checking'} />
+        </aside>
+      </div>
+    </StaffPage>
+  )
+}
+
+function ManualSearchPanel({
+  form,
+  onChange,
+  onSubmit,
+  state,
+  message,
+  results,
+  selectedTicket,
+  onSelectTicket,
+  onCheckIn,
+  checkInState,
+}) {
+  return (
+    <StaffPanel>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase text-muted">Check-in thủ công</p>
+          <h3 className="mt-1 text-lg font-extrabold text-content">Tìm vé bằng thông tin vé hoặc người mua</h3>
+        </div>
+      </div>
+
+      <form className="mt-5 grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
+        <ManualInput label="Mã vé" value={form.ticketCode} onChange={(value) => onChange('ticketCode', value)} />
+        <ManualInput label="Tên người mua" value={form.buyerName} onChange={(value) => onChange('buyerName', value)} />
+        <ManualInput label="Email người mua" value={form.buyerEmail} onChange={(value) => onChange('buyerEmail', value)} />
+        <ManualInput label="Số điện thoại" value={form.buyerPhone} onChange={(value) => onChange('buyerPhone', value)} />
+        <div className="md:col-span-4 flex justify-end">
+          <button className="admin-primary" type="submit" disabled={state === 'loading'}>
+            {state === 'loading' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+            Tìm vé
+          </button>
+        </div>
+      </form>
+
+      {message && (
+        <div className="mt-4 rounded-xl border border-border-soft/30 bg-panel-soft/40 p-3 text-sm text-content">
+          {message}
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div className="mt-5 space-y-3">
+          {results.map((ticket) => {
+            const normalized = normalizeTicket(ticket)
+            const selected = selectedTicket?.id === ticket.id
+
+            return (
+              <button
+                key={ticket.id}
+                type="button"
+                onClick={() => onSelectTicket(ticket)}
+                className={`w-full rounded-xl border p-4 text-left transition ${
+                  selected
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border-soft/20 bg-panel-soft/30 hover:border-primary/50'
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-content">{normalized.buyerName}</p>
+                    <p className="mt-1 text-sm text-subtle">
+                      {normalized.ticketCode} - {normalized.ticketType}
+                    </p>
+                    <p className="mt-1 text-xs text-subtle">{normalized.eventName}</p>
+                  </div>
+                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(normalized.status)}`}>
+                    {normalized.status}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+
+          {selectedTicket && (
+            <div className="flex justify-end">
+              <button className="admin-primary" onClick={() => onCheckIn(selectedTicket)} disabled={checkInState === 'checking'}>
+                {checkInState === 'checking' ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
+                Xác nhận check-in
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </StaffPanel>
+  )
+}
+
+function ManualInput({ label, value, onChange }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold uppercase text-muted">{label}</span>
+      <input
+        className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition placeholder:text-muted focus:border-primary"
+        placeholder={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  )
+}
+
+function ResultPanel({ ticket }) {
+  if (!ticket) {
+    return (
+      <StaffPanel className="text-center">
+        <TicketCheck className="mx-auto size-14 text-muted" />
+        <h3 className="mt-4 text-lg font-extrabold text-content">Kết quả check-in</h3>
+        <p className="mt-2 text-sm text-subtle">Thông tin vé đã check-in thành công sẽ hiển thị tại đây.</p>
+      </StaffPanel>
+    )
+  }
+
+  return (
+    <StaffPanel>
+      <div className="flex items-start gap-3">
+        <CheckCircle2 className="mt-1 size-6 shrink-0 text-success" />
+        <div>
+          <p className="text-xs font-bold uppercase text-success">Check-in thành công</p>
+          <h3 className="mt-1 text-lg font-extrabold text-content">{ticket.ticketCode}</h3>
+        </div>
+      </div>
+      <div className="mt-5 space-y-3 text-sm">
+        <InfoRow label="Sự kiện" value={ticket.eventName} />
+        <InfoRow label="Người mua" value={ticket.buyerName} />
+        <InfoRow label="Email" value={ticket.buyerEmail} />
+        <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
+        <InfoRow label="Hạng vé" value={ticket.ticketType} />
+        <InfoRow label="Trạng thái" value="USED" strong />
+        <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} />
+        <InfoRow label="Check-in bởi" value={ticket.checkedInBy} />
+      </div>
+    </StaffPanel>
+  )
+}
+
+function SelectedTicketPanel({ ticket, onCheckIn, checking }) {
+  if (!ticket) {
+    return (
+      <StaffPanel>
+        <div className="flex gap-3">
+          <ShieldAlert className="mt-1 size-5 shrink-0 text-warning" />
+          <p className="text-sm text-subtle">
+            Kết quả tìm kiếm thủ công chỉ hiển thị vé thuộc sự kiện bạn được phân công.
+          </p>
+        </div>
+      </StaffPanel>
+    )
+  }
+
+  return (
+    <StaffPanel>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase text-muted">Vé đang chọn</p>
+          <h3 className="mt-1 font-extrabold text-content">{ticket.ticketCode}</h3>
+        </div>
+        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(ticket.status)}`}>
+          {ticket.status}
+        </span>
+      </div>
+      <div className="mt-4 space-y-3 text-sm">
+        <InfoRow label="Sự kiện" value={ticket.eventName} />
+        <InfoRow label="Người mua" value={ticket.buyerName} />
+        <InfoRow label="Email" value={ticket.buyerEmail} />
+        <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
+        <InfoRow label="Hạng vé" value={ticket.ticketType} />
+      </div>
+      <button className="admin-primary mt-5 w-full" onClick={onCheckIn} disabled={checking}>
+        {checking ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
+        Xác nhận check-in
+      </button>
+    </StaffPanel>
+  )
+}
+
+function InfoRow({ label, value, strong = false }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-border-soft/20 pb-2 last:border-0 last:pb-0">
+      <span className="text-subtle">{label}</span>
+      <span className={`max-w-[58%] text-right ${strong ? 'font-extrabold text-success' : 'font-semibold text-content'}`}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+export function CameraDeniedPage() {
+  return <CameraDeniedContent onRetry={() => window.location.assign('/staff/qr-check-in')} />
 }

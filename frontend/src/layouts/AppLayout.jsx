@@ -9,12 +9,12 @@ import {
   markNotificationRead,
 } from '@/services/notifications.js'
 import { clearAuthSession, getAuthToken, getStoredUser, isAuthenticated } from '@/lib/auth.js'
+import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
 
 const centerNavItems = [
   ['Sự kiện', '/events'],
   ['Vé của tôi', '/my-tickets'],
   ['Phản hồi', '/feedback'],
-  ['ChatBox', '/ai-faq'],
 ]
 
 const footerSections = [
@@ -70,6 +70,7 @@ export function AppLayout() {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const navRef = useRef(null)
   const navRefs = useRef({})
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, visible: false })
   const activeNavPath = centerNavItems.find(([, to]) => pathname === to || pathname.startsWith(`${to}/`))?.[1]
@@ -123,22 +124,35 @@ export function AppLayout() {
 
   useLayoutEffect(() => {
     const updateIndicator = () => {
+      const navNode = navRef.current
       const activeNode = activeNavPath ? navRefs.current[activeNavPath] : null
-      if (!activeNode) {
+      if (!navNode || !activeNode) {
+        setNavIndicator((current) => ({ ...current, visible: false }))
+        return
+      }
+
+      const navRect = navNode.getBoundingClientRect()
+      const activeRect = activeNode.getBoundingClientRect()
+      const width = Math.max(activeRect.width - 24, 0)
+      if (!navRect.width || !activeRect.width || !width) {
         setNavIndicator((current) => ({ ...current, visible: false }))
         return
       }
 
       setNavIndicator({
-        left: activeNode.offsetLeft + 12,
-        width: Math.max(activeNode.offsetWidth - 24, 0),
+        left: activeRect.left - navRect.left + 12,
+        width,
         visible: true,
       })
     }
 
-    updateIndicator()
+    const frame = window.requestAnimationFrame(updateIndicator)
+    document.fonts?.ready.then(updateIndicator).catch(() => undefined)
     window.addEventListener('resize', updateIndicator)
-    return () => window.removeEventListener('resize', updateIndicator)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updateIndicator)
+    }
   }, [activeNavPath])
 
   useEffect(() => {
@@ -173,7 +187,7 @@ export function AppLayout() {
             <img src={logoSrc} alt="EventHub" className="h-10 w-[176px] object-cover object-center mix-blend-screen" />
           </NavLink>
 
-          <nav className="relative hidden items-center justify-center gap-1 md:flex">
+          <nav ref={navRef} className="relative hidden items-center justify-center gap-1 md:flex">
             <span
               className="absolute bottom-0 h-0.5 rounded-full bg-primary transition-all duration-300 ease-out"
               style={{
@@ -354,6 +368,7 @@ export function AppLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
+      <AiChatWidget />
       <footer className="border-t border-primary/15 bg-[#081126]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
