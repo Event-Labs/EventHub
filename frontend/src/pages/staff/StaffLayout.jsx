@@ -1,4 +1,4 @@
-import { BarChart3, CalendarCheck, ClipboardList, LayoutDashboard, QrCode, UserCircle, UserPlus } from 'lucide-react'
+import { BarChart3, CalendarCheck, ClipboardList, Home, LayoutDashboard, QrCode, UserCircle, UserPlus } from 'lucide-react'
 import { getStoredUser, getUserRoles } from '@/lib/auth.js'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { Avatar } from './StaffComponents.jsx'
@@ -25,14 +25,16 @@ const navSections = [
   },
 ]
 
-const bottomItems = [
-  { label: 'Hồ sơ', to: '/staff/profile', icon: UserCircle },
-]
-
 export function StaffLayout() {
   const user = parseStoredUser()
   const roles = getUserRoles(user)
   const isAllowed = roles.some((role) => ['staff', 'admin', 'super_admin'].includes(role))
+  const bottomItems = [
+    ...(roles.includes('customer')
+      ? [{ label: 'Trang chủ', to: '/', icon: Home, end: true }]
+      : []),
+    { label: 'Hồ sơ', to: '/staff/profile', icon: UserCircle },
+  ]
 
   return (
     <RolePortalLayout
