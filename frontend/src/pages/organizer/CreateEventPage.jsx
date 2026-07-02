@@ -12,6 +12,7 @@ import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { assignZones, getSeatMap } from '@/services/organizerSeatMaps.js'
 import { SeatMapPreview } from './SeatMapEditor.jsx'
 import { uploadEventBanner, uploadEventThumbnail } from '@/services/uploads.js'
+import RichTextEditor from '@/components/RichTextEditor.jsx'
 
 const STEP_LABELS = [
   'Thông tin sự kiện',
@@ -28,11 +29,16 @@ const INITIAL_FORM = {
   format: 'OFFLINE',
   visibility: 'PUBLIC',
   short_description: '',
-  description: '',
+  description: `<p><strong>[Tóm tắt ngắn gọn về sự kiện:</strong> Nội dung chính của sự kiện, điểm đặc sắc nhất và lý do khiến người tham gia không nên bỏ lỡ]</p><br/><p><strong>Chi tiết sự kiện:</strong></p><ul><li>Chương trình chính: [Liệt kê những hoạt động nổi bật trong sự kiện: các phần trình diễn, khách mời đặc biệt, lịch trình các tiết mục cụ thể nếu có.]</li><li>Khách mời: [Thông tin về các khách mời đặc biệt, nghệ sĩ, diễn giả sẽ tham gia sự kiện. Có thể bao gồm phần mô tả ngắn gọn về họ và những gì họ sẽ mang lại cho sự kiện.]</li><li>Trải nghiệm đặc biệt: [Nếu có các hoạt động đặc biệt khác như workshop, khu trải nghiệm, photo booth, khu vực check-in hay các phần quà/ưu đãi dành riêng cho người tham dự.]</li></ul><br/><p><strong>Điều khoản và điều kiện:</strong></p><p>[TnC] sự kiện</p><p>Lưu ý về điều khoản trẻ em</p><p>Lưu ý về điều khoản VAT</p>`,
   thumbnail_url: '',
   banner_url: '',
   sessions: [],
   ticketTypes: [],
+  seating_rules: {
+    require_adjacent_seats: false,
+    require_same_row: false,
+    disallow_single_seat_left: false,
+  },
   refund_policy: { allow_refunds: false, deadline_days: 7 },
   additional_terms: '',
 }
@@ -88,13 +94,12 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
               className={`flex flex-col items-center gap-2 bg-background px-2 ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
             >
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md transition-all ${
-                  isActive
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md transition-all ${isActive
+                  ? 'bg-tertiary text-white'
+                  : isCompleted
                     ? 'bg-tertiary text-white'
-                    : isCompleted
-                      ? 'bg-tertiary text-white'
-                      : 'bg-panel-soft text-subtle'
-                }`}
+                    : 'bg-panel-soft text-subtle'
+                  }`}
               >
                 {isCompleted && !isActive ? (
                   <Icon name="check" className="text-[20px]" />
@@ -103,9 +108,8 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
                 )}
               </div>
               <span
-                className={`font-medium text-[13px] leading-[18px] text-center max-w-[120px] ${
-                  isActive || isCompleted ? 'text-primary font-bold' : 'text-subtle'
-                }`}
+                className={`font-medium text-[13px] leading-[18px] text-center max-w-[120px] ${isActive || isCompleted ? 'text-primary font-bold' : 'text-subtle'
+                  }`}
               >
                 {label}
               </span>
@@ -148,7 +152,7 @@ function Step1EventInfo({
               <label className="block text-[13px] font-medium mb-2 text-subtle">Tên sự kiện*</label>
               <input
                 className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 focus:border-tertiary outline-none transition"
-                placeholder="e.g. Global Tech Summit 2024"
+                placeholder="Ví dụ: Hội nghị Công nghệ Toàn cầu 2024"
                 value={formData.title}
                 onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
               />
@@ -191,7 +195,7 @@ function Step1EventInfo({
                   ))}
                   <input
                     className="border-none bg-transparent outline-none p-1 text-sm flex-1 min-w-[80px] text-content placeholder:text-muted"
-                    placeholder="Add tag..."
+                    placeholder="Thêm tag..."
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -216,11 +220,10 @@ function Step1EventInfo({
                     key={opt.value}
                     type="button"
                     onClick={() => setFormData((p) => ({ ...p, format: opt.value }))}
-                    className={`p-4 border-2 rounded-xl flex flex-col items-center text-center gap-2 transition-all ${
-                      formData.format === opt.value
-                        ? 'border-tertiary bg-tertiary/10'
-                        : 'border-border-soft/40 hover:border-tertiary/50'
-                    }`}
+                    className={`p-4 border-2 rounded-xl flex flex-col items-center text-center gap-2 transition-all ${formData.format === opt.value
+                      ? 'border-tertiary bg-tertiary/10'
+                      : 'border-border-soft/40 hover:border-tertiary/50'
+                      }`}
                   >
                     <Icon
                       name={opt.icon}
@@ -278,7 +281,7 @@ function Step1EventInfo({
               </div>
               <textarea
                 className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none resize-none placeholder:text-muted"
-                placeholder="Briefly explain what your event is about..."
+                placeholder="Tóm tắt ngắn gọn về sự kiện của bạn..."
                 rows={2}
                 maxLength={150}
                 value={formData.short_description}
@@ -286,13 +289,10 @@ function Step1EventInfo({
               />
             </div>
             <div>
-              <label className="block text-[13px] font-medium mb-2 text-subtle">Mô tả chi tiết*</label>
-              <textarea
-                className="w-full px-4 py-4 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none resize-y placeholder:text-muted"
-                placeholder="Write the full details of your event..."
-                rows={6}
+              <label className="block text-[13px] font-medium mb-2 text-subtle">* Thông tin sự kiện</label>
+              <RichTextEditor
                 value={formData.description}
-                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                onChange={(val) => setFormData((p) => ({ ...p, description: val }))}
               />
             </div>
           </div>
@@ -312,8 +312,8 @@ function Step1EventInfo({
                 ) : (
                   <>
                     <Icon name="cloud_upload" className="text-muted mb-2" style={{ fontSize: 32 }} />
-                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingThumb ? 'Uploading...' : 'Click to Upload'}</p>
-                    <p className="text-[10px] text-muted">Recommended: 1080x1080px</p>
+                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingThumb ? 'Đang tải lên...' : 'Nhấn để tải lên'}</p>
+                    <p className="text-[10px] text-muted">Khuyên dùng: 1080x1080px</p>
                   </>
                 )}
                 <input
@@ -333,8 +333,8 @@ function Step1EventInfo({
                 ) : (
                   <>
                     <Icon name="landscape" className="text-muted mb-2" style={{ fontSize: 40 }} />
-                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingBanner ? 'Uploading...' : 'Drag and drop or click to browse'}</p>
-                    <p className="text-[10px] text-muted">Recommended: 1920x1080px. JPG, PNG (Max 5MB)</p>
+                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingBanner ? 'Đang tải lên...' : 'Kéo thả hoặc nhấn để chọn file'}</p>
+                    <p className="text-[10px] text-muted">Khuyên dùng: 1920x1080px. JPG, PNG (Tối đa 5MB)</p>
                   </>
                 )}
                 <input
@@ -368,13 +368,13 @@ function Step1EventInfo({
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h4 className={`text-[20px] font-semibold leading-tight ${formData.title ? 'text-content' : 'text-muted italic'}`}>
-                  {formData.title || 'Untitled Event'}
+                  {formData.title || 'Sự kiện không tiêu đề'}
                 </h4>
                 <p className="text-xs text-muted mt-1 italic">
-                  {categories.find((c) => c.id === formData.category_id)?.name || 'Category not selected'}
+                  {categories.find((c) => c.id === formData.category_id)?.name || 'Chưa chọn danh mục'}
                 </p>
               </div>
-              <span className="px-2 py-1 bg-panel-soft text-subtle rounded text-xs font-semibold border border-border-soft/30">Draft</span>
+              <span className="px-2 py-1 bg-panel-soft text-subtle rounded text-xs font-semibold border border-border-soft/30">Bản nháp</span>
             </div>
             <div className="flex items-center gap-2 mb-2">
               <Icon name="location_on" className="text-tertiary text-[18px]" />
@@ -610,13 +610,22 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
 
   useEffect(() => {
     if (!activeSession?.venue_id) return
+    let cancelled = false
+    setSeatMapOptions((prev) => {
+      if (prev[activeSession.venue_id]) return prev
+      return prev
+    })
     if (seatMapOptions[activeSession.venue_id]) return
     getVenueSeatMaps(activeSession.venue_id)
       .then((maps) => {
-        setSeatMapOptions((prev) => ({ ...prev, [activeSession.venue_id]: maps }))
+        if (cancelled) return
+        setSeatMapOptions((prev) => (prev[activeSession.venue_id] ? prev : { ...prev, [activeSession.venue_id]: maps }))
       })
       .catch(console.error)
-  }, [activeSession?.venue_id, seatMapOptions])
+    return () => {
+      cancelled = true
+    }
+  }, [activeSession?.venue_id])
 
   useEffect(() => {
     if (!activeSession?.seat_map_id) {
@@ -654,15 +663,15 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
             p.ticketTypes.filter((tt) => tt.session_key === sessionKey).length
               ? []
               : [
-                  {
-                    clientKey: newClientKey(),
-                    session_key: sessionKey,
-                    name: '',
-                    price: 0,
-                    quantity: 1,
-                    is_seated: false,
-                  },
-                ],
+                {
+                  clientKey: newClientKey(),
+                  session_key: sessionKey,
+                  name: '',
+                  price: 0,
+                  quantity: 1,
+                  is_seated: false,
+                },
+              ],
           ),
       }))
     } else {
@@ -678,10 +687,14 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
     try {
       const sm = await getSeatMap(seatMapId)
       setLoadedSeatMap(sm)
+      const countsByZoneId = (sm.seats || []).reduce((acc, s) => {
+        if (s.is_disabled) return acc
+        if (!s.zone_id) return acc
+        acc[s.zone_id] = (acc[s.zone_id] || 0) + 1
+        return acc
+      }, {})
       const newTickets = (sm.zones || []).map((zone) => {
-        const seatCount = (sm.seats || []).filter(
-          (s) => s.zone_id === zone.id && !s.is_disabled,
-        ).length
+        const seatCount = countsByZoneId[zone.id] || 0
         const clientKey = newClientKey()
         return {
           clientKey,
@@ -762,11 +775,10 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 key={s.id || s.clientKey}
                 type="button"
                 onClick={() => setActiveTab(i)}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                  activeTab === i
-                    ? 'border-tertiary bg-tertiary/10 text-primary'
-                    : 'border-border-soft/40 text-subtle hover:border-tertiary/50'
-                }`}
+                className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${activeTab === i
+                  ? 'border-tertiary bg-tertiary/10 text-primary'
+                  : 'border-border-soft/40 text-subtle hover:border-tertiary/50'
+                  }`}
               >
                 {s.session_name || `Session ${i + 1}`}
               </button>
@@ -780,34 +792,70 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
             <button
               type="button"
               onClick={() => setSeatingType('GENERAL')}
-              className={`rounded-xl border-2 p-5 text-left transition ${
-                seatingType === 'GENERAL'
-                  ? 'border-tertiary bg-tertiary/10'
-                  : 'border-border-soft/40 hover:border-tertiary/50'
-              }`}
+              className={`rounded-xl border-2 p-5 text-left transition ${seatingType === 'GENERAL'
+                ? 'border-tertiary bg-tertiary/10'
+                : 'border-border-soft/40 hover:border-tertiary/50'
+                }`}
             >
               <span className="text-2xl">🎟</span>
               <p className="mt-2 font-bold text-content">Không chỗ ngồi</p>
-              <p className="text-sm text-subtle">General Admission</p>
+              <p className="text-sm text-subtle">Vé phổ thông / Không chọn chỗ</p>
             </button>
             <button
               type="button"
               onClick={() => setSeatingType('ASSIGNED')}
-              className={`rounded-xl border-2 p-5 text-left transition ${
-                seatingType === 'ASSIGNED'
-                  ? 'border-tertiary bg-tertiary/10'
-                  : 'border-border-soft/40 hover:border-tertiary/50'
-              }`}
+              className={`rounded-xl border-2 p-5 text-left transition ${seatingType === 'ASSIGNED'
+                ? 'border-tertiary bg-tertiary/10'
+                : 'border-border-soft/40 hover:border-tertiary/50'
+                }`}
             >
               <span className="text-2xl">💺</span>
               <p className="mt-2 font-bold text-content">Có chỗ ngồi</p>
-              <p className="text-sm text-subtle">Có chỗ ngồi</p>
+              <p className="text-sm text-subtle">Chọn chỗ ngồi trên sơ đồ ghế</p>
             </button>
           </div>
         </section>
 
         {seatingType === 'ASSIGNED' && (
           <>
+            <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+              <h2 className="mb-2 text-[20px] font-semibold text-content">Seating Rules</h2>
+              <p className="mb-4 text-sm text-subtle">
+                Cấu hình quy tắc khi người dùng chọn ghế (áp dụng cho các session có chỗ ngồi).
+              </p>
+              <div className="space-y-3">
+                {[
+                  {
+                    key: 'require_adjacent_seats',
+                    label: 'Bắt buộc chọn ghế liền kề',
+                  },
+                  { key: 'require_same_row', label: 'Bắt buộc cùng một hàng' },
+                  { key: 'disallow_single_seat_left', label: 'Không cho phép để lại ghế lẻ' },
+                ].map((rule) => (
+                  <label
+                    key={rule.key}
+                    className="flex items-center gap-3 rounded-lg border border-border-soft/30 bg-panel-soft/40 px-4 py-3 text-sm text-content hover:border-border-soft/60 transition cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-tertiary"
+                      checked={Boolean(formData.seating_rules?.[rule.key])}
+                      onChange={(e) =>
+                        setFormData((p) => ({
+                          ...p,
+                          seating_rules: {
+                            ...(p.seating_rules || {}),
+                            [rule.key]: e.target.checked,
+                          },
+                        }))
+                      }
+                    />
+                    <span className="font-semibold">{rule.label}</span>
+                  </label>
+                ))}
+              </div>
+            </section>
+
             <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
               <h2 className="mb-2 text-[20px] font-semibold text-content">Sơ đồ ghế</h2>
               <p className="mb-4 text-sm text-subtle">
@@ -821,7 +869,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 <option value="">-- Chọn sơ đồ --</option>
                 {venueSeatMaps.map((sm) => (
                   <option key={sm.id} value={sm.id}>
-                    {sm.name} ({sm.seat_count || 0} ghế, {sm.zone_count || 0} zones)
+                    {sm.name} ({sm.seat_count || 0} ghế, {sm.zone_count || 0} khu vực)
                   </option>
                 ))}
               </select>
@@ -842,14 +890,14 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
 
             {loadedSeatMap && (
               <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-                <h2 className="mb-4 text-[20px] font-semibold text-content">Gán zone → ticket type</h2>
+                <h2 className="mb-4 text-[20px] font-semibold text-content">Gán khu vực → Loại vé</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border-soft/30 text-left text-xs uppercase text-muted">
-                        <th className="py-2 pr-4">Zone</th>
+                        <th className="py-2 pr-4">Khu vực</th>
                         <th className="py-2 pr-4">Ghế</th>
-                        <th className="py-2 pr-4">Ticket Type</th>
+                        <th className="py-2 pr-4">Loại vé</th>
                         <th className="py-2">Giá (VND)</th>
                       </tr>
                     </thead>
@@ -881,17 +929,17 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                                     sessions: p.sessions.map((s, i) =>
                                       i === activeTab
                                         ? {
-                                            ...s,
-                                            zone_assignments: (s.zone_assignments || []).map((za) =>
-                                              za.zone_id === zone.id
-                                                ? {
-                                                    zone_id: zone.id,
-                                                    ticket_type_local_id:
-                                                      selected.clientKey || selected.id,
-                                                  }
-                                                : za,
-                                            ),
-                                          }
+                                          ...s,
+                                          zone_assignments: (s.zone_assignments || []).map((za) =>
+                                            za.zone_id === zone.id
+                                              ? {
+                                                zone_id: zone.id,
+                                                ticket_type_local_id:
+                                                  selected.clientKey || selected.id,
+                                              }
+                                              : za,
+                                          ),
+                                        }
                                         : s,
                                     ),
                                     ticketTypes: p.ticketTypes.map((tt) =>
@@ -945,8 +993,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-[20px] font-semibold text-content">Ticket Types</h2>
-                <p className="text-sm text-subtle">Define your pricing tiers and availability.</p>
+                <h2 className="text-[20px] font-semibold text-content">Cơ cấu loại vé</h2>
+                <p className="text-sm text-subtle">Thiết lập các mức giá vé và số lượng bán ra.</p>
               </div>
               <button
                 type="button"
@@ -954,7 +1002,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-primary hover:bg-tertiary/10 transition"
               >
                 <Icon name="add" />
-                Add Ticket Type
+                Thêm loại vé
               </button>
             </div>
             <div className="space-y-4">
@@ -1010,7 +1058,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
               })}
               {!sessionTickets.length && (
                 <p className="py-6 text-center text-sm text-subtle">
-                  Chưa có loại vé. Click &quot;Add Ticket Type&quot;.
+                  Chưa có loại vé. Nhấn &quot;Thêm loại vé&quot;.
                 </p>
               )}
             </div>
@@ -1344,6 +1392,7 @@ export function CreateEventPage() {
       banner_url: event.banner_url || '',
       sessions,
       ticketTypes,
+      seating_rules: event.seating_rules || INITIAL_FORM.seating_rules,
       refund_policy: event.refund_policy || { allow_refunds: false, deadline_days: 7 },
       additional_terms: event.additional_terms || '',
     })
@@ -1372,7 +1421,9 @@ export function CreateEventPage() {
       if (!formData.title.trim()) return 'Vui lòng nhập tên sự kiện.'
       if (!formData.category_id) return 'Vui lòng chọn danh mục.'
       if (!formData.short_description.trim()) return 'Vui lòng nhập mô tả ngắn.'
-      if (!formData.description.trim()) return 'Vui lòng nhập mô tả đầy đủ.'
+      const descriptionTextOnly = (formData.description || '').replace(/<[^>]*>/g, '').trim()
+      const hasImage = (formData.description || '').includes('<img')
+      if (!descriptionTextOnly && !hasImage) return 'Vui lòng nhập mô tả đầy đủ.'
       if (!formData.thumbnail_url) return 'Vui lòng tải ảnh thumbnail.'
       if (!formData.banner_url) return 'Vui lòng tải ảnh banner.'
     }
@@ -1431,7 +1482,7 @@ export function CreateEventPage() {
         quantity: tt.quantity,
         is_seated:
           formData.sessions.find((s) => (s.id || s.clientKey) === tt.session_key)?.seating_type ===
-          'ASSIGNED'
+            'ASSIGNED'
             ? true
             : tt.is_seated,
       }))
@@ -1557,6 +1608,7 @@ export function CreateEventPage() {
         await updateOrganizerEvent(eventId, {
           sessions: buildSessionsPayload(),
           ticket_types: buildTicketTypesPayload(),
+          seating_rules: formData.seating_rules,
         })
         await syncZoneAssignments()
         const finalEvent = await fetchOrganizerEvent(eventId)
@@ -1602,6 +1654,7 @@ export function CreateEventPage() {
         description: formData.description,
         thumbnail_url: formData.thumbnail_url,
         banner_url: formData.banner_url,
+        seating_rules: formData.seating_rules,
         refund_policy: formData.refund_policy,
         additional_terms: formData.additional_terms,
         sessions: buildSessionsPayload(),
@@ -1634,7 +1687,7 @@ export function CreateEventPage() {
       const errorCode = err.response?.data?.errorCode
       if (errorCode === 'PAYOS_NOT_CONFIGURED') {
         setPaymentSetupRequired(true)
-        setError('Payment setup required. Complete payment setup before publishing paid events.')
+        setError('Yêu cầu cài đặt thanh toán. Vui lòng hoàn thành thiết lập thanh toán trước khi công khai sự kiện có phí.')
         return
       }
       setError(err.response?.data?.message || 'Không thể gửi sự kiện.')
@@ -1650,11 +1703,11 @@ export function CreateEventPage() {
 
   const nextLabel = useMemo(() => {
     if (currentStep === 4) {
-      return isEditMode ? 'Tiếp: Xem lại & cập nhật' : 'Next: Review & Submit'
+      return isEditMode ? 'Tiếp: Xem lại & cập nhật' : 'Tiếp theo: Xem lại & Gửi duyệt'
     }
-    if (currentStep === 3) return 'Next: Policies & Settings'
-    if (currentStep === 2) return 'Next: Tickets & Seats'
-    return 'Next Step'
+    if (currentStep === 3) return 'Tiếp theo: Chính sách & Thiết lập'
+    if (currentStep === 2) return 'Tiếp theo: Vé & Sơ đồ ghế'
+    return 'Tiếp theo'
   }, [currentStep, isEditMode])
 
   if (initialLoading) {

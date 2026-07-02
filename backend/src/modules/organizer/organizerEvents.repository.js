@@ -184,10 +184,11 @@ class OrganizerEventsRepository {
         visibility,
         format,
         tags,
+        seating_rules,
         refund_policy,
         additional_terms
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', $11, $12, $13, $14, $15, $16)
       RETURNING *
       `,
       [
@@ -204,6 +205,7 @@ class OrganizerEventsRepository {
         data.visibility || 'PUBLIC',
         data.format || 'OFFLINE',
         data.tags || [],
+        data.seating_rules || {},
         data.refund_policy || {},
         data.additional_terms || null,
       ],
@@ -228,6 +230,7 @@ class OrganizerEventsRepository {
       'visibility',
       'format',
       'tags',
+      'seating_rules',
       'refund_policy',
       'additional_terms',
     ];
@@ -514,6 +517,20 @@ class OrganizerEventsRepository {
         WHERE ticket_type_id IN (
           SELECT id FROM ticket_types WHERE event_session_id = $1
         )
+        `,
+        [sessionId],
+      );
+
+      await client.query(
+        `
+        DELETE FROM session_seats ss
+        WHERE ss.event_session_id = $1
+          AND ss.seat_id NOT IN (
+            SELECT s.id
+            FROM event_sessions es
+            JOIN seats s ON s.seat_map_id = es.seat_map_id
+            WHERE es.id = $1
+          )
         `,
         [sessionId],
       );
