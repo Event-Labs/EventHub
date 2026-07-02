@@ -10,8 +10,8 @@ import {
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
-import { AIFaqPage } from '@/pages/customer/AIFaqPage.jsx'
 import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
+import { OrganizerBusinessEmailVerifyPage } from '@/pages/customer/OrganizerBusinessEmailVerifyPage.jsx'
 import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
@@ -377,12 +377,12 @@ export const router = createBrowserRouter([
         element: <NotificationsPage />,
       },
       {
-        path: 'ai-faq',
-        element: <AIFaqPage />,
-      },
-      {
         path: 'organizer-request',
         element: <OrganizerRequestPage />,
+      },
+      {
+        path: 'organizer-request/verify-email',
+        element: <OrganizerBusinessEmailVerifyPage />,
       },
       {
         path: '*',

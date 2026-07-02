@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   BarChart3,
   CalendarRange,
@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Users,
 } from 'lucide-react'
+import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import { fetchTicketSalesAnalytics } from '@/services/organizerOrders.js'
 import { OrganizerPage, OrganizerPanel, StatCard } from './OrganizerComponents.jsx'
@@ -44,6 +45,19 @@ function OccupancyBadge({ rate }) {
 }
 
 function BarChartSimple({ data, height = 160 }) {
+  const containerRef = useRef(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  useEffect(() => {
+    if (!containerRef.current) return undefined
+
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerWidth(Math.floor(entry.contentRect.width))
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
   if (!data || data.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-subtle">
@@ -55,10 +69,10 @@ function BarChartSimple({ data, height = 160 }) {
   const maxVal = Math.max(...data.map((d) => Number(d.tickets_sold)), 1)
   const gap = Math.max(Math.floor(600 / data.length), 8)
   const barWidth = Math.max(gap - 4, 4)
-  const svgWidth = data.length * gap + 10
+  const svgWidth = Math.max(data.length * gap + 10, containerWidth || 0)
 
   return (
-    <div className="overflow-x-auto">
+    <div ref={containerRef} className="w-full overflow-x-auto">
       <svg width={svgWidth} height={height + 30} className="block">
         {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
           <line key={pct} x1={0} x2={svgWidth} y1={height - pct * height} y2={height - pct * height} stroke="rgba(43,92,146,0.2)" strokeWidth={1} />
@@ -90,23 +104,27 @@ function BarChartSimple({ data, height = 160 }) {
   )
 }
 
-// ─── Preset config ────────────────────────────────────────────────────────────
-
-const PRESETS = [
-  { label: '7 ngày',  days: 7 },
-  { label: '30 ngày', days: 30 },
-  { label: '90 ngày', days: 90 },
-]
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerTicketSalesPage() {
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState('')
-  const [preset, setPreset] = useState(30)
+  const [datePreset, setDatePreset] = useState('last30')
+  const defaultRange = getDateRange('last30')
+  const [customFrom, setCustomFrom] = useState(defaultRange.fromInput)
+  const [customTo, setCustomTo] = useState(defaultRange.toInput)
+  const [comparison, setComparison] = useState({
+    enabled: false,
+    mode: 'previousPeriod',
+    from: '',
+    to: '',
+    label: '',
+    rangeLabel: '',
+  })
 
   const [analytics, setAnalytics] = useState(null)
+  const [comparisonAnalytics, setComparisonAnalytics] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -123,18 +141,32 @@ export function OrganizerTicketSalesPage() {
     setLoading(true)
     setError('')
     try {
-      const dateTo   = new Date().toISOString()
-      const dateFrom = new Date(Date.now() - preset * 24 * 60 * 60 * 1000).toISOString()
-      const params   = { dateFrom, dateTo }
+      const range = getDateRange(datePreset, { from: customFrom, to: customTo })
+      const params = { dateFrom: range.dateFrom, dateTo: range.dateTo }
       if (selectedEventId) params.eventId = selectedEventId
       const data = await fetchTicketSalesAnalytics(params)
       setAnalytics(data)
+      if (comparison.enabled) {
+        const comparisonRange = getDateRange('custom', {
+          from: comparison.from,
+          to: comparison.to,
+        })
+        const comparisonParams = {
+          dateFrom: comparisonRange.dateFrom,
+          dateTo: comparisonRange.dateTo,
+        }
+        if (selectedEventId) comparisonParams.eventId = selectedEventId
+        const comparisonData = await fetchTicketSalesAnalytics(comparisonParams)
+        setComparisonAnalytics(comparisonData)
+      } else {
+        setComparisonAnalytics(null)
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể tải dữ liệu phân tích bán vé.')
     } finally {
       setLoading(false)
     }
-  }, [selectedEventId, preset])
+  }, [comparison, selectedEventId, datePreset, customFrom, customTo])
 
   useEffect(() => { loadAnalytics() }, [loadAnalytics])
 
@@ -142,6 +174,9 @@ export function OrganizerTicketSalesPage() {
   const byTicketType = analytics?.by_ticket_type ?? []
   const byEvent      = analytics?.by_event ?? []
   const dailySales   = analytics?.daily_sales ?? []
+  const comparisonDailySales = comparisonAnalytics?.daily_sales ?? []
+  const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
+  const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
 
   return (
     <OrganizerPage
@@ -173,25 +208,20 @@ export function OrganizerTicketSalesPage() {
               )}
             </label>
 
-            <div>
-              <span className="block text-sm font-semibold text-subtle">Khoảng thời gian</span>
-              <div className="mt-2 flex gap-2">
-                {PRESETS.map((p) => (
-                  <button
-                    key={p.days}
-                    type="button"
-                    onClick={() => setPreset(p.days)}
-                    className={`h-10 rounded-xl border px-4 text-sm font-semibold transition ${
-                      preset === p.days
-                        ? 'border-primary bg-tertiary text-white'
-                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-content'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <DateRangeFilter
+              value={datePreset}
+              customFrom={customFrom}
+              customTo={customTo}
+              comparisonEnabled={comparison.enabled}
+              comparisonMode={comparison.mode}
+              comparisonFrom={comparison.from}
+              comparisonTo={comparison.to}
+              onPresetChange={setDatePreset}
+              onCustomFromChange={setCustomFrom}
+              onCustomToChange={setCustomTo}
+              onComparisonChange={setComparison}
+              compact
+            />
           </div>
 
           <button
@@ -263,16 +293,39 @@ export function OrganizerTicketSalesPage() {
               <h2 className="font-bold text-content">Lượng vé bán theo ngày</h2>
               <span className="ml-auto text-xs text-subtle">
                 <CalendarRange className="mr-1 inline size-3" />
-                {PRESETS.find((p) => p.days === preset)?.label}
+                {activeRangeLabel}
               </span>
             </div>
-            <BarChartSimple data={dailySales} />
-            {dailySales.length > 0 && (
-              <p className="mt-2 text-center text-xs text-subtle">
-                Tổng: {dailySales.reduce((s, d) => s + Number(d.tickets_sold), 0).toLocaleString('vi-VN')} vé
-                · {fmtCurrency(dailySales.reduce((s, d) => s + Number(d.revenue), 0))}
-              </p>
-            )}
+            <div className={comparison.enabled ? 'grid gap-4 xl:grid-cols-2' : ''}>
+              <div>
+                {comparison.enabled && (
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                    Kỳ hiện tại
+                  </p>
+                )}
+                <BarChartSimple data={dailySales} />
+                {dailySales.length > 0 && (
+                  <p className="mt-2 text-center text-xs text-subtle">
+                    Tổng: {dailySales.reduce((s, d) => s + Number(d.tickets_sold), 0).toLocaleString('vi-VN')} vé
+                    · {fmtCurrency(dailySales.reduce((s, d) => s + Number(d.revenue), 0))}
+                  </p>
+                )}
+              </div>
+              {comparison.enabled && (
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                    {comparison.label || 'Kỳ so sánh'}
+                  </p>
+                  <BarChartSimple data={comparisonDailySales} />
+                  {comparisonDailySales.length > 0 && (
+                    <p className="mt-2 text-center text-xs text-subtle">
+                      Tổng: {comparisonDailySales.reduce((s, d) => s + Number(d.tickets_sold), 0).toLocaleString('vi-VN')} vé
+                      · {fmtCurrency(comparisonDailySales.reduce((s, d) => s + Number(d.revenue), 0))}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </OrganizerPanel>
 
           <div className="mb-6 grid gap-6 xl:grid-cols-2">

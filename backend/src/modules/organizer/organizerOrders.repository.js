@@ -313,6 +313,87 @@ class OrganizerOrdersRepository {
     };
   }
 
+  async findAttendeesForExport(organizerId, eventId, { sessionId, ticketTypeId, status, search }) {
+    const params = [organizerId, eventId];
+    const conditions = [
+      'e.organizer_id = $1',
+      't.event_id = $2',
+    ];
+    let idx = 3;
+
+    if (sessionId) {
+      conditions.push(`t.event_session_id = $${idx}`);
+      params.push(sessionId);
+      idx += 1;
+    }
+
+    if (ticketTypeId) {
+      conditions.push(`t.ticket_type_id = $${idx}`);
+      params.push(ticketTypeId);
+      idx += 1;
+    }
+
+    if (status) {
+      conditions.push(`t.status = $${idx}`);
+      params.push(status.toUpperCase());
+      idx += 1;
+    }
+
+    if (search) {
+      conditions.push(
+        `(t.attendee_name ILIKE $${idx} OR t.attendee_email ILIKE $${idx} OR t.ticket_code ILIKE $${idx})`,
+      );
+      params.push(`%${search}%`);
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const result = await db.query(
+      `
+      SELECT
+        t.id,
+        t.ticket_code,
+        t.status,
+        t.attendee_name,
+        t.attendee_email,
+        t.checked_in_at,
+        t.created_at,
+        tt.id   AS ticket_type_id,
+        tt.name AS ticket_type_name,
+        tt.price AS ticket_type_price,
+        es.id           AS session_id,
+        es.session_name,
+        es.start_time   AS session_start_time,
+        es.end_time     AS session_end_time,
+        v.name          AS venue_name,
+        v.city          AS venue_city,
+        ss.id           AS session_seat_id,
+        s.row_label,
+        s.seat_number,
+        o.id            AS order_id,
+        o.order_code,
+        o.buyer_name,
+        o.buyer_email
+      FROM tickets t
+      JOIN order_items oi ON oi.id = t.order_item_id
+      JOIN orders o ON o.id = oi.order_id
+      JOIN events e ON e.id = t.event_id
+      JOIN event_sessions es ON es.id = t.event_session_id
+      JOIN venues v ON v.id = es.venue_id
+      JOIN ticket_types tt ON tt.id = t.ticket_type_id
+      LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+      LEFT JOIN seats s ON s.id = ss.seat_id
+      WHERE ${whereClause}
+        AND o.status = 'PAID'
+        AND e.deleted_at IS NULL
+      ORDER BY es.start_time ASC, t.attendee_name ASC
+      `,
+      params,
+    );
+
+    return result.rows;
+  }
+
   // ─── Check-in Dashboard ────────────────────────────────────────────────────
 
   /**

@@ -5,8 +5,25 @@ export async function fetchMyOrganizerRequest() {
   return response.data.data
 }
 
+export async function fetchMyOrganizerRequests() {
+  const response = await http.get('/organizer-requests/me/history')
+  return response.data.data
+}
+
 export async function submitOrganizerRequest(payload) {
   const response = await http.post('/organizer-requests/me', payload)
+  return response.data.data
+}
+
+export async function updateOrganizerRequest(id, payload) {
+  const response = await http.put(`/organizer-requests/me/${id}`, payload)
+  return response.data.data
+}
+
+export async function verifyOrganizerBusinessEmail(token) {
+  const response = await http.get('/organizer-requests/verify-business-email', {
+    params: { token },
+  })
   return response.data.data
 }
 

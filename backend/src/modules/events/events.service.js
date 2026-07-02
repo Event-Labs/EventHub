@@ -1,4 +1,4 @@
-const eventsRepository = require('./events.repository');
+﻿const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 
@@ -45,6 +45,13 @@ function mapCard(row) {
     is_favorited: Boolean(row.is_favorited),
     favorited_at: row.favorited_at,
   };
+}
+
+const MAX_TICKETS_PER_ORDER = Number(process.env.MAX_TICKETS_PER_ORDER || 4);
+const MAX_TICKETS_PER_EVENT_ACCOUNT = Number(process.env.MAX_TICKETS_PER_EVENT_ACCOUNT || 6);
+
+function requestedQuantity(items = []) {
+  return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 }
 
 function mapDetail(row) {
@@ -151,6 +158,7 @@ class EventsService {
           x_position: row.x_position,
           y_position: row.y_position,
           is_disabled: Boolean(row.is_disabled),
+          ticket_type_ids: row.ticket_type_ids || [],
           status: row.is_disabled ? 'BLOCKED' : holdExpired ? 'AVAILABLE' : row.status,
           held_until: row.held_until,
           seat_type: row.seat_type_name
@@ -161,7 +169,30 @@ class EventsService {
     };
   }
 
-  async checkTicketAvailability(payload) {
+  async checkTicketAvailability(payload, userId = null) {
+    const totalRequested = requestedQuantity(payload.items);
+    if (totalRequested > MAX_TICKETS_PER_ORDER) {
+      return {
+        available: false,
+        message: `B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`,
+        items: [],
+      };
+    }
+
+    if (userId) {
+      const purchasedQuantity = await eventsRepository.countPaidTicketsForEvent({
+        userId,
+        eventId: payload.event_id,
+      });
+      if (purchasedQuantity + totalRequested > MAX_TICKETS_PER_EVENT_ACCOUNT) {
+        return {
+          available: false,
+          message: `T\u00e0i kho\u1ea3n n\u00e0y ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${MAX_TICKETS_PER_EVENT_ACCOUNT} v\u00e9 cho s\u1ef1 ki\u1ec7n n\u00e0y.`,
+          items: [],
+        };
+      }
+    }
+
     const rows = await eventsRepository.checkTicketAvailability(payload.event_id, payload.items);
     const itemResults = rows.map((row) => {
       const issues = [];
@@ -173,7 +204,7 @@ class EventsService {
       const selectedSeats = row.selected_seats || [];
 
       if (!row.ticket_type_id || row.event_id !== payload.event_id) {
-        issues.push('Vé không thuộc sự kiện này.');
+        issues.push('V\u00e9 kh\u00f4ng thu\u1ed9c s\u1ef1 ki\u1ec7n n\u00e0y.')
       }
 
       if (
@@ -183,7 +214,7 @@ class EventsService {
         row.approval_status !== 'APPROVED' ||
         row.session_status !== 'UPCOMING'
       ) {
-        issues.push('Sự kiện hoặc suất diễn hiện không khả dụng.');
+        issues.push('S\u1ef1 ki\u1ec7n ho\u1eb7c su\u1ea5t di\u1ec5n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng.')
       }
 
       if ((eventEnd && eventEnd < now) || (sessionEnd && sessionEnd < now)) {
@@ -191,23 +222,23 @@ class EventsService {
       }
 
       if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
-        issues.push('Vé chưa mở bán hoặc đã hết thời gian bán.');
+        issues.push('V\u00e9 ch\u01b0a m\u1edf b\u00e1n ho\u1eb7c \u0111\u00e3 h\u1ebft th\u1eddi gian b\u00e1n.')
+      }
+      if (row.requested_quantity > Math.min(row.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)) {
+        issues.push(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${Math.min(row.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`);
       }
 
-      if (row.requested_quantity > (row.max_per_order || 10)) {
-        issues.push(`Bạn chỉ được phép mua tối đa ${row.max_per_order || 10} vé trên một đơn hàng.`);
-      }
-
-      if (row.is_seated) {
+      if (row.is_seated || selectedSeats.length > 0) {
         if (selectedSeats.length !== Number(row.requested_quantity)) {
-          issues.push('Số ghế đã chọn chưa khớp với số lượng vé.');
+          issues.push('S\u1ed1 gh\u1ebf \u0111\u00e3 ch\u1ecdn ch\u01b0a kh\u1edbp v\u1edbi s\u1ed1 l\u01b0\u1ee3ng v\u00e9.')
         }
 
         for (const seat of selectedSeats) {
           const heldStillValid =
             seat.status === 'HELD' &&
             seat.held_until &&
-            new Date(seat.held_until).getTime() > now;
+            new Date(seat.held_until).getTime() > now &&
+            String(seat.held_by) !== String(userId);
           const unavailable =
             seat.is_disabled ||
             seat.status === 'SOLD' ||
@@ -215,19 +246,19 @@ class EventsService {
             (seat.requires_mapping && !seat.has_mapping);
 
           if (unavailable) {
-            issues.push(`Ghế ${seat.label || ''} không còn khả dụng.`.trim());
+            issues.push(`Gh\u1ebf ${seat.label || ''} kh\u00f4ng c\u00f2n kh\u1ea3 d\u1ee5ng.`.trim())
           }
         }
       } else if (Number(row.requested_quantity) > Number(row.available_quantity || 0)) {
-        issues.push(`Vé "${row.name || 'đã chọn'}" chỉ còn ${Math.max(0, Number(row.available_quantity || 0))} vé.`);
+        issues.push(`V\u00e9 "${row.name || '\u0111\u00e3 ch\u1ecdn'}" ch\u1ec9 c\u00f2n ${Math.max(0, Number(row.available_quantity || 0))} v\u00e9.`);
       }
 
       return {
         ticket_type_id: row.ticket_type_id,
         name: row.name,
-        is_seated: Boolean(row.is_seated),
+        is_seated: Boolean(row.is_seated || selectedSeats.length > 0),
         requested_quantity: Number(row.requested_quantity || 0),
-        available_quantity: row.is_seated ? null : Math.max(0, Number(row.available_quantity || 0)),
+        available_quantity: row.is_seated || selectedSeats.length > 0 ? null : Math.max(0, Number(row.available_quantity || 0)),
         selected_seats: selectedSeats,
         available: issues.length === 0,
         message: issues[0] || null,
@@ -243,6 +274,26 @@ class EventsService {
     };
   }
 
+  async holdSeats(userId, payload) {
+    const totalRequested = requestedQuantity(payload.items);
+    if (totalRequested > MAX_TICKETS_PER_ORDER) {
+      throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+    }
+
+    const purchasedQuantity = await eventsRepository.countPaidTicketsForEvent({
+      userId,
+      eventId: payload.event_id,
+    });
+    if (purchasedQuantity + totalRequested > MAX_TICKETS_PER_EVENT_ACCOUNT) {
+      throw new AppError(`T\u00e0i kho\u1ea3n n\u00e0y ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${MAX_TICKETS_PER_EVENT_ACCOUNT} v\u00e9 cho s\u1ef1 ki\u1ec7n n\u00e0y.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+    }
+
+    return eventsRepository.holdSeats(userId, payload);
+  }
+
+  async releaseSeatHolds(userId, payload) {
+    return eventsRepository.releaseSeatHolds(userId, payload);
+  }
   async getFavoriteEvents(userId) {
     const rows = await eventsRepository.findFavoriteEvents(userId);
     return rows.map(mapCard);
@@ -278,3 +329,8 @@ class EventsService {
 }
 
 module.exports = new EventsService();
+
+
+
+
+

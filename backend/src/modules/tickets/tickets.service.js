@@ -91,6 +91,110 @@ function buildTicketPayload(row) {
   };
 }
 
+function buildStaffTicketPayload(row) {
+  return {
+    id: row.id,
+    ticket_code: row.ticket_code,
+    qr_code: row.qr_code || row.ticket_code,
+    status: row.status,
+    attendee_name: row.attendee_name || row.buyer_name,
+    attendee_email: row.attendee_email || row.buyer_email,
+    checked_in_at: row.checked_in_at,
+    checked_in_by: row.checked_in_by_id
+      ? {
+          id: row.checked_in_by_id,
+          name: row.checked_in_by_name,
+          email: row.checked_in_by_email,
+        }
+      : null,
+    event: {
+      id: row.event_id,
+      title: row.event_title,
+      slug: row.event_slug,
+      start_time: row.event_start_time,
+      end_time: row.event_end_time,
+    },
+    session: {
+      id: row.event_session_id,
+      name: row.session_name,
+      start_time: row.session_start_time,
+      end_time: row.session_end_time,
+    },
+    ticket_type: {
+      id: row.ticket_type_id,
+      name: row.ticket_type_name,
+      price: row.ticket_type_price ? Number(row.ticket_type_price) : undefined,
+    },
+    order: {
+      id: row.order_id,
+      order_code: row.order_code,
+      status: row.order_status,
+      buyer_name: row.buyer_name,
+      buyer_email: row.buyer_email,
+      buyer_phone: row.buyer_phone,
+    },
+    buyer: {
+      name: row.buyer_name || row.attendee_name,
+      email: row.buyer_email || row.attendee_email,
+      phone: row.buyer_phone,
+    },
+  };
+}
+
+function trimString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeSearchPayload(payload = {}) {
+  return {
+    ticketCode: trimString(payload.ticketCode || payload.ticket_code),
+    buyerName: trimString(payload.buyerName || payload.buyer_name),
+    buyerEmail: trimString(payload.buyerEmail || payload.buyer_email),
+    buyerPhone: trimString(payload.buyerPhone || payload.buyer_phone),
+  };
+}
+
+function extractQrTicketRef(payload = {}) {
+  const raw =
+    payload.ticketId ||
+    payload.ticket_id ||
+    payload.ticketCode ||
+    payload.ticket_code ||
+    payload.qrCode ||
+    payload.qr_code ||
+    payload.code ||
+    payload.raw ||
+    '';
+
+  if (!raw || typeof raw !== 'string') {
+    return '';
+  }
+
+  const value = raw.trim();
+  if (!value) return '';
+
+  try {
+    const parsed = JSON.parse(value);
+    return trimString(
+      parsed.ticket_id ||
+        parsed.ticketId ||
+        parsed.ticket_code ||
+        parsed.ticketCode ||
+        parsed.qr_code ||
+        parsed.qrCode ||
+        parsed.id,
+    );
+  } catch {
+    return value;
+  }
+}
+
+function invalidTicketMessage(status) {
+  if (status === 'USED') return 'Vé này đã được sử dụng.';
+  if (status === 'CANCELLED') return 'Vé đã bị hủy, hoàn tiền hoặc không còn hợp lệ.';
+  return 'Vé không hợp lệ để check-in.';
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -235,6 +339,65 @@ class TicketsService {
       contentType: 'image/svg+xml; charset=utf-8',
       content: buildDownloadSvg(ticket),
     };
+  }
+
+  async staffSearchTickets(staffId, payload = {}) {
+    const filters = normalizeSearchPayload(payload);
+    const hasAnyFilter = Object.values(filters).some(Boolean);
+
+    if (!hasAnyFilter) {
+      throw new AppError('Vui lòng nhập ít nhất một thông tin để tìm vé.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const rows = await ticketsRepository.searchStaffTickets(staffId, filters);
+    return {
+      count: rows.length,
+      tickets: rows.map(buildStaffTicketPayload),
+    };
+  }
+
+  async staffCheckInByQr(staffId, payload = {}) {
+    const ticketRef = extractQrTicketRef(payload);
+    if (!ticketRef) {
+      throw new AppError('QR không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const ticket = await ticketsRepository.findTicketAccessForStaff(ticketRef, staffId);
+    if (!ticket) {
+      throw new AppError('Không tìm thấy vé.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    if (!ticket.has_staff_access) {
+      throw new AppError('Staff không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    return this.staffCheckInTicket(staffId, ticket.id, 'QR');
+  }
+
+  async staffCheckInTicket(staffId, ticketId, method = 'MANUAL') {
+    const result = await ticketsRepository.checkInTicket(ticketId, staffId, method);
+
+    if (result.state === 'NOT_FOUND') {
+      throw new AppError('Không tìm thấy vé.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    if (result.state === 'FORBIDDEN') {
+      throw new AppError('Staff không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    if (result.state === 'INVALID_STATUS') {
+      throw new AppError(invalidTicketMessage(result.ticket?.status), 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    if (result.state === 'INVALID_ORDER') {
+      throw new AppError('Vé chưa được thanh toán hoặc đơn hàng không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    if (result.state === 'EXPIRED') {
+      throw new AppError('Vé đã hết hạn.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    return buildStaffTicketPayload(result.ticket);
   }
 }
 

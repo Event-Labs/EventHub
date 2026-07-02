@@ -9,6 +9,8 @@ router.use(
   authorize('ORGANIZER', 'organizer', 'ADMIN', 'admin', 'SUPER_ADMIN', 'super_admin'),
 );
 
+router.get('/me', organizerEventsController.getMe);
+router.patch('/me', organizerEventsController.updateMe);
 router.get('/venues', organizerEventsController.getVenues);
 router.post('/', organizerEventsController.createEvent);
 router.get('/', organizerEventsController.listEvents);

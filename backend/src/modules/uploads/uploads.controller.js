@@ -20,6 +20,24 @@ class UploadsController {
     }
   };
 
+  createOrganizerAvatarSignature = async (req, res, next) => {
+    try {
+      const data = uploadsService.createOrganizerAvatarSignature();
+      res.status(200).json(ApiResponse.success(data, 'Cloudinary upload signature for organizer avatar created'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  createOrganizerDocumentSignature = async (req, res, next) => {
+    try {
+      const data = uploadsService.createOrganizerDocumentSignature();
+      res.status(200).json(ApiResponse.success(data, 'Cloudinary upload signature for organizer document created'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   createPolicyPdfSignature = async (req, res, next) => {
     try {
       const data = uploadsService.createPolicyDocumentSignature();

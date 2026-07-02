@@ -37,11 +37,18 @@ const ticketAvailabilitySchema = z.object({
     .array(
       z.object({
         ticket_type_id: z.string().uuid(),
-        quantity: z.coerce.number().int().min(1).max(10),
+        quantity: z.coerce.number().int().min(1).max(4),
         session_seat_ids: z.array(z.string().uuid()).optional().default([]),
       }),
     )
     .min(1),
+});
+
+const seatHoldSchema = ticketAvailabilitySchema;
+
+const seatHoldReleaseSchema = z.object({
+  event_id: z.string().uuid(),
+  session_seat_ids: z.array(z.string().uuid()).optional().default([]),
 });
 
 module.exports = {
@@ -50,5 +57,10 @@ module.exports = {
   favoriteEventSchema,
   sessionSeatsSchema,
   sessionSeatsQuerySchema,
+  seatHoldReleaseSchema,
+  seatHoldSchema,
   ticketAvailabilitySchema,
 };
+
+
+

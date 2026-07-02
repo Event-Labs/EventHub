@@ -6,6 +6,8 @@ const router = express.Router();
 
 router.post('/cloudinary/event-image/signature', protect, uploadsController.createEventImageSignature);
 router.post('/cloudinary/avatar/signature', protect, uploadsController.createAvatarSignature);
+router.post('/cloudinary/organizer-avatar/signature', protect, uploadsController.createOrganizerAvatarSignature);
+router.post('/cloudinary/organizer-document/signature', protect, uploadsController.createOrganizerDocumentSignature);
 router.post('/cloudinary/policy-pdf/signature', protect, uploadsController.createPolicyPdfSignature);
 
 module.exports = router;
