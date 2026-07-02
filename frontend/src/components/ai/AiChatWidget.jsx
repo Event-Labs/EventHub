@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Bot, Loader2, MessageCircle, Send, ShieldCheck, User } from 'lucide-react'
+import { Loader2, MessageCircle, Send, ShieldCheck, User } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchAiChatMeta, sendAiChatMessage } from '@/services/aiChat.js'
 
@@ -19,9 +19,10 @@ const WELCOME_MESSAGE = {
 }
 
 const LAUNCHER_SIZE = 64
-const PANEL_WIDTH = 430
-const PANEL_HEIGHT = 660
+const PANEL_WIDTH = 360
+const PANEL_HEIGHT = 540
 const EDGE_PADDING = 16
+const LOGO_SRC = '/images/ava.png'
 
 function getDefaultLauncherPosition() {
   if (typeof window === 'undefined') return { x: 24, y: 24 }
@@ -223,7 +224,7 @@ export function AiChatWidget() {
     <>
       {visible && (
         <section
-          className={`fixed z-[70] flex max-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-[20px] border border-primary/20 bg-panel shadow-[0_28px_80px_rgba(3,8,24,0.48)] ${panelAnimationClass}`}
+          className={`fixed z-[70] flex max-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-2xl border border-primary/20 bg-panel shadow-[0_24px_60px_rgba(3,8,24,0.46)] ${panelAnimationClass}`}
           style={{
             left: panelPosition.left,
             top: panelPosition.top,
@@ -238,32 +239,30 @@ export function AiChatWidget() {
           aria-hidden={!open}
         >
           <div
-            className="flex cursor-grab items-center gap-3 border-b border-primary/15 bg-[#081126] px-4 py-3.5 active:cursor-grabbing"
+            className="flex cursor-grab items-center gap-2.5 border-b border-primary/15 bg-[#081126] px-3.5 py-3 active:cursor-grabbing"
             onPointerDown={startDrag}
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
           >
-            <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,var(--color-ai),var(--color-secondary))] text-white shadow-lg shadow-ai/25">
-              <Bot className="size-5" />
-            </div>
+            <EventHubLogoMark className="size-9 shadow-lg shadow-tertiary/20" />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-display text-base font-extrabold text-white">EventHub AI</p>
-              <p className="truncate text-xs font-semibold text-muted">
+              <p className="truncate font-display text-sm font-extrabold text-white">EventHub AI</p>
+              <p className="truncate text-[11px] font-semibold text-muted">
                 {chatMutation.isPending ? 'Đang trả lời...' : capabilities?.technique || 'Sẵn sàng hỗ trợ'}
               </p>
             </div>
           </div>
 
-          <div className="ai-chat-scroll min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(18,33,85,0.22),rgba(12,20,70,0.78))] px-4 py-4">
-            <div className="space-y-3.5">
+          <div className="ai-chat-scroll min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(18,33,85,0.22),rgba(12,20,70,0.78))] px-3 py-3">
+            <div className="space-y-3">
               {messages.map((msg, index) => (
                 <MessageBubble key={`${msg.role}-${index}`} message={msg} />
               ))}
               {chatMutation.isPending && (
-                <div className="flex items-center gap-2 text-sm font-semibold text-ai">
-                  <span className="grid size-8 place-items-center rounded-full bg-ai/15">
-                    <Loader2 className="size-4 animate-spin" />
+                <div className="flex items-center gap-2 text-xs font-semibold text-ai">
+                  <span className="grid size-7 place-items-center rounded-full bg-ai/15">
+                    <Loader2 className="size-3.5 animate-spin" />
                   </span>
                   EventHub AI đang soạn trả lời...
                 </div>
@@ -272,15 +271,15 @@ export function AiChatWidget() {
             </div>
           </div>
 
-          <div className="border-t border-primary/15 bg-[#081126] p-3.5">
+          <div className="border-t border-primary/15 bg-[#081126] p-3">
             {suggested.length > 0 && (
-              <div className="ai-chat-suggestion-scroll mb-3 flex gap-2 overflow-x-auto pb-1.5">
+              <div className="ai-chat-suggestion-scroll mb-2.5 flex gap-2 overflow-x-auto pb-1.5">
                 {suggested.slice(0, 4).map((item, index) => (
                   <button
                     key={item.question || index}
                     type="button"
                     onClick={() => sendMessage(item.question)}
-                    className="max-w-[260px] shrink-0 rounded-full border border-primary/25 bg-panel-soft px-3.5 py-2 text-left text-xs font-bold leading-4 text-subtle shadow-sm transition hover:border-ai/60 hover:bg-ai/10 hover:text-white"
+                    className="max-w-[190px] shrink-0 rounded-full border border-primary/25 bg-panel-soft px-2.5 py-1.5 text-left text-[10px] font-bold leading-3 text-subtle shadow-sm transition hover:border-ai/60 hover:bg-ai/10 hover:text-white"
                   >
                     {item.question}
                   </button>
@@ -288,17 +287,17 @@ export function AiChatWidget() {
               </div>
             )}
 
-            {error && <p className="mb-2 text-xs text-error">{error}</p>}
+            {error && <p className="mb-2 text-[11px] text-error">{error}</p>}
 
             <form
-              className="flex items-end gap-2 rounded-[18px] border border-primary/15 bg-panel-soft p-2"
+              className="flex items-end gap-2 rounded-2xl border border-primary/15 bg-panel-soft p-1.5"
               onSubmit={(event) => {
                 event.preventDefault()
                 sendMessage(input)
               }}
             >
               <textarea
-                className="max-h-28 min-h-10 flex-1 resize-none border-none bg-transparent px-2 py-2 text-sm leading-5 text-content outline-none placeholder:text-neutral"
+                className="max-h-20 min-h-8 flex-1 resize-none border-none bg-transparent px-2 py-1.5 text-[11px] leading-4 text-content outline-none placeholder:text-neutral"
                 placeholder="Hỏi về sự kiện, vé, đơn hàng, check-in..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -313,11 +312,11 @@ export function AiChatWidget() {
               <button
                 type="submit"
                 disabled={chatMutation.isPending || !input.trim()}
-                className="grid size-10 shrink-0 place-items-center rounded-full bg-ai text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-ai text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Gửi tin nhắn"
                 title="Gửi"
               >
-                <Send className="size-4" />
+                <Send className="size-3.5" />
               </button>
             </form>
           </div>
@@ -326,8 +325,8 @@ export function AiChatWidget() {
 
       <button
         type="button"
-        className={`fixed z-[71] grid size-16 place-items-center rounded-full bg-[linear-gradient(135deg,var(--color-ai),var(--color-secondary))] text-white shadow-[0_18px_45px_rgba(3,8,24,0.5)] transition hover:brightness-110 ${
-          dragging ? 'cursor-grabbing ring-4 ring-ai/30' : 'cursor-grab'
+        className={`fixed z-[71] grid size-16 place-items-center rounded-full bg-tertiary text-white shadow-[0_18px_45px_rgba(255,113,18,0.35)] transition hover:bg-orange-500 ${
+          dragging ? 'cursor-grabbing ring-4 ring-tertiary/30' : 'cursor-grab'
         }`}
         style={{ left: launcherPosition.x, top: launcherPosition.y, touchAction: 'none' }}
         onPointerDown={startDrag}
@@ -339,9 +338,24 @@ export function AiChatWidget() {
         title="EventHub AI Chatbox"
       >
         <MessageCircle className="size-7" />
-        {!open && <span className="absolute -right-1 -top-1 size-4 rounded-full border-2 border-panel bg-success" />}
+        {!open && <span className="absolute -right-1 -top-1 size-4 rounded-full border-2 border-panel bg-tertiary" />}
       </button>
     </>
+  )
+}
+
+function EventHubLogoMark({ className = 'size-8' }) {
+  return (
+    <div
+      className={`${className} grid shrink-0 place-items-center overflow-hidden rounded-full bg-surface ring-2 ring-tertiary/30`}
+      aria-hidden="true"
+    >
+      <img
+        src={LOGO_SRC}
+        alt=""
+        className="h-full w-full object-cover object-center mix-blend-screen"
+      />
+    </div>
   )
 }
 
@@ -350,27 +364,27 @@ function MessageBubble({ message }) {
   const isError = message.mode === 'error'
 
   return (
-    <div className={`flex items-end gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex items-end gap-1.5 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`grid size-8 shrink-0 place-items-center rounded-full shadow-sm ${
-          isUser ? 'bg-primary text-[#081126]' : isError ? 'bg-error/15 text-error' : 'bg-ai/20 text-ai'
+        className={`grid size-7 shrink-0 place-items-center rounded-full shadow-sm ${
+          isUser ? 'bg-primary text-[#081126]' : isError ? 'bg-error/15 text-error' : ''
         }`}
       >
-        {isUser ? <User className="size-4" /> : <Bot className="size-4" />}
+        {isUser ? <User className="size-3.5" /> : <EventHubLogoMark className="size-7" />}
       </div>
       <div
-        className={`max-w-[78%] px-3.5 py-2.5 text-sm leading-5 shadow-sm ${
+        className={`max-w-[80%] px-2.5 py-1.5 text-[11px] leading-4 shadow-sm ${
           isUser
-            ? 'rounded-[18px] rounded-br-md bg-primary text-[#081126]'
+            ? 'rounded-2xl rounded-br-md bg-primary text-[#081126]'
             : isError
-              ? 'rounded-[18px] rounded-bl-md border border-error/30 bg-error/10 text-error'
-              : 'rounded-[18px] rounded-bl-md bg-[#17245c] text-subtle'
+              ? 'rounded-2xl rounded-bl-md border border-error/30 bg-error/10 text-error'
+              : 'rounded-2xl rounded-bl-md bg-[#17245c] text-subtle'
         }`}
       >
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
 
         {!isUser && message.mode && message.mode !== 'system' && (
-          <div className="mt-2 space-y-2 border-t border-border-soft/60 pt-2 text-xs text-muted">
+          <div className="mt-2 space-y-1.5 border-t border-border-soft/60 pt-2 text-[11px] text-muted">
             <p className="inline-flex flex-wrap items-center gap-1">
               <ShieldCheck className="size-3" />
               {MODE_LABELS[message.mode] || message.mode}
