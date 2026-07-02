@@ -1,4 +1,4 @@
-const ApiResponse = require('../../core/response/ApiResponse');
+﻿const ApiResponse = require('../../core/response/ApiResponse');
 const eventsService = require('./events.service');
 const {
   eventIdentifierSchema,
@@ -6,6 +6,8 @@ const {
   listEventsSchema,
   sessionSeatsQuerySchema,
   sessionSeatsSchema,
+  seatHoldReleaseSchema,
+  seatHoldSchema,
   ticketAvailabilitySchema,
 } = require('./events.validation');
 
@@ -53,8 +55,28 @@ class EventsController {
   checkTicketAvailability = async (req, res, next) => {
     try {
       const payload = ticketAvailabilitySchema.parse(req.body);
-      const data = await eventsService.checkTicketAvailability(payload);
+      const data = await eventsService.checkTicketAvailability(payload, req.user.sub);
       res.status(200).json(ApiResponse.success(data, 'Ticket availability checked successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  holdSeats = async (req, res, next) => {
+    try {
+      const payload = seatHoldSchema.parse(req.body);
+      const data = await eventsService.holdSeats(req.user.sub, payload);
+      res.status(200).json(ApiResponse.success(data, 'Seats held successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  releaseSeatHolds = async (req, res, next) => {
+    try {
+      const payload = seatHoldReleaseSchema.parse(req.body);
+      const data = await eventsService.releaseSeatHolds(req.user.sub, payload);
+      res.status(200).json(ApiResponse.success(data, 'Seat holds released successfully'));
     } catch (err) {
       next(err);
     }
@@ -110,3 +132,5 @@ class EventsController {
 }
 
 module.exports = new EventsController();
+
+
