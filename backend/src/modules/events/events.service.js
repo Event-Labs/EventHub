@@ -1,6 +1,7 @@
-﻿const eventsRepository = require('./events.repository');
+const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const { normalizeRules, validateSelectedSeats } = require('./seatingRules');
 
 function toNumber(value) {
   if (value === null || value === undefined) return null;
@@ -58,6 +59,7 @@ function mapDetail(row) {
   return {
     ...mapCard(row),
     description: row.description,
+    seating_rules: normalizeRules(row.seating_rules),
     organizer: row.organizer,
     sessions: row.sessions || [],
     venues: Array.from(
@@ -164,6 +166,9 @@ class EventsService {
           seat_type: row.seat_type_name
             ? { name: row.seat_type_name, color: row.seat_type_color }
             : null,
+          zone: row.zone_id
+            ? { id: row.zone_id, name: row.zone_name, color: row.zone_color }
+            : null,
         };
       }),
     };
@@ -194,7 +199,8 @@ class EventsService {
     }
 
     const rows = await eventsRepository.checkTicketAvailability(payload.event_id, payload.items);
-    const itemResults = rows.map((row) => {
+    const itemResults = [];
+    for (const row of rows) {
       const issues = [];
       const now = Date.now();
       const saleStart = row.sale_start ? new Date(row.sale_start).getTime() : null;
@@ -249,11 +255,21 @@ class EventsService {
             issues.push(`Gh\u1ebf ${seat.label || ''} kh\u00f4ng c\u00f2n kh\u1ea3 d\u1ee5ng.`.trim())
           }
         }
+        if (!issues.length) {
+          const eligibleSeats = await eventsRepository.findEligibleSeatsForTicketType(row.ticket_type_id);
+          issues.push(
+            ...validateSelectedSeats({
+              rules: row.seating_rules,
+              selectedSeats,
+              eligibleSeats,
+            }),
+          );
+        }
       } else if (Number(row.requested_quantity) > Number(row.available_quantity || 0)) {
         issues.push(`V\u00e9 "${row.name || '\u0111\u00e3 ch\u1ecdn'}" ch\u1ec9 c\u00f2n ${Math.max(0, Number(row.available_quantity || 0))} v\u00e9.`);
       }
 
-      return {
+      itemResults.push({
         ticket_type_id: row.ticket_type_id,
         name: row.name,
         is_seated: Boolean(row.is_seated || selectedSeats.length > 0),
@@ -263,8 +279,8 @@ class EventsService {
         available: issues.length === 0,
         message: issues[0] || null,
         issues,
-      };
-    });
+      });
+    }
 
     const firstUnavailable = itemResults.find((item) => !item.available);
     return {
@@ -329,7 +345,6 @@ class EventsService {
 }
 
 module.exports = new EventsService();
-
 
 
 

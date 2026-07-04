@@ -42,6 +42,13 @@ function buildQuery(filters) {
   )
 }
 
+function isEventActiveOrUpcoming(event, now = Date.now()) {
+  const start = event.start_time ? new Date(event.start_time).getTime() : null
+  const end = event.end_time ? new Date(event.end_time).getTime() : start
+
+  return !end || end >= now
+}
+
 export function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
@@ -49,6 +56,7 @@ export function EventsPage() {
   const queryClient = useQueryClient()
   const filters = useMemo(() => readFilters(searchParams), [searchParams])
   const [draft, setDraft] = useState(filters)
+  const [timelineNow] = useState(() => Date.now())
 
   const queryParams = useMemo(() => buildQuery(filters), [filters])
   const eventsQuery = useQuery({
@@ -99,7 +107,7 @@ export function EventsPage() {
     favoriteMutation.mutate(event)
   }
 
-  const events = eventsQuery.data?.items || []
+  const events = useMemo(() => (eventsQuery.data?.items || []).filter((event) => isEventActiveOrUpcoming(event, timelineNow)), [eventsQuery.data?.items, timelineNow])
   const pagination = eventsQuery.data?.pagination
   const categories = categoriesQuery.data || []
 
@@ -209,7 +217,7 @@ export function EventsPage() {
       <section>
         <SectionHeader
           title="Danh sách sự kiện"
-          description={pagination ? `${pagination.total} sự kiện phù hợp` : 'Đang tải sự kiện'}
+          description={pagination ? `${events.length} sự kiện phù hợp` : 'Đang tải sự kiện'}
         />
 
         {eventsQuery.isLoading && (
@@ -287,3 +295,4 @@ function StatePanel({ message, tone = 'default' }) {
     </div>
   )
 }
+
