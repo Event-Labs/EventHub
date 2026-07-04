@@ -46,6 +46,16 @@ export async function checkTicketAvailability(payload) {
 }
 
 
+export async function holdSeats(payload) {
+  const response = await http.post('/events/availability/hold', payload)
+  return response.data.data
+}
+
+export async function releaseSeatHolds(payload) {
+  const response = await http.post('/events/availability/release', payload)
+  return response.data.data
+}
+
 export async function fetchFavoriteEvents() {
   const response = await http.get('/events/favorites/me')
   return response.data.data

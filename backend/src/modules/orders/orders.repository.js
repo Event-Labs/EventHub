@@ -3,6 +3,7 @@ const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
+const { validateSelectedSeats } = require('../events/seatingRules');
 
 const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
 const MAX_TICKETS_PER_ORDER = Number(process.env.MAX_TICKETS_PER_ORDER || 4);
@@ -119,7 +120,8 @@ class OrdersRepository {
           e.status AS event_status,
           e.visibility,
           e.approval_status,
-          e.deleted_at
+          e.deleted_at,
+          e.seating_rules
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
         JOIN events e ON e.id = es.event_id
@@ -331,6 +333,8 @@ class OrdersRepository {
               s.is_disabled,
               s.row_label,
               s.seat_number,
+              s.x_position,
+              s.y_position,
               tts.ticket_type_id AS mapped_ticket_type_id,
               EXISTS (
                 SELECT 1
@@ -362,6 +366,53 @@ class OrdersRepository {
             [item.ticket_type_id],
           );
           const requiresMapping = Boolean(hasSeatMapping.rows[0]?.has_mapping);
+
+          const eligibleSeatsResult = await client.query(
+            `
+            SELECT
+              ss.id AS session_seat_id,
+              CASE
+                WHEN EXISTS (
+                  SELECT 1
+                  FROM order_items oi_sold
+                  JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+                  LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+                  WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+                    AND o_sold.status = 'PAID'
+                    AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+                ) THEN 'SOLD'
+                WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
+                WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
+                ELSE ss.status
+              END AS status,
+              ss.held_until,
+              s.row_label,
+              s.seat_number,
+              s.x_position,
+              s.y_position,
+              s.is_disabled
+            FROM session_seats ss
+            JOIN seats s ON s.id = ss.seat_id
+            LEFT JOIN ticket_type_seats tts
+              ON tts.seat_id = s.id
+             AND tts.ticket_type_id = $1
+            WHERE ss.event_session_id = $2
+              AND (
+                NOT EXISTS (SELECT 1 FROM ticket_type_seats WHERE ticket_type_id = $1)
+                OR tts.ticket_type_id IS NOT NULL
+              )
+            ORDER BY s.row_label ASC, s.seat_number ASC
+            `,
+            [item.ticket_type_id, ticketType.event_session_id],
+          );
+          const seatingRuleIssues = validateSelectedSeats({
+            rules: ticketType.seating_rules,
+            selectedSeats: seatsResult.rows.map((seat) => ({ ...seat, session_seat_id: seat.id })),
+            eligibleSeats: eligibleSeatsResult.rows,
+          });
+          if (seatingRuleIssues.length) {
+            throw new AppError(seatingRuleIssues[0], 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          }
 
           for (const seat of seatsResult.rows) {
             const heldStillValid =
