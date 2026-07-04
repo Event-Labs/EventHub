@@ -83,6 +83,7 @@ function uniqueEvents(...groups) {
 export function HomePage() {
   const [keyword, setKeyword] = useState('')
   const [activeSlide, setActiveSlide] = useState(0)
+  const [timelineNow] = useState(() => Date.now())
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -139,30 +140,28 @@ export function HomePage() {
   )
   const categories = categoriesQuery.data || []
   const heroEvents = useMemo(() => {
-    const now = Date.now()
     return uniqueEvents(featuredEvents, upcomingEvents, timelineEvents)
-      .filter((event) => getEventTimeState(event, now) !== 'expired')
+      .filter((event) => getEventTimeState(event, timelineNow) !== 'expired')
       .slice(0, 10)
-  }, [featuredEvents, timelineEvents, upcomingEvents])
+  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
 
   const homeTimeline = useMemo(() => {
-    const now = Date.now()
     const events = uniqueEvents(timelineEvents, upcomingEvents, featuredEvents)
     return {
       ongoing: events
-        .filter((event) => getEventTimeState(event, now) === 'ongoing')
+        .filter((event) => getEventTimeState(event, timelineNow) === 'ongoing')
         .sort((a, b) => new Date(a.end_time || a.start_time || 0) - new Date(b.end_time || b.start_time || 0))
         .slice(0, 4),
       upcoming: events
-        .filter((event) => getEventTimeState(event, now) === 'upcoming')
+        .filter((event) => getEventTimeState(event, timelineNow) === 'upcoming')
         .sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0))
         .slice(0, 4),
       expired: events
-        .filter((event) => getEventTimeState(event, now) === 'expired')
+        .filter((event) => getEventTimeState(event, timelineNow) === 'expired')
         .sort((a, b) => new Date(b.end_time || b.start_time || 0) - new Date(a.end_time || a.start_time || 0))
         .slice(0, 4),
     }
-  }, [featuredEvents, timelineEvents, upcomingEvents])
+  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
 
   useEffect(() => {
     if (heroEvents.length < 2) return undefined
@@ -328,8 +327,8 @@ export function HomePage() {
               onFavoriteToggle={handleFavorite}
             />
             <TimelineEventSection
-              title="Sự kiện đã hết hạn"
-              emptyMessage="Chưa có sự kiện hết hạn"
+              title="Sự kiện đã kết thúc"
+              emptyMessage="Chưa có sự kiện đã kết thúc"
               events={homeTimeline.expired}
               favoriteBusy={favoriteMutation.isPending}
               onFavoriteToggle={handleFavorite}
@@ -409,7 +408,7 @@ function CinematicCarousel({ activeIndex, events, onSelect }) {
         style={{ transform: `translateX(calc(-22% + ${spotlightShift}px)) skewX(10deg) rotate(8deg)` }}
       />
       <div className="absolute inset-x-0 top-[205px] z-10 h-[340px] [transform-style:preserve-3d]">
-        {visibleEvents.map(({ event, offset, index }) => (
+        {visibleEvents.map(({ event, offset }) => (
           <HeroCard
             key={`${event.id}-${offset}`}
             event={event}
@@ -581,7 +580,7 @@ function TimelineEventSection({
             >
               {expired && (
                 <span className="absolute left-4 top-4 z-30 rounded-full border border-white/20 bg-slate-950/75 px-3 py-1 text-xs font-extrabold uppercase text-white backdrop-blur">
-                  Hết hạn
+                  Đã kết thúc
                 </span>
               )}
               <EventCard
@@ -589,6 +588,7 @@ function TimelineEventSection({
                 compact
                 onFavoriteToggle={onFavoriteToggle}
                 favoriteBusy={favoriteBusy}
+                showCategoryBadge={!expired}
               />
             </ScrollReveal>
           ))}
@@ -674,3 +674,4 @@ function StatePanel({ message, tone = 'default' }) {
     </div>
   )
 }
+

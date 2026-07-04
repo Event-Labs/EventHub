@@ -87,10 +87,7 @@ function ticketAvailable(ticketType) {
 function isSoldOut(ticketType) {
   return ticketAvailable(ticketType) <= 0
 }
-
-function createHoldExpiresAt() {
-  return new Date(Date.now() + 15 * 60 * 1000).toISOString()
-}
+
 
 export function EventDetailPage() {
   const { eventId } = useParams()
@@ -177,9 +174,9 @@ export function EventDetailPage() {
           eventStartTime: event.start_time,
           eventEndTime: event.end_time,
           venueSummary: event.venue?.summary || venueSummary(firstVenue),
-          holdExpiresAt: createHoldExpiresAt(),
           selectedSession,
           availableTicketTypes: selectedSessionTickets,
+          seatingRules: event.seating_rules || {},
           items: [],
         },
       },
@@ -200,8 +197,8 @@ export function EventDetailPage() {
   const eventExpired = isPastTime(event.end_time)
 
   return (
-    <>
-      <section className="relative h-[560px] overflow-hidden">
+    <div className="overflow-x-hidden">
+      <section className="relative h-[820px] min-h-[calc(112vh-5rem)] overflow-hidden">
         {heroImage && (
           <img
             src={heroImage}
@@ -209,21 +206,21 @@ export function EventDetailPage() {
             className="absolute inset-0 h-full w-full object-cover"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-surface" />
-        <div className="relative mx-auto flex h-full max-w-7xl items-end px-4 pb-14 sm:px-6 lg:px-8">
-          <div className="max-w-4xl">
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-surface/55" />
+        <div className="relative mx-auto flex h-full w-full max-w-7xl items-end px-4 pb-6 sm:px-6 sm:pb-8 lg:px-8 lg:pb-10">
+          <div className="min-w-0 max-w-4xl">
             {event.category?.name && (
               <span className="rounded-full border border-primary/30 bg-primary/15 px-4 py-2 text-sm font-bold text-primary">
                 {event.category.name}
               </span>
             )}
-            <h1 className="mt-5 font-display text-4xl font-extrabold text-white md:text-6xl">
+            <h1 className="mt-5 break-words font-display text-3xl font-extrabold leading-tight text-white sm:text-4xl lg:text-5xl">
               {event.title}
             </h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-subtle">
+            <p className="mt-4 max-w-3xl break-words text-lg leading-8 text-subtle">
               {event.short_description}
             </p>
-            <div className="mt-6 flex flex-wrap gap-5 text-muted">
+            <div className="mt-6 flex max-w-full flex-wrap gap-5 text-muted">
               <Info icon={UserCircle} text={`Ban tổ chức: ${event.organizer?.full_name || 'EventHub'}`} />
               <Info icon={Calendar} text={`${formatDateTime(event.start_time)} - ${formatDateTime(event.end_time)}`} />
               <Info icon={MapPin} text={event.venue?.summary || venueSummary(firstVenue)} />
@@ -232,21 +229,21 @@ export function EventDetailPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8">
-        <section className="space-y-10">
-          <article className="rounded-lg border border-border-soft bg-panel p-6">
+      <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
+        <section className="min-w-0 space-y-10">
+          <article className="min-w-0 overflow-hidden rounded-lg border border-border-soft bg-panel p-6">
             <div>
               <h2 className="font-display text-3xl font-bold text-white">
                 Tổng quan
               </h2>
             </div>
             <div
-              className="mt-5 block w-full text-left ql-bubble"
+              className="mt-5 block w-full min-w-0 text-left ql-bubble"
             >
               <div
                 className={cn(
-                  'block text-lg leading-8 text-muted ql-editor ql-content description-html p-0',
-                  !overviewOpen && 'line-clamp-5',
+                  'block max-w-full break-words text-lg leading-8 text-muted ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_a]:break-words [&_table]:block [&_table]:overflow-x-auto',
+                  overviewOpen ? '!overflow-visible' : 'line-clamp-5 !overflow-hidden',
                 )}
                 dangerouslySetInnerHTML={{ __html: overview }}
               />
@@ -261,7 +258,7 @@ export function EventDetailPage() {
             </div>
           </article>
 
-          <section className="overflow-hidden rounded-lg border border-border-soft bg-[#333945]">
+          <section className="min-w-0 overflow-hidden rounded-lg border border-border-soft bg-[#333945]">
             <div className="flex items-center justify-between border-b border-border-soft bg-panel px-5 py-4">
               <h2 className="font-display text-xl font-bold text-primary">
                 Lịch diễn
@@ -308,7 +305,7 @@ export function EventDetailPage() {
                           <p className="font-bold text-primary">
                             {formatShortDate(session.start_time)}
                           </p>
-                          <p className="mt-1 text-sm text-muted">
+                          <p className="mt-1 break-words text-sm text-muted">
                             {session.session_name || venueSummary(session.venue)}
                           </p>
                         </div>
@@ -319,7 +316,7 @@ export function EventDetailPage() {
                           onClick={() => selectSession(session.id)}
                           disabled={sessionExpired}
                           className={cn(
-                            'shrink-0 rounded-md px-5 py-2 text-sm font-bold transition',
+                            'shrink-0 rounded-md px-4 py-2 text-sm font-bold transition sm:px-5',
                             sessionExpired && 'cursor-not-allowed bg-slate-300 text-slate-950',
                             !sessionExpired && selected && 'bg-primary text-slate-950',
                             !sessionExpired && !selected && 'bg-tertiary text-white hover:bg-orange-600',
@@ -429,7 +426,7 @@ export function EventDetailPage() {
           </section>
         </section>
 
-        <aside className="glass-panel h-fit rounded-lg p-6 lg:sticky lg:top-28">
+        <aside className="glass-panel min-w-0 h-fit rounded-lg p-6 lg:sticky lg:top-28">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl font-bold text-white">
@@ -495,15 +492,15 @@ export function EventDetailPage() {
           </div>
         </aside>
       </div>
-    </>
+    </div>
   )
 }
 
 function Info({ icon: Icon, text }) {
   return (
-    <div className="flex items-center gap-2">
-      <Icon className="size-5 text-primary" />
-      <span>{text}</span>
+    <div className="flex min-w-0 max-w-full items-start gap-2">
+      <Icon className="mt-0.5 size-5 shrink-0 text-primary" />
+      <span className="min-w-0 break-words">{text}</span>
     </div>
   )
 }
