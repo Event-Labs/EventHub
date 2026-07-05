@@ -1,7 +1,7 @@
 const eventsService = require('../events/events.service');
 const userContextService = require('./userContext.service');
 
-const PUBLIC_EVENTS_LIMIT = 8;
+const PUBLIC_EVENTS_LIMIT = 12;
 
 function compactEvent(event) {
   return {
@@ -12,8 +12,9 @@ function compactEvent(event) {
     category: event.category?.name || null,
     start_time: event.start_time,
     end_time: event.end_time,
-    venue: event.venue?.summary || null,
+    venue: event.venue?.summary || event.venue?.name || null,
     price_range: event.price_range,
+    status: event.status,
   };
 }
 
@@ -51,25 +52,21 @@ class SystemContextService {
     };
 
     const hasQuery = String(queryText || '').trim().length >= 2;
+
+    // Build shared upcoming filter — only events that haven't ended yet
+    const upcomingFilter = {
+      page: 1,
+      limit: PUBLIC_EVENTS_LIMIT,
+      sort_by: 'start_time',
+      sort_order: 'asc',
+      start_date: new Date(), // maps to filters.startDate in buildListQuery → e.start_time >= now
+    };
+
     const [eventsResult, queryEventsResult, categoriesResult, userContextResult] = await Promise.allSettled([
-      eventsService.getPublicEvents(
-        {
-          page: 1,
-          limit: PUBLIC_EVENTS_LIMIT,
-          sort_by: 'start_time',
-          sort_order: 'asc',
-        },
-        userId || null,
-      ),
+      eventsService.getPublicEvents(upcomingFilter, userId || null),
       hasQuery
         ? eventsService.getPublicEvents(
-            {
-              page: 1,
-              limit: PUBLIC_EVENTS_LIMIT,
-              keyword: queryText,
-              sort_by: 'start_time',
-              sort_order: 'asc',
-            },
+            { ...upcomingFilter, keyword: queryText },
             userId || null,
           )
         : Promise.resolve(null),

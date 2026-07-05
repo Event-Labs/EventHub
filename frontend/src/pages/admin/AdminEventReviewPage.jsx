@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Eye, EyeOff, XCircle } from 'lucide-react'
+import { Calendar, CheckCircle2, Eye, EyeOff, MapPin, Tag, Ticket, XCircle } from 'lucide-react'
 import { useState } from 'react'
 
 import { fetchAdminEvents, hideAdminEvent, reviewAdminEvent, unhideAdminEvent } from '@/services/adminEvents.js'
@@ -329,9 +329,10 @@ export function AdminEventReviewPage() {
                       type="button"
                       title="Xem chi tiết"
                       onClick={() => openModal(event)}
-                      className="rounded-xl border border-border-soft/40 px-3 py-2 text-xs font-semibold text-subtle transition hover:border-tertiary hover:bg-panel-soft hover:text-tertiary"
+                      className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition hover:border-tertiary hover:bg-panel-soft hover:text-tertiary"
+                      aria-label={`Xem chi tiết ${event.title}`}
                     >
-                      Chi tiết
+                      <Eye className="size-4" />
                     </button>
                   </div>
                 </div>,
@@ -426,7 +427,7 @@ function EventReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-      <Panel className="w-full max-w-xl border-border-soft/60">
+      <Panel className="max-h-[90vh] w-full max-w-4xl overflow-y-auto border-border-soft/60">
         {/* Header */}
         <h3 className="font-display text-2xl font-extrabold text-content leading-tight">
           {event.title}
@@ -447,11 +448,83 @@ function EventReviewModal({
 
         {/* Event thumbnail */}
         {event.thumbnail_url && (
-          <img
-            src={event.thumbnail_url}
-            alt={event.title}
-            className="mt-4 h-40 w-full rounded-xl object-cover border border-border-soft/40"
-          />
+          <div className="mt-4 overflow-hidden rounded-xl border border-border-soft/40 bg-black/20">
+            <img
+              src={event.thumbnail_url}
+              alt={event.title}
+              className="max-h-[420px] w-full object-contain"
+            />
+          </div>
+        )}
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <DetailBlock icon={Tag} label="Danh mục" value={event.category_name || 'Chưa phân loại'} />
+          <DetailBlock icon={Calendar} label="Hình thức" value={event.format || 'Chưa cập nhật'} />
+          <DetailBlock icon={Ticket} label="Số loại vé" value={`${event.ticket_types?.length || 0} loại vé`} />
+          <DetailBlock icon={MapPin} label="Số phiên" value={`${event.sessions?.length || 0} phiên`} />
+        </div>
+
+        {(event.short_description || event.description) && (
+          <div className="mt-5 rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
+            <p className="text-xs font-bold uppercase text-muted">Mô tả sự kiện</p>
+            {event.short_description && <p className="mt-2 text-sm font-semibold text-content">{event.short_description}</p>}
+            {event.description && (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-subtle">
+                {stripHtml(event.description)}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
+            <p className="text-xs font-bold uppercase text-muted">Lịch diễn và địa điểm</p>
+            <div className="mt-3 space-y-3">
+              {(event.sessions || []).length === 0 ? (
+                <p className="text-sm text-subtle">Chưa có session.</p>
+              ) : (
+                event.sessions.map((session) => (
+                  <div key={session.id} className="rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
+                    <p className="font-bold text-content">{session.session_name || 'Session'}</p>
+                    <p className="mt-1 text-subtle">{formatDateTime(session.start_time)} - {formatDateTime(session.end_time)}</p>
+                    <p className="mt-1 text-subtle">
+                      {[session.venue_name, session.address_line, session.city].filter(Boolean).join(', ') || 'Chưa cập nhật địa điểm'}
+                    </p>
+                    {session.seat_map_id && <p className="mt-1 text-xs font-bold text-tertiary">Có sơ đồ ghế</p>}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
+            <p className="text-xs font-bold uppercase text-muted">Loại vé</p>
+            <div className="mt-3 space-y-3">
+              {(event.ticket_types || []).length === 0 ? (
+                <p className="text-sm text-subtle">Chưa có loại vé.</p>
+              ) : (
+                event.ticket_types.map((ticket) => (
+                  <div key={ticket.id} className="flex items-start justify-between gap-3 rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
+                    <div>
+                      <p className="font-bold text-content">{ticket.name}</p>
+                      <p className="mt-1 text-subtle">{ticket.is_seated ? 'Vé theo ghế' : 'Vé thường'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-content">{formatMoney(ticket.price)}</p>
+                      <p className="mt-1 text-xs text-subtle">{ticket.sold_quantity || 0}/{ticket.quantity || 0} đã bán</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {event.review_note && (
+          <div className="mt-5 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+            <p className="font-bold">Ghi chú review gần nhất</p>
+            <p className="mt-1 whitespace-pre-wrap">{event.review_note}</p>
+          </div>
         )}
 
         {/* Note textarea — shown for PENDING_REVIEW and PUBLISHED (hide reason) */}
@@ -536,4 +609,31 @@ function EventReviewModal({
       </Panel>
     </div>
   )
+}
+
+function DetailBlock({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border-soft/30 bg-panel-soft/40 p-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-tertiary/10 text-tertiary">
+        <Icon className="size-4" />
+      </span>
+      <div>
+        <p className="text-xs font-bold uppercase text-muted">{label}</p>
+        <p className="text-sm font-bold text-content">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function stripHtml(value) {
+  return String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('vi-VN')
+}
+
+function formatMoney(value) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }

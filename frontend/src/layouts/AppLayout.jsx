@@ -62,6 +62,49 @@ const navLinkClass = ({ isActive }) =>
     isActive ? 'text-primary' : 'text-subtle hover:text-primary'
   }`
 
+function isStaffInvitationNotification(notification) {
+  return notification.title === 'STAFF_INVITATION' || notification.title === 'Lời mời làm staff'
+}
+
+function isStaffInvitationStoreNotification(notification) {
+  return notification.title === 'STAFF_INVITATION'
+}
+
+function getNotificationDisplay(notification) {
+  if (!isStaffInvitationNotification(notification)) {
+    return {
+      title: notification.title,
+      content: notification.content,
+    }
+  }
+
+  return {
+    title: 'Lời mời làm staff',
+    content: 'Bạn có lời mời làm staff đang chờ phản hồi.',
+  }
+}
+
+function getNotificationTarget(notification) {
+  if (isStaffInvitationNotification(notification)) return '/notifications'
+
+  const eventTarget = notification.event?.slug || notification.event_id
+  return eventTarget ? `/events/${eventTarget}` : '/notifications'
+}
+
+function dedupeNavNotifications(items) {
+  const visibleInviteEvents = new Set(
+    items
+      .filter((item) => item.title === 'Lời mời làm staff')
+      .map((item) => item.event_id)
+      .filter(Boolean),
+  )
+
+  return items.filter((item) => {
+    if (!isStaffInvitationStoreNotification(item)) return true
+    return !item.event_id || !visibleInviteEvents.has(item.event_id)
+  })
+}
+
 export function AppLayout() {
   const queryClient = useQueryClient()
   const [loggedIn, setLoggedIn] = useState(false)
@@ -177,6 +220,7 @@ export function AppLayout() {
   }, [loggedIn, queryClient])
 
   const notifications = notificationsQuery.data?.items || []
+  const navNotifications = dedupeNavNotifications(notifications).slice(0, 5)
   const unreadCount = notificationsQuery.data?.unread_count || 0
   const currentUserRoles = getUserRoles(currentUser)
   const canOpenStaffPortal = currentUserRoles.includes('staff')
@@ -281,7 +325,7 @@ export function AppLayout() {
                       <p className="font-display text-lg font-bold text-white">Thông báo</p>
                       <p className="text-xs text-muted">{unreadCount} chưa đọc</p>
                     </div>
-                    {notifications.length > 0 && (
+                    {navNotifications.length > 0 && (
                       <button
                         type="button"
                         onClick={() => markAllMutation.mutate()}
@@ -296,18 +340,17 @@ export function AppLayout() {
                     {notificationsQuery.isLoading && (
                       <p className="px-4 py-5 text-sm text-muted">Đang tải thông báo...</p>
                     )}
-                    {!notificationsQuery.isLoading && notifications.length === 0 && (
+                    {!notificationsQuery.isLoading && navNotifications.length === 0 && (
                       <p className="px-4 py-5 text-sm text-muted">Bạn chưa có thông báo nào.</p>
                     )}
-                    {notifications.map((notification) => (
+                    {navNotifications.map((notification) => (
                       <button
                         key={notification.id}
                         type="button"
                         onClick={() => {
                           if (!notification.is_read) markReadMutation.mutate(notification.id)
-                          const eventTarget = notification.event?.slug || notification.event_id
                           setNotificationOpen(false)
-                          if (eventTarget) navigate(`/events/${eventTarget}`)
+                          navigate(getNotificationTarget(notification))
                         }}
                         className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${
                           notification.is_read ? '' : 'bg-primary/10'
@@ -316,8 +359,8 @@ export function AppLayout() {
                         <div className="flex items-start gap-3">
                           {!notification.is_read && <span className="mt-2 size-2 rounded-full bg-primary" />}
                           <div className="min-w-0 flex-1">
-                            <p className="line-clamp-1 text-sm font-bold text-white">{notification.title}</p>
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{notification.content}</p>
+                            <p className="line-clamp-1 text-sm font-bold text-white">{getNotificationDisplay(notification).title}</p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{getNotificationDisplay(notification).content}</p>
                           </div>
                         </div>
                       </button>
@@ -387,7 +430,7 @@ export function AppLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <AiChatWidget />
+      {loggedIn && <AiChatWidget enabled={loggedIn} />}
       <footer className="border-t border-primary/15 bg-[#081126]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
