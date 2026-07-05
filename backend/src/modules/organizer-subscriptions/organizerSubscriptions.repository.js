@@ -44,6 +44,8 @@ class OrganizerSubscriptionsRepository {
        JOIN subscriptions s ON os.subscription_id = s.id
        WHERE os.organizer_id = $1
          AND os.status = 'ACTIVE'
+         AND os.start_date <= now()
+         AND os.end_date >= now()
          AND s.deleted_at IS NULL
        ORDER BY os.start_date DESC
        LIMIT 1`,
@@ -71,6 +73,40 @@ class OrganizerSubscriptionsRepository {
       [organizerId, subscriptionId, durationDays],
     );
     return res.rows[0];
+  }
+
+  async replaceActiveSubscription(userId, subscriptionId, durationDays) {
+    const organizerId = await this.findOrganizerIdByUserId(userId);
+    if (!organizerId) throw new Error('Organizer profile not found for this user.');
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `
+        UPDATE organizer_subscriptions
+        SET status = 'CANCELLED', updated_at = now()
+        WHERE organizer_id = $1
+          AND status = 'ACTIVE'
+        `,
+        [organizerId],
+      );
+      const { rows } = await client.query(
+        `
+        INSERT INTO organizer_subscriptions (organizer_id, subscription_id, start_date, end_date, status)
+        VALUES ($1, $2, NOW(), NOW() + interval '1 day' * $3::int, 'ACTIVE')
+        RETURNING *
+        `,
+        [organizerId, subscriptionId, durationDays],
+      );
+      await client.query('COMMIT');
+      return rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
