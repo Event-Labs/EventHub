@@ -298,7 +298,7 @@ export function AiChatWidget({ enabled = true }) {
                     key={item.question || index}
                     type="button"
                     onClick={() => sendMessage(item.question)}
-                    className="shrink-0 rounded-full border border-primary/25 bg-panel-soft px-2.5 py-1 text-left text-[11px] font-semibold leading-4 text-subtle shadow-sm transition hover:border-ai/60 hover:bg-ai/10 hover:text-white whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis"
+                    className="shrink-0 rounded-full border border-primary/25 bg-panel-soft px-2.5 py-1 text-left text-[11px] font-semibold leading-4 text-subtle shadow-sm transition hover:border-ai/60 hover:bg-ai/10 hover:text-white whitespace-nowrap"
                     title={item.question}
                   >
                     {item.question}
