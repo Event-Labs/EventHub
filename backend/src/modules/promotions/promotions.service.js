@@ -2,6 +2,7 @@ const promotionsRepository = require('./promotions.repository');
 const eventsRepository = require('../events/events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 
 class PromotionsService {
   async _getOrganizerId(userId) {
@@ -118,6 +119,7 @@ class PromotionsService {
     const organizerId = await this._getOrganizerId(userId);
     this._assertValidTimeRange(data);
     const normalizedData = await this._normalizePromoData(data, organizerId);
+    await subscriptionGuard.assertPromoCreationAllowed(organizerId, normalizedData.eventIds || []);
     
     const promoData = {
       ...normalizedData,

@@ -15,6 +15,69 @@ import {
 } from '@/services/operations.js'
 import { cn } from '@/lib/utils.js'
 
+function isStaffInvitationNotification(notification) {
+  return notification.title === 'STAFF_INVITATION' || notification.title === 'Lời mời làm staff'
+}
+
+function isStaffInvitationStoreNotification(notification) {
+  return notification.title === 'STAFF_INVITATION'
+}
+
+function eventDetailPath(item) {
+  const identifier = item?.event_slug || item?.event?.slug || item?.event_id
+  return identifier ? `/events/${identifier}` : null
+}
+
+function parseNotificationContent(content) {
+  if (!content || typeof content !== 'string' || !content.trim().startsWith('{')) return {}
+
+  try {
+    return JSON.parse(content)
+  } catch {
+    return {}
+  }
+}
+
+function staffInvitationStatusLabel(status) {
+  if (status === 'ACCEPTED') return 'Đã đồng ý'
+  if (status === 'DECLINED') return 'Đã từ chối'
+  return 'Đang chờ phản hồi'
+}
+
+function getStaffInvitationDetails(notification, invitationsById) {
+  const invitation = invitationsById.get(notification.id)
+  const meta = parseNotificationContent(notification.content)
+  const status = invitation?.status || meta.status || 'PENDING'
+  const role = invitation?.staff_role || meta.staff_role || 'Staff'
+  const eventTitle = invitation?.event_title || notification.event?.title || 'sự kiện'
+  const organizationName = invitation?.organization_name || 'Ban tổ chức'
+
+  return {
+    ...invitation,
+    event_id: invitation?.event_id || notification.event_id,
+    event_slug: invitation?.event_slug || notification.event?.slug,
+    event_title: eventTitle,
+    status,
+    title: 'Lời mời làm staff',
+    content: `${organizationName} mời bạn làm staff cho sự kiện "${eventTitle}" với vai trò ${role}.`,
+    expires_at: invitation?.expires_at || meta.expires_at || null,
+  }
+}
+
+function dedupeStaffInvitationNotifications(items) {
+  const storeInviteEventIds = new Set(
+    items
+      .filter(isStaffInvitationStoreNotification)
+      .map((item) => item.event_id)
+      .filter(Boolean),
+  )
+
+  return items.filter((item) => {
+    if (item.title !== 'Lời mời làm staff') return true
+    return !item.event_id || !storeInviteEventIds.has(item.event_id)
+  })
+}
+
 function formatDateTime(value) {
   if (!value) return 'Chưa cập nhật'
   return new Intl.DateTimeFormat('vi-VN', {
@@ -76,16 +139,17 @@ export function NotificationsPage() {
   })
 
   const notifications = notificationsQuery.data?.items || []
+  const displayNotifications = dedupeStaffInvitationNotifications(notifications)
   const unreadCount = notificationsQuery.data?.unread_count || 0
   const invitations = invitationsQuery.data || []
-  const pendingInvitations = invitations.filter((invitation) => invitation.status === 'PENDING')
+  const invitationsById = new Map(invitations.map((invitation) => [invitation.id, invitation]))
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
       <SectionHeader
         title="Thông báo"
         description={`${unreadCount} thông báo chưa đọc`}
-        action={notifications.length ? (
+        action={displayNotifications.length ? (
           <button
             type="button"
             onClick={() => markAllMutation.mutate()}
@@ -99,67 +163,20 @@ export function NotificationsPage() {
 
       {notificationsQuery.isLoading && <StatePanel message="Đang tải thông báo..." />}
       {notificationsQuery.isError && <StatePanel message="Không thể tải thông báo." tone="error" />}
-      {!notificationsQuery.isLoading && notifications.length === 0 && (
+      {!notificationsQuery.isLoading && displayNotifications.length === 0 && (
         <StatePanel message="Bạn chưa có thông báo nào." />
       )}
 
-      {pendingInvitations.length > 0 && (
-        <section className="mb-6 space-y-3">
-          <h2 className="font-display text-xl font-bold text-white">Lời mời làm staff</h2>
-          {pendingInvitations.map((invitation) => (
-            <article key={invitation.id} className="rounded-lg border border-primary/50 bg-primary/10 p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="font-display text-lg font-bold text-white">{invitation.event_title}</h3>
-                  <p className="mt-1 text-sm leading-6 text-muted">
-                    {invitation.organization_name} mời bạn làm staff với vai trò {invitation.staff_role || 'Staff'}.
-                  </p>
-                  <p className="mt-2 text-xs text-subtle">Hết hạn: {formatDateTime(invitation.expires_at)}</p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => acceptInvitationMutation.mutate(invitation.id)}
-                    className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-slate-950 hover:bg-sky-300 disabled:opacity-60"
-                    disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
-                  >
-                    Đồng ý
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => declineInvitationMutation.mutate(invitation.id)}
-                    className="rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-subtle hover:bg-panel-soft disabled:opacity-60"
-                    disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
-                  >
-                    Từ chối
-                  </button>
-                </div>
-              </div>
-              {acceptedInvitationId === invitation.id && acceptInvitationMutation.isSuccess && (
-                <div className="mt-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
-                  <p className="font-semibold text-primary">
-                    {acceptInvitationMutation.data?.message || 'Bạn đã trở thành staff.'}
-                  </p>
-                  {acceptInvitationMutation.data?.requires_relogin && (
-                    <p className="mt-1 text-muted">
-                      Vui lòng <Link to="/login" className="font-bold text-primary underline">đăng nhập lại</Link> để token có quyền STAFF và truy cập portal staff.
-                    </p>
-                  )}
-                </div>
-              )}
-            </article>
-          ))}
-        </section>
-      )}
-
       <div className="space-y-3">
-        {notifications.map((notification) => {
+        {displayNotifications.map((notification) => {
           const Icon = iconFor(notification.type)
-          const eventPath = notification.event?.slug
-            ? `/events/${notification.event.slug}`
-            : notification.event_id
-              ? `/events/${notification.event_id}`
-              : null
+          const isInvitation = isStaffInvitationNotification(notification)
+          const invitationDetails = isInvitation ? getStaffInvitationDetails(notification, invitationsById) : null
+          const eventPath = eventDetailPath(invitationDetails || notification)
+          const title = invitationDetails?.title || notification.title
+          const content = invitationDetails?.content || notification.content
+          const invitationStatus = invitationDetails?.status
+          const canRespondToInvitation = isStaffInvitationStoreNotification(notification) && invitationStatus === 'PENDING'
 
           return (
             <article
@@ -179,9 +196,19 @@ export function NotificationsPage() {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="font-display text-lg font-bold text-white">
-                        {notification.title}
+                        {title}
                       </h3>
-                      <p className="mt-1 text-sm leading-6 text-muted">{notification.content}</p>
+                      <p className="mt-1 text-sm leading-6 text-muted">{content}</p>
+                      {invitationStatus && (
+                        <p className="mt-2 text-xs font-bold text-primary">
+                          {staffInvitationStatusLabel(invitationStatus)}
+                        </p>
+                      )}
+                      {invitationDetails?.expires_at && invitationStatus === 'PENDING' && (
+                        <p className="mt-1 text-xs text-subtle">
+                          Hết hạn: {formatDateTime(invitationDetails.expires_at)}
+                        </p>
+                      )}
                     </div>
                     <span className="shrink-0 text-xs text-subtle">{formatDateTime(notification.created_at)}</span>
                   </div>
@@ -190,6 +217,26 @@ export function NotificationsPage() {
                       <Link className="text-sm font-bold text-primary hover:text-sky-300" to={eventPath}>
                         Xem sự kiện
                       </Link>
+                    )}
+                    {canRespondToInvitation && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => acceptInvitationMutation.mutate(notification.id)}
+                          className="text-sm font-bold text-primary hover:text-sky-300 disabled:opacity-60"
+                          disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
+                        >
+                          Đồng ý
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => declineInvitationMutation.mutate(notification.id)}
+                          className="text-sm font-bold text-subtle hover:text-primary disabled:opacity-60"
+                          disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
+                        >
+                          Từ chối
+                        </button>
+                      </>
                     )}
                     {!notification.is_read && (
                       <button
@@ -201,6 +248,18 @@ export function NotificationsPage() {
                       </button>
                     )}
                   </div>
+                  {acceptedInvitationId === notification.id && acceptInvitationMutation.isSuccess && (
+                    <div className="mt-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+                      <p className="font-semibold text-primary">
+                        {acceptInvitationMutation.data?.message || 'Bạn đã trở thành staff.'}
+                      </p>
+                      {acceptInvitationMutation.data?.requires_relogin && (
+                        <p className="mt-1 text-muted">
+                          Vui lòng <Link to="/login" className="font-bold text-primary underline">đăng nhập lại</Link> để token có quyền STAFF và truy cập portal staff.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </article>

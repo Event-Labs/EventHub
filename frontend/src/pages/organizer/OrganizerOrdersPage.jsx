@@ -265,11 +265,13 @@ export function OrganizerOrdersPage() {
                   </td>
                   <td className="px-5 py-4">
                     <button
-                      className="flex items-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-subtle hover:border-tertiary hover:text-tertiary transition"
+                      type="button"
+                      className="grid size-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-tertiary hover:text-tertiary"
                       onClick={() => setDetailOrderId(order.id)}
+                      title="Xem chi tiết"
+                      aria-label={`Xem chi tiết đơn hàng ${order.order_code}`}
                     >
-                      <Eye className="size-3.5" />
-                      Chi tiết
+                      <Eye className="size-4" />
                     </button>
                   </td>
                 </tr>

@@ -149,6 +149,97 @@ function BarChartSimple({ data, height = 160 }) {
   )
 }
 
+function HorizontalRevenueChart({ data, maxValue }) {
+  if (!data?.length) return null
+
+  return (
+    <div className="space-y-4">
+      {data.map((item) => {
+        const gross = Number(item.gross_revenue || 0)
+        const net = Number(item.net_revenue || 0)
+        const grossPct = maxValue > 0 ? Math.max(3, Math.round((gross / maxValue) * 100)) : 0
+        const netPct = gross > 0 ? Math.max(3, Math.round((net / gross) * grossPct)) : 0
+
+        return (
+          <div key={item.event_id} className="rounded-md border border-border-soft/30 bg-panel-soft/50 p-4">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-bold text-content">{item.event_title}</p>
+                <p className="mt-0.5 text-xs text-subtle">
+                  {fmtDate(item.start_time)} · {Number(item.total_orders || 0).toLocaleString('vi-VN')} đơn
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-black text-content">{fmtCurrency(gross)}</p>
+                <p className="text-xs font-semibold text-success">Ròng {fmtCurrency(net)}</p>
+              </div>
+            </div>
+            <div className="relative h-3 overflow-hidden rounded-full bg-border-soft/25">
+              <div className="absolute inset-y-0 left-0 rounded-full bg-tertiary/55" style={{ width: `${grossPct}%` }} />
+              <div className="absolute inset-y-0 left-0 rounded-full bg-success" style={{ width: `${netPct}%` }} />
+            </div>
+            <div className="mt-2 flex items-center gap-4 text-[11px] font-bold uppercase text-muted">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-success" /> Doanh thu ròng
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-tertiary/55" /> Doanh thu gộp
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function MoneyCompositionChart({ overall }) {
+  const gross = Number(overall.gross_revenue || 0)
+  const discount = Number(overall.total_discount || 0)
+  const fee = Number(overall.total_platform_fee || 0)
+  const net = Number(overall.net_revenue || 0)
+  const total = Math.max(gross + discount, 1)
+  const segments = [
+    { label: 'Thực nhận', value: net, color: 'bg-success', text: 'text-success' },
+    { label: 'Phí nền tảng', value: fee, color: 'bg-tertiary', text: 'text-tertiary' },
+    { label: 'Chiết khấu', value: discount, color: 'bg-warning', text: 'text-warning' },
+  ].filter((item) => item.value > 0)
+
+  return (
+    <OrganizerPanel className="mb-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-content">Cơ cấu doanh thu</h2>
+          <p className="mt-1 text-xs text-subtle">Tỷ trọng thực nhận, phí nền tảng và chiết khấu trong kỳ.</p>
+        </div>
+        <p className="text-sm font-black text-content">{fmtCurrency(gross)}</p>
+      </div>
+      <div className="flex h-4 overflow-hidden rounded-full bg-border-soft/25">
+        {segments.map((item) => (
+          <div
+            key={item.label}
+            className={`${item.color} min-w-1 transition-all`}
+            style={{ width: `${Math.max(2, (item.value / total) * 100)}%` }}
+            title={`${item.label}: ${fmtCurrency(item.value)}`}
+          />
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Thực nhận (ròng)', value: net, text: 'text-success' },
+          { label: 'Phí nền tảng', value: fee, text: 'text-tertiary' },
+          { label: 'Tổng chiết khấu', value: discount, text: 'text-warning' },
+        ].map((item) => (
+          <div key={item.label} className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase text-subtle">{item.label}</p>
+            <p className={`mt-1 text-lg font-extrabold ${item.text}`}>{fmtCurrency(item.value)}</p>
+          </div>
+        ))}
+      </div>
+    </OrganizerPanel>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerDashboardPage() {
@@ -451,21 +542,7 @@ export function OrganizerDashboardPage() {
             />
           </div>
 
-          {/* ── Revenue breakdown ── */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border-soft/40 bg-panel-soft p-4 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">Tổng chiết khấu</p>
-              <p className="mt-2 text-lg font-extrabold text-content">{fmtCurrency(overall.total_discount)}</p>
-            </div>
-            <div className="rounded-2xl border border-border-soft/40 bg-panel-soft p-4 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">Phí nền tảng</p>
-              <p className="mt-2 text-lg font-extrabold text-content">{fmtCurrency(overall.total_platform_fee)}</p>
-            </div>
-            <div className="rounded-2xl border border-success/30 bg-success/[0.08] p-4 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-success">Thực nhận (ròng)</p>
-              <p className="mt-2 text-lg font-extrabold text-success">{fmtCurrency(overall.net_revenue)}</p>
-            </div>
-          </div>
+          <MoneyCompositionChart overall={overall} />
 
           {/* ── Daily Revenue Chart ── */}
           <OrganizerPanel className="mb-6">
@@ -510,61 +587,16 @@ export function OrganizerDashboardPage() {
           {/* ── Per-event breakdown ── */}
           {byEvent.length > 0 && (
             <OrganizerPanel>
-              <h2 className="mb-4 font-bold text-content">Doanh thu theo sự kiện</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[600px] text-sm">
-                  <thead>
-                    <tr className="border-b border-border-soft/30 text-[11px] uppercase text-subtle">
-                      <th className="pb-3 text-left font-bold">Sự kiện</th>
-                      <th className="pb-3 text-right font-bold">Đơn</th>
-                      <th className="pb-3 text-right font-bold">Doanh thu gộp</th>
-                      <th className="pb-3 text-right font-bold">Doanh thu ròng</th>
-                      <th className="pb-3 pl-6 text-left font-bold">Tỷ trọng</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byEvent.map((ev) => {
-                      const pct = Math.round((Number(ev.gross_revenue) / maxEventRevenue) * 100)
-                      return (
-                        <tr key={ev.event_id} className="border-b border-border-soft/20 last:border-0 transition-colors hover:bg-panel-soft/60">
-                          <td className="py-3">
-                            <p className="font-semibold text-content">{ev.event_title}</p>
-                            <p className="text-xs text-subtle">{fmtDate(ev.start_time)}</p>
-                          </td>
-                          <td className="py-3 text-right text-subtle">{ev.total_orders}</td>
-                          <td className="py-3 text-right font-semibold text-content">
-                            {fmtCurrency(ev.gross_revenue)}
-                          </td>
-                          <td className="py-3 text-right font-semibold text-success">
-                            {fmtCurrency(ev.net_revenue)}
-                          </td>
-                          <td className="py-3 pl-6">
-                            <div className="flex items-center gap-2">
-                              <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border-soft/30">
-                                <div className="h-full rounded-full bg-tertiary transition-all duration-500" style={{ width: `${pct}%` }} />
-                              </div>
-                              <span className="text-xs text-subtle">{pct}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-border-soft/40 bg-panel-soft/50">
-                      <td className="py-3 font-bold text-content">Tổng cộng</td>
-                      <td className="py-3 text-right font-bold text-content">{overall.total_orders}</td>
-                      <td className="py-3 text-right font-bold text-content">
-                        {fmtCurrency(overall.gross_revenue)}
-                      </td>
-                      <td className="py-3 text-right font-bold text-success">
-                        {fmtCurrency(overall.net_revenue)}
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-bold text-content">Doanh thu theo sự kiện</h2>
+                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu gộp, doanh thu ròng và số đơn của từng sự kiện.</p>
+                </div>
+                <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
+                  {byEvent.length} sự kiện
+                </span>
               </div>
+              <HorizontalRevenueChart data={byEvent} maxValue={maxEventRevenue} />
             </OrganizerPanel>
           )}
 

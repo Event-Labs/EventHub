@@ -5,7 +5,7 @@ const agentService = require('./agent.service');
 
 const MAX_HISTORY_MESSAGES = 40;
 const DEFAULT_ASSISTANT_META = {
-  mode: 'gemini_grounded',
+  mode: 'eventhub_assistant',
   confidence: 0.95,
   intent: 'agent_routed',
   sources: [],
@@ -29,7 +29,7 @@ class AiFaqService {
           'Thông tin không có trong hệ thống hoặc không truy xuất được',
           'Tư vấn chung ngoài domain như code, bài văn, tin tức...',
         ],
-        technique: 'Gemini Grounded System Chat',
+        technique: 'Sẵn sàng hỗ trợ',
       },
       suggested_questions: [
         { question: 'Hãy đề xuất một số sự kiện sắp diễn ra', category: 'events' },
@@ -96,7 +96,6 @@ class AiFaqService {
       intent: meta.intent,
       sources: meta.sources,
       personalization: meta.personalization,
-      model: meta.model,
     };
   }
 

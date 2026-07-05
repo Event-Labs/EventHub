@@ -1,6 +1,7 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const seatMapsRepository = require('./seatMaps.repository');
+const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 
 const MAX_SEATS = 2000;
 
@@ -45,6 +46,7 @@ class SeatMapsService {
 
   async createSeatMap(userId, venueId, data) {
     const organizerId = await this.resolveOrganizerId(userId);
+    await subscriptionGuard.assertSeatMapCreationAllowed(organizerId);
     const venue = await seatMapsRepository.assertVenueOwned(venueId, organizerId);
     if (!venue) {
       throw new AppError('Venue not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
