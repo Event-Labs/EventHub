@@ -188,6 +188,7 @@ class EventsRepository {
       SELECT
         ${EVENT_CARD_SELECT},
         e.description,
+        e.seating_rules,
         json_build_object(
           'id', organizer.id,
           'full_name', COALESCE(organizer.organization_name, organizer_user.full_name),
@@ -312,6 +313,9 @@ class EventsRepository {
         s.is_disabled,
         st.name AS seat_type_name,
         st.color AS seat_type_color,
+        sz.id AS zone_id,
+        sz.name AS zone_name,
+        sz.color AS zone_color,
         COALESCE(seat_ticket_types.ticket_type_ids, '[]'::jsonb) AS ticket_type_ids,
         sm.rows_count,
         sm.cols_count
@@ -319,6 +323,7 @@ class EventsRepository {
       JOIN seats s ON s.id = ss.seat_id
       JOIN seat_maps sm ON sm.id = s.seat_map_id
       LEFT JOIN seat_types st ON st.id = s.seat_type_id
+      LEFT JOIN seat_zones sz ON sz.id = s.zone_id
       LEFT JOIN LATERAL (
         SELECT jsonb_agg(DISTINCT tts_all.ticket_type_id) AS ticket_type_ids
         FROM ticket_type_seats tts_all
@@ -385,7 +390,8 @@ class EventsRepository {
           e.status AS event_status,
           e.visibility,
           e.approval_status,
-          e.deleted_at
+          e.deleted_at,
+          e.seating_rules
         FROM requested r
         LEFT JOIN ticket_types tt ON tt.id = r.ticket_type_id
         LEFT JOIN event_sessions es ON es.id = tt.event_session_id
@@ -430,6 +436,8 @@ class EventsRepository {
           s.is_disabled,
           s.row_label,
           s.seat_number,
+          s.x_position,
+          s.y_position,
           EXISTS (SELECT 1 FROM ticket_type_seats tts_any WHERE tts_any.ticket_type_id = ti.ticket_type_id) AS requires_mapping,
           EXISTS (
             SELECT 1
@@ -457,6 +465,10 @@ class EventsRepository {
               'held_until', selected_seats.held_until,
               'held_by', selected_seats.held_by,
               'is_disabled', selected_seats.is_disabled,
+              'row_label', selected_seats.row_label,
+              'seat_number', selected_seats.seat_number,
+              'x_position', selected_seats.x_position,
+              'y_position', selected_seats.y_position,
               'requires_mapping', selected_seats.requires_mapping,
               'has_mapping', selected_seats.has_mapping
             )
@@ -488,6 +500,7 @@ class EventsRepository {
         ti.visibility,
         ti.approval_status,
         ti.deleted_at,
+        ti.seating_rules,
         uu.sold_quantity,
         uu.active_hold_quantity
       `,
@@ -497,6 +510,52 @@ class EventsRepository {
     return rows;
   }
 
+
+  async findEligibleSeatsForTicketType(ticketTypeId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        ss.id AS session_seat_id,
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM order_items oi_sold
+            JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+            LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+            WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+              AND o_sold.status = 'PAID'
+              AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+          ) THEN 'SOLD'
+          WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
+          WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
+          ELSE ss.status
+        END AS status,
+        ss.held_until,
+        s.row_label,
+        s.seat_number,
+        s.x_position,
+        s.y_position,
+        s.is_disabled,
+        EXISTS (
+          SELECT 1 FROM ticket_type_seats tts_any WHERE tts_any.ticket_type_id = $1
+        ) AS requires_mapping,
+        tts.ticket_type_id AS mapped_ticket_type_id
+      FROM ticket_types tt
+      JOIN event_sessions es ON es.id = tt.event_session_id
+      JOIN session_seats ss ON ss.event_session_id = es.id
+      JOIN seats s ON s.id = ss.seat_id
+      LEFT JOIN ticket_type_seats tts ON tts.seat_id = s.id AND tts.ticket_type_id = tt.id
+      WHERE tt.id = $1
+        AND (
+          NOT EXISTS (SELECT 1 FROM ticket_type_seats WHERE ticket_type_id = tt.id)
+          OR tts.ticket_type_id IS NOT NULL
+        )
+      ORDER BY s.row_label ASC, s.seat_number ASC
+      `,
+      [ticketTypeId],
+    );
+    return rows;
+  }
   async expireStandaloneSeatHolds(client = db) {
     await client.query(
       `
