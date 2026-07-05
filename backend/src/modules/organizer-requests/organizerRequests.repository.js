@@ -3,7 +3,7 @@ const db = require('../../infrastructure/database/db.client');
 const REQUEST_SELECT = `
   r.id,
   r.user_id,
-  r.request_type,
+  r.request_type::text AS request_type,
   r.organization_name,
   r.organization_description,
   r.business_email,
@@ -26,7 +26,7 @@ const REQUEST_SELECT = `
   r.individual_tax_code,
   r.terms_accepted,
   r.terms_accepted_at,
-  r.status,
+  r.status::text AS status,
   r.review_note,
   r.reviewed_by,
   r.created_at,
@@ -289,14 +289,21 @@ class OrganizerRequestsRepository {
     return rows[0] ? this.findById(rows[0].id) : null;
   }
 
-  async findAll({ status }) {
+  async findAll({ status, request_type: requestType } = {}) {
     const params = [];
-    let statusClause = '';
+    const whereClauses = [];
 
     if (status) {
       params.push(status);
-      statusClause = `WHERE r.status = $${params.length}`;
+      whereClauses.push(`r.status = $${params.length}`);
     }
+
+    if (requestType) {
+      params.push(requestType);
+      whereClauses.push(`r.request_type = $${params.length}`);
+    }
+
+    const whereClause = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const { rows } = await db.query(
       `
@@ -304,9 +311,9 @@ class OrganizerRequestsRepository {
       FROM organizer_requests r
       JOIN users u ON u.id = r.user_id AND u.deleted_at IS NULL
       LEFT JOIN users reviewer ON reviewer.id = r.reviewed_by
-      ${statusClause}
+      ${whereClause}
       ORDER BY
-        CASE r.status WHEN 'PENDING' THEN 0 ELSE 1 END,
+        CASE r.status WHEN 'PENDING' THEN 0 WHEN 'APPROVED' THEN 1 ELSE 2 END,
         r.created_at DESC
       `,
       params,

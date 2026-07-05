@@ -2,6 +2,7 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const organizerEventsRepository = require('./organizerEvents.repository');
 const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
+const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 
 function mapEvent(row) {
   if (!row) return null;
@@ -286,6 +287,7 @@ class OrganizerEventsService {
   async submitEvent(userId, eventId) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);
+    await subscriptionGuard.assertEventSubmitAllowed(organizerId, eventId);
 
     const fullEvent = await organizerEventsRepository.findEventById(eventId, organizerId);
     if (!fullEvent.sessions?.length) {
@@ -313,6 +315,7 @@ class OrganizerEventsService {
   async publishEvent(userId, eventId) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);
+    await subscriptionGuard.assertPublishAllowed(organizerId);
 
     // Chỉ có thể publish khi Admin đã duyệt (status = COMPLETED, approval_status = APPROVED)
     const fullEvent = await organizerEventsRepository.findEventById(eventId, organizerId);

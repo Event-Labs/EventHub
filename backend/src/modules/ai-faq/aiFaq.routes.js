@@ -1,6 +1,5 @@
 const express = require('express');
 const aiFaqController = require('./aiFaq.controller');
-const optionalAuth = require('../../middlewares/optionalAuth.middleware');
 const { protect } = require('../../middlewares/auth.middleware');
 const createRateLimiter = require('../../middlewares/rateLimiter.middleware');
 
@@ -13,7 +12,7 @@ const chatLimiter = createRateLimiter(
 );
 
 router.get('/meta', aiFaqController.getMeta);
-router.post('/chat', chatLimiter, optionalAuth, aiFaqController.chat);
+router.post('/chat', chatLimiter, protect, aiFaqController.chat);
 router.get('/history/me', protect, aiFaqController.getHistory);
 
 module.exports = router;

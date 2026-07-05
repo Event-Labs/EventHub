@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   BarChart3,
   CircleDollarSign,
   Loader2,
@@ -40,6 +41,15 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+function fmtTrendLabel(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+  }
+  return String(value).slice(0, 10)
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-tertiary/15', accentColor = 'text-tertiary', accentBar }) {
@@ -60,18 +70,186 @@ function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-tertiary/15', 
   )
 }
 
-function MiniStatRow({ label, value, tone = 'default' }) {
-  const colors = {
-    default: 'text-content',
-    green:   'text-success',
-    red:     'text-error',
-    blue:    'text-tertiary',
-    amber:   'text-warning',
-  }
+function DonutChart({ title, data, totalLabel, valueFormatter, bare = false, compact = false, mini = false }) {
+  const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0)
+  let offset = 25
+  const radius = 38
+  const circumference = 2 * Math.PI * radius
+  const formatValue = valueFormatter || ((value) => Number(value || 0).toLocaleString('vi-VN'))
+  const centerValueClass = valueFormatter ? 'text-sm' : 'text-2xl'
+  const chartSize = mini ? 'size-28' : compact ? 'size-32' : 'size-36'
+  const chartGridClass = compact
+    ? 'grid gap-3 md:grid-cols-[140px_minmax(0,1fr)] md:items-center'
+    : 'grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center'
+
+  const content = (
+    <>
+      {compact ? (
+        <h3 className="mb-3 text-sm font-black text-content">{title}</h3>
+      ) : (
+        <h2 className="mb-4 font-bold text-content">{title}</h2>
+      )}
+      <div className={chartGridClass}>
+        <div className={`relative mx-auto ${chartSize}`}>
+          <svg viewBox="0 0 100 100" className="-rotate-90">
+            <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(114,120,124,0.22)" strokeWidth="12" />
+            {data.map((item) => {
+              const value = Number(item.value || 0)
+              const dash = total > 0 ? (value / total) * circumference : 0
+              const circle = (
+                <circle
+                  key={item.label}
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  fill="none"
+                  stroke={item.color}
+                  strokeWidth="12"
+                  strokeDasharray={`${dash} ${circumference - dash}`}
+                  strokeDashoffset={offset}
+                  strokeLinecap="round"
+                />
+              )
+              offset -= dash
+              return circle
+            })}
+          </svg>
+          <div className="absolute inset-0 grid place-items-center text-center">
+            <div>
+              <p className={`${centerValueClass} max-w-24 truncate font-black text-content`}>{formatValue(total)}</p>
+              <p className="text-[10px] font-bold uppercase text-muted">{totalLabel}</p>
+            </div>
+          </div>
+        </div>
+        <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
+          {data.map((item) => (
+            <div key={item.label} className={`flex items-center justify-between gap-3 rounded-md border border-border-soft/25 bg-panel-soft/50 ${compact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'}`}>
+              <span className="inline-flex min-w-0 items-center gap-2 font-semibold text-subtle">
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="truncate">{item.label}</span>
+              </span>
+              <span className="shrink-0 font-black text-content">{formatValue(item.value)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+
+  if (bare) return content
+  return <Panel>{content}</Panel>
+}
+
+function ChartTile({ children }) {
   return (
-    <div className="flex items-center justify-between border-b border-border-soft/20 py-2.5 last:border-0 text-sm">
-      <span className="text-subtle">{label}</span>
-      <span className={`font-bold ${colors[tone]}`}>{value}</span>
+    <div className="h-full rounded-xl border border-border-soft/30 bg-panel-soft/45 p-4">
+      {children}
+    </div>
+  )
+}
+
+function HorizontalValueChart({ title, items, valueKey, labelKey, subLabel, valueFormatter = fmtShort, color = '#ff7112', bare = false }) {
+  if (!items?.length) return null
+
+  const maxValue = Math.max(...items.map((item) => Number(item[valueKey] || 0)), 1)
+  const content = (
+    <>
+      <h2 className="mb-4 font-bold text-content">{title}</h2>
+      <div className="space-y-4">
+        {items.map((item, index) => {
+          const value = Number(item[valueKey] || 0)
+          const pct = Math.max(3, Math.round((value / maxValue) * 100))
+          return (
+            <div key={item.organizer_id || item.plan_id || item.id || item[labelKey]}>
+              <div className="mb-1.5 flex items-start justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-content">
+                    <span className="mr-2 text-xs text-muted">#{index + 1}</span>
+                    {item[labelKey]}
+                  </p>
+                  {subLabel && <p className="mt-0.5 truncate text-xs text-subtle">{subLabel(item)}</p>}
+                </div>
+                <span className="shrink-0 font-black text-content">{valueFormatter(value)}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-border-soft/25">
+                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+
+  if (bare) return content
+  return <Panel>{content}</Panel>
+}
+
+function CategoryDistributionChart({ items }) {
+  if (!items?.length) return null
+
+  const palette = ['#ff7112', '#22c55e', '#38bdf8', '#b3cde0', '#a855f7', '#f59e0b', '#ef4444']
+  return (
+    <Panel>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-content">Sự kiện theo danh mục</h2>
+          <p className="mt-1 text-xs text-subtle">Tách theo 3 lớp để admin nhìn rõ tổng, published và completed.</p>
+        </div>
+        <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
+          {items.length} danh mục
+        </span>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3 xl:items-stretch">
+        <ChartTile>
+          <DonutChart
+            title="Tổng sự kiện"
+            totalLabel="tổng"
+            bare
+            compact
+            data={items.map((cat, index) => ({
+              label: cat.name,
+              value: cat.total_events,
+              color: palette[index % palette.length],
+            }))}
+          />
+        </ChartTile>
+        <ChartTile>
+          <DonutChart
+            title="Đã đăng"
+            totalLabel="published"
+            bare
+            compact
+            data={items.map((cat, index) => ({
+              label: cat.name,
+              value: cat.published_events,
+              color: palette[index % palette.length],
+            }))}
+          />
+        </ChartTile>
+        <ChartTile>
+          <DonutChart
+            title="Hoàn thành"
+            totalLabel="completed"
+            bare
+            compact
+            data={items.map((cat, index) => ({
+              label: cat.name,
+              value: cat.completed_events,
+              color: palette[index % palette.length],
+            }))}
+          />
+        </ChartTile>
+      </div>
+    </Panel>
+  )
+}
+
+function CompactMetric({ label, value, tone = 'text-content' }) {
+  return (
+    <div className="rounded-md border border-border-soft/30 bg-panel-soft/60 px-3 py-2">
+      <p className="text-[10px] font-bold uppercase text-muted">{label}</p>
+      <p className={`mt-0.5 text-sm font-black ${tone}`}>{value}</p>
     </div>
   )
 }
@@ -92,16 +270,21 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
 
   if (!data || data.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-subtle">
+      <div
+        className="flex w-full items-center justify-center rounded-lg border border-dashed border-border-soft/30 bg-panel-soft/25 text-sm font-semibold text-subtle"
+        style={{ height: `${height + 30}px` }}
+      >
         Không có dữ liệu trong khoảng thời gian này.
       </div>
     )
   }
 
   const maxVal = Math.max(...data.map((d) => Number(d[valueKey])), 1)
-  const gap = Math.max(Math.floor(700 / data.length), 8)
-  const barWidth = Math.max(gap - 4, 4)
-  const svgWidth = Math.max(data.length * gap + 10, containerWidth || 0)
+  const chartWidth = Math.max(containerWidth || 720, 360)
+  const plotWidth = Math.max(chartWidth - 16, 320)
+  const slot = plotWidth / data.length
+  const barWidth = Math.max(12, Math.min(slot * 0.58, 76))
+  const svgWidth = data.length > 16 ? Math.max(data.length * 52, chartWidth) : chartWidth
 
   return (
     <div ref={containerRef} className="w-full overflow-x-auto">
@@ -111,7 +294,9 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
         ))}
         {data.map((d, i) => {
           const barH = Math.max((Number(d[valueKey]) / maxVal) * height, 2)
-          const x = i * gap + (gap - barWidth) / 2
+          const x = data.length > 16
+            ? i * 52 + (52 - barWidth) / 2
+            : 8 + i * slot + (slot - barWidth) / 2
           const y = height - barH
           const isHighest = Number(d[valueKey]) === maxVal
           return (
@@ -125,9 +310,10 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
         {data.map((d, i) => {
           const step = Math.max(1, Math.floor(data.length / 7))
           if (i % step !== 0) return null
-          const label = String(d.period ?? d.day ?? '').slice(5)
+          const label = fmtTrendLabel(d.period ?? d.day)
+          const x = data.length > 16 ? i * 52 + 26 : 8 + i * slot + slot / 2
           return (
-            <text key={`lbl-${i}`} x={i * gap + gap / 2} y={height + 20} textAnchor="middle" fontSize={10} fill="#72787c">
+            <text key={`lbl-${i}`} x={x} y={height + 20} textAnchor="middle" fontSize={10} fill="#72787c">
               {label}
             </text>
           )
@@ -173,7 +359,7 @@ export function AdminAnalyticsPage() {
       const [ov, trend, orgs, cats, subRev] = await Promise.all([
         fetchAdminAnalyticsOverview({ dateFrom: range.dateFrom, dateTo: range.dateTo }),
         fetchAdminRevenueTrend({ dateFrom: range.dateFrom, dateTo: range.dateTo, groupBy: trendGroupBy }),
-        fetchAdminTopOrganizers({ limit: 10 }),
+        fetchAdminTopOrganizers({ limit: 5 }),
         fetchAdminEventsByCategory(),
         fetchAdminSubscriptionRevenue(),
       ])
@@ -213,52 +399,14 @@ export function AdminAnalyticsPage() {
   const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
   const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
 
-  const maxCatEvents = Math.max(...eventsByCategory.map((c) => Number(c.total_events)), 1)
-
   return (
     <Page
       title="Tổng quan nền tảng"
       description="Thống kê toàn hệ thống: người dùng, sự kiện, doanh thu và hoạt động giao dịch."
     >
-      {/* ── Attention Required ── */}
-      {overview && (
-        <div className="mb-6 rounded-2xl border border-warning/30 bg-warning/[0.06] p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="grid size-7 place-items-center rounded-lg bg-warning/20">
-              <span className="text-sm">⚠️</span>
-            </div>
-            <p className="text-sm font-extrabold uppercase tracking-wider text-warning">
-              Cần xử lý ngay
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              ['Sự kiện chờ duyệt', Number(events?.pending_events || 0), Number(events?.pending_events || 0) > 5 ? 'critical' : 'warn'],
-              ['Yêu cầu Organizer', Number(orgReqs?.pending_requests || 0), Number(orgReqs?.pending_requests || 0) > 3 ? 'critical' : 'warn'],
-              ['Sự kiện đã hủy', Number(events?.cancelled_events || 0), 'warn'],
-              ['Đơn hàng đang xử lý', Number(orders?.pending_orders || 0), 'warn'],
-            ].map(([label, count, severity]) => (
-              <div
-                key={label}
-                className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
-                  severity === 'critical'
-                    ? 'border-error/30 bg-error/[0.07]'
-                    : 'border-warning/30 bg-warning/[0.05]'
-                }`}
-              >
-                <span className="text-sm font-semibold text-subtle">{label}</span>
-                <span className={`text-xl font-extrabold ${severity === 'critical' ? 'text-error' : 'text-warning'}`}>
-                  {count}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── Filters ── */}
-      <Panel className="mb-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <Panel className="mb-5">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <DateRangeFilter
             value={datePreset}
             customFrom={customFrom}
@@ -274,7 +422,7 @@ export function AdminAnalyticsPage() {
             compact
           />
 
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             <div>
               <span className="block text-sm font-semibold text-subtle">Nhóm theo</span>
               <div className="mt-2 flex gap-2">
@@ -307,6 +455,42 @@ export function AdminAnalyticsPage() {
           </div>
         </div>
       </Panel>
+
+      {/* ── Attention Required ── */}
+      {overview && (
+        <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/[0.06] p-4 sm:p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="grid size-7 place-items-center rounded-lg bg-warning/20">
+              <AlertTriangle className="size-4 text-warning" />
+            </div>
+            <p className="text-sm font-extrabold uppercase tracking-wider text-warning">
+              Cần xử lý ngay
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              ['Sự kiện chờ duyệt', Number(events?.pending_events || 0), Number(events?.pending_events || 0) > 5 ? 'critical' : 'warn'],
+              ['Yêu cầu Organizer', Number(orgReqs?.pending_requests || 0), Number(orgReqs?.pending_requests || 0) > 3 ? 'critical' : 'warn'],
+              ['Sự kiện đã hủy', Number(events?.cancelled_events || 0), 'warn'],
+              ['Đơn hàng đang xử lý', Number(orders?.pending_orders || 0), 'warn'],
+            ].map(([label, count, severity]) => (
+              <div
+                key={label}
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                  severity === 'critical'
+                    ? 'border-error/30 bg-error/[0.07]'
+                    : 'border-warning/30 bg-warning/[0.05]'
+                }`}
+              >
+                <span className="text-sm font-semibold text-subtle">{label}</span>
+                <span className={`shrink-0 text-xl font-extrabold ${severity === 'critical' ? 'text-error' : 'text-warning'}`}>
+                  {count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-5 rounded-xl border border-error/30 bg-error/[0.07] px-4 py-3 text-sm text-error">
@@ -400,234 +584,194 @@ export function AdminAnalyticsPage() {
             />
           </div>
 
-          <div className="mb-6 grid gap-6 xl:grid-cols-[1fr_320px]">
-            {/* ── Revenue Trend Chart ── */}
-            <Panel>
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="size-5 text-tertiary" />
-                  <h2 className="font-bold text-content">Xu hướng doanh thu</h2>
-                </div>
-                <span className="flex items-center gap-1 text-xs text-subtle">
-                  {activeRangeLabel}
-                </span>
-              </div>
-              <div className={comparison.enabled ? 'grid gap-4 xl:grid-cols-2' : ''}>
-                <div>
-                  {comparison.enabled && (
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
-                      Kỳ hiện tại
-                    </p>
-                  )}
-                  <BarChartSimple data={revenueTrend} valueKey="gross_revenue" />
-                  {revenueTrend.length > 0 && (
-                    <div className="mt-3 flex justify-between text-xs text-subtle">
-                      <span>Tổng: {fmtCurrency(revenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}</span>
-                      <span>{revenueTrend.length} điểm dữ liệu</span>
-                    </div>
-                  )}
-                </div>
+          {/* ── Revenue Trend Chart ── */}
+          <Panel className="mb-6">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-soft/25 bg-panel-soft/45 px-4 py-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted">Khoảng thời gian</span>
+              <span className="rounded-md border border-border-soft/30 bg-primary/20 px-2.5 py-1 text-xs font-bold text-content">
+                {activeRangeLabel}
+              </span>
+            </div>
+            <div className="mb-4 flex items-center gap-2">
+              <BarChart3 className="size-5 text-tertiary" />
+              <h2 className="font-bold text-content">Xu hướng doanh thu</h2>
+            </div>
+            <div className={comparison.enabled ? 'grid items-start gap-5 xl:grid-cols-2' : ''}>
+              <div>
                 {comparison.enabled && (
-                  <div>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
-                      {comparison.label || 'Kỳ so sánh'}
-                    </p>
-                    <BarChartSimple data={comparisonRevenueTrend} valueKey="gross_revenue" />
-                    {comparisonRevenueTrend.length > 0 && (
-                      <div className="mt-3 flex justify-between text-xs text-subtle">
-                        <span>
-                          Tổng: {fmtCurrency(comparisonRevenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}
-                        </span>
-                        <span>{comparisonRevenueTrend.length} điểm dữ liệu</span>
-                      </div>
-                    )}
-                  </div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                    Kỳ hiện tại
+                  </p>
                 )}
+                <BarChartSimple data={revenueTrend} valueKey="gross_revenue" height={170} />
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-md border border-border-soft/25 bg-panel-soft/55 px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase text-muted">Tổng doanh thu</p>
+                    <p className="mt-0.5 text-sm font-black text-content">
+                      {fmtCurrency(revenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border-soft/25 bg-panel-soft/55 px-3 py-2 text-left sm:text-right">
+                    <p className="text-[10px] font-bold uppercase text-muted">Điểm dữ liệu</p>
+                    <p className="mt-0.5 text-sm font-black text-content">{revenueTrend.length}</p>
+                  </div>
+                </div>
               </div>
-            </Panel>
-
-            {/* ── Events Status Breakdown ── */}
-            <Panel>
-              <h2 className="mb-4 font-bold text-content">Trạng thái sự kiện</h2>
-              <MiniStatRow label="Đã đăng (Published)" value={Number(events.published_events).toLocaleString('vi-VN')} tone="green" />
-              <MiniStatRow label="Chờ duyệt" value={Number(events.pending_events).toLocaleString('vi-VN')} tone="blue" />
-              <MiniStatRow label="Bản nháp" value={Number(events.draft_events).toLocaleString('vi-VN')} />
-              <MiniStatRow label="Hoàn thành" value={Number(events.completed_events).toLocaleString('vi-VN')} />
-              <MiniStatRow label="Đã hủy" value={Number(events.cancelled_events).toLocaleString('vi-VN')} tone="red" />
-              <MiniStatRow label="Đã ẩn" value={Number(events.hidden_events).toLocaleString('vi-VN')} tone="red" />
-
-              <div className="mt-5 border-t border-border-soft/30 pt-4">
-                <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-subtle">Yêu cầu Organizer</h3>
-                <MiniStatRow label="Chờ duyệt" value={Number(orgReqs.pending_requests).toLocaleString('vi-VN')} tone="blue" />
-                <MiniStatRow label="Đã duyệt" value={Number(orgReqs.approved_requests).toLocaleString('vi-VN')} tone="green" />
-                <MiniStatRow label="Từ chối" value={Number(orgReqs.rejected_requests).toLocaleString('vi-VN')} tone="red" />
-              </div>
-            </Panel>
-          </div>
-
-          <div className="mb-6 grid gap-6 xl:grid-cols-2">
-            {/* ── Top Organizers ── */}
-            {topOrganizers.length > 0 && (
-              <Panel>
-                <h2 className="mb-4 font-bold text-content">Top nhà tổ chức (theo doanh thu)</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border-soft/30 text-[11px] uppercase text-subtle">
-                        <th className="pb-3 text-left font-bold">#</th>
-                        <th className="pb-3 text-left font-bold">Tên tổ chức</th>
-                        <th className="pb-3 text-right font-bold">Sự kiện</th>
-                        <th className="pb-3 text-right font-bold">Doanh thu</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topOrganizers.map((org, i) => (
-                        <tr key={org.organizer_id} className="border-b border-border-soft/20 last:border-0 transition-colors hover:bg-panel-soft/60">
-                          <td className="py-2.5 pr-2 text-xs font-bold text-subtle">{i + 1}</td>
-                          <td className="py-2.5">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-content truncate max-w-[140px]">{org.organizer_name}</p>
-                              {org.subscription_name && (
-                                <span className="shrink-0 rounded-full border border-tertiary/30 bg-tertiary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-tertiary">
-                                  {org.subscription_name}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-subtle truncate max-w-[200px]">{org.organizer_email}</p>
-                          </td>
-                          <td className="py-2.5 text-right text-subtle">{org.total_events}</td>
-                          <td className="py-2.5 text-right font-semibold text-success">{fmtShort(org.gross_revenue)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {comparison.enabled && (
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">
+                    {comparison.label || 'Kỳ so sánh'}
+                  </p>
+                  <BarChartSimple data={comparisonRevenueTrend} valueKey="gross_revenue" height={170} />
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-md border border-border-soft/25 bg-panel-soft/55 px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase text-muted">Tổng doanh thu</p>
+                      <p className="mt-0.5 text-sm font-black text-content">
+                        {fmtCurrency(comparisonRevenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-border-soft/25 bg-panel-soft/55 px-3 py-2 text-left sm:text-right">
+                      <p className="text-[10px] font-bold uppercase text-muted">Điểm dữ liệu</p>
+                      <p className="mt-0.5 text-sm font-black text-content">{comparisonRevenueTrend.length}</p>
+                    </div>
+                  </div>
                 </div>
-              </Panel>
-            )}
-
-            {/* ── Events by Category ── */}
-            {eventsByCategory.length > 0 && (
-              <Panel>
-                <h2 className="mb-4 font-bold text-content">Sự kiện theo danh mục</h2>
-                <div className="space-y-4">
-                  {eventsByCategory.map((cat) => {
-                    const pct = Math.round((Number(cat.total_events) / maxCatEvents) * 100)
-                    return (
-                      <div key={cat.id}>
-                        <div className="mb-1.5 flex items-center justify-between text-sm">
-                          <span className="font-semibold text-content truncate max-w-[200px]">{cat.name}</span>
-                          <span className="ml-2 shrink-0 text-xs font-bold text-subtle">
-                            {Number(cat.total_events).toLocaleString()} sự kiện
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-border-soft/30">
-                          <div className="h-full rounded-full bg-tertiary transition-all duration-500" style={{ width: `${pct}%` }} />
-                        </div>
-                        <p className="mt-1 text-xs text-muted">
-                          {Number(cat.published_events).toLocaleString()} đã đăng · {Number(cat.completed_events).toLocaleString()} hoàn thành
-                        </p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Panel>
-            )}
-          </div>
-
-          {/* ── Order Stats Summary ── */}
-          <Panel>
-            <h2 className="mb-4 font-bold text-content">Tóm tắt đơn hàng (toàn thời gian)</h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                ['Tổng đơn', Number(orders.total_orders).toLocaleString('vi-VN'), 'text-content'],
-                ['Đã thanh toán', Number(orders.paid_orders).toLocaleString('vi-VN'), 'text-success'],
-                ['Đang xử lý', Number(orders.pending_orders).toLocaleString('vi-VN'), 'text-warning'],
-                ['Đã hủy', Number(orders.cancelled_orders).toLocaleString('vi-VN'), 'text-error'],
-              ].map(([label, value, color]) => (
-                <div key={label} className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-                  <p className={`mt-2 text-xl font-extrabold ${color}`}>{value}</p>
-                </div>
-              ))}
+              )}
             </div>
           </Panel>
 
+          <Panel className="mb-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-bold text-content">Tình trạng vận hành</h2>
+              <span className="rounded-md border border-border-soft/30 bg-panel-soft px-2.5 py-1 text-xs font-bold text-subtle">
+                Tổng quan
+              </span>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <ChartTile>
+                <DonutChart
+                  title="Trạng thái sự kiện"
+                  totalLabel="sự kiện"
+                  bare
+                  compact
+                  data={[
+                    { label: 'Đã đăng', value: events.published_events, color: '#22c55e' },
+                    { label: 'Chờ duyệt', value: events.pending_events, color: '#38bdf8' },
+                    { label: 'Bản nháp', value: events.draft_events, color: '#72787c' },
+                    { label: 'Hoàn thành', value: events.completed_events, color: '#b3cde0' },
+                    { label: 'Đã hủy/ẩn', value: Number(events.cancelled_events || 0) + Number(events.hidden_events || 0), color: '#ef4444' },
+                  ]}
+                />
+              </ChartTile>
+              <ChartTile>
+                <DonutChart
+                  title="Yêu cầu Organizer"
+                  totalLabel="yêu cầu"
+                  bare
+                  compact
+                  data={[
+                    { label: 'Chờ duyệt', value: orgReqs.pending_requests, color: '#38bdf8' },
+                    { label: 'Đã duyệt', value: orgReqs.approved_requests, color: '#22c55e' },
+                    { label: 'Từ chối', value: orgReqs.rejected_requests, color: '#ef4444' },
+                  ]}
+                />
+              </ChartTile>
+            </div>
+          </Panel>
+
+          <div className="mb-6">
+            <CategoryDistributionChart items={eventsByCategory} />
+          </div>
+
           {/* ── Subscription Revenue ── */}
           {subscriptionRevenue && (
-            <Panel className="mt-6">
-              <h2 className="mb-4 font-bold text-content">Doanh thu từ gói dịch vụ</h2>
-              <div className="mb-5 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">Tổng lượt đăng ký</p>
-                  <p className="mt-2 text-xl font-extrabold text-content">
-                    {Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}
-                  </p>
-                  <p className="mt-0.5 text-xs text-subtle">
-                    {Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')} đang active
-                  </p>
+            <Panel className="mb-6">
+              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="font-bold text-content">Doanh thu từ gói dịch vụ</h2>
+                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu từng gói, số lượt đăng ký và số gói active.</p>
                 </div>
-                <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">Số gói đang active</p>
-                  <p className="mt-2 text-xl font-extrabold text-success">
-                    {Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-success/30 bg-success/[0.07] p-4 text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-success">Tổng doanh thu</p>
-                  <p className="mt-2 text-xl font-extrabold text-success">
-                    {fmtCurrency(subscriptionRevenue.total_revenue)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted">Bao gồm cả gói đã hủy</p>
+                <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
+                  <CompactMetric
+                    label="Tổng lượt"
+                    value={Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}
+                  />
+                  <CompactMetric
+                    label="Đang active"
+                    value={Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}
+                    tone="text-success"
+                  />
+                  <CompactMetric
+                    label="Tổng doanh thu"
+                    value={fmtCurrency(subscriptionRevenue.total_revenue)}
+                    tone="text-success"
+                  />
                 </div>
               </div>
 
               {Array.isArray(subscriptionRevenue.by_plan) && subscriptionRevenue.by_plan.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-border-soft/30">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border-soft/30 text-[11px] uppercase text-subtle">
-                        <th className="px-4 pb-3 pt-3 text-left font-bold">Gói dịch vụ</th>
-                        <th className="px-4 pb-3 pt-3 text-right font-bold">Giá / lần</th>
-                        <th className="px-4 pb-3 pt-3 text-right font-bold">Tổng doanh thu</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {subscriptionRevenue.by_plan.map((plan) => (
-                        <tr key={plan.plan_id} className="border-b border-border-soft/20 last:border-0 transition-colors hover:bg-panel-soft/60">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full border border-tertiary/30 bg-tertiary/15 px-2.5 py-0.5 text-xs font-bold text-tertiary">
-                                {plan.plan_name}
-                              </span>
-                              <span className="text-xs text-subtle">
-                                {Number(plan.total).toLocaleString('vi-VN')} lượt đăng ký
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right text-subtle">{fmtCurrency(plan.price)}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-success">{fmtCurrency(plan.revenue)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t border-border-soft/40 bg-panel-soft">
-                        <td className="px-4 py-3 font-bold text-content">
-                          Tổng cộng
-                          <span className="ml-2 text-xs font-normal text-subtle">
-                            ({Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')} lượt)
-                          </span>
-                        </td>
-                        <td />
-                        <td className="px-4 py-3 text-right font-bold text-success">
-                          {fmtCurrency(subscriptionRevenue.total_revenue)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <ChartTile>
+                    <DonutChart
+                      title="Doanh thu theo từng gói"
+                      totalLabel="doanh thu"
+                      valueFormatter={fmtCurrency}
+                      bare
+                      compact
+                      data={subscriptionRevenue.by_plan.map((plan, index) => ({
+                        label: `${plan.plan_name} (${Number(plan.total).toLocaleString('vi-VN')} lượt)`,
+                        value: plan.revenue,
+                        color: ['#b3cde0', '#22c55e', '#ff7112', '#38bdf8', '#a855f7'][index % 5],
+                      }))}
+                    />
+                  </ChartTile>
+                  <ChartTile>
+                    <DonutChart
+                      title="Số lượt theo từng gói"
+                      totalLabel="lượt"
+                      bare
+                      compact
+                      data={subscriptionRevenue.by_plan.map((plan, index) => ({
+                        label: `${plan.plan_name} · ${fmtCurrency(plan.price)}`,
+                        value: plan.total,
+                        color: ['#b3cde0', '#22c55e', '#ff7112', '#38bdf8', '#a855f7'][index % 5],
+                      }))}
+                    />
+                  </ChartTile>
                 </div>
               )}
             </Panel>
           )}
+
+          <div className={`grid gap-6 ${topOrganizers?.length ? 'xl:grid-cols-[minmax(0,1fr)_420px]' : ''}`}>
+            {topOrganizers?.length > 0 && (
+              <HorizontalValueChart
+                title="Top 5 nhà tổ chức theo doanh thu"
+                items={topOrganizers}
+                valueKey="gross_revenue"
+                labelKey="organizer_name"
+                color="#22c55e"
+                subLabel={(org) => `${org.total_events} sự kiện · ${org.subscription_name || 'Chưa có gói active'}`}
+              />
+            )}
+
+            <Panel>
+              <h2 className="mb-4 font-bold text-content">Tóm tắt đơn hàng</h2>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                {[
+                  ['Tổng đơn', Number(orders.total_orders).toLocaleString('vi-VN'), 'text-content'],
+                  ['Đã thanh toán', Number(orders.paid_orders).toLocaleString('vi-VN'), 'text-success'],
+                  ['Đang xử lý', Number(orders.pending_orders).toLocaleString('vi-VN'), 'text-warning'],
+                  ['Đã hủy', Number(orders.cancelled_orders).toLocaleString('vi-VN'), 'text-error'],
+                ].map(([label, value, color]) => (
+                  <div key={label} className="flex items-center justify-between rounded-md border border-border-soft/30 bg-panel-soft/60 px-4 py-3">
+                    <p className="text-xs font-bold uppercase text-subtle">{label}</p>
+                    <p className={`text-lg font-extrabold ${color}`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
         </>
       ) : null}
     </Page>

@@ -46,14 +46,26 @@ class OrganizerSubscriptionsService {
       );
     }
 
+    const currentPlan = await organizerSubscriptionsRepository.findCurrentSubscription(userId);
+    if (
+      currentPlan &&
+      String(currentPlan.subscription_id) !== String(subscriptionId) &&
+      Number(plan.price || 0) < Number(currentPlan.price || 0)
+    ) {
+      throw new AppError(
+        'Hạ cấp gói sẽ được áp dụng ở chu kỳ tiếp theo. Hệ thống tạm thời chưa mở thao tác hạ cấp tự động, vui lòng liên hệ quản trị viên để được kiểm tra quota và lên lịch chuyển gói.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
     const platformChannel = subPaymentRepository.getPlatformChannel();
 
     // ── Free plan or PayOS not configured → activate immediately ──────────
     if (!platformChannel || Number(plan.price) === 0) {
       const reason = !platformChannel ? 'no platform channel' : 'free plan';
       require('../../core/logger').info(`[Subscriptions] Direct activation (${reason}) for plan ${plan.name}`);
-      await organizerSubscriptionsRepository.cancelActiveSubscriptions(userId);
-      const newSub = await organizerSubscriptionsRepository.activateNewSubscription(
+      const newSub = await organizerSubscriptionsRepository.replaceActiveSubscription(
         userId,
         subscriptionId,
         plan.duration_days || 30,
@@ -211,8 +223,7 @@ class OrganizerSubscriptionsService {
     }
 
     const plan = await subscriptionsRepository.findById(record.subscription_id);
-    await organizerSubscriptionsRepository.cancelActiveSubscriptions(userId);
-    const newSub = await organizerSubscriptionsRepository.activateNewSubscription(
+    const newSub = await organizerSubscriptionsRepository.replaceActiveSubscription(
       userId,
       record.subscription_id,
       plan?.duration_days || 30,

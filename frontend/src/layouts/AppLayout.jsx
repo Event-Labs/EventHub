@@ -430,7 +430,7 @@ export function AppLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <AiChatWidget />
+      {loggedIn && <AiChatWidget enabled={loggedIn} />}
       <footer className="border-t border-primary/15 bg-[#081126]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>

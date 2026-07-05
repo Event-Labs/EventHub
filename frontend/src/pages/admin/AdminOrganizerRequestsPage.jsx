@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import {
   fetchAdminOrganizerRequests,
@@ -15,6 +15,12 @@ const statusFilters = [
   { label: 'Chờ duyệt', value: 'PENDING' },
   { label: 'Đã duyệt', value: 'APPROVED' },
   { label: 'Từ chối', value: 'REJECTED' },
+]
+
+const requestTypeFilters = [
+  { label: 'Tất cả loại', value: '' },
+  { label: 'Cá nhân', value: 'INDIVIDUAL' },
+  { label: 'Tổ chức', value: 'ORGANIZATION' },
 ]
 
 function statusTone(status) {
@@ -35,15 +41,21 @@ function requestTypeLabel(type) {
 
 export function AdminOrganizerRequestsPage() {
   const queryClient = useQueryClient()
-  const [statusFilter, setStatusFilter] = useState('PENDING')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [requestTypeFilter, setRequestTypeFilter] = useState('')
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [reviewNote, setReviewNote] = useState('')
   const [reviewError, setReviewError] = useState('')
+  const statusFilterLabel = statusFilters.find((filter) => filter.value === statusFilter)?.label || 'Tất cả'
+  const requestTypeFilterLabel = requestTypeFilters.find((filter) => filter.value === requestTypeFilter)?.label || 'Tất cả loại'
 
   const requestsQuery = useQuery({
-    queryKey: ['admin-organizer-requests', statusFilter],
+    queryKey: ['admin-organizer-requests', statusFilter, requestTypeFilter],
     queryFn: () =>
-      fetchAdminOrganizerRequests(statusFilter ? { status: statusFilter } : {}),
+      fetchAdminOrganizerRequests({
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(requestTypeFilter ? { request_type: requestTypeFilter } : {}),
+      }),
   })
 
   const pendingCountQuery = useQuery({
@@ -101,27 +113,25 @@ export function AdminOrganizerRequestsPage() {
 
   return (
     <Page
-      title="Yêu cầu Organizer"
-      description="Theo dõi, kiểm tra và phê duyệt các yêu cầu nâng quyền Organizer trên nền tảng"
+      title="Quản lý Organizer"
+      description="Theo dõi toàn bộ Organizer, kiểm tra hồ sơ đăng ký và phê duyệt yêu cầu nâng quyền"
     >
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        {statusFilters.map((filter) => (
-          <button
-            key={filter.label}
-            type="button"
-            onClick={() => setStatusFilter(filter.value)}
-            className={`inline-flex min-w-24 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
-              statusFilter === filter.value
-                ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
-            }`}
-          >
-            {filter.label}
-          </button>
-        ))}
+      <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+        <FilterGroup
+          label="Trạng thái"
+          filters={statusFilters}
+          value={statusFilter}
+          onChange={setStatusFilter}
+        />
+        <FilterGroup
+          label="Loại đăng ký"
+          filters={requestTypeFilters}
+          value={requestTypeFilter}
+          onChange={setRequestTypeFilter}
+        />
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Hàng đợi chờ duyệt"
           value={pendingCountQuery.isLoading ? '...' : pendingCount}
@@ -133,9 +143,15 @@ export function AdminOrganizerRequestsPage() {
           accent="bg-success"
         />
         <MetricCard
-          label="Bộ lọc hiện tại"
-          value={statusFilters.find((filter) => filter.value === statusFilter)?.label || 'Tất cả'}
+          label="Trạng thái hiện tại"
+          value={statusFilterLabel}
           accent="bg-tertiary"
+          compact
+        />
+        <MetricCard
+          label="Loại hiện tại"
+          value={requestTypeFilterLabel}
+          accent="bg-warning"
           compact
         />
       </div>
@@ -156,7 +172,7 @@ export function AdminOrganizerRequestsPage() {
             'Người gửi',
             'Liên hệ',
             'Trạng thái',
-            'Ngày gửi',
+            'Ngày tạo/gửi',
             '',
           ]}
           rows={requests.map((request) => [
@@ -194,25 +210,16 @@ export function AdminOrganizerRequestsPage() {
             <span key="date" className="text-subtle font-medium">
               {new Date(request.created_at).toLocaleDateString('vi-VN')}
             </span>,
-            request.status === 'PENDING' ? (
-              <button
-                key="action"
-                type="button"
-                className="admin-secondary !px-3 !py-2"
-                onClick={() => openReview(request)}
-              >
-                Xem
-              </button>
-            ) : (
-              <button
-                key="action"
-                type="button"
-                className="admin-secondary !px-3 !py-2"
-                onClick={() => openReview(request)}
-              >
-                Xem
-              </button>
-            ),
+            <button
+              key="action"
+              type="button"
+              className="grid size-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-tertiary hover:text-tertiary"
+              onClick={() => openReview(request)}
+              title="Xem chi tiết"
+              aria-label={`Xem chi tiết yêu cầu ${request.organization_name}`}
+            >
+              <Eye className="size-4" />
+            </button>,
           ])}
         />
       )}
@@ -234,8 +241,10 @@ export function AdminOrganizerRequestsPage() {
               {selectedRequest.applicant?.full_name} · {selectedRequest.applicant?.email}
             </p>
             <div className="mt-4 grid gap-3 rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm sm:grid-cols-2">
+              <Info label="Trạng thái" value={statusLabel(selectedRequest.status)} />
               <Info label="Loại đăng ký" value={requestTypeLabel(selectedRequest.request_type)} />
               <Info label="Số điện thoại" value={selectedRequest.business_phone} />
+              <Info label="SĐT tài khoản" value={selectedRequest.applicant?.phone || 'Chưa cung cấp'} />
               <Info
                 label="Email tổ chức"
                 value={
@@ -362,6 +371,30 @@ function MetricCard({ label, value, accent, compact = false }) {
         </p>
       </div>
     </Panel>
+  )
+}
+
+function FilterGroup({ label, filters, value, onChange }) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {filters.map((filter) => (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={`inline-flex min-w-24 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
+              value === filter.value
+                ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
+            }`}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 

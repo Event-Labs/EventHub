@@ -1,14 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Loader2, MessageCircle, Send, ShieldCheck, User } from 'lucide-react'
+import { Loader2, MessageCircle, Send, User } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchAiChatMeta, sendAiChatMessage } from '@/services/aiChat.js'
 
 const MODE_LABELS = {
-  gemini_grounded: 'Gemini grounded',
-  agent_rag: 'Tool-first RAG',
-  grounded_llm: 'RAG + LLM (grounded)',
-  extractive_rag: 'RAG trích xuất',
-  refusal: 'Từ chối ngoài phạm vi',
+  eventhub_assistant: 'Đã kiểm tra thông tin',
+  refusal: 'Ngoài phạm vi hỗ trợ',
+  error: 'Tạm thời gián đoạn',
 }
 
 const WELCOME_MESSAGE = {
@@ -19,8 +17,8 @@ const WELCOME_MESSAGE = {
 }
 
 const LAUNCHER_SIZE = 64
-const PANEL_WIDTH = 360
-const PANEL_HEIGHT = 540
+const PANEL_WIDTH = 390
+const PANEL_HEIGHT = 580
 const EDGE_PADDING = 16
 const LOGO_SRC = '/images/ava.png'
 
@@ -37,7 +35,10 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max)
 }
 
-export function AiChatWidget() {
+export function AiChatWidget({ enabled = true }) {
+  // Hard guard: only render when user has a valid session token
+  const isLoggedIn = Boolean(localStorage.getItem('eventhub-token'))
+
   const [sessionId, setSessionId] = useState(() => localStorage.getItem('eventhub-ai-session') || '')
   const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
@@ -47,6 +48,8 @@ export function AiChatWidget() {
   const [animationState, setAnimationState] = useState('closed')
   const [launcherPosition, setLauncherPosition] = useState(getDefaultLauncherPosition)
   const [dragging, setDragging] = useState(false)
+  // Re-check auth reactively (e.g. logout in another tab)
+  const [authValid, setAuthValid] = useState(isLoggedIn)
   const dragRef = useRef(null)
   const movedRef = useRef(false)
   const closeTimerRef = useRef(null)
@@ -55,7 +58,7 @@ export function AiChatWidget() {
   const metaQuery = useQuery({
     queryKey: ['ai-chat-meta'],
     queryFn: fetchAiChatMeta,
-    enabled: open,
+    enabled: enabled && open && authValid,
   })
 
   const chatMutation = useMutation({
@@ -110,6 +113,18 @@ export function AiChatWidget() {
       height,
     }
   }, [launcherPosition])
+
+  useEffect(() => {
+    const handleAuthChange = () => {
+      setAuthValid(Boolean(localStorage.getItem('eventhub-token')))
+    }
+    window.addEventListener('eventhub-auth', handleAuthChange)
+    window.addEventListener('storage', handleAuthChange)
+    return () => {
+      window.removeEventListener('eventhub-auth', handleAuthChange)
+      window.removeEventListener('storage', handleAuthChange)
+    }
+  }, [])
 
   useEffect(() => {
     const keepInsideViewport = () => {
@@ -172,6 +187,8 @@ export function AiChatWidget() {
   }
 
   const handleLauncherClick = () => {
+    if (!enabled) return
+
     if (movedRef.current) {
       movedRef.current = false
       return
@@ -197,7 +214,7 @@ export function AiChatWidget() {
 
   const sendMessage = (text) => {
     const message = text.trim()
-    if (!message || chatMutation.isPending) return
+    if (!enabled || !message || chatMutation.isPending) return
 
     setMessages((current) => [...current, { role: 'user', content: message }])
     setInput('')
@@ -205,8 +222,8 @@ export function AiChatWidget() {
       message,
       session_id: sessionId || undefined,
       history: messages
-        .filter((item) => ['user', 'assistant'].includes(item.role) && item.mode !== 'system')
-        .slice(-10)
+        .filter((item) => ['user', 'assistant'].includes(item.role) && !['system', 'error'].includes(item.mode))
+        .slice(-8)
         .map((item) => ({ role: item.role, content: item.content })),
     })
   }
@@ -219,6 +236,8 @@ export function AiChatWidget() {
       : animationState === 'closing'
         ? 'ai-chat-genie-close pointer-events-none'
         : 'ai-chat-genie-ready'
+
+  if (!enabled || !isLoggedIn || !authValid) return null
 
   return (
     <>
@@ -247,7 +266,7 @@ export function AiChatWidget() {
           >
             <EventHubLogoMark className="size-9 shadow-lg shadow-tertiary/20" />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-display text-sm font-extrabold text-white">EventHub AI</p>
+              <p className="truncate font-display text-base font-extrabold text-white">EventHub AI</p>
               <p className="truncate text-[11px] font-semibold text-muted">
                 {chatMutation.isPending ? 'Đang trả lời...' : capabilities?.technique || 'Sẵn sàng hỗ trợ'}
               </p>
@@ -273,13 +292,14 @@ export function AiChatWidget() {
 
           <div className="border-t border-primary/15 bg-[#081126] p-3">
             {suggested.length > 0 && (
-              <div className="ai-chat-suggestion-scroll mb-2.5 flex gap-2 overflow-x-auto pb-1.5">
+              <div className="ai-chat-suggestion-scroll mb-2 flex gap-1.5 overflow-x-auto pb-1">
                 {suggested.slice(0, 4).map((item, index) => (
                   <button
                     key={item.question || index}
                     type="button"
                     onClick={() => sendMessage(item.question)}
-                    className="max-w-[190px] shrink-0 rounded-full border border-primary/25 bg-panel-soft px-2.5 py-1.5 text-left text-[10px] font-bold leading-3 text-subtle shadow-sm transition hover:border-ai/60 hover:bg-ai/10 hover:text-white"
+                    className="shrink-0 rounded-full border border-primary/25 bg-panel-soft px-2.5 py-1 text-left text-[11px] font-semibold leading-4 text-subtle shadow-sm transition hover:border-ai/60 hover:bg-ai/10 hover:text-white whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis"
+                    title={item.question}
                   >
                     {item.question}
                   </button>
@@ -287,7 +307,7 @@ export function AiChatWidget() {
               </div>
             )}
 
-            {error && <p className="mb-2 text-[11px] text-error">{error}</p>}
+            {error && <p className="mb-2 text-xs text-error">{error}</p>}
 
             <form
               className="flex items-end gap-2 rounded-2xl border border-primary/15 bg-panel-soft p-1.5"
@@ -297,7 +317,7 @@ export function AiChatWidget() {
               }}
             >
               <textarea
-                className="max-h-20 min-h-8 flex-1 resize-none border-none bg-transparent px-2 py-1.5 text-[11px] leading-4 text-content outline-none placeholder:text-neutral"
+                className="max-h-20 min-h-9 flex-1 resize-none border-none bg-transparent px-2.5 py-2 text-[13px] leading-5 text-content outline-none placeholder:text-neutral"
                 placeholder="Hỏi về sự kiện, vé, đơn hàng, check-in..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -312,11 +332,11 @@ export function AiChatWidget() {
               <button
                 type="submit"
                 disabled={chatMutation.isPending || !input.trim()}
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-ai text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="grid size-10 shrink-0 place-items-center rounded-full bg-ai text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Gửi tin nhắn"
                 title="Gửi"
               >
-                <Send className="size-3.5" />
+                <Send className="size-4" />
               </button>
             </form>
           </div>
@@ -373,7 +393,7 @@ function MessageBubble({ message }) {
         {isUser ? <User className="size-3.5" /> : <EventHubLogoMark className="size-7" />}
       </div>
       <div
-        className={`max-w-[80%] px-2.5 py-1.5 text-[11px] leading-4 shadow-sm ${
+        className={`max-w-[82%] px-3 py-2 text-[13px] leading-5 shadow-sm ${
           isUser
             ? 'rounded-2xl rounded-br-md bg-primary text-[#081126]'
             : isError
@@ -383,36 +403,10 @@ function MessageBubble({ message }) {
       >
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
 
-        {!isUser && message.mode && message.mode !== 'system' && (
-          <div className="mt-2 space-y-1.5 border-t border-border-soft/60 pt-2 text-[11px] text-muted">
-            <p className="inline-flex flex-wrap items-center gap-1">
-              <ShieldCheck className="size-3" />
-              {MODE_LABELS[message.mode] || message.mode}
-              {message.confidence != null && ` · ${Math.round(message.confidence * 100)}%`}
-              {message.intent && ` · intent: ${message.intent}`}
-            </p>
-            {message.sources?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {message.sources.map((source, index) => (
-                  <span
-                    key={source.id || `${source.title}-${index}`}
-                    className="rounded-full bg-ai/10 px-2 py-0.5 text-ai"
-                    title={source.title}
-                  >
-                    {source.category === 'events'
-                      ? 'Event'
-                      : source.category === 'event_categories'
-                        ? 'Category'
-                        : 'Source'}
-                    :{source.id || source.title}
-                  </span>
-                ))}
-              </div>
-            )}
-            {message.personalization?.hints?.[0] && (
-              <p className="text-primary">{message.personalization.hints[0]}</p>
-            )}
-          </div>
+        {!isUser && message.mode && !['system', 'eventhub_assistant'].includes(message.mode) && (
+          <p className="mt-1.5 border-t border-border-soft/60 pt-1.5 text-[11px] font-semibold text-muted">
+            {MODE_LABELS[message.mode] || 'Tôi chưa thể hỗ trợ nội dung này.'}
+          </p>
         )}
       </div>
     </div>
