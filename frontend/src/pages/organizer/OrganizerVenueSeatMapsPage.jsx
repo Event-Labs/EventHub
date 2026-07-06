@@ -6,14 +6,13 @@ import {
   OrganizerPage,
   OrganizerTable,
 } from './OrganizerComponents.jsx'
-import { getVenue, getVenueSeatMaps } from '@/services/organizerVenues.js'
+import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { deleteSeatMap } from '@/services/organizerSeatMaps.js'
 import { SeatMapEditor } from './SeatMapEditor.jsx'
 
 export function OrganizerVenueSeatMapsPage() {
   const { venueId } = useParams()
   const navigate = useNavigate()
-  const [venue, setVenue] = useState(null)
   const [seatMaps, setSeatMaps] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -23,11 +22,7 @@ export function OrganizerVenueSeatMapsPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [venueData, maps] = await Promise.all([
-        getVenue(venueId),
-        getVenueSeatMaps(venueId),
-      ])
-      setVenue(venueData)
+      const maps = await getVenueSeatMaps(venueId)
       setSeatMaps(maps)
     } catch (err) {
       console.error(err)
@@ -72,7 +67,6 @@ export function OrganizerVenueSeatMapsPage() {
 
   return (
     <OrganizerPage
-      eyebrow={`Địa điểm / ${venue?.name || '...'} / Sơ đồ ghế`}
       title="Sơ đồ ghế"
       description="Quản lý các sơ đồ chỗ ngồi cho địa điểm này."
     >
