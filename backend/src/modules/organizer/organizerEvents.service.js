@@ -44,6 +44,9 @@ function sanitizeEventPayload(payload) {
       disallow_single_seat_left: Boolean(input.disallow_single_seat_left),
     };
   }
+  if (data.require_attendee_info !== undefined) {
+    data.require_attendee_info = Boolean(data.require_attendee_info);
+  }
   return data;
 }
 
@@ -183,6 +186,7 @@ class OrganizerEventsService {
       'seating_rules',
       'refund_policy',
       'additional_terms',
+      'require_attendee_info',
       'start_time',
       'end_time',
     ].forEach((key) => {
@@ -287,7 +291,6 @@ class OrganizerEventsService {
   async submitEvent(userId, eventId) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);
-    await subscriptionGuard.assertEventSubmitAllowed(organizerId, eventId);
 
     const fullEvent = await organizerEventsRepository.findEventById(eventId, organizerId);
     if (!fullEvent.sessions?.length) {
@@ -304,6 +307,8 @@ class OrganizerEventsService {
         throw new AppError('Bạn cần cấu hình kênh thanh toán PayOS trước khi mở bán vé cho sự kiện này.', 400, 'PAYOS_NOT_CONFIGURED');
       }
     }
+
+    await subscriptionGuard.assertEventSubmitAllowed(organizerId, eventId);
 
     const event = await organizerEventsRepository.submitEvent(eventId, organizerId);
     if (!event) {

@@ -60,6 +60,7 @@ function mapDetail(row) {
     ...mapCard(row),
     description: row.description,
     seating_rules: normalizeRules(row.seating_rules),
+    require_attendee_info: Boolean(row.require_attendee_info),
     organizer: row.organizer,
     sessions: row.sessions || [],
     venues: Array.from(

@@ -54,6 +54,10 @@ function firstTicketIdFromOrderStatus(data) {
   return data?.items?.find((item) => item.ticket?.id)?.ticket?.id
 }
 
+function requiresAttendeeInfo(cart) {
+  return Boolean(cart?.requireAttendeeInfo ?? cart?.require_attendee_info)
+}
+
 function availabilityPayloadFromCart(cart) {
   return {
     event_id: cart.eventId,
@@ -463,6 +467,7 @@ export function BookingAttendeesPage() {
   const navigate = useNavigate()
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
+  const collectAttendees = requiresAttendeeInfo(cart)
   const [attendees, setAttendees] = useState(cart?.attendees || {})
   const [buyer, setBuyer] = useState(cart?.buyer || { name: '', email: '', phone: '' })
   const [formError, setFormError] = useState('')
@@ -521,19 +526,21 @@ export function BookingAttendeesPage() {
     }
 
     const cleanAttendees = {}
-    const invalidSlotIndex = attendeeSlots.findIndex((slot) => {
-      const attendee = attendees[slot.id] || {}
-      const cleanAttendee = {
-        name: attendee.name?.trim() || '',
-        email: attendee.email?.trim() || '',
-      }
-      cleanAttendees[slot.id] = cleanAttendee
-      return !cleanAttendee.name || !cleanAttendee.email || !isEmail(cleanAttendee.email)
-    })
+    if (collectAttendees) {
+      const invalidSlotIndex = attendeeSlots.findIndex((slot) => {
+        const attendee = attendees[slot.id] || {}
+        const cleanAttendee = {
+          name: attendee.name?.trim() || '',
+          email: attendee.email?.trim() || '',
+        }
+        cleanAttendees[slot.id] = cleanAttendee
+        return !cleanAttendee.name || !cleanAttendee.email || !isEmail(cleanAttendee.email)
+      })
 
-    if (invalidSlotIndex >= 0) {
-      showFormError(`Vui l\u00f2ng nh\u1eadp \u0111\u1ea7y \u0111\u1ee7 h\u1ecd t\u00ean v\u00e0 email h\u1ee3p l\u1ec7 cho v\u00e9 ${invalidSlotIndex + 1}.`)
-      return
+      if (invalidSlotIndex >= 0) {
+        showFormError(`Vui l\u00f2ng nh\u1eadp \u0111\u1ea7y \u0111\u1ee7 h\u1ecd t\u00ean v\u00e0 email h\u1ee3p l\u1ec7 cho v\u00e9 ${invalidSlotIndex + 1}.`)
+        return
+      }
     }
 
     navigate('/booking/review', { state: { cart: { ...cart, attendees: cleanAttendees, buyer: cleanBuyer } } })
@@ -543,7 +550,10 @@ export function BookingAttendeesPage() {
     <BookingShell step={2} cart={cart}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
-          <PageTitle title={'Th\u00f4ng tin ng\u01b0\u1eddi tham gia'} subtitle={'Th\u00f4ng tin n\u00e0y s\u1ebd \u0111\u01b0\u1ee3c d\u00f9ng khi xu\u1ea5t v\u00e9 sau thanh to\u00e1n'} />
+          <PageTitle
+            title={collectAttendees ? 'Th\u00f4ng tin ng\u01b0\u1eddi tham gia' : 'Th\u00f4ng tin ng\u01b0\u1eddi mua'}
+            subtitle={collectAttendees ? 'Th\u00f4ng tin n\u00e0y s\u1ebd \u0111\u01b0\u1ee3c d\u00f9ng khi xu\u1ea5t v\u00e9 sau thanh to\u00e1n' : 'V\u00e9 s\u1ebd ghi nh\u1eadn theo th\u00f4ng tin ng\u01b0\u1eddi mua'}
+          />
           {formError && (
             <p ref={formErrorRef} className="rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error">
               {formError}
@@ -557,7 +567,7 @@ export function BookingAttendeesPage() {
               <Input label={'S\u1ed1 \u0111i\u1ec7n tho\u1ea1i'} value={buyer.phone} onChange={(value) => { setFormError(''); setBuyer((current) => ({ ...current, phone: value })) }} />
             </div>
           </Panel>
-          {attendeeSlots.map((slot, index) => (
+          {collectAttendees && attendeeSlots.map((slot, index) => (
             <Panel key={slot.id}>
               <h3 className="mb-4 font-bold text-white">
                 {'V\u00e9'} {index + 1} <span className="text-sm text-muted">({slot.ticketName})</span>
@@ -599,6 +609,8 @@ export function BookingReviewPage() {
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
+  const collectAttendees = requiresAttendeeInfo(cart)
+
   const continueFlow = async () => {
     const nextCart = { ...cart, promoCode, promo: selectedPromo }
     setAvailabilityError('')
@@ -621,7 +633,7 @@ export function BookingReviewPage() {
     <BookingShell step={3} cart={cart}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
-          <PageTitle title={'Ki\u1ec3m tra v\u00e9'} subtitle={'Vui l\u00f2ng ki\u1ec3m tra k\u1ef9 v\u00e9, ng\u01b0\u1eddi tham gia, th\u1eddi gian v\u00e0 \u0111\u1ecba \u0111i\u1ec3m'} />
+          <PageTitle title={'Ki\u1ec3m tra v\u00e9'} subtitle={collectAttendees ? 'Vui l\u00f2ng ki\u1ec3m tra k\u1ef9 v\u00e9, ng\u01b0\u1eddi tham gia, th\u1eddi gian v\u00e0 \u0111\u1ecba \u0111i\u1ec3m' : 'Vui l\u00f2ng ki\u1ec3m tra k\u1ef9 v\u00e9, ng\u01b0\u1eddi mua, th\u1eddi gian v\u00e0 \u0111\u1ecba \u0111i\u1ec3m'} />
           <Panel>
             <h2 className="mb-4 font-display text-xl font-bold text-white">{'Th\u00f4ng tin s\u1ef1 ki\u1ec7n'}</h2>
             <div className="grid gap-3 text-sm text-muted md:grid-cols-2">
@@ -649,16 +661,24 @@ export function BookingReviewPage() {
             </div>
           </Panel>
           <Panel>
-            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Ng\u01b0\u1eddi tham gia'}</h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              {expandAttendeeSlots(cart).map((slot, index) => (
-                <div key={slot.id} className="rounded-md border border-border-soft bg-surface p-3">
-                  <p className="text-xs font-bold uppercase text-primary">{'V\u00e9'} {index + 1}</p>
-                  <p className="mt-1 font-semibold text-white">{cart.attendees?.[slot.id]?.name || cart.buyer?.name || 'Ch\u01b0a nh\u1eadp'}</p>
-                  <p className="text-sm text-muted">{cart.attendees?.[slot.id]?.email || cart.buyer?.email || 'Ch\u01b0a nh\u1eadp'}</p>
-                </div>
-              ))}
-            </div>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">{collectAttendees ? 'Ng\u01b0\u1eddi tham gia' : 'Ng\u01b0\u1eddi mua'}</h2>
+            {collectAttendees ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {expandAttendeeSlots(cart).map((slot, index) => (
+                  <div key={slot.id} className="rounded-md border border-border-soft bg-surface p-3">
+                    <p className="text-xs font-bold uppercase text-primary">{'V\u00e9'} {index + 1}</p>
+                    <p className="mt-1 font-semibold text-white">{cart.attendees?.[slot.id]?.name || 'Ch\u01b0a nh\u1eadp'}</p>
+                    <p className="text-sm text-muted">{cart.attendees?.[slot.id]?.email || 'Ch\u01b0a nh\u1eadp'}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-border-soft bg-surface p-3">
+                <p className="mt-1 font-semibold text-white">{cart.buyer?.name || 'Ch\u01b0a nh\u1eadp'}</p>
+                <p className="text-sm text-muted">{cart.buyer?.email || 'Ch\u01b0a nh\u1eadp'}</p>
+                <p className="text-sm text-muted">{cart.buyer?.phone || 'Ch\u01b0a nh\u1eadp'}</p>
+              </div>
+            )}
           </Panel>
           <PromoPanel
             promoCode={promoCode}
@@ -757,6 +777,7 @@ export function BookingPaymentPage() {
       buyer_email: cart.buyer?.email || '',
       buyer_phone: cart.buyer?.phone || null,
       promo_code: cart.promoCode?.trim() || null,
+      attendees: buildAttendeesPayload(cart),
       items: cart.items.map((item) => ({
         ticket_type_id: item.ticketType.id,
         quantity: item.quantity,
@@ -1430,14 +1451,28 @@ function Line({ label, value, large, tone }) {
 function expandAttendeeSlots(cart) {
   const slots = []
   ;(cart?.items || []).forEach((item) => {
+    const seatIds = item.sessionSeatIds || item.session_seat_ids || []
     for (let index = 0; index < item.quantity; index += 1) {
+      const sessionSeatId = seatIds[index] || null
       slots.push({
-        id: `${item.ticketType.id}-${index}`,
+        id: `${item.ticketType.id}-${sessionSeatId || index}-${slots.length}`,
+        ticketTypeId: item.ticketType.id,
+        sessionSeatId,
         ticketName: item.ticketType.name,
       })
     }
   })
   return slots
+}
+
+function buildAttendeesPayload(cart) {
+  if (!requiresAttendeeInfo(cart)) return []
+  return expandAttendeeSlots(cart).map((slot) => ({
+    ticket_type_id: slot.ticketTypeId,
+    session_seat_id: slot.sessionSeatId,
+    name: cart.attendees?.[slot.id]?.name || '',
+    email: cart.attendees?.[slot.id]?.email || '',
+  }))
 }
 
 function NavigateBackToEvents() {

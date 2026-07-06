@@ -1814,7 +1814,12 @@ export function CreateEventPage() {
       const errorCode = err.response?.data?.errorCode
       if (errorCode === 'PAYOS_NOT_CONFIGURED') {
         setPaymentSetupRequired(true)
-        setError('Yêu cầu cài đặt thanh toán. Vui lòng hoàn thành thiết lập thanh toán trước khi công khai sự kiện có phí.')
+        navigate('/organizer/settings/payment', {
+          state: {
+            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events/create',
+            error: err.response?.data?.message || 'Vui lòng hoàn tất thiết lập thanh toán trước khi gửi duyệt sự kiện có phí.',
+          },
+        })
         return
       }
       setError(err.response?.data?.message || 'Không thể gửi sự kiện.')
