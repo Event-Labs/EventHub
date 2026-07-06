@@ -22,6 +22,8 @@ import {
   toggleFavorite,
 } from '@/services/events.js'
 
+const RECENT_EXPIRED_WINDOW_MS = 15 * 24 * 60 * 60 * 1000
+
 const categoryIcons = [
   Music,
   Trophy,
@@ -70,6 +72,13 @@ function getEventTimeState(event, now = Date.now()) {
   if (end && end < now) return 'expired'
   if (start && start <= now && (!end || end >= now)) return 'ongoing'
   return 'upcoming'
+}
+
+function isRecentlyExpiredEvent(event, now = Date.now()) {
+  const endedAt = event.end_time || event.start_time
+  if (!endedAt) return false
+  const endedTime = new Date(endedAt).getTime()
+  return Number.isFinite(endedTime) && endedTime < now && endedTime >= now - RECENT_EXPIRED_WINDOW_MS
 }
 
 function uniqueEvents(...groups) {
@@ -157,7 +166,7 @@ export function HomePage() {
         .sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0))
         .slice(0, 4),
       expired: events
-        .filter((event) => getEventTimeState(event, timelineNow) === 'expired')
+        .filter((event) => getEventTimeState(event, timelineNow) === 'expired' && isRecentlyExpiredEvent(event, timelineNow))
         .sort((a, b) => new Date(b.end_time || b.start_time || 0) - new Date(a.end_time || a.start_time || 0))
         .slice(0, 4),
     }
