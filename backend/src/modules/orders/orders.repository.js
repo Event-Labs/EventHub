@@ -21,7 +21,37 @@ function ticketCode() {
   return `EH-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
 }
 
+function attendeeKey(ticketTypeId, sessionSeatId = null) {
+  return `${ticketTypeId}:${sessionSeatId || ''}`;
+}
+
+function buildAttendeeQueues(attendees = []) {
+  const queues = new Map();
+  attendees.forEach((attendee) => {
+    const key = attendeeKey(attendee.ticket_type_id, attendee.session_seat_id);
+    if (!queues.has(key)) queues.set(key, []);
+    queues.get(key).push({
+      name: attendee.name,
+      email: attendee.email,
+    });
+  });
+  return queues;
+}
+
 class OrdersRepository {
+  async ensureRequireAttendeeInfoColumn(client = db) {
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+  }
+
+  async ensureAttendeeInfoColumn(client = db) {
+    await client.query(
+      `
+      ALTER TABLE order_items
+      ADD COLUMN IF NOT EXISTS attendee_info JSONB NOT NULL DEFAULT '[]'::jsonb
+      `,
+    );
+  }
+
   async expirePendingOrders() {
     await db.query(
       `
@@ -89,11 +119,13 @@ class OrdersRepository {
     );
   }
 
-  async createPendingCheckout({ userId, eventId, buyer, promoCode, items, totals, paymentChannel }) {
+  async createPendingCheckout({ userId, eventId, buyer, attendees = [], promoCode, items, totals, paymentChannel }) {
     const client = await db.getClient();
 
     try {
       await client.query('BEGIN');
+      await this.ensureRequireAttendeeInfoColumn(client);
+      await this.ensureAttendeeInfoColumn(client);
 
       const ticketTypeIds = [...new Set(items.map((item) => item.ticket_type_id))];
       const ticketTypesResult = await client.query(
@@ -121,7 +153,8 @@ class OrdersRepository {
           e.visibility,
           e.approval_status,
           e.deleted_at,
-          e.seating_rules
+          e.seating_rules,
+          e.require_attendee_info
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
         JOIN events e ON e.id = es.event_id
@@ -162,6 +195,12 @@ class OrdersRepository {
       if (totalRequested > MAX_TICKETS_PER_ORDER) {
         throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
+
+      const requireAttendeeInfo = Boolean(firstTicket.require_attendee_info);
+      if (requireAttendeeInfo && attendees.length !== totalRequested) {
+        throw new AppError('Vui l\u00f2ng nh\u1eadp \u0111\u1ee7 th\u00f4ng tin ng\u01b0\u1eddi tham d\u1ef1 cho t\u1eebng v\u00e9.', 400, ErrorCodes.INVALID_INPUT);
+      }
+      const attendeeQueues = requireAttendeeInfo ? buildAttendeeQueues(attendees) : new Map();
 
       const purchasedResult = await client.query(
         `
@@ -434,13 +473,26 @@ class OrdersRepository {
               );
             }
 
+            const attendeeInfo = requireAttendeeInfo
+              ? attendeeQueues.get(attendeeKey(item.ticket_type_id, seat.id))?.shift()
+              : null;
+            if (requireAttendeeInfo && !attendeeInfo) {
+              throw new AppError('Th\u00f4ng tin ng\u01b0\u1eddi tham d\u1ef1 kh\u00f4ng kh\u1edbp v\u1edbi v\u00e9/gh\u1ebf \u0111\u00e3 ch\u1ecdn.', 400, ErrorCodes.INVALID_INPUT);
+            }
+
             const itemResult = await client.query(
               `
-              INSERT INTO order_items (order_id, ticket_type_id, session_seat_id, quantity, unit_price, final_price)
-              VALUES ($1, $2, $3, 1, $4, $4)
+              INSERT INTO order_items (order_id, ticket_type_id, session_seat_id, quantity, unit_price, final_price, attendee_info)
+              VALUES ($1, $2, $3, 1, $4, $4, $5::jsonb)
               RETURNING *
               `,
-              [order.id, item.ticket_type_id, seat.id, Number(ticketType.price)],
+              [
+                order.id,
+                item.ticket_type_id,
+                seat.id,
+                Number(ticketType.price),
+                JSON.stringify(attendeeInfo ? [attendeeInfo] : []),
+              ],
             );
             orderItems.push({ ...itemResult.rows[0], ticket_type_name: ticketType.name });
 
@@ -511,13 +563,29 @@ class OrdersRepository {
             throw new AppError('S\u1ed1 l\u01b0\u1ee3ng v\u00e9 c\u00f2n l\u1ea1i kh\u00f4ng \u0111\u1ee7.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
           }
 
+          const attendeeInfo = [];
+          if (requireAttendeeInfo) {
+            const queue = attendeeQueues.get(attendeeKey(item.ticket_type_id));
+            if (!queue || queue.length < Number(item.quantity)) {
+              throw new AppError('Th\u00f4ng tin ng\u01b0\u1eddi tham d\u1ef1 kh\u00f4ng kh\u1edbp v\u1edbi s\u1ed1 l\u01b0\u1ee3ng v\u00e9.', 400, ErrorCodes.INVALID_INPUT);
+            }
+            attendeeInfo.push(...queue.splice(0, Number(item.quantity)));
+          }
+
           const itemResult = await client.query(
             `
-            INSERT INTO order_items (order_id, ticket_type_id, session_seat_id, quantity, unit_price, final_price)
-            VALUES ($1, $2, NULL, $3, $4, $5)
+            INSERT INTO order_items (order_id, ticket_type_id, session_seat_id, quantity, unit_price, final_price, attendee_info)
+            VALUES ($1, $2, NULL, $3, $4, $5, $6::jsonb)
             RETURNING *
             `,
-            [order.id, item.ticket_type_id, item.quantity, Number(ticketType.price), Number(ticketType.price) * item.quantity],
+            [
+              order.id,
+              item.ticket_type_id,
+              item.quantity,
+              Number(ticketType.price),
+              Number(ticketType.price) * item.quantity,
+              JSON.stringify(attendeeInfo),
+            ],
           );
           orderItems.push({ ...itemResult.rows[0], ticket_type_name: ticketType.name });
 
@@ -855,16 +923,20 @@ class OrdersRepository {
         );
       }
 
+      await this.ensureRequireAttendeeInfoColumn(client);
+
       const itemResult = await client.query(
         `
         SELECT
           oi.*,
           tt.event_session_id,
           es.event_id,
+          e.require_attendee_info,
           t.id AS existing_ticket_id
         FROM order_items oi
         JOIN ticket_types tt ON tt.id = oi.ticket_type_id
         JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
         LEFT JOIN tickets t ON t.order_item_id = oi.id
         WHERE oi.order_id = $1
         ORDER BY oi.id
@@ -877,7 +949,9 @@ class OrdersRepository {
         if (item.existing_ticket_id) continue;
 
         const quantity = item.session_seat_id ? 1 : Number(item.quantity);
+        const attendeeInfo = Array.isArray(item.attendee_info) ? item.attendee_info : [];
         for (let index = 0; index < quantity; index += 1) {
+          const attendee = item.require_attendee_info ? attendeeInfo[index] : null;
           const code = ticketCode();
           const ticketResult = await client.query(
             `
@@ -904,8 +978,8 @@ class OrdersRepository {
               item.session_seat_id,
               code,
               code,
-              order.buyer_name,
-              order.buyer_email,
+              attendee?.name || null,
+              attendee?.email || null,
             ],
           );
           issuedTickets.push(ticketResult.rows[0]);
