@@ -206,6 +206,12 @@ class OrdersService {
         email: payload.buyer_email.toLowerCase(),
         phone: normalizePhone(payload.buyer_phone),
       },
+      attendees: (payload.attendees || []).map((attendee) => ({
+        ticket_type_id: attendee.ticket_type_id,
+        session_seat_id: attendee.session_seat_id || null,
+        name: attendee.name,
+        email: attendee.email.toLowerCase(),
+      })),
       promoCode: payload.promo_code,
       items: normalizedItems,
       totals: {

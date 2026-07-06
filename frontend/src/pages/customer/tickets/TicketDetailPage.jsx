@@ -145,7 +145,10 @@ function buildTicketDownloadSvg(ticket, qrSrc) {
 
   const titleLines = wrapText(ticket.event?.title, 30)
   const ticketTypeLines = wrapText(ticket.ticket_type?.name, 48)
-  const attendeeLines = wrapText(ticket.order?.buyer_name || ticket.attendee_name, 24)
+  const collectAttendees = Boolean(ticket.event?.require_attendee_info)
+  const holderLabel = collectAttendees ? 'NG\u01af\u1edcI THAM D\u1ef0 (ATTENDEE)' : 'NG\u01af\u1edcI MUA V\u00c9 (BUYER)'
+  const holderName = collectAttendees ? ticket.attendee_name || ticket.order?.buyer_name : ticket.order?.buyer_name
+  const attendeeLines = wrapText(holderName, 24)
   const orderLines = wrapText(ticket.order?.order_code, 26)
   const venueNameLines = wrapText(venueName, 30)
   const addressLines = wrapText(venue, 70)
@@ -195,7 +198,7 @@ function buildTicketDownloadSvg(ticket, qrSrc) {
     <text x="350" y="${infoY + 34}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">GH\u1ebe (SEAT)</text>
     <text x="350" y="${infoY + 62}" fill="#ffffff" font-family="${uiFont}" font-size="22" font-weight="850">${escapeXml(seat)}</text>
 
-    <text x="44" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">NG\u01af\u1edcI MUA V\u00c9 (BUYER)</text>
+    <text x="44" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">${escapeXml(holderLabel)}</text>
     ${svgTextLines(attendeeLines, { x: 44, y: attendeeY + 28, size: 21, lineHeight: 27, weight: 850, family: uiFont })}
     <text x="328" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">\u0110\u01a0N H\u00c0NG (ORDER)</text>
     ${svgTextLines(orderLines, { x: 328, y: attendeeY + 28, size: 19, lineHeight: 25, weight: 850, family: uiFont })}
@@ -314,6 +317,7 @@ export function TicketDetailPage() {
   const seat = ticket.seat?.label || 'Free seating'
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
   const isEntryEligible = ticket.status === 'VALID'
+  const collectAttendees = Boolean(ticket.event?.require_attendee_info)
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -367,8 +371,14 @@ export function TicketDetailPage() {
 
             <div className="space-y-6 p-5">
               <div className="grid gap-5 sm:grid-cols-2">
-                <CompactDetail label={'Ng\u01b0\u1eddi mua v\u00e9'} value={ticket.attendee_name} />
-                <CompactDetail label="Email" value={ticket.attendee_email} />
+                {collectAttendees && (
+                  <>
+                    <CompactDetail label={'Ng\u01b0\u1eddi tham d\u1ef1'} value={ticket.attendee_name} />
+                    <CompactDetail label="Email ng\u01b0\u1eddi tham d\u1ef1" value={ticket.attendee_email} />
+                  </>
+                )}
+                <CompactDetail label={'Ng\u01b0\u1eddi mua v\u00e9'} value={ticket.order.buyer_name} />
+                <CompactDetail label="Email ng\u01b0\u1eddi mua" value={ticket.order.buyer_email} />
                 <CompactDetail label={'Th\u1eddi gian'} value={formatDateTime(ticket.session.start_time)} />
                 <CompactDetail label={'\u0110\u01a1n h\u00e0ng'} value={ticket.order.order_code} />
                 <CompactDetail label={'Lo\u1ea1i v\u00e9 / Gh\u1ebf'} value={`${ticket.ticket_type.name} - ${seat}`} />

@@ -49,6 +49,7 @@ function buildTicketPayload(row) {
       end_time: row.event_end_time,
       thumbnail_url: row.event_thumbnail_url,
       banner_url: row.event_banner_url || row.event_thumbnail_url,
+      require_attendee_info: Boolean(row.require_attendee_info),
     },
     session: {
       id: row.event_session_id,
@@ -265,7 +266,13 @@ function buildDownloadSvg(ticket) {
   const qrSize = 204;
   const statusFill = invalid ? '#fee2e2' : '#dcfce7';
   const statusText = invalid ? '#991b1b' : '#166534';
-  const attendee = clipText(ticket.attendee_name, 30);
+  const holderName = ticket.event?.require_attendee_info
+    ? ticket.attendee_name || ticket.order.buyer_name
+    : ticket.order.buyer_name;
+  const holderLabel = ticket.event?.require_attendee_info
+    ? 'NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)'
+    : 'NG&#431;&#7900;I MUA V&#201; (BUYER)';
+  const attendee = clipText(holderName, 30);
   const orderCode = clipText(ticket.order.order_code, 26);
   const addressLine = clipText(venue, 74);
   const uiFont = 'Manrope, Inter, Segoe UI, Arial, sans-serif';
@@ -308,7 +315,7 @@ function buildDownloadSvg(ticket) {
     <text x="350" y="232" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">GH&#7870; (SEAT)</text>
     <text x="350" y="260" fill="#ffffff" font-family="${uiFont}" font-size="22" font-weight="850">${escapeHtml(seat)}</text>
 
-    <text x="44" y="338" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)</text>
+    <text x="44" y="338" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">${holderLabel}</text>
     <text x="44" y="366" fill="#ffffff" font-family="${uiFont}" font-size="21" font-weight="850">${escapeHtml(attendee)}</text>
     <text x="328" y="338" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">&#272;&#416;N H&#192;NG (ORDER)</text>
     <text x="328" y="366" fill="#ffffff" font-family="${uiFont}" font-size="19" font-weight="850">${escapeHtml(orderCode)}</text>

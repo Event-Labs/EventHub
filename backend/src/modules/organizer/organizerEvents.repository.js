@@ -46,6 +46,10 @@ const ORGANIZER_REQUEST_SELECT = `
 `;
 
 class OrganizerEventsRepository {
+  async ensureRequireAttendeeInfoColumn(client = db) {
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+  }
+
   async findOrganizerByUserId(userId) {
     const { rows } = await db.query(
       `
@@ -254,6 +258,7 @@ class OrganizerEventsRepository {
   }
 
   async createEvent(organizerId, data) {
+    await this.ensureRequireAttendeeInfoColumn();
     const now = new Date();
     const startTime = data.start_time || new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const endTime = data.end_time || new Date(startTime.getTime() + 3 * 60 * 60 * 1000);
@@ -279,9 +284,10 @@ class OrganizerEventsRepository {
         tags,
         seating_rules,
         refund_policy,
-        additional_terms
+        additional_terms,
+        require_attendee_info
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', $11, $12, $13, $14, $15, $16)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
       `,
       [
@@ -301,12 +307,14 @@ class OrganizerEventsRepository {
         data.seating_rules || {},
         data.refund_policy || {},
         data.additional_terms || null,
+        Boolean(data.require_attendee_info),
       ],
     );
     return rows[0];
   }
 
   async updateEvent(eventId, organizerId, data) {
+    await this.ensureRequireAttendeeInfoColumn();
     const fields = [];
     const values = [];
     let idx = 1;
@@ -326,6 +334,7 @@ class OrganizerEventsRepository {
       'seating_rules',
       'refund_policy',
       'additional_terms',
+      'require_attendee_info',
     ];
 
     allowed.forEach((key) => {

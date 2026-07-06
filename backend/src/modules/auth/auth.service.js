@@ -55,7 +55,7 @@ class AuthService {
     async register(userData) {
         const existingUser = await authRepository.findUserByEmail(userData.email);
         if (existingUser) {
-            throw new AppError('Email already exists', 400, ErrorCodes.AUTH_EMAIL_ALREADY_EXISTS);
+            throw new AppError('Email này đã được sử dụng', 400, ErrorCodes.AUTH_EMAIL_ALREADY_EXISTS);
         }
 
         const password_hash = await this.hashPassword(userData.password);
@@ -87,7 +87,7 @@ class AuthService {
     async login(email, password, deviceInfo) {
         const user = await authRepository.findUserByEmail(email);
         if (!user) {
-            throw new AppError('Invalid credentials', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
+            throw new AppError('Email hoặc mật khẩu không chính xác', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
         }
 
         if (user.status === 'LOCKED') {
@@ -101,7 +101,7 @@ class AuthService {
                     locked_by: null
                 });
             } else {
-                throw new AppError('Account is locked', 403, ErrorCodes.ACCOUNT_LOCKED, {
+                throw new AppError('Tài khoản của bạn đã bị khóa', 403, ErrorCodes.ACCOUNT_LOCKED, {
                     lockReason: user.lock_reason,
                     lockedAt: user.locked_at ? new Date(user.locked_at).toISOString() : null,
                     lockedUntil: user.locked_until ? new Date(user.locked_until).toISOString() : null,
@@ -111,13 +111,13 @@ class AuthService {
         }
 
         if (!user.email_verified) {
-            throw new AppError('Email not verified', 403, ErrorCodes.AUTH_EMAIL_NOT_VERIFIED);
+            throw new AppError('Tài khoản email chưa được xác thực', 403, ErrorCodes.AUTH_EMAIL_NOT_VERIFIED);
         }
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
             // Brute force protection should be handled in controller/middleware with Redis
-            throw new AppError('Invalid credentials', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
+            throw new AppError('Email hoặc mật khẩu không chính xác', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
         }
 
         const roles = await authRepository.findUserRoles(user.id);
@@ -148,7 +148,7 @@ class AuthService {
             const payload = ticket.getPayload();
 
             if (!payload) {
-                throw new AppError('Invalid Google Token payload', 401, ErrorCodes.AUTH_INVALID_TOKEN);
+                throw new AppError('Xác thực tài khoản Google không hợp lệ', 401, ErrorCodes.AUTH_INVALID_TOKEN);
             }
 
             const { email, name, sub: google_id, email_verified, picture } = payload;
@@ -178,7 +178,7 @@ class AuthService {
                             locked_by: null
                         });
                     } else {
-                        throw new AppError('Account is locked', 403, ErrorCodes.ACCOUNT_LOCKED, {
+                        throw new AppError('Tài khoản của bạn đã bị khóa', 403, ErrorCodes.ACCOUNT_LOCKED, {
                             lockReason: user.lock_reason,
                             lockedAt: user.locked_at ? new Date(user.locked_at).toISOString() : null,
                             lockedUntil: user.locked_until ? new Date(user.locked_until).toISOString() : null,
@@ -220,7 +220,7 @@ class AuthService {
                 throw error;
             }
             logger.error('Google OAuth error', error);
-            throw new AppError('Google Login Failed', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
+            throw new AppError('Đăng nhập Google thất bại', 401, ErrorCodes.AUTH_INVALID_CREDENTIALS);
         }
     }
 
@@ -229,12 +229,12 @@ class AuthService {
         const session = await authRepository.findSessionByHash(hash);
 
         if (!session) {
-            throw new AppError('Invalid refresh token', 401, ErrorCodes.AUTH_INVALID_TOKEN);
+            throw new AppError('Phiên đăng nhập không hợp lệ hoặc đã hết hạn', 401, ErrorCodes.AUTH_INVALID_TOKEN);
         }
 
         const user = await authRepository.findUserById(session.user_id);
         if (!user) {
-            throw new AppError('User not available', 401, ErrorCodes.AUTH_USER_NOT_FOUND);
+            throw new AppError('Không tìm thấy thông tin tài khoản', 401, ErrorCodes.AUTH_USER_NOT_FOUND);
         }
 
         if (user.status === 'LOCKED') {
@@ -247,7 +247,7 @@ class AuthService {
                     locked_by: null
                 });
             } else {
-                throw new AppError('Account is locked', 403, ErrorCodes.ACCOUNT_LOCKED, {
+                throw new AppError('Tài khoản của bạn đã bị khóa', 403, ErrorCodes.ACCOUNT_LOCKED, {
                     lockReason: user.lock_reason,
                     lockedAt: user.locked_at ? new Date(user.locked_at).toISOString() : null,
                     lockedUntil: user.locked_until ? new Date(user.locked_until).toISOString() : null,
@@ -310,7 +310,7 @@ class AuthService {
 
         if (!resetRecord) {
             logger.warn(`[DEBUG] Reset Record not found in Redis for hash: ${hash}`);
-            throw new AppError('Invalid or expired reset token', 400, ErrorCodes.AUTH_INVALID_TOKEN);
+            throw new AppError('Yêu cầu đặt lại mật khẩu không hợp lệ hoặc đã hết hạn', 400, ErrorCodes.AUTH_INVALID_TOKEN);
         }
 
         const password_hash = await this.hashPassword(newPassword);
@@ -329,7 +329,7 @@ class AuthService {
         const pendingUser = await authRepository.getPendingUser(hash);
         if (!pendingUser) {
             logger.warn(`[DEBUG] Pending user not found in Redis for hash: ${hash}`);
-            throw new AppError('Invalid or expired verification token', 400, ErrorCodes.AUTH_INVALID_TOKEN);
+            throw new AppError('Yêu cầu xác thực tài khoản không hợp lệ hoặc đã hết hạn', 400, ErrorCodes.AUTH_INVALID_TOKEN);
         }
 
         // Insert user into PostgreSQL

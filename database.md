@@ -262,6 +262,7 @@ CREATE TABLE events (
     tags TEXT[] DEFAULT '{}',
     refund_policy JSONB DEFAULT '{}'::jsonb,
     additional_terms TEXT,
+    require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE,
 
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -638,7 +639,9 @@ CREATE TABLE order_items (
 
     unit_price NUMERIC(12,2) NOT NULL,
 
-    final_price NUMERIC(12,2) NOT NULL
+    final_price NUMERIC(12,2) NOT NULL,
+
+    attendee_info JSONB NOT NULL DEFAULT '[]'::jsonb
 );
 
 CREATE TABLE tickets (
@@ -1049,7 +1052,8 @@ ALTER TABLE events
   ADD COLUMN IF NOT EXISTS format VARCHAR(20) CHECK (format IN ('ONLINE', 'OFFLINE', 'HYBRID')),
   ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS refund_policy JSONB DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS additional_terms TEXT;
+  ADD COLUMN IF NOT EXISTS additional_terms TEXT,
+  ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Migration: venues FK + seat maps + zones
 ALTER TABLE venues

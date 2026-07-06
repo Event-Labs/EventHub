@@ -29,7 +29,7 @@ const INITIAL_FORM = {
   format: 'OFFLINE',
   visibility: 'PUBLIC',
   short_description: '',
-  description: `<p><strong>[Tóm tắt ngắn gọn về sự kiện:</strong> Nội dung chính của sự kiện, điểm đặc sắc nhất và lý do khiến người tham gia không nên bỏ lỡ]</p><br/><p><strong>Chi tiết sự kiện:</strong></p><ul><li>Chương trình chính: [Liệt kê những hoạt động nổi bật trong sự kiện: các phần trình diễn, khách mời đặc biệt, lịch trình các tiết mục cụ thể nếu có.]</li><li>Khách mời: [Thông tin về các khách mời đặc biệt, nghệ sĩ, diễn giả sẽ tham gia sự kiện. Có thể bao gồm phần mô tả ngắn gọn về họ và những gì họ sẽ mang lại cho sự kiện.]</li><li>Trải nghiệm đặc biệt: [Nếu có các hoạt động đặc biệt khác như workshop, khu trải nghiệm, photo booth, khu vực check-in hay các phần quà/ưu đãi dành riêng cho người tham dự.]</li></ul><br/><p><strong>Điều khoản và điều kiện:</strong></p><p>[TnC] sự kiện</p><p>Lưu ý về điều khoản trẻ em</p><p>Lưu ý về điều khoản VAT</p>`,
+  description: `<p><strong>[Tóm tắt ngắn gọn về sự kiện:</strong> Nội dung chính của sự kiện, điểm đặc sắc nhất và lý do khiến người tham gia không nên bỏ lỡ]</p><br/><p><strong>Chi tiết sự kiện:</strong></p><ul><li>Chương trình chính: [Liệt kê những hoạt động nổi bật trong sự kiện: các phần trình diễn, khách mời đặc biệt, lịch trình các tiết mục cụ thể nếu có.]</li><li>Khách mời: [Thông tin về các khách mời đặc biệt, nghệ sĩ, diễn giả sẽ tham gia sự kiện. Có thể bao gồm phần mô tả ngắn gọn về họ và những gì họ sẽ mang lại cho sự kiện.]</li><li>Trải nghiệm đặc biệt: [Nếu có các hoạt động đặc biệt khác như workshop, khu trải nghiệm, photo booth, khu vực check-in hay các phần quà/ưu đãi dành riêng cho người tham dự.]</li></ul><br/><p><strong>[Chèn ảnh sơ đồ chỗ ngồi tại đây]</strong></p><br/><p><strong>Điều khoản và điều kiện:</strong></p><p>[TnC] sự kiện</p><p>Lưu ý về điều khoản trẻ em</p><p>Lưu ý về điều khoản VAT</p>`,
   thumbnail_url: '',
   banner_url: '',
   sessions: [],
@@ -41,6 +41,7 @@ const INITIAL_FORM = {
   },
   refund_policy: { allow_refunds: false, deadline_days: 7 },
   additional_terms: '',
+  require_attendee_info: false,
 }
 
 function Icon({ name, className = '', style = {} }) {
@@ -512,8 +513,37 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                       </div>
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <label className="text-[13px] text-subtle block mb-2">Ngày check-in (Tùy chọn)</label>
+                      <input
+                        type="date"
+                        className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                        value={session.checkin_start_date || ''}
+                        onChange={(e) => updateSession(key, 'checkin_start_date', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[13px] text-subtle block mb-2">Giờ check-in (Tùy chọn)</label>
+                      <input
+                        type="time"
+                        className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                        value={session.checkin_start_time || ''}
+                        onChange={(e) => updateSession(key, 'checkin_start_time', e.target.value)}
+                      />
+                    </div>
+                  </div>
                   <div>
-                    <label className="text-[13px] text-subtle block mb-2">Chọn địa điểm*</label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-[13px] text-subtle block">Chọn địa điểm*</label>
+                      <button
+                        type="button"
+                        onClick={() => window.open('/organizer/venues', '_blank')}
+                        className="text-[13px] text-primary hover:underline font-semibold"
+                      >
+                        + Tạo địa điểm mới
+                      </button>
+                    </div>
                     <select
                       className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
                       value={session.venue_id || ''}
@@ -769,20 +799,22 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
     <div className="grid grid-cols-12 items-start gap-6">
       <div className="col-span-12 space-y-6 pb-24 lg:col-span-8">
         {sessions.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            {sessions.map((s, i) => (
-              <button
-                key={s.id || s.clientKey}
-                type="button"
-                onClick={() => setActiveTab(i)}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${activeTab === i
-                  ? 'border-tertiary bg-tertiary/10 text-primary'
-                  : 'border-border-soft/40 text-subtle hover:border-tertiary/50'
-                  }`}
-              >
-                {s.session_name || `Session ${i + 1}`}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-soft/30 pb-4">
+            <div className="flex flex-wrap gap-2">
+              {sessions.map((s, i) => (
+                <button
+                  key={s.id || s.clientKey}
+                  type="button"
+                  onClick={() => setActiveTab(i)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${activeTab === i
+                    ? 'border-tertiary bg-tertiary/10 text-primary'
+                    : 'border-border-soft/40 text-subtle hover:border-tertiary/50'
+                    }`}
+                >
+                  {s.session_name || `Phiên ${i + 1}`}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -814,12 +846,51 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
               <p className="text-sm text-subtle">Chọn chỗ ngồi trên sơ đồ ghế</p>
             </button>
           </div>
+          {sessions.length > 1 && (
+            <div className="mt-6 flex items-center justify-end">
+              <label className="flex items-center gap-2 text-sm text-subtle font-medium cursor-pointer p-2 hover:bg-panel-soft rounded-lg transition-colors border border-border-soft/30">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 accent-tertiary"
+                  onChange={(e) => {
+                    if (!e.target.checked) return
+                    if (!window.confirm('Bạn có chắc chắn muốn áp dụng cấu hình của phiên này cho TẤT CẢ các phiên khác? (Loại tổ chức, sơ đồ ghế, vé sẽ bị ghi đè)')) {
+                      e.target.checked = false
+                      return
+                    }
+                    setFormData((p) => {
+                      const newSessions = p.sessions.map((s) => ({
+                        ...s,
+                        seating_type: activeSession.seating_type,
+                        seat_map_id: activeSession.seat_map_id,
+                        zone_assignments: activeSession.zone_assignments ? [...activeSession.zone_assignments] : []
+                      }))
+                      const newTicketTypes = p.ticketTypes.filter((t) => t.session_key === sessionKey)
+                      for (const s of newSessions) {
+                        if ((s.id || s.clientKey) === sessionKey) continue
+                        const cloned = newTicketTypes.map(t => ({
+                          ...t,
+                          id: (t.id || t.clientKey).startsWith('tmp-') ? null : undefined, // Keep undefined or delete original ID for clones
+                          clientKey: newClientKey(),
+                          session_key: s.id || s.clientKey
+                        }))
+                        newTicketTypes.push(...cloned)
+                      }
+                      return { ...p, sessions: newSessions, ticketTypes: newTicketTypes }
+                    })
+                    setTimeout(() => { e.target.checked = false }, 1000)
+                  }}
+                />
+                Áp dụng cho tất cả phiên sự kiện
+              </label>
+            </div>
+          )}
         </section>
 
         {seatingType === 'ASSIGNED' && (
           <>
             <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-              <h2 className="mb-2 text-[20px] font-semibold text-content">Seating Rules</h2>
+              <h2 className="mb-2 text-[20px] font-semibold text-content">Cấu hình quy tắc chỗ ngồi</h2>
               <p className="mb-4 text-sm text-subtle">
                 Cấu hình quy tắc khi người dùng chọn ghế (áp dụng cho các session có chỗ ngồi).
               </p>
@@ -963,7 +1034,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                                   type="number"
                                   min="0"
                                   className="h-9 w-32 rounded border border-border-soft/40 bg-panel-soft text-content px-2 text-sm"
-                                  value={ticket?.price ?? 0}
+                                  value={ticket?.price === 0 ? '' : ticket?.price}
                                   onChange={(e) =>
                                     updateTicket(ticketKey, 'price', Number(e.target.value))
                                   }
@@ -1029,7 +1100,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                           type="number"
                           min="0"
                           className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-tertiary outline-none"
-                          value={tt.price}
+                          value={tt.price === 0 ? '' : tt.price}
                           onChange={(e) => updateTicket(key, 'price', Number(e.target.value))}
                         />
                       </div>
@@ -1099,6 +1170,35 @@ function Step4PoliciesSettings({ formData, setFormData }) {
   return (
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-6 pb-24">
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
+                <Icon name="contacts" />
+              </div>
+              <h3 className="text-[20px] font-semibold text-content">Thông tin người tham dự</h3>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={Boolean(formData.require_attendee_info)}
+                onChange={(e) =>
+                  setFormData((p) => ({
+                    ...p,
+                    require_attendee_info: e.target.checked,
+                  }))
+                }
+              />
+              <div className="w-11 h-6 bg-border-soft/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary" />
+              <span className="ml-3 text-sm font-medium text-content">Yêu cầu thu thập</span>
+            </label>
+          </div>
+          <p className="mt-4 text-sm text-subtle">
+            Bật tính năng này để yêu cầu người mua cung cấp thông tin (như số điện thoại, ngày sinh, hoặc theo các trường tùy chỉnh) cho <b>TỪNG</b> vé họ mua.
+          </p>
+        </section>
+
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -1353,6 +1453,7 @@ export function CreateEventPage() {
     const sessions = (event.sessions || []).map((s) => {
       const start = splitDateTime(s.start_time)
       const end = splitDateTime(s.end_time)
+      const checkin = splitDateTime(s.checkin_start_time)
       return {
         id: s.id,
         clientKey: s.id,
@@ -1365,7 +1466,8 @@ export function CreateEventPage() {
         seat_map_id: s.seat_map_id,
         seating_type: s.seat_map_id ? 'ASSIGNED' : 'GENERAL',
         zone_assignments: [],
-        checkin_start_time: s.checkin_start_time,
+        checkin_start_date: checkin.date,
+        checkin_start_time: checkin.time,
       }
     })
 
@@ -1392,9 +1494,10 @@ export function CreateEventPage() {
       banner_url: event.banner_url || '',
       sessions,
       ticketTypes,
-      seating_rules: event.seating_rules || INITIAL_FORM.seating_rules,
+      seating_rules: event.seating_rules || { require_adjacent_seats: false, require_same_row: false, disallow_single_seat_left: false },
       refund_policy: event.refund_policy || { allow_refunds: false, deadline_days: 7 },
       additional_terms: event.additional_terms || '',
+      require_attendee_info: Boolean(event.require_attendee_info),
     })
   }, [])
 
@@ -1428,12 +1531,33 @@ export function CreateEventPage() {
       if (!formData.banner_url) return 'Vui lòng tải ảnh banner.'
     }
     if (step === 2) {
-      if (!formData.sessions.length) return 'Cần ít nhất 1 session.'
+      if (!formData.sessions.length) return 'Cần ít nhất 1 phiên sự kiện.'
       for (const s of formData.sessions) {
         if (!s.start_date || !s.start_time || !s.end_date || !s.end_time) {
-          return 'Mỗi session cần thời gian bắt đầu và kết thúc.'
+          return 'Mỗi phiên sự kiện cần thời gian bắt đầu và kết thúc đầy đủ.'
         }
-        if (!s.venue_id) return 'Mỗi session cần chọn địa điểm.'
+        if (!s.venue_id) return 'Mỗi phiên sự kiện cần chọn địa điểm.'
+
+        const startTime = new Date(`${s.start_date}T${s.start_time}`)
+        const endTime = new Date(`${s.end_date}T${s.end_time}`)
+        const now = new Date()
+
+        if (startTime < now) {
+          return 'Thời gian bắt đầu sự kiện không được trong quá khứ.'
+        }
+        if (endTime <= startTime) {
+          return 'Thời gian kết thúc phải diễn ra sau thời gian bắt đầu.'
+        }
+
+        if (s.checkin_start_date || s.checkin_start_time) {
+          if (!s.checkin_start_date || !s.checkin_start_time) {
+            return 'Vui lòng nhập đầy đủ cả ngày và giờ check-in.'
+          }
+          const checkinTime = new Date(`${s.checkin_start_date}T${s.checkin_start_time}`)
+          if (checkinTime > startTime) {
+            return 'Thời gian check-in phải trước hoặc bằng thời gian bắt đầu sự kiện.'
+          }
+        }
       }
     }
     if (step === 3) {
@@ -1442,11 +1566,11 @@ export function CreateEventPage() {
         const seatingType = s.seating_type || 'GENERAL'
         if (seatingType === 'ASSIGNED') {
           if (!s.seat_map_id) {
-            return `Session "${s.session_name || 'unnamed'}" cần chọn sơ đồ ghế.`
+            return `Phiên sự kiện "${s.session_name || 'unnamed'}" cần chọn sơ đồ ghế.`
           }
         }
         const tickets = formData.ticketTypes.filter((tt) => tt.session_key === key)
-        if (!tickets.length) return `Session "${s.session_name || 'unnamed'}" cần ít nhất 1 loại vé.`
+        if (!tickets.length) return `Phiên sự kiện "${s.session_name || 'unnamed'}" cần ít nhất 1 loại vé.`
         for (const tt of tickets) {
           if (!tt.name?.trim()) return 'Tên loại vé không được để trống.'
           if (tt.price < 0) return 'Giá vé phải >= 0.'
@@ -1465,7 +1589,7 @@ export function CreateEventPage() {
       end_time: combineDateTime(s.end_date, s.end_time),
       venue_id: s.venue_id,
       seat_map_id: s.seating_type === 'ASSIGNED' ? s.seat_map_id : null,
-      checkin_start_time: s.checkin_start_time || null,
+      checkin_start_time: combineDateTime(s.checkin_start_date, s.checkin_start_time),
     }))
 
   const buildTicketTypesPayload = () => {
@@ -1588,7 +1712,8 @@ export function CreateEventPage() {
             seat_map_id: s.seat_map_id,
             seating_type: old?.seating_type || (s.seat_map_id ? 'ASSIGNED' : 'GENERAL'),
             zone_assignments: old?.zone_assignments || [],
-            checkin_start_time: s.checkin_start_time,
+            checkin_start_date: start.date,
+            checkin_start_time: start.time,
           }
         })
         setFormData((p) => {
@@ -1617,6 +1742,7 @@ export function CreateEventPage() {
         await updateOrganizerEvent(eventId, {
           refund_policy: formData.refund_policy,
           additional_terms: formData.additional_terms,
+          require_attendee_info: formData.require_attendee_info,
         })
       }
       const next = Math.min(currentStep + 1, 5)
@@ -1657,6 +1783,7 @@ export function CreateEventPage() {
         seating_rules: formData.seating_rules,
         refund_policy: formData.refund_policy,
         additional_terms: formData.additional_terms,
+        require_attendee_info: formData.require_attendee_info,
         sessions: buildSessionsPayload(),
         ticket_types: buildTicketTypesPayload(),
       })
@@ -1687,7 +1814,12 @@ export function CreateEventPage() {
       const errorCode = err.response?.data?.errorCode
       if (errorCode === 'PAYOS_NOT_CONFIGURED') {
         setPaymentSetupRequired(true)
-        setError('Yêu cầu cài đặt thanh toán. Vui lòng hoàn thành thiết lập thanh toán trước khi công khai sự kiện có phí.')
+        navigate('/organizer/settings/payment', {
+          state: {
+            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events/create',
+            error: err.response?.data?.message || 'Vui lòng hoàn tất thiết lập thanh toán trước khi gửi duyệt sự kiện có phí.',
+          },
+        })
         return
       }
       setError(err.response?.data?.message || 'Không thể gửi sự kiện.')
