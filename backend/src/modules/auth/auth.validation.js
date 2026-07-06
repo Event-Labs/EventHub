@@ -1,32 +1,32 @@
 const { z } = require('zod');
 
 const registerSchema = z.object({
-    email: z.string().email('Invalid email address').max(254),
-    full_name: z.string().min(1, 'Full name is required').max(150),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    email: z.string().email('Địa chỉ email không hợp lệ').max(254),
+    full_name: z.string().min(1, 'Họ và tên là bắt buộc').max(150),
+    password: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
     phone: z.string().max(20).optional().nullable(),
 });
 
 const loginSchema = z.object({
-    email: z.string().email('Invalid email address'),
-    password: z.string().min(1, 'Password is required'),
+    email: z.string().email('Địa chỉ email không hợp lệ'),
+    password: z.string().min(1, 'Mật khẩu là bắt buộc'),
 });
 
 const forgotPasswordSchema = z.object({
-    email: z.string().email('Invalid email address'),
+    email: z.string().email('Địa chỉ email không hợp lệ'),
 });
 
 const resetPasswordSchema = z.object({
-    token: z.string().min(1, 'Token is required'),
-    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+    token: z.string().min(1, 'Token đặt lại mật khẩu là bắt buộc'),
+    newPassword: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
 });
 
 const verifyEmailSchema = z.object({
-    token: z.string().min(1, 'Token is required'),
+    token: z.string().min(1, 'Mã xác thực (Token) là bắt buộc'),
 });
 
 const googleLoginSchema = z.object({
-    credential: z.string().min(1, 'Credential is required'),
+    credential: z.string().min(1, 'Thông tin xác thực Google là bắt buộc'),
 });
 
 module.exports = {
