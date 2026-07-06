@@ -10,7 +10,7 @@ import {
   getVenues,
   updateVenue,
 } from '@/services/organizerVenues.js'
-import { parseNominatimAddress, reverseGeocode, searchAddress } from '@/services/nominatim.js'
+import { parseOpenCageAddress, reverseGeocode, searchAddress, forwardGeocode } from '@/services/opencage.js'
 
 const DEFAULT_CENTER = { lat: 21.0285, lng: 105.8542 }
 
@@ -61,7 +61,7 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   const [geocoding, setGeocoding] = useState(false)
 
   const applyGeocode = useCallback((result, lat, lng, options = {}) => {
-    const parsed = parseNominatimAddress(result)
+    const parsed = parseOpenCageAddress(result)
     setForm((f) => ({
       ...f,
       address_line: options.preserveAddressLine ? f.address_line : parsed.address_line || f.address_line,
@@ -85,16 +85,16 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
     setForm(
       editVenue
         ? {
-            name: editVenue.name || '',
-            address_line: editVenue.address_line || '',
-            city: editVenue.city || '',
-            district: editVenue.district || '',
-            ward: editVenue.ward || '',
-            country: editVenue.country || 'Vietnam',
-            latitude: editVenue.latitude,
-            longitude: editVenue.longitude,
-            description: editVenue.description || '',
-          }
+          name: editVenue.name || '',
+          address_line: editVenue.address_line || '',
+          city: editVenue.city || '',
+          district: editVenue.district || '',
+          ward: editVenue.ward || '',
+          country: editVenue.country || 'Vietnam',
+          latitude: editVenue.latitude,
+          longitude: editVenue.longitude,
+          description: editVenue.description || '',
+        }
         : { ...EMPTY_FORM },
     )
     setSuggestions([])
@@ -109,7 +109,7 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
     const lat = Number(editVenue?.latitude ?? DEFAULT_CENTER.lat)
     const lng = Number(editVenue?.longitude ?? DEFAULT_CENTER.lng)
 
-    const map = L.map(mapRef.current, { zoomControl: true }).setView([lat, lng], 13)
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([lat, lng], 16)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
@@ -179,7 +179,11 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(async () => {
       try {
-        const results = await searchAddress(query)
+        const center = mapInstance.current?.getCenter()
+        const results = await searchAddress(query, {
+          lat: center?.lat,
+          lng: center?.lng,
+        })
         setSuggestions(results)
         setShowSuggestions(true)
       } catch (err) {
@@ -194,31 +198,34 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   }, [open, form.address_line])
 
   function selectSuggestion(item) {
-    const lat = Number(item.lat)
-    const lng = Number(item.lon)
+    const lat = Number(item.geometry?.lat)
+    const lng = Number(item.geometry?.lng)
     skipSearch.current = true
     applyGeocode(item, lat, lng)
-    moveMarker(lat, lng)
+    moveMarker(lat, lng, true)
     setSuggestions([])
     setShowSuggestions(false)
   }
 
   async function geocodeFormAddress(payload) {
     const textAddress = buildAddressQuery(payload)
-    const results = await searchAddress(textAddress, { limit: 1 })
+    const results = await forwardGeocode(textAddress, { limit: 1 })
     const result = results[0]
     if (!result) {
       throw new Error('Không tìm thấy tọa độ cho địa chỉ này. Vui lòng nhập địa chỉ cụ thể hơn hoặc chọn trực tiếp trên bản đồ.')
     }
 
-    const lat = Number(result.lat)
-    const lng = Number(result.lon)
+    const lat = Number(result.geometry?.lat)
+    const lng = Number(result.geometry?.lng)
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       throw new Error('Không lấy được tọa độ hợp lệ từ địa chỉ này.')
     }
 
-    const parsed = parseNominatimAddress(result)
+    const parsed = parseOpenCageAddress(result)
     skipSearch.current = true
+
+    // Check if the result is a low confidence / broad fallback (e.g. state or country instead of street)
+    // OpenCage confidence: 10 is exact, 1 is large area. We can just use the geometry.
     applyGeocode(result, lat, lng, { preserveAddressLine: true })
     moveMarker(lat, lng)
 
@@ -305,6 +312,9 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 />
               </div>
+              <div className="text-xs text-muted mt-1 mb-2 leading-relaxed">
+                <span className="font-medium text-warning">Mẹo:</span> Nếu không tìm thấy số nhà chính xác, hãy chọn tên đường/phường gần nhất từ danh sách gợi ý (hoặc kéo marker trên bản đồ), sau đó <strong className="text-secondary">bổ sung số nhà</strong> vào ô địa chỉ.
+              </div>
               <div className="relative">
                 <label className="mb-1 block text-xs font-bold text-muted">Địa chỉ*</label>
                 <input
@@ -328,15 +338,15 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                 )}
                 {showSuggestions && suggestions.length > 0 && (
                   <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border-soft/30 bg-surface shadow-xl">
-                    {suggestions.map((item) => (
-                      <li key={item.place_id}>
+                    {suggestions.map((item, idx) => (
+                      <li key={idx}>
                         <button
                           type="button"
                           className="w-full px-3 py-2 text-left text-sm text-content hover:bg-panel-soft/60 transition-colors"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => selectSuggestion(item)}
                         >
-                          {item.display_name}
+                          {item.formatted}
                         </button>
                       </li>
                     ))}
@@ -380,7 +390,7 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
               </div>
             </div>
             <div className="p-5">
-              <p className="mb-2 text-xs font-bold text-muted">Bản đồ (OpenStreetMap)</p>
+              <p className="mb-2 text-xs font-bold text-muted">Bản đồ</p>
               <div ref={mapRef} className="z-0 h-[380px] w-full cursor-crosshair rounded-xl border border-border-soft/30 overflow-hidden" />
               <p className="mt-2 text-xs text-muted">
                 Nhập địa chỉ để tự lấy tọa độ. Có thể click bản đồ hoặc kéo marker để chỉnh lại.

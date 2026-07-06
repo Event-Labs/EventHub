@@ -80,10 +80,12 @@ function normalizeSeatsForSave(seats) {
   })
 }
 
-function snapPoint(x, y) {
+function snapPoint(x, y, stagePos = 'TOP') {
+  const startX = stagePos === 'LEFT' ? STAGE_OFFSET_Y : 0
+  const startY = stagePos === 'TOP' ? STAGE_OFFSET_Y : 0
   return {
-    x: Math.round(x / SNAP_X) * SNAP_X,
-    y: Math.max(STAGE_OFFSET_Y, Math.round((y - STAGE_OFFSET_Y) / SNAP_Y) * SNAP_Y + STAGE_OFFSET_Y),
+    x: Math.max(startX, Math.round((x - startX) / SNAP_X) * SNAP_X + startX),
+    y: Math.max(startY, Math.round((y - startY) / SNAP_Y) * SNAP_Y + startY),
   }
 }
 
@@ -128,6 +130,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [zones, setZones] = useState([])
   const [seats, setSeats] = useState([])
   const [loading, setLoading] = useState(Boolean(seatMapId))
+  const [stageConfig, setStageConfig] = useState({ position: 'TOP', label: 'SÂN KHẤU', x: 0, y: 0, w: 900, h: 52 })
+  const [isDraggingStage, setIsDraggingStage] = useState(false)
+  const [stageDragOffset, setStageDragOffset] = useState({ x: 0, y: 0 })
+  const [isDraggingSeats, setIsDraggingSeats] = useState(false)
+  const [seatDragStartPt, setSeatDragStartPt] = useState(null)
+  const [seatDragOriginals, setSeatDragOriginals] = useState({})
+  const [hasDraggedSeats, setHasDraggedSeats] = useState(false)
+  const [clickToSelectId, setClickToSelectId] = useState(null)
 
   const seatsRef = useRef(seats)
   seatsRef.current = seats
@@ -140,6 +150,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         setMapName(sm.name)
         setLayoutType(sm.layout_type || 'GRID')
         setGridConfig({ rows: sm.rows_count || 10, cols: sm.cols_count || 20 })
+        setStageConfig({
+          position: sm.config?.stagePosition || 'TOP',
+          label: sm.config?.stageLabel || 'SÂN KHẤU',
+          x: sm.config?.stageX || 0,
+          y: sm.config?.stageY || 0,
+          w: sm.config?.stageWidth || 900,
+          h: sm.config?.stageHeight || 52,
+        })
         setZones((sm.zones || []).map((z) => ({ localId: z.id, name: z.name, color: z.color })))
         const loaded = (sm.seats || []).map((s) => ({
           localId: s.id,
@@ -226,6 +244,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   function generateGrid() {
     const newSeats = []
+    const startY = stageConfig.position === 'TOP' ? STAGE_OFFSET_Y : 20
+    const startX = stageConfig.position === 'LEFT' ? STAGE_OFFSET_Y : 20
     for (let r = 0; r < gridConfig.rows; r += 1) {
       const rowLabel = rowLabelForIndex(r)
       for (let c = 0; c < gridConfig.cols; c += 1) {
@@ -233,8 +253,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           localId: newLocalId(),
           rowLabel,
           seatNumber: String(c + 1),
-          x: c * SNAP_X,
-          y: STAGE_OFFSET_Y + r * SNAP_Y,
+          x: startX + c * SNAP_X,
+          y: startY + r * SNAP_Y,
           zoneLocalId: null,
           isDisabled: false,
         })
@@ -267,7 +287,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   function handlePaintAt(pt) {
     if (tool === 'ADD' && layoutType !== 'GRID') {
       const pos = snapEnabled
-        ? snapPoint(pt.x, pt.y)
+        ? snapPoint(pt.x, pt.y, stageConfig.position)
         : { x: Math.round(pt.x), y: Math.round(pt.y) }
       const key = seatKey(pos.x, pos.y)
       if (paintVisited.current.has(key)) return
@@ -359,6 +379,46 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
     const pt = toSVGPoint(e)
 
+    if (isDraggingStage) {
+      setStageConfig((c) => ({
+        ...c,
+        x: Math.round(pt.x - stageDragOffset.x),
+        y: Math.round(pt.y - stageDragOffset.y),
+      }))
+      return
+    }
+
+    if (isDraggingSeats && seatDragStartPt) {
+      setHasDraggedSeats(true)
+      const dx = pt.x - seatDragStartPt.x
+      const dy = pt.y - seatDragStartPt.y
+
+      let snappedDx = dx, snappedDy = dy
+      if (snapEnabled) {
+        snappedDx = Math.round(dx / SNAP_X) * SNAP_X
+        snappedDy = Math.round(dy / SNAP_Y) * SNAP_Y
+      } else {
+        snappedDx = Math.round(dx)
+        snappedDy = Math.round(dy)
+      }
+
+      const startX = stageConfig.position === 'LEFT' ? STAGE_OFFSET_Y : 0
+      const startY = stageConfig.position === 'TOP' ? STAGE_OFFSET_Y : 0
+
+      setSeats((prev) => prev.map((s) => {
+        if (seatDragOriginals[s.localId]) {
+          const orig = seatDragOriginals[s.localId]
+          return {
+            ...s,
+            x: Math.max(startX, orig.x + snappedDx),
+            y: Math.max(startY, orig.y + snappedDy)
+          }
+        }
+        return s
+      }))
+      return
+    }
+
     if (isPainting) {
       handlePaintAt(pt)
       return
@@ -369,9 +429,22 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
   }
 
-  function handleMouseUp() {
+  function handleMouseUp(e) {
     setIsPanning(false)
     setIsPainting(false)
+    setIsDraggingStage(false)
+
+    if (isDraggingSeats) {
+      if (!hasDraggedSeats && clickToSelectId && e && !e.shiftKey) {
+        setSelectedIds(new Set([clickToSelectId]))
+      }
+      setIsDraggingSeats(false)
+      setSeatDragStartPt(null)
+      setSeatDragOriginals({})
+      setHasDraggedSeats(false)
+      setClickToSelectId(null)
+    }
+
     paintVisited.current = new Set()
 
     if (rubberBand) {
@@ -382,6 +455,24 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         return next
       })
       setRubberBand(null)
+    }
+  }
+
+  function handleStageMouseDown(e) {
+    if (tool !== 'SELECT') return
+    e.stopPropagation()
+    setIsDraggingStage(true)
+    const pt = toSVGPoint(e)
+
+    let curX = stageConfig.x, curY = stageConfig.y, curW = stageConfig.w, curH = stageConfig.h
+    if (stageConfig.position === 'TOP') { curX = 0; curY = 0; curW = 900; curH = 52 }
+    else if (stageConfig.position === 'BOTTOM') { curX = 0; curY = 548; curW = 900; curH = 52 }
+    else if (stageConfig.position === 'LEFT') { curX = 0; curY = 0; curW = 52; curH = 600 }
+    else if (stageConfig.position === 'RIGHT') { curX = 848; curY = 0; curW = 52; curH = 600 }
+
+    setStageDragOffset({ x: pt.x - curX, y: pt.y - curY })
+    if (stageConfig.position !== 'CUSTOM') {
+      setStageConfig((c) => ({ ...c, position: 'CUSTOM', x: curX, y: curY, w: curW, h: curH }))
     }
   }
 
@@ -436,17 +527,30 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           ),
         )
       } else {
-        setSelectedIds((prev) => {
-          const next = new Set(prev)
-          if (e.shiftKey) {
-            if (next.has(seat.localId)) next.delete(seat.localId)
-            else next.add(seat.localId)
+        let next = new Set(selectedIds)
+        if (e.shiftKey) {
+          if (next.has(seat.localId)) next.delete(seat.localId)
+          else next.add(seat.localId)
+          setSelectedIds(next)
+        } else {
+          if (!next.has(seat.localId)) {
+            next = new Set([seat.localId])
+            setSelectedIds(next)
           } else {
-            next.clear()
-            next.add(seat.localId)
+            setClickToSelectId(seat.localId)
           }
-          return next
-        })
+        }
+
+        if (next.has(seat.localId)) {
+          setIsDraggingSeats(true)
+          setSeatDragStartPt(toSVGPoint(e))
+          const orig = {}
+          seats.forEach((s) => {
+            if (next.has(s.localId)) orig[s.localId] = { x: s.x, y: s.y }
+          })
+          setSeatDragOriginals(orig)
+          setHasDraggedSeats(false)
+        }
       }
     }
   }
@@ -481,7 +585,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       layout_type: layoutType,
       canvas_width: 900,
       canvas_height: 600,
-      config: { stageLabel: 'SÂN KHẤU', stageHeight: 52 },
+      config: {
+        stageLabel: stageConfig.label,
+        stagePosition: stageConfig.position,
+        stageX: Math.round(stageConfig.x),
+        stageY: Math.round(stageConfig.y),
+        stageWidth: Math.round(stageConfig.w),
+        stageHeight: Math.round(stageConfig.h),
+      },
       rows_count: gridConfig.rows,
       cols_count: gridConfig.cols,
       zones: zones.map((z, i) => ({ name: z.name, color: z.color, sort_order: i })),
@@ -600,8 +711,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     type="button"
                     onClick={() => setLayoutType(type)}
                     className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${layoutType === type
-                        ? 'bg-tertiary text-white shadow-sm'
-                        : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
+                      ? 'bg-tertiary text-white shadow-sm'
+                      : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
                       }`}
                   >
                     {label}
@@ -644,6 +755,37 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               </section>
             )}
 
+            {/* Stage settings */}
+            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Sân khấu</p>
+              <div className="mb-3 space-y-2">
+                <label className="text-xs text-subtle block">
+                  Tên hiển thị
+                  <input
+                    type="text"
+                    value={stageConfig.label}
+                    onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="text-xs text-subtle block">
+                  Vị trí
+                  <select
+                    value={stageConfig.position}
+                    onChange={(e) => setStageConfig((c) => ({ ...c, position: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
+                  >
+                    <option value="TOP">Bên trên</option>
+                    <option value="BOTTOM">Bên dưới</option>
+                    <option value="LEFT">Trái</option>
+                    <option value="RIGHT">Phải</option>
+                    <option value="CUSTOM">Tuỳ chỉnh (Kéo thả)</option>
+                    <option value="HIDDEN">Ẩn</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
             {layoutType !== 'GRID' && (
               <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-subtle">
@@ -681,8 +823,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       key={zone.localId}
                       onClick={() => setActiveZoneId(isActive ? null : zone.localId)}
                       className={`group flex cursor-pointer items-center gap-2 rounded-xl border-2 p-2 transition-all ${isActive
-                          ? 'border-primary bg-tertiary/10 shadow-sm'
-                          : 'border-transparent hover:border-border-soft/20 hover:bg-panel-soft/60'
+                        ? 'border-primary bg-tertiary/10 shadow-sm'
+                        : 'border-transparent hover:border-border-soft/20 hover:bg-panel-soft/60'
                         }`}
                     >
                       <input
@@ -755,8 +897,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   title={label}
                   onClick={() => setTool(id)}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${tool === id
-                      ? 'bg-surface text-content border border-border-soft/20 shadow-md'
-                      : 'text-subtle hover:bg-panel-soft/60'
+                    ? 'bg-surface text-content border border-border-soft/20 shadow-md'
+                    : 'text-subtle hover:bg-panel-soft/60'
                     }`}
                 >
                   <Icon className="size-3.5" />
@@ -894,19 +1036,47 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             >
               <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
                 {/* Stage */}
-                <rect x={0} y={0} width={900} height={52} fill="var(--color-panel-soft)" rx={12} />
-                <rect x={0} y={48} width={900} height={4} fill="var(--color-border-soft)" rx={0} />
-                <text
-                  x={450}
-                  y={32}
-                  textAnchor="middle"
-                  fill="var(--color-content)"
-                  fontSize={13}
-                  fontWeight="bold"
-                  style={{ userSelect: 'none' }}
-                >
-                  SÂN KHẤU
-                </text>
+                {(() => {
+                  if (stageConfig.position === 'HIDDEN') return null
+                  let x = 0, y = 0, w = 900, h = 52
+                  if (stageConfig.position === 'CUSTOM') {
+                    x = stageConfig.x
+                    y = stageConfig.y
+                    w = stageConfig.w
+                    h = stageConfig.h
+                  } else if (stageConfig.position === 'BOTTOM') {
+                    y = 548
+                  } else if (stageConfig.position === 'LEFT') {
+                    w = 52
+                    h = 600
+                  } else if (stageConfig.position === 'RIGHT') {
+                    x = 848
+                    w = 52
+                    h = 600
+                  }
+
+                  return (
+                    <g onMouseDown={handleStageMouseDown} style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}>
+                      <rect x={x} y={y} width={w} height={h} fill="var(--color-panel-soft)" rx={12} />
+                      {(stageConfig.position === 'TOP' || stageConfig.position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
+                      {stageConfig.position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
+                      {stageConfig.position === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
+                      {stageConfig.position === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
+                      <text
+                        x={x + w / 2}
+                        y={y + h / 2 + 5}
+                        textAnchor="middle"
+                        fill="var(--color-content)"
+                        fontSize={13}
+                        fontWeight="bold"
+                        style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        transform={stageConfig.position === 'LEFT' || stageConfig.position === 'RIGHT' || (stageConfig.position === 'CUSTOM' && h > w) ? `rotate(-90 ${x + w / 2} ${y + h / 2})` : undefined}
+                      >
+                        {stageConfig.label}
+                      </text>
+                    </g>
+                  )
+                })()}
 
                 {/* Seats */}
                 {seats.map((seat) => {
@@ -994,7 +1164,7 @@ export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
   const scale = Math.min(scaleX, scaleY, 1)
   const zoneColorById = useMemo(() => {
     const m = new Map()
-    ;(zones || []).forEach((z) => m.set(z.id, z.color))
+      ; (zones || []).forEach((z) => m.set(z.id, z.color))
     return m
   }, [zones])
 
