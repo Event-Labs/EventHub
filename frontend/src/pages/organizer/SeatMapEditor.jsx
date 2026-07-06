@@ -1151,10 +1151,29 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   )
 }
 
-export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
-  if (!seats?.length) return null
-  const allX = seats.map((s) => s.x_position ?? s.x)
-  const allY = seats.map((s) => s.y_position ?? s.y)
+export function SeatMapPreview({ seatMap, seats, zones, width = 300, height = 200 }) {
+  const finalSeats = seats || seatMap?.seats || []
+  if (!finalSeats.length) return null
+
+  const allX = finalSeats.map((s) => s.x_position ?? s.x)
+  const allY = finalSeats.map((s) => s.y_position ?? s.y)
+
+  // Expand boundaries if stage is present
+  if (seatMap && seatMap.stage_position && seatMap.stage_position !== 'HIDDEN') {
+    if (seatMap.stage_position === 'CUSTOM') {
+      allX.push(seatMap.custom_stage_x || 0)
+      allX.push((seatMap.custom_stage_x || 0) + (seatMap.custom_stage_width || 360))
+      allY.push(seatMap.custom_stage_y || 0)
+      allY.push((seatMap.custom_stage_y || 0) + (seatMap.custom_stage_height || 40))
+    } else {
+      // Standard static stage boundaries mapping standard grid
+      if (seatMap.stage_position === 'TOP') { allX.push(270); allX.push(630); allY.push(0); allY.push(52); }
+      if (seatMap.stage_position === 'BOTTOM') { allX.push(270); allX.push(630); allY.push(548); allY.push(600); }
+      if (seatMap.stage_position === 'LEFT') { allX.push(0); allX.push(52); allY.push(0); allY.push(600); }
+      if (seatMap.stage_position === 'RIGHT') { allX.push(848); allX.push(900); allY.push(0); allY.push(600); }
+    }
+  }
+
   const minX = Math.min(...allX)
   const maxX = Math.max(...allX)
   const minY = Math.min(...allY)
@@ -1162,16 +1181,44 @@ export function SeatMapPreview({ seats, zones, width = 300, height = 200 }) {
   const scaleX = (width - 20) / (maxX - minX + 28)
   const scaleY = (height - 20) / (maxY - minY + 28)
   const scale = Math.min(scaleX, scaleY, 1)
+
   const zoneColorById = useMemo(() => {
     const m = new Map()
-      ; (zones || []).forEach((z) => m.set(z.id, z.color))
+      ; (zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
     return m
   }, [zones])
+
+  const renderStage = () => {
+    if (!seatMap?.stage_position || seatMap.stage_position === 'HIDDEN') return null
+    let x, y, w, h
+    if (seatMap.stage_position === 'CUSTOM') {
+      x = (seatMap.custom_stage_x || 0) - minX
+      y = (seatMap.custom_stage_y || 0) - minY
+      w = seatMap.custom_stage_width || 360
+      h = seatMap.custom_stage_height || 40
+    } else {
+      if (seatMap.stage_position === 'TOP') { x = 270 - minX; y = 0 - minY; w = 360; h = 52 }
+      else if (seatMap.stage_position === 'BOTTOM') { x = 270 - minX; y = 548 - minY; w = 360; h = 52 }
+      else if (seatMap.stage_position === 'LEFT') { x = 0 - minX; y = 0 - minY; w = 52; h = 600 }
+      else if (seatMap.stage_position === 'RIGHT') { x = 848 - minX; y = 0 - minY; w = 52; h = 600 }
+    }
+
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={h} fill="var(--color-panel-soft)" rx={Math.min(w, h) > 20 ? 12 : 4} />
+        {(seatMap.stage_position === 'TOP' || seatMap.stage_position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
+        {seatMap.stage_position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
+        {seatMap.stage_position === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
+        {seatMap.stage_position === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
+      </g>
+    )
+  }
 
   return (
     <svg width={width} height={height} className="rounded-xl border border-border-soft/30 bg-panel-soft/30">
       <g transform={`translate(10,10) scale(${scale})`}>
-        {seats.map((s) => {
+        {renderStage()}
+        {finalSeats.map((s) => {
           const x = (s.x_position ?? s.x) - minX
           const y = (s.y_position ?? s.y) - minY
           return (

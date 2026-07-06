@@ -12,6 +12,7 @@ import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { assignZones, getSeatMap } from '@/services/organizerSeatMaps.js'
 import { SeatMapPreview } from './SeatMapEditor.jsx'
 import { uploadEventBanner, uploadEventThumbnail } from '@/services/uploads.js'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
 
 const STEP_LABELS = [
@@ -209,63 +210,6 @@ function Step1EventInfo({
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-[13px] font-medium mb-3 text-subtle">Hình thức sự kiện*</label>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { value: 'OFFLINE', icon: 'location_on', label: 'Offline' },
-                  { value: 'ONLINE', icon: 'laptop_mac', label: 'Online' },
-                  { value: 'HYBRID', icon: 'sync_alt', label: 'Hybrid' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setFormData((p) => ({ ...p, format: opt.value }))}
-                    className={`p-4 border-2 rounded-xl flex flex-col items-center text-center gap-2 transition-all ${formData.format === opt.value
-                      ? 'border-tertiary bg-tertiary/10'
-                      : 'border-border-soft/40 hover:border-tertiary/50'
-                      }`}
-                  >
-                    <Icon
-                      name={opt.icon}
-                      className={formData.format === opt.value ? 'text-tertiary' : 'text-subtle'}
-                      style={{ fontSize: 32 }}
-                    />
-                    <span className={`text-[13px] font-medium text-content ${formData.format === opt.value ? 'font-bold' : ''}`}>
-                      {opt.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-[13px] font-medium mb-3 text-subtle">Hiển thị sự kiện*</label>
-              <div className="flex gap-4">
-                {[
-                  { value: 'PUBLIC', icon: 'public', title: 'Công khai', desc: 'Hiển thị cho mọi người trên nền tảng' },
-                  { value: 'PRIVATE', icon: 'lock', title: 'Riêng tư', desc: 'Chỉ truy cập qua liên kết mời' },
-                ].map((opt) => (
-                  <label key={opt.value} className="flex-1 relative cursor-pointer">
-                    <input
-                      type="radio"
-                      name="visibility"
-                      className="peer sr-only"
-                      checked={formData.visibility === opt.value}
-                      onChange={() => setFormData((p) => ({ ...p, visibility: opt.value }))}
-                    />
-                    <div className="p-4 border-2 border-border-soft/40 rounded-xl peer-checked:border-tertiary peer-checked:bg-tertiary/10 transition-all">
-                      <div className="flex items-center gap-3">
-                        <Icon name={opt.icon} className="text-subtle" />
-                        <div>
-                          <p className="text-[13px] font-bold text-content">{opt.title}</p>
-                          <p className="text-xs text-muted">{opt.desc}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
           </div>
         </section>
 
@@ -349,7 +293,7 @@ function Step1EventInfo({
             </div>
           </div>
         </section>
-      </div>
+      </div >
 
       <div className="col-span-12 lg:col-span-4 space-y-6 sticky top-24">
         <div className="bg-surface border border-border-soft/30 rounded-xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
@@ -393,7 +337,7 @@ function Step1EventInfo({
           </div>
         </div>
       </div>
-    </div>
+    </div >
   )
 }
 
@@ -760,6 +704,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           clientKey: newClientKey(),
           session_key: sessionKey,
           name: '',
+          description: '',
           price: 0,
           quantity: 1,
           is_seated: false,
@@ -829,7 +774,6 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 : 'border-border-soft/40 hover:border-tertiary/50'
                 }`}
             >
-              <span className="text-2xl">🎟</span>
               <p className="mt-2 font-bold text-content">Không chỗ ngồi</p>
               <p className="text-sm text-subtle">Vé phổ thông / Không chọn chỗ</p>
             </button>
@@ -841,50 +785,42 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 : 'border-border-soft/40 hover:border-tertiary/50'
                 }`}
             >
-              <span className="text-2xl">💺</span>
+
               <p className="mt-2 font-bold text-content">Có chỗ ngồi</p>
               <p className="text-sm text-subtle">Chọn chỗ ngồi trên sơ đồ ghế</p>
             </button>
           </div>
-          {sessions.length > 1 && (
-            <div className="mt-6 flex items-center justify-end">
-              <label className="flex items-center gap-2 text-sm text-subtle font-medium cursor-pointer p-2 hover:bg-panel-soft rounded-lg transition-colors border border-border-soft/30">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 accent-tertiary"
-                  onChange={(e) => {
-                    if (!e.target.checked) return
-                    if (!window.confirm('Bạn có chắc chắn muốn áp dụng cấu hình của phiên này cho TẤT CẢ các phiên khác? (Loại tổ chức, sơ đồ ghế, vé sẽ bị ghi đè)')) {
-                      e.target.checked = false
-                      return
-                    }
-                    setFormData((p) => {
-                      const newSessions = p.sessions.map((s) => ({
-                        ...s,
-                        seating_type: activeSession.seating_type,
-                        seat_map_id: activeSession.seat_map_id,
-                        zone_assignments: activeSession.zone_assignments ? [...activeSession.zone_assignments] : []
-                      }))
-                      const newTicketTypes = p.ticketTypes.filter((t) => t.session_key === sessionKey)
-                      for (const s of newSessions) {
-                        if ((s.id || s.clientKey) === sessionKey) continue
-                        const cloned = newTicketTypes.map(t => ({
-                          ...t,
-                          id: (t.id || t.clientKey).startsWith('tmp-') ? null : undefined, // Keep undefined or delete original ID for clones
-                          clientKey: newClientKey(),
-                          session_key: s.id || s.clientKey
-                        }))
-                        newTicketTypes.push(...cloned)
-                      }
-                      return { ...p, sessions: newSessions, ticketTypes: newTicketTypes }
-                    })
-                    setTimeout(() => { e.target.checked = false }, 1000)
-                  }}
-                />
-                Áp dụng cho tất cả phiên sự kiện
-              </label>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (!window.confirm('Bạn có chắc chắn muốn áp dụng cấu hình sơ đồ ghế và vé của phiên này cho TẤT CẢ các phiên khác?')) return
+              setFormData((p) => {
+                const newSessions = p.sessions.map((s) => ({
+                  ...s,
+                  seating_type: activeSession.seating_type,
+                  seat_map_id: activeSession.seat_map_id,
+                  zone_assignments: activeSession.zone_assignments ? [...activeSession.zone_assignments] : []
+                }))
+                const newTicketTypes = p.ticketTypes.filter((t) => t.session_key === sessionKey)
+                for (const s of newSessions) {
+                  if ((s.id || s.clientKey) === sessionKey) continue
+                  const cloned = newTicketTypes.map(t => ({
+                    ...t,
+                    id: (t.id || t.clientKey).startsWith('tmp-') ? null : undefined,
+                    clientKey: newClientKey(),
+                    session_key: s.id || s.clientKey
+                  }))
+                  newTicketTypes.push(...cloned)
+                }
+                return { ...p, sessions: newSessions, ticketTypes: newTicketTypes }
+              })
+              alert('Đã áp dụng cấu hình cho tất cả các phiên!')
+            }}
+            className="mt-6 flex items-center justify-center gap-2 rounded-lg bg-tertiary/10 text-tertiary px-4 py-2.5 text-sm font-bold shadow-sm hover:bg-tertiary hover:text-white transition w-full border border-tertiary/20"
+          >
+            <Icon name="auto_awesome_mosaic" className="text-[18px]" />
+            Áp dụng sơ đồ & loại vé này cho TẤT CẢ phiên sự kiện
+          </button>
         </section>
 
         {seatingType === 'ASSIGNED' && (
@@ -950,6 +886,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
               {loadedSeatMap && (
                 <div className="mt-4">
                   <SeatMapPreview
+                    seatMap={loadedSeatMap}
                     seats={loadedSeatMap.seats}
                     zones={loadedSeatMap.zones}
                     width={360}
@@ -1114,6 +1051,15 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                           onChange={(e) => updateTicket(key, 'quantity', Number(e.target.value))}
                         />
                       </div>
+                    </div>
+                    <div className="mt-4">
+                      <label className="mb-1 block text-xs text-muted">Mô tả vé</label>
+                      <textarea
+                        className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-tertiary outline-none resize-none h-16"
+                        value={tt.description || ''}
+                        onChange={(e) => updateTicket(key, 'description', e.target.value)}
+                        placeholder="VD: Bao gồm vé vào cổng hạng phổ thông..."
+                      />
                     </div>
                     <div className="mt-4 flex justify-end">
                       <button
@@ -1419,6 +1365,7 @@ export function CreateEventPage() {
   const [eventStatus, setEventStatus] = useState('DRAFT')
   const [successMessage, setSuccessMessage] = useState('')
   const [paymentSetupRequired, setPaymentSetupRequired] = useState(false)
+  const [subscriptionRequired, setSubscriptionRequired] = useState(false)
 
   const isEditMode = Boolean(routeEventId)
 
@@ -1438,16 +1385,21 @@ export function CreateEventPage() {
   }, [])
 
   useEffect(() => {
-    Promise.all([fetchEventCategories(), fetchOrganizerVenues()])
-      .then(([cats, vns]) => {
+    setInitialLoading(true)
+    Promise.all([fetchEventCategories(), fetchOrganizerVenues(), fetchCurrentPlan()])
+      .then(([cats, vns, plan]) => {
         setCategories(cats)
         setVenues(vns)
+        if (!plan) setSubscriptionRequired(true)
       })
       .catch((err) => {
         console.error(err)
-        setError('Không thể tải dữ liệu danh mục hoặc địa điểm.')
+        setError('Không thể tải dữ liệu ban đầu. Vui lòng thử lại.')
       })
-  }, [])
+      .finally(() => {
+        if (!routeEventId) setInitialLoading(false)
+      })
+  }, [routeEventId])
 
   const populateFromEvent = useCallback((event) => {
     const sessions = (event.sessions || []).map((s) => {
@@ -1581,6 +1533,13 @@ export function CreateEventPage() {
     return ''
   }
 
+  const isValidAllSteps = () => {
+    for (let step = 1; step <= 4; step++) {
+      if (validateStep(step)) return false
+    }
+    return true
+  }
+
   const buildSessionsPayload = () =>
     formData.sessions.map((s) => ({
       id: s.id,
@@ -1602,6 +1561,7 @@ export function CreateEventPage() {
         id: tt.id,
         event_session_id: sessionIdMap.get(tt.session_key) || tt.session_key,
         name: tt.name,
+        description: tt.description || null,
         price: tt.price,
         quantity: tt.quantity,
         is_seated:
@@ -1884,6 +1844,21 @@ export function CreateEventPage() {
           )}
         </div>
       )}
+      {subscriptionRequired && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning font-medium">
+          <div className="flex items-center gap-3">
+            <Icon name="warning" className="text-xl" />
+            <span>Tài khoản của bạn chưa đăng ký gói dịch vụ. Vui lòng Nâng cấp tài khoản để có thể phát hành sự kiện.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/organizer/subscriptions')}
+            className="rounded-md border border-warning/30 bg-surface px-4 py-2 font-bold bg-warning text-white shadow-sm hover:opacity-90 transition"
+          >
+            Đăng ký gói ngay
+          </button>
+        </div>
+      )}
       {successMessage && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
           <Icon name="check_circle" />
@@ -1917,7 +1892,7 @@ export function CreateEventPage() {
         <Step5ReviewSubmit formData={formData} categories={categories} venues={venues} />
       )}
 
-      <footer className="fixed bottom-0 right-0 left-0 lg:left-[240px] bg-surface/90 backdrop-blur-md border-t border-border-soft/30 p-4 px-8 flex justify-between items-center z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.25)]">
+      <footer className="mt-8 bg-surface border-t border-border-soft/30 p-4 flex justify-between items-center">
         <button
           type="button"
           onClick={() => navigate('/organizer/events')}
@@ -1937,45 +1912,49 @@ export function CreateEventPage() {
               Quay lại
             </button>
           )}
-          {currentStep < 5 ? (
+          {currentStep < 5 && (
             <button
               type="button"
               onClick={handleNext}
               disabled={loading}
               className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
             >
-              {loading ? 'Đang lưu...' : nextLabel}
+              {loading ? 'Đang lưu...' : (currentStep === 4 ? 'Tiếp theo' : nextLabel)}
               {!loading && <Icon name="arrow_forward" className="text-[18px]" />}
             </button>
-          ) : isEditMode ? (
-            <>
-              {eventStatus === 'DRAFT' && (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  className="rounded-lg border border-tertiary/50 px-6 py-2.5 text-sm font-bold text-tertiary hover:bg-tertiary/10 disabled:opacity-50 transition"
-                >
-                  {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleUpdateEvent}
-                disabled={loading}
-                className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
-              >
-                {loading ? 'Đang cập nhật...' : 'Cập nhật sự kiện'}
-              </button>
-            </>
-          ) : (
+          )}
+
+          {!isEditMode ? (
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
+              disabled={loading || !isValidAllSteps()}
+              title={!isValidAllSteps() ? 'Bạn cần nhập đầy đủ và chuẩn xác tất cả các bước' : ''}
+              className="flex items-center gap-2 rounded-lg bg-success px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-success/80 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
             >
               {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
+            </button>
+          ) : (isEditMode && eventStatus === 'DRAFT') ? (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading || !isValidAllSteps()}
+              title={!isValidAllSteps() ? 'Bạn cần nhập đầy đủ và chuẩn xác tất cả các bước' : ''}
+              className="rounded-lg border border-tertiary/50 px-6 py-2.5 text-sm font-bold text-tertiary hover:bg-tertiary/10 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
+            >
+              {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
+            </button>
+          ) : null}
+
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={handleUpdateEvent}
+              disabled={loading || !isValidAllSteps()}
+              title={!isValidAllSteps() ? 'Thông tin sự kiện còn thiếu hoặc không hợp lệ' : ''}
+              className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
+            >
+              {loading ? 'Đang cập nhật...' : 'Cập nhật sự kiện'}
             </button>
           )}
         </div>
