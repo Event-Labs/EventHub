@@ -20,8 +20,8 @@ const EVENT_CARD_SELECT = `
   e.short_description,
   e.thumbnail_url,
   e.banner_url,
-  e.start_time,
-  e.end_time,
+  COALESCE(time_summary.start_time, e.start_time) AS start_time,
+  COALESCE(time_summary.end_time, e.end_time) AS end_time,
   e.created_at,
   c.id AS category_id,
   c.name AS category_name,
@@ -41,6 +41,11 @@ const EVENT_CARD_JOINS = `
   LEFT JOIN event_categories c ON c.id = e.category_id
   LEFT JOIN organizers organizer ON organizer.id = e.organizer_id
   LEFT JOIN users organizer_user ON organizer_user.id = organizer.user_id
+  LEFT JOIN LATERAL (
+    SELECT MIN(es_time.start_time) AS start_time, MAX(es_time.end_time) AS end_time
+    FROM event_sessions es_time
+    WHERE es_time.event_id = e.id
+  ) time_summary ON true
   LEFT JOIN LATERAL (
     SELECT v.name AS venue_name, v.city, v.district, v.address_line
     FROM event_sessions es
@@ -109,8 +114,8 @@ function buildListQuery(filters) {
     )`);
   }
 
-  if (filters.startDate) where.push(`e.start_time >= ${addParam(filters.startDate)}`);
-  if (filters.endDate) where.push(`e.start_time <= ${addParam(filters.endDate)}`);
+  if (filters.startDate) where.push(`COALESCE(time_summary.start_time, e.start_time) >= ${addParam(filters.startDate)}`);
+  if (filters.endDate) where.push(`COALESCE(time_summary.start_time, e.start_time) <= ${addParam(filters.endDate)}`);
 
   if (filters.minPrice !== undefined) {
     where.push(`EXISTS (
@@ -129,7 +134,7 @@ function buildListQuery(filters) {
   }
 
   const sortMap = {
-    start_time: 'e.start_time',
+    start_time: 'COALESCE(time_summary.start_time, e.start_time)',
     created_at: 'e.created_at',
     updated_at: 'e.updated_at',
     price: 'price_summary.min_price',
@@ -391,8 +396,8 @@ class EventsRepository {
           es.end_time AS session_end_time,
           $1::uuid AS requested_event_id,
           e.id AS event_id,
-          e.start_time AS event_start_time,
-          e.end_time AS event_end_time,
+          COALESCE((SELECT MIN(es_all.start_time) FROM event_sessions es_all WHERE es_all.event_id = e.id), e.start_time) AS event_start_time,
+          COALESCE((SELECT MAX(es_all.end_time) FROM event_sessions es_all WHERE es_all.event_id = e.id), e.end_time) AS event_end_time,
           e.status AS event_status,
           e.visibility,
           e.approval_status,
