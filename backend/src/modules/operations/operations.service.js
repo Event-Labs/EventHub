@@ -301,6 +301,10 @@ class OperationsService {
     return operationsRepository.listStaffAssignedEvents(staffId);
   }
 
+  async getStaffOverview(staffId) {
+    return operationsRepository.getStaffOverview(staffId);
+  }
+
   async listStaffTasks(staffId, eventId = null) {
     return operationsRepository.listStaffTasks(staffId, eventId);
   }

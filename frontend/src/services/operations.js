@@ -30,6 +30,11 @@ export async function fetchOrganizerStaffTasks(params = {}) {
   return response.data.data
 }
 
+export async function fetchStaffOverview() {
+  const response = await http.get('/operations/staff/overview')
+  return response.data.data
+}
+
 export async function fetchAssignedStaffEvents() {
   const response = await http.get('/operations/staff/events')
   return response.data.data

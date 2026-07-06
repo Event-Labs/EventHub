@@ -67,7 +67,7 @@ function CheckInSuccess() {
         </div>
         <div className="mt-6 flex justify-center gap-3">
           <Link to="/staff/qr-check-in" className="admin-primary">Quét vé tiếp theo</Link>
-          <Link to="/staff/check-in-count" className="admin-secondary">Xem thống kê</Link>
+          <Link to="/staff/events" className="admin-secondary">Sự kiện được giao</Link>
         </div>
       </div>
     </ResultShell>

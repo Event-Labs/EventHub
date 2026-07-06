@@ -9,6 +9,7 @@ export function StaffEventsPage({ empty = false }) {
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [currentTime, setCurrentTime] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -18,7 +19,10 @@ export function StaffEventsPage({ empty = false }) {
       setError('')
       try {
         const data = await fetchAssignedStaffEvents()
-        if (active) setEvents(data)
+        if (active) {
+          setEvents(data)
+          setCurrentTime(Date.now())
+        }
       } catch (err) {
         if (active) setError(err.response?.data?.message || 'Không thể tải sự kiện được giao.')
       } finally {
@@ -62,7 +66,7 @@ export function StaffEventsPage({ empty = false }) {
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filteredEvents.map((event) => (
-            <AssignedEventCard key={event.id} event={event} />
+            <AssignedEventCard key={event.id} event={event} currentTime={currentTime} />
           ))}
         </div>
       )}
@@ -70,21 +74,25 @@ export function StaffEventsPage({ empty = false }) {
   )
 }
 
-function AssignedEventCard({ event }) {
+function AssignedEventCard({ event, currentTime }) {
   const checkedIn = Number(event.checked_in || 0)
   const totalValid = Number(event.total_valid || 0)
   const progress = totalValid > 0 ? Math.min(100, Math.round((checkedIn / totalValid) * 100)) : 0
-  const now = Date.now()
   const start = new Date(event.start_time).getTime()
   const end = new Date(event.end_time).getTime()
-  const isOngoing = start <= now && now <= end
+  const isOngoing = start <= currentTime && currentTime <= end
   const statusTone = isOngoing ? 'green' : 'blue'
   const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(', ')
+  const imageSrc = event.thumbnail_url || event.banner_url
 
   return (
     <StaffPanel>
-      <div className="mb-4 grid h-36 place-items-center rounded-md bg-tertiary/15 text-tertiary">
-        <Calendar className="size-12" />
+      <div className="mb-4 grid h-36 place-items-center overflow-hidden rounded-md bg-tertiary/15 text-tertiary">
+        {imageSrc ? (
+          <img src={imageSrc} alt={event.title} className="h-full w-full object-cover" />
+        ) : (
+          <Calendar className="size-12" />
+        )}
       </div>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-extrabold">{event.title}</h3>
