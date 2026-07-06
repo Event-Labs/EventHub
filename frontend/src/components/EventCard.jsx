@@ -109,12 +109,12 @@ export function EventCard({
         )}
       </div>
       <div className="flex flex-1 flex-col space-y-4 p-5">
-        <div>
+        <div className="h-[84px]">
           <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white">
             {item.title}
           </h3>
         </div>
-        <div className="min-h-[84px] space-y-2 text-sm leading-6 text-muted">
+        <div className="min-h-[132px] space-y-2 text-sm leading-6 text-muted">
           <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">
             <Calendar className="mt-1 size-4 shrink-0 text-primary" />
             <span>
@@ -124,7 +124,7 @@ export function EventCard({
           </div>
           <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">
             <MapPin className="mt-1 size-4 shrink-0 text-primary" />
-            <span className="line-clamp-3">{item.location}</span>
+            <span>{item.location}</span>
           </div>
         </div>
         <div className="mt-auto flex items-end justify-between gap-4 pt-2">
