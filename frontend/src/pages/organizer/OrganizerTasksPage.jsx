@@ -49,6 +49,11 @@ const STATUS_CONFIG = {
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'DONE']
 
+function taskDisplayId(taskId) {
+  const value = String(taskId || '').replace(/-/g, '')
+  return value ? `TASK-${value.slice(-4).toUpperCase()}` : 'TASK'
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export function OrganizerTasksPage() {
@@ -83,6 +88,7 @@ export function OrganizerTasksPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAll(selectedEventId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -385,6 +391,7 @@ function KanbanColumn({ status, tasks }) {
 
 function TaskCard({ task }) {
   const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO
+  const displayId = taskDisplayId(task.id)
   const createdDate = task.created_at
     ? new Date(task.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
     : null
@@ -395,7 +402,7 @@ function TaskCard({ task }) {
       {task.description && (
         <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-subtle">{task.description}</p>
       )}
-      <div className="mt-3 flex items-center justify-between">
+      <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <AvatarInitials name={task.staff_name || 'Staff'} className="size-6" />
           <span className="max-w-[100px] truncate text-xs font-semibold text-subtle">
@@ -404,9 +411,10 @@ function TaskCard({ task }) {
         </div>
         <Badge tone={cfg.badge}>{cfg.label}</Badge>
       </div>
-      {createdDate && (
-        <p className="mt-2 text-right text-[10px] text-muted">{createdDate}</p>
-      )}
+      <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold text-muted">
+        <span className={task.status === 'DONE' ? 'line-through' : ''}>{displayId}</span>
+        {createdDate && <span>{createdDate}</span>}
+      </div>
     </div>
   )
 }
