@@ -196,7 +196,6 @@ export function OrganizerAttendeesPage() {
   return (
     <OrganizerPage
       title="Người tham dự"
-      eyebrow="Vận hành / Người tham dự"
       description="Xem danh sách người tham dự từ vé đã bán cho sự kiện của bạn."
     >
       {/* ── Event selector ── */}
