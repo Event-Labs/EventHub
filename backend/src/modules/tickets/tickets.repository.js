@@ -42,7 +42,12 @@ const STAFF_TICKET_SELECT = `
 `;
 
 class TicketsRepository {
+  async ensureRequireAttendeeInfoColumn(client = db) {
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+  }
+
   async findTicketsByUserId(userId, filters = {}) {
+    await this.ensureRequireAttendeeInfoColumn();
     const params = [userId];
     let statusFilter = '';
 
@@ -75,6 +80,7 @@ class TicketsRepository {
         e.end_time AS event_end_time,
         e.thumbnail_url AS event_thumbnail_url,
         e.banner_url AS event_banner_url,
+        e.require_attendee_info,
         es.id AS event_session_id,
         es.session_name,
         es.start_time AS session_start_time,
@@ -125,6 +131,7 @@ class TicketsRepository {
   }
 
   async findTicketByIdAndUserId(ticketId, userId) {
+    await this.ensureRequireAttendeeInfoColumn();
     const { rows } = await db.query(
       `
       SELECT
@@ -148,6 +155,7 @@ class TicketsRepository {
         e.short_description AS event_short_description,
         e.banner_url AS event_banner_url,
         e.thumbnail_url AS event_thumbnail_url,
+        e.require_attendee_info,
         e.start_time AS event_start_time,
         e.end_time AS event_end_time,
         es.id AS event_session_id,

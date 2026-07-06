@@ -177,6 +177,7 @@ export function EventDetailPage() {
           selectedSession,
           availableTicketTypes: selectedSessionTickets,
           seatingRules: event.seating_rules || {},
+          requireAttendeeInfo: Boolean(event.require_attendee_info),
           items: [],
         },
       },
@@ -198,7 +199,7 @@ export function EventDetailPage() {
 
   return (
     <div className="overflow-x-hidden">
-      <section className="relative h-[820px] min-h-[calc(112vh-5rem)] overflow-hidden">
+      <section className="relative h-[420px] overflow-hidden sm:h-[500px] lg:h-[600px] xl:h-[640px]">
         {heroImage && (
           <img
             src={heroImage}
@@ -207,7 +208,7 @@ export function EventDetailPage() {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-surface/55" />
-        <div className="relative mx-auto flex h-full w-full max-w-7xl items-end px-4 pb-6 sm:px-6 sm:pb-8 lg:px-8 lg:pb-10">
+        <div className="relative mx-auto flex h-full w-full max-w-7xl items-end px-4 pb-6 sm:px-6 sm:pb-8 lg:px-8 lg:pb-9">
           <div className="min-w-0 max-w-4xl">
             {event.category?.name && (
               <span className="rounded-full border border-primary/30 bg-primary/15 px-4 py-2 text-sm font-bold text-primary">

@@ -155,6 +155,10 @@ function buildListQuery(filters) {
 }
 
 class EventsRepository {
+  async ensureRequireAttendeeInfoColumn(client = db) {
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+  }
+
   async findPublicCategories() {
     const query = `
       SELECT
@@ -184,11 +188,13 @@ class EventsRepository {
   }
 
   async findPublicEventByIdentifier(identifier, userId = null) {
+    await this.ensureRequireAttendeeInfoColumn();
     const query = `
       SELECT
         ${EVENT_CARD_SELECT},
         e.description,
         e.seating_rules,
+        e.require_attendee_info,
         json_build_object(
           'id', organizer.id,
           'full_name', COALESCE(organizer.organization_name, organizer_user.full_name),

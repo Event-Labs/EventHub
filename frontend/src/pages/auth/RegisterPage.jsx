@@ -27,6 +27,11 @@ export function RegisterPage() {
             return
         }
 
+        if (form.password.length < 8 || !/[a-z]/.test(form.password) || !/[A-Z]/.test(form.password) || !/\d/.test(form.password) || !/[^a-zA-Z\d]/.test(form.password)) {
+            setError('Mật khẩu chưa đủ mạnh. Yêu cầu ít nhất 8 ký tự, bao gồm chữ hoa, thường, số và ký tự đặc biệt.')
+            return
+        }
+
         setLoading(true)
         try {
             // BE validation: full_name (required), email, password, phone (optional)
@@ -115,7 +120,7 @@ export function RegisterPage() {
                         size="large"
                         text="continue_with"
                         shape="rectangular"
-                        locale="en"
+                        locale="vi"
                     />
                 </div>
                 <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
@@ -150,15 +155,18 @@ export function RegisterPage() {
                         onChange={(e) => setForm({ ...form, phone: e.target.value })}
                     />
                     <div className="grid gap-4 md:grid-cols-2">
-                        <Field
-                            icon={Lock}
-                            label="Mật khẩu"
-                            placeholder="••••••••"
-                            type="password"
-                            required
-                            value={form.password}
-                            onChange={(e) => setForm({ ...form, password: e.target.value })}
-                        />
+                        <div>
+                            <Field
+                                icon={Lock}
+                                label="Mật khẩu"
+                                placeholder="••••••••"
+                                type="password"
+                                required
+                                value={form.password}
+                                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                            />
+                            <PasswordStrength password={form.password} />
+                        </div>
                         <Field
                             icon={Lock}
                             label="Xác nhận mật khẩu"
@@ -192,5 +200,41 @@ export function RegisterPage() {
                 </p>
             </div>
         </AuthShell>
+    )
+}
+
+export function PasswordStrength({ password }) {
+    if (!password) return null
+
+    let score = 0
+    if (password.length >= 8) score++
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
+    if (/\d/.test(password)) score++
+    if (/[^a-zA-Z\d]/.test(password)) score++
+
+    const getStrengthLabel = () => {
+        if (score === 0 || score === 1) return { text: 'Yếu', color: 'bg-error', textColor: 'text-error' }
+        if (score === 2) return { text: 'Trung bình', color: 'bg-orange-500', textColor: 'text-orange-500' }
+        if (score === 3) return { text: 'Khá', color: 'bg-blue-500', textColor: 'text-blue-500' }
+        return { text: 'Mạnh', color: 'bg-success', textColor: 'text-success' }
+    }
+
+    const strength = getStrengthLabel()
+
+    return (
+        <div className="mt-3 space-y-2">
+            <div className="flex gap-1">
+                {[1, 2, 3, 4].map((step) => (
+                    <div
+                        key={step}
+                        className={`h-1 w-full rounded-full transition-colors ${score >= step ? strength.color : 'bg-border-soft'
+                            }`}
+                    />
+                ))}
+            </div>
+            <p className={`text-xs font-medium ${strength.textColor}`}>
+                Mức độ: {strength.text}
+            </p>
+        </div>
     )
 }
