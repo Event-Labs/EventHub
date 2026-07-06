@@ -114,9 +114,10 @@ class SeatMapsRepository {
         `
         INSERT INTO seat_maps (
           venue_id, name, layout_type, canvas_width, canvas_height,
-          config, rows_count, cols_count, is_active
+          config, rows_count, cols_count, is_active,
+          stage_position, custom_stage_x, custom_stage_y, custom_stage_width, custom_stage_height
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10, $11, $12, $13)
         RETURNING *
         `,
         [
@@ -128,6 +129,11 @@ class SeatMapsRepository {
           data.config || {},
           data.rows_count || 0,
           data.cols_count || 0,
+          data.stage_position || 'BOTTOM',
+          data.custom_stage_x || null,
+          data.custom_stage_y || null,
+          data.custom_stage_width || null,
+          data.custom_stage_height || null,
         ],
       );
       const seatMap = seatMapRows[0];
@@ -190,7 +196,9 @@ class SeatMapsRepository {
         `
         UPDATE seat_maps
         SET name = $2, layout_type = $3, canvas_width = $4, canvas_height = $5,
-            config = $6, rows_count = $7, cols_count = $8, updated_at = NOW()
+            config = $6, rows_count = $7, cols_count = $8, updated_at = NOW(),
+            stage_position = $9, custom_stage_x = $10, custom_stage_y = $11, 
+            custom_stage_width = $12, custom_stage_height = $13
         WHERE id = $1
         `,
         [
@@ -202,6 +210,11 @@ class SeatMapsRepository {
           data.config || {},
           data.rows_count || 0,
           data.cols_count || 0,
+          data.stage_position || 'BOTTOM',
+          data.custom_stage_x || null,
+          data.custom_stage_y || null,
+          data.custom_stage_width || null,
+          data.custom_stage_height || null,
         ],
       );
 
