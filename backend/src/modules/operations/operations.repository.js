@@ -11,8 +11,7 @@ const db = require('../../infrastructure/database/db.client');
 //   - type         = 'EVENT'
 //   - title        = 'STAFF_INVITATION'  (sentinel value – used to filter)
 //   - content      = JSON string with all invitation metadata
-//   - is_read      = false  →  PENDING
-//                    true   →  ACCEPTED or DECLINED (see content.status)
+//   - is_read      = notification read state only; invitation state lives in content.status
 //
 // content JSON shape:
 // {
@@ -39,6 +38,7 @@ function parseInvitation(row) {
   return {
     id: row.id,
     event_id: row.event_id,
+    event_slug: row.event_slug || null,
     event_title: row.event_title || null,
     event_start_time: row.event_start_time || null,
     event_end_time: row.event_end_time || null,
@@ -222,7 +222,6 @@ class OperationsRepository {
       FROM notifications n
       WHERE n.event_id = $1
         AND n.title    = $2
-        AND n.is_read  = false
         AND n.content::json->>'invited_email' = lower($3)
         AND n.content::json->>'status'        = 'PENDING'
       LIMIT 1
@@ -258,7 +257,7 @@ class OperationsRepository {
     return rows[0]?.total || 0;
   }
 
-  /** Count PENDING invitations for an event (is_read = false = PENDING) */
+  /** Count PENDING invitations for an event */
   async countPendingInvitations(eventId) {
     const { rows } = await db.query(
       `
@@ -266,7 +265,6 @@ class OperationsRepository {
       FROM notifications
       WHERE event_id = $1
         AND title    = $2
-        AND is_read  = false
         AND content::json->>'status' = 'PENDING'
       `,
       [eventId, INVITE_TITLE],
@@ -343,7 +341,8 @@ class OperationsRepository {
       `
       SELECT
         n.*,
-        e.title   AS event_title,
+        e.title AS event_title,
+        e.slug AS event_slug,
         u.full_name AS invited_user_name
       FROM notifications n
       JOIN events e ON e.id = n.event_id
@@ -365,6 +364,7 @@ class OperationsRepository {
       SELECT
         n.*,
         e.title      AS event_title,
+        e.slug       AS event_slug,
         e.start_time AS event_start_time,
         e.end_time   AS event_end_time,
         o.organization_name
@@ -391,7 +391,8 @@ class OperationsRepository {
       `
       SELECT
         n.*,
-        e.title AS event_title
+        e.title AS event_title,
+        e.slug AS event_slug
       FROM notifications n
       JOIN events e ON e.id = n.event_id
       WHERE n.id    = $1

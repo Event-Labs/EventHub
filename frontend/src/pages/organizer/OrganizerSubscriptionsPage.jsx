@@ -85,7 +85,7 @@ export function OrganizerSubscriptionsPage() {
                   <PlanCard
                     key={plan.id}
                     plan={plan}
-                    highlighted={index === 1}
+                    highlighted={isRecommendedPlan(plan, index)}
                     isCurrentPlan={isCurrentPlan}
                     onSubscribe={() => setSelectedPlan(plan)}
                   />
@@ -133,6 +133,15 @@ export function OrganizerSubscriptionsPage() {
             <p className="mb-5 text-sm text-subtle">
               Bạn đang chọn gói <strong className="text-content">{selectedPlan.name}</strong>
             </p>
+
+            {currentPlan && selectedPlan.id !== currentPlan.subscription_id && (
+              <SubscriptionChangeWarning currentPlan={currentPlan} selectedPlan={selectedPlan} />
+            )}
+            {currentPlan && selectedPlan.id === currentPlan.subscription_id && (
+              <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-semibold text-warning">
+                Gia hạn cùng gói sẽ thay thế thời gian còn lại. Ngày hết hạn mới được tính từ thời điểm thanh toán mới.
+              </div>
+            )}
 
             <div className="mb-6 space-y-2 rounded-xl bg-panel-soft p-4 text-sm">
               <div className="flex justify-between">
@@ -301,6 +310,29 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
       </div>
     </div>
   )
+}
+
+function SubscriptionChangeWarning({ currentPlan, selectedPlan }) {
+  const currentPrice = Number(currentPlan.price || 0)
+  const selectedPrice = Number(selectedPlan.price || 0)
+
+  if (selectedPrice > currentPrice) {
+    return (
+      <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-semibold text-warning">
+        Nâng cấp sẽ áp dụng ngay sau khi thanh toán. Thời gian còn lại của gói hiện tại không được hoàn tiền hoặc quy đổi.
+      </div>
+    )
+  }
+
+  if (selectedPrice < currentPrice) {
+    return (
+      <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-semibold text-warning">
+        Hạ cấp cần kiểm tra quota và áp dụng ở chu kỳ tiếp theo. Nếu chưa được mở tự động, vui lòng liên hệ quản trị viên để lên lịch chuyển gói.
+      </div>
+    )
+  }
+
+  return null
 }
 
 // ─── Current Plan Detail with Countdown ────────────────────────────────────
@@ -477,4 +509,9 @@ function formatMoney(value) {
     style: 'currency',
     currency: 'VND',
   }).format(Number(value || 0))
+}
+
+function isRecommendedPlan(plan, index) {
+  const name = String(plan.name || '').toLowerCase()
+  return name.includes('chuyên nghiệp') || name.includes('professional') || index === 1
 }

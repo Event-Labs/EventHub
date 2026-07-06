@@ -31,7 +31,7 @@ class AgentService {
 
     if (!client) {
       return createUnavailableAnswer(
-        'AI Chatbox chưa được cấu hình Gemini API key trên server. Vui lòng thêm GEMINI_API_KEY hoặc GOOGLE_API_KEY để sử dụng tính năng này.',
+        'Trợ lý EventHub đang tạm thời chưa sẵn sàng. Vui lòng thử lại sau ít phút.',
       );
     }
 
@@ -50,9 +50,9 @@ class AgentService {
             model,
             contents: buildPrompt({ query, history, context, sessionId }),
             config: {
-              temperature: 0.2,
-              topP: 0.8,
-              maxOutputTokens: 700,
+              temperature: 0.35,
+              topP: 0.85,
+              maxOutputTokens: 1200,
               responseMimeType: 'application/json',
             },
           });
@@ -74,7 +74,7 @@ class AgentService {
       const parsed = extractJson(response.text);
       if (!parsed?.answer) {
         return createUnavailableAnswer(
-          'Gemini không trả về định dạng hợp lệ. Vui lòng thử lại sau.',
+          'Tôi chưa thể tạo câu trả lời phù hợp lúc này. Vui lòng thử lại với câu hỏi ngắn gọn hơn.',
           'error',
         );
       }
@@ -93,13 +93,13 @@ class AgentService {
       console.error('Gemini AI chat error:', error.message);
       if (isRetryableGeminiError(error)) {
         return createUnavailableAnswer(
-          'Gemini đang quá tải tạm thời. Tôi chưa thể tạo câu trả lời lúc này, vui lòng thử lại sau vài phút.',
+          'Trợ lý đang bận xử lý nhiều yêu cầu. Vui lòng thử lại sau vài phút.',
           'error',
         );
       }
 
       return createUnavailableAnswer(
-        'Gemini AI hiện chưa phản hồi được. Vui lòng kiểm tra API key/quota hoặc thử lại sau.',
+        'Trợ lý EventHub hiện chưa phản hồi được. Vui lòng thử lại sau.',
         'error',
       );
     }
