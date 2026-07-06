@@ -123,7 +123,7 @@ export function LoginPage() {
             size="large"
             text="continue_with"
             shape="rectangular"
-            locale="en"
+            locale="vi"
           />
         </div>
         <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
