@@ -43,6 +43,7 @@ function normalizeEvent(event) {
 export function EventCard({
   event,
   compact = false,
+  showCategoryBadge = true,
   onFavoriteToggle,
   favoriteBusy = false,
 }) {
@@ -71,7 +72,7 @@ export function EventCard({
       <div
         className={cn(
           'relative overflow-hidden',
-          compact ? 'h-64' : 'aspect-[3/4]',
+          compact ? 'h-64' : 'h-56 sm:h-60',
         )}
       >
         <img
@@ -80,6 +81,11 @@ export function EventCard({
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
         <div className="event-card-gradient absolute inset-0" />
+        {showCategoryBadge && (
+          <span className="absolute left-4 top-4 z-20 max-w-[calc(100%-5.75rem)] truncate rounded-full border border-white/20 bg-slate-950/70 px-3 py-1 text-xs font-extrabold uppercase text-white backdrop-blur">
+            {item.category}
+          </span>
+        )}
         {onFavoriteToggle && (
           <button
             type="button"
@@ -102,7 +108,7 @@ export function EventCard({
           </button>
         )}
       </div>
-      <div className={cn('flex flex-1 flex-col space-y-4 p-5', !compact && '-mt-28 relative z-10')}>
+      <div className="flex flex-1 flex-col space-y-4 p-5">
         <div>
           <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white">
             {item.title}

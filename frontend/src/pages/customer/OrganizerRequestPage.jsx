@@ -65,7 +65,7 @@ const validationLabels = {
   individual_id_back_url: 'CCCD mặt sau',
   individual_selfie_url: 'Ảnh chân dung/Selfie',
   individual_tax_code: 'Mã số thuế cá nhân',
-  terms_accepted: 'Cam kết pháp lý',
+  terms_accepted: 'Điều khoản',
 }
 
 function requestTypeLabel(type) {
@@ -440,6 +440,18 @@ export function OrganizerRequestPage() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    const imageOnlyFields = [
+      'individual_id_front_url',
+      'individual_id_back_url',
+      'individual_selfie_url',
+    ]
+
+    if (imageOnlyFields.includes(field) && !file.type.startsWith('image/')) {
+      event.target.value = ''
+      setError('Vui lòng chỉ tải ảnh JPG, PNG hoặc WEBP cho tài liệu xác minh cá nhân.')
+      return
+    }
+
     setSelectedDocuments((current) => ({ ...current, [field]: file }))
     setError('')
   }
@@ -498,7 +510,14 @@ export function OrganizerRequestPage() {
 
     const uploadDocumentField = async (field) => {
       if (selectedDocuments[field]) {
-        const uploadResult = await uploadOrganizerDocument(selectedDocuments[field])
+        const imageOnlyFields = [
+          'individual_id_front_url',
+          'individual_id_back_url',
+          'individual_selfie_url',
+        ]
+        const uploadResult = await uploadOrganizerDocument(selectedDocuments[field], {
+          imageOnly: imageOnlyFields.includes(field),
+        })
         return uploadResult.secure_url || uploadResult.url
       }
       return form[field]?.trim() || ''
@@ -617,232 +636,274 @@ export function OrganizerRequestPage() {
           )}
 
           {canSubmit && (
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <RequestTypeSelector
-                value={form.request_type}
-                onChange={handleTypeChange}
-                disabled={Boolean(editingRequest)}
-              />
-
-              <Field
-                label="Tên cá nhân/tổ chức"
-                value={form.organization_name}
-                onChange={handleChange('organization_name')}
-                placeholder={
-                  form.request_type === 'ORGANIZATION'
-                    ? 'EventHub Production JSC'
-                    : 'Tên thương hiệu / nhóm tổ chức của bạn'
-                }
-                required
-              />
-              {form.request_type === 'ORGANIZATION' && (
-                <Field
-                  label="Email tổ chức"
-                  type="email"
-                  value={form.business_email}
-                  onChange={handleChange('business_email')}
-                  placeholder="ops@example.com"
-                  required
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <FormSection
+                title="Loại đăng ký"
+                description="Chọn đúng nhóm đăng ký để hệ thống yêu cầu bộ thông tin phù hợp."
+              >
+                <RequestTypeSelector
+                  value={form.request_type}
+                  onChange={handleTypeChange}
+                  disabled={Boolean(editingRequest)}
                 />
-              )}
-              <Field
-                label="Số điện thoại"
-                value={form.business_phone}
-                onChange={handleChange('business_phone')}
-                placeholder="0901234567 hoặc +84901234567"
-                required
-              />
-              <div>
-                <span className="text-sm font-semibold text-muted">
-                  Ảnh đại diện
-                  <RequiredMark />
-                </span>
-                <div className="mt-2 flex items-center gap-4 rounded-lg border border-border-soft bg-surface p-4">
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Ảnh đại diện"
-                      className="size-20 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="grid size-20 place-items-center rounded-lg bg-panel">
-                      <UserCircle className="size-10 text-muted" />
-                    </div>
-                  )}
-                  <div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary">
-                      <Camera className="size-4" />
-                      Chọn ảnh
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleAvatarChange}
-                      />
-                    </label>
-                    <p className="mt-2 text-xs text-subtle">
-                      Dùng logo, ảnh nhận diện thương hiệu hoặc ảnh đại diện rõ mặt.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              {form.request_type === 'ORGANIZATION' && (
-                <>
+              </FormSection>
+
+              <FormSection
+                title="Thông tin hiển thị"
+                description="Các thông tin này dùng để nhận diện organizer trên hệ thống."
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
                   <Field
-                    label="Mã số thuế"
-                    value={form.tax_code}
-                    onChange={handleChange('tax_code')}
-                    placeholder="10 hoặc 13 chữ số"
+                    label="Tên cá nhân/tổ chức"
+                    value={form.organization_name}
+                    onChange={handleChange('organization_name')}
+                    placeholder={
+                      form.request_type === 'ORGANIZATION'
+                        ? 'EventHub Production JSC'
+                        : 'Tên thương hiệu / nhóm tổ chức của bạn'
+                    }
                     required
                   />
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Số điện thoại"
+                    value={form.business_phone}
+                    onChange={handleChange('business_phone')}
+                    placeholder="0901234567 hoặc +84901234567"
+                    required
+                  />
+                  {form.request_type === 'ORGANIZATION' && (
                     <Field
-                      label="Người đại diện pháp luật"
-                      value={form.legal_representative_name}
-                      onChange={handleChange('legal_representative_name')}
-                      placeholder="NGUYỄN VĂN A"
+                      label="Email tổ chức"
+                      type="email"
+                      value={form.business_email}
+                      onChange={handleChange('business_email')}
+                      placeholder="ops@example.com"
                       required
                     />
-                    <Field
-                      label="Chức vụ"
-                      value={form.legal_representative_position}
-                      onChange={handleChange('legal_representative_position')}
-                      placeholder="Giám đốc / Tổng giám đốc"
-                      required
-                    />
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-sm font-semibold text-muted">
+                    Ảnh đại diện
+                    <RequiredMark />
+                  </span>
+                  <div className="mt-2 flex items-center gap-4 rounded-lg border border-border-soft bg-surface p-4">
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Ảnh đại diện"
+                        className="size-20 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="grid size-20 place-items-center rounded-lg bg-panel">
+                        <UserCircle className="size-10 text-muted" />
+                      </div>
+                    )}
+                    <div>
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary">
+                        <Camera className="size-4" />
+                        Chọn ảnh
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarChange}
+                        />
+                      </label>
+                      <p className="mt-2 text-xs text-subtle">
+                        Dùng logo, ảnh nhận diện thương hiệu hoặc ảnh đại diện rõ mặt.
+                      </p>
+                    </div>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FileField
-                      label="Giấy ĐKDN/ERC"
-                      required
-                      file={selectedDocuments.legal_document_url}
-                      existingUrl={form.legal_document_url}
-                      onChange={handleDocumentChange('legal_document_url')}
-                    />
-                    <FileField
-                      label="Giấy phép kinh doanh đặc thù"
-                      file={selectedDocuments.business_license_url}
-                      existingUrl={form.business_license_url}
-                      onChange={handleDocumentChange('business_license_url')}
-                    />
-                    <FileField
-                      label="Giấy tờ tùy thân người đại diện"
-                      required
-                      file={selectedDocuments.legal_representative_id_url}
-                      existingUrl={form.legal_representative_id_url}
-                      onChange={handleDocumentChange('legal_representative_id_url')}
-                    />
-                    <FileField
-                      label="Giấy ủy quyền"
-                      file={selectedDocuments.authorization_letter_url}
-                      existingUrl={form.authorization_letter_url}
-                      onChange={handleDocumentChange('authorization_letter_url')}
-                    />
-                  </div>
+                </div>
+              </FormSection>
+
+              {form.request_type === 'ORGANIZATION' && (
+                <>
+                  <FormSection
+                    title="Thông tin pháp lý tổ chức"
+                    description="Dùng để đối chiếu với giấy đăng ký kinh doanh và hồ sơ đại diện."
+                  >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field
+                        label="Mã số thuế"
+                        value={form.tax_code}
+                        onChange={handleChange('tax_code')}
+                        placeholder="10 hoặc 13 chữ số"
+                        required
+                      />
+                      <Field
+                        label="Người đại diện pháp luật"
+                        value={form.legal_representative_name}
+                        onChange={handleChange('legal_representative_name')}
+                        placeholder="NGUYỄN VĂN A"
+                        required
+                      />
+                      <Field
+                        label="Chức vụ"
+                        value={form.legal_representative_position}
+                        onChange={handleChange('legal_representative_position')}
+                        placeholder="Giám đốc / Tổng giám đốc"
+                        required
+                      />
+                    </div>
+                  </FormSection>
+
+                  <FormSection
+                    title="Tài liệu xác minh tổ chức"
+                    description="Tải bản scan hoặc ảnh chụp rõ nét để Admin kiểm tra nhanh hơn."
+                  >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FileField
+                        label="Giấy ĐKDN/ERC"
+                        required
+                        file={selectedDocuments.legal_document_url}
+                        existingUrl={form.legal_document_url}
+                        onChange={handleDocumentChange('legal_document_url')}
+                      />
+                      <FileField
+                        label="Giấy phép kinh doanh đặc thù"
+                        file={selectedDocuments.business_license_url}
+                        existingUrl={form.business_license_url}
+                        onChange={handleDocumentChange('business_license_url')}
+                      />
+                      <FileField
+                        label="Giấy tờ tùy thân người đại diện"
+                        required
+                        file={selectedDocuments.legal_representative_id_url}
+                        existingUrl={form.legal_representative_id_url}
+                        onChange={handleDocumentChange('legal_representative_id_url')}
+                      />
+                      <FileField
+                        label="Giấy ủy quyền"
+                        file={selectedDocuments.authorization_letter_url}
+                        existingUrl={form.authorization_letter_url}
+                        onChange={handleDocumentChange('authorization_letter_url')}
+                      />
+                    </div>
+                  </FormSection>
                 </>
               )}
+
               {form.request_type === 'INDIVIDUAL' && (
                 <>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field
-                      label="Họ tên pháp lý"
-                      value={form.individual_full_name}
-                      onChange={handleChange('individual_full_name')}
-                      placeholder="NGUYỄN VĂN A"
+                  <FormSection
+                    title="Thông tin định danh cá nhân"
+                    description="Thông tin cần trùng khớp với giấy tờ tùy thân dùng để xác minh."
+                  >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field
+                        label="Họ tên pháp lý"
+                        value={form.individual_full_name}
+                        onChange={handleChange('individual_full_name')}
+                        placeholder="NGUYỄN VĂN A"
+                        required
+                      />
+                      <Field
+                        label="Số CCCD/Hộ chiếu"
+                        value={form.individual_identity_number}
+                        onChange={handleChange('individual_identity_number')}
+                        placeholder="12 số CCCD hoặc số hộ chiếu"
+                        required
+                      />
+                      <Field
+                        label="Mã số thuế cá nhân"
+                        value={form.individual_tax_code}
+                        onChange={handleChange('individual_tax_code')}
+                        placeholder="10 hoặc 13 chữ số"
+                        required
+                      />
+                    </div>
+                  </FormSection>
+
+                  <FormSection
+                    title="Tài liệu xác minh cá nhân"
+                    description="Ảnh chụp cần rõ mặt, rõ số giấy tờ và không bị che khuất."
+                  >
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <FileField
+                        label="CCCD mặt trước"
                       required
-                    />
-                    <Field
-                      label="Số CCCD/Hộ chiếu"
-                      value={form.individual_identity_number}
-                      onChange={handleChange('individual_identity_number')}
-                      placeholder="12 số CCCD hoặc số hộ chiếu"
-                      required
-                    />
-                    <Field
-                      label="Mã số thuế cá nhân"
-                      value={form.individual_tax_code}
-                      onChange={handleChange('individual_tax_code')}
-                      placeholder="10 hoặc 13 chữ số"
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <FileField
-                      label="CCCD mặt trước"
-                      required
+                      imageOnly
                       file={selectedDocuments.individual_id_front_url}
                       existingUrl={form.individual_id_front_url}
                       onChange={handleDocumentChange('individual_id_front_url')}
-                    />
-                    <FileField
-                      label="CCCD mặt sau"
+                      />
+                      <FileField
+                        label="CCCD mặt sau"
                       required
+                      imageOnly
                       file={selectedDocuments.individual_id_back_url}
                       existingUrl={form.individual_id_back_url}
                       onChange={handleDocumentChange('individual_id_back_url')}
-                    />
-                    <FileField
-                      label="Ảnh chân dung/Selfie"
+                      />
+                      <FileField
+                        label="Ảnh chân dung/Selfie"
                       required
+                      imageOnly
                       file={selectedDocuments.individual_selfie_url}
                       existingUrl={form.individual_selfie_url}
                       onChange={handleDocumentChange('individual_selfie_url')}
-                    />
-                  </div>
+                      />
+                    </div>
+                  </FormSection>
                 </>
               )}
-              <label className="block">
-                <span className="text-sm font-semibold text-muted">
-                  Mô tả
-                  <RequiredMark />
-                </span>
-                <textarea
-                  className="mt-2 min-h-32 w-full rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-primary"
-                  value={form.organization_description}
-                  onChange={handleChange('organization_description')}
-                  placeholder={
-                    form.request_type === 'ORGANIZATION'
-                      ? 'Giới thiệu ngắn về tổ chức, lĩnh vực hoạt động, quy mô...'
-                      : 'Giới thiệu kinh nghiệm tổ chức sự kiện, loại sự kiện dự kiến triển khai...'
-                  }
-                  required
-                  minLength={10}
-                />
-              </label>
 
-              <label className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface p-4">
-                <input
-                  type="checkbox"
-                  checked={form.terms_accepted}
-                  onChange={handleCheckboxChange('terms_accepted')}
-                  className="mt-1 size-4 shrink-0 accent-orange-500"
-                  required
-                />
-                <span className="text-sm leading-6 text-muted">
-                  <span className="font-semibold text-content">
-                    Cam kết pháp lý
+              <FormSection
+                title="Mô tả hoạt động"
+                description="Tóm tắt kinh nghiệm tổ chức, loại sự kiện dự kiến và phạm vi hoạt động."
+              >
+                <label className="block">
+                  <span className="text-sm font-semibold text-muted">
+                    Mô tả
                     <RequiredMark />
                   </span>
-                  <br />
-                  Tôi xác nhận thông tin cung cấp là chính xác và đồng ý với{' '}
-                  <PolicyLink to="/policies?policy_type=ORGANIZER_TERMS">
-                    Điều khoản dịch vụ dành cho Nhà tổ chức
-                  </PolicyLink>
-                  ,{' '}
-                  <PolicyLink to="/policies?policy_type=EVENT_CREATION_REVIEW">
-                    quy chế sự kiện
-                  </PolicyLink>
-                  ,{' '}
-                  <PolicyLink to="/policies?policy_type=TICKET_BOOKING">
-                    quy chế bán vé
-                  </PolicyLink>
-                  {' '}và{' '}
-                  <PolicyLink to="/policies?policy_type=REFUND">
-                    chính sách hoàn tiền
-                  </PolicyLink>
-                  {' '}của EventHub.
-                </span>
-              </label>
+                  <textarea
+                    className="mt-2 min-h-32 w-full rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-primary"
+                    value={form.organization_description}
+                    onChange={handleChange('organization_description')}
+                    placeholder={
+                      form.request_type === 'ORGANIZATION'
+                        ? 'Giới thiệu ngắn về tổ chức, lĩnh vực hoạt động, quy mô...'
+                        : 'Giới thiệu kinh nghiệm tổ chức sự kiện, loại sự kiện dự kiến triển khai...'
+                    }
+                    required
+                    minLength={10}
+                  />
+                </label>
+
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={form.terms_accepted}
+                    onChange={handleCheckboxChange('terms_accepted')}
+                    className="mt-1 size-4 shrink-0 accent-orange-500"
+                    required
+                  />
+                  <span className="text-sm leading-6 text-muted">
+                    Tôi xác nhận thông tin cung cấp là chính xác và đồng ý với{' '}
+                    <PolicyLink to="/policies?policy_type=ORGANIZER_TERMS">
+                      Điều khoản dịch vụ dành cho Nhà tổ chức
+                    </PolicyLink>
+                    ,{' '}
+                    <PolicyLink to="/policies?policy_type=EVENT_CREATION_REVIEW">
+                      quy chế sự kiện
+                    </PolicyLink>
+                    ,{' '}
+                    <PolicyLink to="/policies?policy_type=TICKET_BOOKING">
+                      quy chế bán vé
+                    </PolicyLink>
+                    {' '}và{' '}
+                    <PolicyLink to="/policies?policy_type=REFUND">
+                      chính sách hoàn tiền
+                    </PolicyLink>
+                    {' '}của EventHub.
+                    <RequiredMark />
+                  </span>
+                </label>
+              </FormSection>
 
               {error && <p className="whitespace-pre-line text-sm text-error">{error}</p>}
               {success && <p className="text-sm text-success">{success}</p>}
@@ -892,6 +953,22 @@ export function OrganizerRequestPage() {
   )
 }
 
+function FormSection({ title, description, children }) {
+  return (
+    <section className="space-y-4 border-t border-border-soft/30 pt-5 first:border-t-0 first:pt-0">
+      <div>
+        <h2 className="font-display text-lg font-extrabold text-content">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm leading-6 text-subtle">{description}</p>
+        )}
+      </div>
+      <div className="space-y-4">
+        {children}
+      </div>
+    </section>
+  )
+}
+
 function Field({ label, value, onChange, placeholder, type = 'text', required = false }) {
   return (
     <label className="block">
@@ -911,7 +988,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
   )
 }
 
-function FileField({ label, file, existingUrl = '', onChange, required = false }) {
+function FileField({ label, file, existingUrl = '', onChange, required = false, imageOnly = false }) {
   return (
     <label className="flex min-h-64 flex-col justify-between rounded-lg border border-border-soft bg-surface p-4">
       <span className="block min-h-12 text-sm font-semibold leading-6 text-muted">
@@ -924,13 +1001,19 @@ function FileField({ label, file, existingUrl = '', onChange, required = false }
           Chọn file
           <input
             type="file"
-            accept=".pdf,.docx,image/*"
+            accept={imageOnly ? 'image/jpeg,image/png,image/webp' : '.pdf,.docx,image/*'}
             className="hidden"
             onChange={onChange}
           />
         </span>
         <span className="mt-3 block truncate text-xs text-subtle">
-          {file ? file.name : existingUrl ? 'Đã có tài liệu. Chọn file mới để thay thế.' : 'PDF, DOCX hoặc ảnh JPG/PNG/WEBP'}
+          {file
+            ? file.name
+            : existingUrl
+              ? 'Đã có tài liệu. Chọn file mới để thay thế.'
+              : imageOnly
+                ? 'Ảnh JPG/PNG/WEBP'
+                : 'PDF, DOCX hoặc ảnh JPG/PNG/WEBP'}
         </span>
       </div>
     </label>

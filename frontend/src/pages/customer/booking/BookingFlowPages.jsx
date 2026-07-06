@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
-import { checkTicketAvailability, fetchSessionSeats } from '@/services/events.js'
+import { checkTicketAvailability, fetchSessionSeats, holdSeats } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import promotionService from '@/services/promotions.js'
 
@@ -105,12 +105,139 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
 }
 
-function normalizeCart(cart) {
-  if (!cart) return cart
+function seatMapMetrics(seats) {
+  const layout = buildSeatLayout(seats)
+  if (layout) return layout
+  return null
+}
+
+const SEAT_WIDTH = 28
+const SEAT_HEIGHT = 28
+const SEAT_X_GAP = 8
+const SEAT_Y_GAP = 8
+const SEAT_LAYOUT_PADDING = 20
+const STAGE_HEIGHT = 40
+const STAGE_GAP = 28
+const SAME_ROW_MESSAGE = 'Vui l\u00f2ng ch\u1ecdn c\u00e1c gh\u1ebf trong c\u00f9ng m\u1ed9t h\u00e0ng ngang.'
+const ADJACENT_SEATS_MESSAGE = '\u0110\u1ec3 \u0111\u1ea3m b\u1ea3o tr\u1ea3i nghi\u1ec7m t\u1ed1t nh\u1ea5t, vui l\u00f2ng ch\u1ecdn c\u00e1c gh\u1ebf n\u1eb1m c\u1ea1nh nhau.'
+const LONELY_SEAT_MESSAGE = 'L\u1ef1a ch\u1ecdn c\u1ee7a b\u1ea1n s\u1ebd \u0111\u1ec3 l\u1ea1i m\u1ed9t gh\u1ebf tr\u1ed1ng \u0111\u01a1n l\u1ebb b\u00ean c\u1ea1nh. Vui l\u00f2ng ch\u1ecdn gh\u1ebf li\u1ec1n k\u1ec1 ho\u1eb7c thay \u0111\u1ed5i v\u1ecb tr\u00ed \u0111\u1ec3 kh\u00f4ng b\u1ecf tr\u1ed1ng gh\u1ebf \u0111\u01a1n l\u1ebb nh\u00e9!'
+
+function seatId(seat) {
+  return String(seat?.session_seat_id || seat?.id || '')
+}
+
+function seatNumberValue(seat) {
+  const parsed = Number.parseInt(String(seat?.seat_number || '').match(/\d+/)?.[0] || '', 10)
+  if (Number.isFinite(parsed)) return parsed
+  const x = Number(seat?.x_position)
+  return Number.isFinite(x) ? x : 0
+}
+
+function rowLabel(seat) {
+  return String(seat?.row_label || '')
+}
+
+function isSeatAvailable(seat) {
+  return !seat?.is_disabled && seat?.status === 'AVAILABLE'
+}
+
+function normalizeSeatingRules(raw) {
   return {
-    ...cart,
-    holdExpiresAt: cart.holdExpiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    require_adjacent_seats: Boolean(raw?.require_adjacent_seats),
+    require_same_row: Boolean(raw?.require_same_row),
+    disallow_single_seat_left: Boolean(raw?.disallow_single_seat_left),
   }
+}
+
+function buildSeatLayout(seats) {
+  const positioned = (seats || []).filter((seat) => Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position)))
+  if (!positioned.length) return null
+
+  const minX = Math.min(...positioned.map((seat) => Number(seat.x_position)))
+  const minY = Math.min(...positioned.map((seat) => Number(seat.y_position)))
+  const maxX = Math.max(...positioned.map((seat) => Number(seat.x_position)))
+  const maxY = Math.max(...positioned.map((seat) => Number(seat.y_position)))
+  const positions = new Map()
+
+  positioned.forEach((seat) => {
+    positions.set(seatId(seat), {
+      left: Number(seat.x_position) - minX + SEAT_LAYOUT_PADDING,
+      top: Number(seat.y_position) - minY + SEAT_LAYOUT_PADDING + STAGE_HEIGHT + STAGE_GAP,
+    })
+  })
+
+  return {
+    positions,
+    width: Math.max(320, maxX - minX + SEAT_WIDTH + SEAT_LAYOUT_PADDING * 2),
+    height: Math.max(220, maxY - minY + SEAT_HEIGHT + SEAT_LAYOUT_PADDING * 2 + STAGE_HEIGHT + STAGE_GAP),
+  }
+}
+
+function validateSeatSelection({ rules: rawRules, selectedSeatIds, seats }) {
+  const rules = normalizeSeatingRules(rawRules)
+  const selectedIds = new Set((selectedSeatIds || []).map(String))
+  const selected = (seats || []).filter((seat) => selectedIds.has(seatId(seat)))
+  const issues = []
+
+  if (selected.length >= 2) {
+    const selectedRows = new Set(selected.map(rowLabel))
+    if ((rules.require_same_row || rules.require_adjacent_seats) && selectedRows.size > 1) {
+      issues.push(SAME_ROW_MESSAGE)
+    }
+
+    if (rules.require_adjacent_seats && selectedRows.size === 1) {
+      const sorted = [...selected].sort((a, b) => seatNumberValue(a) - seatNumberValue(b))
+      const adjacent = sorted.every((seat, index) => index === 0 || seatNumberValue(seat) - seatNumberValue(sorted[index - 1]) === 1)
+      if (!adjacent) {
+        issues.push(ADJACENT_SEATS_MESSAGE)
+      }
+    }
+  }
+
+  if (rules.disallow_single_seat_left && selected.length > 0) {
+    const affectedRows = new Set(selected.map(rowLabel))
+    const rows = new Map()
+    ;(seats || []).forEach((seat) => {
+      const key = rowLabel(seat)
+      if (!affectedRows.has(key)) return
+      if (!rows.has(key)) rows.set(key, [])
+      rows.get(key).push(seat)
+    })
+
+    for (const rowSeats of rows.values()) {
+      const sorted = rowSeats.sort((a, b) => seatNumberValue(a) - seatNumberValue(b))
+      let availableBlock = 0
+      let previousNumber = null
+
+      for (const seat of sorted) {
+        const number = seatNumberValue(seat)
+        const contiguous = previousNumber === null || number - previousNumber === 1
+        const availableAfterSelection = isSeatAvailable(seat) && !selectedIds.has(seatId(seat))
+
+        if (!availableAfterSelection || !contiguous) {
+          if (availableBlock === 1) {
+            issues.push(LONELY_SEAT_MESSAGE)
+            return issues
+          }
+          availableBlock = availableAfterSelection ? 1 : 0
+        } else {
+          availableBlock += 1
+        }
+        previousNumber = number
+      }
+
+      if (availableBlock === 1) {
+        issues.push(LONELY_SEAT_MESSAGE)
+        return issues
+      }
+    }
+  }
+
+  return issues
+}
+
+function normalizeCart(cart) {
+  return cart || null
 }
 
 export function BookingTicketsPage() {
@@ -141,12 +268,13 @@ export function BookingSeatsPage() {
 
   const fitSeatMapToViewport = useCallback(() => {
     if (!seatMapViewportRef.current) return
+    const layout = seatMapMetrics(seatsQuery.data?.seats || [])
     const cols = Number(seatsQuery.data?.seat_map?.cols_count || 8)
-    const estimatedSeatMapWidth = cols * 56 + 32
+    const estimatedSeatMapWidth = layout?.width || cols * (SEAT_WIDTH + SEAT_X_GAP) + SEAT_LAYOUT_PADDING * 2
     const viewportWidth = seatMapViewportRef.current.clientWidth
-    const nextZoom = clamp((viewportWidth - 8) / estimatedSeatMapWidth, 0.5, 1)
+    const nextZoom = clamp((viewportWidth - 8) / estimatedSeatMapWidth, 0.45, 1)
     setSeatZoom(Number(nextZoom.toFixed(2)))
-  }, [seatsQuery.data?.seat_map?.cols_count])
+  }, [seatsQuery.data?.seat_map?.cols_count, seatsQuery.data?.seats])
 
   useEffect(() => {
     if (!seatsQuery.data?.seats?.length) return
@@ -154,6 +282,7 @@ export function BookingSeatsPage() {
   }, [fitSeatMapToViewport, seatsQuery.data?.seats?.length])
 
   const seatData = seatsQuery.data?.seats || []
+  const seatingRules = cart?.seatingRules || cart?.seating_rules || {}
   const buildDisplayItems = (seatIds) => {
     if (!seatData.length) return []
     const seatsById = new Map(seatData.map((seat) => [seat.session_seat_id, seat]))
@@ -189,6 +318,11 @@ export function BookingSeatsPage() {
   }
 
   const displayItems = buildDisplayItems(selectedSeatIds)
+  const seatRuleIssue = useMemo(() => validateSeatSelection({
+    rules: seatingRules,
+    selectedSeatIds,
+    seats: seatData,
+  })[0] || '', [seatData, seatingRules, selectedSeatIds])
 
   const displayCart = cart ? { ...cart, selectedSession: session, items: displayItems } : cart
 
@@ -197,18 +331,22 @@ export function BookingSeatsPage() {
 
   const continueFlow = async () => {
     const nextCart = { ...displayCart }
+    if (seatRuleIssue) {
+      setAvailabilityError(seatRuleIssue)
+      return
+    }
     setAvailabilityError('')
     setCheckingAvailability(true)
     try {
-      const result = await checkTicketAvailability(availabilityPayloadFromCart(nextCart))
-      if (!result.available) {
-        setAvailabilityError(result.message || 'V\u00e9/gh\u1ebf b\u1ea1n ch\u1ecdn kh\u00f4ng c\u00f2n kh\u1ea3 d\u1ee5ng. Vui l\u00f2ng ch\u1ecdn l\u1ea1i.')
-        seatsQuery.refetch()
-        return
+      const hold = await holdSeats(availabilityPayloadFromCart(nextCart))
+      const heldCart = {
+        ...nextCart,
+        holdExpiresAt: hold.hold_expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       }
-      navigate('/booking/attendees', { state: { cart: nextCart } })
+      navigate('/booking/attendees', { state: { cart: heldCart } })
     } catch (err) {
-      setAvailabilityError(err.response?.data?.message || 'Kh\u00f4ng th\u1ec3 ki\u1ec3m tra t\u00ecnh tr\u1ea1ng v\u00e9/gh\u1ebf. Vui l\u00f2ng th\u1eed l\u1ea1i.')
+      setAvailabilityError(err.response?.data?.message || 'Kh\u00f4ng th\u1ec3 gi\u1eef gh\u1ebf b\u1ea1n \u0111\u00e3 ch\u1ecdn. Vui l\u00f2ng th\u1eed l\u1ea1i.')
+      seatsQuery.refetch()
     } finally {
       setCheckingAvailability(false)
     }
@@ -226,6 +364,8 @@ export function BookingSeatsPage() {
         return current
       }
 
+      const issue = validateSeatSelection({ rules: seatingRules, selectedSeatIds: nextSeatIds, seats: seatData })[0] || ''
+      setAvailabilityError(issue)
       return nextSeatIds
     })
   }
@@ -243,52 +383,21 @@ export function BookingSeatsPage() {
               <p className="text-muted">{'\u0110ang t\u1ea3i s\u01a1 \u0111\u1ed3 gh\u1ebf...'}</p>
             ) : seatsQuery.data?.seats?.length ? (
               <>
-                <div className="mx-auto mb-8 h-8 max-w-lg rounded-b-full bg-gradient-to-r from-primary via-sky-300 to-primary text-center text-xs font-extrabold leading-8 text-slate-950 shadow-lg shadow-primary/20">
-                  {'S\u00c2N KH\u1ea4U'}
-                </div>
-                <div className="mb-5 flex flex-wrap gap-4 text-xs text-muted">
+                <div className="mb-5 flex flex-wrap justify-center gap-4 text-xs text-muted">
                   <Legend color="bg-primary" label={'\u0110ang ch\u1ecdn'} />
                   <Legend color="bg-panel-soft" label={'C\u00f2n tr\u1ed1ng'} />
                   <Legend color="bg-slate-700" label={'\u0110\u00e3 gi\u1eef/b\u00e1n'} />
                 </div>
                 <div className="flex items-start gap-3 rounded-lg bg-surface/60 p-4">
                   <div ref={seatMapViewportRef} className="min-w-0 flex-1 overflow-auto">
-                    <div
-                      className="grid w-max gap-2"
-                      style={{
-                        gridTemplateColumns: `repeat(${seatsQuery.data?.seat_map?.cols_count || 8}, 48px)`,
-                        zoom: seatZoom,
-                      }}
-                    >
-                      {(seatsQuery.data?.seats || []).map((seat) => {
-                        const selected = selectedSeatIds.includes(seat.session_seat_id)
-                        const disabled = seat.status !== 'AVAILABLE' && !selected
-                        const mappedTicketTypeIds = seat.ticket_type_ids || []
-                        const ticketType = mappedTicketTypeIds.length
-                          ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
-                          : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
-                        const title = `${seat.label}${ticketType ? ` - ${ticketType.name}` : ''}`
-
-                        return (
-                          <button
-                            key={seat.session_seat_id}
-                            type="button"
-                            disabled={disabled}
-                            onClick={() => toggleSeat(seat.session_seat_id)}
-                            title={title}
-                            className={`h-10 rounded-t-lg border text-xs font-bold transition ${
-                              selected
-                                ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
-                                : disabled
-                                  ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
-                                  : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
-                            }`}
-                          >
-                            {seat.label}
-                          </button>
-                        )
-                      })}
-                    </div>
+                    <SeatMapCanvas
+                      seats={seatsQuery.data?.seats || []}
+                      ticketTypes={ticketTypes}
+                      selectedSeatIds={selectedSeatIds}
+                      onToggleSeat={toggleSeat}
+                      seatZoom={seatZoom}
+                      colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
+                    />
                   </div>
                   <div className="flex shrink-0 flex-col gap-1.5">
                     <button
@@ -330,9 +439,9 @@ export function BookingSeatsPage() {
               </p>
             )}
 
-            {availabilityError && (
+            {(availabilityError || seatRuleIssue) && (
               <p className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
-                {availabilityError}
+                {availabilityError || seatRuleIssue}
               </p>
             )}
           </Panel>
@@ -342,7 +451,7 @@ export function BookingSeatsPage() {
           setCart={setCart}
           cta={'Ti\u1ebfp t\u1ee5c'}
           onClick={continueFlow}
-          disabled={checkingAvailability || displayItems.length === 0}
+          disabled={checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
         />
       </div>
     </BookingShell>
@@ -591,11 +700,13 @@ export function BookingPaymentPage() {
   const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
   const [checkout, setCheckout] = useState(location.state?.checkout || null)
   const [error, setError] = useState('')
+  const checkoutStartedRef = useRef(Boolean(location.state?.checkout || existingOrderId))
   const orderId = existingOrderId || checkout?.order?.id
 
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
+      setError('')
       setCheckout(data)
       setCart((current) => ({ ...current, holdExpiresAt: data.order?.expired_at || current?.holdExpiresAt }))
       navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart, checkout: data } })
@@ -638,7 +749,8 @@ export function BookingPaymentPage() {
   }, [navigate, order?.status, statusQuery.data])
 
   useEffect(() => {
-    if (!cart?.items?.length || orderId || checkoutMutation.isPending) return
+    if (!cart?.items?.length || orderId || checkoutMutation.isPending || checkoutStartedRef.current) return
+    checkoutStartedRef.current = true
     checkoutMutation.mutate({
       event_id: cart.eventId,
       buyer_name: cart.buyer?.name || '',
@@ -709,7 +821,7 @@ function BookingShell({ step, cart, children }) {
   const labels = ['Gh\u1ebf', 'Th\u00f4ng tin', 'Ki\u1ec3m tra', 'Thanh to\u00e1n']
   const navigate = useNavigate()
   const [tick, setTick] = useState(0)
-  const remaining = secondsLeft(cart?.holdExpiresAt)
+  const remaining = secondsLeft(cart?.holdExpiresAt) + tick * 0
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000)
@@ -765,9 +877,11 @@ function BookingShell({ step, cart, children }) {
               <p className="text-xs font-bold uppercase text-tertiary">Booking</p>
               <h2 className="font-display text-xl font-bold text-white">{cart.eventTitle}</h2>
             </div>
-            <div className="rounded-md bg-background px-4 py-2 font-mono text-lg font-bold text-tertiary">
-              {formatCountdown(secondsLeft(cart.holdExpiresAt) || remaining + tick * 0)}
-            </div>
+            {cart.holdExpiresAt && (
+              <div className="rounded-md bg-background px-4 py-2 font-mono text-lg font-bold text-tertiary">
+                {formatCountdown(remaining)}
+              </div>
+            )}
           </div>
         )}
         <div className="mb-4">
@@ -788,7 +902,6 @@ function BookingShell({ step, cart, children }) {
 
 function OrderCard({ cart, cta, onClick, disabled, onCancel }) {
   const [cancelOpen, setCancelOpen] = useState(false)
-  const remaining = secondsLeft(cart?.holdExpiresAt)
 
   return (
     <aside className="glass-panel h-fit rounded-lg p-5 lg:sticky lg:top-24">
@@ -821,7 +934,9 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel }) {
                   <p className="text-slate-500">{formatPrice(ticketType.price)} / {'v\u00e9'}</p>
                 )}
                 {item?.seatLabels?.length > 0 && (
-                  <p className="mt-1 text-xs text-muted">{'Gh\u1ebf'}: {item.seatLabels.join(', ')}</p>
+                  <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
+                    {'Gh\u1ebf'}: <span className="ml-1 truncate">{item.seatLabels.join(', ')}</span>
+                  </p>
                 )}
               </div>
               <p className={qty > 0 ? 'font-bold text-primary' : 'font-bold text-slate-500'}>
@@ -1209,6 +1324,82 @@ function Input({ label, value, onChange, type = 'text', placeholder }) {
   )
 }
 
+function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seatZoom, colsCount }) {
+  const metrics = seatMapMetrics(seats)
+  const renderSeat = (seat, style = {}) => {
+    const selected = selectedSeatIds.includes(seat.session_seat_id)
+    const disabled = seat.status !== 'AVAILABLE' && !selected
+    const mappedTicketTypeIds = seat.ticket_type_ids || []
+    const ticketType = mappedTicketTypeIds.length
+      ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
+      : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
+    const title = `${seat.label}${ticketType ? ` - ${ticketType.name}` : ''}${seat.zone?.name ? ` - ${seat.zone.name}` : ''}`
+    const zoneColor = seat.zone?.color || seat.seat_type?.color
+
+    return (
+      <button
+        key={seat.session_seat_id}
+        type="button"
+        disabled={disabled}
+        onClick={() => onToggleSeat(seat.session_seat_id)}
+        title={title}
+        style={{ width: SEAT_WIDTH, height: SEAT_HEIGHT, ...style }}
+        className={`rounded-md border text-[10px] font-bold transition ${
+          selected
+            ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
+            : disabled
+              ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+              : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
+        }`}
+      >
+        <span className="block truncate px-0.5 leading-4">{seat.row_label || seat.label}</span>
+        {!selected && !disabled && zoneColor && (
+          <span className="mx-auto mt-0.5 block h-0.5 w-4 rounded-full" style={{ backgroundColor: zoneColor }} />
+        )}
+      </button>
+    )
+  }
+
+  if (!metrics) {
+    return (
+      <div
+        className="grid w-max gap-2"
+        style={{ gridTemplateColumns: `repeat(${colsCount || 8}, ${SEAT_WIDTH}px)`, gap: SEAT_X_GAP, zoom: seatZoom }}
+      >
+        {seats.map((seat) => renderSeat(seat))}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="relative w-max rounded-lg border border-border-soft/40 bg-background/40"
+      style={{ width: metrics.width * seatZoom, height: metrics.height * seatZoom }}
+    >
+      <div
+        className="relative origin-top-left"
+        style={{ width: metrics.width, height: metrics.height, transform: `scale(${seatZoom})` }}
+      >
+        <div
+          className="absolute left-1/2 top-5 h-10 -translate-x-1/2 rounded-b-full bg-gradient-to-r from-primary via-sky-300 to-primary text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
+          style={{ width: Math.min(Math.max(metrics.width * 0.72, 280), 640) }}
+        >
+          {'S\u00c2N KH\u1ea4U'}
+        </div>
+        {seats.map((seat) => {
+          const position = metrics.positions.get(seatId(seat))
+          if (!position) return null
+          return renderSeat(seat, {
+            position: 'absolute',
+            left: position.left,
+            top: position.top,
+            width: SEAT_WIDTH,
+          })
+        })}
+      </div>
+    </div>
+  )
+}
 function Legend({ color, label }) {
   return (
     <span className="inline-flex items-center gap-2">
@@ -1259,3 +1450,4 @@ function NavigateBackToEvents() {
     </div>
   )
 }
+

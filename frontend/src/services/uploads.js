@@ -108,11 +108,22 @@ const ORGANIZER_DOCUMENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]
 
-export async function uploadOrganizerDocument(file) {
+const ORGANIZER_IMAGE_DOCUMENT_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]
+
+export async function uploadOrganizerDocument(file, options = {}) {
   if (!file) return null
 
-  if (!ORGANIZER_DOCUMENT_TYPES.includes(file.type)) {
-    throw new Error('Vui lòng chọn file PDF, DOCX hoặc ảnh JPG/PNG/WEBP')
+  const allowedTypes = options.imageOnly ? ORGANIZER_IMAGE_DOCUMENT_TYPES : ORGANIZER_DOCUMENT_TYPES
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(
+      options.imageOnly
+        ? 'Vui lòng chọn ảnh JPG, PNG hoặc WEBP'
+        : 'Vui lòng chọn file PDF, DOCX hoặc ảnh JPG/PNG/WEBP',
+    )
   }
 
   const signatureResponse = await http.post('/uploads/cloudinary/organizer-document/signature')

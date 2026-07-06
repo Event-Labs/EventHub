@@ -170,19 +170,6 @@ class OperationsService {
       invitedBy: userId,
     });
 
-    await notificationsService.createAndDispatch(
-      {
-        userId: invitedUser.id,
-        eventId: payload.event_id,
-        title: 'Lời mời làm staff',
-        content: `${organizer.organization_name || 'Ban tổ chức'} mời bạn làm staff cho sự kiện "${event.title}". Vui lòng vào mục Thông báo để đồng ý hoặc từ chối.`,
-        type: 'EVENT',
-      },
-      {
-        email: invitedUser.email,
-      },
-    );
-
     return {
       ...invitation,
       event_title: event.title,

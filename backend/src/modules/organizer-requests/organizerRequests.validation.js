@@ -138,6 +138,7 @@ const submitOrganizerRequestSchema = z.object({
 
 const listOrganizerRequestsSchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  request_type: z.enum(['INDIVIDUAL', 'ORGANIZATION']).optional(),
 });
 
 const reviewOrganizerRequestSchema = z
