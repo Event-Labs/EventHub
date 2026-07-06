@@ -244,6 +244,52 @@ function normalizeCart(cart) {
   return cart || null
 }
 
+const BOOKING_DRAFT_KEY = 'eventhub-booking-draft'
+
+function readBookingDraft() {
+  if (typeof window === 'undefined') return null
+  try {
+    return normalizeCart(JSON.parse(window.sessionStorage.getItem(BOOKING_DRAFT_KEY) || 'null'))
+  } catch {
+    return null
+  }
+}
+
+function saveBookingDraft(cart) {
+  if (typeof window === 'undefined' || !cart) return
+  window.sessionStorage.setItem(BOOKING_DRAFT_KEY, JSON.stringify(cart))
+}
+
+function clearBookingDraft() {
+  if (typeof window === 'undefined') return
+  window.sessionStorage.removeItem(BOOKING_DRAFT_KEY)
+}
+
+function bookingCartKey(cart) {
+  const session = cart?.selectedSession || cart?.items?.[0]?.session
+  return cart?.eventId && session?.id ? `${cart.eventId}:${session.id}` : ''
+}
+
+function initialCartFromLocation(location) {
+  const locationCart = normalizeCart(location.state?.cart)
+  const draftCart = readBookingDraft()
+  const cart = locationCart && bookingCartKey(locationCart) !== bookingCartKey(draftCart)
+    ? locationCart
+    : draftCart || locationCart
+  if (cart) saveBookingDraft(cart)
+  return cart
+}
+
+function ticketTypeColor(ticketType, colorByTicketTypeId) {
+  return (
+    colorByTicketTypeId?.get(String(ticketType?.id)) ||
+    ticketType?.color ||
+    ticketType?.zone?.color ||
+    ticketType?.seat_type?.color ||
+    '#38bdf8'
+  )
+}
+
 export function BookingTicketsPage() {
   return <NavigateBackToEvents />
 }
@@ -251,14 +297,14 @@ export function BookingTicketsPage() {
 export function BookingSeatsPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const seatMapViewportRef = useRef(null)
   const session = cart?.selectedSession || cart?.items?.[0]?.session
   const ticketTypes = (cart?.availableTicketTypes || []).filter((ticketType) =>
     session ? String(ticketType.event_session_id) === String(session.id) : true,
   )
   const [selectedSeatIds, setSelectedSeatIds] = useState(
-    cart?.items?.flatMap((item) => item.sessionSeatIds || []) || [],
+    cart?.selectedSeatIds || cart?.items?.flatMap((item) => item.sessionSeatIds || []) || [],
   )
   const [availabilityError, setAvailabilityError] = useState('')
   const [checkingAvailability, setCheckingAvailability] = useState(false)
@@ -287,6 +333,23 @@ export function BookingSeatsPage() {
 
   const seatData = seatsQuery.data?.seats || []
   const seatingRules = cart?.seatingRules || cart?.seating_rules || {}
+  const colorByTicketTypeId = useMemo(() => {
+    const colors = new Map()
+    ;(seatData || []).forEach((seat) => {
+      const color = seat.zone?.color || seat.seat_type?.color
+      if (!color) return
+      const seatZoneId = seat.zone_id || seat.zone?.id
+      ;(seat.ticket_type_ids || []).forEach((id) => {
+        if (!colors.has(String(id))) colors.set(String(id), color)
+      })
+      ;(ticketTypes || []).forEach((ticketType) => {
+        if (ticketType.zone_id && seatZoneId && String(ticketType.zone_id) === String(seatZoneId)) {
+          colors.set(String(ticketType.id), color)
+        }
+      })
+    })
+    return colors
+  }, [seatData, ticketTypes])
   const buildDisplayItems = (seatIds) => {
     if (!seatData.length) return []
     const seatsById = new Map(seatData.map((seat) => [seat.session_seat_id, seat]))
@@ -302,7 +365,10 @@ export function BookingSeatsPage() {
       if (ticketType) {
         if (!groups[ticketType.id]) {
           groups[ticketType.id] = {
-            ticketType,
+            ticketType: {
+              ...ticketType,
+              color: seat.zone?.color || seat.seat_type?.color || ticketTypeColor(ticketType, colorByTicketTypeId),
+            },
             sessionSeatIds: [],
             seatLabels: [],
           }
@@ -322,14 +388,22 @@ export function BookingSeatsPage() {
   }
 
   const displayItems = buildDisplayItems(selectedSeatIds)
+  const displayTicketTypes = (cart?.availableTicketTypes || []).map((ticketType) => ({
+    ...ticketType,
+    color: ticketTypeColor(ticketType, colorByTicketTypeId),
+  }))
   const seatRuleIssue = useMemo(() => validateSeatSelection({
     rules: seatingRules,
     selectedSeatIds,
     seats: seatData,
   })[0] || '', [seatData, seatingRules, selectedSeatIds])
 
-  const displayCart = cart ? { ...cart, selectedSession: session, items: displayItems } : cart
+  const displayCart = cart ? { ...cart, selectedSession: session, selectedSeatIds, availableTicketTypes: displayTicketTypes, items: displayItems } : cart
 
+  useEffect(() => {
+    if (!displayCart || !session) return
+    saveBookingDraft(displayCart)
+  }, [displayCart, session])
 
   if (!cart || !session) return <NavigateBackToEvents />
 
@@ -347,6 +421,7 @@ export function BookingSeatsPage() {
         ...nextCart,
         holdExpiresAt: hold.hold_expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       }
+      saveBookingDraft(heldCart)
       navigate('/booking/attendees', { state: { cart: heldCart } })
     } catch (err) {
       setAvailabilityError(err.response?.data?.message || 'Kh\u00f4ng th\u1ec3 gi\u1eef gh\u1ebf b\u1ea1n \u0111\u00e3 ch\u1ecdn. Vui l\u00f2ng th\u1eed l\u1ea1i.')
@@ -453,6 +528,7 @@ export function BookingSeatsPage() {
         <OrderCard
           cart={displayCart}
           setCart={setCart}
+          colorByTicketTypeId={colorByTicketTypeId}
           cta={'Ti\u1ebfp t\u1ee5c'}
           onClick={continueFlow}
           disabled={checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
@@ -465,7 +541,7 @@ export function BookingSeatsPage() {
 export function BookingAttendeesPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
   const collectAttendees = requiresAttendeeInfo(cart)
   const [attendees, setAttendees] = useState(cart?.attendees || {})
@@ -542,8 +618,9 @@ export function BookingAttendeesPage() {
         return
       }
     }
-
-    navigate('/booking/review', { state: { cart: { ...cart, attendees: cleanAttendees, buyer: cleanBuyer } } })
+    const nextCart = { ...cart, attendees: cleanAttendees, buyer: cleanBuyer }
+    saveBookingDraft(nextCart)
+    navigate('/booking/review', { state: { cart: nextCart } })
   }
 
   return (
@@ -590,7 +667,7 @@ export function BookingAttendeesPage() {
             </Panel>
           ))}
         </section>
-        <OrderCard cart={cart} setCart={setCart} cta={'Ki\u1ec3m tra \u0111\u01a1n'} onClick={continueFlow} />
+        <OrderCard cart={cart} setCart={setCart} cta={'Ki\u1ec3m tra \u0111\u01a1n'} onClick={continueFlow} hideUnselectedTickets />
       </div>
     </BookingShell>
   )
@@ -599,7 +676,7 @@ export function BookingAttendeesPage() {
 export function BookingReviewPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const [promoCode, setPromoCode] = useState(cart?.promoCode || '')
   const [selectedPromo, setSelectedPromo] = useState(cart?.promo || null)
   const [voucherOpen, setVoucherOpen] = useState(false)
@@ -621,6 +698,7 @@ export function BookingReviewPage() {
         setAvailabilityError(result.message || 'V\u00e9/gh\u1ebf b\u1ea1n ch\u1ecdn kh\u00f4ng c\u00f2n kh\u1ea3 d\u1ee5ng. Vui l\u00f2ng ch\u1ecdn l\u1ea1i.')
         return
       }
+      saveBookingDraft(nextCart)
       navigate('/booking/payment', { state: { cart: nextCart } })
     } catch (err) {
       setAvailabilityError(err.response?.data?.message || 'Kh\u00f4ng th\u1ec3 ki\u1ec3m tra t\u00ecnh tr\u1ea1ng v\u00e9/gh\u1ebf. Vui l\u00f2ng th\u1eed l\u1ea1i.')
@@ -696,6 +774,7 @@ export function BookingReviewPage() {
           cta={'X\u00e1c nh\u1eadn v\u00e0 thanh to\u00e1n'}
           onClick={continueFlow}
           disabled={checkingAvailability}
+          hideUnselectedTickets
         />
       </div>
       {voucherOpen && (
@@ -717,7 +796,7 @@ export function BookingPaymentPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const existingOrderId = searchParams.get('orderId')
-  const [cart, setCart] = useState(() => normalizeCart(location.state?.cart))
+  const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const [checkout, setCheckout] = useState(location.state?.checkout || null)
   const [error, setError] = useState('')
   const checkoutStartedRef = useRef(Boolean(location.state?.checkout || existingOrderId))
@@ -764,6 +843,7 @@ export function BookingPaymentPage() {
   useEffect(() => {
     if (order?.status === 'PAID') {
       const ticketId = firstTicketIdFromOrderStatus(statusQuery.data)
+      clearBookingDraft()
       navigate(ticketId ? `/tickets/${ticketId}` : '/my-tickets', { replace: true })
     }
   }, [navigate, order?.status, statusQuery.data])
@@ -832,7 +912,7 @@ export function BookingPaymentPage() {
             )}
           </Panel>
         </section>
-        <OrderCard cart={cart} setCart={setCart} cta={'\u0110ang ch\u1edd thanh to\u00e1n'} disabled onCancel={() => (orderId ? cancelOrder(orderId) : undefined)} />
+        <OrderCard cart={cart} setCart={setCart} cta={'\u0110ang ch\u1edd thanh to\u00e1n'} disabled onCancel={() => (orderId ? cancelOrder(orderId) : undefined)} hideUnselectedTickets />
       </div>
     </BookingShell>
   )
@@ -921,8 +1001,13 @@ function BookingShell({ step, cart, children }) {
   )
 }
 
-function OrderCard({ cart, cta, onClick, disabled, onCancel }) {
+function OrderCard({ cart, cta, onClick, disabled, onCancel, colorByTicketTypeId, hideUnselectedTickets = false }) {
   const [cancelOpen, setCancelOpen] = useState(false)
+  const visibleTicketTypes = (cart?.availableTicketTypes || []).filter((ticketType) => {
+    if (!hideUnselectedTickets) return true
+    const item = (cart?.items || []).find((i) => String(i.ticketType.id) === String(ticketType.id))
+    return Number(item?.quantity || 0) > 0
+  })
 
   return (
     <aside className="glass-panel h-fit rounded-lg p-5 lg:sticky lg:top-24">
@@ -939,14 +1024,19 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel }) {
         </button>
       </div>
       <div className="space-y-3 border-y border-border-soft py-4">
-        {(cart?.availableTicketTypes || []).map((ticketType) => {
-          const item = (cart?.items || []).find((i) => i.ticketType.id === ticketType.id)
+        {visibleTicketTypes.map((ticketType) => {
+          const item = (cart?.items || []).find((i) => String(i.ticketType.id) === String(ticketType.id))
           const qty = item?.quantity || 0
 
           return (
             <div key={ticketType.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
-              <div>
-                <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticketType.name}</p>
+              <div className="flex min-w-0 items-start gap-2">
+                <span
+                  className="mt-1 size-3 shrink-0 rounded-sm border border-white/20"
+                  style={{ backgroundColor: ticketTypeColor(item?.ticketType || ticketType, colorByTicketTypeId) }}
+                />
+                <div className="min-w-0">
+                  <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticketType.name}</p>
                 {qty > 0 ? (
                   <p className="text-primary">
                     {formatPrice(ticketType.price)} {'\u00d7'} {String(qty).padStart(2, '0')}
@@ -959,6 +1049,7 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel }) {
                     {'Gh\u1ebf'}: <span className="ml-1 truncate">{item.seatLabels.join(', ')}</span>
                   </p>
                 )}
+                </div>
               </div>
               <p className={qty > 0 ? 'font-bold text-primary' : 'font-bold text-slate-500'}>
                 {qty > 0 ? formatPrice(Number(ticketType.price || 0) * qty) : '-'}
@@ -1004,6 +1095,7 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel }) {
           onCancel={() => {
             setCancelOpen(false)
             Promise.resolve(onCancel?.()).finally(() => {
+              clearBookingDraft()
               window.location.href = `/events/${cart.eventSlug || cart.eventId}`
             })
           }}
