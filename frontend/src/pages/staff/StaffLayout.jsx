@@ -1,7 +1,7 @@
 import { BarChart3, CalendarCheck, ClipboardList, Home, LayoutDashboard, QrCode, UserCircle, UserPlus } from 'lucide-react'
 import { getStoredUser, getUserRoles } from '@/lib/auth.js'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
-import { Avatar } from './StaffComponents.jsx'
 
 const navSections = [
   {
@@ -46,11 +46,13 @@ export function StaffLayout() {
       navSections={navSections}
       bottomItems={bottomItems}
       avatar={
-        user?.avatar_url ? (
-          <img src={user.avatar_url} alt="Staff" className="size-7 rounded-full object-cover" />
-        ) : (
-          <Avatar name={user?.full_name || user?.email || 'Staff'} className="size-7" />
-        )
+        <ProfileAvatar
+          sources={user?.avatar_url}
+          name={user?.full_name || user?.email || 'Staff'}
+          alt="Ảnh đại diện nhân viên"
+          className="size-7"
+          fallback="ST"
+        />
       }
     />
   )

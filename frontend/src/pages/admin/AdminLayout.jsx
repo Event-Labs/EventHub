@@ -1,7 +1,7 @@
 import { BriefcaseBusiness, Calendar, ClipboardList, CreditCard, LayoutDashboard, ShieldCheck, Tags, Users } from 'lucide-react'
 import { getStoredUser, isAdminUser } from '@/lib/auth.js'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
-import { AvatarFallback } from './AdminComponents.jsx'
 
 const navSections = [
   {
@@ -46,11 +46,13 @@ export function AdminLayout() {
       navSections={navSections}
       bottomItems={bottomItems}
       avatar={
-        user?.avatar_url ? (
-          <img src={user.avatar_url} alt="Administrator" className="size-7 rounded-full object-cover" />
-        ) : (
-          <AvatarFallback name={user?.full_name || user?.email || 'Admin'} className="size-7" />
-        )
+        <ProfileAvatar
+          sources={user?.avatar_url}
+          name={user?.full_name || user?.email || 'Admin'}
+          alt="Ảnh đại diện quản trị viên"
+          className="size-7"
+          fallback="AD"
+        />
       }
     />
   )
