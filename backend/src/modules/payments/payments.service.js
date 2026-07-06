@@ -25,7 +25,7 @@ class PaymentsService {
     return channel;
   }
 
-  async createTicketOrderPayosLink({ paymentOrder, channel, orderItems }) {
+  async createTicketOrderPayosLink({ paymentOrder, channel, orderItems, returnUrl, cancelUrl }) {
     const paymentData = await payosClient.createPaymentLink({
       channel,
       order: paymentOrder,
@@ -34,8 +34,8 @@ class PaymentsService {
         quantity: item.quantity,
         price: item.unit_price,
       })),
-      returnUrl: `${env.CLIENT_URL}/payment-confirmation?orderId=${paymentOrder.order_id}`,
-      cancelUrl: `${env.CLIENT_URL}/payment-confirmation?orderId=${paymentOrder.order_id}&cancelled=true`,
+      returnUrl: returnUrl || `${env.CLIENT_URL}/payment-confirmation?orderId=${paymentOrder.order_id}`,
+      cancelUrl: cancelUrl || `${env.CLIENT_URL}/payment-confirmation?orderId=${paymentOrder.order_id}&cancelled=true`,
     });
 
     return paymentsRepository.attachPaymentLink(paymentOrder.id, paymentData);
@@ -94,6 +94,35 @@ class PaymentsService {
         paymentData.transaction_id ||
         String(paymentOrder.provider_order_code),
       rawPayload: { source: 'payos_status_sync', data: paymentData },
+    });
+
+    return paymentData;
+  }
+
+  async syncTicketOrderFromPayosAnyUser(orderId) {
+    const paymentOrder = await paymentsRepository.findLatestPaymentOrderWithChannelByOrderIdAnyUser(orderId);
+    if (!paymentOrder || paymentOrder.status !== 'PENDING') {
+      return null;
+    }
+
+    const paymentData = await payosClient.getPaymentLinkInformation({
+      channel: paymentOrder,
+      providerOrderCode: paymentOrder.provider_order_code,
+    });
+
+    if (!isPayosPaid(paymentData, paymentOrder)) {
+      return paymentData;
+    }
+
+    await ordersRepository.confirmPayment({
+      providerOrderCode: paymentOrder.provider_order_code,
+      amount: paymentData.amount || paymentData.amountPaid || paymentOrder.amount,
+      transactionId:
+        paymentData.reference ||
+        paymentData.transactionId ||
+        paymentData.transaction_id ||
+        String(paymentOrder.provider_order_code),
+      rawPayload: { source: 'staff_direct_payos_status_sync', data: paymentData },
     });
 
     return paymentData;

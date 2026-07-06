@@ -21,6 +21,22 @@ function ticketCode() {
   return `EH-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
 }
 
+function userIsAdmin(roles = []) {
+  return roles.some((role) => ['ADMIN', 'SUPER_ADMIN'].includes(String(role).toUpperCase()));
+}
+
+async function ensureStaffDirectBookingSchema(client) {
+  await client.query(`
+    ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS created_by_staff_id UUID REFERENCES users(id),
+      ADD COLUMN IF NOT EXISTS created_by_staff_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS created_by_role VARCHAR(40),
+      ADD COLUMN IF NOT EXISTS payment_method VARCHAR(40),
+      ADD COLUMN IF NOT EXISTS internal_note TEXT,
+      ADD COLUMN IF NOT EXISTS booking_source VARCHAR(40)
+  `);
+}
+
 class OrdersRepository {
   async expirePendingOrders() {
     await db.query(
@@ -153,7 +169,7 @@ class OrdersRepository {
         throw new AppError('S\u1ef1 ki\u1ec7n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
       }
 
-      if (firstTicket.organizer_id !== paymentChannel.organizer_id) {
+      if (paymentChannel && firstTicket.organizer_id !== paymentChannel.organizer_id) {
         throw new AppError('K\u00eanh thanh to\u00e1n c\u1ee7a ban t\u1ed5 ch\u1ee9c kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
@@ -548,13 +564,14 @@ class OrdersRepository {
           status,
           expired_at
         )
-        VALUES ($1, $2, 'ORGANIZER', $3, 'TICKET_ORDER', $1, 'PAYOS', $4, $5, 'VND', $6, 'PENDING', $7)
+        VALUES ($1, $2, 'ORGANIZER', $3, 'TICKET_ORDER', $1, $4, $5, $6, 'VND', $7, 'PENDING', $8)
         RETURNING *
         `,
         [
           order.id,
           firstTicket.organizer_id,
-          paymentChannel.id,
+          paymentChannel?.id || null,
+          paymentChannel ? 'PAYOS' : 'MANUAL',
           providerOrderCode(),
           totalAmount,
           `EH ${order.order_code}`.slice(0, 25),
@@ -574,6 +591,893 @@ class OrdersRepository {
         orderItems,
         paymentOrder: paymentOrderResult.rows[0],
       };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async findStaffDirectBookingEvents({ staffId, roles = [] }) {
+    const isAdmin = userIsAdmin(roles);
+    const { rows } = await db.query(
+      `
+      WITH ticket_inventory AS (
+        SELECT
+          tt.id,
+          tt.event_session_id,
+          tt.name,
+          tt.description,
+          tt.price,
+          tt.quantity,
+          tt.max_per_order,
+          tt.sale_start,
+          tt.sale_end,
+          tt.is_seated,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+          COALESCE((
+            SELECT SUM(th.quantity)::int
+            FROM ticket_holds th
+            WHERE th.ticket_type_id = tt.id
+              AND th.status = 'ACTIVE'
+              AND th.expires_at > now()
+          ), 0) AS active_hold_quantity
+        FROM ticket_types tt
+        LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
+        LEFT JOIN orders o ON o.id = oi.order_id
+        GROUP BY tt.id
+      )
+      SELECT
+        e.id AS event_id,
+        e.title AS event_title,
+        e.slug AS event_slug,
+        e.banner_url,
+        e.thumbnail_url,
+        e.start_time AS event_start_time,
+        e.end_time AS event_end_time,
+        es.id AS session_id,
+        es.session_name,
+        es.start_time AS session_start_time,
+        es.end_time AS session_end_time,
+        v.name AS venue_name,
+        v.address_line,
+        v.district,
+        v.city,
+        ti.id AS ticket_type_id,
+        ti.name AS ticket_type_name,
+        ti.description AS ticket_type_description,
+        ti.price,
+        ti.quantity,
+        ti.max_per_order,
+        ti.sale_start,
+        ti.sale_end,
+        ti.is_seated,
+        GREATEST(ti.quantity - ti.sold_quantity - ti.active_hold_quantity, 0)::int AS available_quantity
+      FROM ticket_inventory ti
+      JOIN event_sessions es ON es.id = ti.event_session_id
+      JOIN events e ON e.id = es.event_id
+      LEFT JOIN venues v ON v.id = es.venue_id
+      WHERE e.status = 'PUBLISHED'
+        AND e.visibility = 'PUBLIC'
+        AND e.approval_status = 'APPROVED'
+        AND e.deleted_at IS NULL
+        AND e.end_time >= now()
+        AND es.status = 'UPCOMING'
+        AND es.end_time >= now()
+        AND (ti.sale_start IS NULL OR ti.sale_start <= now())
+        AND (ti.sale_end IS NULL OR ti.sale_end >= now())
+        AND GREATEST(ti.quantity - ti.sold_quantity - ti.active_hold_quantity, 0) > 0
+        AND (
+          $2::boolean = true
+          OR EXISTS (
+            SELECT 1
+            FROM event_staffs scope
+            WHERE scope.event_id = e.id
+              AND scope.staff_id = $1
+          )
+        )
+      ORDER BY e.start_time ASC, es.start_time ASC, ti.price ASC
+      `,
+      [staffId, isAdmin],
+    );
+
+    const events = new Map();
+    for (const row of rows) {
+      if (!events.has(row.event_id)) {
+        events.set(row.event_id, {
+          id: row.event_id,
+          title: row.event_title,
+          slug: row.event_slug,
+          banner_url: row.banner_url,
+          thumbnail_url: row.thumbnail_url,
+          start_time: row.event_start_time,
+          end_time: row.event_end_time,
+          sessions: [],
+          ticket_types: [],
+        });
+      }
+
+      const event = events.get(row.event_id);
+      if (!event.sessions.some((session) => session.id === row.session_id)) {
+        event.sessions.push({
+          id: row.session_id,
+          session_name: row.session_name,
+          start_time: row.session_start_time,
+          end_time: row.session_end_time,
+          venue: {
+            name: row.venue_name,
+            address_line: row.address_line,
+            district: row.district,
+            city: row.city,
+          },
+        });
+      }
+
+      event.ticket_types.push({
+        id: row.ticket_type_id,
+        event_session_id: row.session_id,
+        name: row.ticket_type_name,
+        description: row.ticket_type_description,
+        price: row.price,
+        quantity: row.quantity,
+        max_per_order: row.max_per_order,
+        sale_start: row.sale_start,
+        sale_end: row.sale_end,
+        is_seated: row.is_seated,
+        available_quantity: row.available_quantity,
+      });
+    }
+
+    return [...events.values()];
+  }
+
+  async createStaffDirectBooking({ staffId, staffRoles = [], buyer, paymentMethod, internalNote, eventId, items }) {
+    const client = await db.getClient();
+    const isAdmin = userIsAdmin(staffRoles);
+
+    try {
+      await client.query('BEGIN');
+      await ensureStaffDirectBookingSchema(client);
+
+      const staffResult = await client.query(
+        'SELECT id, full_name, email FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [staffId],
+      );
+      const staff = staffResult.rows[0];
+      if (!staff) {
+        throw new AppError('Không tìm thấy tài khoản nhân sự.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      }
+
+      const ticketTypeIds = [...new Set(items.map((item) => item.ticket_type_id))];
+      const ticketTypesResult = await client.query(
+        `
+        SELECT
+          tt.id,
+          tt.event_session_id,
+          tt.name,
+          tt.price,
+          tt.quantity,
+          tt.max_per_order,
+          tt.sale_start,
+          tt.sale_end,
+          tt.is_seated,
+          es.id AS session_id,
+          es.status AS session_status,
+          es.start_time AS session_start_time,
+          es.end_time AS session_end_time,
+          es.venue_id,
+          e.id AS event_id,
+          e.title AS event_title,
+          e.slug AS event_slug,
+          e.banner_url,
+          e.thumbnail_url,
+          e.start_time AS event_start_time,
+          e.end_time AS event_end_time,
+          e.organizer_id,
+          e.status AS event_status,
+          e.visibility,
+          e.approval_status,
+          e.deleted_at,
+          v.name AS venue_name,
+          v.address_line,
+          v.district,
+          v.city
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
+        LEFT JOIN venues v ON v.id = es.venue_id
+        WHERE tt.id = ANY($1::uuid[])
+        FOR UPDATE OF tt
+        `,
+        [ticketTypeIds],
+      );
+
+      if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
+        throw new AppError('Thông tin vé không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
+      const firstTicket = ticketTypesResult.rows[0];
+      if (
+        !firstTicket ||
+        firstTicket.event_id !== eventId ||
+        firstTicket.deleted_at ||
+        firstTicket.event_status !== 'PUBLISHED' ||
+        firstTicket.visibility !== 'PUBLIC' ||
+        firstTicket.approval_status !== 'APPROVED'
+      ) {
+        throw new AppError('Sự kiện hiện không khả dụng để book vé trực tiếp.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      if (!isAdmin) {
+        const scopeResult = await client.query(
+          'SELECT 1 FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+          [eventId, staffId],
+        );
+        if (!scopeResult.rows[0]) {
+          throw new AppError('Bạn chưa được phân công vào sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+        }
+      }
+
+      const eventEnd = firstTicket.event_end_time ? new Date(firstTicket.event_end_time).getTime() : null;
+      if (eventEnd && eventEnd < Date.now()) {
+        throw new AppError('Sự kiện đã kết thúc, không thể bán vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+      }
+
+      const totalRequested = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      if (totalRequested > 20) {
+        throw new AppError('Mỗi booking trực tiếp chỉ được tạo tối đa 20 vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      const subtotal = items.reduce((sum, item) => {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        return sum + Number(ticketType?.price || 0) * Number(item.quantity || 0);
+      }, 0);
+
+      const orderResult = await client.query(
+        `
+        INSERT INTO orders (
+          user_id,
+          organizer_id,
+          buyer_name,
+          buyer_email,
+          buyer_phone,
+          created_by_staff_id,
+          created_by_staff_name,
+          created_by_role,
+          payment_method,
+          internal_note,
+          booking_source,
+          order_channel,
+          order_code,
+          status,
+          subtotal,
+          discount_amount,
+          platform_fee,
+          total_amount,
+          expired_at
+        )
+        VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, 'staff_direct', 'OFFLINE', $10, 'PAID', $11, 0, 0, $11, NULL)
+        RETURNING *
+        `,
+        [
+          firstTicket.organizer_id,
+          buyer.name,
+          buyer.email || null,
+          buyer.phone,
+          staffId,
+          staff.full_name,
+          isAdmin ? 'admin' : 'staff',
+          paymentMethod,
+          internalNote || null,
+          orderCode(),
+          subtotal,
+        ],
+      );
+      const order = orderResult.rows[0];
+      const orderItems = [];
+
+      for (const item of items) {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        if (!ticketType || ticketType.event_id !== eventId) {
+          throw new AppError('Loại vé không thuộc sự kiện này.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+        if (ticketType.session_status !== 'UPCOMING') {
+          throw new AppError('Suất diễn hiện không khả dụng để đặt vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+
+        const now = Date.now();
+        const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
+        if (sessionEnd && sessionEnd < now) {
+          throw new AppError('Suất diễn đã kết thúc, không thể bán vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+        }
+
+        const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null;
+        const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null;
+        if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
+          throw new AppError(`Vé "${ticketType.name}" hiện chưa mở bán hoặc đã ngừng bán.`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+        }
+
+        if (ticketType.is_seated) {
+          throw new AppError('Book vé trực tiếp hiện chưa hỗ trợ loại vé chọn ghế.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+
+        const maxPerOrder = Math.min(Number(ticketType.max_per_order || 20), 20);
+        if (Number(item.quantity) > maxPerOrder) {
+          throw new AppError(`Loại vé "${ticketType.name}" chỉ được chọn tối đa ${maxPerOrder} vé.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+
+        const availabilityResult = await client.query(
+          `
+          SELECT
+            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+            COALESCE((
+              SELECT SUM(th.quantity)::int
+              FROM ticket_holds th
+              WHERE th.ticket_type_id = $1
+                AND th.status = 'ACTIVE'
+                AND th.expires_at > now()
+            ), 0) AS active_hold_quantity
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          WHERE oi.ticket_type_id = $1
+          `,
+          [item.ticket_type_id],
+        );
+        const sold = Number(availabilityResult.rows[0]?.sold_quantity || 0);
+        const held = Number(availabilityResult.rows[0]?.active_hold_quantity || 0);
+        const available = Number(ticketType.quantity) - sold - held;
+        if (Number(item.quantity) > available) {
+          throw new AppError('Số lượng vé còn lại không đủ.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+        }
+
+        const itemResult = await client.query(
+          `
+          INSERT INTO order_items (order_id, ticket_type_id, session_seat_id, quantity, unit_price, final_price)
+          VALUES ($1, $2, NULL, $3, $4, $5)
+          RETURNING *
+          `,
+          [
+            order.id,
+            item.ticket_type_id,
+            Number(item.quantity),
+            Number(ticketType.price),
+            Number(ticketType.price) * Number(item.quantity),
+          ],
+        );
+        const orderItem = itemResult.rows[0];
+        orderItems.push({ ...orderItem, ticket_type_name: ticketType.name });
+
+        for (let index = 0; index < Number(item.quantity); index += 1) {
+          const code = ticketCode();
+          await client.query(
+            `
+            INSERT INTO tickets (
+              order_item_id,
+              event_id,
+              event_session_id,
+              ticket_type_id,
+              session_seat_id,
+              ticket_code,
+              qr_code,
+              attendee_name,
+              attendee_email,
+              status
+            )
+            VALUES ($1, $2, $3, $4, NULL, $5::varchar(100), $6::text, $7, $8, 'VALID')
+            `,
+            [
+              orderItem.id,
+              ticketType.event_id,
+              ticketType.event_session_id,
+              ticketType.id,
+              code,
+              code,
+              buyer.name,
+              buyer.email || null,
+            ],
+          );
+        }
+      }
+
+      const paymentOrderResult = await client.query(
+        `
+        INSERT INTO payment_orders (
+          order_id,
+          organizer_id,
+          payment_owner_type,
+          payment_channel_id,
+          reference_type,
+          reference_id,
+          provider,
+          provider_order_code,
+          amount,
+          currency,
+          description,
+          status,
+          paid_at
+        )
+        VALUES ($1, $2, 'ORGANIZER', NULL, 'TICKET_ORDER', $1, 'MANUAL', $3, $4, 'VND', $5, 'PAID', now())
+        RETURNING *
+        `,
+        [order.id, firstTicket.organizer_id, providerOrderCode(), subtotal, `Direct ${order.order_code}`.slice(0, 25)],
+      );
+      const paymentOrder = paymentOrderResult.rows[0];
+
+      await client.query(
+        `
+        INSERT INTO payment_transactions (
+          payment_order_id,
+          provider,
+          provider_transaction_id,
+          amount,
+          status,
+          raw_payload
+        )
+        VALUES ($1, 'MANUAL', $2, $3, 'PAID', $4::jsonb)
+        `,
+        [
+          paymentOrder.id,
+          `${paymentMethod}-${order.order_code}`,
+          subtotal,
+          JSON.stringify({
+            bookingSource: 'staff_direct',
+            paymentMethod,
+            staffId,
+            staffName: staff.full_name,
+            internalNote: internalNote || null,
+          }),
+        ],
+      );
+
+      const ticketsResult = await client.query(
+        `
+        SELECT
+          t.id,
+          t.ticket_code,
+          t.qr_code,
+          t.status,
+          t.attendee_name,
+          t.attendee_email,
+          t.created_at,
+          tt.name AS ticket_type_name,
+          tt.price AS ticket_type_price,
+          es.start_time AS session_start_time,
+          es.end_time AS session_end_time,
+          es.session_name,
+          e.id AS event_id,
+          e.title AS event_title,
+          e.banner_url,
+          e.thumbnail_url,
+          v.name AS venue_name,
+          v.address_line,
+          v.district,
+          v.city
+        FROM tickets t
+        JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        JOIN event_sessions es ON es.id = t.event_session_id
+        JOIN events e ON e.id = t.event_id
+        LEFT JOIN venues v ON v.id = es.venue_id
+        JOIN order_items oi ON oi.id = t.order_item_id
+        WHERE oi.order_id = $1
+        ORDER BY t.created_at ASC
+        `,
+        [order.id],
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        order,
+        paymentOrder,
+        staff,
+        event: {
+          id: firstTicket.event_id,
+          title: firstTicket.event_title,
+          slug: firstTicket.event_slug,
+          banner_url: firstTicket.banner_url,
+          thumbnail_url: firstTicket.thumbnail_url,
+          start_time: firstTicket.event_start_time,
+          end_time: firstTicket.event_end_time,
+          venue: {
+            name: firstTicket.venue_name,
+            address_line: firstTicket.address_line,
+            district: firstTicket.district,
+            city: firstTicket.city,
+          },
+        },
+        items: orderItems,
+        tickets: ticketsResult.rows,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async attachStaffDirectBookingMetadata({ orderId, staffId, staffRoles = [], paymentMethod, internalNote }) {
+    const client = await db.getClient();
+    const isAdmin = userIsAdmin(staffRoles);
+
+    try {
+      await client.query('BEGIN');
+      await ensureStaffDirectBookingSchema(client);
+
+      const staffResult = await client.query(
+        'SELECT id, full_name, email FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [staffId],
+      );
+      const staff = staffResult.rows[0];
+      if (!staff) {
+        throw new AppError('Không tìm thấy tài khoản nhân sự.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      }
+
+      const eventResult = await client.query(
+        `
+        SELECT DISTINCT es.event_id
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        WHERE o.id = $1
+        LIMIT 1
+        `,
+        [orderId],
+      );
+      const eventId = eventResult.rows[0]?.event_id;
+      if (!eventId) {
+        throw new AppError('Không tìm thấy booking trực tiếp.', 404, ErrorCodes.ORDER_NOT_FOUND);
+      }
+
+      if (!isAdmin) {
+        const scopeResult = await client.query(
+          'SELECT 1 FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+          [eventId, staffId],
+        );
+        if (!scopeResult.rows[0]) {
+          throw new AppError('Bạn chưa được phân công vào sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+        }
+      }
+
+      await client.query(
+        `
+        UPDATE orders
+        SET user_id = NULL,
+            created_by_staff_id = $2,
+            created_by_staff_name = $3,
+            created_by_role = $4,
+            payment_method = $5,
+            internal_note = $6,
+            booking_source = 'staff_direct',
+            order_channel = 'OFFLINE',
+            updated_at = now()
+        WHERE id = $1
+        `,
+        [orderId, staffId, staff.full_name, isAdmin ? 'admin' : 'staff', paymentMethod, internalNote || null],
+      );
+
+      await client.query('COMMIT');
+      return { staff, eventId };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async findStaffDirectBookingStatus({ orderId, staffId, roles = [] }) {
+    const isAdmin = userIsAdmin(roles);
+    const orderResult = await db.query(
+      `
+      SELECT
+        o.*,
+        po.id AS payment_order_id,
+        po.provider AS payment_provider,
+        po.provider_order_code,
+        po.checkout_url,
+        po.qr_code AS payment_qr_code,
+        po.status AS payment_status,
+        po.amount AS payment_amount,
+        po.paid_at,
+        e.id AS event_id,
+        e.title AS event_title,
+        e.slug AS event_slug,
+        e.banner_url,
+        e.thumbnail_url,
+        e.start_time AS event_start_time,
+        e.end_time AS event_end_time,
+        v.name AS venue_name,
+        v.address_line,
+        v.district,
+        v.city,
+        u.full_name AS staff_full_name,
+        u.email AS staff_email
+      FROM orders o
+      JOIN order_items first_item ON first_item.order_id = o.id
+      JOIN ticket_types first_tt ON first_tt.id = first_item.ticket_type_id
+      JOIN event_sessions es ON es.id = first_tt.event_session_id
+      JOIN events e ON e.id = es.event_id
+      LEFT JOIN venues v ON v.id = es.venue_id
+      LEFT JOIN users u ON u.id = o.created_by_staff_id
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM payment_orders po_latest
+        WHERE po_latest.order_id = o.id
+        ORDER BY po_latest.created_at DESC
+        LIMIT 1
+      ) po ON true
+      WHERE o.id = $1
+        AND o.booking_source = 'staff_direct'
+        AND (
+          $3::boolean = true
+          OR o.created_by_staff_id = $2
+          OR EXISTS (
+            SELECT 1
+            FROM event_staffs scope
+            WHERE scope.event_id = e.id
+              AND scope.staff_id = $2
+          )
+        )
+      LIMIT 1
+      `,
+      [orderId, staffId, isAdmin],
+    );
+    const order = orderResult.rows[0];
+    if (!order) return null;
+
+    const itemsResult = await db.query(
+      `
+      SELECT
+        oi.*,
+        tt.name AS ticket_type_name
+      FROM order_items oi
+      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      WHERE oi.order_id = $1
+      ORDER BY oi.id
+      `,
+      [orderId],
+    );
+
+    const ticketsResult = await db.query(
+      `
+      SELECT
+        t.id,
+        t.ticket_code,
+        t.qr_code,
+        t.status,
+        t.attendee_name,
+        t.attendee_email,
+        t.created_at,
+        tt.name AS ticket_type_name,
+        tt.price AS ticket_type_price,
+        es.start_time AS session_start_time,
+        es.end_time AS session_end_time,
+        es.session_name,
+        e.id AS event_id,
+        e.title AS event_title,
+        e.banner_url,
+        e.thumbnail_url,
+        v.name AS venue_name,
+        v.address_line,
+        v.district,
+        v.city
+      FROM tickets t
+      JOIN ticket_types tt ON tt.id = t.ticket_type_id
+      JOIN event_sessions es ON es.id = t.event_session_id
+      JOIN events e ON e.id = t.event_id
+      LEFT JOIN venues v ON v.id = es.venue_id
+      JOIN order_items oi ON oi.id = t.order_item_id
+      WHERE oi.order_id = $1
+      ORDER BY t.created_at ASC
+      `,
+      [orderId],
+    );
+
+    return {
+      order,
+      paymentOrder: {
+        id: order.payment_order_id,
+        provider: order.payment_provider,
+        provider_order_code: order.provider_order_code,
+        checkout_url: order.checkout_url,
+        qr_code: order.payment_qr_code,
+        status: order.payment_status,
+        amount: order.payment_amount,
+        paid_at: order.paid_at,
+      },
+      staff: {
+        id: order.created_by_staff_id,
+        full_name: order.created_by_staff_name || order.staff_full_name,
+        email: order.staff_email,
+      },
+      event: {
+        id: order.event_id,
+        title: order.event_title,
+        slug: order.event_slug,
+        banner_url: order.banner_url,
+        thumbnail_url: order.thumbnail_url,
+        start_time: order.event_start_time,
+        end_time: order.event_end_time,
+        venue: {
+          name: order.venue_name,
+          address_line: order.address_line,
+          district: order.district,
+          city: order.city,
+        },
+      },
+      items: itemsResult.rows,
+      tickets: ticketsResult.rows,
+    };
+  }
+
+  async confirmStaffDirectManualPayment({ orderId, paymentMethod, staffId, rawPayload = {} }) {
+    const client = await db.getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      const orderResult = await client.query(
+        `
+        SELECT o.*
+        FROM orders o
+        WHERE o.id = $1
+          AND o.booking_source = 'staff_direct'
+          AND o.status = 'PENDING'
+        FOR UPDATE
+        `,
+        [orderId],
+      );
+      const order = orderResult.rows[0];
+      if (!order) {
+        throw new AppError('Không tìm thấy booking trực tiếp đang chờ thanh toán.', 404, ErrorCodes.ORDER_NOT_FOUND);
+      }
+
+      const paymentResult = await client.query(
+        `
+        SELECT *
+        FROM payment_orders
+        WHERE order_id = $1
+          AND status = 'PENDING'
+        ORDER BY created_at DESC
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [orderId],
+      );
+      const paymentOrder = paymentResult.rows[0];
+      if (!paymentOrder) {
+        throw new AppError('Không tìm thấy giao dịch đang chờ thanh toán.', 404, ErrorCodes.ORDER_NOT_FOUND);
+      }
+
+      await client.query(
+        `
+        UPDATE payment_orders
+        SET provider = 'MANUAL',
+            status = 'PAID',
+            paid_at = now(),
+            updated_at = now()
+        WHERE id = $1
+        `,
+        [paymentOrder.id],
+      );
+
+      await client.query(
+        `
+        INSERT INTO payment_transactions (
+          payment_order_id,
+          provider,
+          provider_transaction_id,
+          amount,
+          status,
+          raw_payload
+        )
+        VALUES ($1, 'MANUAL', $2, $3, 'PAID', $4::jsonb)
+        `,
+        [
+          paymentOrder.id,
+          `${paymentMethod}-${order.order_code}`,
+          Number(paymentOrder.amount || order.total_amount || 0),
+          JSON.stringify({
+            ...rawPayload,
+            bookingSource: 'staff_direct',
+            paymentMethod,
+            staffId,
+          }),
+        ],
+      );
+
+      await client.query(
+        `
+        UPDATE orders
+        SET status = 'PAID',
+            payment_method = $2,
+            updated_at = now()
+        WHERE id = $1
+        `,
+        [orderId, paymentMethod],
+      );
+
+      await client.query(
+        `
+        UPDATE ticket_holds
+        SET status = 'CONFIRMED', updated_at = now()
+        WHERE order_id = $1
+          AND status IN ('ACTIVE', 'EXPIRED')
+        `,
+        [orderId],
+      );
+
+      await client.query(
+        `
+        UPDATE session_seats
+        SET status = 'SOLD',
+            held_until = NULL
+        WHERE order_id = $1
+          AND status IN ('HELD', 'AVAILABLE')
+        `,
+        [orderId],
+      );
+
+      const itemResult = await client.query(
+        `
+        SELECT
+          oi.*,
+          tt.event_session_id,
+          es.event_id,
+          t.id AS existing_ticket_id
+        FROM order_items oi
+        JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        LEFT JOIN tickets t ON t.order_item_id = oi.id
+        WHERE oi.order_id = $1
+        ORDER BY oi.id
+        `,
+        [orderId],
+      );
+
+      for (const item of itemResult.rows) {
+        if (item.existing_ticket_id) continue;
+
+        const quantity = item.session_seat_id ? 1 : Number(item.quantity);
+        for (let index = 0; index < quantity; index += 1) {
+          const code = ticketCode();
+          await client.query(
+            `
+            INSERT INTO tickets (
+              order_item_id,
+              event_id,
+              event_session_id,
+              ticket_type_id,
+              session_seat_id,
+              ticket_code,
+              qr_code,
+              attendee_name,
+              attendee_email,
+              status
+            )
+            VALUES ($1, $2, $3, $4, $5, $6::varchar(100), $7::text, $8, $9, 'VALID')
+            `,
+            [
+              item.id,
+              item.event_id,
+              item.event_session_id,
+              item.ticket_type_id,
+              item.session_seat_id,
+              code,
+              code,
+              order.buyer_name,
+              order.buyer_email,
+            ],
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return { orderId };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
