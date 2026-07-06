@@ -125,7 +125,6 @@ export function OrganizerOrdersPage() {
   return (
     <OrganizerPage
       title="Quản lý đơn hàng"
-      eyebrow="Vận hành / Đơn hàng"
       description="Xem tất cả đơn hàng từ các sự kiện bạn quản lý."
     >
       {/* ── Filter bar ── */}

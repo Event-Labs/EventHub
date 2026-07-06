@@ -3,7 +3,7 @@ import { Calendar, CheckCircle2, Eye, EyeOff, MapPin, Tag, Ticket, XCircle } fro
 import { useState } from 'react'
 
 import { fetchAdminEvents, hideAdminEvent, reviewAdminEvent, unhideAdminEvent } from '@/services/adminEvents.js'
-import { Badge, ImagePlaceholder, Insight, Page, Panel, Table } from './AdminComponents.jsx'
+import { Badge, ImagePlaceholder, Page, Panel, Table } from './AdminComponents.jsx'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -202,12 +202,6 @@ export function AdminEventReviewPage() {
           </button>
         ))}
       </div>
-
-      {/* AI Insight */}
-      <Insight
-        title="AI Assistant"
-        text="Các sự kiện đang ở trạng thái PENDING_REVIEW. Vui lòng ưu tiên duyệt/ẩn theo ghi chú đánh giá. Khi từ chối, hãy điền ghi chú rõ ràng để Organizer biết cần chỉnh sửa gì."
-      />
 
       {/* States */}
       {isLoading && (

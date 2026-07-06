@@ -106,7 +106,6 @@ export function OrganizerCheckinDashboardPage() {
   return (
     <OrganizerPage
       title="Theo dõi check-in"
-      eyebrow="Vận hành / Theo dõi check-in"
       description="Theo dõi tình trạng check-in theo thời gian thực cho sự kiện của bạn."
     >
       {/* ── Event selector ── */}

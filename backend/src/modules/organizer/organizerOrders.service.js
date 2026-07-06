@@ -162,7 +162,7 @@ function buildFallbackFinancialSummary(payload) {
   return {
     summary:
       `Báo cáo tài chính cho sự kiện ${payload.event_title} ghi nhận doanh thu gộp ${formatMoney(payload.gross_revenue)}, ` +
-      `doanh thu ròng ${formatMoney(payload.net_revenue)} sau khi trừ phí nền tảng ${formatMoney(payload.platform_fee)}. ` +
+      `doanh thu ròng ${formatMoney(payload.net_revenue)} sau khi trừ phí gói dịch vụ ${formatMoney(payload.subscription_cost)}. ` +
       `Sự kiện đã bán ${payload.tickets_sold} vé qua ${payload.total_orders} đơn hàng. ${occupancy} ${recommendation}`,
     insights: {
       occupancy,
@@ -228,14 +228,14 @@ function buildFinancialIntelligence({ payload, ticketSales, eventSales }) {
   const occupancyRate = toNumber(payload.occupancy_rate);
   const grossRevenue = toNumber(payload.gross_revenue);
   const netRevenue = toNumber(payload.net_revenue);
-  const platformFee = toNumber(payload.platform_fee);
+  const subscriptionCost = toNumber(payload.subscription_cost);
   const ticketsSold = toNumber(payload.tickets_sold);
   const totalOrders = toNumber(payload.total_orders);
   const totalCapacity = toNumber(eventSales.total_capacity);
   const avgTicketPrice = ticketsSold > 0 ? grossRevenue / ticketsSold : 0;
   const avgOrderValue = totalOrders > 0 ? grossRevenue / totalOrders : 0;
   const netMarginRate = grossRevenue > 0 ? (netRevenue / grossRevenue) * 100 : 0;
-  const platformFeeRate = grossRevenue > 0 ? (platformFee / grossRevenue) * 100 : 0;
+  const subscriptionCostRate = grossRevenue > 0 ? (subscriptionCost / grossRevenue) * 100 : 0;
   const remainingTickets = Math.max(totalCapacity - ticketsSold, 0);
   const momentum = calculateSalesMomentum(ticketSales.daily_sales || []);
 
@@ -268,7 +268,7 @@ function buildFinancialIntelligence({ payload, ticketSales, eventSales }) {
 
   const keyInsights = [
     `Financial Health Score đạt ${healthScore}/100, tương ứng ${getRiskLabel(riskLevel)}.`,
-    `Doanh thu ròng chiếm ${round(netMarginRate, 1)}% doanh thu gộp; phí nền tảng chiếm ${round(platformFeeRate, 1)}%.`,
+    `Doanh thu ròng chiếm ${round(netMarginRate, 1)}% doanh thu gộp; phí gói dịch vụ chiếm ${round(subscriptionCostRate, 1)}%.`,
     momentum.label,
   ];
   if (payload.best_ticket_type) {
@@ -325,7 +325,7 @@ function buildFinancialIntelligence({ payload, ticketSales, eventSales }) {
       avg_ticket_price: round(avgTicketPrice, 2),
       avg_order_value: round(avgOrderValue, 2),
       net_margin_rate: round(netMarginRate, 1),
-      platform_fee_rate: round(platformFeeRate, 1),
+      subscription_cost_rate: round(subscriptionCostRate, 1),
       remaining_tickets: remainingTickets,
       total_capacity: totalCapacity,
     },
@@ -444,7 +444,8 @@ class OrganizerOrdersService {
       event_title: event.title || eventRevenue.event_title || eventSales.event_title || 'Sự kiện',
       gross_revenue: toNumber(eventRevenue.gross_revenue || revenueStats.overall?.gross_revenue),
       net_revenue: toNumber(eventRevenue.net_revenue || revenueStats.overall?.net_revenue),
-      platform_fee: toNumber(eventRevenue.platform_fee || revenueStats.overall?.total_platform_fee),
+      platform_fee: 0,
+      subscription_cost: toNumber(eventRevenue.subscription_cost || revenueStats.overall?.subscription_cost),
       tickets_sold: toNumber(ticketSales.overall?.total_tickets_sold),
       total_orders: toNumber(eventRevenue.total_orders || ticketSales.overall?.total_orders),
       occupancy_rate: toNumber(eventSales.occupancy_rate),
