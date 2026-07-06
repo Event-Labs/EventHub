@@ -78,6 +78,15 @@ class OperationsController {
     }
   };
 
+  staffOverview = async (req, res, next) => {
+    try {
+      const data = await operationsService.getStaffOverview(req.user.sub);
+      res.status(200).json(ApiResponse.success(data, 'Staff overview fetched successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   staffTasks = async (req, res, next) => {
     try {
       const query = eventIdQuerySchema.parse(req.query);
