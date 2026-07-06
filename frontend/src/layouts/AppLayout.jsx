@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, CheckCheck, UserCircle } from 'lucide-react'
+import { Bell, CheckCheck } from 'lucide-react'
 import {
   fetchNotifications,
   getNotificationStreamUrl,
@@ -10,6 +10,7 @@ import {
 } from '@/services/notifications.js'
 import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated } from '@/lib/auth.js'
 import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 
 const centerNavItems = [
   ['Sự kiện', '/events'],
@@ -263,16 +264,14 @@ export function AppLayout() {
                 aria-label="Mở menu tài khoản"
                 aria-expanded={open}
               >
-                {currentUser?.avatar_url ? (
-                  <img
-                    src={currentUser.avatar_url}
-                    alt={currentUser.full_name || 'Tài khoản'}
-                    className="size-full rounded-full object-cover"
-                    crossOrigin="anonymous"
-                  />
-                ) : (
-                  <UserCircle className="size-7" />
-                )}
+                <ProfileAvatar
+                  sources={currentUser?.avatar_url}
+                  name={currentUser?.full_name || currentUser?.email || 'Tài khoản'}
+                  alt="Ảnh đại diện tài khoản"
+                  className="size-full"
+                  fallbackClassName="bg-transparent text-[#081126] ring-0"
+                  fallback="TK"
+                />
               </button>
               {notificationOpen && (
                 <div className="absolute right-12 top-12 w-[360px] overflow-hidden rounded-lg border border-border-soft bg-panel shadow-2xl">

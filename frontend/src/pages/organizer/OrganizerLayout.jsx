@@ -1,11 +1,10 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Calendar, Home, LayoutDashboard, Settings, Settings2, ShoppingCart, User, Users } from 'lucide-react'
 import { getStoredUser, getUserRoles } from '@/lib/auth.js'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { fetchOrganizerProfile } from '@/services/organizerEvents.js'
 import { getProfile } from '@/services/user.service.js'
-import { AvatarInitials } from './OrganizerComponents.jsx'
 
 const navSections = [
   {
@@ -102,10 +101,12 @@ export function OrganizerLayout() {
       navSections={navSections}
       bottomItems={bottomItems}
       avatar={
-        <OrganizerAvatar
-          cloudUrl={organizerAvatarUrl}
-          googleUrl={googleAvatarUrl}
+        <ProfileAvatar
+          sources={[organizerAvatarUrl, googleAvatarUrl]}
           name={organizerDisplayName}
+          alt="Ảnh đại diện Organizer"
+          className="size-7"
+          fallback="EH"
         />
       }
     />
@@ -114,29 +115,4 @@ export function OrganizerLayout() {
 
 function parseStoredUser() {
   return getStoredUser()
-}
-
-function OrganizerAvatar({ cloudUrl, googleUrl, name }) {
-  const primaryUrl = cloudUrl || googleUrl
-  const sourceKey = `${cloudUrl || ''}|${googleUrl || ''}`
-  const [failedImage, setFailedImage] = useState({ key: '', url: '' })
-  const failedUrl = failedImage.key === sourceKey ? failedImage.url : ''
-
-  const currentUrl = failedUrl === primaryUrl && cloudUrl && googleUrl && googleUrl !== cloudUrl
-    ? googleUrl
-    : primaryUrl
-
-  if (!currentUrl || failedUrl === currentUrl) {
-    return <AvatarInitials name={name} className="size-7" />
-  }
-
-  return (
-    <img
-      src={currentUrl}
-      alt="Ảnh đại diện Organizer"
-      referrerPolicy="no-referrer"
-      className="size-7 rounded-full object-cover"
-      onError={() => setFailedImage({ key: sourceKey, url: currentUrl })}
-    />
-  )
 }
