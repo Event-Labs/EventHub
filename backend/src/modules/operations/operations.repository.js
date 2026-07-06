@@ -108,6 +108,8 @@ class OperationsRepository {
         e.id,
         e.title,
         e.slug,
+        e.thumbnail_url,
+        e.banner_url,
         e.status,
         e.start_time,
         e.end_time,
@@ -623,6 +625,8 @@ class OperationsRepository {
         e.id,
         e.title,
         e.slug,
+        e.thumbnail_url,
+        e.banner_url,
         e.status,
         e.start_time,
         e.end_time,
@@ -658,6 +662,120 @@ class OperationsRepository {
       [staffId],
     );
     return rows;
+  }
+
+  async getStaffOverview(staffId) {
+    const { rows } = await db.query(
+      `
+      WITH assigned_events AS (
+        SELECT e.id, e.title, e.slug, e.thumbnail_url, e.banner_url, e.status, e.start_time, e.end_time
+        FROM event_staffs es
+        JOIN events e ON e.id = es.event_id
+        WHERE es.staff_id = $1
+          AND e.deleted_at IS NULL
+      ),
+      event_counts AS (
+        SELECT COUNT(*)::int AS assigned_events
+        FROM assigned_events
+      ),
+      task_counts AS (
+        SELECT
+          COUNT(st.id)::int AS assigned_tasks,
+          COUNT(st.id) FILTER (WHERE st.status = 'DONE')::int AS completed_tasks,
+          COUNT(st.id) FILTER (WHERE st.status <> 'DONE')::int AS pending_tasks
+        FROM staff_tasks st
+        JOIN assigned_events ae ON ae.id = st.event_id
+        WHERE st.staff_id = $1
+      ),
+      ticket_counts AS (
+        SELECT
+          COUNT(t.id) FILTER (WHERE t.status = 'USED')::int AS checked_in_tickets,
+          COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int AS remaining_tickets
+        FROM tickets t
+        JOIN assigned_events ae ON ae.id = t.event_id
+      ),
+      today_events AS (
+        SELECT COALESCE(json_agg(row_to_json(today_row) ORDER BY today_row.start_time ASC), '[]'::json) AS events
+        FROM (
+          SELECT
+            ae.id,
+            ae.title,
+            ae.slug,
+            ae.thumbnail_url,
+            ae.banner_url,
+            ae.status,
+            ae.start_time,
+            ae.end_time,
+            COALESCE(venue_summary.venue_name, '') AS venue_name,
+            COALESCE(venue_summary.address_line, '') AS address_line,
+            COALESCE(venue_summary.district, '') AS district,
+            COALESCE(venue_summary.city, '') AS city,
+            COALESCE(checkin_summary.checked_in, 0)::int AS checked_in,
+            COALESCE(checkin_summary.remaining, 0)::int AS remaining,
+            COALESCE(checkin_summary.total_valid, 0)::int AS total_valid
+          FROM assigned_events ae
+          LEFT JOIN LATERAL (
+            SELECT v.name AS venue_name, v.address_line, v.district, v.city
+            FROM event_sessions sess
+            JOIN venues v ON v.id = sess.venue_id
+            WHERE sess.event_id = ae.id
+            ORDER BY sess.start_time ASC
+            LIMIT 1
+          ) venue_summary ON true
+          LEFT JOIN LATERAL (
+            SELECT
+              COUNT(*) FILTER (WHERE t.status = 'USED') AS checked_in,
+              COUNT(*) FILTER (WHERE t.status = 'VALID') AS remaining,
+              COUNT(*) FILTER (WHERE t.status IN ('VALID', 'USED')) AS total_valid
+            FROM tickets t
+            WHERE t.event_id = ae.id
+          ) checkin_summary ON true
+          WHERE (ae.start_time AT TIME ZONE 'Asia/Ho_Chi_Minh')::date <= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+            AND (COALESCE(ae.end_time, ae.start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+          ORDER BY ae.start_time ASC
+          LIMIT 5
+        ) today_row
+      ),
+      active_tasks AS (
+        SELECT COALESCE(json_agg(row_to_json(task_row) ORDER BY task_row.created_at DESC), '[]'::json) AS tasks
+        FROM (
+          SELECT
+            st.id,
+            st.event_id,
+            ae.title AS event_title,
+            st.title,
+            st.description,
+            st.status,
+            st.created_at,
+            st.updated_at
+          FROM staff_tasks st
+          JOIN assigned_events ae ON ae.id = st.event_id
+          WHERE st.staff_id = $1
+            AND st.status <> 'DONE'
+          ORDER BY
+            CASE st.status WHEN 'IN_PROGRESS' THEN 0 WHEN 'TODO' THEN 1 ELSE 2 END,
+            st.created_at DESC
+          LIMIT 4
+        ) task_row
+      )
+      SELECT
+        COALESCE(event_counts.assigned_events, 0)::int AS assigned_events,
+        COALESCE(task_counts.assigned_tasks, 0)::int AS assigned_tasks,
+        COALESCE(task_counts.completed_tasks, 0)::int AS completed_tasks,
+        COALESCE(task_counts.pending_tasks, 0)::int AS pending_tasks,
+        COALESCE(ticket_counts.checked_in_tickets, 0)::int AS checked_in_tickets,
+        COALESCE(ticket_counts.remaining_tickets, 0)::int AS remaining_tickets,
+        COALESCE(today_events.events, '[]'::json) AS today_events,
+        COALESCE(active_tasks.tasks, '[]'::json) AS active_tasks
+      FROM event_counts
+      CROSS JOIN task_counts
+      CROSS JOIN ticket_counts
+      CROSS JOIN today_events
+      CROSS JOIN active_tasks
+      `,
+      [staffId],
+    );
+    return rows[0];
   }
 
   async listStaffTasks(staffId, eventId = null) {
