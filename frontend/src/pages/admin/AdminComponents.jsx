@@ -25,10 +25,7 @@ export function Page({
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-tertiary">
-            Admin Portal
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-content">
+          <h1 className="font-display text-2xl font-extrabold tracking-tight text-content">
             {title}
           </h1>
           {description && (
