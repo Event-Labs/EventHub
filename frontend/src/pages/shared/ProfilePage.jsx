@@ -245,9 +245,6 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
                 {isPersonal ? <UserCircle className="size-20 text-muted" /> : <Building2 className="size-20 text-muted" />}
               </div>
             )}
-            <span className="mt-4 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-              {organizerTypeLabel(type)}
-            </span>
           </div>
 
           <div className="min-w-0 flex-1">
@@ -260,9 +257,6 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
                 {organizerTypeLabel(type)}
               </span>
             </div>
-            <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted">
-              {valueOrEmpty(description)}
-            </p>
           </div>
         </div>
       </section>
@@ -425,7 +419,6 @@ function ProfileView({ user }) {
         <Info icon={Mail} label="Email" value={user.email} linkType="email" />
         <Info icon={Phone} label="Số điện thoại" value={user.phone} />
         <Info icon={Calendar} label="Ngày sinh" value={formatDate(user.dob)} />
-        <Info icon={MapPin} label="Thành phố" value={user.city} />
         <Info icon={MapPin} label="Địa chỉ" value={user.address} className="md:col-span-2" />
       </InfoSection>
     </div>
