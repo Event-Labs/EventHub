@@ -2,15 +2,11 @@ import { useState, useEffect } from 'react'
 import {
   ArrowLeft,
   Calendar,
-  Clock,
   History,
   Lock,
   Mail,
   MapPin,
-  MessageSquare,
   Phone,
-  Shield,
-  Ticket,
   Unlock,
   User,
   Info,
@@ -18,12 +14,12 @@ import {
 import {
   Badge,
   Panel,
-  AvatarFallback,
   Status,
   KpiGrid,
 } from './AdminComponents'
 import { Modal } from '@/components/Modal'
 import adminUserService from '@/services/adminUser'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 
 export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
   const [user, setUser] = useState(null)
@@ -65,11 +61,13 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
         <div className="lg:col-span-1 space-y-6">
           <Panel className="text-center">
             <div className="flex justify-center">
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt={user.full_name} className="size-32 rounded-full object-cover shadow-lg border-4 border-border-soft/40" />
-              ) : (
-                <AvatarFallback name={user.full_name} className="size-32 rounded-full text-3xl" />
-              )}
+              <ProfileAvatar
+                sources={user.avatar_url}
+                name={user.full_name}
+                alt={user.full_name || 'Avatar'}
+                className="size-32 border-4 border-border-soft/40 shadow-lg"
+                fallbackClassName="text-3xl"
+              />
             </div>
             <h3 className="mt-4 font-display text-2xl font-extrabold text-content">{user.full_name}</h3>
             <div className="mt-2 flex justify-center gap-2">
