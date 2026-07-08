@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
-  ExternalLink,
   Eye,
   EyeOff,
   FileCheck2,
@@ -121,7 +120,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className={`mx-auto px-4 py-10 sm:px-6 lg:px-8 ${isOrganizer ? 'max-w-[1440px]' : 'max-w-6xl'}`}>
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-display text-4xl font-extrabold text-content">
@@ -138,19 +137,21 @@ export function ProfilePage() {
             {mode !== 'edit' && (
               <button
                 onClick={() => setMode('edit')}
-                className="rounded-md border border-border-soft bg-surface px-5 py-3 font-bold text-content transition-all hover:bg-panel-soft hover:text-primary"
+                className="inline-flex items-center gap-2 rounded-md border border-sky-300/40 bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-3 font-bold text-white shadow-lg shadow-sky-900/20 transition-all hover:-translate-y-0.5 hover:from-sky-400 hover:to-indigo-500"
               >
+                <Pencil className="size-4" />
                 Chỉnh sửa hồ sơ
               </button>
             )}
             <button
               onClick={() => setMode('password')}
-              className={`rounded-md border px-5 py-3 font-bold transition-all ${
+              className={`inline-flex items-center gap-2 rounded-md border px-5 py-3 font-bold transition-all ${
                 mode === 'password'
                   ? 'border-primary bg-primary text-white shadow-md shadow-primary/20'
-                  : 'border-border-soft bg-surface text-content hover:bg-panel-soft hover:text-primary'
+                  : 'border-border-soft bg-surface/40 text-content hover:border-primary/50 hover:bg-panel-soft hover:text-primary'
               }`}
             >
+              <Lock className="inline size-4" />
               Đổi mật khẩu
             </button>
           </div>
@@ -199,7 +200,7 @@ export function ProfilePage() {
 }
 
 function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
-  const [openSections, setOpenSections] = useState(() => new Set(['overview']))
+  const [openSections, setOpenSections] = useState(() => new Set(['overview', 'public', 'legal', 'documents']))
 
   if (isLoading) {
     return (
@@ -252,68 +253,60 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-border-soft/50 bg-surface p-6 text-content shadow-sm">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div className="flex flex-col items-center text-center">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName || 'Ảnh đại diện nhà tổ chức'}
-                className="size-36 rounded-2xl object-cover ring-4 ring-primary/25"
-              />
-            ) : (
-              <div className="flex size-36 items-center justify-center rounded-2xl bg-surface ring-4 ring-primary/25">
-                {isPersonal ? <UserCircle className="size-20 text-muted" /> : <Building2 className="size-20 text-muted" />}
-              </div>
-            )}
-          </div>
+    <div className="space-y-3">
+      <section className="organizer-profile-hero relative overflow-hidden rounded-lg border p-5 text-white sm:p-7">
+        <div className="organizer-profile-hero-bg absolute inset-0" />
+        <div className="organizer-profile-hero-wave absolute inset-0" />
+        <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center">
+          <ProfileAvatar
+            sources={[avatarUrl, user.avatar_url]}
+            name={displayName}
+            alt={displayName || 'Ảnh đại diện nhà tổ chức'}
+            className="organizer-profile-avatar size-28 text-5xl sm:size-32"
+            fallbackClassName="bg-gradient-to-br from-fuchsia-500 to-purple-700 text-white ring-4 ring-sky-400/25"
+          />
 
           <div className="min-w-0 flex-1">
-            <h2 className="mt-1 break-words font-display text-3xl font-extrabold text-content">
+            <h2 className="organizer-profile-title break-words font-display text-3xl font-extrabold sm:text-4xl">
               {valueOrEmpty(displayName)}
             </h2>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <StatusPill status={request.status || organizer?.status} />
-              <span className="rounded-full border border-border-soft bg-surface px-3 py-1 text-xs font-bold text-muted">
-                {organizerTypeLabel(type)}
-              </span>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="space-y-4">
+      <div className="space-y-2">
         <AccordionSection
           id="overview"
-          title="Tổng quan hồ sơ"
+          title="Thông tin tổng quan"
           icon={InfoIcon}
           isOpen={openSections.has('overview')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="organizer-info-grid organizer-info-grid-3">
             <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
             <Info icon={Users} label="Loại nhà tổ chức" value={organizerTypeLabel(type)} />
-            <Info icon={ShieldCheck} label="Trạng thái yêu cầu/xác minh" value={requestStatusLabel(request.status || organizer?.status)} />
-            <Info icon={Phone} label="Số điện thoại" value={phone} />
-            {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
+            <Info icon={ShieldCheck} label="Trạng thái xác minh" value={requestStatusLabel(request.status || organizer?.status)} />
+          </div>
+          <div className="organizer-info-description border-t">
+            <Info icon={FileText} label="Mô tả/giới thiệu" value={description} multiline />
           </div>
         </AccordionSection>
 
         <AccordionSection
           id="public"
-          title="Thông tin hiển thị công khai"
-          icon={FileText}
+          title="Thông tin liên hệ"
+          icon={Phone}
           isOpen={openSections.has('public')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
+          <div className="organizer-info-grid organizer-info-grid-3">
+            <Info icon={Mail} label="Email" value={firstValue(businessEmail, user.email)} linkType="email" />
             <Info icon={Phone} label="Số điện thoại" value={phone} />
-            {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
             <Info icon={MapPin} label="Địa chỉ" value={address} />
             <Info icon={ImageIcon} label="Trang web/mạng xã hội" value={firstValue(organizer?.website_url, organizer?.social_url)} linkType="url" />
-            <Info icon={FileText} label="Mô tả/giới thiệu" value={description} className="md:col-span-2" multiline />
           </div>
         </AccordionSection>
 
@@ -324,31 +317,43 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           isOpen={openSections.has('legal')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="organizer-info-grid organizer-info-grid-3">
             {isPersonal ? (
               <>
                 <Info icon={UserCircle} label="Họ tên pháp lý" value={firstValue(request.individual_full_name, organizer?.individual_full_name)} />
                 <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={firstValue(request.individual_identity_number, organizer?.individual_identity_number)} />
                 <Info icon={IdCard} label="Mã số thuế cá nhân" value={firstValue(request.individual_tax_code, organizer?.individual_tax_code)} />
-                <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} />
-                <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} />
-                <DocumentCard label="Ảnh chân dung/tự chụp" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} />
               </>
             ) : (
               <>
-                <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />
-                <Info
-                  icon={ShieldCheck}
-                  label="Trạng thái xác thực email tổ chức"
-                  value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
-                />
-                <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
                 <Info icon={UserCircle} label="Người đại diện pháp luật" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name)} />
                 <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={firstValue(request.legal_representative_position, organizer?.legal_representative_position)} />
-                <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} />
-                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} />
-                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} />
-                <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} />
+                <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
+              </>
+            )}
+          </div>
+        </AccordionSection>
+
+        <AccordionSection
+          id="documents"
+          title="Hồ sơ xác minh"
+          icon={FileCheck2}
+          isOpen={openSections.has('documents')}
+          onToggle={toggleSection}
+        >
+          <div className="organizer-document-list">
+            {isPersonal ? (
+              <>
+                <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Ảnh chân dung/tự chụp" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} uploadedAt={request.created_at} />
+              </>
+            ) : (
+              <>
+                <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} uploadedAt={request.created_at} />
               </>
             )}
           </div>
@@ -361,9 +366,14 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           isOpen={openSections.has('commitment')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="organizer-info-grid organizer-info-grid-3">
             <Info icon={CheckCircle2} label="Trạng thái cam kết pháp lý/điều khoản" value={booleanLabel(firstDefined(request.terms_accepted, organizer?.terms_accepted))} />
             <Info icon={Clock} label="Thời gian gửi yêu cầu" value={formatDateTime(request.created_at)} />
+            <Info
+              icon={ShieldCheck}
+              label="Xác thực email tổ chức"
+              value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
+            />
             <Info
               icon={FileCheck2}
               label="Nội dung cam kết"
@@ -385,8 +395,8 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
             {history.length ? (
               history.map((item, index) => <ReviewHistoryCard key={item.id || index} request={item} index={index} />)
             ) : (
-              <div className="rounded-lg border border-border-soft bg-surface p-4 text-sm font-semibold text-subtle">
-                Chưa cập nhật
+              <div className="organizer-history-card rounded-lg border p-4 text-sm font-semibold">
+                <span className="organizer-info-empty">Chưa cập nhật</span>
               </div>
             )}
           </div>
@@ -398,21 +408,21 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
 
 function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, children }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-border-soft/50 bg-surface shadow-sm">
+    <section className="organizer-profile-panel overflow-hidden rounded-lg border">
       <button
         type="button"
         onClick={() => onToggle(id)}
         aria-expanded={isOpen}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-panel-soft"
+        className="organizer-panel-trigger flex w-full items-center gap-3 px-5 py-4 text-left transition"
       >
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <span className="organizer-section-icon grid size-9 shrink-0 place-items-center rounded-full">
           <Icon className="size-5" />
         </span>
-        <span className="min-w-0 flex-1 font-display text-xl font-bold text-content">{title}</span>
-        <ChevronDown className={`size-5 shrink-0 text-muted transition-transform ${isOpen ? 'rotate-180 text-primary' : ''}`} />
+        <span className="organizer-panel-title min-w-0 flex-1 font-display text-lg font-extrabold">{title}</span>
+        <ChevronDown className={`organizer-panel-chevron size-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
-        <div className="border-t border-border-soft/50 p-5">
+        <div className="organizer-panel-body border-t p-5">
           {children}
         </div>
       )}
@@ -902,17 +912,19 @@ function Info({ icon: Icon, label, value, className = '', multiline = false, lin
       : null
 
   return (
-    <div className={`rounded-lg border border-border-soft bg-surface p-4 transition-all hover:border-primary/30 ${className}`}>
-      <div className="flex items-center gap-2 text-muted">
-        <Icon className="size-4 shrink-0" />
+    <div className={`organizer-info-item min-w-0 p-3 ${className}`}>
+      <div className="organizer-profile-label flex items-center gap-2">
+        <span className="organizer-info-card-icon grid size-8 shrink-0 place-items-center rounded-full">
+          <Icon className="size-4" />
+        </span>
         <span className="text-sm font-semibold">{label}</span>
       </div>
       {href ? (
-        <a href={href} target={linkType === 'url' ? '_blank' : undefined} rel={linkType === 'url' ? 'noreferrer' : undefined} className="mt-2 block break-words font-bold text-primary hover:underline">
+        <a href={href} target={linkType === 'url' ? '_blank' : undefined} rel={linkType === 'url' ? 'noreferrer' : undefined} className="organizer-info-link mt-2 block break-words font-bold">
           {displayValue}
         </a>
       ) : (
-        <p className={`mt-2 break-words font-bold ${isEmpty ? 'text-subtle' : 'text-content'} ${multiline ? 'whitespace-pre-line leading-7' : ''}`}>
+        <p className={`mt-2 break-words font-bold ${isEmpty ? 'organizer-info-empty' : 'organizer-info-value'} ${multiline ? 'whitespace-pre-line leading-7' : ''}`}>
           {displayValue}
         </p>
       )}
@@ -920,33 +932,30 @@ function Info({ icon: Icon, label, value, className = '', multiline = false, lin
   )
 }
 
-function DocumentCard({ label, url }) {
+function DocumentCard({ label, url, uploadedAt }) {
   const displayUrl = valueOrEmpty(url)
   const hasUrl = displayUrl !== EMPTY_TEXT
   const href = hasUrl ? normalizeUrl(displayUrl) : ''
+  const uploadedDate = hasUrl ? formatDateTime(uploadedAt) : EMPTY_TEXT
 
   return (
-    <div className="rounded-lg border border-border-soft bg-surface p-4">
-      <div className="flex items-center gap-2 text-muted">
-        <FileCheck2 className="size-4 shrink-0" />
-        <span className="text-sm font-semibold">{label}</span>
+    <div className="organizer-document-row">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="organizer-document-icon grid size-8 shrink-0 place-items-center rounded-md">
+          <FileText className="size-4" />
+        </span>
+        <span className="organizer-info-value break-words text-sm font-semibold">{label}</span>
       </div>
-      <div className="mt-3 overflow-hidden rounded-lg border border-border-soft/60 bg-panel-soft">
-        {hasUrl && isImageUrl(displayUrl) ? (
-          <img src={displayUrl} alt={label} className="h-32 w-full object-cover" />
-        ) : (
-          <div className="grid h-32 place-items-center px-4 text-center">
-            <FileText className={`size-8 ${hasUrl ? 'text-primary' : 'text-subtle'}`} />
-          </div>
-        )}
+      <div className="organizer-document-date hidden text-sm font-medium md:block">
+        {uploadedDate}
       </div>
       {hasUrl ? (
-        <a href={href} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 break-all text-sm font-bold text-primary hover:underline">
-          <ExternalLink className="size-4 shrink-0" />
-          Xem tài liệu
+        <a href={href} target="_blank" rel="noreferrer" className="organizer-document-status inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold">
+          <CheckCircle2 className="size-3.5 shrink-0" />
+          Đã tải lên
         </a>
       ) : (
-        <p className="mt-3 text-sm font-semibold text-subtle">Chưa cập nhật</p>
+        <p className="organizer-info-empty text-sm font-semibold">Chưa cập nhật</p>
       )}
     </div>
   )
@@ -956,13 +965,13 @@ function ReviewHistoryCard({ request, index }) {
   const rejected = String(request.status || '').toUpperCase() === 'REJECTED'
 
   return (
-    <div className={`rounded-lg border p-4 ${rejected ? 'border-error/30 bg-error/10' : 'border-border-soft bg-surface'}`}>
+    <div className={`rounded-lg border p-4 ${rejected ? 'border-error/30 bg-error/10' : 'organizer-history-card'}`}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-subtle">Yêu cầu {index + 1}</p>
+          <p className="organizer-info-empty text-xs font-bold uppercase tracking-wide">Yêu cầu {index + 1}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusPill status={request.status} />
-            <span className="text-sm font-semibold text-muted">{organizerTypeLabel(request.request_type)}</span>
+            <span className="organizer-profile-label text-sm font-semibold">{organizerTypeLabel(request.request_type)}</span>
           </div>
         </div>
         <div className="grid gap-2 text-sm md:min-w-[260px]">
@@ -973,7 +982,7 @@ function ReviewHistoryCard({ request, index }) {
       {rejected && (
         <div className="mt-4 rounded-lg border border-error/30 bg-error/10 p-4">
           <p className="text-sm font-bold text-error">Lý do từ chối</p>
-          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-content">{valueOrEmpty(request.review_note)}</p>
+          <p className="organizer-info-value mt-1 whitespace-pre-line text-sm leading-6">{valueOrEmpty(request.review_note)}</p>
         </div>
       )}
     </div>
@@ -1000,8 +1009,8 @@ function CompactLine({ icon: Icon, label, value }) {
     <div className="flex items-start gap-3">
       <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
-        <p className="break-words text-sm font-bold text-content">{valueOrEmpty(value)}</p>
+        <p className="organizer-info-empty text-xs font-semibold uppercase tracking-wide">{label}</p>
+        <p className="organizer-info-value break-words text-sm font-bold">{valueOrEmpty(value)}</p>
       </div>
     </div>
   )
@@ -1136,13 +1145,6 @@ function normalizeUrl(url) {
   const text = valueOrEmpty(url)
   if (text === EMPTY_TEXT) return undefined
   return /^https?:\/\//i.test(text) ? text : `https://${text}`
-}
-
-function isImageUrl(url = '') {
-  return (
-    /\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url) ||
-    /\/image\/upload\//i.test(url)
-  )
 }
 
 function roleLabel(roles = []) {
