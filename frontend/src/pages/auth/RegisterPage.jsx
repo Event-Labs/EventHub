@@ -5,8 +5,11 @@ import { authService } from '@/services/auth.service.js'
 import { AuthLogo, AuthShell, Field } from './LoginPage.jsx'
 import { GoogleLogin } from '@react-oauth/google'
 import { getPostLoginPath, setAuthSession } from '@/lib/auth.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function RegisterPage() {
+    const toast = useToast()
     const [form, setForm] = useState({
         full_name: '',
         email: '',
@@ -23,12 +26,16 @@ export function RegisterPage() {
         setError('')
 
         if (form.password !== form.confirmPassword) {
-            setError('Mật khẩu xác nhận không khớp.')
+            const message = 'Mật khẩu xác nhận không khớp.'
+            setError(message)
+            toast.error(message)
             return
         }
 
         if (form.password.length < 8 || !/[a-z]/.test(form.password) || !/[A-Z]/.test(form.password) || !/\d/.test(form.password) || !/[^a-zA-Z\d]/.test(form.password)) {
-            setError('Mật khẩu chưa đủ mạnh. Yêu cầu ít nhất 8 ký tự, bao gồm chữ hoa, thường, số và ký tự đặc biệt.')
+            const message = 'Mật khẩu chưa đủ mạnh. Yêu cầu ít nhất 8 ký tự, bao gồm chữ hoa, thường, số và ký tự đặc biệt.'
+            setError(message)
+            toast.error(message)
             return
         }
 
@@ -42,14 +49,18 @@ export function RegisterPage() {
                 phone: form.phone || undefined,
             })
             setSuccess(true)
+            toast.success('Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.')
         } catch (err) {
             const apiError = err.response?.data
+            let message
             // Handle Zod validation errors (array of issues)
             if (apiError?.errors && Array.isArray(apiError.errors)) {
-                setError(apiError.errors.map(e => e.message).join(', '))
+                message = apiError.errors.map(e => e.message).join(', ')
             } else {
-                setError(apiError?.message || 'Đăng ký không thành công. Vui lòng thử lại.')
+                message = getApiMessage(err, 'Đăng ký không thành công. Vui lòng thử lại.')
             }
+            setError(message)
+            toast.error(message)
         } finally {
             setLoading(false)
         }
@@ -62,9 +73,12 @@ export function RegisterPage() {
             const res = await authService.googleLogin(credentialResponse.credential)
             const { accessToken, user } = res.data
             setAuthSession({ accessToken, user, remember: true })
+            toast.success('Đăng nhập Google thành công.')
             window.location.href = getPostLoginPath(user)
         } catch (err) {
-            setError(err.response?.data?.message || 'Đăng ký bằng Google thất bại.')
+            const message = getApiMessage(err, 'Đăng ký bằng Google thất bại.')
+            setError(message)
+            toast.error(message)
         } finally {
             setLoading(false)
         }
@@ -113,7 +127,11 @@ export function RegisterPage() {
                 <div className="mt-6 flex w-full justify-center overflow-hidden rounded-sm">
                     <GoogleLogin
                         onSuccess={handleGoogleSuccess}
-                        onError={() => setError('Đăng nhập Google thất bại.')}
+                        onError={() => {
+                            const message = 'Đăng nhập Google thất bại.'
+                            setError(message)
+                            toast.error(message)
+                        }}
                         useOneTap
                         width="100%"
                         theme="outline"

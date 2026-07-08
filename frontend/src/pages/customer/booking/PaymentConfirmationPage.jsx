@@ -3,6 +3,8 @@ import { CheckCircle, Clock3, ExternalLink, RefreshCw, XCircle } from 'lucide-re
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, fetchOrderStatus } from '@/services/orders.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 function formatPrice(value) {
   const number = Number(value)
@@ -32,6 +34,7 @@ function firstTicketIdFromOrderStatus(data) {
 }
 
 export function PaymentConfirmationPage() {
+  const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -58,7 +61,13 @@ export function PaymentConfirmationPage() {
 
   const cancelMutation = useMutation({
     mutationFn: () => cancelOrder(orderId),
-    onSuccess: () => statusQuery.refetch(),
+    onSuccess: () => {
+      toast.success('Đã hủy đơn hàng.')
+      statusQuery.refetch()
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể hủy đơn hàng. Vui lòng thử lại.'))
+    },
   })
 
   useEffect(() => {

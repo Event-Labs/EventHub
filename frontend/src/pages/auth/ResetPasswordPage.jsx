@@ -3,8 +3,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
 import { AuthShell, Field } from './LoginPage.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function ResetPasswordPage() {
+    const toast = useToast()
     const [searchParams] = useSearchParams()
     const navigate = useNavigate()
     const token = searchParams.get('token')
@@ -34,7 +37,9 @@ export function ResetPasswordPage() {
         if (!token) return
 
         if (form.password !== form.confirmPassword) {
-            setError('Mật khẩu xác nhận không khớp.')
+            const message = 'Mật khẩu xác nhận không khớp.'
+            setError(message)
+            toast.error(message)
             return
         }
 
@@ -43,8 +48,11 @@ export function ResetPasswordPage() {
         try {
             await authService.resetPassword(token, form.password)
             setSuccess(true)
+            toast.success('Đặt lại mật khẩu thành công.')
         } catch (err) {
-            setError(err.response?.data?.message || 'Đặt lại mật khẩu thất bại. Vui lòng thử lại.')
+            const message = getApiMessage(err, 'Đặt lại mật khẩu thất bại. Vui lòng thử lại.')
+            setError(message)
+            toast.error(message)
         } finally {
             setLoading(false)
         }

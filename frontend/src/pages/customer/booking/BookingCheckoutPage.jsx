@@ -5,6 +5,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { checkoutOrder } from '@/services/orders.js'
 import { getProfile } from '@/services/user.service.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 function formatPrice(value) {
   const number = Number(value)
@@ -13,6 +15,7 @@ function formatPrice(value) {
 }
 
 export function BookingCheckoutPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const isAuthenticated = hasAuthSession()
@@ -54,6 +57,7 @@ export function BookingCheckoutPage() {
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
+      toast.success('Đã tạo đơn thanh toán. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       navigate(`/payment-confirmation?orderId=${data.order.id}`, {
         replace: true,
         state: {
@@ -63,12 +67,9 @@ export function BookingCheckoutPage() {
       })
     },
     onError: (err) => {
-      const apiError = err.response?.data
-      if (apiError?.errors && Array.isArray(apiError.errors)) {
-        setError(apiError.errors.map((item) => item.message).join(', '))
-      } else {
-        setError(apiError?.message || 'Không thể tạo đơn thanh toán. Vui lòng thử lại.')
-      }
+      const message = getApiMessage(err, 'Không thể tạo đơn thanh toán. Vui lòng thử lại.')
+      setError(message)
+      toast.error(message)
     },
   })
 
