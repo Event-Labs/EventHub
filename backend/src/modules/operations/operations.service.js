@@ -1,14 +1,138 @@
 const authRepository = require('../auth/auth.repository');
+const jwt = require('jsonwebtoken');
 const operationsRepository = require('./operations.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const notificationsService = require('../notifications/notifications.service');
+const { sendEmail } = require('../../infrastructure/email/email.service');
+const logger = require('../../core/logger');
 
 class OperationsService {
+  escapeHtml(value = '') {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  formatVietnamDateTime(value) {
+    if (!value) return 'Không xác định';
+    return new Intl.DateTimeFormat('vi-VN', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(new Date(value));
+  }
+
+  async sendStaffInvitationEmail({ email, event, organizer, invitedUser, invitation }) {
+    const notificationsUrl = `${process.env.CLIENT_URL}/notifications`;
+    const subject = `Lời mời làm staff cho sự kiện ${event.title}`;
+    const role = invitation.staff_role || 'Staff';
+    const expiresAt = this.formatVietnamDateTime(invitation.expires_at);
+    const organizerName = organizer.organization_name || 'Ban tổ chức';
+    const message = [
+      `Xin chào ${invitedUser.full_name || invitedUser.email},`,
+      '',
+      `${organizerName} đã mời bạn làm ${role} cho sự kiện "${event.title}".`,
+      `Lời mời hết hạn lúc: ${expiresAt}.`,
+      '',
+      `Vui lòng đăng nhập EventHub và vào trang Thông báo để chấp nhận hoặc từ chối lời mời: ${notificationsUrl}`,
+    ].join('\n');
+    const html = `
+      <p>Xin chào <strong>${this.escapeHtml(invitedUser.full_name || invitedUser.email)}</strong>,</p>
+      <p><strong>${this.escapeHtml(organizerName)}</strong> đã mời bạn làm <strong>${this.escapeHtml(role)}</strong> cho sự kiện <strong>${this.escapeHtml(event.title)}</strong>.</p>
+      <p>Lời mời hết hạn lúc: <strong>${this.escapeHtml(expiresAt)}</strong>.</p>
+      <p>
+        <a href="${this.escapeHtml(notificationsUrl)}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">
+          Xem lời mời trên EventHub
+        </a>
+      </p>
+      <p>Nếu nút không hoạt động, hãy truy cập: ${this.escapeHtml(notificationsUrl)}</p>
+    `;
+
+    try {
+      await sendEmail({ email, subject, message, html });
+      return true;
+    } catch (error) {
+      logger.error(`Staff invitation email failed for ${email}:`, error);
+      return false;
+    }
+  }
+
+  serializeAuthUser(user, roles) {
+    return {
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      avatar_url: user.avatar_url,
+      roles,
+    };
+  }
+
+  async generateAccessTokenForUser(user) {
+    const rawRoles = await authRepository.findUserRoles(user.id);
+    let roles = rawRoles;
+    const staffEventIds = rawRoles.includes('STAFF')
+      ? await operationsRepository.getStaffEventIds(user.id)
+      : [];
+
+    if (rawRoles.includes('STAFF') && staffEventIds.length === 0) {
+      roles = rawRoles.filter((role) => role !== 'STAFF');
+    }
+
+    const payload = { sub: user.id, roles };
+
+    if (roles.includes('STAFF')) {
+      payload.staff_event_ids = staffEventIds;
+    }
+
+    const accessToken = jwt.sign(
+      payload,
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN },
+    );
+
+    return {
+      accessToken,
+      user: this.serializeAuthUser(user, roles),
+    };
+  }
+
+  isEventStaffManageable(event) {
+    if (!event || event.status === 'DRAFT') {
+      return false;
+    }
+
+    const isApprovedForStaff = event.status === 'PUBLISHED'
+      || (event.status === 'COMPLETED' && event.approval_status === 'APPROVED');
+    if (!isApprovedForStaff) {
+      return false;
+    }
+
+    const effectiveEnd = event.end_time || event.start_time;
+    if (!effectiveEnd) {
+      return false;
+    }
+
+    return new Date(effectiveEnd).getTime() >= Date.now();
+  }
+
+  assertEventStaffManageable(event) {
+    if (!this.isEventStaffManageable(event)) {
+      throw new AppError(
+        'Sự kiện đã hết hiệu lực, đang ở bản nháp hoặc chưa được duyệt. Bạn chỉ có thể xem thông số và báo cáo.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+  }
+
   async getOrganizerContext(userId) {
     const organizer = await operationsRepository.findOrganizerByUserId(userId);
     if (!organizer) {
-      throw new AppError('Organizer profile not found or inactive.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      throw new AppError('Không tìm thấy hồ sơ organizer hoặc tài khoản chưa hoạt động.', 403, ErrorCodes.AUTH_FORBIDDEN);
     }
     return organizer;
   }
@@ -16,7 +140,7 @@ class OperationsService {
   async resolveOrganizerEvent(organizerId, eventId) {
     const event = await operationsRepository.findOrganizerEvent(eventId, organizerId);
     if (!event) {
-      throw new AppError('Event not found or does not belong to this organizer.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy sự kiện hoặc sự kiện không thuộc organizer này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
     return event;
   }
@@ -61,7 +185,7 @@ class OperationsService {
 
     if (!quota.active) {
       throw new AppError(
-        'Active subscription is required before assigning staff.',
+        'Bạn cần có gói đăng ký còn hiệu lực trước khi phân công staff.',
         403,
         ErrorCodes.STAFF_SUBSCRIPTION_REQUIRED,
       );
@@ -69,7 +193,7 @@ class OperationsService {
 
     if (quota.remaining_slots <= 0) {
       throw new AppError(
-        `Staff limit reached for current subscription (${quota.per_event_limit} staff per event).`,
+        `Đã đạt giới hạn staff của gói hiện tại (${quota.per_event_limit} staff cho mỗi sự kiện).`,
         400,
         ErrorCodes.STAFF_LIMIT_REACHED,
         quota,
@@ -81,16 +205,16 @@ class OperationsService {
 
   async assertInvitableUser(invitedUser, organizer, event) {
     if (invitedUser.id === organizer.user_id || invitedUser.id === event.organizer_user_id) {
-      throw new AppError('You cannot invite the event organizer as staff.', 400, ErrorCodes.STAFF_INVITE_INVALID_USER);
+      throw new AppError('Không thể mời chủ sự kiện làm staff của chính sự kiện này.', 400, ErrorCodes.STAFF_INVITE_INVALID_USER);
     }
 
     const roles = await authRepository.findUserRoles(invitedUser.id);
     if (roles.includes('ORGANIZER')) {
-      throw new AppError('Organizer accounts cannot be invited as event staff.', 400, ErrorCodes.STAFF_INVITE_INVALID_USER);
+      throw new AppError('Không thể mời tài khoản organizer làm staff sự kiện.', 400, ErrorCodes.STAFF_INVITE_INVALID_USER);
     }
 
     if (roles.includes('ADMIN')) {
-      throw new AppError('Admin accounts cannot be invited as event staff.', 400, ErrorCodes.STAFF_INVITE_INVALID_USER);
+      throw new AppError('Không thể mời tài khoản admin làm staff sự kiện.', 400, ErrorCodes.STAFF_INVITE_INVALID_USER);
     }
   }
 
@@ -141,10 +265,11 @@ class OperationsService {
   async inviteStaff(userId, payload) {
     const organizer = await this.getOrganizerContext(userId);
     const event = await this.resolveOrganizerEvent(organizer.id, payload.event_id);
+    this.assertEventStaffManageable(event);
 
     const invitedUser = await operationsRepository.findActiveUserByEmail(payload.email);
     if (!invitedUser) {
-      throw new AppError('Email must belong to an active EventHub customer account.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Email phải thuộc về một tài khoản customer EventHub đang hoạt động.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     await this.assertInvitableUser(invitedUser, organizer, event);
@@ -170,21 +295,31 @@ class OperationsService {
       invitedBy: userId,
     });
 
+    const emailSent = await this.sendStaffInvitationEmail({
+      email: invitedUser.email,
+      event,
+      organizer,
+      invitedUser,
+      invitation,
+    });
+
     return {
       ...invitation,
       event_title: event.title,
       invited_user_name: invitedUser.full_name,
+      email_sent: emailSent,
       quota,
     };
   }
 
   async removeStaff(userId, { eventId, staffId }) {
     const organizer = await this.getOrganizerContext(userId);
-    await this.resolveOrganizerEvent(organizer.id, eventId);
+    const event = await this.resolveOrganizerEvent(organizer.id, eventId);
+    this.assertEventStaffManageable(event);
 
     const removed = await operationsRepository.removeStaff(eventId, staffId);
     if (!removed) {
-      throw new AppError('Staff assignment not found.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy phân công staff cho sự kiện này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     return { event_id: eventId, staff_id: staffId, removed: true };
@@ -193,10 +328,11 @@ class OperationsService {
   async createTask(userId, payload) {
     const organizer = await this.getOrganizerContext(userId);
     const event = await this.resolveOrganizerEvent(organizer.id, payload.event_id);
+    this.assertEventStaffManageable(event);
 
     const assigned = await operationsRepository.findEventStaffAssignment(payload.event_id, payload.staff_id);
     if (!assigned) {
-      throw new AppError('Staff must be assigned to the event before receiving tasks.', 400, ErrorCodes.STAFF_NOT_ASSIGNED);
+      throw new AppError('Staff phải được phân công vào sự kiện trước khi nhận công việc.', 400, ErrorCodes.STAFF_NOT_ASSIGNED);
     }
 
     const task = await operationsRepository.createTask({
@@ -229,7 +365,7 @@ class OperationsService {
   async listMyInvitations(userId) {
     const user = await operationsRepository.findActiveUserById(userId);
     if (!user) {
-      throw new AppError('User not found', 404, ErrorCodes.AUTH_USER_NOT_FOUND);
+      throw new AppError('Không tìm thấy người dùng.', 404, ErrorCodes.AUTH_USER_NOT_FOUND);
     }
 
     return operationsRepository.listInvitationsForUser(user.id, user.email);
@@ -238,26 +374,28 @@ class OperationsService {
   async acceptInvitation(userId, invitationId) {
     const user = await operationsRepository.findActiveUserById(userId);
     if (!user) {
-      throw new AppError('User not found', 404, ErrorCodes.AUTH_USER_NOT_FOUND);
+      throw new AppError('Không tìm thấy người dùng.', 404, ErrorCodes.AUTH_USER_NOT_FOUND);
     }
 
     const invitation = await operationsRepository.findInvitationForUser(invitationId, user.id, user.email);
     if (!invitation) {
-      throw new AppError('Invitation not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy lời mời staff.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (invitation.status !== 'PENDING') {
-      throw new AppError('Invitation has already been responded to.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Lời mời này đã được phản hồi trước đó.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     if (new Date(invitation.expires_at) < new Date()) {
       await operationsRepository.declineInvitation(invitationId, user.id);
-      throw new AppError('Invitation has expired.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Lời mời staff đã hết hạn.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     const existing = await operationsRepository.findEventStaffAssignment(invitation.event_id, user.id);
     // invitation.organizer_id comes from the JSON metadata inside notifications.content
     if (!existing && invitation.organizer_id) {
+      const event = await operationsRepository.findOrganizerEvent(invitation.event_id, invitation.organizer_id);
+      this.assertEventStaffManageable(event);
       await this.assertStaffQuotaAvailable(invitation.organizer_id, invitation.event_id);
     }
 
@@ -269,29 +407,32 @@ class OperationsService {
     });
 
     if (result.invalidStatus) {
-      throw new AppError('Invitation has already been responded to.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Lời mời này đã được phản hồi trước đó.', 400, ErrorCodes.INVALID_INPUT);
     }
+
+    const session = await this.generateAccessTokenForUser(user);
 
     return {
       ...result,
-      requires_relogin: true,
-      message: 'Bạn đã trở thành staff. Vui lòng đăng nhập lại để token có quyền STAFF.',
+      ...session,
+      staff_portal_url: '/staff',
+      message: 'Bạn đã nhận lời mời thành công. Cổng nhân sự đã sẵn sàng cho bạn.',
     };
   }
 
   async declineInvitation(userId, invitationId) {
     const user = await operationsRepository.findActiveUserById(userId);
     if (!user) {
-      throw new AppError('User not found', 404, ErrorCodes.AUTH_USER_NOT_FOUND);
+      throw new AppError('Không tìm thấy người dùng.', 404, ErrorCodes.AUTH_USER_NOT_FOUND);
     }
 
     const invitation = await operationsRepository.findInvitationForUser(invitationId, user.id, user.email);
     if (!invitation) {
-      throw new AppError('Invitation not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy lời mời staff.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (invitation.status !== 'PENDING') {
-      throw new AppError('Invitation has already been responded to.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Lời mời này đã được phản hồi trước đó.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     return operationsRepository.declineInvitation(invitationId, user.id);
@@ -312,7 +453,7 @@ class OperationsService {
   async updateStaffTaskStatus(staffId, taskId, status) {
     const task = await operationsRepository.updateStaffTaskStatus(taskId, staffId, status);
     if (!task) {
-      throw new AppError('Task not found or you are not assigned to this task.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      throw new AppError('Không tìm thấy công việc hoặc bạn không còn quyền staff cho sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
     }
     return task;
   }
