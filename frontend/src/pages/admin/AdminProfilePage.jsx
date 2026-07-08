@@ -8,7 +8,6 @@ import {
   Lock,
   Camera,
   UserCircle,
-  Edit,
   X,
   Check,
   Loader2,
@@ -46,7 +45,6 @@ export function AdminProfilePage() {
           full_name: res.full_name || '',
           phone: res.phone || '',
           dob: res.dob?.split('T')[0] || '',
-          city: res.city || '',
           address: res.address || ''
         })
       } catch (err) {
@@ -92,7 +90,6 @@ export function AdminProfilePage() {
         full_name: formData.full_name.trim(),
         phone: String(formData.phone || '').trim() || null,
         dob: formData.dob || null,
-        city: String(formData.city || '').trim() || null,
         address: String(formData.address || '').trim() || null,
         avatar_url: finalAvatarUrl || null,
       })
@@ -144,12 +141,6 @@ export function AdminProfilePage() {
       description="Quản lý thông tin tài khoản và thiết lập bảo mật của bạn."
       actions={
         <div className="flex gap-2">
-           <button 
-            onClick={() => { setMode('view'); setPreviewUrl(user.avatar_url || ''); setSelectedFile(null); }}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'view' ? 'bg-tertiary text-white border-tertiary' : ''}`}
-           >
-            Xem hồ sơ
-           </button>
            <button 
             onClick={() => setMode('edit')}
             className={`admin-secondary px-4 py-2 text-xs ${mode === 'edit' ? 'bg-tertiary text-white border-tertiary' : ''}`}
@@ -229,16 +220,12 @@ export function AdminProfilePage() {
              <Panel className="p-8 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="flex items-center justify-between mb-8 border-b border-border-soft/30 pb-4">
                    <h3 className="font-display text-xl font-extrabold text-content">Thông tin cá nhân</h3>
-                   <button onClick={() => setMode('edit')} className="flex items-center gap-2 text-sm font-bold text-primary hover:underline">
-                      <Edit className="size-4" /> Chỉnh sửa
-                   </button>
                 </div>
                 
                 <div className="grid gap-6 md:grid-cols-2">
                    <InfoField icon={Mail} label="Email" value={user.email} />
                    <InfoField icon={Phone} label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
                    <InfoField icon={Calendar} label="Ngày sinh" value={user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} />
-                   <InfoField icon={MapPin} label="Thành phố" value={user.city || 'Chưa cập nhật'} />
                    <InfoField icon={MapPin} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} className="md:col-span-2" />
                 </div>
              </Panel>
@@ -253,7 +240,6 @@ export function AdminProfilePage() {
                    <InputField label="Họ và tên" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
                    <InputField label="Số điện thoại" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                    <InputField label="Ngày sinh" type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
-                   <InputField label="Thành phố" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
                    <InputField label="Địa chỉ" className="md:col-span-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 </div>
                 <div className="mt-8 flex justify-end gap-3">
