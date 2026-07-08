@@ -3,8 +3,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
 import { AuthShell, Field } from './LoginPage.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function ForgotPasswordPage() {
+    const toast = useToast()
     const [email, setEmail] = useState('')
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -17,8 +20,11 @@ export function ForgotPasswordPage() {
         try {
             await authService.forgotPassword(email)
             setSuccess(true)
+            toast.success('Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email.')
         } catch (err) {
-            setError(err.response?.data?.message || 'Không thể gửi yêu cầu đặt lại mật khẩu.')
+            const message = getApiMessage(err, 'Không thể gửi yêu cầu đặt lại mật khẩu.')
+            setError(message)
+            toast.error(message)
         } finally {
             setLoading(false)
         }

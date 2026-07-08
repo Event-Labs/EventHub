@@ -11,6 +11,8 @@ import {
   updateVenue,
 } from '@/services/organizerVenues.js'
 import { parseOpenCageAddress, reverseGeocode, searchAddress, forwardGeocode } from '@/services/opencage.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const DEFAULT_CENTER = { lat: 21.0285, lng: 105.8542 }
 
@@ -47,6 +49,7 @@ function buildAddressQuery(form) {
 }
 
 function VenueFormModal({ open, editVenue, onClose, onSaved }) {
+  const toast = useToast()
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const markerInstance = useRef(null)
@@ -243,11 +246,15 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name.trim()) {
-      setError('Vui lòng nhập tên địa điểm')
+      const message = 'Vui lòng nhập tên địa điểm.'
+      setError(message)
+      toast.error(message)
       return
     }
     if (!form.address_line.trim()) {
-      setError('Vui lòng nhập địa chỉ')
+      const message = 'Vui lòng nhập địa chỉ.'
+      setError(message)
+      toast.error(message)
       return
     }
 
@@ -281,7 +288,9 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
       onClose()
     } catch (err) {
       console.error(err)
-      setError(err.response?.data?.message || err.message || 'Không thể lưu địa điểm')
+      const message = getApiMessage(err, 'Không thể lưu địa điểm.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
       setGeocoding(false)
@@ -457,6 +466,7 @@ function VenueCard({ venue, onEdit, onDelete }) {
 }
 
 export function OrganizerVenuesPage() {
+  const toast = useToast()
   const [venues, setVenues] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -471,7 +481,9 @@ export function OrganizerVenuesPage() {
       setVenues(data)
     } catch (err) {
       console.error(err)
-      setMessage('Không thể tải danh sách địa điểm.')
+      const message = 'Không thể tải danh sách địa điểm.'
+      setMessage(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -505,10 +517,13 @@ export function OrganizerVenuesPage() {
     try {
       await deleteVenue(venue.id)
       setMessage('Đã xóa địa điểm.')
+      toast.success('Đã xóa địa điểm.')
       loadVenues()
     } catch (err) {
       console.error(err)
-      setMessage(err.response?.data?.message || 'Không thể xóa địa điểm.')
+      const message = getApiMessage(err, 'Không thể xóa địa điểm.')
+      setMessage(message)
+      toast.error(message)
     }
   }
 
@@ -559,7 +574,9 @@ export function OrganizerVenuesPage() {
         editVenue={editVenue}
         onClose={() => setModalOpen(false)}
         onSaved={() => {
-          setMessage(editVenue ? 'Đã cập nhật địa điểm.' : 'Đã tạo địa điểm mới.')
+          const message = editVenue ? 'Đã cập nhật địa điểm.' : 'Đã tạo địa điểm mới.'
+          setMessage(message)
+          toast.success(message)
           loadVenues()
         }}
       />

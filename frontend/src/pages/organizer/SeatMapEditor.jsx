@@ -11,6 +11,8 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import { createSeatMap, getSeatMap, updateSeatMap } from '@/services/organizerSeatMaps.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const SEAT_W = 28
 const SEAT_H = 28
@@ -108,6 +110,7 @@ function seatKey(x, y) {
 }
 
 export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
+  const toast = useToast()
   const svgRef = useRef(null)
   const paintVisited = useRef(new Set())
   const seatCounter = useRef(1)
@@ -173,7 +176,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       })
       .catch((err) => {
         console.error(err)
-        setError('Không thể tải sơ đồ ghế.')
+        const message = 'Không thể tải sơ đồ ghế.'
+        setError(message)
+        toast.error(message)
       })
       .finally(() => setLoading(false))
   }, [seatMapId])
@@ -561,15 +566,21 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   async function handleSave() {
     if (!mapName.trim()) {
-      setError('Vui lòng nhập tên sơ đồ')
+      const message = 'Vui lòng nhập tên sơ đồ.'
+      setError(message)
+      toast.error(message)
       return
     }
     if (!seats.length) {
-      setError('Sơ đồ cần có ít nhất 1 ghế')
+      const message = 'Sơ đồ cần có ít nhất 1 ghế.'
+      setError(message)
+      toast.error(message)
       return
     }
     if (seats.length > 2000) {
-      setError('Tối đa 2000 ghế mỗi sơ đồ')
+      const message = 'Tối đa 2000 ghế mỗi sơ đồ.'
+      setError(message)
+      toast.error(message)
       return
     }
 
@@ -615,7 +626,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       onSave(result)
     } catch (err) {
       console.error(err)
-      setError(err.response?.data?.message || 'Lỗi khi lưu sơ đồ')
+      const message = getApiMessage(err, 'Không thể lưu sơ đồ ghế.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }

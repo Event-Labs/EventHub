@@ -3,8 +3,11 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
 import { AuthShell } from './LoginPage.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function VerifyEmailPage() {
+    const toast = useToast()
     const [searchParams] = useSearchParams()
     const navigate = useNavigate()
     const token = searchParams.get('token')
@@ -20,22 +23,27 @@ export function VerifyEmailPage() {
 
         const verify = async () => {
             if (!token) {
+                const message = 'Mã xác thực không hợp lệ hoặc đã hết hạn.'
                 setStatus('error')
-                setError('Mã xác thực không hợp lệ hoặc đã hết hạn.')
+                setError(message)
+                toast.error(message)
                 return
             }
 
             try {
                 await authService.verifyEmail(token)
                 setStatus('success')
+                toast.success('Email xác thực thành công.')
             } catch (err) {
+                const message = getApiMessage(err, 'Xác thực email thất bại. Vui lòng thử lại sau.')
                 setStatus('error')
-                setError(err.response?.data?.message || 'Xác thực email thất bại. Vui lòng thử lại sau.')
+                setError(message)
+                toast.error(message)
             }
         }
 
         verify()
-    }, [token])
+    }, [token, toast])
 
     useEffect(() => {
         if (status === 'success' && countdown > 0) {

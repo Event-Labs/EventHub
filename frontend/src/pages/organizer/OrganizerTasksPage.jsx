@@ -17,6 +17,8 @@ import {
   fetchOrganizerStaffTasks,
 } from '@/services/operations.js'
 import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -57,6 +59,7 @@ function taskDisplayId(taskId) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export function OrganizerTasksPage() {
+  const toast = useToast()
   const [overview, setOverview] = useState(null)
   const [tasks, setTasks] = useState([])
   const [selectedEventId, setSelectedEventId] = useState('')
@@ -81,7 +84,9 @@ export function OrganizerTasksPage() {
         setSelectedEventId(ov.events[0].id)
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải dữ liệu.')
+      const message = getApiMessage(err, 'Không thể tải dữ liệu.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -103,7 +108,9 @@ export function OrganizerTasksPage() {
       const taskList = await fetchOrganizerStaffTasks(eventId ? { event_id: eventId } : {})
       setTasks(taskList)
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải công việc.')
+      const message = getApiMessage(err, 'Không thể tải công việc.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -344,6 +351,7 @@ export function OrganizerTasksPage() {
           assignedStaff={assignedStaff}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
+            toast.success('Đã tạo công việc.')
             setShowCreateModal(false)
             handleEventChange(selectedEventId)
           }}
@@ -494,6 +502,7 @@ function StaffProgressTable({ tasks, staffOptions }) {
 // ─── Create Task Modal ────────────────────────────────────────────────────────
 
 function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCreated }) {
+  const toast = useToast()
   const [form, setForm] = useState({
     event_id: selectedEventId || events[0]?.id || '',
     staff_id: '',
@@ -523,7 +532,9 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
       })
       onCreated()
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tạo công việc.')
+      const message = getApiMessage(err, 'Không thể tạo công việc.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
