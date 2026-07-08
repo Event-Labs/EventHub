@@ -111,6 +111,7 @@ class OperationsRepository {
         e.thumbnail_url,
         e.banner_url,
         e.status,
+        e.approval_status,
         e.start_time,
         e.end_time,
         COUNT(DISTINCT es.staff_id)::int AS staff_count,
@@ -138,6 +139,7 @@ class OperationsRepository {
         e.slug,
         e.organizer_id,
         e.status,
+        e.approval_status,
         e.start_time,
         e.end_time,
         o.user_id AS organizer_user_id
@@ -282,7 +284,18 @@ class OperationsRepository {
 
   async getStaffEventIds(staffId) {
     const { rows } = await db.query(
-      'SELECT event_id FROM event_staffs WHERE staff_id = $1',
+      `
+      SELECT es.event_id
+      FROM event_staffs es
+      JOIN events e ON e.id = es.event_id
+      WHERE es.staff_id = $1
+        AND e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
+      `,
       [staffId],
     );
     return rows.map(r => r.event_id);
@@ -657,6 +670,11 @@ class OperationsRepository {
       ) checkin_summary ON true
       WHERE es.staff_id = $1
         AND e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
       ORDER BY e.start_time ASC
       `,
       [staffId],
@@ -673,6 +691,11 @@ class OperationsRepository {
         JOIN events e ON e.id = es.event_id
         WHERE es.staff_id = $1
           AND e.deleted_at IS NULL
+          AND (
+            e.status = 'PUBLISHED'
+            OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+          )
+          AND COALESCE(e.end_time, e.start_time) >= now()
       ),
       event_counts AS (
         SELECT COUNT(*)::int AS assigned_events
@@ -799,6 +822,11 @@ class OperationsRepository {
       JOIN event_staffs es ON es.event_id = st.event_id AND es.staff_id = st.staff_id
       WHERE st.staff_id = $1
         AND e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
         ${eventClause}
       ORDER BY
         CASE st.status WHEN 'TODO' THEN 0 WHEN 'IN_PROGRESS' THEN 1 ELSE 2 END,
@@ -819,8 +847,15 @@ class OperationsRepository {
         AND EXISTS (
           SELECT 1
           FROM event_staffs es
+          JOIN events e ON e.id = es.event_id
           WHERE es.event_id = st.event_id
             AND es.staff_id = $2
+            AND e.deleted_at IS NULL
+            AND (
+              e.status = 'PUBLISHED'
+              OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+            )
+            AND COALESCE(e.end_time, e.start_time) >= now()
         )
       RETURNING
         st.id,

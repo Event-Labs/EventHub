@@ -8,6 +8,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
+import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated } from '@/lib/auth.js'
 import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
@@ -144,10 +145,22 @@ export function AppLayout() {
     navigate('/')
   }
 
+  const currentUserRoles = getUserRoles(currentUser)
+  const hasOrganizerRole = currentUserRoles.includes('organizer')
+  const hasStaffRole = currentUserRoles.includes('staff')
+
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'nav'],
     queryFn: () => fetchNotifications({ limit: 5 }),
     enabled: loggedIn,
+  })
+
+  const staffEventsQuery = useQuery({
+    queryKey: ['staff-events', 'nav'],
+    queryFn: fetchAssignedStaffEvents,
+    enabled: loggedIn && hasStaffRole,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   })
 
   const markReadMutation = useMutation({
@@ -223,8 +236,9 @@ export function AppLayout() {
   const notifications = notificationsQuery.data?.items || []
   const navNotifications = dedupeNavNotifications(notifications).slice(0, 5)
   const unreadCount = notificationsQuery.data?.unread_count || 0
-  const currentUserRoles = getUserRoles(currentUser)
-  const canOpenStaffPortal = currentUserRoles.includes('staff')
+  const canOpenOrganizerPortal = hasOrganizerRole
+  const canOpenStaffPortal = hasStaffRole
+    && (!staffEventsQuery.isSuccess || (staffEventsQuery.data || []).length > 0)
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-content">
@@ -274,6 +288,14 @@ export function AppLayout() {
             </div>
           ) : (
             <div className="relative flex items-center gap-3">
+              {canOpenOrganizerPortal && (
+                <NavLink
+                  to="/organizer"
+                  className="hidden rounded-full border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:border-primary hover:bg-primary hover:text-[#081126] sm:inline-flex"
+                >
+                  Trang tổ chức
+                </NavLink>
+              )}
               {canOpenStaffPortal && (
                 <NavLink
                   to="/staff"
@@ -376,6 +398,15 @@ export function AppLayout() {
               )}
               {open && (
                 <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-lg border border-border-soft bg-panel shadow-2xl">
+                  {canOpenOrganizerPortal && (
+                    <NavLink
+                      className="block px-4 py-3 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
+                      to="/organizer"
+                      onClick={() => setOpen(false)}
+                    >
+                      Quay lại trang tổ chức
+                    </NavLink>
+                  )}
                   {canOpenStaffPortal && (
                     <NavLink
                       className="block px-4 py-3 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
@@ -406,13 +437,15 @@ export function AppLayout() {
                   >
                     Sự kiện yêu thích
                   </NavLink>
-                  <NavLink
-                    className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
-                    to="/organizer-request"
-                    onClick={() => setOpen(false)}
-                  >
-                    Đăng kí làm organizer
-                  </NavLink>
+                  {!canOpenOrganizerPortal && (
+                    <NavLink
+                      className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
+                      to="/organizer-request"
+                      onClick={() => setOpen(false)}
+                    >
+                      Đăng kí làm organizer
+                    </NavLink>
+                  )}
                   <button
                     className="block w-full px-4 py-3 text-left text-sm font-semibold text-error hover:bg-error/10"
                     onClick={logout}
