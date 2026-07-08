@@ -10,7 +10,7 @@ import {
 import adminUserService from '@/services/adminUser'
 import { UserDetailView, LockUserModal } from './UserManagementComponents'
 import { Modal } from '@/components/Modal'
-import { Search, RotateCcw, AlertTriangle, ShieldCheck, Eye } from 'lucide-react'
+import { Search, RotateCcw, AlertTriangle, Eye, Unlock } from 'lucide-react'
 
 export function AdminAccountsPage() {
   const [users, setUsers] = useState([])
@@ -263,7 +263,7 @@ export function AdminAccountsPage() {
                 title="Mở khóa"
                 className="grid size-9 place-items-center rounded-full text-success transition duration-200 hover:-translate-y-0.5 hover:bg-success/25 hover:shadow-lg hover:shadow-success/35 hover:ring-1 hover:ring-success/50"
               >
-                <ShieldCheck className="size-5 text-success" />
+                <Unlock className="size-5 text-success" />
               </button>
             ) : (
               <button
