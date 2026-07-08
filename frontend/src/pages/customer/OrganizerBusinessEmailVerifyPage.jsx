@@ -2,8 +2,11 @@ import { CheckCircle, Loader2, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { verifyOrganizerBusinessEmail } from '@/services/organizerRequests.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function OrganizerBusinessEmailVerifyPage() {
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
   const [status, setStatus] = useState('verifying')
@@ -16,22 +19,27 @@ export function OrganizerBusinessEmailVerifyPage() {
 
     const verify = async () => {
       if (!token) {
+        const message = 'Mã xác thực không hợp lệ hoặc đã hết hạn.'
         setStatus('error')
-        setError('Mã xác thực không hợp lệ hoặc đã hết hạn.')
+        setError(message)
+        toast.error(message)
         return
       }
 
       try {
         await verifyOrganizerBusinessEmail(token)
         setStatus('success')
+        toast.success('Email tổ chức đã được xác thực.')
       } catch (err) {
+        const message = getApiMessage(err, 'Xác thực email tổ chức thất bại.')
         setStatus('error')
-        setError(err.response?.data?.message || 'Xác thực email tổ chức thất bại.')
+        setError(message)
+        toast.error(message)
       }
     }
 
     verify()
-  }, [token])
+  }, [token, toast])
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center sm:px-6 lg:px-8">

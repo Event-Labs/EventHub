@@ -20,10 +20,13 @@ import {
   removeStaffFromEvent,
 } from '@/services/operations.js'
 import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerStaffManagementPage() {
+  const toast = useToast()
   const [data, setData] = useState(null)
   const [selectedEventId, setSelectedEventId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -40,7 +43,9 @@ export function OrganizerStaffManagementPage() {
       setData(ov)
       setSelectedEventId((cur) => cur || ov.events?.[0]?.id || '')
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải dữ liệu.')
+      const message = getApiMessage(err, 'Không thể tải dữ liệu.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -77,10 +82,13 @@ export function OrganizerStaffManagementPage() {
     setError('')
     try {
       await removeStaffFromEvent(selectedEventId, removeConfirm.staffId)
+      toast.success('Đã gỡ nhân sự khỏi sự kiện.')
       setRemoveConfirm(null)
       await loadData()
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gỡ nhân sự.')
+      const message = getApiMessage(err, 'Không thể gỡ nhân sự.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -279,6 +287,7 @@ export function OrganizerStaffManagementPage() {
           perEventLimit={perEventLimit}
           onClose={() => setShowInviteModal(false)}
           onInvited={() => {
+            toast.success('Đã gửi lời mời nhân sự.')
             setShowInviteModal(false)
             loadData()
           }}
@@ -312,6 +321,7 @@ function InviteStaffModal({
   onClose,
   onInvited,
 }) {
+  const toast = useToast()
   const [form, setForm] = useState({ event_id: selectedEventId || '', email: '', staff_role: 'Check-in' })
   const [candidateSearch, setCandidateSearch] = useState('')
   const [candidates, setCandidates] = useState([])
@@ -347,7 +357,9 @@ function InviteStaffModal({
       await inviteStaffToEvent({ event_id: form.event_id, email: form.email.trim(), staff_role: form.staff_role })
       onInvited()
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gửi lời mời.')
+      const message = getApiMessage(err, 'Không thể gửi lời mời.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }

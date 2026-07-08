@@ -18,6 +18,8 @@ import { cancelOrder, checkoutOrder, fetchOrderStatus } from '@/services/orders.
 import { checkTicketAvailability, fetchSessionSeats, holdSeats } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import promotionService from '@/services/promotions.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 function formatPrice(value) {
   const number = Number(value)
@@ -713,6 +715,7 @@ export function BookingReviewPage() {
 }
 
 export function BookingPaymentPage() {
+  const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -727,14 +730,28 @@ export function BookingPaymentPage() {
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
       setError('')
+      toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       setCheckout(data)
       setCart((current) => ({ ...current, holdExpiresAt: data.order?.expired_at || current?.holdExpiresAt }))
       navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart, checkout: data } })
     },
     onError: (err) => {
-      setError(err.response?.data?.message || 'Kh\u00f4ng th\u1ec3 t\u1ea1o thanh to\u00e1n PayOS. Vui l\u00f2ng th\u1eed l\u1ea1i.')
+      const message = getApiMessage(err, 'Không thể tạo thanh toán PayOS. Vui lòng thử lại.')
+      setError(message)
+      toast.error(message)
     },
   })
+
+  const handleCancelOrder = async () => {
+    if (!orderId) return
+    try {
+      await cancelOrder(orderId)
+      toast.success('Đã hủy đặt vé.')
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể hủy đặt vé. Vui lòng thử lại.'))
+      throw err
+    }
+  }
 
   const statusQuery = useQuery({
     queryKey: ['order-status', orderId],
@@ -832,7 +849,7 @@ export function BookingPaymentPage() {
             )}
           </Panel>
         </section>
-        <OrderCard cart={cart} setCart={setCart} cta={'\u0110ang ch\u1edd thanh to\u00e1n'} disabled onCancel={() => (orderId ? cancelOrder(orderId) : undefined)} />
+        <OrderCard cart={cart} setCart={setCart} cta={'\u0110ang ch\u1edd thanh to\u00e1n'} disabled onCancel={handleCancelOrder} />
       </div>
     </BookingShell>
   )

@@ -8,8 +8,6 @@ import {
   Lock,
   Camera,
   UserCircle,
-  AlertCircle,
-  LogOut,
   Edit,
   X,
   Check,
@@ -18,13 +16,15 @@ import {
 import {
   Badge,
   Panel,
-  AvatarFallback,
   Page,
 } from './AdminComponents'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function AdminProfilePage() {
+  const toast = useToast()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState('view')
@@ -51,18 +51,19 @@ export function AdminProfilePage() {
         })
       } catch (err) {
         console.error('Failed to fetch admin profile', err)
+        toast.error('Không thể tải hồ sơ quản trị. Vui lòng thử lại.')
       } finally {
         setLoading(false)
       }
     }
     fetchProfile()
-  }, [])
+  }, [toast])
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (file) {
       if (!file.type.startsWith('image/')) {
-        alert('Vui lòng chọn tệp ảnh hợp lệ!')
+        toast.error('Vui lòng chọn tệp ảnh hợp lệ.')
         return
       }
       setSelectedFile(file)
@@ -72,7 +73,7 @@ export function AdminProfilePage() {
 
   const handleSave = async () => {
     if (!String(formData.full_name || '').trim()) {
-      alert('Vui lòng nhập họ và tên.')
+      toast.error('Vui lòng nhập họ và tên.')
       return
     }
 
@@ -100,9 +101,9 @@ export function AdminProfilePage() {
       setPreviewUrl(updated.avatar_url || '')
       setSelectedFile(null)
       setMode('view')
-      alert('Cập nhật hồ sơ thành công!')
+      toast.success('Cập nhật hồ sơ thành công.')
     } catch (err) {
-      alert('Lỗi cập nhật hồ sơ: ' + err.message)
+      toast.error(getApiMessage(err, 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
       setUploadingAvatar(false)
@@ -110,15 +111,18 @@ export function AdminProfilePage() {
   }
 
   const handleChangePassword = async () => {
-    if (passwordData.new !== passwordData.confirm) return alert('Mật khẩu xác nhận không khớp!')
+    if (passwordData.new !== passwordData.confirm) {
+      toast.error('Mật khẩu xác nhận không khớp.')
+      return
+    }
     setSaving(true)
     try {
       await changePassword(passwordData.current, passwordData.new)
       setMode('view')
       setPasswordData({ current: '', new: '', confirm: '' })
-      alert('Đổi mật khẩu thành công!')
+      toast.success('Đổi mật khẩu thành công.')
     } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || err.message))
+      toast.error(getApiMessage(err, 'Không thể đổi mật khẩu. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
     }
@@ -132,7 +136,7 @@ export function AdminProfilePage() {
     )
   }
 
-  if (!user) return <div className="text-center py-20 font-bold text-error">Could not load profile.</div>
+  if (!user) return <div className="text-center py-20 font-bold text-error">Không thể tải hồ sơ. Vui lòng thử lại.</div>
 
   return (
     <Page

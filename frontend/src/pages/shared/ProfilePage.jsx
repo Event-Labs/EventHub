@@ -34,6 +34,8 @@ import {
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
 import { fetchOrganizerProfile, updateOrganizerProfile } from '@/services/organizerEvents.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const EMPTY_TEXT = 'Chưa cập nhật'
 
@@ -433,6 +435,7 @@ function ProfileView({ user }) {
 }
 
 function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
+  const toast = useToast()
   const request = organizer?.source_request || {}
   const initialDescription = firstValue(organizer?.description, request.organization_description, user.bio, '')
   const initialWebsiteUrl = firstValue(organizer?.website_url, '')
@@ -452,7 +455,6 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(user.avatar_url || '')
   const [isUploading, setIsUploading] = useState(false)
-  const [message, setMessage] = useState({ type: '', text: '' })
 
   const updateMutation = useMutation({
     mutationFn: async ({ userPayload, organizerPayload }) => {
@@ -463,12 +465,12 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
       return updatedUser
     },
     onSuccess: (updatedUser) => {
-      setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' })
+      toast.success('Cập nhật hồ sơ thành công.')
       updateStoredUser(updatedUser)
-      setTimeout(onDone, 1500)
+      onDone()
     },
     onError: (err) => {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Không thể cập nhật hồ sơ.' })
+      toast.error(getApiMessage(err, 'Không thể cập nhật hồ sơ.'))
     },
   })
 
@@ -497,7 +499,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
     const file = e.target.files[0]
     if (file) {
       if (!file.type.startsWith('image/')) {
-        setMessage({ type: 'error', text: 'Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG).' })
+        toast.error('Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG).')
         return
       }
       setSelectedFile(file)
@@ -510,7 +512,6 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
     if (!validate()) return
 
     setIsUploading(true)
-    setMessage({ type: '', text: '' })
 
     try {
       let finalAvatarUrl = formData.avatar_url
@@ -537,7 +538,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
 
       updateMutation.mutate({ userPayload, organizerPayload })
     } catch (err) {
-      setMessage({ type: 'error', text: err.message || 'Lỗi tải ảnh lên Cloudinary.' })
+      toast.error(getApiMessage(err, 'Không thể tải ảnh lên hệ thống.'))
     } finally {
       setIsUploading(false)
     }
@@ -563,15 +564,6 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
       </aside>
       <section className="glass-panel rounded-lg p-6">
         <h2 className="font-display text-2xl font-bold text-white">Chỉnh sửa hồ sơ</h2>
-
-        {message.text && (
-          <div className={`mt-4 flex items-center gap-2 rounded-md p-3 text-sm ${
-            message.type === 'success' ? 'border border-success/20 bg-success/10 text-success' : 'border border-error/20 bg-error/10 text-error'
-          }`}>
-            {message.type === 'success' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
-            {message.text}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
           <div className="rounded-lg border border-border-soft bg-surface/70 p-5">
@@ -653,12 +645,12 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
 }
 
 function ChangePassword({ user, onDone }) {
+  const toast = useToast()
   const [form, setForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   })
-  const [message, setMessage] = useState({ type: '', text: '' })
 
   const hasPassword = user?.hasPassword
   const checks = {
@@ -673,14 +665,14 @@ function ChangePassword({ user, onDone }) {
   const mutation = useMutation({
     mutationFn: () => changePassword(form.currentPassword, form.newPassword),
     onSuccess: () => {
-      setMessage({ type: 'success', text: 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.' })
+      toast.success('Đổi mật khẩu thành công. Vui lòng đăng nhập lại.')
       setTimeout(() => {
         clearAuthSession()
         window.location.href = '/login'
       }, 2000)
     },
     onError: (err) => {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Đã có lỗi xảy ra.' })
+      toast.error(getApiMessage(err, 'Không thể đổi mật khẩu. Vui lòng thử lại.'))
     },
   })
 
@@ -700,15 +692,6 @@ function ChangePassword({ user, onDone }) {
           ? 'Cập nhật mật khẩu định kỳ để tăng cường bảo mật.'
           : 'Bạn đang đăng nhập bằng Google, hãy thiết lập mật khẩu để có thể đăng nhập trực tiếp bằng email.'}
       </p>
-
-      {message.text && (
-        <div className={`mt-6 flex items-center gap-2 rounded-md p-3 text-sm ${
-          message.type === 'success' ? 'border border-success/20 bg-success/10 text-success' : 'border border-error/20 bg-error/10 text-error'
-        }`}>
-          {message.type === 'success' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
-          {message.text}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
         {hasPassword && (

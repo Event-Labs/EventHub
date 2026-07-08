@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchSubscriptionsForOrganizer, fetchCurrentPlan, subscribeToPlan } from '@/services/subscriptions.js'
 import { Badge, Insight, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function OrganizerSubscriptionsPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -29,14 +32,18 @@ export function OrganizerSubscriptionsPage() {
       setSelectedPlan(null)
 
       if (result.requires_payment) {
+        toast.success('Đã tạo yêu cầu thanh toán gói dịch vụ.')
         // PayOS flow — redirect to payment page
         navigate(`/organizer/subscriptions/payment-result?paymentId=${result.payment_id}`)
       } else {
         // Free plan / direct activation
+        toast.success('Đã kích hoạt gói dịch vụ.')
         refetchCurrentPlan()
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Có lỗi xảy ra khi xử lý gói dịch vụ.')
+      const message = getApiMessage(err, 'Có lỗi xảy ra khi xử lý gói dịch vụ.')
+      setError(message)
+      toast.error(message)
     } finally {
       setIsProcessing(false)
     }

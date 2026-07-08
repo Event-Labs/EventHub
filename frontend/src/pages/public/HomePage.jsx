@@ -21,6 +21,8 @@ import {
   fetchEvents,
   toggleFavorite,
 } from '@/services/events.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const categoryIcons = [
   Music,
@@ -81,6 +83,7 @@ function uniqueEvents(...groups) {
 }
 
 export function HomePage() {
+  const toast = useToast()
   const [keyword, setKeyword] = useState('')
   const [activeSlide, setActiveSlide] = useState(0)
   const [timelineNow] = useState(() => Date.now())
@@ -115,10 +118,14 @@ export function HomePage() {
 
   const favoriteMutation = useMutation({
     mutationFn: (event) => toggleFavorite(event.id),
-    onSuccess: () => {
+    onSuccess: (_data, event) => {
+      toast.success(event?.is_favorited ? 'Đã bỏ sự kiện khỏi yêu thích.' : 'Đã lưu sự kiện vào yêu thích.')
       queryClient.invalidateQueries({ queryKey: ['home-events'] })
       queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật yêu thích. Vui lòng thử lại.'))
     },
   })
 
@@ -187,6 +194,7 @@ export function HomePage() {
 
   const handleFavorite = (event) => {
     if (!getAuthToken()) {
+      toast.error('Vui lòng đăng nhập để lưu sự kiện yêu thích.')
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
       return
     }

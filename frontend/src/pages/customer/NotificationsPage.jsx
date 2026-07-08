@@ -14,6 +14,8 @@ import {
   fetchMyStaffInvitations,
 } from '@/services/operations.js'
 import { cn } from '@/lib/utils.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 function isStaffInvitationNotification(notification) {
   return notification.title === 'STAFF_INVITATION' || notification.title === 'Lời mời làm staff'
@@ -94,6 +96,7 @@ function iconFor(type) {
 }
 
 export function NotificationsPage() {
+  const toast = useToast()
   const [acceptedInvitationId, setAcceptedInvitationId] = useState(null)
   const queryClient = useQueryClient()
   const notificationsQuery = useQuery({
@@ -108,33 +111,49 @@ export function NotificationsPage() {
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
     onSuccess: () => {
+      toast.success('Đã đánh dấu thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể đánh dấu thông báo. Vui lòng thử lại.'))
     },
   })
 
   const markAllMutation = useMutation({
     mutationFn: markAllNotificationsRead,
     onSuccess: () => {
+      toast.success('Đã đánh dấu tất cả thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể đánh dấu tất cả thông báo. Vui lòng thử lại.'))
     },
   })
 
   const acceptInvitationMutation = useMutation({
     mutationFn: acceptStaffInvitation,
     onSuccess: (data, invitationId) => {
+      toast.success(data?.message || 'Bạn đã đồng ý lời mời làm staff.')
       setAcceptedInvitationId(invitationId)
       queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể đồng ý lời mời. Vui lòng thử lại.'))
     },
   })
 
   const declineInvitationMutation = useMutation({
     mutationFn: declineStaffInvitation,
     onSuccess: () => {
+      toast.success('Đã từ chối lời mời làm staff.')
       queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể từ chối lời mời. Vui lòng thử lại.'))
     },
   })
 

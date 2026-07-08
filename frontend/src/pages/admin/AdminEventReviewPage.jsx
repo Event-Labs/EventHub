@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Calendar, CheckCircle2, Eye, EyeOff, MapPin, Tag, Ticket, XCircle } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { fetchAdminEvents, hideAdminEvent, reviewAdminEvent, unhideAdminEvent } from '@/services/adminEvents.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, ImagePlaceholder, Page, Panel, Table } from './AdminComponents.jsx'
 
 // ---------------------------------------------------------------------------
@@ -50,6 +52,7 @@ function formatDate(value) {
 // Main Page
 // ---------------------------------------------------------------------------
 export function AdminEventReviewPage() {
+  const toast = useToast()
   const queryClient = useQueryClient()
 
   const [activeStatus, setActiveStatus] = useState('PENDING_REVIEW')
@@ -74,6 +77,12 @@ export function AdminEventReviewPage() {
     keepPreviousData: true,
   })
 
+  useEffect(() => {
+    if (isError) {
+      toast.error('Không thể tải danh sách sự kiện.')
+    }
+  }, [isError, toast])
+
   const items = data?.items ?? []
   const pagination = data?.pagination ?? {}
 
@@ -85,36 +94,51 @@ export function AdminEventReviewPage() {
 
   const reviewMutation = useMutation({
     mutationFn: ({ eventId, payload }) => reviewAdminEvent(eventId, payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      const status = variables?.payload?.status
+      toast.success(status === 'APPROVED' ? 'Đã phê duyệt sự kiện.' : 'Đã từ chối sự kiện.')
       closeModal()
       invalidate()
     },
     onError: (err) => {
-      const apiMsg = err.response?.data?.message
+      const apiMsg = getApiMessage(err, 'Không thể thực hiện thao tác.')
       const zodErrors = err.response?.data?.errors
       if (zodErrors?.length) {
-        setModalError(zodErrors.map((e) => e.message).join(', '))
+        const message = zodErrors.map((e) => e.message).join(', ')
+        setModalError(message)
+        toast.error(message)
       } else {
-        setModalError(apiMsg || 'Không thể thực hiện thao tác.')
+        setModalError(apiMsg)
+        toast.error(apiMsg)
       }
     },
   })
 
   const hideMutation = useMutation({
     mutationFn: ({ eventId, payload }) => hideAdminEvent(eventId, payload),
-    onSuccess: () => { closeModal(); invalidate() },
+    onSuccess: () => {
+      toast.success('Đã ẩn sự kiện.')
+      closeModal()
+      invalidate()
+    },
     onError: (err) => {
-      const apiMsg = err.response?.data?.message
-      setModalError(apiMsg || 'Không thể ẩn sự kiện.')
+      const apiMsg = getApiMessage(err, 'Không thể ẩn sự kiện.')
+      setModalError(apiMsg)
+      toast.error(apiMsg)
     },
   })
 
   const unhideMutation = useMutation({
     mutationFn: ({ eventId }) => unhideAdminEvent(eventId),
-    onSuccess: () => { closeModal(); invalidate() },
+    onSuccess: () => {
+      toast.success('Đã bỏ ẩn sự kiện.')
+      closeModal()
+      invalidate()
+    },
     onError: (err) => {
-      const apiMsg = err.response?.data?.message
-      setModalError(apiMsg || 'Không thể bỏ ẩn sự kiện.')
+      const apiMsg = getApiMessage(err, 'Không thể bỏ ẩn sự kiện.')
+      setModalError(apiMsg)
+      toast.error(apiMsg)
     },
   })
 

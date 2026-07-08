@@ -13,6 +13,8 @@ import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -103,6 +105,7 @@ function isSoldOut(ticketType) {
 
 
 export function EventDetailPage() {
+  const toast = useToast()
   const { eventId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -120,14 +123,19 @@ export function EventDetailPage() {
   const favoriteMutation = useMutation({
     mutationFn: () => toggleFavorite(eventQuery.data.id),
     onSuccess: () => {
+      toast.success(eventQuery.data?.is_favorited ? 'Đã bỏ sự kiện khỏi yêu thích.' : 'Đã lưu sự kiện vào yêu thích.')
       queryClient.invalidateQueries({ queryKey: ['event-detail', eventId] })
       queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật yêu thích. Vui lòng thử lại.'))
     },
   })
 
   const requireLogin = () => {
     if (getAuthToken()) return false
+    toast.error('Vui lòng đăng nhập để tiếp tục.')
     navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
     return true
   }

@@ -82,12 +82,12 @@ app.use('/api/operations', operationsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
-    res.status(200).json(ApiResponse.success(null, 'Server is healthy'));
+    res.status(200).json(ApiResponse.success(null, 'Máy chủ đang hoạt động bình thường'));
 });
 
 // 404 handler
 app.use((req, res, next) => {
-    res.status(404).json(ApiResponse.error('Route not found', 404, 'RESOURCE_NOT_FOUND'));
+    res.status(404).json(ApiResponse.error('Không tìm thấy chức năng yêu cầu.', 404, 'RESOURCE_NOT_FOUND'));
 });
 
 // Global Error Handler
