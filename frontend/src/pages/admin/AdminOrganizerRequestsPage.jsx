@@ -5,6 +5,8 @@ import {
   fetchAdminOrganizerRequests,
   reviewOrganizerRequest,
 } from '@/services/organizerRequests.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
 
 const primaryActionClass =
@@ -40,6 +42,7 @@ function requestTypeLabel(type) {
 }
 
 export function AdminOrganizerRequestsPage() {
+  const toast = useToast()
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('')
   const [requestTypeFilter, setRequestTypeFilter] = useState('')
@@ -65,7 +68,8 @@ export function AdminOrganizerRequestsPage() {
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, payload }) => reviewOrganizerRequest(id, payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      toast.success(variables?.payload?.status === 'APPROVED' ? 'Đã duyệt yêu cầu organizer.' : 'Đã từ chối yêu cầu organizer.')
       setSelectedRequest(null)
       setReviewNote('')
       setReviewError('')
@@ -74,11 +78,14 @@ export function AdminOrganizerRequestsPage() {
     },
     onError: (err) => {
       const apiError = err.response?.data
+      let message
       if (apiError?.errors && Array.isArray(apiError.errors)) {
-        setReviewError(apiError.errors.map((item) => item.message).join(', '))
+        message = apiError.errors.map((item) => item.message).join(', ')
       } else {
-        setReviewError(apiError?.message || 'Không thể xử lý yêu cầu.')
+        message = getApiMessage(err, 'Không thể xử lý yêu cầu.')
       }
+      setReviewError(message)
+      toast.error(message)
     },
   })
 
@@ -98,7 +105,9 @@ export function AdminOrganizerRequestsPage() {
       selectedRequest.request_type === 'ORGANIZATION' &&
       !selectedRequest.business_email_verified
     ) {
-      setReviewError('Email tổ chức chưa được xác thực. Chưa thể duyệt yêu cầu này.')
+      const message = 'Email tổ chức chưa được xác thực. Chưa thể duyệt yêu cầu này.'
+      setReviewError(message)
+      toast.error(message)
       return
     }
 

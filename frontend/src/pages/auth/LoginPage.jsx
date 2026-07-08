@@ -6,10 +6,13 @@ import { clearAuthSession, getAuthToken, getPostLoginPath, getRememberLoginPrefe
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
 import { LockedAccountModal } from '@/components/LockedAccountModal'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const logoSrc = '/images/LogoEH.png'
 
 export function LoginPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ email: '', password: '' })
@@ -63,6 +66,7 @@ export function LoginPage() {
       const res = await authService.login(form)
       const { accessToken, user } = res.data
       setAuthSession({ accessToken, user, remember: rememberLogin })
+      toast.success('Đăng nhập thành công.')
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
       const errorData = err.response?.data;
@@ -71,7 +75,9 @@ export function LoginPage() {
         setLockModalOpen(true);
         return
       }
-      setError(errorData?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.')
+      const message = getApiMessage(err, 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -84,6 +90,7 @@ export function LoginPage() {
       const res = await authService.googleLogin(credentialResponse.credential)
       const { accessToken, user } = res.data
       setAuthSession({ accessToken, user, remember: rememberLogin })
+      toast.success('Đăng nhập Google thành công.')
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
       const errorData = err.response?.data;
@@ -96,7 +103,9 @@ export function LoginPage() {
         setError('');
         return;
       }
-      setError(errorData?.message || 'Đăng nhập Google thất bại.')
+      const message = getApiMessage(err, 'Đăng nhập Google thất bại.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -115,7 +124,9 @@ export function LoginPage() {
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => {
-              setError('Đăng nhập Google thất bại. Vui lòng thử lại.')
+              const message = 'Đăng nhập Google thất bại. Vui lòng thử lại.'
+              setError(message)
+              toast.error(message)
             }}
             useOneTap
             width="100%"
