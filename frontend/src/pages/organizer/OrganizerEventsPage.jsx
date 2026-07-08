@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw } from 'lucide-react'
 import {
   Badge,
   OrganizerPage,
@@ -11,6 +11,8 @@ import {
   fetchOrganizerEvents,
   publishOrganizerEvent,
 } from '@/services/organizerEvents.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const STATUS_LABELS = {
   DRAFT: 'Bản nháp',
@@ -191,13 +193,12 @@ function CancelConfirmModal({ event, onConfirm, onClose, loading, error }) {
 // Main Page
 // ---------------------------------------------------------------------------
 export function OrganizerEventsPage() {
+  const toast = useToast()
   const location = useLocation()
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [message, setMessage] = useState(location.state?.message || '')
 
   // Publish modal state
   const [publishTarget, setPublishTarget] = useState(null)
@@ -210,24 +211,23 @@ export function OrganizerEventsPage() {
 
   useEffect(() => {
     if (location.state?.message) {
-      setMessage(location.state.message)
+      toast.success(location.state.message)
       window.history.replaceState({}, document.title)
     }
-  }, [location.state])
+  }, [location.state, toast])
 
   const loadEvents = useCallback(async () => {
     setLoading(true)
-    setError('')
     try {
       const data = await fetchOrganizerEvents()
       setEvents(data)
     } catch (err) {
       console.error(err)
-      setError(err.response?.data?.message || 'Không thể tải danh sách sự kiện.')
+      toast.error(getApiMessage(err, 'Không thể tải danh sách sự kiện.'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     loadEvents()
@@ -247,11 +247,11 @@ export function OrganizerEventsPage() {
     try {
       await publishOrganizerEvent(publishTarget.id)
       setPublishTarget(null)
-      setMessage(`Sự kiện "${publishTarget.title}" đã được xuất bản thành công!`)
+      toast.success(`Sự kiện "${publishTarget.title}" đã được xuất bản thành công.`)
       await loadEvents()
     } catch (err) {
       console.error(err)
-      setError(err.response?.data?.message || 'Không thể xuất bản sự kiện.')
+      toast.error(getApiMessage(err, 'Không thể xuất bản sự kiện.'))
       setPublishTarget(null)
     } finally {
       setPublishLoading(false)
@@ -277,11 +277,13 @@ export function OrganizerEventsPage() {
     try {
       await cancelOrganizerEvent(cancelTarget.id)
       setCancelTarget(null)
-      setMessage(`Sự kiện "${cancelTarget.title}" đã được hủy.`)
+      toast.success(`Sự kiện "${cancelTarget.title}" đã được hủy.`)
       await loadEvents()
     } catch (err) {
       console.error(err)
-      setCancelError(err.response?.data?.message || 'Không thể hủy sự kiện. Vui lòng thử lại.')
+      const message = getApiMessage(err, 'Không thể hủy sự kiện. Vui lòng thử lại.')
+      setCancelError(message)
+      toast.error(message)
     } finally {
       setCancelLoading(false)
     }
@@ -332,18 +334,6 @@ export function OrganizerEventsPage() {
           </button>
         </div>
       </div>
-
-      {message && (
-        <p className="mb-4 rounded-xl border border-success/30 bg-success/[0.07] px-4 py-3 text-sm text-success">
-          {message}
-        </p>
-      )}
-
-      {error && (
-        <p className="mb-4 rounded-xl border border-error/30 bg-error/[0.07] px-4 py-3 text-sm text-error">
-          {error}
-        </p>
-      )}
 
       {loading ? (
         <div className="flex justify-center py-16">

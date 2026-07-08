@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
+import { normalizeMessage } from '@/lib/messages.js'
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api',
@@ -21,6 +22,20 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.data) {
+      const data = error.response.data
+      data.message = normalizeMessage(data.message)
+
+      const issues = data.errors || data.data
+      if (Array.isArray(issues)) {
+        issues.forEach((issue) => {
+          if (issue?.message) {
+            issue.message = normalizeMessage(issue.message, 'Dữ liệu chưa hợp lệ.')
+          }
+        })
+      }
+    }
+
     if (error.response?.status === 401) {
       // Clear token and user if unauthorized
       clearAuthSession()

@@ -5,6 +5,8 @@ import { CheckCircle2, ExternalLink, Loader2, Printer, ReceiptText, RefreshCw, R
 import { createStaffDirectBooking, fetchStaffDirectBookingEvents, fetchStaffDirectBookingStatus } from '@/services/orders.js'
 import { fetchSessionSeats } from '@/services/events.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Tiền mặt' },
@@ -80,6 +82,7 @@ function buildSeatLayout(seats) {
 }
 
 export function StaffDirectBookingPage() {
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const directOrderId = searchParams.get('directOrderId')
   const [query, setQuery] = useState('')
@@ -108,8 +111,12 @@ export function StaffDirectBookingPage() {
   const createMutation = useMutation({
     mutationFn: createStaffDirectBooking,
     onSuccess: (data) => {
+      toast.success('Đã tạo đơn đặt vé trực tiếp.')
       setResult(data)
       setShowDetail(true)
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể tạo đơn đặt vé trực tiếp.'))
     },
   })
 

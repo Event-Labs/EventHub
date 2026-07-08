@@ -5,8 +5,11 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { fetchFavoriteEvents, toggleFavorite } from '@/services/events.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function FavoriteEventsPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -27,8 +30,12 @@ export function FavoriteEventsPage() {
   const favoriteMutation = useMutation({
     mutationFn: (event) => toggleFavorite(event.id),
     onSuccess: () => {
+      toast.success('Đã bỏ sự kiện khỏi danh sách yêu thích.')
       queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
       queryClient.invalidateQueries({ queryKey: ['events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật danh sách yêu thích.'))
     },
   })
 

@@ -9,8 +9,11 @@ import {
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { deleteSeatMap } from '@/services/organizerSeatMaps.js'
 import { SeatMapEditor } from './SeatMapEditor.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function OrganizerVenueSeatMapsPage() {
+  const toast = useToast()
   const { venueId } = useParams()
   const navigate = useNavigate()
   const [seatMaps, setSeatMaps] = useState([])
@@ -26,7 +29,9 @@ export function OrganizerVenueSeatMapsPage() {
       setSeatMaps(maps)
     } catch (err) {
       console.error(err)
-      setMessage('Không thể tải dữ liệu sơ đồ ghế.')
+      const message = 'Không thể tải dữ liệu sơ đồ ghế.'
+      setMessage(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -51,10 +56,13 @@ export function OrganizerVenueSeatMapsPage() {
     try {
       await deleteSeatMap(seatMapId)
       setMessage('Đã xóa sơ đồ ghế.')
+      toast.success('Đã xóa sơ đồ ghế.')
       loadData()
     } catch (err) {
       console.error(err)
-      setMessage(err.response?.data?.message || 'Không thể xóa sơ đồ ghế.')
+      const message = getApiMessage(err, 'Không thể xóa sơ đồ ghế.')
+      setMessage(message)
+      toast.error(message)
     }
   }
 
@@ -124,7 +132,9 @@ export function OrganizerVenueSeatMapsPage() {
           venueId={venueId}
           seatMapId={editingSeatMapId}
           onSave={() => {
-            setMessage(editingSeatMapId ? 'Đã cập nhật sơ đồ ghế.' : 'Đã tạo sơ đồ ghế mới.')
+            const message = editingSeatMapId ? 'Đã cập nhật sơ đồ ghế.' : 'Đã tạo sơ đồ ghế mới.'
+            setMessage(message)
+            toast.success(message)
             closeEditor()
             loadData()
           }}
