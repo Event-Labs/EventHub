@@ -7,6 +7,7 @@ import {
   fetchAdminSubscriptions,
   updateAdminSubscription,
 } from '@/services/subscriptions.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Table } from './AdminComponents.jsx'
 
 const primaryActionClass =
@@ -47,6 +48,7 @@ const booleanFields = [
 ]
 
 export function AdminPlansPage() {
+  const toast = useToast()
   const queryClient = useQueryClient()
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -68,7 +70,8 @@ export function AdminPlansPage() {
   const saveMutation = useMutation({
     mutationFn: ({ id, payload }) =>
       id ? updateAdminSubscription(id, payload) : createAdminSubscription(payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      toast.success(variables?.id ? 'Đã cập nhật gói dịch vụ.' : 'Đã tạo gói dịch vụ.')
       setModal(null)
       setForm(emptyForm)
       setFormError('')
@@ -82,18 +85,22 @@ export function AdminPlansPage() {
       } else {
         setActionError(message)
       }
+      toast.error(message)
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: deleteAdminSubscription,
     onSuccess: () => {
+      toast.success('Đã xóa gói dịch vụ.')
       setActionError('')
       setDeleteTarget(null)
       refreshPlans()
     },
     onError: (error) => {
-      setActionError(getApiErrorMessage(error, 'Không thể xóa gói dịch vụ. Vui lòng thử lại.'))
+      const message = getApiErrorMessage(error, 'Không thể xóa gói dịch vụ. Vui lòng thử lại.')
+      setActionError(message)
+      toast.error(message)
     },
   })
 

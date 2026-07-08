@@ -19,6 +19,7 @@ import {
 import { Modal } from '../../components/Modal.jsx'
 import promotionService from '../../services/promotions'
 import { fetchOrganizerEvents } from '../../services/organizerEvents'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const STATUS_LABELS = {
   Active: 'Đang hoạt động',
@@ -93,6 +94,7 @@ function formatPromoDateTime(date) {
 }
 
 export function OrganizerPromosPage() {
+  const toast = useToast()
   const [promos, setPromos] = useState([])
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -126,10 +128,11 @@ export function OrganizerPromosPage() {
       setPromos(response.data.data)
     } catch (error) {
       console.error('Error fetching promos:', error)
+      toast.error('Không thể tải danh sách mã khuyến mãi.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [toast])
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -137,8 +140,9 @@ export function OrganizerPromosPage() {
       setEvents(Array.isArray(eventsList) ? eventsList : [])
     } catch (error) {
       console.error('Error fetching events:', error)
+      toast.error('Không thể tải danh sách sự kiện.')
     }
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -178,6 +182,7 @@ export function OrganizerPromosPage() {
       setShowCreateModal(false)
       resetForm()
       fetchData(filters)
+      toast.success('Đã tạo mã khuyến mãi.')
     } catch (error) {
        if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
          const issues = error.response.data.data || []
@@ -187,7 +192,7 @@ export function OrganizerPromosPage() {
          })
          setFormErrors(errors)
        } else {
-         alert(getPromoMessage(error?.response?.data?.message, 'Không thể tạo mã khuyến mãi'))
+         toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể tạo mã khuyến mãi.'))
        }
      }
   }
@@ -216,6 +221,7 @@ export function OrganizerPromosPage() {
       setShowEditModal(false)
       resetForm()
       fetchData(filters)
+      toast.success('Đã cập nhật mã khuyến mãi.')
     } catch (error) {
        if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
          const issues = error.response.data.data || []
@@ -225,7 +231,7 @@ export function OrganizerPromosPage() {
          })
          setFormErrors(errors)
        } else {
-         alert(getPromoMessage(error?.response?.data?.message, 'Không thể cập nhật mã khuyến mãi'))
+         toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể cập nhật mã khuyến mãi.'))
        }
     }
   }
@@ -235,8 +241,10 @@ export function OrganizerPromosPage() {
       await promotionService.deactivatePromo(selectedPromo.id)
       setShowDeleteModal(false)
       fetchData(filters)
+      toast.success('Đã ngừng hoạt động mã khuyến mãi.')
     } catch (error) {
        console.error('Error deactivating promo:', error)
+       toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể ngừng hoạt động mã khuyến mãi.'))
     }
   }
 

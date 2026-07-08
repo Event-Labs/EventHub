@@ -8,8 +8,11 @@ import {
   fetchEligibleFeedbackEvents,
   submitEventFeedback,
 } from '@/services/feedbacks.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function FeedbackPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -19,8 +22,6 @@ export function FeedbackPage() {
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [content, setContent] = useState('')
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -45,34 +46,25 @@ export function FeedbackPage() {
   const submitMutation = useMutation({
     mutationFn: submitEventFeedback,
     onSuccess: () => {
-      setSuccess('Cảm ơn bạn! Phản hồi đã được gửi thành công.')
-      setError('')
+      toast.success('Cảm ơn bạn! Phản hồi đã được gửi thành công.')
       setContent('')
       setRating(0)
       queryClient.invalidateQueries({ queryKey: ['feedback-eligible-events'] })
     },
     onError: (err) => {
-      const apiError = err.response?.data
-      if (apiError?.errors && Array.isArray(apiError.errors)) {
-        setError(apiError.errors.map((item) => item.message).join(', '))
-      } else {
-        setError(apiError?.message || 'Không thể gửi phản hồi. Vui lòng thử lại.')
-      }
-      setSuccess('')
+      toast.error(getApiMessage(err, 'Không thể gửi phản hồi. Vui lòng thử lại.'))
     },
   })
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    setError('')
-    setSuccess('')
 
     if (!eventId) {
-      setError('Vui lòng chọn sự kiện.')
+      toast.error('Vui lòng chọn sự kiện.')
       return
     }
     if (rating < 1) {
-      setError('Vui lòng chọn số sao đánh giá.')
+      toast.error('Vui lòng chọn số sao đánh giá.')
       return
     }
 
@@ -164,9 +156,6 @@ export function FeedbackPage() {
                   minLength={10}
                 />
               </label>
-
-              {error && <p className="text-sm text-error">{error}</p>}
-              {success && <p className="text-sm text-success">{success}</p>}
 
               <button
                 type="submit"

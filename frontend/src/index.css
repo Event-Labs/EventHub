@@ -356,6 +356,58 @@ textarea {
   box-shadow: 0 0 60px -12px rgba(56, 189, 248, 0.55);
 }
 
+.eventhub-toast {
+  transform-origin: right center;
+  will-change: transform, opacity;
+}
+
+.eventhub-toast-enter {
+  animation: eventhub-toast-enter 520ms cubic-bezier(0.2, 1.15, 0.28, 1) both;
+}
+
+.eventhub-toast-leave {
+  pointer-events: none;
+  animation: eventhub-toast-leave 300ms cubic-bezier(0.55, 0, 0.35, 1) both;
+}
+
+@keyframes eventhub-toast-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(120%, 0, 0) scale(0.96);
+  }
+
+  58% {
+    opacity: 1;
+    transform: translate3d(-14px, 0, 0) scale(1.02);
+  }
+
+  78% {
+    transform: translate3d(7px, 0, 0) scale(0.995);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes eventhub-toast-leave {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  35% {
+    opacity: 1;
+    transform: translate3d(-10px, 0, 0) scale(1.01);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(120%, 0, 0) scale(0.96);
+  }
+}
+
 .scanner-line {
   height: 2px;
   background: #38bdf8;
