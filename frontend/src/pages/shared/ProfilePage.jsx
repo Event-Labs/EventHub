@@ -7,12 +7,12 @@ import {
   BriefcaseBusiness,
   Building2,
   Calendar,
+  CalendarCheck2,
   Camera,
   Check,
   CheckCircle2,
   ChevronDown,
   Clock,
-  ExternalLink,
   Eye,
   EyeOff,
   FileCheck2,
@@ -22,11 +22,15 @@ import {
   ImageIcon,
   InfoIcon,
   Loader2,
+  Lock,
   Mail,
   MapPin,
+  Pencil,
   Phone,
   Save,
   ShieldCheck,
+  Shield,
+  Ticket,
   UserCircle,
   Users,
   X,
@@ -34,6 +38,8 @@ import {
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
 import { fetchOrganizerProfile, updateOrganizerProfile } from '@/services/organizerEvents.js'
+import { fetchMyTickets } from '@/services/tickets.js'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
@@ -67,6 +73,13 @@ export function ProfilePage() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
+  const customerTicketsQuery = useQuery({
+    queryKey: ['my-tickets', 'profile-summary'],
+    queryFn: () => fetchMyTickets('ALL'),
+    enabled: Boolean(user && !isOrganizer),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  })
 
   if (isLoading) {
     return (
@@ -83,7 +96,7 @@ export function ProfilePage() {
         <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-error/10">
           <AlertCircle className="size-10 text-error" />
         </div>
-        <h2 className="font-display text-2xl font-bold text-white">
+        <h2 className="font-display text-2xl font-bold text-content">
           {error?.response?.status === 401 ? 'Phiên làm việc hết hạn' : 'Đã có lỗi xảy ra'}
         </h2>
         <p className="mt-3 text-muted">
@@ -92,12 +105,12 @@ export function ProfilePage() {
         <div className="mt-8 flex justify-center gap-4">
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['profile'] })}
-            className="rounded-md border border-border-soft bg-surface px-6 py-2 font-bold text-white hover:bg-panel-soft"
+            className="admin-secondary px-6 py-2 text-content hover:bg-panel-soft"
           >
             Thử lại
           </button>
           {error?.response?.status === 401 && (
-            <a href="/login" className="rounded-md bg-primary px-6 py-2 font-bold text-slate-950 hover:bg-sky-300">
+            <a href="/login" className="rounded-md bg-primary px-6 py-2 font-bold text-white transition hover:bg-primary/90">
               Đăng nhập ngay
             </a>
           )}
@@ -107,10 +120,10 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className={`mx-auto px-4 py-10 sm:px-6 lg:px-8 ${isOrganizer ? 'max-w-[1440px]' : 'max-w-6xl'}`}>
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="font-display text-4xl font-extrabold text-white">
+          <h1 className="font-display text-4xl font-extrabold text-content">
             {isOrganizer ? 'Hồ sơ nhà tổ chức' : 'Hồ sơ cá nhân'}
           </h1>
           <p className="mt-2 text-muted">
@@ -119,30 +132,30 @@ export function ProfilePage() {
               : 'Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub.'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          {mode !== 'edit' && (
+        {isOrganizer && (
+          <div className="flex flex-wrap gap-3">
+            {mode !== 'edit' && (
+              <button
+                onClick={() => setMode('edit')}
+                className="inline-flex items-center gap-2 rounded-md border border-sky-300/40 bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-3 font-bold text-white shadow-lg shadow-sky-900/20 transition-all hover:-translate-y-0.5 hover:from-sky-400 hover:to-indigo-500"
+              >
+                <Pencil className="size-4" />
+                Chỉnh sửa hồ sơ
+              </button>
+            )}
             <button
-              onClick={() => setMode('edit')}
-              className={`rounded-md border px-5 py-3 font-bold transition-all ${
-                mode === 'view'
-                  ? 'border-primary bg-primary text-slate-950'
-                  : 'border-border-soft text-subtle hover:text-white'
+              onClick={() => setMode('password')}
+              className={`inline-flex items-center gap-2 rounded-md border px-5 py-3 font-bold transition-all ${
+                mode === 'password'
+                  ? 'border-primary bg-primary text-white shadow-md shadow-primary/20'
+                  : 'border-border-soft bg-surface/40 text-content hover:border-primary/50 hover:bg-panel-soft hover:text-primary'
               }`}
             >
-              Chỉnh sửa hồ sơ
+              <Lock className="inline size-4" />
+              Đổi mật khẩu
             </button>
-          )}
-          <button
-            onClick={() => setMode('password')}
-            className={`rounded-md border px-5 py-3 font-bold transition-all ${
-              mode === 'password'
-                ? 'border-primary bg-primary text-slate-950'
-                : 'border-border-soft text-subtle hover:text-white'
-            }`}
-          >
-            Đổi mật khẩu
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {mode === 'view' && isOrganizer && (
@@ -154,9 +167,17 @@ export function ProfilePage() {
           onRetry={() => queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })}
         />
       )}
-      {mode === 'view' && !isOrganizer && <ProfileView user={user} />}
+      {mode === 'view' && !isOrganizer && (
+        <ProfileView
+          user={user}
+          tickets={customerTicketsQuery.data || []}
+          ticketsLoading={customerTicketsQuery.isLoading}
+          onEdit={() => setMode('edit')}
+          onChangePassword={() => setMode('password')}
+        />
+      )}
       {mode === 'edit' && isOrganizer && organizerQuery.isLoading && (
-        <div className="glass-panel flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-lg p-6">
+        <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-lg border border-border-soft/50 bg-surface p-6 shadow-sm">
           <Loader2 className="size-8 animate-spin text-primary" />
           <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
         </div>
@@ -179,11 +200,11 @@ export function ProfilePage() {
 }
 
 function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
-  const [openSections, setOpenSections] = useState(() => new Set(['overview']))
+  const [openSections, setOpenSections] = useState(() => new Set(['overview', 'public', 'legal', 'documents']))
 
   if (isLoading) {
     return (
-      <div className="glass-panel flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg p-6">
+      <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg border border-border-soft/50 bg-surface p-6 shadow-sm">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="text-muted">Đang tải thông tin nhà tổ chức...</p>
       </div>
@@ -192,11 +213,11 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
 
   if (error) {
     return (
-      <div className="glass-panel rounded-lg p-6 text-center">
+      <div className="rounded-lg border border-border-soft/50 bg-surface p-6 text-center shadow-sm">
         <AlertCircle className="mx-auto size-10 text-error" />
-        <h2 className="mt-3 font-display text-2xl font-bold text-white">Không thể tải hồ sơ nhà tổ chức</h2>
+        <h2 className="mt-3 font-display text-2xl font-bold text-content">Không thể tải hồ sơ nhà tổ chức</h2>
         <p className="mt-2 text-muted">{error?.response?.data?.message || 'Vui lòng thử lại sau.'}</p>
-        <button onClick={onRetry} className="mt-5 rounded-md bg-primary px-5 py-3 font-bold text-slate-950">
+        <button onClick={onRetry} className="mt-5 rounded-md bg-primary px-5 py-3 font-bold text-white transition hover:bg-primary/90">
           Tải lại
         </button>
       </div>
@@ -232,68 +253,60 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="glass-panel rounded-lg p-6">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div className="flex flex-col items-center text-center">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName || 'Ảnh đại diện nhà tổ chức'}
-                className="size-36 rounded-2xl object-cover ring-4 ring-primary/25"
-              />
-            ) : (
-              <div className="flex size-36 items-center justify-center rounded-2xl bg-surface ring-4 ring-primary/25">
-                {isPersonal ? <UserCircle className="size-20 text-muted" /> : <Building2 className="size-20 text-muted" />}
-              </div>
-            )}
-          </div>
+    <div className="space-y-3">
+      <section className="organizer-profile-hero relative overflow-hidden rounded-lg border p-5 text-white sm:p-7">
+        <div className="organizer-profile-hero-bg absolute inset-0" />
+        <div className="organizer-profile-hero-wave absolute inset-0" />
+        <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center">
+          <ProfileAvatar
+            sources={[avatarUrl, user.avatar_url]}
+            name={displayName}
+            alt={displayName || 'Ảnh đại diện nhà tổ chức'}
+            className="organizer-profile-avatar size-28 text-5xl sm:size-32"
+            fallbackClassName="bg-gradient-to-br from-fuchsia-500 to-purple-700 text-white ring-4 ring-sky-400/25"
+          />
 
           <div className="min-w-0 flex-1">
-            <h2 className="mt-1 break-words font-display text-3xl font-extrabold text-white">
+            <h2 className="organizer-profile-title break-words font-display text-3xl font-extrabold sm:text-4xl">
               {valueOrEmpty(displayName)}
             </h2>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <StatusPill status={request.status || organizer?.status} />
-              <span className="rounded-full border border-border-soft bg-surface px-3 py-1 text-xs font-bold text-muted">
-                {organizerTypeLabel(type)}
-              </span>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="space-y-4">
+      <div className="space-y-2">
         <AccordionSection
           id="overview"
-          title="Tổng quan hồ sơ"
+          title="Thông tin tổng quan"
           icon={InfoIcon}
           isOpen={openSections.has('overview')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="organizer-info-grid organizer-info-grid-3">
             <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
             <Info icon={Users} label="Loại nhà tổ chức" value={organizerTypeLabel(type)} />
-            <Info icon={ShieldCheck} label="Trạng thái yêu cầu/xác minh" value={requestStatusLabel(request.status || organizer?.status)} />
-            <Info icon={Phone} label="Số điện thoại" value={phone} />
-            {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
+            <Info icon={ShieldCheck} label="Trạng thái xác minh" value={requestStatusLabel(request.status || organizer?.status)} />
+          </div>
+          <div className="organizer-info-description border-t">
+            <Info icon={FileText} label="Mô tả/giới thiệu" value={description} multiline />
           </div>
         </AccordionSection>
 
         <AccordionSection
           id="public"
-          title="Thông tin hiển thị công khai"
-          icon={FileText}
+          title="Thông tin liên hệ"
+          icon={Phone}
           isOpen={openSections.has('public')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
+          <div className="organizer-info-grid organizer-info-grid-3">
+            <Info icon={Mail} label="Email" value={firstValue(businessEmail, user.email)} linkType="email" />
             <Info icon={Phone} label="Số điện thoại" value={phone} />
-            {!isPersonal && <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />}
             <Info icon={MapPin} label="Địa chỉ" value={address} />
             <Info icon={ImageIcon} label="Trang web/mạng xã hội" value={firstValue(organizer?.website_url, organizer?.social_url)} linkType="url" />
-            <Info icon={FileText} label="Mô tả/giới thiệu" value={description} className="md:col-span-2" multiline />
           </div>
         </AccordionSection>
 
@@ -304,31 +317,43 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           isOpen={openSections.has('legal')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="organizer-info-grid organizer-info-grid-3">
             {isPersonal ? (
               <>
                 <Info icon={UserCircle} label="Họ tên pháp lý" value={firstValue(request.individual_full_name, organizer?.individual_full_name)} />
                 <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={firstValue(request.individual_identity_number, organizer?.individual_identity_number)} />
                 <Info icon={IdCard} label="Mã số thuế cá nhân" value={firstValue(request.individual_tax_code, organizer?.individual_tax_code)} />
-                <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} />
-                <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} />
-                <DocumentCard label="Ảnh chân dung/tự chụp" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} />
               </>
             ) : (
               <>
-                <Info icon={Mail} label="Email tổ chức" value={businessEmail} linkType="email" />
-                <Info
-                  icon={ShieldCheck}
-                  label="Trạng thái xác thực email tổ chức"
-                  value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
-                />
-                <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
                 <Info icon={UserCircle} label="Người đại diện pháp luật" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name)} />
                 <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={firstValue(request.legal_representative_position, organizer?.legal_representative_position)} />
-                <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} />
-                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} />
-                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} />
-                <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} />
+                <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
+              </>
+            )}
+          </div>
+        </AccordionSection>
+
+        <AccordionSection
+          id="documents"
+          title="Hồ sơ xác minh"
+          icon={FileCheck2}
+          isOpen={openSections.has('documents')}
+          onToggle={toggleSection}
+        >
+          <div className="organizer-document-list">
+            {isPersonal ? (
+              <>
+                <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Ảnh chân dung/tự chụp" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} uploadedAt={request.created_at} />
+              </>
+            ) : (
+              <>
+                <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} uploadedAt={request.created_at} />
               </>
             )}
           </div>
@@ -341,9 +366,14 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           isOpen={openSections.has('commitment')}
           onToggle={toggleSection}
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="organizer-info-grid organizer-info-grid-3">
             <Info icon={CheckCircle2} label="Trạng thái cam kết pháp lý/điều khoản" value={booleanLabel(firstDefined(request.terms_accepted, organizer?.terms_accepted))} />
             <Info icon={Clock} label="Thời gian gửi yêu cầu" value={formatDateTime(request.created_at)} />
+            <Info
+              icon={ShieldCheck}
+              label="Xác thực email tổ chức"
+              value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
+            />
             <Info
               icon={FileCheck2}
               label="Nội dung cam kết"
@@ -365,8 +395,8 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
             {history.length ? (
               history.map((item, index) => <ReviewHistoryCard key={item.id || index} request={item} index={index} />)
             ) : (
-              <div className="rounded-lg border border-border-soft bg-surface p-4 text-sm font-semibold text-subtle">
-                Chưa cập nhật
+              <div className="organizer-history-card rounded-lg border p-4 text-sm font-semibold">
+                <span className="organizer-info-empty">Chưa cập nhật</span>
               </div>
             )}
           </div>
@@ -378,21 +408,21 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
 
 function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, children }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-border-soft bg-panel shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
+    <section className="organizer-profile-panel overflow-hidden rounded-lg border">
       <button
         type="button"
         onClick={() => onToggle(id)}
         aria-expanded={isOpen}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-panel-soft"
+        className="organizer-panel-trigger flex w-full items-center gap-3 px-5 py-4 text-left transition"
       >
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <span className="organizer-section-icon grid size-9 shrink-0 place-items-center rounded-full">
           <Icon className="size-5" />
         </span>
-        <span className="min-w-0 flex-1 font-display text-xl font-bold text-white">{title}</span>
-        <ChevronDown className={`size-5 shrink-0 text-muted transition-transform ${isOpen ? 'rotate-180 text-primary' : ''}`} />
+        <span className="organizer-panel-title min-w-0 flex-1 font-display text-lg font-extrabold">{title}</span>
+        <ChevronDown className={`organizer-panel-chevron size-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
-        <div className="border-t border-border-soft/50 p-5">
+        <div className="organizer-panel-body border-t p-5">
           {children}
         </div>
       )}
@@ -400,29 +430,174 @@ function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, children })
   )
 }
 
-function ProfileView({ user }) {
+function ProfileView({ user, tickets = [], ticketsLoading = false, onEdit, onChangePassword }) {
+  const ticketList = Array.isArray(tickets) ? tickets : []
+  const eventIds = new Set(
+    ticketList
+      .map((ticket) => ticket?.event?.id || ticket?.event_id)
+      .filter(Boolean)
+      .map(String),
+  )
+  const displayName = valueOrEmpty(user.full_name)
+  const joinedDate = formatDate(user.created_at || user.createdAt)
+  const roleText = roleLabel(user.roles)
+  const accountActive = user.status ? String(user.status).toUpperCase() !== 'LOCKED' : true
+  const accountStatusLabel = accountActive ? 'Hoạt động' : 'Bị khóa'
+  const accountStatusTone = accountActive ? 'text-success' : 'text-error'
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
-      <aside className="glass-panel rounded-lg p-6 text-center">
-        <div className="relative mx-auto size-36">
-          {user.avatar_url ? (
-            <img src={user.avatar_url} alt={user.full_name} className="mx-auto size-36 rounded-full object-cover ring-4 ring-primary/30" />
-          ) : (
-            <div className="mx-auto flex size-36 items-center justify-center rounded-full bg-surface ring-4 ring-primary/30">
-              <UserCircle className="size-20 text-muted" />
+    <div className="space-y-5">
+      <section className="customer-profile-hero relative overflow-hidden rounded-lg border p-6 text-content sm:p-8">
+        <div className="customer-profile-hero-bg absolute inset-0" />
+        <div className="customer-profile-hero-wave absolute inset-0" />
+        <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+            <div className="relative mx-auto size-36 shrink-0 sm:mx-0 sm:size-40">
+              <ProfileAvatar
+                sources={user.avatar_url}
+                name={user.full_name || user.email || 'Khách hàng'}
+                alt="Ảnh đại diện khách hàng"
+                className="size-full ring-4 ring-sky-300/25"
+                fallbackClassName="bg-gradient-to-br from-fuchsia-600 to-purple-700 text-6xl text-white ring-sky-300/25"
+                fallback="KH"
+              />
             </div>
-          )}
+            <div className="min-w-0 text-center sm:text-left">
+              <h2 className="customer-profile-title break-words font-display text-3xl font-extrabold sm:text-4xl">
+                {displayName}
+              </h2>
+              <span className="customer-role-badge mt-3 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-bold ring-1">
+                <UserCircle className="size-4" />
+                {roleText}
+              </span>
+              <div className="customer-profile-meta mt-4 space-y-2 text-sm font-medium">
+                <div className="flex items-center justify-center gap-3 sm:justify-start">
+                  <Calendar className="size-4" />
+                  <span>Tham gia ngày {joinedDate}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="customer-profile-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-6 py-3 font-bold transition"
+            >
+              <Pencil className="size-5" />
+              Chỉnh sửa hồ sơ
+            </button>
+            <button
+              type="button"
+              onClick={onChangePassword}
+              className="customer-profile-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-6 py-3 font-bold transition"
+            >
+              <Lock className="size-5" />
+              Đổi mật khẩu
+            </button>
+          </div>
         </div>
-        <h2 className="mt-5 font-display text-2xl font-bold text-white">{valueOrEmpty(user.full_name)}</h2>
-        <p className="text-muted">{roleLabel(user.roles)}</p>
-      </aside>
-      <InfoSection title="Thông tin cá nhân" icon={UserCircle}>
-        <Info icon={UserCircle} label="Họ và tên" value={user.full_name} />
-        <Info icon={Mail} label="Email" value={user.email} linkType="email" />
-        <Info icon={Phone} label="Số điện thoại" value={user.phone} />
-        <Info icon={Calendar} label="Ngày sinh" value={formatDate(user.dob)} />
-        <Info icon={MapPin} label="Địa chỉ" value={user.address} className="md:col-span-2" />
-      </InfoSection>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+        <aside className="customer-profile-panel rounded-lg border p-6 text-content">
+          <div className="mb-7 flex items-center gap-3">
+            <UserCircle className="customer-section-heading-icon size-7" />
+            <h2 className="customer-panel-title font-display text-xl font-extrabold">Tài khoản của tôi</h2>
+          </div>
+          <div className="space-y-0">
+            <ProfileMetric icon={ShieldCheck} label="Trạng thái tài khoản" value={accountStatusLabel} valueClassName={accountStatusTone} />
+            <ProfileMetric
+              icon={Ticket}
+              label="Tổng số vé đã đặt"
+              value={ticketsLoading ? 'Đang tải' : ticketList.length}
+              valueClassName="text-primary"
+            />
+            <ProfileMetric
+              icon={CalendarCheck2}
+              label="Số sự kiện đã tham gia"
+              value={ticketsLoading ? 'Đang tải' : eventIds.size}
+              valueClassName="text-primary"
+              last
+            />
+          </div>
+        </aside>
+
+        <div className="space-y-4">
+          <CustomerInfoSection title="Thông tin cơ bản" icon={UserCircle} tone="blue">
+            <CustomerInfoCard icon={Calendar} label="Họ và tên" value={user.full_name} />
+            <CustomerInfoCard icon={Calendar} label="Ngày sinh" value={formatDate(user.dob)} />
+          </CustomerInfoSection>
+
+          <CustomerInfoSection title="Thông tin liên hệ" icon={Phone} tone="purple">
+            <CustomerInfoCard icon={Phone} label="Số điện thoại" value={user.phone} />
+            <CustomerInfoCard icon={Mail} label="Email" value={user.email} linkType="email" />
+            <CustomerInfoCard icon={MapPin} label="Địa chỉ" value={user.address} className="md:col-span-2" />
+          </CustomerInfoSection>
+
+          <CustomerInfoSection title="Bảo mật tài khoản" icon={ShieldCheck} tone="green">
+            <CustomerInfoCard icon={Shield} label="Xác thực 2 lớp" value="Chưa kích hoạt" valueClassName="text-warning" />
+          </CustomerInfoSection>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ProfileMetric({ icon: Icon, label, value, valueClassName = 'text-content', last = false }) {
+  return (
+    <div className={`customer-profile-metric flex gap-5 py-5 ${last ? '' : 'border-b'}`}>
+      <Icon className="customer-profile-metric-icon mt-1 size-8 shrink-0" />
+      <div className="min-w-0">
+        <p className="customer-profile-label text-sm font-medium">{label}</p>
+        <p className={`mt-1 break-words text-lg font-extrabold ${valueClassName}`}>{valueOrEmpty(value)}</p>
+      </div>
+    </div>
+  )
+}
+
+function CustomerInfoSection({ title, icon: Icon, tone = 'blue', children }) {
+  const toneClass = {
+    blue: 'customer-tone-blue',
+    purple: 'customer-tone-purple',
+    green: 'customer-tone-green',
+  }[tone]
+
+  return (
+    <section className="customer-profile-panel rounded-lg border p-5 text-content">
+      <div className="mb-5 flex items-center gap-3">
+        <span className={`customer-section-icon grid size-10 place-items-center rounded-md ${toneClass}`}>
+          <Icon className="size-5" />
+        </span>
+        <h2 className="customer-panel-title font-display text-xl font-extrabold">{title}</h2>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">{children}</div>
+    </section>
+  )
+}
+
+function CustomerInfoCard({ icon: Icon, label, value, className = '', linkType, valueClassName = 'customer-info-value' }) {
+  const displayValue = valueOrEmpty(value)
+  const isEmpty = displayValue === EMPTY_TEXT
+  const href = !isEmpty && linkType === 'email' ? `mailto:${displayValue}` : null
+
+  return (
+    <div className={`customer-info-card flex min-h-16 items-center gap-4 rounded-lg border p-3 ${className}`}>
+      <span className="customer-info-card-icon grid size-11 shrink-0 place-items-center rounded-md">
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="customer-profile-label text-sm font-medium">{label}</p>
+        {href ? (
+          <a href={href} className={`mt-1 block break-words font-extrabold ${valueClassName} hover:text-primary`}>
+            {displayValue}
+          </a>
+        ) : (
+          <p className={`mt-1 break-words font-extrabold ${isEmpty ? 'text-slate-500' : valueClassName}`}>
+            {displayValue}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -539,7 +714,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
-      <aside className="glass-panel h-fit rounded-lg p-6 text-center">
+      <aside className="h-fit rounded-lg border border-border-soft/50 bg-surface p-6 text-center text-content shadow-sm">
         <div className="relative mx-auto size-36">
           {previewUrl ? (
             <img src={previewUrl} alt="Ảnh đại diện xem trước" className="size-36 rounded-full object-cover ring-4 ring-primary/30" />
@@ -548,23 +723,23 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
               <UserCircle className="size-20 text-muted" />
             </div>
           )}
-          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-primary text-slate-950 shadow-lg transition-transform hover:scale-110">
+          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-primary text-white shadow-lg transition-transform hover:scale-110">
             <Camera className="size-5" />
             <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
           </label>
         </div>
         <p className="mt-4 text-sm text-subtle">JPG, PNG. Đề xuất 400x400px.</p>
       </aside>
-      <section className="glass-panel rounded-lg p-6">
-        <h2 className="font-display text-2xl font-bold text-white">Chỉnh sửa hồ sơ</h2>
+      <section className="rounded-lg border border-border-soft/50 bg-surface p-6 text-content shadow-sm">
+        <h2 className="font-display text-2xl font-bold text-content">Chỉnh sửa hồ sơ</h2>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          <div className="rounded-lg border border-border-soft bg-surface/70 p-5">
+          <div className="rounded-lg border border-border-soft/50 bg-panel-soft p-5">
             <div className="mb-5 flex items-center gap-3">
               <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
                 <UserCircle className="size-5" />
               </span>
-              <h3 className="font-display text-xl font-bold text-white">Thông tin tài khoản</h3>
+              <h3 className="font-display text-xl font-bold text-content">Thông tin tài khoản</h3>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
             <Input label="Họ và tên" value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
@@ -576,13 +751,13 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
           </div>
 
           {isOrganizer && (
-            <div className="rounded-lg border border-border-soft bg-surface/70 p-5">
+            <div className="rounded-lg border border-border-soft/50 bg-panel-soft p-5">
               <div className="mb-5 flex items-center gap-3">
                 <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
                   <Building2 className="size-5" />
                 </span>
                 <div>
-                  <h3 className="font-display text-xl font-bold text-white">Thông tin công khai của nhà tổ chức</h3>
+                  <h3 className="font-display text-xl font-bold text-content">Thông tin công khai của nhà tổ chức</h3>
                   <p className="mt-1 text-sm text-subtle">Các nội dung này sẽ được dùng để giới thiệu hồ sơ nhà tổ chức.</p>
                 </div>
               </div>
@@ -609,7 +784,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
                     rows={6}
                     maxLength={5000}
                     placeholder="Giới thiệu ngắn gọn về cá nhân, tổ chức hoặc lĩnh vực sự kiện của bạn."
-                    className={`w-full resize-y rounded-md border bg-panel p-3 text-content outline-none transition-all focus:ring-2 focus:ring-primary/20 ${
+                    className={`w-full resize-y rounded-md border bg-surface p-3 text-content outline-none transition-all focus:ring-2 focus:ring-primary/20 ${
                       errors.description ? 'border-error ring-error/10' : 'border-border-soft focus:border-primary'
                     }`}
                   />
@@ -623,10 +798,10 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
           )}
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onDone} className="rounded-md px-5 py-3 font-bold text-muted transition-colors hover:bg-panel-soft" disabled={updateMutation.isPending || isUploading}>
+            <button type="button" onClick={onDone} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft" disabled={updateMutation.isPending || isUploading}>
               Hủy
             </button>
-            <button type="submit" disabled={updateMutation.isPending || isUploading} className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-slate-950 transition-colors hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-70">
+            <button type="submit" disabled={updateMutation.isPending || isUploading} className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70">
               {updateMutation.isPending || isUploading ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               {isUploading ? 'Đang tải ảnh...' : updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
             </button>
@@ -676,8 +851,8 @@ function ChangePassword({ user, onDone }) {
   }
 
   return (
-    <section className="glass-panel mx-auto max-w-xl rounded-lg p-6">
-      <h2 className="text-center font-display text-2xl font-bold text-white">
+    <section className="mx-auto max-w-xl rounded-lg border border-border-soft/50 bg-surface p-6 text-content shadow-sm">
+      <h2 className="text-center font-display text-2xl font-bold text-content">
         {hasPassword ? 'Đổi mật khẩu' : 'Thiết lập mật khẩu mới'}
       </h2>
       <p className="mt-2 text-center text-sm text-subtle">
@@ -714,29 +889,15 @@ function ChangePassword({ user, onDone }) {
         </div>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onDone} className="rounded-md px-5 py-3 font-bold text-muted transition-colors hover:bg-panel-soft" disabled={mutation.isPending}>
+          <button type="button" onClick={onDone} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft" disabled={mutation.isPending}>
             Hủy
           </button>
-          <button type="submit" disabled={!canSubmit || mutation.isPending} className="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-slate-950 transition-colors hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={!canSubmit || mutation.isPending} className="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
             {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
             {hasPassword ? 'Cập nhật mật khẩu' : 'Lưu mật khẩu'}
           </button>
         </div>
       </form>
-    </section>
-  )
-}
-
-function InfoSection({ title, icon: Icon, children }) {
-  return (
-    <section className="glass-panel rounded-lg p-6">
-      <div className="flex items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="size-5" />
-        </span>
-        <h2 className="font-display text-2xl font-bold text-white">{title}</h2>
-      </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">{children}</div>
     </section>
   )
 }
@@ -751,17 +912,19 @@ function Info({ icon: Icon, label, value, className = '', multiline = false, lin
       : null
 
   return (
-    <div className={`rounded-lg border border-border-soft bg-surface p-4 transition-all hover:border-primary/30 ${className}`}>
-      <div className="flex items-center gap-2 text-muted">
-        <Icon className="size-4 shrink-0" />
+    <div className={`organizer-info-item min-w-0 p-3 ${className}`}>
+      <div className="organizer-profile-label flex items-center gap-2">
+        <span className="organizer-info-card-icon grid size-8 shrink-0 place-items-center rounded-full">
+          <Icon className="size-4" />
+        </span>
         <span className="text-sm font-semibold">{label}</span>
       </div>
       {href ? (
-        <a href={href} target={linkType === 'url' ? '_blank' : undefined} rel={linkType === 'url' ? 'noreferrer' : undefined} className="mt-2 block break-words font-bold text-primary hover:underline">
+        <a href={href} target={linkType === 'url' ? '_blank' : undefined} rel={linkType === 'url' ? 'noreferrer' : undefined} className="organizer-info-link mt-2 block break-words font-bold">
           {displayValue}
         </a>
       ) : (
-        <p className={`mt-2 break-words font-bold ${isEmpty ? 'text-subtle' : 'text-white'} ${multiline ? 'whitespace-pre-line leading-7' : ''}`}>
+        <p className={`mt-2 break-words font-bold ${isEmpty ? 'organizer-info-empty' : 'organizer-info-value'} ${multiline ? 'whitespace-pre-line leading-7' : ''}`}>
           {displayValue}
         </p>
       )}
@@ -769,33 +932,30 @@ function Info({ icon: Icon, label, value, className = '', multiline = false, lin
   )
 }
 
-function DocumentCard({ label, url }) {
+function DocumentCard({ label, url, uploadedAt }) {
   const displayUrl = valueOrEmpty(url)
   const hasUrl = displayUrl !== EMPTY_TEXT
   const href = hasUrl ? normalizeUrl(displayUrl) : ''
+  const uploadedDate = hasUrl ? formatDateTime(uploadedAt) : EMPTY_TEXT
 
   return (
-    <div className="rounded-lg border border-border-soft bg-surface p-4">
-      <div className="flex items-center gap-2 text-muted">
-        <FileCheck2 className="size-4 shrink-0" />
-        <span className="text-sm font-semibold">{label}</span>
+    <div className="organizer-document-row">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="organizer-document-icon grid size-8 shrink-0 place-items-center rounded-md">
+          <FileText className="size-4" />
+        </span>
+        <span className="organizer-info-value break-words text-sm font-semibold">{label}</span>
       </div>
-      <div className="mt-3 overflow-hidden rounded-lg border border-border-soft/60 bg-panel/60">
-        {hasUrl && isImageUrl(displayUrl) ? (
-          <img src={displayUrl} alt={label} className="h-32 w-full object-cover" />
-        ) : (
-          <div className="grid h-32 place-items-center px-4 text-center">
-            <FileText className={`size-8 ${hasUrl ? 'text-primary' : 'text-subtle'}`} />
-          </div>
-        )}
+      <div className="organizer-document-date hidden text-sm font-medium md:block">
+        {uploadedDate}
       </div>
       {hasUrl ? (
-        <a href={href} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 break-all text-sm font-bold text-primary hover:underline">
-          <ExternalLink className="size-4 shrink-0" />
-          Xem tài liệu
+        <a href={href} target="_blank" rel="noreferrer" className="organizer-document-status inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold">
+          <CheckCircle2 className="size-3.5 shrink-0" />
+          Đã tải lên
         </a>
       ) : (
-        <p className="mt-3 text-sm font-semibold text-subtle">Chưa cập nhật</p>
+        <p className="organizer-info-empty text-sm font-semibold">Chưa cập nhật</p>
       )}
     </div>
   )
@@ -805,13 +965,13 @@ function ReviewHistoryCard({ request, index }) {
   const rejected = String(request.status || '').toUpperCase() === 'REJECTED'
 
   return (
-    <div className={`rounded-lg border p-4 ${rejected ? 'border-error/30 bg-error/10' : 'border-border-soft bg-surface'}`}>
+    <div className={`rounded-lg border p-4 ${rejected ? 'border-error/30 bg-error/10' : 'organizer-history-card'}`}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-subtle">Yêu cầu {index + 1}</p>
+          <p className="organizer-info-empty text-xs font-bold uppercase tracking-wide">Yêu cầu {index + 1}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusPill status={request.status} />
-            <span className="text-sm font-semibold text-muted">{organizerTypeLabel(request.request_type)}</span>
+            <span className="organizer-profile-label text-sm font-semibold">{organizerTypeLabel(request.request_type)}</span>
           </div>
         </div>
         <div className="grid gap-2 text-sm md:min-w-[260px]">
@@ -822,7 +982,7 @@ function ReviewHistoryCard({ request, index }) {
       {rejected && (
         <div className="mt-4 rounded-lg border border-error/30 bg-error/10 p-4">
           <p className="text-sm font-bold text-error">Lý do từ chối</p>
-          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-content">{valueOrEmpty(request.review_note)}</p>
+          <p className="organizer-info-value mt-1 whitespace-pre-line text-sm leading-6">{valueOrEmpty(request.review_note)}</p>
         </div>
       )}
     </div>
@@ -849,8 +1009,8 @@ function CompactLine({ icon: Icon, label, value }) {
     <div className="flex items-start gap-3">
       <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
-        <p className="break-words text-sm font-bold text-white">{valueOrEmpty(value)}</p>
+        <p className="organizer-info-empty text-xs font-semibold uppercase tracking-wide">{label}</p>
+        <p className="organizer-info-value break-words text-sm font-bold">{valueOrEmpty(value)}</p>
       </div>
     </div>
   )
@@ -882,7 +1042,7 @@ function Input({ label, error, className = '', type, ...props }) {
           } disabled:opacity-50`}
         />
         {isPassword && (
-          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white">
+          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-content">
             {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
           </button>
         )}
@@ -985,13 +1145,6 @@ function normalizeUrl(url) {
   const text = valueOrEmpty(url)
   if (text === EMPTY_TEXT) return undefined
   return /^https?:\/\//i.test(text) ? text : `https://${text}`
-}
-
-function isImageUrl(url = '') {
-  return (
-    /\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url) ||
-    /\/image\/upload\//i.test(url)
-  )
 }
 
 function roleLabel(roles = []) {
