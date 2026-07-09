@@ -13,6 +13,10 @@ const TOAST_STYLES = {
     icon: AlertCircle,
     className: 'border-error/30 bg-error/15 text-error',
   },
+  warning: {
+    icon: AlertCircle,
+    className: 'border-warning/30 bg-warning/15 text-warning',
+  },
   info: {
     icon: Info,
     className: 'border-primary/30 bg-primary/15 text-primary',
@@ -52,6 +56,7 @@ export function ToastProvider({ children }) {
     showToast,
     success: (message, options) => showToast(message, { ...options, type: 'success' }),
     error: (message, options) => showToast(message, { ...options, type: 'error' }),
+    warning: (message, options) => showToast(message, { ...options, type: 'warning' }),
     info: (message, options) => showToast(message, { ...options, type: 'info' }),
     dismiss,
   }), [dismiss, showToast])

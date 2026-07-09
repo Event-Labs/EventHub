@@ -258,6 +258,11 @@ class TicketsRepository {
         ON staff_scope.event_id = t.event_id
        AND staff_scope.staff_id = $1
       WHERE e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
         AND o.status = 'PAID'
         ${conditions.length ? `AND ${conditions.join(' AND ')}` : ''}
       ORDER BY es.start_time DESC, t.created_at DESC
@@ -281,7 +286,15 @@ class TicketsRepository {
         )
       ORDER BY CASE WHEN EXISTS (
         SELECT 1 FROM event_staffs escope
-        WHERE escope.event_id = t.event_id AND escope.staff_id = $2
+        JOIN events scoped_event ON scoped_event.id = escope.event_id
+        WHERE escope.event_id = t.event_id
+          AND escope.staff_id = $2
+          AND scoped_event.deleted_at IS NULL
+          AND (
+            scoped_event.status = 'PUBLISHED'
+            OR (scoped_event.status = 'COMPLETED' AND scoped_event.approval_status = 'APPROVED')
+          )
+          AND COALESCE(scoped_event.end_time, scoped_event.start_time) >= now()
       ) THEN 0 ELSE 1 END
       LIMIT 1
       `,
@@ -292,7 +305,20 @@ class TicketsRepository {
     if (!ticket) return null;
 
     const accessResult = await db.query(
-      'SELECT 1 FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+      `
+      SELECT 1
+      FROM event_staffs es
+      JOIN events e ON e.id = es.event_id
+      WHERE es.event_id = $1
+        AND es.staff_id = $2
+        AND e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
+      LIMIT 1
+      `,
       [ticket.event_id, staffId],
     );
 
@@ -319,8 +345,15 @@ class TicketsRepository {
           EXISTS (
             SELECT 1
             FROM event_staffs staff_scope
+            JOIN events scoped_event ON scoped_event.id = staff_scope.event_id
             WHERE staff_scope.event_id = t.event_id
               AND staff_scope.staff_id = $2
+              AND scoped_event.deleted_at IS NULL
+              AND (
+                scoped_event.status = 'PUBLISHED'
+                OR (scoped_event.status = 'COMPLETED' AND scoped_event.approval_status = 'APPROVED')
+              )
+              AND COALESCE(scoped_event.end_time, scoped_event.start_time) >= now()
           ) AS has_staff_access
         FROM tickets t
         JOIN event_sessions es ON es.id = t.event_session_id
