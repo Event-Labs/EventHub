@@ -663,6 +663,7 @@ class OrganizerOrdersRepository {
         e.start_time,
         COUNT(DISTINCT o.id)::int                          AS total_orders,
         COALESCE(SUM(o.total_amount), 0)::numeric          AS gross_revenue,
+        COALESCE(SUM(o.discount_amount), 0)::numeric       AS total_discount,
         0::numeric                                         AS platform_fee,
         COALESCE(SUM(o.total_amount), 0)::numeric          AS ticket_net_revenue
       FROM orders o
