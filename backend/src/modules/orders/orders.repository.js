@@ -880,11 +880,22 @@ class OrdersRepository {
 
       if (!isAdmin) {
         const scopeResult = await client.query(
-          'SELECT 1 FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+          `
+          SELECT 1
+          FROM event_staffs es
+          JOIN events e ON e.id = es.event_id
+          WHERE es.event_id = $1
+            AND es.staff_id = $2
+            AND e.deleted_at IS NULL
+            AND e.status = 'PUBLISHED'
+            AND e.approval_status = 'APPROVED'
+            AND COALESCE(e.end_time, e.start_time) >= now()
+          LIMIT 1
+          `,
           [eventId, staffId],
         );
         if (!scopeResult.rows[0]) {
-          throw new AppError('Bạn chưa được phân công vào sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+          throw new AppError('Bạn không còn quyền staff cho sự kiện này hoặc sự kiện đã kết thúc.', 403, ErrorCodes.AUTH_FORBIDDEN);
         }
       }
 
@@ -1202,11 +1213,22 @@ class OrdersRepository {
 
       if (!isAdmin) {
         const scopeResult = await client.query(
-          'SELECT 1 FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+          `
+          SELECT 1
+          FROM event_staffs es
+          JOIN events e ON e.id = es.event_id
+          WHERE es.event_id = $1
+            AND es.staff_id = $2
+            AND e.deleted_at IS NULL
+            AND e.status = 'PUBLISHED'
+            AND e.approval_status = 'APPROVED'
+            AND COALESCE(e.end_time, e.start_time) >= now()
+          LIMIT 1
+          `,
           [eventId, staffId],
         );
         if (!scopeResult.rows[0]) {
-          throw new AppError('Bạn chưa được phân công vào sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+          throw new AppError('Bạn không còn quyền staff cho sự kiện này hoặc sự kiện đã kết thúc.', 403, ErrorCodes.AUTH_FORBIDDEN);
         }
       }
 
@@ -1286,8 +1308,13 @@ class OrdersRepository {
           OR EXISTS (
             SELECT 1
             FROM event_staffs scope
+            JOIN events scoped_event ON scoped_event.id = scope.event_id
             WHERE scope.event_id = e.id
               AND scope.staff_id = $2
+              AND scoped_event.deleted_at IS NULL
+              AND scoped_event.status = 'PUBLISHED'
+              AND scoped_event.approval_status = 'APPROVED'
+              AND COALESCE(scoped_event.end_time, scoped_event.start_time) >= now()
           )
         )
       LIMIT 1

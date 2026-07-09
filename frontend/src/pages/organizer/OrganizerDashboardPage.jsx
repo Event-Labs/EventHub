@@ -164,8 +164,12 @@ function HorizontalRevenueChart({ data, maxValue }) {
       {data.map((item) => {
         const gross = Number(item.gross_revenue || 0)
         const net = Number(item.net_revenue || 0)
+        const discount = Number(item.total_discount || 0)
         const grossPct = maxValue > 0 ? Math.max(3, Math.round((gross / maxValue) * 100)) : 0
         const netPct = gross > 0 ? Math.max(3, Math.round((net / gross) * grossPct)) : 0
+        const discountPct = maxValue > 0 && discount > 0
+          ? Math.max(3, Math.round((discount / maxValue) * 100))
+          : 0
 
         return (
           <div key={item.event_id} className="rounded-md border border-border-soft/30 bg-panel-soft/50 p-4">
@@ -179,18 +183,27 @@ function HorizontalRevenueChart({ data, maxValue }) {
               <div className="text-right">
                 <p className="text-sm font-black text-content">{fmtCurrency(gross)}</p>
                 <p className="text-xs font-semibold text-success">Ròng {fmtCurrency(net)}</p>
+                <p className="text-xs font-semibold text-warning">Giảm giá {fmtCurrency(discount)}</p>
               </div>
             </div>
             <div className="relative h-3 overflow-hidden rounded-full bg-border-soft/25">
               <div className="absolute inset-y-0 left-0 rounded-full bg-tertiary/55" style={{ width: `${grossPct}%` }} />
               <div className="absolute inset-y-0 left-0 rounded-full bg-success" style={{ width: `${netPct}%` }} />
             </div>
+            {discount > 0 && (
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-border-soft/25">
+                <div className="h-full rounded-full bg-warning" style={{ width: `${discountPct}%` }} />
+              </div>
+            )}
             <div className="mt-2 flex items-center gap-4 text-[11px] font-bold uppercase text-muted">
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-success" /> Doanh thu ròng
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-tertiary/55" /> Doanh thu gộp
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-warning" /> Giảm giá
               </span>
             </div>
           </div>
@@ -205,6 +218,167 @@ function ProgressBar({ value, tone = 'bg-success' }) {
   return (
     <div className="h-2 overflow-hidden rounded-full bg-border-soft/25">
       <div className={`h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+function DonutChart({ segments, size = 150, stroke = 18, centerLabel, centerValue }) {
+  const total = segments.reduce((sum, item) => sum + Number(item.value || 0), 0)
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  let offset = 0
+
+  if (total <= 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(179,205,224,0.18)" strokeWidth={stroke} />
+        </svg>
+        <p className="text-sm font-semibold text-subtle">Chưa có dữ liệu</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-center">
+      <div className="relative shrink-0">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(179,205,224,0.12)" strokeWidth={stroke} />
+          {segments.map((item) => {
+            const value = Number(item.value || 0)
+            const dash = (value / total) * circumference
+            const circle = (
+              <circle
+                key={item.label}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={item.color}
+                strokeWidth={stroke}
+                strokeLinecap="round"
+                strokeDasharray={`${Math.max(dash - 2, 0)} ${circumference}`}
+                strokeDashoffset={-offset}
+              >
+                <title>{`${item.label}: ${fmtNumber(value)} (${fmtNumber((value / total) * 100, 1)}%)`}</title>
+              </circle>
+            )
+            offset += dash
+            return circle
+          })}
+        </svg>
+        <div className="absolute inset-0 grid place-items-center text-center">
+          <div>
+            <p className="text-xl font-black text-content">{centerValue ?? fmtNumber(total)}</p>
+            <p className="text-[11px] font-bold uppercase text-subtle">{centerLabel}</p>
+          </div>
+        </div>
+      </div>
+      <div className="grid min-w-0 flex-1 gap-2">
+        {segments.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-3 rounded-md border border-border-soft/25 bg-panel-soft/50 px-3 py-2">
+            <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-content">
+              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+              <span className="truncate">{item.label}</span>
+            </span>
+            <span className="shrink-0 text-sm font-black text-content">{fmtNumber(item.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TicketOpsChart({ dashboard }) {
+  const used = Number(dashboard?.checked_in_tickets || 0)
+  const valid = Number(dashboard?.valid_tickets || 0)
+  const cancelled = Number(dashboard?.cancelled_tickets || 0)
+  const issued = Number(dashboard?.issued_tickets || 0)
+  const total = Math.max(issued, used + valid + cancelled, 1)
+  const segments = [
+    { label: 'Đã check-in', value: used, color: 'bg-success', text: 'text-success' },
+    { label: 'Còn hiệu lực', value: valid, color: 'bg-primary', text: 'text-primary' },
+    { label: 'Đã hủy', value: cancelled, color: 'bg-error', text: 'text-error' },
+  ]
+
+  return (
+    <OrganizerPanel className="mb-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-content">Tình trạng vé vận hành</h2>
+          <p className="mt-1 text-xs text-subtle">Theo dõi vé đã check-in, vé còn hiệu lực và vé đã hủy.</p>
+        </div>
+        <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
+          {fmtNumber(issued)} vé đã phát hành
+        </span>
+      </div>
+      <div className="flex h-4 overflow-hidden rounded-full bg-border-soft/25">
+        {segments.map((item) => (
+          <div
+            key={item.label}
+            className={`${item.color} transition-all`}
+            style={{ width: `${Math.max(0, (item.value / total) * 100)}%` }}
+            title={`${item.label}: ${fmtNumber(item.value)}`}
+          />
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {segments.map((item) => (
+          <div key={item.label} className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase text-subtle">{item.label}</p>
+            <p className={`mt-1 text-xl font-black ${item.text}`}>{fmtNumber(item.value)}</p>
+            <p className="mt-1 text-xs text-muted">{fmtNumber((item.value / total) * 100, 1)}% tổng vé</p>
+          </div>
+        ))}
+      </div>
+    </OrganizerPanel>
+  )
+}
+
+function EventStatusCharts({ dashboard }) {
+  const statusSegments = [
+    { label: 'Đang công khai', value: Number(dashboard?.published_events || 0), color: '#2b5c92' },
+    { label: 'Chờ duyệt', value: Number(dashboard?.pending_review_events || 0), color: '#eab308' },
+    { label: 'Bản nháp', value: Number(dashboard?.draft_events || 0), color: '#72787c' },
+    { label: 'Đã duyệt chưa public', value: Number(dashboard?.completed_events || 0), color: '#22c55e' },
+  ]
+  const timelineSegments = [
+    { label: 'Đang diễn ra', value: Number(dashboard?.running_events || 0), color: '#22c55e' },
+    { label: 'Sắp diễn ra', value: Number(dashboard?.upcoming_events || 0), color: '#2b5c92' },
+    {
+      label: 'Khác',
+      value: Math.max(
+        Number(dashboard?.total_events || 0) - Number(dashboard?.running_events || 0) - Number(dashboard?.upcoming_events || 0),
+        0,
+      ),
+      color: '#72787c',
+    },
+  ]
+
+  return (
+    <div className="mb-6 grid gap-6 xl:grid-cols-2">
+      <OrganizerPanel>
+        <div className="mb-4">
+          <h2 className="font-bold text-content">Phân bổ trạng thái sự kiện</h2>
+          <p className="mt-1 text-xs text-subtle">Nhìn nhanh tỷ trọng sự kiện đã public, chờ duyệt, nháp và đã duyệt.</p>
+        </div>
+        <DonutChart
+          segments={statusSegments}
+          centerLabel="Sự kiện"
+          centerValue={fmtNumber(dashboard?.total_events)}
+        />
+      </OrganizerPanel>
+      <OrganizerPanel>
+        <div className="mb-4">
+          <h2 className="font-bold text-content">Lịch vận hành</h2>
+          <p className="mt-1 text-xs text-subtle">Tách riêng sự kiện đang diễn ra, sắp diễn ra và nhóm còn lại.</p>
+        </div>
+        <DonutChart
+          segments={timelineSegments}
+          centerLabel="Lịch"
+          centerValue={fmtNumber(dashboard?.total_events)}
+        />
+      </OrganizerPanel>
     </div>
   )
 }
@@ -634,6 +808,8 @@ export function OrganizerDashboardPage() {
             />
           </div>
 
+          <EventStatusCharts dashboard={dashboard} />
+          <TicketOpsChart dashboard={dashboard} />
           <MoneyCompositionChart overall={overall} />
 
           {/* ── Daily Revenue Chart ── */}
@@ -682,7 +858,7 @@ export function OrganizerDashboardPage() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-bold text-content">Doanh thu theo sự kiện</h2>
-                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu gộp, doanh thu ròng và số đơn của từng sự kiện.</p>
+                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu gộp, doanh thu ròng, giảm giá đã áp dụng và số đơn của từng sự kiện.</p>
                 </div>
                 <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
                   {byEvent.length} sự kiện
