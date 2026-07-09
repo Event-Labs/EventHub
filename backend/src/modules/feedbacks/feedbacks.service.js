@@ -45,7 +45,7 @@ class FeedbacksService {
   async getActiveOrganizerProfile(userId) {
     const organizer = await feedbacksRepository.findOrganizerByUserId(userId);
     if (!organizer) {
-      throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy hồ sơ nhà tổ chức.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
     return organizer;
   }
@@ -53,11 +53,11 @@ class FeedbacksService {
   async assertOrganizerOwnsEvent(organizerId, eventId) {
     const event = await feedbacksRepository.findEventById(eventId);
     if (!event || event.deleted_at) {
-      throw new AppError('Event not found', 404, ErrorCodes.FEEDBACK_EVENT_NOT_FOUND);
+      throw new AppError('Không tìm thấy sự kiện.', 404, ErrorCodes.FEEDBACK_EVENT_NOT_FOUND);
     }
     if (event.organizer_id !== organizerId) {
       throw new AppError(
-        'You do not have permission to view feedback for this event',
+        'Bạn không có quyền xem phản hồi của sự kiện này.',
         403,
         ErrorCodes.AUTH_FORBIDDEN,
       );
@@ -73,12 +73,20 @@ class FeedbacksService {
   async submitFeedback(userId, payload) {
     const event = await feedbacksRepository.findEventById(payload.event_id);
     if (!event || event.deleted_at) {
-      throw new AppError('Event not found', 404, ErrorCodes.FEEDBACK_EVENT_NOT_FOUND);
+      throw new AppError('Không tìm thấy sự kiện.', 404, ErrorCodes.FEEDBACK_EVENT_NOT_FOUND);
+    }
+
+    if (event.status !== 'PUBLISHED' || event.approval_status !== 'APPROVED') {
+      throw new AppError(
+        'Sự kiện này hiện chưa cho phép gửi phản hồi.',
+        400,
+        ErrorCodes.FEEDBACK_NOT_ELIGIBLE,
+      );
     }
 
     if (new Date(event.end_time) > new Date()) {
       throw new AppError(
-        'You can only submit feedback after the event has ended',
+        'Bạn chỉ có thể gửi phản hồi sau khi sự kiện kết thúc.',
         400,
         ErrorCodes.FEEDBACK_NOT_ELIGIBLE,
       );
@@ -87,7 +95,7 @@ class FeedbacksService {
     const hasTicket = await feedbacksRepository.userHasTicketForEvent(userId, payload.event_id);
     if (!hasTicket) {
       throw new AppError(
-        'You must have attended this event (valid ticket) to submit feedback',
+        'Bạn cần có vé hợp lệ hoặc vé đã check-in để gửi phản hồi cho sự kiện này.',
         403,
         ErrorCodes.FEEDBACK_NOT_ELIGIBLE,
       );
@@ -96,7 +104,7 @@ class FeedbacksService {
     const existing = await feedbacksRepository.findByUserAndEvent(userId, payload.event_id);
     if (existing) {
       throw new AppError(
-        'You have already submitted feedback for this event',
+        'Bạn đã gửi phản hồi cho sự kiện này rồi.',
         400,
         ErrorCodes.FEEDBACK_ALREADY_EXISTS,
       );
@@ -113,7 +121,7 @@ class FeedbacksService {
     } catch (error) {
       if (error.code === '23505') {
         throw new AppError(
-          'You have already submitted feedback for this event',
+          'Bạn đã gửi phản hồi cho sự kiện này rồi.',
           400,
           ErrorCodes.FEEDBACK_ALREADY_EXISTS,
         );

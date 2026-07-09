@@ -81,7 +81,7 @@ export function FeedbackPage() {
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <SectionHeader
         title="Phản hồi sự kiện"
-        description="Đánh giá trải nghiệm sau khi tham dự sự kiện (dữ liệu lưu trên hệ thống)"
+        description="Chia sẻ cảm nhận của bạn sau khi tham dự sự kiện."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
@@ -96,8 +96,8 @@ export function FeedbackPage() {
 
           {!eligibleQuery.isLoading && !eligibleQuery.isError && events.length === 0 && (
             <p className="text-sm text-muted">
-              Hiện không có sự kiện nào đủ điều kiện phản hồi. Bạn cần có vé hợp lệ và sự kiện đã kết thúc,
-              đồng thời chưa gửi đánh giá trước đó.
+              Hiện chưa có sự kiện nào có thể gửi phản hồi. Khi bạn đã tham dự một sự kiện kết thúc
+              và chưa từng đánh giá sự kiện đó, sự kiện sẽ xuất hiện tại đây.
             </p>
           )}
 
@@ -171,10 +171,10 @@ export function FeedbackPage() {
         <aside className="glass-panel h-fit rounded-lg p-5">
           <h3 className="font-display text-lg font-bold text-primary">Lưu ý</h3>
           <ul className="mt-3 space-y-2 text-sm text-muted">
-            <li>• Mỗi sự kiện chỉ đánh giá một lần.</li>
-            <li>• Cần có vé hợp lệ (VALID/USED).</li>
-            <li>• Chỉ gửi sau khi sự kiện kết thúc.</li>
-            <li>• Dữ liệu lưu trong bảng event_feedbacks.</li>
+            <li>• Bạn có thể gửi phản hồi sau khi sự kiện kết thúc.</li>
+            <li>• Mỗi sự kiện chỉ gửi phản hồi một lần.</li>
+            <li>• Hệ thống chỉ hiển thị sự kiện bạn có vé hợp lệ hoặc đã check-in.</li>
+            <li>• Nội dung phản hồi sẽ được gửi đến ban tổ chức để cải thiện trải nghiệm.</li>
           </ul>
         </aside>
       </div>

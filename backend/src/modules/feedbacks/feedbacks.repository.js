@@ -29,7 +29,7 @@ class FeedbacksRepository {
   async findEventById(eventId) {
     const { rows } = await db.query(
       `
-      SELECT id, title, slug, organizer_id, end_time, status, deleted_at
+      SELECT id, title, slug, organizer_id, end_time, status, approval_status, deleted_at
       FROM events
       WHERE id = $1
       LIMIT 1
@@ -85,6 +85,8 @@ class FeedbacksRepository {
       JOIN events e ON e.id = t.event_id
       WHERE o.user_id = $1
         AND e.deleted_at IS NULL
+        AND e.status = 'PUBLISHED'
+        AND e.approval_status = 'APPROVED'
         AND e.end_time <= now()
         AND t.status IN ('VALID', 'USED')
         AND NOT EXISTS (
