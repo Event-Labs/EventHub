@@ -27,6 +27,8 @@ import {
   AdminEventReviewPage,
   AdminFinancePage,
   AdminLayout,
+  AdminOrganizerDetailPage,
+  AdminOrganizersPage,
   AdminOrganizerRequestsPage,
   AdminPlansPage,
   AdminProfilePage,
@@ -78,6 +80,14 @@ export const router = createBrowserRouter([
       {
         path: 'accounts',
         element: <AdminAccountsPage />,
+      },
+      {
+        path: 'organizers',
+        element: <AdminOrganizersPage />,
+      },
+      {
+        path: 'organizers/:organizerId',
+        element: <AdminOrganizerDetailPage />,
       },
       {
         path: 'organizer-requests',
