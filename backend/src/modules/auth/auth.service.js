@@ -11,6 +11,23 @@ const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 class AuthService {
+    async resolveEffectiveRoles(user, roles) {
+        if (!roles.includes('STAFF')) {
+            return { roles, staffEventIds: [] };
+        }
+
+        const operationsRepository = require('../operations/operations.repository');
+        const staffEventIds = await operationsRepository.getStaffEventIds(user.id);
+        if (staffEventIds.length > 0) {
+            return { roles, staffEventIds };
+        }
+
+        return {
+            roles: roles.filter((role) => role !== 'STAFF'),
+            staffEventIds,
+        };
+    }
+
     serializeAuthUser(user, roles) {
         return {
             id: user.id,
@@ -32,12 +49,11 @@ class AuthService {
     }
 
     async generateAccessToken(user, roles) {
-        const payload = { sub: user.id, roles };
+        const effective = await this.resolveEffectiveRoles(user, roles);
+        const payload = { sub: user.id, roles: effective.roles };
 
-        if (roles.includes('STAFF')) {
-            const operationsRepository = require('../operations/operations.repository');
-            const staffEventIds = await operationsRepository.getStaffEventIds(user.id);
-            payload.staff_event_ids = staffEventIds;
+        if (effective.roles.includes('STAFF')) {
+            payload.staff_event_ids = effective.staffEventIds;
         }
 
         return jwt.sign(
@@ -121,7 +137,8 @@ class AuthService {
         }
 
         const roles = await authRepository.findUserRoles(user.id);
-        const accessToken = await this.generateAccessToken(user, roles);
+        const effective = await this.resolveEffectiveRoles(user, roles);
+        const accessToken = await this.generateAccessToken(user, effective.roles);
         const refreshToken = this.generateRefreshToken();
         const refreshTokenHash = this.hashToken(refreshToken);
 
@@ -136,7 +153,7 @@ class AuthService {
 
         // No last_login_at column exists in DB, omitted
 
-        return { user: this.serializeAuthUser(user, roles), accessToken, refreshToken };
+        return { user: this.serializeAuthUser(user, effective.roles), accessToken, refreshToken };
     }
 
     async googleLogin(credential, deviceInfo) {
@@ -198,7 +215,8 @@ class AuthService {
 
             // Now proceed with normal login flow token generation
             const roles = await authRepository.findUserRoles(user.id);
-            const accessToken = await this.generateAccessToken(user, roles);
+            const effective = await this.resolveEffectiveRoles(user, roles);
+            const accessToken = await this.generateAccessToken(user, effective.roles);
             const refreshToken = this.generateRefreshToken();
             const refreshTokenHash = this.hashToken(refreshToken);
 
@@ -211,7 +229,7 @@ class AuthService {
                 expires_at: expiresAt,
             });
 
-            return { user: this.serializeAuthUser(user, roles), accessToken, refreshToken };
+            return { user: this.serializeAuthUser(user, effective.roles), accessToken, refreshToken };
 
         } catch (error) {
             // Re-throw AppErrors (e.g., ACCOUNT_LOCKED) trực tiếp,
@@ -257,11 +275,12 @@ class AuthService {
         }
 
         const roles = await authRepository.findUserRoles(user.id);
+        const effective = await this.resolveEffectiveRoles(user, roles);
 
         // Rotate token — revoke old session by its hash
         await authRepository.revokeSessionByHash(hash);
 
-        const newAccessToken = await this.generateAccessToken(user, roles);
+        const newAccessToken = await this.generateAccessToken(user, effective.roles);
         const newRefreshToken = this.generateRefreshToken();
         const newHash = this.hashToken(newRefreshToken);
 

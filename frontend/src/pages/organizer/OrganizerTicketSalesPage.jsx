@@ -104,6 +104,279 @@ function BarChartSimple({ data, height = 160 }) {
   )
 }
 
+function aggregateTicketTypes(data, limit, sortKey = 'revenue') {
+  const sorted = [...(data || [])].sort((a, b) => Number(b[sortKey] || 0) - Number(a[sortKey] || 0))
+  if (sorted.length <= limit) return sorted
+
+  const visible = sorted.slice(0, limit)
+  const rest = sorted.slice(limit)
+  const other = rest.reduce(
+    (acc, item) => ({
+      ...acc,
+      capacity: acc.capacity + Number(item.capacity || 0),
+      sold_quantity: acc.sold_quantity + Number(item.sold_quantity || 0),
+      revenue: acc.revenue + Number(item.revenue || 0),
+    }),
+    {
+      ticket_type_id: 'other',
+      ticket_type_name: `Khác (${rest.length})`,
+      unit_price: 0,
+      capacity: 0,
+      sold_quantity: 0,
+      revenue: 0,
+    },
+  )
+  other.occupancy_rate = other.capacity > 0
+    ? Math.round((other.sold_quantity / other.capacity) * 1000) / 10
+    : 0
+
+  return [...visible, other]
+}
+
+function TicketTypeColumnChart({ data, height = 260 }) {
+  if (!data?.length) return null
+
+  const chartData = aggregateTicketTypes(data, 8, 'revenue')
+  const maxSold = Math.max(...chartData.map((item) => Number(item.sold_quantity || 0)), 1)
+  const maxRevenue = Math.max(...chartData.map((item) => Number(item.revenue || 0)), 1)
+  const groupWidth = 82
+  const chartWidth = Math.max(chartData.length * groupWidth + 28, 640)
+  const topPad = 18
+  const plotHeight = height - 58
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-subtle">
+          Hiển thị top {Math.min(8, data.length)} loại vé theo doanh thu{data.length > 8 ? ', phần còn lại được gom vào Khác.' : '.'}
+        </p>
+        <div className="flex items-center gap-3 text-[11px] font-bold uppercase text-muted">
+          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-success" />Doanh thu</span>
+          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" />Vé bán</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border-soft/25 bg-panel-soft/35 px-3 py-4">
+        <svg width={chartWidth} height={height} className="block">
+          {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+            <g key={pct}>
+              <line
+                x1={0}
+                x2={chartWidth}
+                y1={topPad + plotHeight - pct * plotHeight}
+                y2={topPad + plotHeight - pct * plotHeight}
+                stroke="rgba(179,205,224,0.16)"
+                strokeWidth={1}
+              />
+              <text x={4} y={topPad + plotHeight - pct * plotHeight - 4} fontSize={10} fill="#72787c">
+                {fmtShort(maxRevenue * pct)}
+              </text>
+            </g>
+          ))}
+        {chartData.map((item) => {
+          const sold = Number(item.sold_quantity || 0)
+          const revenue = Number(item.revenue || 0)
+          const revenueHeight = revenue > 0 ? Math.max(3, (revenue / maxRevenue) * plotHeight) : 0
+          const soldHeight = sold > 0 ? Math.max(3, (sold / maxSold) * plotHeight) : 0
+          const x = chartData.indexOf(item) * groupWidth + 34
+          const baseY = topPad + plotHeight
+          const label = item.ticket_type_name.length > 12
+            ? `${item.ticket_type_name.slice(0, 11)}...`
+            : item.ticket_type_name
+
+          return (
+            <g key={item.ticket_type_id}>
+              <rect
+                x={x}
+                y={baseY - revenueHeight}
+                width={18}
+                height={revenueHeight}
+                rx={4}
+                fill="#22c55e"
+              >
+                <title>{`${item.ticket_type_name}\nDoanh thu: ${fmtCurrency(revenue)}\nVé bán: ${sold.toLocaleString('vi-VN')}\nLấp đầy: ${Number(item.occupancy_rate || 0)}%`}</title>
+              </rect>
+              <rect
+                x={x + 23}
+                y={baseY - soldHeight}
+                width={18}
+                height={soldHeight}
+                rx={4}
+                fill="#2b5c92"
+              >
+                <title>{`${item.ticket_type_name}\nVé bán: ${sold.toLocaleString('vi-VN')}\nDoanh thu: ${fmtCurrency(revenue)}\nLấp đầy: ${Number(item.occupancy_rate || 0)}%`}</title>
+              </rect>
+              <text x={x + 20} y={height - 24} textAnchor="middle" fontSize={10} fill="#b3cde0">
+                {label}
+              </text>
+              <text x={x + 20} y={height - 9} textAnchor="middle" fontSize={10} fill="#72787c">
+                {fmtShort(revenue)}
+              </text>
+            </g>
+          )
+        })}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+function RevenueShareDonut({ data }) {
+  const segments = aggregateTicketTypes(data, 5, 'revenue')
+    .map((item, index) => ({
+      label: item.ticket_type_name,
+      value: Number(item.revenue || 0),
+      color: ['#2b5c92', '#22c55e', '#eab308', '#8b5cf6', '#ef4444', '#b3cde0'][index % 6],
+    }))
+    .filter((item) => item.value > 0)
+  const total = segments.reduce((sum, item) => sum + item.value, 0)
+  const size = 160
+  const stroke = 18
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  let offset = 0
+
+  return (
+    <OrganizerPanel>
+      <div className="mb-4 flex items-center gap-2">
+        <CircleDollarSign className="size-5 text-success" />
+        <h2 className="font-bold text-content">Tỷ trọng doanh thu theo loại vé</h2>
+      </div>
+      {total <= 0 ? (
+        <div className="flex h-40 items-center justify-center text-sm text-subtle">Chưa có doanh thu theo loại vé.</div>
+      ) : (
+        <div className="flex flex-col items-center gap-4 lg:flex-row">
+          <div className="relative shrink-0">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+              <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(179,205,224,0.12)" strokeWidth={stroke} />
+              {segments.map((item) => {
+                const dash = (item.value / total) * circumference
+                const circle = (
+                  <circle
+                    key={item.label}
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    fill="none"
+                    stroke={item.color}
+                    strokeWidth={stroke}
+                    strokeLinecap="round"
+                    strokeDasharray={`${Math.max(dash - 2, 0)} ${circumference}`}
+                    strokeDashoffset={-offset}
+                  >
+                    <title>{`${item.label}: ${fmtCurrency(item.value)}`}</title>
+                  </circle>
+                )
+                offset += dash
+                return circle
+              })}
+            </svg>
+            <div className="absolute inset-0 grid place-items-center text-center">
+              <div>
+                <p className="text-lg font-black text-content">{fmtShort(total)}</p>
+                <p className="text-[11px] font-bold uppercase text-subtle">Tổng</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid min-w-0 flex-1 gap-2">
+            {segments.map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-3 rounded-md border border-border-soft/25 bg-panel-soft/50 px-3 py-2">
+                <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-content">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="truncate">{item.label}</span>
+                </span>
+                <span className="shrink-0 text-sm font-black text-content">{fmtShort(item.value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </OrganizerPanel>
+  )
+}
+
+function EventOccupancyColumnChart({ data, height = 260 }) {
+  if (!data?.length) return null
+
+  const chartData = [...data]
+    .sort((a, b) => Number(b.occupancy_rate || 0) - Number(a.occupancy_rate || 0))
+    .slice(0, 10)
+  const groupWidth = 86
+  const chartWidth = Math.max(chartData.length * groupWidth + 28, 640)
+  const topPad = 18
+  const plotHeight = height - 58
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-subtle">
+          Hiển thị top {Math.min(10, data.length)} sự kiện theo tỷ lệ lấp đầy{data.length > 10 ? ', các sự kiện còn lại xem trong bộ lọc hoặc báo cáo chi tiết.' : '.'}
+        </p>
+        <div className="flex items-center gap-3 text-[11px] font-bold uppercase text-muted">
+          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-success" />Tốt</span>
+          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" />Ổn</span>
+          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-warning" />Thấp</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border-soft/25 bg-panel-soft/35 px-3 py-4">
+        <svg width={chartWidth} height={height} className="block">
+          {[0, 25, 50, 75, 100].map((pct) => (
+            <g key={pct}>
+              <line
+                x1={0}
+                x2={chartWidth}
+                y1={topPad + plotHeight - (pct / 100) * plotHeight}
+                y2={topPad + plotHeight - (pct / 100) * plotHeight}
+                stroke="rgba(179,205,224,0.16)"
+                strokeWidth={1}
+              />
+              <text x={4} y={topPad + plotHeight - (pct / 100) * plotHeight - 4} fontSize={10} fill="#72787c">
+                {pct}%
+              </text>
+            </g>
+          ))}
+          {chartData.map((event, index) => {
+            const occupancy = Math.max(0, Math.min(100, Number(event.occupancy_rate || 0)))
+            const sold = Number(event.sold_quantity || 0)
+            const capacity = Number(event.total_capacity || 0)
+            const revenue = Number(event.revenue || 0)
+            const barHeight = occupancy > 0 ? Math.max(3, (occupancy / 100) * plotHeight) : 0
+            const x = index * groupWidth + 42
+            const baseY = topPad + plotHeight
+            const label = event.event_title.length > 13
+              ? `${event.event_title.slice(0, 12)}...`
+              : event.event_title
+            const fill = occupancy >= 80 ? '#22c55e' : occupancy >= 50 ? '#2b5c92' : '#eab308'
+
+            return (
+              <g key={event.event_id}>
+                <rect
+                  x={x}
+                  y={baseY - barHeight}
+                  width={34}
+                  height={barHeight}
+                  rx={6}
+                  fill={fill}
+                >
+                  <title>{`${event.event_title}\nLấp đầy: ${occupancy}%\nĐã bán: ${sold.toLocaleString('vi-VN')} / ${capacity.toLocaleString('vi-VN')} vé\nDoanh thu: ${fmtCurrency(revenue)}\nĐơn hàng: ${Number(event.total_orders || 0).toLocaleString('vi-VN')}`}</title>
+                </rect>
+                <text x={x + 17} y={baseY - barHeight - 7} textAnchor="middle" fontSize={10} fontWeight={700} fill="#b3cde0">
+                  {occupancy}%
+                </text>
+                <text x={x + 17} y={height - 24} textAnchor="middle" fontSize={10} fill="#b3cde0">
+                  {label}
+                </text>
+                <text x={x + 17} y={height - 9} textAnchor="middle" fontSize={10} fill="#72787c">
+                  {sold.toLocaleString('vi-VN')} vé
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerTicketSalesPage() {
@@ -181,7 +454,6 @@ export function OrganizerTicketSalesPage() {
   return (
     <OrganizerPage
       title="Phân tích bán vé"
-      eyebrow="Tài chính / Phân tích bán vé"
       description="Theo dõi lượng vé bán theo thời gian, loại vé và tỷ lệ lấp đầy sự kiện."
     >
       {/* ── Filters ── */}
@@ -328,6 +600,19 @@ export function OrganizerTicketSalesPage() {
             </div>
           </OrganizerPanel>
 
+          {byTicketType.length > 0 && (
+            <div className="mb-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+              <OrganizerPanel>
+                <div className="mb-4 flex items-center gap-2">
+                  <Ticket className="size-5 text-primary" />
+                  <h2 className="font-bold text-content">Biểu đồ cột theo loại vé</h2>
+                </div>
+                <TicketTypeColumnChart data={byTicketType} />
+              </OrganizerPanel>
+              <RevenueShareDonut data={byTicketType} />
+            </div>
+          )}
+
           <div className="mb-6 grid gap-6 xl:grid-cols-2">
             {/* ── By Ticket Type ── */}
             {byTicketType.length > 0 && (
@@ -336,9 +621,9 @@ export function OrganizerTicketSalesPage() {
                   <Ticket className="size-5 text-primary" />
                   <h2 className="font-bold text-content">Bán hàng theo loại vé</h2>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="max-h-[420px] overflow-auto pr-1">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-surface">
                       <tr className="border-b border-border-soft/30 text-xs uppercase text-subtle">
                         <th className="pb-3 text-left font-bold">Loại vé</th>
                         <th className="pb-3 text-right font-bold">Sức chứa</th>
@@ -396,33 +681,7 @@ export function OrganizerTicketSalesPage() {
                   <Users className="size-5 text-primary" />
                   <h2 className="font-bold text-content">Tỷ lệ lấp đầy theo sự kiện</h2>
                 </div>
-                <div className="space-y-4">
-                  {byEvent.map((ev) => (
-                    <div key={ev.event_id} className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-content">{ev.event_title}</p>
-                          <p className="text-xs text-subtle">
-                            {fmtDate(ev.start_time)} · {Number(ev.sold_quantity).toLocaleString('vi-VN')}/{Number(ev.total_capacity).toLocaleString('vi-VN')} vé
-                          </p>
-                        </div>
-                        <OccupancyBadge rate={ev.occupancy_rate} />
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-panel-soft">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            ev.occupancy_rate >= 80 ? 'bg-success' : ev.occupancy_rate >= 50 ? 'bg-primary' : 'bg-warning'
-                          }`}
-                          style={{ width: `${Math.min(ev.occupancy_rate, 100)}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 flex items-center justify-between text-xs text-subtle">
-                        <span>Doanh thu: <span className="font-semibold text-success">{fmtShort(ev.revenue)}</span></span>
-                        <span>{ev.total_orders} đơn</span>
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <EventOccupancyColumnChart data={byEvent} />
               </OrganizerPanel>
             )}
           </div>

@@ -534,10 +534,9 @@ class OrganizerOrdersRepository {
 
   /**
    * Aggregate revenue stats for the organizer:
-   * - Overall totals (gross, platform_fee, net)
+   * - Overall totals (gross, subscription cost, net)
    * - Per-event breakdown
    * - Daily revenue for last 30 days (for chart)
-   * - Per-ticket-type revenue
    */
   async getRevenueStats(organizerId, { eventId, dateFrom, dateTo } = {}) {
     const baseConditions = ['o.organizer_id = $1', "o.status = 'PAID'"];
@@ -562,30 +561,95 @@ class OrganizerOrdersRepository {
 
     const whereClause = baseConditions.join(' AND ');
 
+    const periodConditions = ['o.organizer_id = $1', "o.status = 'PAID'"];
+    const periodParams = [organizerId];
+    let periodIdx = 2;
+    if (dateFrom) {
+      periodConditions.push(`o.created_at >= $${periodIdx}`);
+      periodParams.push(dateFrom);
+      periodIdx += 1;
+    }
+    if (dateTo) {
+      periodConditions.push(`o.created_at <= $${periodIdx}`);
+      periodParams.push(dateTo);
+    }
+
+    const { rows: subscriptionTableRows } = await db.query(
+      "SELECT to_regclass('public.subscription_payment_orders') AS table_name",
+    );
+    const hasSubscriptionPayments = Boolean(subscriptionTableRows[0]?.table_name);
+
+    let subscriptionCost = 0;
+    if (hasSubscriptionPayments) {
+      const subscriptionConditions = ['spo.organizer_id = $1', "spo.status = 'PAID'"];
+      const subscriptionParams = [organizerId];
+      let subscriptionIdx = 2;
+      if (dateFrom) {
+        subscriptionConditions.push(`spo.paid_at >= $${subscriptionIdx}`);
+        subscriptionParams.push(dateFrom);
+        subscriptionIdx += 1;
+      }
+      if (dateTo) {
+        subscriptionConditions.push(`spo.paid_at <= $${subscriptionIdx}`);
+        subscriptionParams.push(dateTo);
+      }
+
+      const subscriptionCostRes = await db.query(
+        `
+        SELECT COALESCE(SUM(spo.amount), 0)::numeric AS subscription_cost
+        FROM subscription_payment_orders spo
+        WHERE ${subscriptionConditions.join(' AND ')}
+        `,
+        subscriptionParams,
+      );
+      subscriptionCost = Number(subscriptionCostRes.rows[0]?.subscription_cost || 0);
+    }
+
+    const periodGrossRes = await db.query(
+      `
+      WITH paid_orders AS (
+        SELECT o.id, o.total_amount
+        FROM orders o
+        WHERE ${periodConditions.join(' AND ')}
+      )
+      SELECT COALESCE(SUM(total_amount), 0)::numeric AS gross_revenue
+      FROM paid_orders
+      `,
+      periodParams,
+    );
+    const periodGrossRevenue = Number(periodGrossRes.rows[0]?.gross_revenue || 0);
+
     const overallRes = await db.query(
       `
+      WITH paid_orders AS (
+        SELECT
+          o.id,
+          o.total_amount,
+          o.discount_amount
+        FROM orders o
+        JOIN LATERAL (
+          SELECT es_inner.event_id
+          FROM order_items oi_inner
+          JOIN ticket_types tt_inner ON tt_inner.id = oi_inner.ticket_type_id
+          JOIN event_sessions es_inner ON es_inner.id = tt_inner.event_session_id
+          WHERE oi_inner.order_id = o.id
+          LIMIT 1
+        ) ev_ref ON true
+        WHERE ${whereClause}
+      )
       SELECT
-        COUNT(DISTINCT o.id)::int                    AS total_orders,
-        COALESCE(SUM(o.total_amount), 0)::numeric    AS gross_revenue,
-        COALESCE(SUM(o.platform_fee), 0)::numeric    AS total_platform_fee,
-        COALESCE(SUM(o.total_amount - o.platform_fee), 0)::numeric AS net_revenue,
-        COALESCE(SUM(o.discount_amount), 0)::numeric AS total_discount,
+        COUNT(DISTINCT id)::int                                      AS total_orders,
+        COALESCE(SUM(total_amount), 0)::numeric                      AS gross_revenue,
+        0::numeric                                                   AS total_platform_fee,
+        COALESCE(SUM(total_amount), 0)::numeric                      AS ticket_net_revenue,
+        COALESCE(SUM(discount_amount), 0)::numeric                   AS total_discount,
         COALESCE(
-          (SELECT SUM(oi2.quantity) FROM order_items oi2
-           JOIN orders o2 ON o2.id = oi2.order_id
-           WHERE o2.organizer_id = $1 AND o2.status = 'PAID'),
+          (SELECT SUM(oi2.quantity)
+           FROM order_items oi2
+           WHERE oi2.order_id IN (SELECT id FROM paid_orders)),
           0
         )::int AS total_tickets_sold
-      FROM orders o
-      JOIN LATERAL (
-        SELECT es_inner.event_id
-        FROM order_items oi_inner
-        JOIN ticket_types tt_inner ON tt_inner.id = oi_inner.ticket_type_id
-        JOIN event_sessions es_inner ON es_inner.id = tt_inner.event_session_id
-        WHERE oi_inner.order_id = o.id
-        LIMIT 1
-      ) ev_ref ON true
-      WHERE ${whereClause}
+      FROM paid_orders
       `,
       params,
     );
@@ -599,8 +663,9 @@ class OrganizerOrdersRepository {
         e.start_time,
         COUNT(DISTINCT o.id)::int                          AS total_orders,
         COALESCE(SUM(o.total_amount), 0)::numeric          AS gross_revenue,
-        COALESCE(SUM(o.platform_fee), 0)::numeric          AS platform_fee,
-        COALESCE(SUM(o.total_amount - o.platform_fee), 0)::numeric AS net_revenue
+        COALESCE(SUM(o.discount_amount), 0)::numeric       AS total_discount,
+        0::numeric                                         AS platform_fee,
+        COALESCE(SUM(o.total_amount), 0)::numeric          AS ticket_net_revenue
       FROM orders o
       JOIN LATERAL (
         SELECT es_inner.event_id
@@ -635,7 +700,8 @@ class OrganizerOrdersRepository {
         DATE(o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS day,
         COUNT(DISTINCT o.id)::int                           AS orders,
         COALESCE(SUM(o.total_amount), 0)::numeric           AS gross_revenue,
-        COALESCE(SUM(o.total_amount - o.platform_fee), 0)::numeric AS net_revenue
+        0::numeric                                          AS platform_fee,
+        COALESCE(SUM(o.total_amount), 0)::numeric           AS ticket_net_revenue
       FROM orders o
       JOIN LATERAL (
         SELECT es_inner.event_id
@@ -656,17 +722,230 @@ class OrganizerOrdersRepository {
       dailyParams,
     );
 
+    const dashboardRes = await db.query(
+      `
+      SELECT
+        COUNT(*)::int AS total_events,
+        COUNT(*) FILTER (WHERE status = 'PUBLISHED')::int AS published_events,
+        COUNT(*) FILTER (WHERE status = 'DRAFT')::int AS draft_events,
+        COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW')::int AS pending_review_events,
+        COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed_events,
+        COUNT(*) FILTER (
+          WHERE status = 'PUBLISHED'
+            AND start_time <= now()
+            AND end_time >= now()
+        )::int AS running_events,
+        COUNT(*) FILTER (
+          WHERE status = 'PUBLISHED'
+            AND start_time > now()
+        )::int AS upcoming_events
+      FROM events
+      WHERE organizer_id = $1
+        AND deleted_at IS NULL
+      `,
+      [organizerId],
+    );
+
+    const capacityRes = await db.query(
+      `
+      SELECT
+        COALESCE(SUM(tt.quantity), 0)::int AS total_capacity,
+        COALESCE(AVG(tt.price), 0)::numeric AS avg_listed_ticket_price,
+        COUNT(DISTINCT es.id)::int AS total_sessions,
+        COUNT(DISTINCT tt.id)::int AS total_ticket_types
+      FROM events e
+      LEFT JOIN event_sessions es ON es.event_id = e.id
+      LEFT JOIN ticket_types tt ON tt.event_session_id = es.id
+      WHERE e.organizer_id = $1
+        AND e.deleted_at IS NULL
+      `,
+      [organizerId],
+    );
+
+    const ticketOpsRes = await db.query(
+      `
+      SELECT
+        COUNT(t.id)::int AS issued_tickets,
+        COUNT(t.id) FILTER (WHERE t.status = 'USED')::int AS checked_in_tickets,
+        COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int AS valid_tickets,
+        COUNT(t.id) FILTER (WHERE t.status = 'CANCELLED')::int AS cancelled_tickets
+      FROM tickets t
+      JOIN events e ON e.id = t.event_id
+      WHERE e.organizer_id = $1
+        AND e.deleted_at IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM orders o
+          JOIN order_items oi ON oi.order_id = o.id
+          WHERE oi.id = t.order_item_id
+            AND o.status = 'PAID'
+        )
+      `,
+      [organizerId],
+    );
+
+    const nextEventRes = await db.query(
+      `
+      SELECT
+        e.id,
+        e.title,
+        e.status,
+        e.start_time,
+        e.end_time,
+        COALESCE((
+          SELECT SUM(tt.quantity)
+          FROM event_sessions es
+          JOIN ticket_types tt ON tt.event_session_id = es.id
+          WHERE es.event_id = e.id
+        ), 0)::int AS capacity,
+        COALESCE((
+          SELECT SUM(oi.quantity)
+          FROM orders o
+          JOIN order_items oi ON oi.order_id = o.id
+          JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = e.id
+            AND o.organizer_id = $1
+            AND o.status = 'PAID'
+        ), 0)::int AS tickets_sold
+      FROM events e
+      WHERE e.organizer_id = $1
+        AND e.deleted_at IS NULL
+        AND e.status = 'PUBLISHED'
+        AND e.start_time >= now()
+      ORDER BY e.start_time ASC
+      LIMIT 1
+      `,
+      [organizerId],
+    );
+
+    const currentPlanRes = await db.query(
+      `
+      SELECT
+        os.id,
+        os.start_date,
+        os.end_date,
+        s.name,
+        s.price,
+        s.max_active_events,
+        s.max_tickets_per_event,
+        s.max_staff_per_event,
+        s.max_ticket_types_per_event,
+        s.max_promo_codes_per_event,
+        s.analytics_enabled,
+        s.ai_report_enabled
+      FROM organizer_subscriptions os
+      JOIN subscriptions s ON s.id = os.subscription_id
+      WHERE os.organizer_id = $1
+        AND os.status = 'ACTIVE'
+        AND os.start_date <= now()
+        AND os.end_date >= now()
+        AND s.deleted_at IS NULL
+      ORDER BY os.start_date DESC
+      LIMIT 1
+      `,
+      [organizerId],
+    );
+
+    const rawOverall = overallRes.rows[0] ?? {
+      total_orders: 0,
+      gross_revenue: 0,
+      total_platform_fee: 0,
+      ticket_net_revenue: 0,
+      total_discount: 0,
+      total_tickets_sold: 0,
+    };
+    const overallGross = Number(rawOverall.gross_revenue || 0);
+    const allocatedSubscriptionCost = periodGrossRevenue > 0
+      ? Math.round((subscriptionCost * (overallGross / periodGrossRevenue)) * 100) / 100
+      : 0;
+    const ticketNetRevenue = Number(rawOverall.ticket_net_revenue || 0);
+    const netRevenue = ticketNetRevenue - allocatedSubscriptionCost;
+
+    const byEvent = byEventRes.rows.map((eventRow) => {
+      const grossRevenue = Number(eventRow.gross_revenue || 0);
+      const eventSubscriptionCost = periodGrossRevenue > 0
+        ? Math.round((subscriptionCost * (grossRevenue / periodGrossRevenue)) * 100) / 100
+        : 0;
+      const eventTicketNet = Number(eventRow.ticket_net_revenue || 0);
+      return {
+        ...eventRow,
+        subscription_cost: eventSubscriptionCost,
+        net_revenue: eventTicketNet - eventSubscriptionCost,
+      };
+    });
+
+    const dailySubscriptionCostByDay = new Map();
+    if (hasSubscriptionPayments && !eventId) {
+      const dailySubscriptionConditions = ['spo.organizer_id = $1', "spo.status = 'PAID'"];
+      const dailySubscriptionParams = [organizerId];
+      let dailySubscriptionIdx = 2;
+      if (dateFrom) {
+        dailySubscriptionConditions.push(`spo.paid_at >= $${dailySubscriptionIdx}`);
+        dailySubscriptionParams.push(dateFrom);
+        dailySubscriptionIdx += 1;
+      }
+      if (dateTo) {
+        dailySubscriptionConditions.push(`spo.paid_at <= $${dailySubscriptionIdx}`);
+        dailySubscriptionParams.push(dateTo);
+      }
+
+      const dailySubscriptionRes = await db.query(
+        `
+        SELECT
+          DATE(spo.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS day,
+          COALESCE(SUM(spo.amount), 0)::numeric AS subscription_cost
+        FROM subscription_payment_orders spo
+        WHERE ${dailySubscriptionConditions.join(' AND ')}
+        GROUP BY day
+        `,
+        dailySubscriptionParams,
+      );
+      dailySubscriptionRes.rows.forEach((row) => {
+        dailySubscriptionCostByDay.set(String(row.day), Number(row.subscription_cost || 0));
+      });
+    }
+
+    const dailyRevenue = dailyRes.rows.map((row) => {
+      const dailySubscriptionCost = dailySubscriptionCostByDay.get(String(row.day)) || 0;
+      return {
+        ...row,
+        subscription_cost: dailySubscriptionCost,
+        net_revenue: Number(row.ticket_net_revenue || 0) - dailySubscriptionCost,
+      };
+    });
+
+    const dashboard = dashboardRes.rows[0] ?? {};
+    const capacity = capacityRes.rows[0] ?? {};
+    const ticketOps = ticketOpsRes.rows[0] ?? {};
+    const totalCapacity = Number(capacity.total_capacity || 0);
+    const issuedTickets = Number(ticketOps.issued_tickets || 0);
+    const checkedInTickets = Number(ticketOps.checked_in_tickets || 0);
+
     return {
-      overall: overallRes.rows[0] ?? {
-        total_orders: 0,
-        gross_revenue: 0,
-        total_platform_fee: 0,
-        net_revenue: 0,
-        total_discount: 0,
-        total_tickets_sold: 0,
+      overall: {
+        ...rawOverall,
+        subscription_cost: allocatedSubscriptionCost,
+        period_subscription_cost: subscriptionCost,
+        total_costs: allocatedSubscriptionCost,
+        net_revenue: netRevenue,
+        net_margin_rate: overallGross > 0 ? Math.round((netRevenue / overallGross) * 1000) / 10 : 0,
       },
-      by_event: byEventRes.rows,
-      daily_revenue: dailyRes.rows,
+      by_event: byEvent,
+      daily_revenue: dailyRevenue,
+      dashboard: {
+        ...dashboard,
+        ...capacity,
+        ...ticketOps,
+        occupancy_rate: totalCapacity > 0 ? Math.round((issuedTickets / totalCapacity) * 1000) / 10 : 0,
+        checkin_rate: issuedTickets > 0 ? Math.round((checkedInTickets / issuedTickets) * 1000) / 10 : 0,
+        next_event: nextEventRes.rows[0] || null,
+      },
+      subscription: {
+        current_plan: currentPlanRes.rows[0] || null,
+        period_subscription_cost: subscriptionCost,
+        allocated_subscription_cost: allocatedSubscriptionCost,
+      },
     };
   }
   // ─── Ticket Sales Analytics ───────────────────────────────────────────────

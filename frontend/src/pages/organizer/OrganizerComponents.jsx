@@ -1,29 +1,17 @@
 import { isValidElement } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Plus, Search, Sparkles } from 'lucide-react'
+import { Plus, Search, Sparkles } from 'lucide-react'
 
 /**
  * OrganizerPage – page-level layout wrapper
  */
-export function OrganizerPage({ title, eyebrow, description, action, actionTo, onAction, children }) {
+export function OrganizerPage({ title, description, action, actionTo, onAction, children }) {
   const actionIsElement = isValidElement(action)
 
   return (
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          {eyebrow && (
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-subtle">
-              {eyebrow.split('/').map((item, index, items) => (
-                <span key={`${item}-${index}`} className="flex items-center gap-2">
-                  <span className={index === items.length - 1 ? 'text-tertiary' : ''}>
-                    {item.trim()}
-                  </span>
-                  {index < items.length - 1 && <ChevronRight className="size-3" />}
-                </span>
-              ))}
-            </div>
-          )}
           <h1 className="font-display text-2xl font-extrabold text-content tracking-tight">
             {title}
           </h1>

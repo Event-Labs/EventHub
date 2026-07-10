@@ -17,8 +17,20 @@ import {
   fetchOrganizerStaffTasks,
 } from '@/services/operations.js'
 import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
+
+function isStaffManageableEvent(event) {
+  if (!event || event.status === 'DRAFT') return false
+  const isApprovedForStaff = event.status === 'PUBLISHED'
+    || (event.status === 'COMPLETED' && event.approval_status === 'APPROVED')
+  if (!isApprovedForStaff) return false
+  const effectiveEnd = event.end_time || event.start_time
+  if (!effectiveEnd) return false
+  return new Date(effectiveEnd).getTime() >= Date.now()
+}
 
 const STATUS_CONFIG = {
   TODO: {
@@ -57,6 +69,7 @@ function taskDisplayId(taskId) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export function OrganizerTasksPage() {
+  const toast = useToast()
   const [overview, setOverview] = useState(null)
   const [tasks, setTasks] = useState([])
   const [selectedEventId, setSelectedEventId] = useState('')
@@ -81,7 +94,9 @@ export function OrganizerTasksPage() {
         setSelectedEventId(ov.events[0].id)
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải dữ liệu.')
+      const message = getApiMessage(err, 'Không thể tải dữ liệu.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -103,7 +118,9 @@ export function OrganizerTasksPage() {
       const taskList = await fetchOrganizerStaffTasks(eventId ? { event_id: eventId } : {})
       setTasks(taskList)
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải công việc.')
+      const message = getApiMessage(err, 'Không thể tải công việc.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -166,6 +183,11 @@ export function OrganizerTasksPage() {
   }, [tasks])
 
   const selectedEvent = overview?.events?.find((e) => e.id === selectedEventId)
+  const selectedEventManageable = !selectedEventId || isStaffManageableEvent(selectedEvent)
+  const staffManageableEvents = useMemo(
+    () => (overview?.events || []).filter(isStaffManageableEvent),
+    [overview?.events],
+  )
 
   return (
     <OrganizerPage
@@ -260,12 +282,20 @@ export function OrganizerTasksPage() {
         <button
           className="org-btn-primary self-end"
           onClick={() => setShowCreateModal(true)}
-          disabled={loading || !selectedEventId}
+          disabled={loading || !selectedEventId || !selectedEventManageable}
         >
           <Plus className="size-4" />
           Tạo công việc
         </button>
       </div>
+
+      {!loading && selectedEventId && !selectedEventManageable && (
+        <OrganizerPanel className="mb-5 border-warning/30 bg-warning/10">
+          <p className="text-sm font-semibold text-warning">
+            Sự kiện này đã hết hiệu lực, đang ở bản nháp hoặc chưa được duyệt. Bạn chỉ có thể xem tiến độ và báo cáo công việc, không thể tạo công việc mới.
+          </p>
+        </OrganizerPanel>
+      )}
 
       {/* ── Progress stats ── */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -339,11 +369,12 @@ export function OrganizerTasksPage() {
       {/* ── Create task modal ── */}
       {showCreateModal && (
         <CreateTaskModal
-          events={overview?.events || []}
+          events={staffManageableEvents}
           selectedEventId={selectedEventId}
           assignedStaff={assignedStaff}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
+            toast.success('Đã tạo công việc.')
             setShowCreateModal(false)
             handleEventChange(selectedEventId)
           }}
@@ -494,8 +525,12 @@ function StaffProgressTable({ tasks, staffOptions }) {
 // ─── Create Task Modal ────────────────────────────────────────────────────────
 
 function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCreated }) {
+  const toast = useToast()
+  const initialEventId = events.some((event) => event.id === selectedEventId)
+    ? selectedEventId
+    : events[0]?.id || ''
   const [form, setForm] = useState({
-    event_id: selectedEventId || events[0]?.id || '',
+    event_id: initialEventId,
     staff_id: '',
     title: '',
     description: '',
@@ -523,7 +558,9 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
       })
       onCreated()
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tạo công việc.')
+      const message = getApiMessage(err, 'Không thể tạo công việc.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -556,15 +593,21 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
               {error}
             </div>
           )}
+          {events.length === 0 && (
+            <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
+              Không có sự kiện đã duyệt và còn hiệu lực để tạo công việc cho staff.
+            </div>
+          )}
 
           <div className="grid gap-4">
             {/* Event */}
             <label className="grid gap-1.5 text-xs font-bold text-subtle">
               Sự kiện
               <select
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-50"
                 value={form.event_id}
                 onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value, staff_id: '' }))}
+                disabled={events.length === 0}
                 required
               >
                 <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
@@ -642,7 +685,7 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
             <button
               type="submit"
               className="org-btn-primary"
-              disabled={saving || !form.event_id || !form.staff_id || !form.title.trim()}
+              disabled={saving || events.length === 0 || !form.event_id || !form.staff_id || !form.title.trim()}
             >
               {saving ? (
                 <>

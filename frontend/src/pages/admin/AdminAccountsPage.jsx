@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-  Actions,
   Badge,
-  FilterBar,
   KpiGrid,
   Page,
   Status,
@@ -12,12 +10,11 @@ import {
 import adminUserService from '@/services/adminUser'
 import { UserDetailView, LockUserModal } from './UserManagementComponents'
 import { Modal } from '@/components/Modal'
-import { Search, RotateCcw, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { Search, RotateCcw, AlertTriangle, Eye, Unlock } from 'lucide-react'
 
 export function AdminAccountsPage() {
   const [users, setUsers] = useState([])
   const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
     search: '',
     role: '',
@@ -35,9 +32,12 @@ export function AdminAccountsPage() {
   const [targetUser, setTargetUser] = useState(null)
   const [stats, setStats] = useState({ total: 0, active: 0, locked: 0, organizers: 0 })
   const [detailRefreshKey, setDetailRefreshKey] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(total / filters.limit))
+  const pageItems = getPageItems(filters.page, totalPages)
+  const startItem = total === 0 ? 0 : (filters.page - 1) * filters.limit + 1
+  const endItem = Math.min(filters.page * filters.limit, total)
 
   const fetchUsers = async () => {
-    setLoading(true)
     try {
       const res = await adminUserService.listUsers(filters)
       setUsers(res.data.data.users)
@@ -47,13 +47,30 @@ export function AdminAccountsPage() {
       }
     } catch (err) {
       console.error('Failed to fetch users', err)
-    } finally {
-      setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchUsers()
+    let ignore = false
+
+    adminUserService.listUsers(filters)
+      .then((res) => {
+        if (ignore) return
+        setUsers(res.data.data.users)
+        setTotal(res.data.data.total)
+        if (res.data.data.stats) {
+          setStats(res.data.data.stats)
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.error('Failed to fetch users', err)
+        }
+      })
+
+    return () => {
+      ignore = true
+    }
   }, [filters])
 
   const handleSearchChange = (e) => {
@@ -233,15 +250,27 @@ export function AdminAccountsPage() {
           </span>,
           <Status key="status" value={user.status} />,
           <div key="actions" className="flex items-center gap-4 text-subtle">
-            <button onClick={() => handleAction('VIEW', user)} title="Xem chi tiết" className="hover:text-tertiary transition">
-               <ShieldCheck className="size-5" />
+            <button
+              onClick={() => handleAction('VIEW', user)}
+              title="Xem chi tiết"
+              className="grid size-9 place-items-center rounded-full text-white transition duration-200 hover:-translate-y-0.5 hover:bg-white/15 hover:shadow-lg hover:shadow-white/20 hover:ring-1 hover:ring-white/50"
+            >
+               <Eye className="size-5" />
             </button>
             {user.status === 'LOCKED' ? (
-              <button onClick={() => handleAction('UNLOCK', user)} title="Mở khóa" className="hover:text-success transition">
-                <ShieldCheck className="size-5 text-success" />
+              <button
+                onClick={() => handleAction('UNLOCK', user)}
+                title="Mở khóa"
+                className="grid size-9 place-items-center rounded-full text-success transition duration-200 hover:-translate-y-0.5 hover:bg-success/25 hover:shadow-lg hover:shadow-success/35 hover:ring-1 hover:ring-success/50"
+              >
+                <Unlock className="size-5 text-success" />
               </button>
             ) : (
-              <button onClick={() => handleAction('LOCK', user)} title="Khóa tài khoản" className="hover:text-error transition">
+              <button
+                onClick={() => handleAction('LOCK', user)}
+                title="Khóa tài khoản"
+                className="grid size-9 place-items-center rounded-full text-error transition duration-200 hover:-translate-y-0.5 hover:bg-error/25 hover:shadow-lg hover:shadow-error/35 hover:ring-1 hover:ring-error/50"
+              >
                 <AlertTriangle className="size-5 text-error" />
               </button>
             )}
@@ -249,11 +278,11 @@ export function AdminAccountsPage() {
         ])}
       />
 
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <p className="text-sm text-subtle font-medium">
-          Hiển thị <span className="font-bold">{(filters.page - 1) * filters.limit + 1}</span> đến <span className="font-bold">{Math.min(filters.page * filters.limit, total)}</span> trong tổng số <span className="font-bold">{total}</span> người dùng
+          Hiển thị <span className="font-bold">{startItem}</span> đến <span className="font-bold">{endItem}</span> trong tổng số <span className="font-bold">{total}</span> người dùng
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
            <button 
             disabled={filters.page === 1}
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
@@ -261,8 +290,29 @@ export function AdminAccountsPage() {
            >
             Trước
            </button>
+           {pageItems.map((item, index) => (
+            item === 'ellipsis' ? (
+              <span key={`ellipsis-${index}`} className="px-2 text-sm font-bold text-subtle">
+                ...
+              </span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setFilters(prev => ({ ...prev, page: item }))}
+                className={`grid h-9 min-w-9 place-items-center rounded-xl border px-3 text-xs font-extrabold transition ${
+                  item === filters.page
+                    ? 'border-tertiary bg-tertiary text-white'
+                    : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-tertiary'
+                }`}
+                aria-current={item === filters.page ? 'page' : undefined}
+              >
+                {item}
+              </button>
+            )
+           ))}
            <button 
-            disabled={filters.page * filters.limit >= total}
+            disabled={filters.page >= totalPages}
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
             className="admin-secondary py-2 px-4 text-xs disabled:opacity-50"
            >
@@ -307,4 +357,22 @@ export function AdminAccountsPage() {
       )}
     </Page>
   )
+}
+
+function getPageItems(currentPage, totalPages) {
+  const pages = new Set([1, totalPages])
+  for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
+    if (page >= 1 && page <= totalPages) {
+      pages.add(page)
+    }
+  }
+
+  const sortedPages = Array.from(pages).sort((a, b) => a - b)
+  return sortedPages.flatMap((page, index) => {
+    const previousPage = sortedPages[index - 1]
+    if (index > 0 && page - previousPage > 1) {
+      return ['ellipsis', page]
+    }
+    return [page]
+  })
 }

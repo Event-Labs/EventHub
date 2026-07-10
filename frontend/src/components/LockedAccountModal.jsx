@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ShieldX } from 'lucide-react';
 
 export function LockedAccountModal({ open, lockData, onLogout }) {
@@ -57,28 +57,28 @@ export function LockedAccountModal({ open, lockData, onLogout }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto flex flex-col items-center bg-white p-7 rounded-[24px] border border-slate-200 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.3)]">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/75 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto flex flex-col items-center rounded-[24px] border border-border-soft/50 bg-surface p-7 shadow-[0_25px_70px_-18px_rgba(0,0,0,0.7)]">
 
         {/* Icon */}
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 border border-red-100 mb-4 flex-shrink-0">
-          <ShieldX className="h-7 w-7 text-red-500" />
+        <div className="mb-4 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-error/30 bg-error/15 ring-8 ring-error/5">
+          <ShieldX className="h-7 w-7 text-error" />
         </div>
 
         {/* Title */}
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight mb-1 text-center">
+        <h2 className="mb-1 text-center text-2xl font-black leading-tight tracking-tight text-content">
           Tài khoản bị khóa
         </h2>
-        <p className="text-slate-500 text-sm font-medium mb-5 text-center">
+        <p className="mb-5 text-center text-sm font-medium text-subtle">
           Tài khoản của bạn đã bị quản trị viên khóa.
         </p>
 
-        <div className="w-full space-y-4 mb-5">
+        <div className="mb-5 w-full space-y-4">
           {/* REASON */}
           <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Lý do khóa</p>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-              <p className="font-semibold text-slate-800 text-sm leading-relaxed">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Lý do khóa</p>
+            <div className="rounded-xl border border-border-soft/40 bg-panel-soft p-4">
+              <p className="text-sm font-semibold leading-relaxed text-content">
                 {lockData.lockReason || lockData.lock_reason || 'Vi phạm điều khoản cộng đồng và quy định sử dụng hệ thống.'}
               </p>
             </div>
@@ -87,14 +87,14 @@ export function LockedAccountModal({ open, lockData, onLogout }) {
           {/* DATES */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ngày khóa</p>
-              <p className="font-bold text-slate-900 text-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Ngày khóa</p>
+              <p className="text-sm font-bold text-content">
                 {formatDate(lockData.lockedAt || lockData.locked_at)}
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Dự kiến mở</p>
-              <p className="font-bold text-sm" style={{ color: isPermanent ? '#ef4444' : 'var(--color-primary, #6366f1)' }}>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Dự kiến mở</p>
+              <p className={`text-sm font-bold ${isPermanent ? 'text-error' : 'text-primary'}`}>
                 {isPermanent ? 'Vĩnh viễn' : formatDate(lockData.lockedUntil || lockData.locked_until)}
               </p>
             </div>
@@ -102,9 +102,9 @@ export function LockedAccountModal({ open, lockData, onLogout }) {
 
           {/* COUNTDOWN */}
           {!isPermanent && (lockData.lockedUntil || lockData.locked_until) && (
-            <div className="bg-slate-900 rounded-2xl p-5 text-center">
-              <p className="text-[9px] font-black uppercase text-slate-500 mb-2 tracking-[0.25em]">Thời gian còn lại</p>
-              <p className="text-xl font-black text-primary tabular-nums tracking-wider leading-none">
+            <div className="rounded-2xl border border-primary/20 bg-panel-soft p-5 text-center">
+              <p className="mb-2 text-[9px] font-black uppercase tracking-[0.25em] text-subtle">Thời gian còn lại</p>
+              <p className="text-xl font-black leading-none tracking-wider text-primary tabular-nums">
                 {timeLeft}
               </p>
             </div>
@@ -112,8 +112,8 @@ export function LockedAccountModal({ open, lockData, onLogout }) {
 
           {/* PERMANENT BADGE */}
           {isPermanent && (
-            <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center">
-              <p className="font-black text-red-600 text-xs uppercase tracking-wider">Tài khoản này bị khóa vĩnh viễn</p>
+            <div className="rounded-xl border border-error/25 bg-error/10 p-4 text-center">
+              <p className="text-xs font-black uppercase tracking-wider text-error">Tài khoản này bị khóa vĩnh viễn</p>
             </div>
           )}
         </div>
@@ -121,7 +121,7 @@ export function LockedAccountModal({ open, lockData, onLogout }) {
         {/* CTA */}
         <button
           onClick={onLogout}
-          className="w-full h-12 flex items-center justify-center rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-black transition-all active:scale-[0.98] shadow-md"
+          className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-bold text-slate-950 shadow-md transition-all hover:bg-primary/90 active:scale-[0.98]"
         >
           Quay lại trang đăng nhập
         </button>

@@ -51,6 +51,7 @@ import { OrganizerSubscriptionPaymentPage } from '@/pages/organizer/OrganizerSub
 import { OrganizerPaymentSettingsPage } from '@/pages/organizer/OrganizerPaymentSettingsPage.jsx'
 import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
 import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
+import { StaffDirectBookingPage } from '@/pages/staff/StaffDirectBookingPage.jsx'
 import { StaffEventDetailPage } from '@/pages/staff/StaffEventDetailPage.jsx'
 import { StaffEventsPage, NoAssignedEventsPage } from '@/pages/staff/StaffEventsPage.jsx'
 import { StaffLayout } from '@/pages/staff/StaffLayout.jsx'
@@ -237,6 +238,10 @@ export const router = createBrowserRouter([
       {
         path: 'tasks',
         element: <StaffTasksPage />,
+      },
+      {
+        path: 'direct-booking',
+        element: <StaffDirectBookingPage />,
       },
       {
         path: 'qr-check-in',

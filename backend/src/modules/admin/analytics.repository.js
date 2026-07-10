@@ -3,7 +3,7 @@ const db = require('../../infrastructure/database/db.client');
 class AdminAnalyticsRepository {
   /**
    * Platform-wide KPI summary:
-   * Users, Events, Orders, Revenue, Platform Fees
+   * Users, Events, Orders, Ticket GMV, Subscription Revenue
    */
   async getOverviewStats({ dateFrom, dateTo } = {}) {
     // ── Users ──────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ class AdminAnalyticsRepository {
       WHERE deleted_at IS NULL
     `);
 
-    // ── Orders & Revenue (all-time) ────────────────────────────────────────
+    // ── Orders & Ticket GMV (all-time) ─────────────────────────────────────
     const ordersRes = await db.query(`
       SELECT
         COUNT(*)::int                                              AS total_orders,
@@ -51,12 +51,12 @@ class AdminAnalyticsRepository {
         COUNT(*) FILTER (WHERE status = 'PENDING')::int           AS pending_orders,
         COUNT(*) FILTER (WHERE status = 'CANCELLED')::int         AS cancelled_orders,
         COALESCE(SUM(total_amount) FILTER (WHERE status = 'PAID'), 0)::numeric   AS gross_revenue,
-        COALESCE(SUM(platform_fee) FILTER (WHERE status = 'PAID'), 0)::numeric   AS total_platform_fee,
-        COALESCE(SUM(total_amount - platform_fee) FILTER (WHERE status = 'PAID'), 0)::numeric AS net_revenue
+        0::numeric                                                AS total_platform_fee,
+        COALESCE(SUM(total_amount) FILTER (WHERE status = 'PAID'), 0)::numeric AS net_revenue
       FROM orders
     `);
 
-    // ── Orders & Revenue (filtered range) ─────────────────────────────────
+    // ── Orders & Ticket GMV (filtered range) ──────────────────────────────
     let filteredOrders = null;
     if (dateFrom || dateTo) {
       const params = [];
@@ -68,8 +68,8 @@ class AdminAnalyticsRepository {
         `SELECT
           COUNT(*)::int                                    AS paid_orders,
           COALESCE(SUM(total_amount), 0)::numeric          AS gross_revenue,
-          COALESCE(SUM(platform_fee), 0)::numeric          AS total_platform_fee,
-          COALESCE(SUM(total_amount - platform_fee), 0)::numeric AS net_revenue
+          0::numeric                                       AS total_platform_fee,
+          COALESCE(SUM(total_amount), 0)::numeric          AS net_revenue
          FROM orders
          WHERE ${conditions.join(' AND ')}`,
         params,
@@ -97,7 +97,7 @@ class AdminAnalyticsRepository {
   }
 
   /**
-   * Revenue trend: daily totals for the given range (default last 30 days).
+   * Ticket GMV trend: daily totals for the given range (default last 30 days).
    */
   async getRevenueTrend({ dateFrom, dateTo, groupBy = 'day' } = {}) {
     const from = dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -112,8 +112,8 @@ class AdminAnalyticsRepository {
         DATE_TRUNC($1, created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS period,
         COUNT(*)::int                                     AS orders,
         COALESCE(SUM(total_amount), 0)::numeric           AS gross_revenue,
-        COALESCE(SUM(platform_fee), 0)::numeric           AS platform_fee,
-        COALESCE(SUM(total_amount - platform_fee), 0)::numeric AS net_revenue
+        0::numeric                                        AS platform_fee,
+        COALESCE(SUM(total_amount), 0)::numeric           AS net_revenue
       FROM orders
       WHERE status = 'PAID'
         AND created_at >= $2
@@ -164,7 +164,7 @@ class AdminAnalyticsRepository {
         u.email                                            AS organizer_email,
         COUNT(DISTINCT ord.id)::int                        AS total_orders,
         COALESCE(SUM(ord.total_amount), 0)::numeric        AS gross_revenue,
-        COALESCE(SUM(ord.platform_fee), 0)::numeric        AS platform_fee,
+        0::numeric                                         AS platform_fee,
         COUNT(DISTINCT e.id)::int                          AS total_events,
         -- Active subscription plan
         (

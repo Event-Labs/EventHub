@@ -8,9 +8,6 @@ import {
   Lock,
   Camera,
   UserCircle,
-  AlertCircle,
-  LogOut,
-  Edit,
   X,
   Check,
   Loader2,
@@ -18,13 +15,15 @@ import {
 import {
   Badge,
   Panel,
-  AvatarFallback,
   Page,
 } from './AdminComponents'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function AdminProfilePage() {
+  const toast = useToast()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState('view')
@@ -46,23 +45,23 @@ export function AdminProfilePage() {
           full_name: res.full_name || '',
           phone: res.phone || '',
           dob: res.dob?.split('T')[0] || '',
-          city: res.city || '',
           address: res.address || ''
         })
       } catch (err) {
         console.error('Failed to fetch admin profile', err)
+        toast.error('Không thể tải hồ sơ quản trị. Vui lòng thử lại.')
       } finally {
         setLoading(false)
       }
     }
     fetchProfile()
-  }, [])
+  }, [toast])
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (file) {
       if (!file.type.startsWith('image/')) {
-        alert('Vui lòng chọn tệp ảnh hợp lệ!')
+        toast.error('Vui lòng chọn tệp ảnh hợp lệ.')
         return
       }
       setSelectedFile(file)
@@ -72,7 +71,7 @@ export function AdminProfilePage() {
 
   const handleSave = async () => {
     if (!String(formData.full_name || '').trim()) {
-      alert('Vui lòng nhập họ và tên.')
+      toast.error('Vui lòng nhập họ và tên.')
       return
     }
 
@@ -91,7 +90,6 @@ export function AdminProfilePage() {
         full_name: formData.full_name.trim(),
         phone: String(formData.phone || '').trim() || null,
         dob: formData.dob || null,
-        city: String(formData.city || '').trim() || null,
         address: String(formData.address || '').trim() || null,
         avatar_url: finalAvatarUrl || null,
       })
@@ -100,9 +98,9 @@ export function AdminProfilePage() {
       setPreviewUrl(updated.avatar_url || '')
       setSelectedFile(null)
       setMode('view')
-      alert('Cập nhật hồ sơ thành công!')
+      toast.success('Cập nhật hồ sơ thành công.')
     } catch (err) {
-      alert('Lỗi cập nhật hồ sơ: ' + err.message)
+      toast.error(getApiMessage(err, 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
       setUploadingAvatar(false)
@@ -110,15 +108,18 @@ export function AdminProfilePage() {
   }
 
   const handleChangePassword = async () => {
-    if (passwordData.new !== passwordData.confirm) return alert('Mật khẩu xác nhận không khớp!')
+    if (passwordData.new !== passwordData.confirm) {
+      toast.error('Mật khẩu xác nhận không khớp.')
+      return
+    }
     setSaving(true)
     try {
       await changePassword(passwordData.current, passwordData.new)
       setMode('view')
       setPasswordData({ current: '', new: '', confirm: '' })
-      alert('Đổi mật khẩu thành công!')
+      toast.success('Đổi mật khẩu thành công.')
     } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || err.message))
+      toast.error(getApiMessage(err, 'Không thể đổi mật khẩu. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
     }
@@ -132,7 +133,14 @@ export function AdminProfilePage() {
     )
   }
 
-  if (!user) return <div className="text-center py-20 font-bold text-error">Could not load profile.</div>
+  if (!user) return <div className="text-center py-20 font-bold text-error">Không thể tải hồ sơ. Vui lòng thử lại.</div>
+
+  const tabButtonClass = (active) =>
+    `admin-secondary px-4 py-2 text-xs ${
+      active
+        ? 'border-tertiary bg-tertiary text-white shadow-md shadow-tertiary/20 hover:bg-tertiary hover:text-white'
+        : 'bg-surface text-content hover:bg-panel-soft'
+    }`
 
   return (
     <Page
@@ -141,20 +149,14 @@ export function AdminProfilePage() {
       actions={
         <div className="flex gap-2">
            <button 
-            onClick={() => { setMode('view'); setPreviewUrl(user.avatar_url || ''); setSelectedFile(null); }}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'view' ? 'bg-tertiary text-white border-tertiary' : ''}`}
-           >
-            Xem hồ sơ
-           </button>
-           <button 
             onClick={() => setMode('edit')}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'edit' ? 'bg-tertiary text-white border-tertiary' : ''}`}
+            className={tabButtonClass(mode === 'edit')}
            >
             Chỉnh sửa
            </button>
            <button 
             onClick={() => setMode('password')}
-            className={`admin-secondary px-4 py-2 text-xs ${mode === 'password' ? 'bg-tertiary text-white border-tertiary' : ''}`}
+            className={tabButtonClass(mode === 'password')}
            >
             Đổi mật khẩu
            </button>
@@ -163,7 +165,7 @@ export function AdminProfilePage() {
     >
       <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
         <aside className="space-y-6">
-          <Panel className="text-center py-10">
+          <Panel className="bg-surface py-10 text-center text-content">
             <div className="relative mx-auto size-40">
               {previewUrl ? (
                 <img
@@ -208,13 +210,13 @@ export function AdminProfilePage() {
             </div>
           </Panel>
 
-          <Panel className="border-border-soft/40 p-6">
+          <Panel className="border-border-soft/50 bg-surface p-6 text-content">
              <div className="flex items-center gap-3 mb-4">
                 <Shield className="size-5 text-primary" />
                 <h4 className="font-bold text-sm text-content">Trạng thái bảo mật</h4>
              </div>
              <p className="text-xs text-subtle mb-4">Tài khoản của bạn được bảo vệ với mức truy cập cao nhất.</p>
-             <button className="w-full rounded-xl bg-panel-soft border border-border-soft/30 py-2.5 text-xs font-bold text-subtle hover:text-tertiary transition flex items-center justify-center gap-2">
+             <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-soft/50 bg-panel-soft py-2.5 text-xs font-bold text-content transition hover:border-tertiary/50 hover:bg-surface hover:text-tertiary">
                 <Lock className="size-3" /> Kiểm tra bảo mật
              </button>
           </Panel>
@@ -222,26 +224,22 @@ export function AdminProfilePage() {
 
         <div className="space-y-6">
            {mode === 'view' && (
-             <Panel className="p-8 animate-in fade-in slide-in-from-right-4 duration-300">
+             <Panel className="animate-in fade-in slide-in-from-right-4 bg-surface p-8 text-content duration-300">
                 <div className="flex items-center justify-between mb-8 border-b border-border-soft/30 pb-4">
                    <h3 className="font-display text-xl font-extrabold text-content">Thông tin cá nhân</h3>
-                   <button onClick={() => setMode('edit')} className="flex items-center gap-2 text-sm font-bold text-primary hover:underline">
-                      <Edit className="size-4" /> Chỉnh sửa
-                   </button>
                 </div>
                 
                 <div className="grid gap-6 md:grid-cols-2">
                    <InfoField icon={Mail} label="Email" value={user.email} />
                    <InfoField icon={Phone} label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
                    <InfoField icon={Calendar} label="Ngày sinh" value={user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} />
-                   <InfoField icon={MapPin} label="Thành phố" value={user.city || 'Chưa cập nhật'} />
                    <InfoField icon={MapPin} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} className="md:col-span-2" />
                 </div>
              </Panel>
            )}
 
            {mode === 'edit' && (
-             <Panel className="p-8 animate-in fade-in zoom-in-95 duration-300">
+             <Panel className="animate-in fade-in zoom-in-95 bg-surface p-8 text-content duration-300">
                 <h3 className="font-display text-xl font-extrabold text-content mb-8 border-b border-border-soft/30 pb-4">
                    Chỉnh sửa hồ sơ
                 </h3>
@@ -249,11 +247,10 @@ export function AdminProfilePage() {
                    <InputField label="Họ và tên" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
                    <InputField label="Số điện thoại" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                    <InputField label="Ngày sinh" type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
-                   <InputField label="Thành phố" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
                    <InputField label="Địa chỉ" className="md:col-span-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 </div>
                 <div className="mt-8 flex justify-end gap-3">
-                   <button onClick={() => { setMode('view'); setPreviewUrl(user.avatar_url || ''); setSelectedFile(null); }} className="admin-secondary px-6">Hủy</button>
+                   <button onClick={() => { setMode('view'); setPreviewUrl(user.avatar_url || ''); setSelectedFile(null); }} className="admin-secondary bg-surface px-6 text-content hover:bg-panel-soft">Hủy</button>
                    <button onClick={handleSave} disabled={saving || uploadingAvatar} className="admin-primary flex items-center gap-2">
                      {saving ? (
                        <><Loader2 className="size-4 animate-spin" /> Đang lưu...</>
@@ -266,7 +263,7 @@ export function AdminProfilePage() {
            )}
 
            {mode === 'password' && (
-             <Panel className="p-8 max-w-2xl mx-auto">
+             <Panel className="mx-auto max-w-2xl bg-surface p-8 text-content">
                 <h3 className="font-display text-xl font-extrabold text-content mb-4 text-center">
                    Đổi mật khẩu
                 </h3>
@@ -279,7 +276,7 @@ export function AdminProfilePage() {
                    <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={e => setPasswordData({...passwordData, confirm: e.target.value})} />
                 </div>
                 <div className="mt-10 flex flex-col gap-3">
-                   <button onClick={handleChangePassword} disabled={saving} className="admin-primary w-full py-4 text-sm font-extrabold text-slate-950 bg-tertiary hover:bg-orange-600">{saving ? 'Đang thực hiện...' : 'Cập nhật mật khẩu'}</button>
+                   <button onClick={handleChangePassword} disabled={saving} className="admin-primary w-full bg-tertiary py-4 text-sm font-extrabold text-white hover:bg-tertiary/90">{saving ? 'Đang thực hiện...' : 'Cập nhật mật khẩu'}</button>
                    <button onClick={() => setMode('view')} className="text-sm font-bold text-subtle hover:text-content">Hủy bỏ</button>
                 </div>
              </Panel>
@@ -292,12 +289,12 @@ export function AdminProfilePage() {
 
 function InfoField({ icon: Icon, label, value, className = '' }) {
   return (
-    <div className={`p-5 rounded-xl border border-border-soft/30 bg-panel-soft transition hover:border-tertiary/30 ${className}`}>
-      <div className="flex items-center gap-2 text-subtle mb-2">
+    <div className={`rounded-xl border border-border-soft/50 bg-panel-soft p-5 shadow-sm transition hover:border-tertiary/40 hover:bg-surface ${className}`}>
+      <div className="mb-2 flex items-center gap-2 text-subtle">
         <Icon className="size-4" />
         <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
       </div>
-      <p className="font-bold text-content text-lg">{value}</p>
+      <p className="text-lg font-extrabold text-content">{value}</p>
     </div>
   )
 }
@@ -308,7 +305,7 @@ function InputField({ label, className = '', type = 'text', ...props }) {
       <label className="text-xs font-bold text-subtle uppercase tracking-wider">{label}</label>
       <input
         type={type}
-        className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-3 text-sm font-semibold text-content outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 placeholder:text-muted"
+        className="w-full rounded-xl border border-border-soft/50 bg-surface px-4 py-3 text-sm font-semibold text-content shadow-sm outline-none transition placeholder:text-muted focus:border-primary focus:ring-4 focus:ring-primary/10"
         {...props}
       />
     </div>

@@ -3,6 +3,8 @@ import { CheckCircle2, CircleDashed, Clock, Loader2, MoreVertical } from 'lucide
 import { Modal } from '@/components/Modal.jsx'
 import { fetchAssignedStaffTasks, updateAssignedStaffTaskStatus } from '@/services/operations.js'
 import { Avatar, Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const STATUS_CONFIG = {
   TODO: {
@@ -31,6 +33,7 @@ function taskDisplayId(taskId) {
 }
 
 export function StaffTasksPage() {
+  const toast = useToast()
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -49,7 +52,11 @@ export function StaffTasksPage() {
         const data = await fetchAssignedStaffTasks()
         if (active) setTasks(data)
       } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Không thể tải công việc được giao.')
+        if (active) {
+          const message = getApiMessage(err, 'Không thể tải công việc được giao.')
+          setError(message)
+          toast.error(message)
+        }
       } finally {
         if (active) setLoading(false)
       }
@@ -77,8 +84,11 @@ export function StaffTasksPage() {
       setTasks((currentTasks) =>
         currentTasks.map((task) => (task.id === taskId ? { ...task, ...updatedTask } : task)),
       )
+      toast.success('Đã cập nhật trạng thái công việc.')
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể cập nhật trạng thái công việc.')
+      const message = getApiMessage(err, 'Không thể cập nhật trạng thái công việc.')
+      setError(message)
+      toast.error(message)
     } finally {
       setUpdatingTaskId('')
     }

@@ -145,7 +145,6 @@ export function OrganizerSubscriptionPaymentPage() {
   return (
     <OrganizerPage
       title="Thanh toán gói dịch vụ"
-      eyebrow="Gói dịch vụ / Thanh toán"
       description="Hoàn tất thanh toán qua PayOS để kích hoạt gói."
     >
       <div className="grid gap-6 lg:grid-cols-[1fr_300px] text-content animate-in fade-in">

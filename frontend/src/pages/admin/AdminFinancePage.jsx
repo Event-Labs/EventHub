@@ -24,6 +24,7 @@ import {
   updatePlatformPolicy,
 } from '@/services/platformFinance.js'
 import { uploadPolicyDocument } from '@/services/uploads.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, Page, Panel, Row, Table } from './AdminComponents.jsx'
 
 const primaryActionClass =
@@ -88,6 +89,7 @@ const emptyPolicyForm = {
 }
 
 export function AdminFinancePage() {
+  const toast = useToast()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('fees')
   const [feeModal, setFeeModal] = useState(null)
@@ -128,44 +130,58 @@ export function AdminFinancePage() {
 
   const feeMutation = useMutation({
     mutationFn: ({ id, payload }) => (id ? updatePlatformFee(id, payload) : createPlatformFee(payload)),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      toast.success(variables?.id ? 'Đã cập nhật cấu hình phí.' : 'Đã tạo cấu hình phí.')
       setFeeModal(null)
       setFeeForm(emptyFeeForm)
       refreshFees()
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Không thể lưu cấu hình phí. Vui lòng thử lại.'))
     },
   })
 
   const feeDeleteMutation = useMutation({
     mutationFn: deletePlatformFee,
     onSuccess: () => {
+      toast.success('Đã xóa cấu hình phí.')
       setActionError('')
       setDeleteTarget(null)
       refreshFees()
     },
     onError: (error) => {
-      setActionError(getApiErrorMessage(error, 'Không thể xóa cấu hình phí. Vui lòng thử lại.'))
+      const message = getApiErrorMessage(error, 'Không thể xóa cấu hình phí. Vui lòng thử lại.')
+      setActionError(message)
+      toast.error(message)
     },
   })
 
   const policyMutation = useMutation({
     mutationFn: ({ id, payload }) =>
       id ? updatePlatformPolicy(id, payload) : createPlatformPolicy(payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      toast.success(variables?.id ? 'Đã cập nhật chính sách.' : 'Đã tạo chính sách.')
       setPolicyModal(null)
       setPolicyForm(emptyPolicyForm)
       refreshPolicies()
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Không thể lưu chính sách. Vui lòng thử lại.'))
     },
   })
 
   const policyDeleteMutation = useMutation({
     mutationFn: deletePlatformPolicy,
     onSuccess: () => {
+      toast.success('Đã xóa chính sách.')
       setActionError('')
       setDeleteTarget(null)
       refreshPolicies()
     },
     onError: (error) => {
-      setActionError(getApiErrorMessage(error, 'Không thể xóa chính sách. Vui lòng thử lại.'))
+      const message = getApiErrorMessage(error, 'Không thể xóa chính sách. Vui lòng thử lại.')
+      setActionError(message)
+      toast.error(message)
     },
   })
 
@@ -594,6 +610,7 @@ function PolicyConfigFields({ form, setForm }) {
 }
 
 function PolicyDocumentsModal({ policy, onClose, onChanged }) {
+  const toast = useToast()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     title: '',
@@ -628,14 +645,24 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
       })
     },
     onSuccess: () => {
+      toast.success('Đã tải tài liệu chính sách lên hệ thống.')
       setForm({ title: '', description: '', version: '1.0', is_public: true, file: null })
       refresh()
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Không thể tải tài liệu chính sách. Vui lòng thử lại.'))
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: deletePolicyDocument,
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success('Đã xóa tài liệu chính sách.')
+      refresh()
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Không thể xóa tài liệu chính sách. Vui lòng thử lại.'))
+    },
   })
 
   const documents = documentsQuery.data || []

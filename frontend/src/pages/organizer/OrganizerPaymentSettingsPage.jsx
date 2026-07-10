@@ -23,6 +23,8 @@ import payosChannelListScreenshot from '@/assets/payos-channel-list.png'
 import payosCreateChannelScreenshot from '@/assets/payos-create-channel.png'
 import payosKeysScreenshot from '@/assets/payos-keys.png'
 import { http as api } from '@/services/http.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const STEP_TITLES = [
   'Chọn PayOS',
@@ -87,6 +89,7 @@ function loadStoredBankInfo() {
 }
 
 export function OrganizerPaymentSettingsPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(true)
@@ -114,6 +117,7 @@ export function OrganizerPaymentSettingsPage() {
   })
   const [error, setError] = useState(location.state?.error || null)
   const [connectionTouched, setConnectionTouched] = useState(false)
+  const returnTo = location.state?.returnTo
 
   useEffect(() => {
     fetchChannel()
@@ -212,12 +216,17 @@ export function OrganizerPaymentSettingsPage() {
       setChannel(res.data?.data)
       setIsEditing(false)
       setTestState({ status: 'success', message: 'Kênh thanh toán đã được kết nối thành công.' })
+      toast.success('Kênh thanh toán đã được kết nối thành công.')
+      if (returnTo) {
+        navigate(returnTo, {
+          replace: true,
+          state: { message: 'Đã kết nối PayOS. Bạn có thể gửi duyệt sự kiện để hệ thống kiểm tra gói dịch vụ.' },
+        })
+      }
     } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        err.message ||
-        'Không thể kết nối. Vui lòng kiểm tra lại Client ID, API Key và Checksum Key.'
+      const message = getApiMessage(err, 'Không thể kết nối. Vui lòng kiểm tra lại Client ID, API Key và Checksum Key.')
       setTestState({ status: 'error', message })
+      toast.error(message)
     } finally {
       setTesting(false)
     }
@@ -598,8 +607,8 @@ export function OrganizerPaymentSettingsPage() {
                   Cập nhật cài đặt
                 </button>
               )}
-              <button type="button" onClick={() => navigate('/organizer/events')} className="org-btn-secondary">
-                Đi tới Quản lý sự kiện
+              <button type="button" onClick={() => navigate(returnTo || '/organizer/events')} className="org-btn-secondary">
+                {returnTo ? 'Quay lại sự kiện' : 'Đi tới Quản lý sự kiện'}
               </button>
               <button type="button" onClick={() => navigate('/organizer/events/create')} className="org-btn-primary">
                 <CreditCard className="size-4" />

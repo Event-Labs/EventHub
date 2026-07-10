@@ -36,11 +36,6 @@ function fmtShort(n) {
   return v.toLocaleString('vi-VN')
 }
 
-function fmtDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
 function fmtTrendLabel(value) {
   if (!value) return ''
   const date = new Date(value)
@@ -110,6 +105,7 @@ function DonutChart({ title, data, totalLabel, valueFormatter, bare = false, com
                   strokeLinecap="round"
                 />
               )
+              // eslint-disable-next-line react-hooks/immutability
               offset -= dash
               return circle
             })}
@@ -390,6 +386,7 @@ export function AdminAnalyticsPage() {
     }
   }, [comparison, datePreset, customFrom, customTo, trendGroupBy])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
   const users   = overview?.users
@@ -402,7 +399,7 @@ export function AdminAnalyticsPage() {
   return (
     <Page
       title="Tổng quan nền tảng"
-      description="Thống kê toàn hệ thống: người dùng, sự kiện, doanh thu và hoạt động giao dịch."
+      description="Thống kê toàn hệ thống: người dùng, sự kiện, giao dịch vé và doanh thu gói dịch vụ."
     >
       {/* ── Filters ── */}
       <Panel className="mb-5">
@@ -544,22 +541,22 @@ export function AdminAnalyticsPage() {
             />
           </div>
 
-          {/* ── KPI Cards — Revenue ── */}
+          {/* ── KPI Cards — Ticket GMV & Revenue ── */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               icon={CircleDollarSign}
-              label="Tổng doanh thu"
+              label="Tổng giao dịch vé"
               value={fmtShort(orders.gross_revenue)}
-              sub={fmtCurrency(orders.gross_revenue)}
+              sub="Tiền vé đã thanh toán, không phải doanh thu EventHub"
               accentBg="bg-success/15"
               accentColor="text-success"
               accentBar="bg-success"
             />
             <StatCard
               icon={TrendingUp}
-              label="Phí nền tảng"
-              value={fmtShort(orders.total_platform_fee)}
-              sub={fmtCurrency(orders.total_platform_fee)}
+              label="Doanh thu gói dịch vụ"
+              value={fmtShort(subscriptionRevenue?.total_revenue)}
+              sub={fmtCurrency(subscriptionRevenue?.total_revenue)}
               accentBg="bg-primary/20"
               accentColor="text-tertiary"
               accentBar="bg-tertiary"
@@ -594,7 +591,7 @@ export function AdminAnalyticsPage() {
             </div>
             <div className="mb-4 flex items-center gap-2">
               <BarChart3 className="size-5 text-tertiary" />
-              <h2 className="font-bold text-content">Xu hướng doanh thu</h2>
+              <h2 className="font-bold text-content">Xu hướng giao dịch vé</h2>
             </div>
             <div className={comparison.enabled ? 'grid items-start gap-5 xl:grid-cols-2' : ''}>
               <div>
@@ -606,7 +603,7 @@ export function AdminAnalyticsPage() {
                 <BarChartSimple data={revenueTrend} valueKey="gross_revenue" height={170} />
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <div className="rounded-md border border-border-soft/25 bg-panel-soft/55 px-3 py-2">
-                    <p className="text-[10px] font-bold uppercase text-muted">Tổng doanh thu</p>
+                    <p className="text-[10px] font-bold uppercase text-muted">Tổng giao dịch vé</p>
                     <p className="mt-0.5 text-sm font-black text-content">
                       {fmtCurrency(revenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}
                     </p>
@@ -625,7 +622,7 @@ export function AdminAnalyticsPage() {
                   <BarChartSimple data={comparisonRevenueTrend} valueKey="gross_revenue" height={170} />
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <div className="rounded-md border border-border-soft/25 bg-panel-soft/55 px-3 py-2">
-                      <p className="text-[10px] font-bold uppercase text-muted">Tổng doanh thu</p>
+                      <p className="text-[10px] font-bold uppercase text-muted">Tổng giao dịch vé</p>
                       <p className="mt-0.5 text-sm font-black text-content">
                         {fmtCurrency(comparisonRevenueTrend.reduce((s, d) => s + Number(d.gross_revenue), 0))}
                       </p>
@@ -746,7 +743,7 @@ export function AdminAnalyticsPage() {
           <div className={`grid gap-6 ${topOrganizers?.length ? 'xl:grid-cols-[minmax(0,1fr)_420px]' : ''}`}>
             {topOrganizers?.length > 0 && (
               <HorizontalValueChart
-                title="Top 5 nhà tổ chức theo doanh thu"
+                title="Top 5 nhà tổ chức theo giao dịch vé"
                 items={topOrganizers}
                 valueKey="gross_revenue"
                 labelKey="organizer_name"

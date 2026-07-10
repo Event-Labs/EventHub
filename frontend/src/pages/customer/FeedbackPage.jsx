@@ -8,8 +8,11 @@ import {
   fetchEligibleFeedbackEvents,
   submitEventFeedback,
 } from '@/services/feedbacks.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function FeedbackPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -19,8 +22,6 @@ export function FeedbackPage() {
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [content, setContent] = useState('')
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -45,34 +46,25 @@ export function FeedbackPage() {
   const submitMutation = useMutation({
     mutationFn: submitEventFeedback,
     onSuccess: () => {
-      setSuccess('Cảm ơn bạn! Phản hồi đã được gửi thành công.')
-      setError('')
+      toast.success('Cảm ơn bạn! Phản hồi đã được gửi thành công.')
       setContent('')
       setRating(0)
       queryClient.invalidateQueries({ queryKey: ['feedback-eligible-events'] })
     },
     onError: (err) => {
-      const apiError = err.response?.data
-      if (apiError?.errors && Array.isArray(apiError.errors)) {
-        setError(apiError.errors.map((item) => item.message).join(', '))
-      } else {
-        setError(apiError?.message || 'Không thể gửi phản hồi. Vui lòng thử lại.')
-      }
-      setSuccess('')
+      toast.error(getApiMessage(err, 'Không thể gửi phản hồi. Vui lòng thử lại.'))
     },
   })
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    setError('')
-    setSuccess('')
 
     if (!eventId) {
-      setError('Vui lòng chọn sự kiện.')
+      toast.error('Vui lòng chọn sự kiện.')
       return
     }
     if (rating < 1) {
-      setError('Vui lòng chọn số sao đánh giá.')
+      toast.error('Vui lòng chọn số sao đánh giá.')
       return
     }
 
@@ -89,7 +81,7 @@ export function FeedbackPage() {
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <SectionHeader
         title="Phản hồi sự kiện"
-        description="Đánh giá trải nghiệm sau khi tham dự sự kiện (dữ liệu lưu trên hệ thống)"
+        description="Chia sẻ cảm nhận của bạn sau khi tham dự sự kiện."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
@@ -104,8 +96,8 @@ export function FeedbackPage() {
 
           {!eligibleQuery.isLoading && !eligibleQuery.isError && events.length === 0 && (
             <p className="text-sm text-muted">
-              Hiện không có sự kiện nào đủ điều kiện phản hồi. Bạn cần có vé hợp lệ và sự kiện đã kết thúc,
-              đồng thời chưa gửi đánh giá trước đó.
+              Hiện chưa có sự kiện nào có thể gửi phản hồi. Khi bạn đã tham dự một sự kiện kết thúc
+              và chưa từng đánh giá sự kiện đó, sự kiện sẽ xuất hiện tại đây.
             </p>
           )}
 
@@ -165,9 +157,6 @@ export function FeedbackPage() {
                 />
               </label>
 
-              {error && <p className="text-sm text-error">{error}</p>}
-              {success && <p className="text-sm text-success">{success}</p>}
-
               <button
                 type="submit"
                 disabled={submitMutation.isPending}
@@ -182,10 +171,10 @@ export function FeedbackPage() {
         <aside className="glass-panel h-fit rounded-lg p-5">
           <h3 className="font-display text-lg font-bold text-primary">Lưu ý</h3>
           <ul className="mt-3 space-y-2 text-sm text-muted">
-            <li>• Mỗi sự kiện chỉ đánh giá một lần.</li>
-            <li>• Cần có vé hợp lệ (VALID/USED).</li>
-            <li>• Chỉ gửi sau khi sự kiện kết thúc.</li>
-            <li>• Dữ liệu lưu trong bảng event_feedbacks.</li>
+            <li>• Bạn có thể gửi phản hồi sau khi sự kiện kết thúc.</li>
+            <li>• Mỗi sự kiện chỉ gửi phản hồi một lần.</li>
+            <li>• Hệ thống chỉ hiển thị sự kiện bạn có vé hợp lệ hoặc đã check-in.</li>
+            <li>• Nội dung phản hồi sẽ được gửi đến ban tổ chức để cải thiện trải nghiệm.</li>
           </ul>
         </aside>
       </div>

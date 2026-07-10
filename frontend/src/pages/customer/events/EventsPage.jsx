@@ -6,6 +6,8 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { fetchEventCategories, fetchEvents, toggleFavorite } from '@/services/events.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const SORT_OPTIONS = [
   ['start_time', 'Sắp diễn ra'],
@@ -50,6 +52,7 @@ function isEventActiveOrUpcoming(event, now = Date.now()) {
 }
 
 export function EventsPage() {
+  const toast = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -71,9 +74,13 @@ export function EventsPage() {
 
   const favoriteMutation = useMutation({
     mutationFn: (event) => toggleFavorite(event.id),
-    onSuccess: () => {
+    onSuccess: (_data, event) => {
+      toast.success(event?.is_favorited ? 'Đã bỏ sự kiện khỏi yêu thích.' : 'Đã lưu sự kiện vào yêu thích.')
       queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật yêu thích. Vui lòng thử lại.'))
     },
   })
 
@@ -101,6 +108,7 @@ export function EventsPage() {
 
   const handleFavorite = (event) => {
     if (!getAuthToken()) {
+      toast.error('Vui lòng đăng nhập để lưu sự kiện yêu thích.')
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
       return
     }
