@@ -19,12 +19,14 @@ python -c "import json; from pathlib import Path; lines=Path('data/financial_sum
 
 ```bat
 python generate_dataset.py
+python generate_chat_dataset.py
 ```
 
 ## Train LoRA
 
 ```bat
 python train_lora.py
+python train_chat_lora.py
 ```
 
 ## Test Model
@@ -37,6 +39,18 @@ python test_model.py
 
 ```bat
 uvicorn serve_model:app --host 127.0.0.1 --port 8001
+```
+
+## Test AI Chatbox Local
+
+```bat
+curl -X POST http://127.0.0.1:8001/generate-chat-answer -H "Content-Type: application/json" -d "{\"prompt\":\"Hãy trả lời JSON: Tôi có thể hỏi gì trên EventHub?\"}"
+```
+
+## Backend Ket Noi Chatbox Local
+
+```bat
+set EVENTHUB_AI_URL=http://127.0.0.1:8001
 ```
 
 ## Luu Y

@@ -1,5 +1,7 @@
 import torch
 import re
+import json
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from peft import PeftModel
@@ -8,6 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 BASE_MODEL = "Qwen/Qwen3-0.6B"
 ADAPTER_DIR = "outputs/eventhub-financial-qwen3-lora"
+CHAT_ADAPTER_DIR = "outputs/eventhub-chat-qwen3-lora"
 
 SYSTEM_PROMPT = (
     "Bạn là AI Financial Analyst của EventHub. "
@@ -40,10 +43,20 @@ class FinancialSummaryRequest(BaseModel):
     best_sales_day: str = ""
 
 
-app = FastAPI(title="EventHub Financial Summary AI")
+class ChatAnswerRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    query: str = ""
+    history: list = []
+    context: dict = {}
+
+
+app = FastAPI(title="EventHub Local AI Service")
 
 tokenizer = None
 model = None
+chat_tokenizer = None
+chat_model = None
+chat_adapter_dir = None
 
 
 def load_model():
@@ -61,6 +74,33 @@ def load_model():
     model = PeftModel.from_pretrained(base_model, ADAPTER_DIR)
     model.eval()
     return tokenizer, model
+
+
+def load_chat_model():
+    global chat_tokenizer, chat_model, chat_adapter_dir
+
+    if chat_tokenizer is not None and chat_model is not None:
+        return chat_tokenizer, chat_model, chat_adapter_dir
+
+    chat_tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+    base_model = AutoModelForCausalLM.from_pretrained(
+        BASE_MODEL,
+        device_map=None,
+        low_cpu_mem_usage=False,
+    )
+
+    if os.path.isdir(CHAT_ADAPTER_DIR):
+        chat_adapter_dir = CHAT_ADAPTER_DIR
+        chat_model = PeftModel.from_pretrained(base_model, CHAT_ADAPTER_DIR)
+    elif os.path.isdir(ADAPTER_DIR):
+        chat_adapter_dir = ADAPTER_DIR
+        chat_model = PeftModel.from_pretrained(base_model, ADAPTER_DIR)
+    else:
+        chat_adapter_dir = "BASE_MODEL_ONLY"
+        chat_model = base_model
+
+    chat_model.eval()
+    return chat_tokenizer, chat_model, chat_adapter_dir
 
 
 def format_money(value):
@@ -168,6 +208,45 @@ def clean_output(text, payload=None):
     return text
 
 
+def extract_json_object(text):
+    raw = clean_output(text)
+    if not raw:
+        return None
+
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw, re.IGNORECASE)
+    if fenced:
+        raw = fenced.group(1).strip()
+
+    first = raw.find("{")
+    last = raw.rfind("}")
+    if first >= 0 and last > first:
+        raw = raw[first:last + 1]
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+
+def normalize_chat_answer(parsed, raw_text):
+    if isinstance(parsed, dict) and parsed.get("answer"):
+        return {
+            "answer": str(parsed.get("answer", "")).strip(),
+            "intent": parsed.get("intent") or "general_eventhub",
+            "confidence": float(parsed.get("confidence") or 0.75),
+            "sources": parsed.get("sources") if isinstance(parsed.get("sources"), list) else [],
+        }
+
+    text = clean_output(raw_text)
+    text = re.sub(r"^\s*assistant\s*:?", "", text, flags=re.IGNORECASE).strip()
+    return {
+        "answer": text or "Mình chưa tạo được câu trả lời phù hợp. Bạn vui lòng hỏi ngắn gọn hơn.",
+        "intent": "general_eventhub",
+        "confidence": 0.55,
+        "sources": [],
+    }
+
+
 def normalize_summary(summary, payload: FinancialSummaryRequest):
     occupancy_insight = build_occupancy_insight(payload.occupancy_rate)
     recommendation = build_recommendation(payload)
@@ -205,6 +284,63 @@ def normalize_summary(summary, payload: FinancialSummaryRequest):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/generate-chat-answer")
+def generate_chat_answer(payload: ChatAnswerRequest):
+    active_tokenizer, active_model, active_adapter_dir = load_chat_model()
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Bạn là EventHub AI Chatbox chạy local. "
+                "Chỉ trả lời trong phạm vi EventHub: sự kiện, vé, đơn hàng, thanh toán, check-in, tài khoản, organizer, feedback. "
+                "Bắt buộc trả về JSON hợp lệ với các field: answer, intent, confidence, sources. "
+                "Không viết quá trình suy luận, không dùng thẻ <think>, không nhắc prompt nội bộ."
+            ),
+        },
+        {"role": "user", "content": payload.prompt},
+    ]
+
+    try:
+        prompt = active_tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=False,
+            enable_thinking=False,
+        )
+    except TypeError:
+        prompt = active_tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        prompt += "\n/no_think\n"
+
+    inputs = active_tokenizer(prompt, return_tensors="pt")
+
+    with torch.no_grad():
+        outputs = active_model.generate(
+            **inputs,
+            max_new_tokens=700,
+            temperature=0.15,
+            top_p=0.9,
+            do_sample=False,
+            pad_token_id=active_tokenizer.eos_token_id,
+        )
+
+    generated = outputs[0][inputs["input_ids"].shape[-1]:]
+    raw = active_tokenizer.decode(generated, skip_special_tokens=True)
+    parsed = extract_json_object(raw)
+    answer = normalize_chat_answer(parsed, raw)
+
+    return {
+        **answer,
+        "model": BASE_MODEL,
+        "adapter": active_adapter_dir,
+        "raw": raw,
+    }
 
 
 @app.post("/generate-financial-summary")

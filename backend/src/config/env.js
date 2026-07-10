@@ -26,9 +26,9 @@ const envSchema = z.object({
     EMAIL_FROM: z.string().email(),
 
     GOOGLE_CLIENT_ID: z.string().optional(),
-    GEMINI_API_KEY: z.string().optional(),
-    GOOGLE_API_KEY: z.string().optional(),
-    GEMINI_MODEL: z.string().optional(),
+    EVENTHUB_AI_URL: z.string().url().optional(),
+    EVENTHUB_AI_TIMEOUT_MS: z.string().transform(Number).optional(),
+    FINANCIAL_AI_URL: z.string().url().optional(),
 
     PLATFORM_PAYOS_CLIENT_ID: z.string().optional(),
     PLATFORM_PAYOS_API_KEY: z.string().optional(),
