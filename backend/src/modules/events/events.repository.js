@@ -20,8 +20,8 @@ const EVENT_CARD_SELECT = `
   e.short_description,
   e.thumbnail_url,
   e.banner_url,
-  COALESCE(time_summary.start_time, e.start_time) AS start_time,
-  COALESCE(time_summary.end_time, e.end_time) AS end_time,
+  COALESCE(e.start_time, time_summary.start_time) AS start_time,
+  COALESCE(e.end_time, time_summary.end_time) AS end_time,
   e.created_at,
   c.id AS category_id,
   c.name AS category_name,
@@ -114,8 +114,8 @@ function buildListQuery(filters) {
     )`);
   }
 
-  if (filters.startDate) where.push(`COALESCE(time_summary.start_time, e.start_time) >= ${addParam(filters.startDate)}`);
-  if (filters.endDate) where.push(`COALESCE(time_summary.start_time, e.start_time) <= ${addParam(filters.endDate)}`);
+  if (filters.startDate) where.push(`COALESCE(e.start_time, time_summary.start_time) >= ${addParam(filters.startDate)}`);
+  if (filters.endDate) where.push(`COALESCE(e.start_time, time_summary.start_time) <= ${addParam(filters.endDate)}`);
 
   if (filters.minPrice !== undefined) {
     where.push(`EXISTS (
@@ -134,7 +134,7 @@ function buildListQuery(filters) {
   }
 
   const sortMap = {
-    start_time: 'COALESCE(time_summary.start_time, e.start_time)',
+    start_time: 'COALESCE(e.start_time, time_summary.start_time)',
     created_at: 'e.created_at',
     updated_at: 'e.updated_at',
     price: 'price_summary.min_price',
