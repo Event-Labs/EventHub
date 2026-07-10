@@ -294,6 +294,7 @@ export function Status({ value }) {
   const normalized = String(value).toUpperCase()
   const configs = {
     LOCKED: { color: 'text-error', dot: 'bg-error', label: 'Đã khóa' },
+    SUSPENDED: { color: 'text-error', dot: 'bg-error', label: 'Tạm ngưng' },
     PENDING: { color: 'text-warning', dot: 'bg-warning', label: 'Chờ xử lý' },
     ACTIVE: { color: 'text-success', dot: 'bg-success', label: 'Hoạt động' },
   }
