@@ -142,6 +142,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [hasDraggedSeats, setHasDraggedSeats] = useState(false)
   const [clickToSelectId, setClickToSelectId] = useState(null)
 
+  const [auxElements, setAuxElements] = useState([])
+  const [draggingAuxId, setDraggingAuxId] = useState(null)
+  const [auxDragOffset, setAuxDragOffset] = useState({ x: 0, y: 0 })
+
+  const [selectedShapeId, setSelectedShapeId] = useState(null)
+  const [draggingHandle, setDraggingHandle] = useState(null)
+
   const seatsRef = useRef(seats)
   seatsRef.current = seats
 
@@ -160,7 +167,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           y: sm.config?.stageY || 0,
           w: sm.config?.stageWidth || 900,
           h: sm.config?.stageHeight || 52,
+          rotation: sm.config?.stageRotation || 0,
         })
+        setAuxElements(sm.config?.auxiliaryElements || [])
         setZones((sm.zones || []).map((z) => ({ localId: z.id, name: z.name, color: z.color })))
         const loaded = (sm.seats || []).map((s) => ({
           localId: s.id,
@@ -374,6 +383,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     if (tool === 'SELECT') {
       if (!e.shiftKey) setSelectedIds(new Set())
       setRubberBand({ x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y })
+      setSelectedShapeId(null)
     }
   }
 
@@ -383,6 +393,43 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       return
     }
     const pt = toSVGPoint(e)
+
+    if (draggingHandle) {
+      if (draggingHandle.type === 'RESIZE') {
+        const dx = pt.x - draggingHandle.startPt.x
+        const dy = pt.y - draggingHandle.startPt.y
+        const rad = (draggingHandle.rotation * Math.PI) / 180
+        const dw = dx * Math.cos(-rad) - dy * Math.sin(-rad)
+        const dh = dx * Math.sin(-rad) + dy * Math.cos(-rad)
+        const newW = Math.max(20, draggingHandle.startW + Math.round(dw))
+        const newH = Math.max(20, draggingHandle.startH + Math.round(dh))
+
+        if (draggingHandle.elementId === 'STAGE') {
+          setStageConfig((c) => ({ ...c, w: newW, h: newH }))
+        } else {
+          setAuxElements((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, w: newW, h: newH } : a)))
+        }
+      } else if (draggingHandle.type === 'ROTATE') {
+        const anglePt = Math.atan2(pt.y - draggingHandle.cy, pt.x - draggingHandle.cx) * (180 / Math.PI)
+        const angleStart = Math.atan2(draggingHandle.startPt.y - draggingHandle.cy, draggingHandle.startPt.x - draggingHandle.cx) * (180 / Math.PI)
+        const deltaAngle = anglePt - angleStart
+        const newRot = Math.round(draggingHandle.startRot + deltaAngle)
+
+        if (draggingHandle.elementId === 'STAGE') {
+          setStageConfig((c) => ({ ...c, rotation: newRot }))
+        } else {
+          setAuxElements((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, rotation: newRot } : a)))
+        }
+      }
+      return
+    }
+
+    if (draggingAuxId) {
+      setAuxElements((prev) => prev.map(a =>
+        a.id === draggingAuxId ? { ...a, x: Math.round(pt.x - auxDragOffset.x), y: Math.round(pt.y - auxDragOffset.y) } : a
+      ))
+      return
+    }
 
     if (isDraggingStage) {
       setStageConfig((c) => ({
@@ -438,6 +485,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     setIsPanning(false)
     setIsPainting(false)
     setIsDraggingStage(false)
+    setDraggingAuxId(null)
+    setDraggingHandle(null)
 
     if (isDraggingSeats) {
       if (!hasDraggedSeats && clickToSelectId && e && !e.shiftKey) {
@@ -466,6 +515,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   function handleStageMouseDown(e) {
     if (tool !== 'SELECT') return
     e.stopPropagation()
+    setSelectedShapeId('STAGE')
     setIsDraggingStage(true)
     const pt = toSVGPoint(e)
 
@@ -477,8 +527,17 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
     setStageDragOffset({ x: pt.x - curX, y: pt.y - curY })
     if (stageConfig.position !== 'CUSTOM') {
-      setStageConfig((c) => ({ ...c, position: 'CUSTOM', x: curX, y: curY, w: curW, h: curH }))
+      setStageConfig((c) => ({ ...c, position: 'CUSTOM', x: curX, y: curY, w: curW, h: curH, rotation: c.rotation || 0 }))
     }
+  }
+
+  function handleAuxMouseDown(e, aux) {
+    if (tool !== 'SELECT') return
+    e.stopPropagation()
+    setSelectedShapeId(aux.id)
+    setDraggingAuxId(aux.id)
+    const pt = toSVGPoint(e)
+    setAuxDragOffset({ x: pt.x - aux.x, y: pt.y - aux.y })
   }
 
   function handleSeatMouseDown(e, seat) {
@@ -603,6 +662,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         stageY: Math.round(stageConfig.y),
         stageWidth: Math.round(stageConfig.w),
         stageHeight: Math.round(stageConfig.h),
+        stageRotation: stageConfig.rotation || 0,
+        auxiliaryElements: auxElements,
       },
       rows_count: gridConfig.rows,
       cols_count: gridConfig.cols,
@@ -796,6 +857,22 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <option value="HIDDEN">Ẩn</option>
                   </select>
                 </label>
+                {stageConfig.position === 'CUSTOM' && (
+                  <div className="grid grid-cols-3 gap-2 mt-1">
+                    <label className="text-[11px] text-subtle">
+                      Ngang
+                      <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                    </label>
+                    <label className="text-[11px] text-subtle">
+                      Dọc
+                      <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                    </label>
+                    <label className="text-[11px] text-subtle">
+                      Xoay (°)
+                      <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                    </label>
+                  </div>
+                )}
               </div>
             </section>
 
@@ -815,6 +892,47 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 </p>
               </section>
             )}
+
+            {/* Aux Elements */}
+            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Vật thể phụ</p>
+              <div className="flex flex-col gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'AUX_STAGE', label: 'Sân khấu phụ', x: 300, y: 300, w: 200, h: 44 }])}
+                  className="flex items-center gap-2 p-2 rounded-lg border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-medium bg-surface text-content shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5 text-tertiary" /> Sân khấu phụ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'SCREEN', label: 'Màn hình', x: 300, y: 300, w: 100, h: 20 }])}
+                  className="flex items-center gap-2 p-2 rounded-lg border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-medium bg-surface text-content shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5 text-tertiary" /> Màn hình
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {auxElements.map(a => (
+                  <div key={a.id} className="flex flex-col gap-2 p-2 rounded-lg bg-surface/50 border border-border-soft/20 text-content shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <input
+                        type="text"
+                        value={a.label}
+                        onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
+                        className="bg-transparent font-semibold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
+                      />
+                      <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title="Xóa" className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="text-[10px] text-muted">Ngang <input type="number" value={a.w} onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, w: Number(e.target.value) } : x))} className="w-full bg-surface box-border border-border-soft/30 border rounded px-1 py-0.5 mt-0.5" /></label>
+                      <label className="text-[10px] text-muted">Dọc <input type="number" value={a.h} onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, h: Number(e.target.value) } : x))} className="w-full bg-surface box-border border-border-soft/30 border rounded px-1 py-0.5 mt-0.5" /></label>
+                      <label className="text-[10px] text-muted">Xoay <input type="number" value={a.rotation || 0} onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, rotation: Number(e.target.value) } : x))} className="w-full bg-surface box-border border-border-soft/30 border rounded px-1 py-0.5 mt-0.5" /></label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
 
             {/* Zones */}
             <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
@@ -1069,7 +1187,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   }
 
                   return (
-                    <g onMouseDown={handleStageMouseDown} style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}>
+                    <g
+                      onMouseDown={handleStageMouseDown}
+                      style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
+                      transform={stageConfig.rotation ? `rotate(${stageConfig.rotation}, ${x + w / 2}, ${y + h / 2})` : undefined}
+                    >
                       <rect x={x} y={y} width={w} height={h} fill="var(--color-panel-soft)" rx={12} />
                       {(stageConfig.position === 'TOP' || stageConfig.position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
                       {stageConfig.position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
@@ -1087,9 +1209,78 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       >
                         {stageConfig.label}
                       </text>
+
+                      {selectedShapeId === 'STAGE' && (
+                        <>
+                          <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y - 30} stroke="#3B82F6" strokeWidth={2} />
+                          <circle
+                            cx={x + w / 2} cy={y - 30} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
+                            style={{ cursor: 'pointer' }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation()
+                              setDraggingHandle({ type: 'ROTATE', elementId: 'STAGE', cx: x + w / 2, cy: y + h / 2, startRot: stageConfig.rotation || 0, startPt: toSVGPoint(e) })
+                            }}
+                          />
+                          <circle
+                            cx={x + w} cy={y + h} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
+                            style={{ cursor: 'nwse-resize' }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation()
+                              setDraggingHandle({ type: 'RESIZE', elementId: 'STAGE', startW: w, startH: h, startPt: toSVGPoint(e), cx: x + w / 2, cy: y + h / 2, rotation: stageConfig.rotation || 0 })
+                            }}
+                          />
+                          <rect x={x} y={y} width={w} height={h} fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="4 4" pointerEvents="none" />
+                        </>
+                      )}
                     </g>
                   )
                 })()}
+
+                {/* Aux Elements */}
+                {auxElements.map(a => (
+                  <g
+                    key={a.id}
+                    onMouseDown={(e) => handleAuxMouseDown(e, a)}
+                    style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
+                    transform={a.rotation ? `rotate(${a.rotation}, ${a.x + a.w / 2}, ${a.y + a.h / 2})` : undefined}
+                  >
+                    <rect x={a.x} y={a.y} width={a.w} height={a.h} fill="var(--color-panel-soft)" rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke="var(--color-border-soft)" strokeWidth={2} />
+                    <text
+                      x={a.x + a.w / 2}
+                      y={a.y + a.h / 2 + 5}
+                      textAnchor="middle"
+                      fill="var(--color-content)"
+                      fontSize={12}
+                      fontWeight="bold"
+                      style={{ userSelect: 'none', pointerEvents: 'none' }}
+                    >
+                      {a.label}
+                    </text>
+
+                    {selectedShapeId === a.id && (
+                      <>
+                        <line x1={a.x + a.w / 2} y1={a.y} x2={a.x + a.w / 2} y2={a.y - 30} stroke="#3B82F6" strokeWidth={2} />
+                        <circle
+                          cx={a.x + a.w / 2} cy={a.y - 30} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
+                          style={{ cursor: 'pointer' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            setDraggingHandle({ type: 'ROTATE', elementId: a.id, cx: a.x + a.w / 2, cy: a.y + a.h / 2, startRot: a.rotation || 0, startPt: toSVGPoint(e) })
+                          }}
+                        />
+                        <circle
+                          cx={a.x + a.w} cy={a.y + a.h} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
+                          style={{ cursor: 'nwse-resize' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            setDraggingHandle({ type: 'RESIZE', elementId: a.id, startW: a.w, startH: a.h, startPt: toSVGPoint(e), cx: a.x + a.w / 2, cy: a.y + a.h / 2, rotation: a.rotation || 0 })
+                          }}
+                        />
+                        <rect x={a.x} y={a.y} width={a.w} height={a.h} fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="4 4" pointerEvents="none" />
+                      </>
+                    )}
+                  </g>
+                ))}
 
                 {/* Seats */}
                 {seats.map((seat) => {
@@ -1187,6 +1378,11 @@ export function SeatMapPreview({ seatMap, seats, zones, width = 300, height = 20
     }
   }
 
+  seatMap?.config?.auxiliaryElements?.forEach(a => {
+    allX.push(a.x); allX.push(a.x + a.w);
+    allY.push(a.y); allY.push(a.y + a.h);
+  })
+
   const minX = Math.min(...allX)
   const maxX = Math.max(...allX)
   const minY = Math.min(...allY)
@@ -1217,7 +1413,7 @@ export function SeatMapPreview({ seatMap, seats, zones, width = 300, height = 20
     }
 
     return (
-      <g>
+      <g transform={seatMap.config?.stageRotation ? `rotate(${seatMap.config.stageRotation}, ${x + w / 2}, ${y + h / 2})` : undefined}>
         <rect x={x} y={y} width={w} height={h} fill="var(--color-panel-soft)" rx={Math.min(w, h) > 20 ? 12 : 4} />
         {(seatMap.stage_position === 'TOP' || seatMap.stage_position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
         {seatMap.stage_position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
@@ -1231,6 +1427,11 @@ export function SeatMapPreview({ seatMap, seats, zones, width = 300, height = 20
     <svg width={width} height={height} className="rounded-xl border border-border-soft/30 bg-panel-soft/30">
       <g transform={`translate(10,10) scale(${scale})`}>
         {renderStage()}
+        {seatMap?.config?.auxiliaryElements?.map(a => (
+          <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${a.x - minX + a.w / 2}, ${a.y - minY + a.h / 2})` : undefined}>
+            <rect x={a.x - minX} y={a.y - minY} width={a.w} height={a.h} fill="var(--color-panel-soft)" rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke="var(--color-border-soft)" strokeWidth={2} />
+          </g>
+        ))}
         {finalSeats.map((s) => {
           const x = (s.x_position ?? s.x) - minX
           const y = (s.y_position ?? s.y) - minY
