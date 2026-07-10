@@ -3,6 +3,7 @@ import {
   Badge,
   KpiGrid,
   Page,
+  Panel,
   Status,
   Table,
   UserCell,
@@ -179,9 +180,8 @@ export function AdminAccountsPage() {
         ]}
       />
 
-      <div className="my-6 grid gap-4 lg:flex lg:items-center lg:justify-between">
-        <div className="flex flex-1 flex-wrap items-center gap-4">
-          <div className="relative w-full max-w-sm">
+      <Panel className="my-6 flex flex-wrap items-center gap-4">
+        <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
             <input
               type="text"
@@ -190,39 +190,38 @@ export function AdminAccountsPage() {
               value={filters.search}
               onChange={handleSearchChange}
             />
-          </div>
-          
-          <select 
-            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-tertiary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
-            value={filters.role}
-            onChange={handleRoleChange}
-          >
-            <option value="" className="bg-surface text-content">Tất cả vai trò</option>
-            <option value="ADMIN" className="bg-surface text-content">Admin</option>
-            <option value="ORGANIZER" className="bg-surface text-content">Organizer</option>
-            <option value="CUSTOMER" className="bg-surface text-content">Customer</option>
-            <option value="STAFF" className="bg-surface text-content">Staff</option>
-          </select>
-
-          <select 
-            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content hover:border-tertiary transition focus:outline-none focus:ring-2 focus:ring-primary/10"
-            value={filters.status}
-            onChange={handleStatusChange}
-          >
-            <option value="" className="bg-surface text-content">Mọi trạng thái</option>
-            <option value="ACTIVE" className="bg-surface text-content">Hoạt động</option>
-            <option value="LOCKED" className="bg-surface text-content">Đã khóa</option>
-            <option value="PENDING" className="bg-surface text-content">Chờ xác nhận</option>
-          </select>
-
-          <button 
-            onClick={resetFilters}
-            className="flex items-center gap-1 text-sm font-bold text-subtle hover:text-tertiary transition"
-          >
-            <RotateCcw className="size-3" /> Đặt lại
-          </button>
         </div>
-      </div>
+          
+        <select 
+          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-tertiary focus:border-primary focus:ring-2 focus:ring-primary/10"
+          value={filters.role}
+          onChange={handleRoleChange}
+        >
+          <option value="" className="bg-surface text-content">Tất cả vai trò</option>
+          <option value="ADMIN" className="bg-surface text-content">Admin</option>
+          <option value="ORGANIZER" className="bg-surface text-content">Organizer</option>
+          <option value="CUSTOMER" className="bg-surface text-content">Customer</option>
+          <option value="STAFF" className="bg-surface text-content">Staff</option>
+        </select>
+
+        <select 
+          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-tertiary focus:border-primary focus:ring-2 focus:ring-primary/10"
+          value={filters.status}
+          onChange={handleStatusChange}
+        >
+          <option value="" className="bg-surface text-content">Mọi trạng thái</option>
+          <option value="ACTIVE" className="bg-surface text-content">Hoạt động</option>
+          <option value="LOCKED" className="bg-surface text-content">Đã khóa</option>
+          <option value="PENDING" className="bg-surface text-content">Chờ xác nhận</option>
+        </select>
+
+        <button 
+          onClick={resetFilters}
+          className="flex items-center gap-1 text-sm font-bold text-subtle transition hover:text-tertiary"
+        >
+          <RotateCcw className="size-3" /> Đặt lại
+        </button>
+      </Panel>
 
       <Table
         headers={['Người dùng', 'Vai trò', 'Ngày đăng ký', 'Trạng thái', 'Thao tác']}
