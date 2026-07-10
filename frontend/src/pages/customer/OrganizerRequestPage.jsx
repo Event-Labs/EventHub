@@ -11,6 +11,8 @@ import {
 } from '@/services/organizerRequests.js'
 import { uploadOrganizerAvatar, uploadOrganizerDocument } from '@/services/uploads.js'
 import { getProfile } from '@/services/user.service.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const emptyForm = {
   request_type: 'INDIVIDUAL',
@@ -292,6 +294,7 @@ function StatusCard({ request, titlePrefix, onEdit }) {
 }
 
 export function OrganizerRequestPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -337,13 +340,14 @@ export function OrganizerRequestPage() {
     mutationFn: ({ id, payload }) =>
       id ? updateOrganizerRequest(id, payload) : submitOrganizerRequest(payload),
     onSuccess: (request) => {
-      setSuccess(
+      const message =
         request.request_type === 'ORGANIZATION'
           ? 'Yêu cầu đã được gửi. Vui lòng kiểm tra email tổ chức để xác thực trước khi admin duyệt.'
           : editingRequest
             ? 'Yêu cầu đã được cập nhật và gửi lại để admin xét duyệt.'
-            : 'Yêu cầu đã được gửi thành công.',
-      )
+            : 'Yêu cầu đã được gửi thành công.'
+      setSuccess(message)
+      toast.success(message)
       setError('')
       setForm(emptyForm)
       setSelectedAvatar(null)
@@ -354,7 +358,9 @@ export function OrganizerRequestPage() {
     },
     onError: (err) => {
       const apiError = err.response?.data
-      setError(formatApiValidationError(apiError))
+      const message = formatApiValidationError(apiError)
+      setError(message)
+      toast.error(message)
       setSuccess('')
     },
   })
@@ -448,7 +454,9 @@ export function OrganizerRequestPage() {
 
     if (imageOnlyFields.includes(field) && !file.type.startsWith('image/')) {
       event.target.value = ''
-      setError('Vui lòng chỉ tải ảnh JPG, PNG hoặc WEBP cho tài liệu xác minh cá nhân.')
+      const message = 'Vui lòng chỉ tải ảnh JPG, PNG hoặc WEBP cho tài liệu xác minh cá nhân.'
+      setError(message)
+      toast.error(message)
       return
     }
 
@@ -461,7 +469,9 @@ export function OrganizerRequestPage() {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setError('Vui lòng chọn tệp ảnh hợp lệ.')
+      const message = 'Vui lòng chọn tệp ảnh hợp lệ.'
+      setError(message)
+      toast.error(message)
       return
     }
 
@@ -479,12 +489,16 @@ export function OrganizerRequestPage() {
     const isOrganization = form.request_type === 'ORGANIZATION'
 
     if (!selectedAvatar && !avatarUrl) {
-      setError('Vui lòng tải ảnh đại diện.')
+      const message = 'Vui lòng tải ảnh đại diện.'
+      setError(message)
+      toast.error(message)
       return
     }
 
     if (!form.terms_accepted) {
-      setError('Vui lòng xác nhận đã đọc và đồng ý Điều khoản dành cho Nhà tổ chức.')
+      const message = 'Vui lòng xác nhận đã đọc và đồng ý Điều khoản dành cho Nhà tổ chức.'
+      setError(message)
+      toast.error(message)
       return
     }
 
@@ -505,6 +519,7 @@ export function OrganizerRequestPage() {
 
     if (missingDocument) {
       setError(missingDocument[1])
+      toast.error(missingDocument[1])
       return
     }
 
@@ -570,7 +585,9 @@ export function OrganizerRequestPage() {
         },
       })
     } catch (err) {
-      setError(err.message || 'Không thể tải tài liệu lên hệ thống.')
+      const message = getApiMessage(err, 'Không thể tải tài liệu lên hệ thống.')
+      setError(message)
+      toast.error(message)
       return
     } finally {
       setIsUploading(false)

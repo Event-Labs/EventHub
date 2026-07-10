@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCircle2, Mail, Send, Smartphone } from 'lucide-react'
+import { Bell, Mail, Send, Smartphone } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Badge, Insight, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import {
@@ -7,6 +7,8 @@ import {
   fetchOrganizerAnnouncements,
   sendOrganizerAnnouncement,
 } from '@/services/notifications.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 function formatDateTime(value) {
   if (!value) return 'Chưa gửi'
@@ -27,10 +29,9 @@ const initialForm = {
 const EMPTY_ITEMS = []
 
 export function OrganizerAnnouncementsPage() {
+  const toast = useToast()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(initialForm)
-  const [success, setSuccess] = useState('')
-  const [error, setError] = useState('')
 
   const eventsQuery = useQuery({
     queryKey: ['organizer-announcement-events'],
@@ -52,14 +53,12 @@ export function OrganizerAnnouncementsPage() {
   const sendMutation = useMutation({
     mutationFn: sendOrganizerAnnouncement,
     onSuccess: (data) => {
-      setSuccess(`Đã gửi tới ${data.recipients} người tham dự: ${data.web_sent} web, ${data.email_sent} email.`)
-      setError('')
+      toast.success(`Đã gửi tới ${data.recipients} người tham dự: ${data.web_sent} web, ${data.email_sent} email.`)
       setForm((current) => ({ ...initialForm, event_id: current.event_id }))
       queryClient.invalidateQueries({ queryKey: ['organizer-announcements'] })
     },
     onError: (err) => {
-      setSuccess('')
-      setError(err.response?.data?.message || 'Không thể gửi thông báo. Vui lòng thử lại.')
+      toast.error(getApiMessage(err, 'Không thể gửi thông báo. Vui lòng thử lại.'))
     },
   })
 
@@ -70,8 +69,6 @@ export function OrganizerAnnouncementsPage() {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    setSuccess('')
-    setError('')
 
     const channels = [
       form.web ? 'web' : null,
@@ -156,14 +153,6 @@ export function OrganizerAnnouncementsPage() {
                   placeholder="Nhập thay đổi về thời gian, địa điểm, hướng dẫn check-in hoặc cập nhật quan trọng..."
                 />
               </label>
-
-              {success && (
-                <p className="flex items-center gap-2 rounded-xl bg-success/10 border border-success/30 p-3 text-sm font-semibold text-success">
-                  <CheckCircle2 className="size-4 animate-bounce" />
-                  {success}
-                </p>
-              )}
-              {error && <p className="rounded-xl bg-error/10 border border-error/30 p-3 text-sm font-semibold text-error">{error}</p>}
 
               <button
                 className="org-btn-primary ml-auto disabled:cursor-not-allowed disabled:opacity-60"

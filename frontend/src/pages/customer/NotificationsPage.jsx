@@ -14,6 +14,9 @@ import {
   fetchMyStaffInvitations,
 } from '@/services/operations.js'
 import { cn } from '@/lib/utils.js'
+import { getRememberLoginPreference, setAuthSession } from '@/lib/auth.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 function isStaffInvitationNotification(notification) {
   return notification.title === 'STAFF_INVITATION' || notification.title === 'Lời mời làm staff'
@@ -94,6 +97,7 @@ function iconFor(type) {
 }
 
 export function NotificationsPage() {
+  const toast = useToast()
   const [acceptedInvitationId, setAcceptedInvitationId] = useState(null)
   const queryClient = useQueryClient()
   const notificationsQuery = useQuery({
@@ -108,33 +112,56 @@ export function NotificationsPage() {
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
     onSuccess: () => {
+      toast.success('Đã đánh dấu thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể đánh dấu thông báo. Vui lòng thử lại.'))
     },
   })
 
   const markAllMutation = useMutation({
     mutationFn: markAllNotificationsRead,
     onSuccess: () => {
+      toast.success('Đã đánh dấu tất cả thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể đánh dấu tất cả thông báo. Vui lòng thử lại.'))
     },
   })
 
   const acceptInvitationMutation = useMutation({
     mutationFn: acceptStaffInvitation,
     onSuccess: (data, invitationId) => {
+      if (data?.accessToken && data?.user) {
+        setAuthSession({
+          accessToken: data.accessToken,
+          user: data.user,
+          remember: getRememberLoginPreference(),
+        })
+      }
+      toast.success(data?.message || 'Bạn đã nhận lời mời thành công.')
       setAcceptedInvitationId(invitationId)
       queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể đồng ý lời mời. Vui lòng thử lại.'))
     },
   })
 
   const declineInvitationMutation = useMutation({
     mutationFn: declineStaffInvitation,
     onSuccess: () => {
+      toast.success('Đã từ chối lời mời làm staff.')
       queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể từ chối lời mời. Vui lòng thử lại.'))
     },
   })
 
@@ -177,6 +204,9 @@ export function NotificationsPage() {
           const content = invitationDetails?.content || notification.content
           const invitationStatus = invitationDetails?.status
           const canRespondToInvitation = isStaffInvitationStoreNotification(notification) && invitationStatus === 'PENDING'
+          const canOpenStaffPortal = isStaffInvitationStoreNotification(notification)
+            && (invitationStatus === 'ACCEPTED'
+              || (acceptedInvitationId === notification.id && acceptInvitationMutation.isSuccess))
 
           return (
             <article
@@ -238,6 +268,14 @@ export function NotificationsPage() {
                         </button>
                       </>
                     )}
+                    {canOpenStaffPortal && (
+                      <Link
+                        to={acceptInvitationMutation.data?.staff_portal_url || '/staff'}
+                        className="inline-flex items-center rounded-full border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:border-primary hover:bg-primary hover:text-[#081126]"
+                      >
+                        Trang nhân sự
+                      </Link>
+                    )}
                     {!notification.is_read && (
                       <button
                         type="button"
@@ -251,13 +289,11 @@ export function NotificationsPage() {
                   {acceptedInvitationId === notification.id && acceptInvitationMutation.isSuccess && (
                     <div className="mt-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
                       <p className="font-semibold text-primary">
-                        {acceptInvitationMutation.data?.message || 'Bạn đã trở thành staff.'}
+                        {acceptInvitationMutation.data?.message || 'Bạn đã nhận lời mời thành công.'}
                       </p>
-                      {acceptInvitationMutation.data?.requires_relogin && (
-                        <p className="mt-1 text-muted">
-                          Vui lòng <Link to="/login" className="font-bold text-primary underline">đăng nhập lại</Link> để token có quyền STAFF và truy cập portal staff.
-                        </p>
-                      )}
+                      <p className="mt-1 text-muted">
+                        Bạn có thể mở cổng nhân sự để xem sự kiện được giao, công việc và công cụ check-in.
+                      </p>
                     </div>
                   )}
                 </div>

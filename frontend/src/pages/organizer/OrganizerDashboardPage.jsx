@@ -4,13 +4,14 @@ import {
   ArrowUpRight,
   BarChart3,
   CalendarRange,
+  CalendarClock,
+  CheckCircle2,
   CircleDollarSign,
   Loader2,
   RefreshCw,
   ReceiptText,
   Sparkles,
   TrendingUp,
-  Ticket,
 } from 'lucide-react'
 import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
@@ -29,6 +30,12 @@ function fmtShort(n) {
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
   return v.toLocaleString('vi-VN')
+}
+
+function fmtNumber(n, digits = 0) {
+  return Number(n || 0).toLocaleString('vi-VN', {
+    maximumFractionDigits: digits,
+  })
 }
 
 function fmtDate(iso) {
@@ -157,8 +164,12 @@ function HorizontalRevenueChart({ data, maxValue }) {
       {data.map((item) => {
         const gross = Number(item.gross_revenue || 0)
         const net = Number(item.net_revenue || 0)
+        const discount = Number(item.total_discount || 0)
         const grossPct = maxValue > 0 ? Math.max(3, Math.round((gross / maxValue) * 100)) : 0
         const netPct = gross > 0 ? Math.max(3, Math.round((net / gross) * grossPct)) : 0
+        const discountPct = maxValue > 0 && discount > 0
+          ? Math.max(3, Math.round((discount / maxValue) * 100))
+          : 0
 
         return (
           <div key={item.event_id} className="rounded-md border border-border-soft/30 bg-panel-soft/50 p-4">
@@ -172,18 +183,27 @@ function HorizontalRevenueChart({ data, maxValue }) {
               <div className="text-right">
                 <p className="text-sm font-black text-content">{fmtCurrency(gross)}</p>
                 <p className="text-xs font-semibold text-success">Ròng {fmtCurrency(net)}</p>
+                <p className="text-xs font-semibold text-warning">Giảm giá {fmtCurrency(discount)}</p>
               </div>
             </div>
             <div className="relative h-3 overflow-hidden rounded-full bg-border-soft/25">
               <div className="absolute inset-y-0 left-0 rounded-full bg-tertiary/55" style={{ width: `${grossPct}%` }} />
               <div className="absolute inset-y-0 left-0 rounded-full bg-success" style={{ width: `${netPct}%` }} />
             </div>
+            {discount > 0 && (
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-border-soft/25">
+                <div className="h-full rounded-full bg-warning" style={{ width: `${discountPct}%` }} />
+              </div>
+            )}
             <div className="mt-2 flex items-center gap-4 text-[11px] font-bold uppercase text-muted">
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-success" /> Doanh thu ròng
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-tertiary/55" /> Doanh thu gộp
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-warning" /> Giảm giá
               </span>
             </div>
           </div>
@@ -193,15 +213,256 @@ function HorizontalRevenueChart({ data, maxValue }) {
   )
 }
 
+function ProgressBar({ value, tone = 'bg-success' }) {
+  const pct = Math.max(0, Math.min(100, Number(value) || 0))
+  return (
+    <div className="h-2 overflow-hidden rounded-full bg-border-soft/25">
+      <div className={`h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+function DonutChart({ segments, size = 150, stroke = 18, centerLabel, centerValue }) {
+  const total = segments.reduce((sum, item) => sum + Number(item.value || 0), 0)
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  let offset = 0
+
+  if (total <= 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(179,205,224,0.18)" strokeWidth={stroke} />
+        </svg>
+        <p className="text-sm font-semibold text-subtle">Chưa có dữ liệu</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-center">
+      <div className="relative shrink-0">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(179,205,224,0.12)" strokeWidth={stroke} />
+          {segments.map((item) => {
+            const value = Number(item.value || 0)
+            const dash = (value / total) * circumference
+            const circle = (
+              <circle
+                key={item.label}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={item.color}
+                strokeWidth={stroke}
+                strokeLinecap="round"
+                strokeDasharray={`${Math.max(dash - 2, 0)} ${circumference}`}
+                strokeDashoffset={-offset}
+              >
+                <title>{`${item.label}: ${fmtNumber(value)} (${fmtNumber((value / total) * 100, 1)}%)`}</title>
+              </circle>
+            )
+            offset += dash
+            return circle
+          })}
+        </svg>
+        <div className="absolute inset-0 grid place-items-center text-center">
+          <div>
+            <p className="text-xl font-black text-content">{centerValue ?? fmtNumber(total)}</p>
+            <p className="text-[11px] font-bold uppercase text-subtle">{centerLabel}</p>
+          </div>
+        </div>
+      </div>
+      <div className="grid min-w-0 flex-1 gap-2">
+        {segments.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-3 rounded-md border border-border-soft/25 bg-panel-soft/50 px-3 py-2">
+            <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-content">
+              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+              <span className="truncate">{item.label}</span>
+            </span>
+            <span className="shrink-0 text-sm font-black text-content">{fmtNumber(item.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TicketOpsChart({ dashboard }) {
+  const used = Number(dashboard?.checked_in_tickets || 0)
+  const valid = Number(dashboard?.valid_tickets || 0)
+  const cancelled = Number(dashboard?.cancelled_tickets || 0)
+  const issued = Number(dashboard?.issued_tickets || 0)
+  const total = Math.max(issued, used + valid + cancelled, 1)
+  const segments = [
+    { label: 'Đã check-in', value: used, color: 'bg-success', text: 'text-success' },
+    { label: 'Còn hiệu lực', value: valid, color: 'bg-primary', text: 'text-primary' },
+    { label: 'Đã hủy', value: cancelled, color: 'bg-error', text: 'text-error' },
+  ]
+
+  return (
+    <OrganizerPanel className="mb-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-content">Tình trạng vé vận hành</h2>
+          <p className="mt-1 text-xs text-subtle">Theo dõi vé đã check-in, vé còn hiệu lực và vé đã hủy.</p>
+        </div>
+        <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
+          {fmtNumber(issued)} vé đã phát hành
+        </span>
+      </div>
+      <div className="flex h-4 overflow-hidden rounded-full bg-border-soft/25">
+        {segments.map((item) => (
+          <div
+            key={item.label}
+            className={`${item.color} transition-all`}
+            style={{ width: `${Math.max(0, (item.value / total) * 100)}%` }}
+            title={`${item.label}: ${fmtNumber(item.value)}`}
+          />
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {segments.map((item) => (
+          <div key={item.label} className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase text-subtle">{item.label}</p>
+            <p className={`mt-1 text-xl font-black ${item.text}`}>{fmtNumber(item.value)}</p>
+            <p className="mt-1 text-xs text-muted">{fmtNumber((item.value / total) * 100, 1)}% tổng vé</p>
+          </div>
+        ))}
+      </div>
+    </OrganizerPanel>
+  )
+}
+
+function EventStatusCharts({ dashboard }) {
+  const statusSegments = [
+    { label: 'Đang công khai', value: Number(dashboard?.published_events || 0), color: '#2b5c92' },
+    { label: 'Chờ duyệt', value: Number(dashboard?.pending_review_events || 0), color: '#eab308' },
+    { label: 'Bản nháp', value: Number(dashboard?.draft_events || 0), color: '#72787c' },
+    { label: 'Đã duyệt chưa public', value: Number(dashboard?.completed_events || 0), color: '#22c55e' },
+  ]
+  const timelineSegments = [
+    { label: 'Đang diễn ra', value: Number(dashboard?.running_events || 0), color: '#22c55e' },
+    { label: 'Sắp diễn ra', value: Number(dashboard?.upcoming_events || 0), color: '#2b5c92' },
+    {
+      label: 'Khác',
+      value: Math.max(
+        Number(dashboard?.total_events || 0) - Number(dashboard?.running_events || 0) - Number(dashboard?.upcoming_events || 0),
+        0,
+      ),
+      color: '#72787c',
+    },
+  ]
+
+  return (
+    <div className="mb-6 grid gap-6 xl:grid-cols-2">
+      <OrganizerPanel>
+        <div className="mb-4">
+          <h2 className="font-bold text-content">Phân bổ trạng thái sự kiện</h2>
+          <p className="mt-1 text-xs text-subtle">Nhìn nhanh tỷ trọng sự kiện đã public, chờ duyệt, nháp và đã duyệt.</p>
+        </div>
+        <DonutChart
+          segments={statusSegments}
+          centerLabel="Sự kiện"
+          centerValue={fmtNumber(dashboard?.total_events)}
+        />
+      </OrganizerPanel>
+      <OrganizerPanel>
+        <div className="mb-4">
+          <h2 className="font-bold text-content">Lịch vận hành</h2>
+          <p className="mt-1 text-xs text-subtle">Tách riêng sự kiện đang diễn ra, sắp diễn ra và nhóm còn lại.</p>
+        </div>
+        <DonutChart
+          segments={timelineSegments}
+          centerLabel="Lịch"
+          centerValue={fmtNumber(dashboard?.total_events)}
+        />
+      </OrganizerPanel>
+    </div>
+  )
+}
+
+function DashboardOverview({ dashboard, subscription }) {
+  const plan = subscription?.current_plan
+  const nextEvent = dashboard?.next_event
+  const nextEventOccupancy = Number(nextEvent?.capacity || 0) > 0
+    ? (Number(nextEvent?.tickets_sold || 0) / Number(nextEvent.capacity)) * 100
+    : 0
+
+  return (
+    <div className="mb-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <OrganizerPanel>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-bold text-content">Tổng quan vận hành</h2>
+            <p className="mt-1 text-xs text-subtle">Tình trạng sự kiện, sức chứa, bán vé và check-in của organizer.</p>
+          </div>
+          <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
+            {fmtNumber(dashboard?.total_events)} sự kiện
+          </span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase text-subtle">Đang công khai</p>
+            <p className="mt-1 text-2xl font-black text-content">{fmtNumber(dashboard?.published_events)}</p>
+            <p className="mt-1 text-xs text-muted">{fmtNumber(dashboard?.upcoming_events)} sắp diễn ra</p>
+          </div>
+          <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase text-subtle">Chờ duyệt</p>
+            <p className="mt-1 text-2xl font-black text-warning">{fmtNumber(dashboard?.pending_review_events)}</p>
+            <p className="mt-1 text-xs text-muted">{fmtNumber(dashboard?.draft_events)} bản nháp</p>
+          </div>
+          <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase text-subtle">Tỷ lệ lấp đầy</p>
+            <p className="mt-1 text-2xl font-black text-success">{fmtNumber(dashboard?.occupancy_rate, 1)}%</p>
+            <div className="mt-2"><ProgressBar value={dashboard?.occupancy_rate} /></div>
+          </div>
+          <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase text-subtle">Check-in</p>
+            <p className="mt-1 text-2xl font-black text-ai">{fmtNumber(dashboard?.checkin_rate, 1)}%</p>
+            <p className="mt-1 text-xs text-muted">{fmtNumber(dashboard?.checked_in_tickets)} / {fmtNumber(dashboard?.issued_tickets)} vé</p>
+          </div>
+        </div>
+      </OrganizerPanel>
+
+      <OrganizerPanel>
+        <div className="mb-4 flex items-center gap-2">
+          <CalendarClock className="size-5 text-primary" />
+          <h2 className="font-bold text-content">Sắp tới & gói dịch vụ</h2>
+        </div>
+        {nextEvent ? (
+          <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+            <p className="truncate font-bold text-content">{nextEvent.title}</p>
+            <p className="mt-1 text-xs text-subtle">{fmtDate(nextEvent.start_time)} · {fmtNumber(nextEvent.tickets_sold)} / {fmtNumber(nextEvent.capacity)} vé</p>
+            <div className="mt-3"><ProgressBar value={nextEventOccupancy} tone="bg-tertiary" /></div>
+          </div>
+        ) : (
+          <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3 text-sm font-semibold text-subtle">
+            Chưa có sự kiện công khai sắp diễn ra.
+          </div>
+        )}
+        <div className="mt-3 rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
+          <p className="text-[11px] font-bold uppercase text-subtle">Gói hiện tại</p>
+          <p className="mt-1 text-lg font-black text-content">{plan?.name || 'Chưa có gói active'}</p>
+          <p className="mt-1 text-xs text-muted">
+            {plan ? `Hết hạn ${fmtDate(plan.end_date)} · Giá gói ${fmtCurrency(plan.price)}` : 'Cần kích hoạt gói để mở đầy đủ tính năng.'}
+          </p>
+        </div>
+      </OrganizerPanel>
+    </div>
+  )
+}
+
 function MoneyCompositionChart({ overall }) {
   const gross = Number(overall.gross_revenue || 0)
   const discount = Number(overall.total_discount || 0)
-  const fee = Number(overall.total_platform_fee || 0)
+  const subscriptionCost = Number(overall.subscription_cost || 0)
   const net = Number(overall.net_revenue || 0)
   const total = Math.max(gross + discount, 1)
   const segments = [
     { label: 'Thực nhận', value: net, color: 'bg-success', text: 'text-success' },
-    { label: 'Phí nền tảng', value: fee, color: 'bg-tertiary', text: 'text-tertiary' },
+    { label: 'Phí gói dịch vụ', value: subscriptionCost, color: 'bg-ai', text: 'text-ai' },
     { label: 'Chiết khấu', value: discount, color: 'bg-warning', text: 'text-warning' },
   ].filter((item) => item.value > 0)
 
@@ -210,7 +471,7 @@ function MoneyCompositionChart({ overall }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-bold text-content">Cơ cấu doanh thu</h2>
-          <p className="mt-1 text-xs text-subtle">Tỷ trọng thực nhận, phí nền tảng và chiết khấu trong kỳ.</p>
+          <p className="mt-1 text-xs text-subtle">Tỷ trọng thực nhận, phí gói dịch vụ và chiết khấu trong kỳ.</p>
         </div>
         <p className="text-sm font-black text-content">{fmtCurrency(gross)}</p>
       </div>
@@ -226,8 +487,8 @@ function MoneyCompositionChart({ overall }) {
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {[
-          { label: 'Thực nhận (ròng)', value: net, text: 'text-success' },
-          { label: 'Phí nền tảng', value: fee, text: 'text-tertiary' },
+          { label: 'Ròng cuối cùng', value: net, text: 'text-success' },
+          { label: 'Phí gói dịch vụ', value: subscriptionCost, text: 'text-ai' },
           { label: 'Tổng chiết khấu', value: discount, text: 'text-warning' },
         ].map((item) => (
           <div key={item.label} className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
@@ -268,7 +529,6 @@ export function OrganizerDashboardPage() {
   const [summaryError, setSummaryError] = useState('')
 
   useEffect(() => {
-    setEventsLoading(true)
     fetchOrganizerEvents()
       .then((data) => setEvents(data || []))
       .catch(() => setEvents([]))
@@ -306,6 +566,7 @@ export function OrganizerDashboardPage() {
     }
   }, [comparison, selectedEventId, datePreset, customFrom, customTo])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadStats() }, [loadStats])
 
   const loadFinancialSummary = useCallback(async () => {
@@ -332,11 +593,14 @@ export function OrganizerDashboardPage() {
   }, [datePreset, customFrom, customTo, selectedEventId])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFinancialSummary(null)
     setSummaryError('')
   }, [datePreset, customFrom, customTo, selectedEventId])
 
   const overall = stats?.overall
+  const dashboard = stats?.dashboard ?? {}
+  const subscription = stats?.subscription ?? {}
   const byEvent = stats?.by_event ?? []
   const dailyRevenue = stats?.daily_revenue ?? []
   const comparisonDailyRevenue = comparisonStats?.daily_revenue ?? []
@@ -347,7 +611,7 @@ export function OrganizerDashboardPage() {
   return (
     <OrganizerPage
       title="Tổng quan"
-      description="Theo dõi doanh thu và hiệu suất bán vé của bạn."
+      description="Theo dõi tình trạng sự kiện, bán vé, check-in và doanh thu thực nhận của organizer."
     >
       {/* ── Filters ── */}
       <OrganizerPanel className="mb-6">
@@ -429,6 +693,8 @@ export function OrganizerDashboardPage() {
         </OrganizerPanel>
       ) : stats ? (
         <>
+          <DashboardOverview dashboard={dashboard} subscription={subscription} />
+
           {financialSummary && (
             <OrganizerPanel className="mb-6 border-ai/30 bg-ai/[0.06]">
               {financialSummary.intelligence && (
@@ -512,15 +778,15 @@ export function OrganizerDashboardPage() {
               icon={CircleDollarSign}
               label="Doanh thu gộp"
               value={fmtShort(overall.gross_revenue)}
-              sub={fmtCurrency(overall.gross_revenue)}
+              sub="Tiền vé đã thanh toán sau khuyến mãi"
               accentBg="bg-tertiary/15"
               accentColor="text-primary"
             />
             <StatCard
               icon={TrendingUp}
-              label="Doanh thu ròng"
+              label="Ròng cuối cùng"
               value={fmtShort(overall.net_revenue)}
-              sub={`Sau phí nền tảng: ${fmtCurrency(overall.total_platform_fee)}`}
+              sub={`Đã trừ phí: ${fmtCurrency(overall.total_costs)}`}
               accentBg="bg-success/15"
               accentColor="text-success"
             />
@@ -533,15 +799,17 @@ export function OrganizerDashboardPage() {
               accentColor="text-ai"
             />
             <StatCard
-              icon={Ticket}
-              label="Vé đã bán"
-              value={overall.total_tickets_sold.toLocaleString('vi-VN')}
-              sub={overall.total_orders > 0 ? `TB ${(overall.total_tickets_sold / overall.total_orders).toFixed(1)} vé/đơn` : '—'}
+              icon={CheckCircle2}
+              label="Lấp đầy hệ thống"
+              value={`${fmtNumber(dashboard.occupancy_rate, 1)}%`}
+              sub={`${fmtNumber(dashboard.issued_tickets)} / ${fmtNumber(dashboard.total_capacity)} vé`}
               accentBg="bg-warning/15"
               accentColor="text-warning"
             />
           </div>
 
+          <EventStatusCharts dashboard={dashboard} />
+          <TicketOpsChart dashboard={dashboard} />
           <MoneyCompositionChart overall={overall} />
 
           {/* ── Daily Revenue Chart ── */}
@@ -590,7 +858,7 @@ export function OrganizerDashboardPage() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-bold text-content">Doanh thu theo sự kiện</h2>
-                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu gộp, doanh thu ròng và số đơn của từng sự kiện.</p>
+                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu gộp, doanh thu ròng, giảm giá đã áp dụng và số đơn của từng sự kiện.</p>
                 </div>
                 <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
                   {byEvent.length} sự kiện

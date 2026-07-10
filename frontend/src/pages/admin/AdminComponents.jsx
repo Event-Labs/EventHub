@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 
 /**
  * Page – page-level layout wrapper for Admin
@@ -25,10 +26,7 @@ export function Page({
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-tertiary">
-            Admin Portal
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-content">
+          <h1 className="font-display text-2xl font-extrabold tracking-tight text-content">
             {title}
           </h1>
           {description && (
@@ -225,11 +223,13 @@ export function UserCell({ name, email, image, onClick, className = '' }) {
       className={`flex items-center gap-3 ${onClick ? 'cursor-pointer hover:opacity-80 transition' : ''} ${className}`}
       onClick={onClick}
     >
-      {image ? (
-        <img src={image} alt={name} className="size-10 rounded-full object-cover ring-2 ring-border-soft/40" />
-      ) : (
-        <AvatarFallback name={name} />
-      )}
+      <ProfileAvatar
+        sources={image}
+        name={name}
+        alt={name || 'Avatar'}
+        className="size-10 ring-2 ring-border-soft/40"
+        fallbackClassName="text-sm"
+      />
       <div className="min-w-0">
         <p className="font-bold text-content truncate">{name}</p>
         <p className="text-xs text-subtle truncate">{email}</p>

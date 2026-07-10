@@ -7,6 +7,8 @@ import {
   fetchAdminEventCategories,
   updateAdminEventCategory,
 } from '@/services/events.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
 
 const emptyForm = {
@@ -17,6 +19,7 @@ const emptyForm = {
 }
 
 export function AdminEventCategoriesPage() {
+  const toast = useToast()
   const queryClient = useQueryClient()
   const [modalMode, setModalMode] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -38,24 +41,36 @@ export function AdminEventCategoriesPage() {
   const createMutation = useMutation({
     mutationFn: createAdminEventCategory,
     onSuccess: () => {
+      toast.success('Đã tạo loại sự kiện.')
       closeModal()
       refreshCategories()
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể tạo loại sự kiện.'))
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }) => updateAdminEventCategory(id, payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      toast.success(variables?.payload?.is_active === false ? 'Đã tạm ẩn loại sự kiện.' : 'Đã cập nhật loại sự kiện.')
       closeModal()
       refreshCategories()
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật loại sự kiện.'))
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: deleteAdminEventCategory,
     onSuccess: () => {
+      toast.success('Đã xóa loại sự kiện.')
       setDeleteTarget(null)
       refreshCategories()
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể xóa loại sự kiện.'))
     },
   })
 

@@ -14,6 +14,8 @@ import { SeatMapPreview } from './SeatMapEditor.jsx'
 import { uploadEventBanner, uploadEventThumbnail } from '@/services/uploads.js'
 import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 const STEP_LABELS = [
   'Thông tin sự kiện',
@@ -814,7 +816,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                 }
                 return { ...p, sessions: newSessions, ticketTypes: newTicketTypes }
               })
-              alert('Đã áp dụng cấu hình cho tất cả các phiên!')
+              window.dispatchEvent(new CustomEvent('eventhub:toast', { detail: { type: 'success', message: 'Đã áp dụng cấu hình cho tất cả các phiên.' } }))
             }}
             className="mt-6 flex items-center justify-center gap-2 rounded-lg bg-tertiary/10 text-tertiary px-4 py-2.5 text-sm font-bold shadow-sm hover:bg-tertiary hover:text-white transition w-full border border-tertiary/20"
           >
@@ -1348,6 +1350,7 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
 }
 
 export function CreateEventPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const { eventId: routeEventId } = useParams()
   const [currentStep, setCurrentStep] = useState(1)
@@ -1363,7 +1366,6 @@ export function CreateEventPage() {
   const [uploadingThumb, setUploadingThumb] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [eventStatus, setEventStatus] = useState('DRAFT')
-  const [successMessage, setSuccessMessage] = useState('')
   const [paymentSetupRequired, setPaymentSetupRequired] = useState(false)
   const [subscriptionRequired, setSubscriptionRequired] = useState(false)
 
@@ -1394,12 +1396,12 @@ export function CreateEventPage() {
       })
       .catch((err) => {
         console.error(err)
-        setError('Không thể tải dữ liệu ban đầu. Vui lòng thử lại.')
+        toast.error('Không thể tải dữ liệu ban đầu. Vui lòng thử lại.')
       })
       .finally(() => {
         if (!routeEventId) setInitialLoading(false)
       })
-  }, [routeEventId])
+  }, [routeEventId, toast])
 
   const populateFromEvent = useCallback((event) => {
     const sessions = (event.sessions || []).map((s) => {
@@ -1466,10 +1468,10 @@ export function CreateEventPage() {
       })
       .catch((err) => {
         console.error(err)
-        setError('Không thể tải sự kiện.')
+        toast.error('Không thể tải sự kiện.')
       })
       .finally(() => setInitialLoading(false))
-  }, [routeEventId, populateFromEvent])
+  }, [routeEventId, populateFromEvent, toast])
 
   const validateStep = (step) => {
     if (step === 1) {
@@ -1581,7 +1583,7 @@ export function CreateEventPage() {
       setFormData((p) => ({ ...p, thumbnail_url: result.url }))
     } catch (err) {
       console.error(err)
-      setError('Không thể tải thumbnail.')
+      toast.error('Không thể tải thumbnail.')
     } finally {
       setUploadingThumb(false)
     }
@@ -1595,7 +1597,7 @@ export function CreateEventPage() {
       setFormData((p) => ({ ...p, banner_url: result.url }))
     } catch (err) {
       console.error(err)
-      setError('Không thể tải banner.')
+      toast.error('Không thể tải banner.')
     } finally {
       setUploadingBanner(false)
     }
@@ -1629,6 +1631,7 @@ export function CreateEventPage() {
     const validationError = validateStep(currentStep)
     if (validationError) {
       setError(validationError)
+      toast.error(validationError)
       return
     }
     setError('')
@@ -1710,7 +1713,7 @@ export function CreateEventPage() {
       setMaxCompletedStep((prev) => Math.max(prev, next))
     } catch (err) {
       console.error(err)
-      setError(err.response?.data?.message || 'Đã xảy ra lỗi. Vui lòng thử lại.')
+      toast.error(getApiMessage(err, 'Đã xảy ra lỗi. Vui lòng thử lại.'))
     } finally {
       setLoading(false)
     }
@@ -1721,6 +1724,7 @@ export function CreateEventPage() {
       const validationError = validateStep(step)
       if (validationError) {
         setError(validationError)
+        toast.error(validationError)
         setCurrentStep(step)
         return
       }
@@ -1728,7 +1732,6 @@ export function CreateEventPage() {
 
     setLoading(true)
     setError('')
-    setSuccessMessage('')
     try {
       await updateOrganizerEvent(eventId, {
         title: formData.title,
@@ -1753,7 +1756,7 @@ export function CreateEventPage() {
       })
     } catch (err) {
       console.error(err)
-      setError(err.response?.data?.message || 'Không thể cập nhật sự kiện.')
+      toast.error(getApiMessage(err, 'Không thể cập nhật sự kiện.'))
     } finally {
       setLoading(false)
     }
@@ -1762,7 +1765,6 @@ export function CreateEventPage() {
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
-    setSuccessMessage('')
     setPaymentSetupRequired(false)
     try {
       await submitOrganizerEvent(eventId)
@@ -1774,10 +1776,15 @@ export function CreateEventPage() {
       const errorCode = err.response?.data?.errorCode
       if (errorCode === 'PAYOS_NOT_CONFIGURED') {
         setPaymentSetupRequired(true)
-        setError('Yêu cầu cài đặt thanh toán. Vui lòng hoàn thành thiết lập thanh toán trước khi công khai sự kiện có phí.')
+        navigate('/organizer/settings/payment', {
+          state: {
+            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events/create',
+            error: err.response?.data?.message || 'Vui lòng hoàn tất thiết lập thanh toán trước khi gửi duyệt sự kiện có phí.',
+          },
+        })
         return
       }
-      setError(err.response?.data?.message || 'Không thể gửi sự kiện.')
+      toast.error(getApiMessage(err, 'Không thể gửi sự kiện.'))
     } finally {
       setLoading(false)
     }
@@ -1859,13 +1866,6 @@ export function CreateEventPage() {
           </button>
         </div>
       )}
-      {successMessage && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
-          <Icon name="check_circle" />
-          {successMessage}
-        </div>
-      )}
-
       {currentStep === 1 && (
         <Step1EventInfo
           formData={formData}

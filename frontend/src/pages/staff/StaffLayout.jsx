@@ -1,4 +1,4 @@
-import { CalendarCheck, ClipboardList, Home, LayoutDashboard, QrCode, UserCircle, UserPlus } from 'lucide-react'
+import { CalendarCheck, ClipboardList, Home, LayoutDashboard, QrCode, Ticket, UserCircle, UserPlus } from 'lucide-react'
 import { getStoredUser, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -18,6 +18,7 @@ const navSections = [
   {
     label: 'Check-in',
     items: [
+      { label: 'Book vé trực tiếp', to: '/staff/direct-booking', icon: Ticket },
       { label: 'QR Check-in', to: '/staff/qr-check-in', icon: QrCode },
       { label: 'Check-in thủ công', to: '/staff/manual-check-in', icon: UserPlus },
     ],

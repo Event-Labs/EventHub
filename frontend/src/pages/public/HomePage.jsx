@@ -21,6 +21,10 @@ import {
   fetchEvents,
   toggleFavorite,
 } from '@/services/events.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
+
+const RECENT_EXPIRED_WINDOW_MS = 15 * 24 * 60 * 60 * 1000
 
 const categoryIcons = [
   Music,
@@ -72,6 +76,13 @@ function getEventTimeState(event, now = Date.now()) {
   return 'upcoming'
 }
 
+function isRecentlyExpiredEvent(event, now = Date.now()) {
+  const endedAt = event.end_time || event.start_time
+  if (!endedAt) return false
+  const endedTime = new Date(endedAt).getTime()
+  return Number.isFinite(endedTime) && endedTime < now && endedTime >= now - RECENT_EXPIRED_WINDOW_MS
+}
+
 function uniqueEvents(...groups) {
   const unique = new Map()
   groups.flat().forEach((event) => {
@@ -81,6 +92,7 @@ function uniqueEvents(...groups) {
 }
 
 export function HomePage() {
+  const toast = useToast()
   const [keyword, setKeyword] = useState('')
   const [activeSlide, setActiveSlide] = useState(0)
   const [timelineNow] = useState(() => Date.now())
@@ -115,10 +127,14 @@ export function HomePage() {
 
   const favoriteMutation = useMutation({
     mutationFn: (event) => toggleFavorite(event.id),
-    onSuccess: () => {
+    onSuccess: (_data, event) => {
+      toast.success(event?.is_favorited ? 'Đã bỏ sự kiện khỏi yêu thích.' : 'Đã lưu sự kiện vào yêu thích.')
       queryClient.invalidateQueries({ queryKey: ['home-events'] })
       queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật yêu thích. Vui lòng thử lại.'))
     },
   })
 
@@ -157,7 +173,7 @@ export function HomePage() {
         .sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0))
         .slice(0, 4),
       expired: events
-        .filter((event) => getEventTimeState(event, timelineNow) === 'expired')
+        .filter((event) => getEventTimeState(event, timelineNow) === 'expired' && isRecentlyExpiredEvent(event, timelineNow))
         .sort((a, b) => new Date(b.end_time || b.start_time || 0) - new Date(a.end_time || a.start_time || 0))
         .slice(0, 4),
     }
@@ -187,6 +203,7 @@ export function HomePage() {
 
   const handleFavorite = (event) => {
     if (!getAuthToken()) {
+      toast.error('Vui lòng đăng nhập để lưu sự kiện yêu thích.')
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
       return
     }

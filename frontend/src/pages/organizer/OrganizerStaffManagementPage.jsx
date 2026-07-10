@@ -20,10 +20,23 @@ import {
   removeStaffFromEvent,
 } from '@/services/operations.js'
 import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+function isStaffManageableEvent(event) {
+  if (!event || event.status === 'DRAFT') return false
+  const isApprovedForStaff = event.status === 'PUBLISHED'
+    || (event.status === 'COMPLETED' && event.approval_status === 'APPROVED')
+  if (!isApprovedForStaff) return false
+  const effectiveEnd = event.end_time || event.start_time
+  if (!effectiveEnd) return false
+  return new Date(effectiveEnd).getTime() >= Date.now()
+}
+
 export function OrganizerStaffManagementPage() {
+  const toast = useToast()
   const [data, setData] = useState(null)
   const [selectedEventId, setSelectedEventId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -40,7 +53,9 @@ export function OrganizerStaffManagementPage() {
       setData(ov)
       setSelectedEventId((cur) => cur || ov.events?.[0]?.id || '')
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải dữ liệu.')
+      const message = getApiMessage(err, 'Không thể tải dữ liệu.')
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -58,6 +73,18 @@ export function OrganizerStaffManagementPage() {
     () => (data?.invitations || []).filter((i) => i.event_id === selectedEventId),
     [data?.invitations, selectedEventId],
   )
+
+  const staffManageableEvents = useMemo(
+    () => (data?.events || []).filter(isStaffManageableEvent),
+    [data?.events],
+  )
+
+  const selectedEvent = useMemo(
+    () => (data?.events || []).find((event) => event.id === selectedEventId),
+    [data?.events, selectedEventId],
+  )
+
+  const selectedEventManageable = isStaffManageableEvent(selectedEvent)
 
   const pendingCount = useMemo(
     () => invitations.filter((i) => i.status === 'PENDING').length,
@@ -77,10 +104,13 @@ export function OrganizerStaffManagementPage() {
     setError('')
     try {
       await removeStaffFromEvent(selectedEventId, removeConfirm.staffId)
+      toast.success('Đã gỡ nhân sự khỏi sự kiện.')
       setRemoveConfirm(null)
       await loadData()
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gỡ nhân sự.')
+      const message = getApiMessage(err, 'Không thể gỡ nhân sự.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -119,12 +149,20 @@ export function OrganizerStaffManagementPage() {
         <button
           className="org-btn-primary self-end disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setShowInviteModal(true)}
-          disabled={loading || !subscriptionActive || limitReached || !selectedEventId}
+          disabled={loading || !subscriptionActive || limitReached || !selectedEventId || !selectedEventManageable}
         >
           <UserPlus className="size-4" />
           Mời nhân sự
         </button>
       </div>
+
+      {!loading && selectedEventId && !selectedEventManageable && (
+        <OrganizerPanel className="mb-5 border-warning/30 bg-warning/10">
+          <p className="text-sm font-semibold text-warning">
+            Sự kiện này đã hết hiệu lực, đang ở bản nháp hoặc chưa được duyệt. Bạn chỉ có thể xem nhân sự, lời mời, thông số và báo cáo; không thể mời hoặc gỡ nhân sự.
+          </p>
+        </OrganizerPanel>
+      )}
 
       {/* ── Quota cards ── */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -205,7 +243,7 @@ export function OrganizerStaffManagementPage() {
                             onClick={() =>
                               setRemoveConfirm({ staffId: staff.staff_id, staffName: staff.staff_name })
                             }
-                            disabled={saving}
+                            disabled={saving || !selectedEventManageable}
                           >
                             <Trash2 className="size-3.5" />
                             Gỡ
@@ -273,12 +311,17 @@ export function OrganizerStaffManagementPage() {
       {showInviteModal && (
         <InviteStaffModal
           selectedEventId={selectedEventId}
-          events={data?.events || []}
+          events={staffManageableEvents}
           limitReached={limitReached}
           subscriptionName={plan?.name}
           perEventLimit={perEventLimit}
           onClose={() => setShowInviteModal(false)}
-          onInvited={() => {
+          onInvited={(invitation) => {
+            if (invitation?.email_sent === false) {
+              toast.warning('Đã tạo lời mời trong hệ thống, nhưng email chưa gửi được. Customer vẫn có thể xem trong Thông báo.')
+            } else {
+              toast.success('Đã gửi lời mời nhân sự qua email và thông báo.')
+            }
             setShowInviteModal(false)
             loadData()
           }}
@@ -312,7 +355,11 @@ function InviteStaffModal({
   onClose,
   onInvited,
 }) {
-  const [form, setForm] = useState({ event_id: selectedEventId || '', email: '', staff_role: 'Check-in' })
+  const toast = useToast()
+  const initialEventId = events.some((event) => event.id === selectedEventId)
+    ? selectedEventId
+    : events[0]?.id || ''
+  const [form, setForm] = useState({ event_id: initialEventId, email: '', staff_role: 'Check-in' })
   const [candidateSearch, setCandidateSearch] = useState('')
   const [candidates, setCandidates] = useState([])
   const [saving, setSaving] = useState(false)
@@ -344,10 +391,12 @@ function InviteStaffModal({
     setSaving(true)
     setError('')
     try {
-      await inviteStaffToEvent({ event_id: form.event_id, email: form.email.trim(), staff_role: form.staff_role })
-      onInvited()
+      const invitation = await inviteStaffToEvent({ event_id: form.event_id, email: form.email.trim(), staff_role: form.staff_role })
+      onInvited(invitation)
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gửi lời mời.')
+      const message = getApiMessage(err, 'Không thể gửi lời mời.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -383,6 +432,12 @@ function InviteStaffModal({
             </div>
           )}
 
+          {events.length === 0 && (
+            <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
+              Không có sự kiện đã duyệt và còn hiệu lực để mời nhân sự.
+            </div>
+          )}
+
           <div className="grid gap-4">
             {/* Event */}
             <label className="grid gap-1.5 text-xs font-bold text-subtle">
@@ -392,6 +447,7 @@ function InviteStaffModal({
                 value={form.event_id}
                 onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value }))}
                 required
+                disabled={events.length === 0}
               >
                 <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
                 {events.map((ev) => (
@@ -459,7 +515,7 @@ function InviteStaffModal({
             <button
               type="submit"
               className="org-btn-primary"
-              disabled={saving || limitReached || !form.email.trim() || !form.event_id}
+              disabled={saving || limitReached || events.length === 0 || !form.email.trim() || !form.event_id}
             >
               {saving ? (
                 <><Loader2 className="size-4 animate-spin" /> Đang gửi...</>

@@ -13,6 +13,8 @@ import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
+import { getApiMessage } from '@/lib/messages.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -73,6 +75,19 @@ function isPastTime(value) {
   return value ? new Date(value).getTime() < Date.now() : false
 }
 
+function latestSessionEndTime(sessions = []) {
+  return sessions.reduce((latest, session) => {
+    const end = session?.end_time ? new Date(session.end_time).getTime() : null
+    if (!Number.isFinite(end)) return latest
+    return !latest || end > latest ? end : latest
+  }, null)
+}
+
+function getEventEndTime(event) {
+  const latestSessionEnd = latestSessionEndTime(event?.sessions || [])
+  return latestSessionEnd || (event?.end_time ? new Date(event.end_time).getTime() : null)
+}
+
 function ticketTotal(ticketType) {
   return Math.max(0, Number(ticketType.quantity || 0))
 }
@@ -90,6 +105,7 @@ function isSoldOut(ticketType) {
 
 
 export function EventDetailPage() {
+  const toast = useToast()
   const { eventId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -107,14 +123,19 @@ export function EventDetailPage() {
   const favoriteMutation = useMutation({
     mutationFn: () => toggleFavorite(eventQuery.data.id),
     onSuccess: () => {
+      toast.success(eventQuery.data?.is_favorited ? 'Đã bỏ sự kiện khỏi yêu thích.' : 'Đã lưu sự kiện vào yêu thích.')
       queryClient.invalidateQueries({ queryKey: ['event-detail', eventId] })
       queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật yêu thích. Vui lòng thử lại.'))
     },
   })
 
   const requireLogin = () => {
     if (getAuthToken()) return false
+    toast.error('Vui lòng đăng nhập để tiếp tục.')
     navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
     return true
   }
@@ -149,7 +170,7 @@ export function EventDetailPage() {
   const selectSession = (sessionId) => {
     if (requireLogin()) return
     const session = event?.sessions?.find((item) => String(item.id) === String(sessionId))
-    if (isPastTime(event?.end_time) || isPastTime(session?.end_time)) {
+    if (isPastTime(session?.end_time || getEventEndTime(event))) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
@@ -160,7 +181,7 @@ export function EventDetailPage() {
   const handleBook = () => {
     if (requireLogin()) return
     if (!selectedSession) return
-    if (isPastTime(event.end_time) || isPastTime(selectedSession?.end_time)) {
+    if (isPastTime(selectedSession?.end_time || getEventEndTime(event))) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
@@ -177,6 +198,7 @@ export function EventDetailPage() {
           selectedSession,
           availableTicketTypes: selectedSessionTickets,
           seatingRules: event.seating_rules || {},
+          requireAttendeeInfo: Boolean(event.require_attendee_info),
           items: [],
         },
       },
@@ -194,11 +216,13 @@ export function EventDetailPage() {
   const heroImage = event.banner_url || event.thumbnail_url
   const firstVenue = event.venues?.[0]
   const overview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
-  const eventExpired = isPastTime(event.end_time)
+  const eventEndTime = getEventEndTime(event)
+  const eventExpired = isPastTime(eventEndTime)
+  const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.end_time || eventEndTime) : false
 
   return (
     <div className="overflow-x-hidden">
-      <section className="relative h-[820px] min-h-[calc(112vh-5rem)] overflow-hidden">
+      <section className="relative h-[420px] overflow-hidden sm:h-[500px] lg:h-[600px] xl:h-[640px]">
         {heroImage && (
           <img
             src={heroImage}
@@ -207,7 +231,7 @@ export function EventDetailPage() {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-surface/55" />
-        <div className="relative mx-auto flex h-full w-full max-w-7xl items-end px-4 pb-6 sm:px-6 sm:pb-8 lg:px-8 lg:pb-10">
+        <div className="relative mx-auto flex h-full w-full max-w-7xl items-end px-4 pb-6 sm:px-6 sm:pb-8 lg:px-8 lg:pb-9">
           <div className="min-w-0 max-w-4xl">
             {event.category?.name && (
               <span className="rounded-full border border-primary/30 bg-primary/15 px-4 py-2 text-sm font-bold text-primary">
@@ -269,7 +293,7 @@ export function EventDetailPage() {
               {event.sessions?.length ? (
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
-                  const sessionExpired = eventExpired || isPastTime(session.end_time)
+                  const sessionExpired = isPastTime(session.end_time || eventEndTime)
                   const selected = String(selectedSessionId) === String(session.id)
                   const expanded = expandedSessionId === session.id
 
@@ -484,10 +508,10 @@ export function EventDetailPage() {
             <button
               type="button"
               onClick={handleBook}
-              disabled={eventExpired || !selectedSession}
+              disabled={selectedSessionExpired || !selectedSession}
               className="mt-6 flex w-full items-center justify-center rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {eventExpired ? 'Đã hết hạn' : selectedSession ? 'Đặt vé ngay' : 'Đặt vé'}
+              {selectedSessionExpired || (!selectedSession && eventExpired) ? 'Đã hết hạn' : selectedSession ? 'Đặt vé ngay' : 'Đặt vé'}
             </button>
           </div>
         </aside>
