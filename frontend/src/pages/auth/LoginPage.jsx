@@ -155,6 +155,7 @@ export function LoginPage() {
             placeholder="alex@example.com"
             type="email"
             required
+            autoComplete="email"
             value={form.email}
             onChange={(event) => setForm({ ...form, email: event.target.value })}
           />
@@ -165,6 +166,7 @@ export function LoginPage() {
             type="password"
             trailing={Eye}
             required
+            autoComplete="current-password"
             value={form.password}
             onChange={(event) => setForm({ ...form, password: event.target.value })}
           />
