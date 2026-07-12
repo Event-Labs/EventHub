@@ -1355,40 +1355,94 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   )
 }
 
-export function SeatMapPreview({ seatMap, seats, zones, width = 300, height = 200 }) {
+export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 800, height = 300 }) {
+  const containerRef = useRef(null)
+  const [width, setWidth] = useState(defaultWidth)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0] && entries[0].contentRect.width > 0) {
+        setWidth(entries[0].contentRect.width)
+      }
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
   const finalSeats = seats || seatMap?.seats || []
   if (!finalSeats.length) return null
 
   const allX = finalSeats.map((s) => s.x_position ?? s.x)
   const allY = finalSeats.map((s) => s.y_position ?? s.y)
 
-  // Expand boundaries if stage is present
-  if (seatMap && seatMap.stage_position && seatMap.stage_position !== 'HIDDEN') {
-    if (seatMap.stage_position === 'CUSTOM') {
-      allX.push(seatMap.custom_stage_x || 0)
-      allX.push((seatMap.custom_stage_x || 0) + (seatMap.custom_stage_width || 360))
-      allY.push(seatMap.custom_stage_y || 0)
-      allY.push((seatMap.custom_stage_y || 0) + (seatMap.custom_stage_height || 40))
-    } else {
-      // Standard static stage boundaries mapping standard grid
-      if (seatMap.stage_position === 'TOP') { allX.push(270); allX.push(630); allY.push(0); allY.push(52); }
-      if (seatMap.stage_position === 'BOTTOM') { allX.push(270); allX.push(630); allY.push(548); allY.push(600); }
-      if (seatMap.stage_position === 'LEFT') { allX.push(0); allX.push(52); allY.push(0); allY.push(600); }
-      if (seatMap.stage_position === 'RIGHT') { allX.push(848); allX.push(900); allY.push(0); allY.push(600); }
+  seatMap?.config?.auxiliaryElements?.forEach(a => {
+    allX.push(a.x, a.x + a.w)
+    allY.push(a.y, a.y + a.h)
+  })
+
+  const stagePos = seatMap?.config?.stagePosition || seatMap?.stage_position
+  const stageCustomX = seatMap?.config?.stageX ?? seatMap?.custom_stage_x ?? 0
+  const stageCustomY = seatMap?.config?.stageY ?? seatMap?.custom_stage_y ?? 0
+  const stageCustomW = seatMap?.config?.stageWidth ?? seatMap?.custom_stage_width ?? 360
+  const stageCustomH = seatMap?.config?.stageHeight ?? seatMap?.custom_stage_height ?? 40
+
+  if (stagePos === 'CUSTOM') {
+    allX.push(stageCustomX, stageCustomX + stageCustomW)
+    allY.push(stageCustomY, stageCustomY + stageCustomH)
+  }
+
+  let rawMinX = Math.min(...allX)
+  let rawMaxX = Math.max(...allX) + 28
+  let rawMinY = Math.min(...allY)
+  let rawMaxY = Math.max(...allY) + 28
+
+  if (!isFinite(rawMinX)) {
+    rawMinX = 0; rawMaxX = 300; rawMinY = 0; rawMaxY = 200;
+  }
+
+  const gap = 20
+  let stageW = 0, stageH = 0, stageX = 0, stageY = 0
+
+  if (stagePos && stagePos !== 'HIDDEN' && stagePos !== 'CUSTOM') {
+    if (stagePos === 'TOP') {
+      stageW = rawMaxX - rawMinX
+      stageH = 52
+      stageX = rawMinX
+      stageY = rawMinY - gap - stageH
+      rawMinY = stageY
+    } else if (stagePos === 'BOTTOM') {
+      stageW = rawMaxX - rawMinX
+      stageH = 52
+      stageX = rawMinX
+      stageY = rawMaxY + gap
+      rawMaxY = stageY + stageH
+    } else if (stagePos === 'LEFT') {
+      stageH = rawMaxY - rawMinY
+      stageW = 52
+      stageX = rawMinX - gap - stageW
+      stageY = rawMinY
+      rawMinX = stageX
+    } else if (stagePos === 'RIGHT') {
+      stageH = rawMaxY - rawMinY
+      stageW = 52
+      stageX = rawMaxX + gap
+      stageY = rawMinY
+      rawMaxX = stageX + stageW
     }
   }
 
-  seatMap?.config?.auxiliaryElements?.forEach(a => {
-    allX.push(a.x); allX.push(a.x + a.w);
-    allY.push(a.y); allY.push(a.y + a.h);
-  })
+  const padding = 20
+  const minX = rawMinX - padding
+  const maxX = rawMaxX + padding
+  const minY = rawMinY - padding
+  const maxY = rawMaxY + padding
 
-  const minX = Math.min(...allX)
-  const maxX = Math.max(...allX)
-  const minY = Math.min(...allY)
-  const maxY = Math.max(...allY)
-  const scaleX = (width - 20) / (maxX - minX + 28)
-  const scaleY = (height - 20) / (maxY - minY + 28)
+  const originalW = maxX - minX
+  const originalH = maxY - minY
+
+  const scaleX = width / originalW
+  const scaleY = height / originalH
   const scale = Math.min(scaleX, scaleY, 1)
 
   const zoneColorById = useMemo(() => {
@@ -1398,57 +1452,107 @@ export function SeatMapPreview({ seatMap, seats, zones, width = 300, height = 20
   }, [zones])
 
   const renderStage = () => {
-    if (!seatMap?.stage_position || seatMap.stage_position === 'HIDDEN') return null
+    if (!stagePos || stagePos === 'HIDDEN') return null
     let x, y, w, h
-    if (seatMap.stage_position === 'CUSTOM') {
-      x = (seatMap.custom_stage_x || 0) - minX
-      y = (seatMap.custom_stage_y || 0) - minY
-      w = seatMap.custom_stage_width || 360
-      h = seatMap.custom_stage_height || 40
+    const label = seatMap?.config?.stageLabel || 'SÂN KHẤU'
+    if (stagePos === 'CUSTOM') {
+      x = stageCustomX - minX
+      y = stageCustomY - minY
+      w = stageCustomW
+      h = stageCustomH
     } else {
-      if (seatMap.stage_position === 'TOP') { x = 270 - minX; y = 0 - minY; w = 360; h = 52 }
-      else if (seatMap.stage_position === 'BOTTOM') { x = 270 - minX; y = 548 - minY; w = 360; h = 52 }
-      else if (seatMap.stage_position === 'LEFT') { x = 0 - minX; y = 0 - minY; w = 52; h = 600 }
-      else if (seatMap.stage_position === 'RIGHT') { x = 848 - minX; y = 0 - minY; w = 52; h = 600 }
+      x = stageX - minX
+      y = stageY - minY
+      w = stageW
+      h = stageH
     }
 
     return (
-      <g transform={seatMap.config?.stageRotation ? `rotate(${seatMap.config.stageRotation}, ${x + w / 2}, ${y + h / 2})` : undefined}>
+      <g transform={seatMap?.config?.stageRotation ? `rotate(${seatMap.config.stageRotation}, ${x + w / 2}, ${y + h / 2})` : undefined}>
         <rect x={x} y={y} width={w} height={h} fill="var(--color-panel-soft)" rx={Math.min(w, h) > 20 ? 12 : 4} />
-        {(seatMap.stage_position === 'TOP' || seatMap.stage_position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
-        {seatMap.stage_position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
-        {seatMap.stage_position === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
-        {seatMap.stage_position === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
+        {(stagePos === 'TOP' || stagePos === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
+        {stagePos === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
+        {stagePos === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
+        {stagePos === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
+        <text
+          x={x + w / 2}
+          y={y + h / 2 + 5}
+          textAnchor="middle"
+          fill="var(--color-content)"
+          fontSize={13}
+          fontWeight="bold"
+          style={{ userSelect: 'none', pointerEvents: 'none' }}
+          transform={stagePos === 'LEFT' || stagePos === 'RIGHT' || (stagePos === 'CUSTOM' && h > w) ? `rotate(-90 ${x + w / 2} ${y + h / 2})` : undefined}
+        >
+          {label}
+        </text>
       </g>
     )
   }
 
   return (
-    <svg width={width} height={height} className="rounded-xl border border-border-soft/30 bg-panel-soft/30">
-      <g transform={`translate(10,10) scale(${scale})`}>
-        {renderStage()}
-        {seatMap?.config?.auxiliaryElements?.map(a => (
-          <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${a.x - minX + a.w / 2}, ${a.y - minY + a.h / 2})` : undefined}>
-            <rect x={a.x - minX} y={a.y - minY} width={a.w} height={a.h} fill="var(--color-panel-soft)" rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke="var(--color-border-soft)" strokeWidth={2} />
-          </g>
-        ))}
-        {finalSeats.map((s) => {
-          const x = (s.x_position ?? s.x) - minX
-          const y = (s.y_position ?? s.y) - minY
-          return (
-            <rect
-              key={s.id || s.localId}
-              x={x}
-              y={y}
-              width={28}
-              height={28}
-              rx={4}
-              fill={zoneColorById.get(s.zone_id ?? s.zoneLocalId) ?? 'var(--color-neutral)'}
-              opacity={0.85}
-            />
-          )
-        })}
-      </g>
-    </svg>
+    <div
+      ref={containerRef}
+      className="rounded-xl border border-border-soft/30 overflow-hidden w-full"
+      style={{
+        backgroundColor: 'var(--color-background)',
+        backgroundImage: 'radial-gradient(circle, var(--color-border-soft) 1px, transparent 1px)',
+        backgroundSize: `${20 * scale}px ${20 * scale}px`,
+        width: '100%',
+        height
+      }}
+    >
+      <svg width={width} height={height}>
+        <g transform={`translate(${(width - originalW * scale) / 2}, ${(height - originalH * scale) / 2}) scale(${scale})`}>
+          {renderStage()}
+          {seatMap?.config?.auxiliaryElements?.map(a => (
+            <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${a.x - minX + a.w / 2}, ${a.y - minY + a.h / 2})` : undefined}>
+              <rect x={a.x - minX} y={a.y - minY} width={a.w} height={a.h} fill="var(--color-panel-soft)" rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke="var(--color-border-soft)" strokeWidth={2} />
+              <text
+                x={a.x - minX + a.w / 2}
+                y={a.y - minY + a.h / 2 + 5}
+                textAnchor="middle"
+                fill="var(--color-content)"
+                fontSize={12}
+                fontWeight="bold"
+                style={{ userSelect: 'none', pointerEvents: 'none' }}
+              >
+                {a.label}
+              </text>
+            </g>
+          ))}
+          {finalSeats.map((s) => {
+            const x = (s.x_position ?? s.x) - minX
+            const y = (s.y_position ?? s.y) - minY
+            const isDisabled = s.is_disabled ?? s.isDisabled
+            const fill = isDisabled ? '#EF4444' : zoneColorById.get(s.zone_id ?? s.zoneLocalId) ?? '#72787c'
+            return (
+              <g key={s.id || s.localId} transform={`translate(${x},${y})`}>
+                <rect
+                  width={28}
+                  height={28}
+                  rx={6}
+                  fill={fill}
+                  stroke={isDisabled ? '#ffffff50' : 'rgba(255,255,255,0.08)'}
+                  strokeWidth={1}
+                  opacity={isDisabled ? 0.4 : 1}
+                />
+                <text
+                  x={14}
+                  y={18}
+                  textAnchor="middle"
+                  fontSize={7}
+                  fill="white"
+                  fontWeight="700"
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                >
+                  {s.row_label ?? s.rowLabel}{s.seat_number ?? s.seatNumber}
+                </text>
+              </g>
+            )
+          })}
+        </g>
+      </svg>
+    </div>
   )
 }
