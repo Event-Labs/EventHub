@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -70,7 +71,9 @@ export function OrganizerOrdersPage() {
   // Filters
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
-  const [selectedEventId, setSelectedEventId] = useState('')
+  const [searchParams] = useSearchParams()
+  const initialEventId = searchParams.get('eventId') || ''
+  const [selectedEventId, setSelectedEventId] = useState(initialEventId)
   const [selectedStatus, setSelectedStatus] = useState('')
   const [page, setPage] = useState(1)
 
