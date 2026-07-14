@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw, Eye } from 'lucide-react'
 import {
   Badge,
   OrganizerPage,
@@ -376,6 +376,22 @@ export function OrganizerEventsPage() {
 
             /* Actions */
             <div key="actions" className="flex items-center gap-2">
+              {/* Detail */}
+              <Link
+                to={`/organizer/events/${event.id}`}
+                title="Chi tiết"
+                className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:bg-panel-soft/80 hover:text-primary"
+              >
+                <Eye className="size-4" />
+              </Link>
+              {/* Edit */}
+              <Link
+                to={`/organizer/events/${event.id}/edit`}
+                title="Chỉnh sửa"
+                className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:bg-panel-soft/80 hover:text-tertiary"
+              >
+                <Edit className="size-4" />
+              </Link>
               {/* Slot cố định cho action chính — luôn chiếm w-20 để các row thẳng hàng */}
               <span className="inline-flex w-20">
                 {event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? (
@@ -396,26 +412,8 @@ export function OrganizerEventsPage() {
                   >
                     Hủy
                   </button>
-                ) : null}
+                ) : <span className="h-8 w-full block"></span>}
               </span>
-
-              {/* Edit */}
-              <Link
-                to={`/organizer/events/${event.id}/edit`}
-                title="Chỉnh sửa"
-                className="inline-flex h-8 w-16 items-center justify-center gap-1.5 rounded-xl border border-border-soft/40 bg-panel-soft text-xs font-semibold text-primary transition hover:border-tertiary/50 hover:bg-tertiary/15"
-              >
-                <Edit className="size-3.5 shrink-0" />
-                Sửa
-              </Link>
-              {/* Detail */}
-              <Link
-                to={`/organizer/events/${event.id}`}
-                title="Chi tiết"
-                className="inline-flex h-8 w-20 items-center justify-center gap-1.5 rounded-xl bg-primary text-xs font-semibold text-white transition hover:bg-primary/90"
-              >
-                Chi tiết
-              </Link>
             </div>,
           ])}
         />
