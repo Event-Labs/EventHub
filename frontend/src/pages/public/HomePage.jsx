@@ -76,6 +76,35 @@ function getEventTimeState(event, now = Date.now()) {
   return 'upcoming'
 }
 
+function getWeekRange(now = Date.now()) {
+  const date = new Date(now)
+  const day = date.getDay()
+  const diffToMonday = day === 0 ? -6 : 1 - day
+  const start = new Date(date)
+  start.setDate(date.getDate() + diffToMonday)
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  return { start: start.getTime(), end: end.getTime() }
+}
+
+function isActiveEventInWeek(event, now = Date.now()) {
+  const start = event.start_time ? new Date(event.start_time).getTime() : null
+  const end = event.end_time ? new Date(event.end_time).getTime() : start
+
+  if (end && end < now) return false
+  if (!start && !end) return false
+
+  const week = getWeekRange(now)
+  const effectiveStart = start || end
+  const effectiveEnd = end || start
+
+  return effectiveStart <= week.end && effectiveEnd >= week.start
+}
+
 function isRecentlyExpiredEvent(event, now = Date.now()) {
   const endedAt = event.end_time || event.start_time
   if (!endedAt) return false
@@ -112,7 +141,7 @@ export function HomePage() {
 
   const trendingQuery = useQuery({
     queryKey: ['home-events', 'trending'],
-    queryFn: () => fetchEvents({ limit: 4, sort_by: 'updated_at', sort_order: 'desc' }),
+    queryFn: () => fetchEvents({ limit: 24, sort_by: 'updated_at', sort_order: 'desc' }),
   })
 
   const timelineQuery = useQuery({
@@ -160,6 +189,12 @@ export function HomePage() {
       .filter((event) => getEventTimeState(event, timelineNow) !== 'expired')
       .slice(0, 10)
   }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
+
+  const trendingThisWeekEvents = useMemo(() => {
+    return uniqueEvents(trendingEvents, timelineEvents, upcomingEvents, featuredEvents)
+      .filter((event) => isActiveEventInWeek(event, timelineNow))
+      .slice(0, 4)
+  }, [featuredEvents, timelineEvents, timelineNow, trendingEvents, upcomingEvents])
 
   const homeTimeline = useMemo(() => {
     const events = uniqueEvents(timelineEvents, upcomingEvents, featuredEvents)
@@ -283,7 +318,7 @@ export function HomePage() {
               action="Xem tất cả"
             />
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-              {(trendingEvents.length ? trendingEvents : featuredEvents).slice(0, 4).map((event, index) => (
+              {trendingThisWeekEvents.map((event, index) => (
                 <ScrollReveal key={event.id} delay={index * 90}>
                   <EventCard
                     event={event}
@@ -294,6 +329,11 @@ export function HomePage() {
                 </ScrollReveal>
               ))}
             </div>
+            {!trendingThisWeekEvents.length && (
+              <div className="mt-6 rounded-[24px] border border-primary/15 bg-white/5 p-6 text-sm font-semibold text-muted">
+                Chưa có sự kiện đang diễn ra trong tuần này
+              </div>
+            )}
           </div>
         </ScrollReveal>
       </section>

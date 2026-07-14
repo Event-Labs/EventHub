@@ -122,8 +122,8 @@ export function AdminOrganizerRequestsPage() {
 
   return (
     <Page
-      title="Quản lý Organizer"
-      description="Theo dõi toàn bộ Organizer, kiểm tra hồ sơ đăng ký và phê duyệt yêu cầu nâng quyền"
+      title="Yêu cầu Organizer"
+      description="Kiểm tra hồ sơ đăng ký và phê duyệt yêu cầu nâng quyền"
     >
       <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
         <FilterGroup

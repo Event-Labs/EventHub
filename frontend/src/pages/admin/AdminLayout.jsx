@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Calendar, ClipboardList, CreditCard, LayoutDashboard, ShieldCheck, Tags, Users } from 'lucide-react'
+import { BriefcaseBusiness, Building2, Calendar, ClipboardList, CreditCard, LayoutDashboard, ShieldCheck, Tags, Users } from 'lucide-react'
 import { getStoredUser, isAdminUser } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -12,6 +12,7 @@ const navSections = [
     label: 'Quản lý người dùng',
     items: [
       { label: 'Người dùng', to: '/admin/accounts', icon: Users },
+      { label: 'Organizer', to: '/admin/organizers', icon: Building2 },
       { label: 'Yêu cầu Organizer', to: '/admin/organizer-requests', icon: ClipboardList },
     ],
   },
