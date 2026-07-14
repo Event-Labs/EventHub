@@ -40,6 +40,7 @@ import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/
 import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
 import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
 import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
+import { OrganizerEventDetailPage } from '@/pages/organizer/OrganizerEventDetailPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
 import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
@@ -152,8 +153,8 @@ export const router = createBrowserRouter([
         element: <CreateEventPage />,
       },
       {
-        path: 'events/detail',
-        element: <OrganizerPortalDashboardPage />,
+        path: 'events/:eventId',
+        element: <OrganizerEventDetailPage />,
       },
       {
         path: 'attendees',
