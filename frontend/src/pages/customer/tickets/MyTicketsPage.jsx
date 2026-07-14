@@ -1,4 +1,4 @@
-import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
+import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarDays, CheckCircle2, Clock3, MapPin, Ticket } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -51,6 +51,7 @@ export function MyTicketsPage() {
   const location = useLocation()
   const [status, setStatus] = useState('ALL')
   const isAuthenticated = hasAuthSession()
+  const currentUserKey = getStoredUserKey()
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -59,7 +60,7 @@ export function MyTicketsPage() {
   }, [isAuthenticated, location.pathname, navigate])
 
   const ticketsQuery = useQuery({
-    queryKey: ['my-tickets', status],
+    queryKey: ['my-tickets', status, currentUserKey],
     queryFn: () => fetchMyTickets(status),
     enabled: isAuthenticated,
   })
