@@ -1875,10 +1875,43 @@ export function CreateEventPage() {
   }
 
   const handleSubmit = async () => {
+    // Validate everything first
+    for (let step = 1; step <= 4; step += 1) {
+      const validationError = validateStep(step)
+      if (validationError) {
+        setError(validationError)
+        toast.error(validationError)
+        setCurrentStep(step)
+        return
+      }
+    }
+
     setLoading(true)
     setError('')
     setPaymentSetupRequired(false)
+
     try {
+      if (isEditMode) {
+        await updateOrganizerEvent(eventId, {
+          title: formData.title,
+          category_id: formData.category_id,
+          tags: formData.tags,
+          format: formData.format,
+          visibility: formData.visibility,
+          short_description: formData.short_description,
+          description: formData.description,
+          thumbnail_url: formData.thumbnail_url,
+          banner_url: formData.banner_url,
+          seating_rules: formData.seating_rules,
+          refund_policy: formData.refund_policy,
+          additional_terms: formData.additional_terms,
+          require_attendee_info: formData.require_attendee_info,
+          sessions: buildSessionsPayload(),
+          ticket_types: buildTicketTypesPayload(),
+        })
+        await syncZoneAssignments()
+      }
+
       await submitOrganizerEvent(eventId)
       navigate('/organizer/events', {
         state: { message: 'Đã gửi sự kiện để duyệt.' },
@@ -2058,7 +2091,7 @@ export function CreateEventPage() {
               >
                 {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
               </button>
-            ) : (isEditMode && eventStatus === 'DRAFT') ? (
+            ) : (isEditMode && ['DRAFT', 'HIDDEN'].includes(eventStatus)) ? (
               <button
                 type="button"
                 onClick={handleSubmit}
@@ -2078,7 +2111,7 @@ export function CreateEventPage() {
                 title={!isValidAllSteps() ? 'Thông tin sự kiện còn thiếu hoặc không hợp lệ' : ''}
                 className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
-                {loading ? 'Đang cập nhật...' : 'Cập nhật sự kiện'}
+                {loading ? 'Đang lưu...' : 'Lưu lại'}
               </button>
             )}
           </div>
