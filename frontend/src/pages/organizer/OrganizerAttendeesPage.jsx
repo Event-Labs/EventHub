@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -62,9 +63,12 @@ function formatDateTime(dateStr) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerAttendeesPage() {
+  const [searchParams] = useSearchParams()
+  const initialEventId = searchParams.get('eventId') || ''
+
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
-  const [selectedEventId, setSelectedEventId] = useState('')
+  const [selectedEventId, setSelectedEventId] = useState(initialEventId)
 
   // Attendees state
   const [attendees, setAttendees] = useState([])
@@ -98,11 +102,11 @@ export function OrganizerAttendeesPage() {
     fetchOrganizerEvents()
       .then((data) => {
         setEvents(data || [])
-        if (data?.length > 0) setSelectedEventId(data[0].id)
+        if (!initialEventId && data?.length > 0) setSelectedEventId(data[0].id)
       })
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))
-  }, [])
+  }, [initialEventId])
 
   // Populate session & ticketType dropdowns from selected event
   useEffect(() => {
