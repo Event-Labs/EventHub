@@ -408,6 +408,14 @@ export function OrganizerEventsPage() {
                 <Edit className="size-3.5 shrink-0" />
                 Sửa
               </Link>
+              {/* Detail */}
+              <Link
+                to={`/organizer/events/${event.id}`}
+                title="Chi tiết"
+                className="inline-flex h-8 w-20 items-center justify-center gap-1.5 rounded-xl bg-primary text-xs font-semibold text-white transition hover:bg-primary/90"
+              >
+                Chi tiết
+              </Link>
             </div>,
           ])}
         />
