@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw, Eye } from 'lucide-react'
 import {
@@ -203,12 +203,15 @@ export function OrganizerEventsPage() {
   const [cancelLoading, setCancelLoading] = useState(false)
   const [cancelError, setCancelError] = useState('')
 
+  const toastShownRef = useRef('')
+
   useEffect(() => {
-    if (location.state?.message) {
+    if (location.state?.message && toastShownRef.current !== location.key) {
       toast.success(location.state.message)
+      toastShownRef.current = location.key
       window.history.replaceState({}, document.title)
     }
-  }, [location.state, toast])
+  }, [location.state, location.key, toast])
 
   const loadEvents = useCallback(async () => {
     setLoading(true)
