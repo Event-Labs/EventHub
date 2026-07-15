@@ -40,7 +40,7 @@ function OccupancyBadge({ rate }) {
   const num = Number(rate) || 0
   if (num >= 80) return <span className="inline-flex rounded-full border border-success/30 px-2 py-0.5 text-xs font-bold bg-success/15 text-success">{num}%</span>
   if (num >= 50) return <span className="inline-flex rounded-full border border-tertiary/30 px-2 py-0.5 text-xs font-bold bg-tertiary/15 text-primary">{num}%</span>
-  if (num > 0)   return <span className="inline-flex rounded-full border border-warning/30 px-2 py-0.5 text-xs font-bold bg-warning/15 text-warning">{num}%</span>
+  if (num > 0) return <span className="inline-flex rounded-full border border-warning/30 px-2 py-0.5 text-xs font-bold bg-warning/15 text-warning">{num}%</span>
   return <span className="inline-flex rounded-full border border-border-soft/30 px-2 py-0.5 text-xs font-bold bg-panel-soft text-subtle">0%</span>
 }
 
@@ -172,48 +172,48 @@ function TicketTypeColumnChart({ data, height = 260 }) {
               </text>
             </g>
           ))}
-        {chartData.map((item) => {
-          const sold = Number(item.sold_quantity || 0)
-          const revenue = Number(item.revenue || 0)
-          const revenueHeight = revenue > 0 ? Math.max(3, (revenue / maxRevenue) * plotHeight) : 0
-          const soldHeight = sold > 0 ? Math.max(3, (sold / maxSold) * plotHeight) : 0
-          const x = chartData.indexOf(item) * groupWidth + 34
-          const baseY = topPad + plotHeight
-          const label = item.ticket_type_name.length > 12
-            ? `${item.ticket_type_name.slice(0, 11)}...`
-            : item.ticket_type_name
+          {chartData.map((item) => {
+            const sold = Number(item.sold_quantity || 0)
+            const revenue = Number(item.revenue || 0)
+            const revenueHeight = revenue > 0 ? Math.max(3, (revenue / maxRevenue) * plotHeight) : 0
+            const soldHeight = sold > 0 ? Math.max(3, (sold / maxSold) * plotHeight) : 0
+            const x = chartData.indexOf(item) * groupWidth + 34
+            const baseY = topPad + plotHeight
+            const label = item.ticket_type_name.length > 12
+              ? `${item.ticket_type_name.slice(0, 11)}...`
+              : item.ticket_type_name
 
-          return (
-            <g key={item.ticket_type_id}>
-              <rect
-                x={x}
-                y={baseY - revenueHeight}
-                width={18}
-                height={revenueHeight}
-                rx={4}
-                fill="#22c55e"
-              >
-                <title>{`${item.ticket_type_name}\nDoanh thu: ${fmtCurrency(revenue)}\nVé bán: ${sold.toLocaleString('vi-VN')}\nLấp đầy: ${Number(item.occupancy_rate || 0)}%`}</title>
-              </rect>
-              <rect
-                x={x + 23}
-                y={baseY - soldHeight}
-                width={18}
-                height={soldHeight}
-                rx={4}
-                fill="#2b5c92"
-              >
-                <title>{`${item.ticket_type_name}\nVé bán: ${sold.toLocaleString('vi-VN')}\nDoanh thu: ${fmtCurrency(revenue)}\nLấp đầy: ${Number(item.occupancy_rate || 0)}%`}</title>
-              </rect>
-              <text x={x + 20} y={height - 24} textAnchor="middle" fontSize={10} fill="#b3cde0">
-                {label}
-              </text>
-              <text x={x + 20} y={height - 9} textAnchor="middle" fontSize={10} fill="#72787c">
-                {fmtShort(revenue)}
-              </text>
-            </g>
-          )
-        })}
+            return (
+              <g key={item.ticket_type_id}>
+                <rect
+                  x={x}
+                  y={baseY - revenueHeight}
+                  width={18}
+                  height={revenueHeight}
+                  rx={4}
+                  fill="#22c55e"
+                >
+                  <title>{`${item.ticket_type_name}\nDoanh thu: ${fmtCurrency(revenue)}\nVé bán: ${sold.toLocaleString('vi-VN')}\nLấp đầy: ${Number(item.occupancy_rate || 0)}%`}</title>
+                </rect>
+                <rect
+                  x={x + 23}
+                  y={baseY - soldHeight}
+                  width={18}
+                  height={soldHeight}
+                  rx={4}
+                  fill="#2b5c92"
+                >
+                  <title>{`${item.ticket_type_name}\nVé bán: ${sold.toLocaleString('vi-VN')}\nDoanh thu: ${fmtCurrency(revenue)}\nLấp đầy: ${Number(item.occupancy_rate || 0)}%`}</title>
+                </rect>
+                <text x={x + 20} y={height - 24} textAnchor="middle" fontSize={10} fill="#b3cde0">
+                  {label}
+                </text>
+                <text x={x + 20} y={height - 9} textAnchor="middle" fontSize={10} fill="#72787c">
+                  {fmtShort(revenue)}
+                </text>
+              </g>
+            )
+          })}
         </svg>
       </div>
     </div>
@@ -443,10 +443,10 @@ export function OrganizerTicketSalesPage() {
 
   useEffect(() => { loadAnalytics() }, [loadAnalytics])
 
-  const overall      = analytics?.overall
+  const overall = analytics?.overall
   const byTicketType = analytics?.by_ticket_type ?? []
-  const byEvent      = analytics?.by_event ?? []
-  const dailySales   = analytics?.daily_sales ?? []
+  const byEvent = analytics?.by_event ?? []
+  const dailySales = analytics?.daily_sales ?? []
   const comparisonDailySales = comparisonAnalytics?.daily_sales ?? []
   const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
   const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
@@ -508,11 +508,7 @@ export function OrganizerTicketSalesPage() {
         </div>
       </OrganizerPanel>
 
-      {error && (
-        <div className="mb-5 rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
-          {error}
-        </div>
-      )}
+
 
       {loading && !analytics ? (
         <OrganizerPanel className="flex items-center justify-center py-20">

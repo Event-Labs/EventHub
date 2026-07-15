@@ -49,7 +49,7 @@ export function StaffEventsPage({ empty = false }) {
 
   return (
     <StaffPage title="Sự kiện được giao" description="Quản lý ca check-in cho các sự kiện sắp tới.">
-      {error && <div className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">{error}</div>}
+
       <div className="mb-5 grid gap-3 md:grid-cols-[1fr_auto]">
         <div onChange={(event) => setKeyword(event.target.value)}>
           <StaffSearch placeholder="Tìm theo tên sự kiện, địa điểm..." />

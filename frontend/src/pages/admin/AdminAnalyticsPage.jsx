@@ -389,9 +389,9 @@ export function AdminAnalyticsPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
-  const users   = overview?.users
-  const events  = overview?.events
-  const orders  = overview?.orders
+  const users = overview?.users
+  const events = overview?.events
+  const orders = overview?.orders
   const orgReqs = overview?.organizer_requests
   const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
   const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
@@ -428,11 +428,10 @@ export function AdminAnalyticsPage() {
                     key={val}
                     type="button"
                     onClick={() => setTrendGroupBy(val)}
-                    className={`h-9 rounded-xl border px-3 text-sm font-semibold transition ${
-                      trendGroupBy === val
+                    className={`h-9 rounded-xl border px-3 text-sm font-semibold transition ${trendGroupBy === val
                         ? 'border-primary/60 bg-tertiary/15 text-tertiary'
                         : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
-                    }`}
+                      }`}
                   >
                     {lbl}
                   </button>
@@ -473,11 +472,10 @@ export function AdminAnalyticsPage() {
             ].map(([label, count, severity]) => (
               <div
                 key={label}
-                className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
-                  severity === 'critical'
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 ${severity === 'critical'
                     ? 'border-error/30 bg-error/[0.07]'
                     : 'border-warning/30 bg-warning/[0.05]'
-                }`}
+                  }`}
               >
                 <span className="text-sm font-semibold text-subtle">{label}</span>
                 <span className={`shrink-0 text-xl font-extrabold ${severity === 'critical' ? 'text-error' : 'text-warning'}`}>
@@ -489,11 +487,7 @@ export function AdminAnalyticsPage() {
         </div>
       )}
 
-      {error && (
-        <div className="mb-5 rounded-xl border border-error/30 bg-error/[0.07] px-4 py-3 text-sm text-error">
-          {error}
-        </div>
-      )}
+
 
       {loading && !overview ? (
         <Panel className="flex items-center justify-center py-20">

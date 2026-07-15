@@ -56,11 +56,7 @@ export function StaffDashboardPage() {
 
   return (
     <StaffPage title="Tổng quan nhân sự" description="Theo dõi công việc vận hành hôm nay.">
-      {error && (
-        <div className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-          {error}
-        </div>
-      )}
+
 
       <div className="grid gap-4 md:grid-cols-3">
         <Shortcut to="/staff/qr-check-in" icon={QrCode} label="Quét QR" primary />
@@ -177,11 +173,10 @@ function Shortcut({ to, icon: Icon, label, primary }) {
   return (
     <Link
       to={to}
-      className={`rounded-md border p-6 text-center font-bold transition-all hover:scale-[1.02] ${
-        primary
+      className={`rounded-md border p-6 text-center font-bold transition-all hover:scale-[1.02] ${primary
           ? 'border-primary/40 bg-tertiary text-white shadow-[0_4px_20px_rgba(43,92,146,0.3)]'
           : 'border-border-soft/40 bg-surface/80 text-content hover:border-tertiary hover:bg-panel-soft'
-      }`}
+        }`}
     >
       <Icon className="mx-auto mb-3 size-7" />
       {label}

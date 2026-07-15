@@ -150,13 +150,7 @@ function CancelConfirmModal({ event, onConfirm, onClose, loading, error }) {
           </ul>
         </div>
 
-        {/* API error — hiện trong modal */}
-        {error && (
-          <div className="mt-4 rounded-xl border border-error/30 bg-error/[0.07] p-3 text-sm text-error">
-            <p className="font-semibold">Không thể hủy sự kiện:</p>
-            <p className="mt-1">{error}</p>
-          </div>
-        )}
+
 
         {/* Buttons */}
         <div className="mt-6 flex gap-3">

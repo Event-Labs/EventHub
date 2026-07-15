@@ -194,11 +194,7 @@ export function OrganizerTasksPage() {
       title="Công việc nhân sự"
       description="Theo dõi tiến độ và giao việc cho từng staff theo sự kiện."
     >
-      {error && (
-        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-          {error}
-        </div>
-      )}
+
 
       {/* ── Toolbar ── */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -588,11 +584,7 @@ function CreateTaskModal({ events, selectedEventId, assignedStaff, onClose, onCr
 
         {/* Form */}
         <form className="px-6 py-5" onSubmit={handleSubmit}>
-          {error && (
-            <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-2 text-sm font-semibold text-error">
-              {error}
-            </div>
-          )}
+
           {events.length === 0 && (
             <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
               Không có sự kiện đã duyệt và còn hiệu lực để tạo công việc cho staff.
