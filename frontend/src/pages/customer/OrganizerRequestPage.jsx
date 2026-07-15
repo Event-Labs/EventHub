@@ -85,9 +85,8 @@ function RequestTypeSelector({ value, onChange, disabled = false }) {
           return (
             <label
               key={option.value}
-              className={`inline-flex items-center gap-2 text-sm font-bold ${
-                active ? 'text-content' : 'text-muted'
-              } ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+              className={`inline-flex items-center gap-2 text-sm font-bold ${active ? 'text-content' : 'text-muted'
+                } ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
             >
               <input
                 type="radio"
@@ -371,7 +370,7 @@ export function OrganizerRequestPage() {
         ? event.target.value.toLocaleUpperCase('vi-VN')
         : field === 'individual_identity_number'
           ? event.target.value.toUpperCase()
-        : event.target.value
+          : event.target.value
     setForm((current) => ({ ...current, [field]: value }))
   }
 
@@ -504,14 +503,14 @@ export function OrganizerRequestPage() {
 
     const requiredDocuments = isOrganization
       ? [
-          ['legal_document_url', 'Vui lòng tải Giấy ĐKDN/ERC.'],
-          ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
-        ]
+        ['legal_document_url', 'Vui lòng tải Giấy ĐKDN/ERC.'],
+        ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
+      ]
       : [
-          ['individual_id_front_url', 'Vui lòng tải ảnh CCCD mặt trước.'],
-          ['individual_id_back_url', 'Vui lòng tải ảnh CCCD mặt sau.'],
-          ['individual_selfie_url', 'Vui lòng tải ảnh chân dung/Selfie.'],
-        ]
+        ['individual_id_front_url', 'Vui lòng tải ảnh CCCD mặt trước.'],
+        ['individual_id_back_url', 'Vui lòng tải ảnh CCCD mặt sau.'],
+        ['individual_selfie_url', 'Vui lòng tải ảnh chân dung/Selfie.'],
+      ]
 
     const missingDocument = requiredDocuments.find(
       ([field]) => !selectedDocuments[field] && !form[field]?.trim(),
@@ -548,16 +547,16 @@ export function OrganizerRequestPage() {
 
       const documentUrls = isOrganization
         ? {
-            legal_document_url: await uploadDocumentField('legal_document_url'),
-            business_license_url: await uploadDocumentField('business_license_url'),
-            legal_representative_id_url: await uploadDocumentField('legal_representative_id_url'),
-            authorization_letter_url: await uploadDocumentField('authorization_letter_url'),
-          }
+          legal_document_url: await uploadDocumentField('legal_document_url'),
+          business_license_url: await uploadDocumentField('business_license_url'),
+          legal_representative_id_url: await uploadDocumentField('legal_representative_id_url'),
+          authorization_letter_url: await uploadDocumentField('authorization_letter_url'),
+        }
         : {
-            individual_id_front_url: await uploadDocumentField('individual_id_front_url'),
-            individual_id_back_url: await uploadDocumentField('individual_id_back_url'),
-            individual_selfie_url: await uploadDocumentField('individual_selfie_url'),
-          }
+          individual_id_front_url: await uploadDocumentField('individual_id_front_url'),
+          individual_id_back_url: await uploadDocumentField('individual_id_back_url'),
+          individual_selfie_url: await uploadDocumentField('individual_selfie_url'),
+        }
 
       requestMutation.mutate({
         id: editingRequest?.id,
@@ -841,27 +840,27 @@ export function OrganizerRequestPage() {
                     <div className="grid gap-4 sm:grid-cols-3">
                       <FileField
                         label="CCCD mặt trước"
-                      required
-                      imageOnly
-                      file={selectedDocuments.individual_id_front_url}
-                      existingUrl={form.individual_id_front_url}
-                      onChange={handleDocumentChange('individual_id_front_url')}
+                        required
+                        imageOnly
+                        file={selectedDocuments.individual_id_front_url}
+                        existingUrl={form.individual_id_front_url}
+                        onChange={handleDocumentChange('individual_id_front_url')}
                       />
                       <FileField
                         label="CCCD mặt sau"
-                      required
-                      imageOnly
-                      file={selectedDocuments.individual_id_back_url}
-                      existingUrl={form.individual_id_back_url}
-                      onChange={handleDocumentChange('individual_id_back_url')}
+                        required
+                        imageOnly
+                        file={selectedDocuments.individual_id_back_url}
+                        existingUrl={form.individual_id_back_url}
+                        onChange={handleDocumentChange('individual_id_back_url')}
                       />
                       <FileField
                         label="Ảnh chân dung/Selfie"
-                      required
-                      imageOnly
-                      file={selectedDocuments.individual_selfie_url}
-                      existingUrl={form.individual_selfie_url}
-                      onChange={handleDocumentChange('individual_selfie_url')}
+                        required
+                        imageOnly
+                        file={selectedDocuments.individual_selfie_url}
+                        existingUrl={form.individual_selfie_url}
+                        onChange={handleDocumentChange('individual_selfie_url')}
                       />
                     </div>
                   </FormSection>
@@ -922,8 +921,7 @@ export function OrganizerRequestPage() {
                 </label>
               </FormSection>
 
-              {error && <p className="whitespace-pre-line text-sm text-error">{error}</p>}
-              {success && <p className="text-sm text-success">{success}</p>}
+
 
               <div className="flex flex-wrap justify-end gap-3">
                 {editingRequest && (

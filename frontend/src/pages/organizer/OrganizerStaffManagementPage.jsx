@@ -121,11 +121,7 @@ export function OrganizerStaffManagementPage() {
       title="Quản lý nhân sự"
       description="Phân công, mời và quản lý nhân sự cho từng sự kiện."
     >
-      {error && (
-        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error animate-in fade-in duration-200">
-          {error}
-        </div>
-      )}
+
 
       {/* ── Toolbar ── */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -420,11 +416,7 @@ function InviteStaffModal({
         </div>
 
         <form className="px-6 py-5" onSubmit={handleSubmit}>
-          {error && (
-            <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-2 text-sm font-semibold text-error animate-in fade-in">
-              {error}
-            </div>
-          )}
+
 
           {limitReached && (
             <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
@@ -543,11 +535,10 @@ function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfir
             Hủy
           </button>
           <button
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-              danger
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${danger
                 ? 'bg-error text-white hover:opacity-90 disabled:opacity-50'
                 : 'org-btn-primary'
-            }`}
+              }`}
             onClick={onConfirm}
             disabled={loading}
           >
@@ -565,9 +556,8 @@ function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfir
 function QuotaCard({ label, value, sub, warn }) {
   return (
     <div
-      className={`rounded-2xl border px-4 py-3 shadow-sm ${
-        warn ? 'border-error/30 bg-error/10 text-error' : 'border-border-soft/30 bg-panel-soft text-content'
-      }`}
+      className={`rounded-2xl border px-4 py-3 shadow-sm ${warn ? 'border-error/30 bg-error/10 text-error' : 'border-border-soft/30 bg-panel-soft text-content'
+        }`}
     >
       <p className="text-xs font-bold uppercase text-muted">{label}</p>
       <p className={`mt-1 text-2xl font-extrabold ${warn ? 'text-error' : 'text-content'}`}>

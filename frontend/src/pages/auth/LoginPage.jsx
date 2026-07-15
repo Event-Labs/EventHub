@@ -187,11 +187,7 @@ export function LoginPage() {
               Quên mật khẩu?
             </Link>
           </div>
-          {error && (
-            <div className="rounded-md border border-error/40 bg-error/10 p-3 text-sm text-error">
-              {error}
-            </div>
-          )}
+
           <button
             type="submit"
             disabled={loading}
