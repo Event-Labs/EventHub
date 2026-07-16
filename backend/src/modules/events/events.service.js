@@ -145,6 +145,14 @@ class EventsService {
         ? {
             rows_count: first.rows_count,
             cols_count: first.cols_count,
+            canvas_width: first.canvas_width,
+            canvas_height: first.canvas_height,
+            stage_position: first.stage_position,
+            custom_stage_x: first.custom_stage_x,
+            custom_stage_y: first.custom_stage_y,
+            custom_stage_width: first.custom_stage_width,
+            custom_stage_height: first.custom_stage_height,
+            config: first.seat_map_config || {},
           }
         : null,
       seats: rows.map((row) => {

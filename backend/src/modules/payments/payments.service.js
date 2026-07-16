@@ -4,6 +4,8 @@ const env = require('../../config/env');
 const ordersRepository = require('../orders/orders.repository');
 const payosClient = require('../../infrastructure/payos/payos.client');
 const paymentsRepository = require('./payments.repository');
+const ticketConfirmationEmail = require('../tickets/ticketConfirmationEmail.service');
+const logger = require('../../core/logger');
 
 function isPayosPaid(paymentData, paymentOrder) {
   const status = String(paymentData.status || paymentData.paymentStatus || '').toUpperCase();
@@ -13,6 +15,19 @@ function isPayosPaid(paymentData, paymentOrder) {
 }
 
 class PaymentsService {
+  async confirmAndNotify(args) {
+    const result = await ordersRepository.confirmPayment(args);
+    if (!result.alreadyPaid) {
+      try {
+        const details = await ordersRepository.findPaidOrderEmailDetails(result.order.id);
+        if (details) await ticketConfirmationEmail.sendOrderConfirmation(details.order, details.tickets);
+      } catch (error) {
+        logger.error(`Could not prepare ticket email for order ${result.order.id}: ${error.message}`);
+      }
+    }
+    return result;
+  }
+
   async getOrganizerPayosChannelForEvent(eventId) {
     const channel = await paymentsRepository.findOrganizerPayosChannelForEvent(eventId);
     if (!channel) {
@@ -60,7 +75,7 @@ class PaymentsService {
       return { ok: true, ignored: true };
     }
 
-    await ordersRepository.confirmPayment({
+    await this.confirmAndNotify({
       providerOrderCode,
       amount,
       transactionId: data.reference || data.transactionId || data.transaction_id,
@@ -85,7 +100,7 @@ class PaymentsService {
       return paymentData;
     }
 
-    await ordersRepository.confirmPayment({
+    await this.confirmAndNotify({
       providerOrderCode: paymentOrder.provider_order_code,
       amount: paymentData.amount || paymentData.amountPaid || paymentOrder.amount,
       transactionId:
@@ -114,7 +129,7 @@ class PaymentsService {
       return paymentData;
     }
 
-    await ordersRepository.confirmPayment({
+    await this.confirmAndNotify({
       providerOrderCode: paymentOrder.provider_order_code,
       amount: paymentData.amount || paymentData.amountPaid || paymentOrder.amount,
       transactionId:
