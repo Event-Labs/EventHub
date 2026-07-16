@@ -10,6 +10,44 @@ const { OAuth2Client } = require('google-auth-library');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+function cleanHeaderValue(value) {
+    return String(value || '').replace(/^"|"$/g, '').trim();
+}
+
+function getDeviceName(deviceInfo) {
+    const ua = String(deviceInfo?.userAgent || deviceInfo || '');
+    const platformHint = cleanHeaderValue(deviceInfo?.platform);
+    const browserHints = String(deviceInfo?.browserHints || '');
+    if (!ua && !platformHint && !browserHints) return 'Thiết bị không xác định';
+
+    const os = /Windows/i.test(ua)
+        ? 'Windows'
+        : /Mac OS X|Macintosh/i.test(ua)
+            ? 'macOS'
+            : /Android/i.test(ua)
+                ? 'Android'
+                : /iPhone|iPad|iPod/i.test(ua)
+                    ? 'iOS'
+                    : /Linux/i.test(ua)
+                        ? 'Linux'
+                        : platformHint || 'Hệ điều hành không xác định';
+
+    let browser = 'Trình duyệt không xác định';
+    if (/Edg\//i.test(ua) || /Microsoft Edge|Edge/i.test(browserHints)) {
+        browser = 'Microsoft Edge';
+    } else if (/OPR\//i.test(ua)) {
+        browser = 'Opera';
+    } else if (/Chrome\//i.test(ua) || /Chromium|Google Chrome/i.test(browserHints)) {
+        browser = 'Chrome';
+    } else if (/Firefox\//i.test(ua)) {
+        browser = 'Firefox';
+    } else if (/Safari\//i.test(ua)) {
+        browser = 'Safari';
+    }
+
+    return `${browser} trên ${os}`;
+}
+
 class AuthService {
     async resolveEffectiveRoles(user, roles) {
         if (!roles.includes('STAFF')) {
@@ -143,15 +181,22 @@ class AuthService {
         const refreshTokenHash = this.hashToken(refreshToken);
 
         const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)); // 7 days
+        const deviceName = getDeviceName(deviceInfo);
         await authRepository.createSession({
             user_id: user.id,
             refresh_token_hash: refreshTokenHash,
             user_agent: deviceInfo.userAgent,
             ip_address: deviceInfo.ip,
+            device_name: deviceName,
             expires_at: expiresAt,
         });
 
-        // No last_login_at column exists in DB, omitted
+        await authRepository.updateUserIfColumnsExist(user.id, {
+            last_login_at: new Date(),
+            last_login_ip: deviceInfo.ip || null,
+            last_login_user_agent: deviceInfo.userAgent || null,
+            last_login_device: deviceName,
+        });
 
         return { user: this.serializeAuthUser(user, effective.roles), accessToken, refreshToken };
     }
@@ -221,12 +266,21 @@ class AuthService {
             const refreshTokenHash = this.hashToken(refreshToken);
 
             const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
+            const deviceName = getDeviceName(deviceInfo);
             await authRepository.createSession({
                 user_id: user.id,
                 refresh_token_hash: refreshTokenHash,
                 user_agent: deviceInfo.userAgent,
                 ip_address: deviceInfo.ip,
+                device_name: deviceName,
                 expires_at: expiresAt,
+            });
+
+            await authRepository.updateUserIfColumnsExist(user.id, {
+                last_login_at: new Date(),
+                last_login_ip: deviceInfo.ip || null,
+                last_login_user_agent: deviceInfo.userAgent || null,
+                last_login_device: deviceName,
             });
 
             return { user: this.serializeAuthUser(user, effective.roles), accessToken, refreshToken };
@@ -289,6 +343,7 @@ class AuthService {
             refresh_token_hash: newHash,
             user_agent: deviceInfo.userAgent,
             ip_address: deviceInfo.ip,
+            device_name: getDeviceName(deviceInfo),
             expires_at: session.expires_at,
         });
 
@@ -333,7 +388,10 @@ class AuthService {
         }
 
         const password_hash = await this.hashPassword(newPassword);
-        await authRepository.updateUser(resetRecord.user_id, { password_hash });
+        await authRepository.updateUserIfColumnsExist(resetRecord.user_id, {
+            password_hash,
+            password_changed_at: new Date(),
+        });
         await authRepository.usePasswordResetToken(resetRecord.id); // deletes key
 
         // Revoke all sessions after password reset
@@ -355,6 +413,9 @@ class AuthService {
         const user = await authRepository.createUser({
             ...pendingUser,
             email_verified: true,
+        });
+        await authRepository.updateUserIfColumnsExist(user.id, {
+            password_changed_at: new Date(),
         });
 
         // Assign the default role

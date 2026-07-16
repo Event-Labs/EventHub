@@ -1,4 +1,4 @@
-import { clearAuthSession, getAuthToken, getUserRoles, updateStoredUser } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getStoredUserKey, getUserRoles, updateStoredUser } from '@/lib/auth.js'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
@@ -49,9 +49,10 @@ export function ProfilePage() {
   const [mode, setMode] = useState('view')
   const queryClient = useQueryClient()
   const { pathname } = useLocation()
+  const currentUserKey = getStoredUserKey()
 
   const { data: user, isLoading, error } = useQuery({
-    queryKey: ['profile'],
+    queryKey: ['profile', currentUserKey],
     queryFn: async () => {
       const token = getAuthToken()
       if (!token) {
@@ -67,14 +68,14 @@ export function ProfilePage() {
   const isOrganizerProfileRoute = pathname.startsWith('/organizer')
   const isOrganizer = isOrganizerProfileRoute && roles.includes('organizer')
   const organizerQuery = useQuery({
-    queryKey: ['organizer-profile'],
+    queryKey: ['organizer-profile', currentUserKey],
     queryFn: fetchOrganizerProfile,
     enabled: Boolean(user && isOrganizer),
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
   const customerTicketsQuery = useQuery({
-    queryKey: ['my-tickets', 'profile-summary'],
+    queryKey: ['my-tickets', 'profile-summary', currentUserKey],
     queryFn: () => fetchMyTickets('ALL'),
     enabled: Boolean(user && !isOrganizer),
     retry: false,
