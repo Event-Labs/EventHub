@@ -6,6 +6,11 @@ export const authService = {
         return response.data
     },
 
+    verifyLoginOtp: async ({ challengeId, otp }) => {
+        const response = await http.post('/auth/verify-login-otp', { challengeId, otp })
+        return response.data
+    },
+
     verifyAdminOtp: async ({ challengeId, otp }) => {
         const response = await http.post('/auth/verify-admin-otp', { challengeId, otp })
         return response.data

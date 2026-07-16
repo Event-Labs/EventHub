@@ -37,6 +37,8 @@ const ORGANIZER_REQUEST_SELECT = `
   r.individual_tax_code,
   r.terms_accepted,
   r.terms_accepted_at,
+  r.request_action,
+  r.change_summary,
   r.status,
   r.review_note,
   r.reviewed_by,

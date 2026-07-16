@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { Page } from './AdminComponents'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
+import { Modal } from '@/components/Modal.jsx'
 import { adminProfileApi } from '@/services/adminProfile.js'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
@@ -455,7 +456,7 @@ export function AdminProfilePage() {
             </div>
           </section>
 
-          {mode === 'view' && (
+          {!['sessions', 'twoFactor'].includes(mode) && (
             <>
               <ProfilePanel icon={UserCircle} title="Thông tin cá nhân">
                 <div className="rounded-2xl border border-border-soft/30 bg-background/30 px-5">
@@ -483,7 +484,7 @@ export function AdminProfilePage() {
             </>
           )}
 
-          {mode === 'edit' && (
+          {false && mode === 'edit' && (
             <ProfilePanel icon={Camera} title="Chỉnh sửa hồ sơ">
               <div className="grid gap-5 md:grid-cols-2">
                 <InputField label="Họ và tên" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
@@ -560,7 +561,7 @@ export function AdminProfilePage() {
             </ProfilePanel>
           )}
 
-          {mode === 'password' && (
+          {false && mode === 'password' && (
             <ProfilePanel icon={Lock} title="Đổi mật khẩu">
               <p className="mb-6 text-sm leading-6 text-subtle">
                 Sử dụng mật khẩu mạnh để tăng cường bảo mật cho tài khoản quản trị của bạn.
@@ -622,6 +623,37 @@ export function AdminProfilePage() {
               />
             </ProfilePanel>
           )}
+          <AdminProfileEditModal
+            open={mode === 'edit'}
+            user={user}
+            displayName={displayName}
+            previewUrl={previewUrl}
+            selectedFile={selectedFile}
+            formData={formData}
+            saving={saving}
+            uploadingAvatar={uploadingAvatar}
+            onFileChange={handleFileChange}
+            onFormChange={setFormData}
+            onSave={handleSave}
+            onClearFile={() => {
+              setSelectedFile(null)
+              setPreviewUrl(user.avatar_url || '')
+            }}
+            onClose={() => {
+              setMode('view')
+              setPreviewUrl(user.avatar_url || '')
+              setSelectedFile(null)
+            }}
+          />
+
+          <AdminPasswordModal
+            open={mode === 'password'}
+            passwordData={passwordData}
+            saving={saving}
+            onPasswordChange={setPasswordData}
+            onSave={handleChangePassword}
+            onClose={() => setMode('view')}
+          />
         </div>
 
         <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
@@ -661,6 +693,85 @@ export function AdminProfilePage() {
         </aside>
       </div>
     </Page>
+  )
+}
+
+function AdminProfileEditModal({
+  open,
+  user,
+  displayName,
+  previewUrl,
+  selectedFile,
+  formData,
+  saving,
+  uploadingAvatar,
+  onFileChange,
+  onFormChange,
+  onSave,
+  onClearFile,
+  onClose,
+}) {
+  return (
+    <Modal open={open} title="Chỉnh sửa hồ sơ" onClose={onClose} maxWidth="max-w-3xl">
+      <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="rounded-2xl border border-border-soft/30 bg-background/30 p-5 text-center">
+          <div className="relative mx-auto size-32">
+            <ProfileAvatar
+              sources={previewUrl || user.avatar_url}
+              name={displayName}
+              alt={displayName}
+              className="size-full ring-4 ring-primary/20"
+              fallbackClassName="bg-panel-soft text-4xl text-primary"
+            />
+            <label className="absolute bottom-0 right-0 grid size-10 cursor-pointer place-items-center rounded-full bg-tertiary text-white shadow-lg transition hover:scale-105">
+              <Camera className="size-5" />
+              <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
+            </label>
+          </div>
+          <p className="mt-4 text-sm font-semibold text-subtle">JPG, PNG. Nên dùng ảnh vuông để hiển thị đẹp hơn.</p>
+          {selectedFile && (
+            <button
+              type="button"
+              onClick={onClearFile}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-error/30 px-4 py-2 text-sm font-extrabold text-error transition hover:bg-error/10"
+            >
+              <X className="size-4" />
+              Bỏ ảnh mới
+            </button>
+          )}
+        </div>
+        <div className="space-y-5">
+          <div className="grid gap-5 md:grid-cols-2">
+            <InputField label="Họ và tên" value={formData.full_name} onChange={(e) => onFormChange({ ...formData, full_name: e.target.value })} />
+            <InputField label="Số điện thoại" value={formData.phone} onChange={(e) => onFormChange({ ...formData, phone: e.target.value })} />
+            <InputField label="Ngày sinh" type="date" value={formData.dob} onChange={(e) => onFormChange({ ...formData, dob: e.target.value })} />
+            <InputField label="Địa chỉ" className="md:col-span-2" value={formData.address} onChange={(e) => onFormChange({ ...formData, address: e.target.value })} />
+          </div>
+          <FormActions
+            saving={saving || uploadingAvatar}
+            onCancel={onClose}
+            onSave={onSave}
+            saveText={uploadingAvatar ? 'Đang tải ảnh...' : 'Lưu thay đổi'}
+          />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function AdminPasswordModal({ open, passwordData, saving, onPasswordChange, onSave, onClose }) {
+  return (
+    <Modal open={open} title="Đổi mật khẩu" onClose={onClose} maxWidth="max-w-xl">
+      <p className="mb-6 text-sm leading-6 text-subtle">
+        Sử dụng mật khẩu mạnh và không trùng với mật khẩu cũ để bảo vệ tài khoản.
+      </p>
+      <div className="space-y-5">
+        <InputField label="Mật khẩu hiện tại" type="password" value={passwordData.current} onChange={(e) => onPasswordChange({ ...passwordData, current: e.target.value })} />
+        <InputField label="Mật khẩu mới" type="password" value={passwordData.new} onChange={(e) => onPasswordChange({ ...passwordData, new: e.target.value })} />
+        <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={(e) => onPasswordChange({ ...passwordData, confirm: e.target.value })} />
+      </div>
+      <FormActions saving={saving} onCancel={onClose} onSave={onSave} saveText="Cập nhật mật khẩu" />
+    </Modal>
   )
 }
 

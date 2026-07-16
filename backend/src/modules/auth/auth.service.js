@@ -294,13 +294,13 @@ class AuthService {
         const effective = await this.resolveEffectiveRoles(user, roles);
         const hasTwoFactorColumn = await authRepository.userColumnExists('two_factor_enabled');
 
-        if (hasTwoFactorColumn && user.two_factor_enabled && effective.roles.some(isAdminRole)) {
+        if (hasTwoFactorColumn && user.two_factor_enabled) {
             const challenge = await this.createOtpChallenge(ADMIN_LOGIN_OTP_KEY, {
                 userId: user.id,
                 email: user.email,
                 roles: effective.roles,
                 deviceInfo,
-                subject: 'Ma OTP dang nhap quan tri EventHub',
+                subject: 'Ma OTP dang nhap EventHub',
             });
 
             return {
@@ -312,7 +312,7 @@ class AuthService {
         return this.createAuthSession(user, effective.roles, deviceInfo);
     }
 
-    async verifyAdminLoginOtp(challengeId, otp, deviceInfo) {
+    async verifyLoginOtp(challengeId, otp, deviceInfo) {
         const challenge = await this.consumeOtpChallenge(ADMIN_LOGIN_OTP_KEY, challengeId, otp);
         const user = await authRepository.findUserById(challenge.userId);
         if (!user) {
@@ -324,11 +324,11 @@ class AuthService {
         }
 
         const roles = await authRepository.findUserRoles(user.id);
-        if (!roles.some(isAdminRole)) {
-            throw new AppError('You do not have permission to perform this action', 403, ErrorCodes.AUTH_FORBIDDEN);
-        }
-
         return this.createAuthSession(user, roles, deviceInfo || challenge.deviceInfo || {});
+    }
+
+    async verifyAdminLoginOtp(challengeId, otp, deviceInfo) {
+        return this.verifyLoginOtp(challengeId, otp, deviceInfo);
     }
 
     async googleLogin(credential, deviceInfo) {
@@ -391,29 +391,7 @@ class AuthService {
             // Now proceed with normal login flow token generation
             const roles = await authRepository.findUserRoles(user.id);
             const effective = await this.resolveEffectiveRoles(user, roles);
-            const accessToken = await this.generateAccessToken(user, effective.roles);
-            const refreshToken = this.generateRefreshToken();
-            const refreshTokenHash = this.hashToken(refreshToken);
-
-            const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
-            const deviceName = getDeviceName(deviceInfo);
-            await authRepository.createSession({
-                user_id: user.id,
-                refresh_token_hash: refreshTokenHash,
-                user_agent: deviceInfo.userAgent,
-                ip_address: deviceInfo.ip,
-                device_name: deviceName,
-                expires_at: expiresAt,
-            });
-
-            await authRepository.updateUserIfColumnsExist(user.id, {
-                last_login_at: new Date(),
-                last_login_ip: deviceInfo.ip || null,
-                last_login_user_agent: deviceInfo.userAgent || null,
-                last_login_device: deviceName,
-            });
-
-            return { user: this.serializeAuthUser(user, effective.roles), accessToken, refreshToken };
+            return this.createAuthSession(user, effective.roles, deviceInfo);
 
         } catch (error) {
             // Re-throw AppErrors (e.g., ACCOUNT_LOCKED) trực tiếp,
