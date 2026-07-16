@@ -11,6 +11,43 @@ const crypto = require('crypto');
 // =============================================
 
 class AuthRepository {
+  constructor() {
+    this.userColumns = null;
+  }
+
+  async getUserColumns() {
+    if (this.userColumns) return this.userColumns;
+
+    const { rows } = await db.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'users'
+      `,
+    );
+    this.userColumns = new Set(rows.map((row) => row.column_name));
+    return this.userColumns;
+  }
+
+  async userColumnExists(columnName) {
+    const columns = await this.getUserColumns();
+    return columns.has(columnName);
+  }
+
+  async updateUserIfColumnsExist(id, updates) {
+    const columns = await this.getUserColumns();
+    const safeUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([key]) => columns.has(key)),
+    );
+
+    if (Object.keys(safeUpdates).length === 0) {
+      return this.findUserById(id);
+    }
+
+    return this.updateUser(id, safeUpdates);
+  }
+
   // --- USERS ---
   async findUserByEmail(email) {
     const query = `
@@ -96,6 +133,8 @@ class AuthRepository {
       user_id: sessionData.user_id,
       user_agent: sessionData.user_agent,
       ip_address: sessionData.ip_address,
+      device_name: sessionData.device_name,
+      created_at: sessionData.created_at || new Date().toISOString(),
       expires_at: sessionData.expires_at,
       revoked_at: null,
     };
@@ -118,6 +157,21 @@ class AuthRepository {
     const session = JSON.parse(data);
     if (session.revoked_at) return null;
     return session;
+  }
+
+  async listUserSessions(userId) {
+    const userKey = `user_sessions:${userId}`;
+    const hashes = await client.sMembers(userKey);
+    if (hashes.length === 0) return [];
+
+    const sessions = await Promise.all(hashes.map((hash) => this.findSessionByHash(hash)));
+    return sessions
+      .filter(Boolean)
+      .sort((a, b) => {
+        const bTime = new Date(b.created_at || b.expires_at || 0).getTime();
+        const aTime = new Date(a.created_at || a.expires_at || 0).getTime();
+        return bTime - aTime;
+      });
   }
 
   async revokeSession(id, hash) {
