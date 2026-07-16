@@ -39,6 +39,11 @@ const googleLoginSchema = z.object({
     credential: z.string().min(1, 'Thông tin xác thực Google là bắt buộc'),
 });
 
+const adminOtpSchema = z.object({
+    challengeId: z.string().min(1, 'Challenge ID is required'),
+    otp: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
+});
+
 module.exports = {
     registerSchema,
     loginSchema,
@@ -46,4 +51,5 @@ module.exports = {
     resetPasswordSchema,
     verifyEmailSchema,
     googleLoginSchema,
+    adminOtpSchema,
 };

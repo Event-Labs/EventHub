@@ -9,6 +9,27 @@ const { sendEmail } = require('../../infrastructure/email/email.service');
 const { OAuth2Client } = require('google-auth-library');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const ADMIN_LOGIN_OTP_KEY = 'admin_login_otp';
+const OTP_EXPIRES_SECONDS = 5 * 60;
+
+function maskEmail(email) {
+    const [name = '', domain = ''] = String(email || '').split('@');
+    if (!domain) return email;
+    const visible = name.slice(0, 2);
+    return `${visible}${'*'.repeat(Math.max(name.length - visible.length, 3))}@${domain}`;
+}
+
+function generateOtp() {
+    return String(crypto.randomInt(100000, 1000000));
+}
+
+function normalizeRole(role) {
+    return String(role || '').toUpperCase();
+}
+
+function isAdminRole(role) {
+    return ['ADMIN', 'SUPER_ADMIN'].includes(normalizeRole(role));
+}
 
 function cleanHeaderValue(value) {
     return String(value || '').replace(/^"|"$/g, '').trim();
@@ -105,6 +126,101 @@ class AuthService {
         return crypto.randomBytes(40).toString('hex');
     }
 
+    async createAuthSession(user, roles, deviceInfo) {
+        const effective = await this.resolveEffectiveRoles(user, roles);
+        const accessToken = await this.generateAccessToken(user, effective.roles);
+        const refreshToken = this.generateRefreshToken();
+        const refreshTokenHash = this.hashToken(refreshToken);
+
+        const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
+        const deviceName = getDeviceName(deviceInfo);
+        await authRepository.createSession({
+            user_id: user.id,
+            refresh_token_hash: refreshTokenHash,
+            user_agent: deviceInfo.userAgent,
+            ip_address: deviceInfo.ip,
+            device_name: deviceName,
+            expires_at: expiresAt,
+        });
+
+        await authRepository.updateUserIfColumnsExist(user.id, {
+            last_login_at: new Date(),
+            last_login_ip: deviceInfo.ip || null,
+            last_login_user_agent: deviceInfo.userAgent || null,
+            last_login_device: deviceName,
+        });
+
+        return { user: this.serializeAuthUser(user, effective.roles), accessToken, refreshToken };
+    }
+
+    async sendOtpEmail({ email, otp, subject = 'Ma OTP EventHub' }) {
+        await sendEmail({
+            email,
+            subject,
+            message: `Ma OTP cua ban la: ${otp}. Ma co hieu luc trong ${Math.floor(OTP_EXPIRES_SECONDS / 60)} phut.`,
+            html: `
+                <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
+                    <p>Ma OTP cua ban la:</p>
+                    <p style="font-size:28px;font-weight:700;letter-spacing:6px">${otp}</p>
+                    <p>Ma co hieu luc trong ${Math.floor(OTP_EXPIRES_SECONDS / 60)} phut. Vui long khong chia se ma nay.</p>
+                </div>
+            `,
+        });
+    }
+
+    async createOtpChallenge(type, data) {
+        const challengeId = crypto.randomBytes(24).toString('hex');
+        const otp = generateOtp();
+        const expiresAt = new Date(Date.now() + (OTP_EXPIRES_SECONDS * 1000));
+
+        await authRepository.saveOtpChallenge(type, challengeId, {
+            ...data,
+            otpHash: this.hashToken(otp),
+            attempts: 0,
+            expiresAt: expiresAt.toISOString(),
+        }, expiresAt);
+
+        await this.sendOtpEmail({
+            email: data.email,
+            otp,
+            subject: data.subject || 'Ma OTP xac thuc EventHub',
+        });
+
+        return {
+            challengeId,
+            expiresAt: expiresAt.toISOString(),
+            email: maskEmail(data.email),
+        };
+    }
+
+    async consumeOtpChallenge(type, challengeId, otp) {
+        const challenge = await authRepository.getOtpChallenge(type, challengeId);
+        if (!challenge) {
+            throw new AppError('Ma OTP khong hop le hoac da het han', 400, ErrorCodes.AUTH_INVALID_TOKEN);
+        }
+
+        if (new Date(challenge.expiresAt).getTime() < Date.now()) {
+            await authRepository.deleteOtpChallenge(type, challengeId);
+            throw new AppError('Ma OTP da het han', 400, ErrorCodes.AUTH_INVALID_TOKEN);
+        }
+
+        if (Number(challenge.attempts || 0) >= 5) {
+            await authRepository.deleteOtpChallenge(type, challengeId);
+            throw new AppError('Ban da nhap sai OTP qua so lan cho phep', 400, ErrorCodes.AUTH_INVALID_TOKEN);
+        }
+
+        if (this.hashToken(String(otp)) !== challenge.otpHash) {
+            await authRepository.saveOtpChallenge(type, challengeId, {
+                ...challenge,
+                attempts: Number(challenge.attempts || 0) + 1,
+            }, new Date(challenge.expiresAt));
+            throw new AppError('Ma OTP khong chinh xac', 400, ErrorCodes.AUTH_INVALID_TOKEN);
+        }
+
+        await authRepository.deleteOtpChallenge(type, challengeId);
+        return challenge;
+    }
+
     // --- CORE LOGIC ---
     async register(userData) {
         const existingUser = await authRepository.findUserByEmail(userData.email);
@@ -176,29 +292,43 @@ class AuthService {
 
         const roles = await authRepository.findUserRoles(user.id);
         const effective = await this.resolveEffectiveRoles(user, roles);
-        const accessToken = await this.generateAccessToken(user, effective.roles);
-        const refreshToken = this.generateRefreshToken();
-        const refreshTokenHash = this.hashToken(refreshToken);
+        const hasTwoFactorColumn = await authRepository.userColumnExists('two_factor_enabled');
 
-        const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)); // 7 days
-        const deviceName = getDeviceName(deviceInfo);
-        await authRepository.createSession({
-            user_id: user.id,
-            refresh_token_hash: refreshTokenHash,
-            user_agent: deviceInfo.userAgent,
-            ip_address: deviceInfo.ip,
-            device_name: deviceName,
-            expires_at: expiresAt,
-        });
+        if (hasTwoFactorColumn && user.two_factor_enabled && effective.roles.some(isAdminRole)) {
+            const challenge = await this.createOtpChallenge(ADMIN_LOGIN_OTP_KEY, {
+                userId: user.id,
+                email: user.email,
+                roles: effective.roles,
+                deviceInfo,
+                subject: 'Ma OTP dang nhap quan tri EventHub',
+            });
 
-        await authRepository.updateUserIfColumnsExist(user.id, {
-            last_login_at: new Date(),
-            last_login_ip: deviceInfo.ip || null,
-            last_login_user_agent: deviceInfo.userAgent || null,
-            last_login_device: deviceName,
-        });
+            return {
+                requiresTwoFactor: true,
+                ...challenge,
+            };
+        }
 
-        return { user: this.serializeAuthUser(user, effective.roles), accessToken, refreshToken };
+        return this.createAuthSession(user, effective.roles, deviceInfo);
+    }
+
+    async verifyAdminLoginOtp(challengeId, otp, deviceInfo) {
+        const challenge = await this.consumeOtpChallenge(ADMIN_LOGIN_OTP_KEY, challengeId, otp);
+        const user = await authRepository.findUserById(challenge.userId);
+        if (!user) {
+            throw new AppError('Khong tim thay tai khoan', 401, ErrorCodes.AUTH_USER_NOT_FOUND);
+        }
+
+        if (user.status === 'LOCKED') {
+            throw new AppError('Tai khoan cua ban da bi khoa', 403, ErrorCodes.ACCOUNT_LOCKED);
+        }
+
+        const roles = await authRepository.findUserRoles(user.id);
+        if (!roles.some(isAdminRole)) {
+            throw new AppError('You do not have permission to perform this action', 403, ErrorCodes.AUTH_FORBIDDEN);
+        }
+
+        return this.createAuthSession(user, roles, deviceInfo || challenge.deviceInfo || {});
     }
 
     async googleLogin(credential, deviceInfo) {

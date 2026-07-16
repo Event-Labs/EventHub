@@ -20,8 +20,20 @@ class AdminProfileRepository {
     });
   }
 
+  async updatePasswordChangedAt(userId, passwordChangedAt) {
+    return authRepository.updateUserIfColumnsExist(userId, {
+      password_changed_at: passwordChangedAt,
+    });
+  }
+
   async listUserSessions(userId) {
     return authRepository.listUserSessions(userId);
+  }
+
+  async updateTwoFactorEnabled(userId, enabled) {
+    return authRepository.updateUserIfColumnsExist(userId, {
+      two_factor_enabled: enabled,
+    });
   }
 }
 

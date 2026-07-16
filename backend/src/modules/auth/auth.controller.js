@@ -6,7 +6,8 @@ const {
     forgotPasswordSchema,
     resetPasswordSchema,
     verifyEmailSchema,
-    googleLoginSchema
+    googleLoginSchema,
+    adminOtpSchema
 } = require('./auth.validation');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
@@ -75,14 +76,39 @@ class AuthController {
             const validatedData = loginSchema.parse(req.body);
             const deviceInfo = getDeviceInfo(req);
 
-            const { user, accessToken, refreshToken } = await authService.login(
+            const result = await authService.login(
                 validatedData.email,
                 validatedData.password,
                 deviceInfo
             );
 
+            if (result.requiresTwoFactor) {
+                res.status(200).json(ApiResponse.success({
+                    requiresTwoFactor: true,
+                    challengeId: result.challengeId,
+                    expiresAt: result.expiresAt,
+                    email: result.email,
+                }, 'Admin OTP required'));
+                return;
+            }
+
+            const { user, accessToken, refreshToken } = result;
+
             res.cookie('refresh_token', refreshToken, this.cookieOptions);
             res.status(200).json(ApiResponse.success({ user, accessToken }, 'Login successful'));
+        } catch (err) {
+            next(err);
+        }
+    };
+
+    verifyAdminOtp = async (req, res, next) => {
+        try {
+            const { challengeId, otp } = adminOtpSchema.parse(req.body);
+            const deviceInfo = getDeviceInfo(req);
+            const { user, accessToken, refreshToken } = await authService.verifyAdminLoginOtp(challengeId, otp, deviceInfo);
+
+            res.cookie('refresh_token', refreshToken, this.cookieOptions);
+            res.status(200).json(ApiResponse.success({ user, accessToken }, 'Admin OTP verified'));
         } catch (err) {
             next(err);
         }
