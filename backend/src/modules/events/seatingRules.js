@@ -32,7 +32,7 @@ function validateSelectedSeats({ rules: rawRules, selectedSeats = [], eligibleSe
   const issues = [];
   const selected = selectedSeats.filter(Boolean);
 
-  if (selected.length <= 1) return issues;
+  if (selected.length === 0) return issues;
 
   const selectedRows = new Set(selected.map(rowLabel));
   if ((rules.require_same_row || rules.require_adjacent_seats) && selectedRows.size > 1) {
@@ -52,9 +52,11 @@ function validateSelectedSeats({ rules: rawRules, selectedSeats = [], eligibleSe
 
   if (rules.disallow_single_seat_left) {
     const selectedIds = new Set(selected.map((seat) => String(seat.session_seat_id || seat.id)));
+    const affectedRows = new Set(selected.map(rowLabel));
     const rows = new Map();
     eligibleSeats.forEach((seat) => {
       const key = rowLabel(seat);
+      if (!affectedRows.has(key)) return;
       if (!rows.has(key)) rows.set(key, []);
       rows.get(key).push(seat);
     });
