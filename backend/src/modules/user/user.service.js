@@ -117,7 +117,10 @@ class UserService {
         }
 
         const password_hash = await this.hashPassword(newPassword);
-        await authRepository.updateUser(userId, { password_hash });
+        await authRepository.updateUserIfColumnsExist(userId, {
+            password_hash,
+            password_changed_at: new Date(),
+        });
         
         // Revoke all sessions after password change for security
         await authRepository.revokeAllUserSessions(userId);
