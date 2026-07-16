@@ -1926,6 +1926,34 @@ class OrdersRepository {
       client.release();
     }
   }
+
+  async findPaidOrderEmailDetails(orderId) {
+    const { rows } = await db.query(
+      `SELECT o.id, o.order_code, o.buyer_name, o.buyer_email, o.subtotal, o.discount_amount,
+        o.platform_fee, o.total_amount, e.title AS event_title, e.banner_url, e.thumbnail_url,
+        po.paid_at, COALESCE(pt.provider_transaction_id, po.provider_order_code::text) AS transaction_code
+      FROM orders o JOIN events e ON e.id = o.event_id
+      JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
+      LEFT JOIN LATERAL (SELECT provider_transaction_id FROM payment_transactions
+        WHERE payment_order_id = po.id AND status = 'PAID' ORDER BY created_at DESC LIMIT 1) pt ON true
+      WHERE o.id = $1 AND o.status = 'PAID' ORDER BY po.paid_at DESC NULLS LAST LIMIT 1`,
+      [orderId],
+    );
+    const order = rows[0];
+    if (!order) return null;
+    const ticketResult = await db.query(
+      `SELECT t.id, t.ticket_code, t.qr_code, t.attendee_name, t.event_id, t.event_session_id,
+        tt.name AS ticket_type_name, es.session_name, es.start_time AS session_start_time,
+        v.name AS venue_name, v.address_line, v.ward, v.district, v.city,
+        CONCAT_WS('', s.row_label, s.seat_number) AS seat_label
+      FROM tickets t JOIN order_items oi ON oi.id = t.order_item_id
+      JOIN ticket_types tt ON tt.id = t.ticket_type_id JOIN event_sessions es ON es.id = t.event_session_id
+      JOIN venues v ON v.id = es.venue_id LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+      LEFT JOIN seats s ON s.id = ss.seat_id WHERE oi.order_id = $1 ORDER BY t.created_at, t.id`,
+      [orderId],
+    );
+    return { order, tickets: ticketResult.rows };
+  }
 }
 
 module.exports = new OrdersRepository();

@@ -329,7 +329,15 @@ class EventsRepository {
         sz.color AS zone_color,
         COALESCE(seat_ticket_types.ticket_type_ids, '[]'::jsonb) AS ticket_type_ids,
         sm.rows_count,
-        sm.cols_count
+        sm.cols_count,
+        sm.canvas_width,
+        sm.canvas_height,
+        sm.stage_position,
+        sm.custom_stage_x,
+        sm.custom_stage_y,
+        sm.custom_stage_width,
+        sm.custom_stage_height,
+        sm.config AS seat_map_config
       FROM session_seats ss
       JOIN seats s ON s.id = ss.seat_id
       JOIN seat_maps sm ON sm.id = s.seat_map_id
