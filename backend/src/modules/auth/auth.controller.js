@@ -11,6 +11,46 @@ const {
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 
+function getClientIp(req) {
+    const directHeaders = [
+        req.headers['cf-connecting-ip'],
+        req.headers['x-real-ip'],
+    ];
+
+    for (const value of directHeaders) {
+        if (typeof value === 'string' && value.trim()) {
+            return normalizeIp(value.trim());
+        }
+    }
+
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+        return normalizeIp(forwardedFor.split(',')[0].trim());
+    }
+    return normalizeIp(req.ip || req.socket?.remoteAddress);
+}
+
+function normalizeIp(ip) {
+    const value = String(ip || '').trim();
+    if (!value) return null;
+    if (['::1', '127.0.0.1', '::ffff:127.0.0.1'].includes(value)) {
+        return 'Localhost (::1)';
+    }
+    if (value.startsWith('::ffff:')) {
+        return value.slice('::ffff:'.length);
+    }
+    return value;
+}
+
+function getDeviceInfo(req) {
+    return {
+        userAgent: req.headers['user-agent'],
+        browserHints: req.headers['sec-ch-ua'],
+        platform: req.headers['sec-ch-ua-platform'],
+        ip: getClientIp(req),
+    };
+}
+
 class AuthController {
     cookieOptions = {
         httpOnly: true,
@@ -33,10 +73,7 @@ class AuthController {
     login = async (req, res, next) => {
         try {
             const validatedData = loginSchema.parse(req.body);
-            const deviceInfo = {
-                userAgent: req.headers['user-agent'],
-                ip: req.ip,
-            };
+            const deviceInfo = getDeviceInfo(req);
 
             const { user, accessToken, refreshToken } = await authService.login(
                 validatedData.email,
@@ -54,10 +91,7 @@ class AuthController {
     googleLogin = async (req, res, next) => {
         try {
             const { credential } = googleLoginSchema.parse(req.body);
-            const deviceInfo = {
-                userAgent: req.headers['user-agent'],
-                ip: req.ip,
-            };
+            const deviceInfo = getDeviceInfo(req);
 
             const { user, accessToken, refreshToken } = await authService.googleLogin(credential, deviceInfo);
 
@@ -75,10 +109,7 @@ class AuthController {
                 throw new AppError('Refresh token not found', 401, ErrorCodes.AUTH_INVALID_TOKEN);
             }
 
-            const deviceInfo = {
-                userAgent: req.headers['user-agent'],
-                ip: req.ip,
-            };
+            const deviceInfo = getDeviceInfo(req);
 
             const { accessToken, refreshToken } = await authService.refresh(token, deviceInfo);
 
