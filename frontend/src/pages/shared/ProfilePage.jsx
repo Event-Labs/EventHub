@@ -1,5 +1,5 @@
 import { clearAuthSession, getAuthToken, getStoredUserKey, getUserRoles, updateStoredUser } from '@/lib/auth.js'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import {
@@ -29,17 +29,26 @@ import {
   Phone,
   Save,
   ShieldCheck,
-  Shield,
   Ticket,
   UserCircle,
   Users,
   X,
 } from 'lucide-react'
-import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
-import { uploadAvatar } from '@/services/uploads.js'
+import {
+  getProfile,
+  updateProfile,
+  changePassword,
+  getSecurityStatus,
+  checkSecurity,
+  startTwoFactor,
+  verifyTwoFactor,
+} from '@/services/user.service.js'
+import { uploadAvatar, uploadOrganizerDocument } from '@/services/uploads.js'
 import { fetchOrganizerProfile, updateOrganizerProfile } from '@/services/organizerEvents.js'
+import { submitOrganizerProfileUpdateRequest } from '@/services/organizerRequests.js'
 import { fetchMyTickets } from '@/services/tickets.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
+import { Modal } from '@/components/Modal.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
@@ -159,7 +168,7 @@ export function ProfilePage() {
         )}
       </div>
 
-      {mode === 'view' && isOrganizer && (
+      {isOrganizer && (
         <OrganizerProfileView
           user={user}
           organizer={organizerQuery.data}
@@ -168,7 +177,7 @@ export function ProfilePage() {
           onRetry={() => queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })}
         />
       )}
-      {mode === 'view' && !isOrganizer && (
+      {!isOrganizer && (
         <ProfileView
           user={user}
           tickets={customerTicketsQuery.data || []}
@@ -177,13 +186,13 @@ export function ProfilePage() {
           onChangePassword={() => setMode('password')}
         />
       )}
-      {mode === 'edit' && isOrganizer && organizerQuery.isLoading && (
+      {false && mode === 'edit' && isOrganizer && organizerQuery.isLoading && (
         <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-lg border border-border-soft/50 bg-surface p-6 shadow-sm">
           <Loader2 className="size-8 animate-spin text-primary" />
           <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
         </div>
       )}
-      {mode === 'edit' && (!isOrganizer || !organizerQuery.isLoading) && (
+      {false && mode === 'edit' && (!isOrganizer || !organizerQuery.isLoading) && (
         <ProfileEdit
           user={user}
           organizer={organizerQuery.data}
@@ -195,13 +204,51 @@ export function ProfilePage() {
           }}
         />
       )}
-      {mode === 'password' && <ChangePassword user={user} onDone={() => setMode('view')} />}
+      {false && mode === 'password' && <ChangePassword user={user} onDone={() => setMode('view')} />}
+
+      <Modal open={mode === 'edit'} title="Chỉnh sửa hồ sơ" onClose={() => setMode('view')} maxWidth="max-w-5xl">
+        {isOrganizer && organizerQuery.isLoading ? (
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
+          </div>
+        ) : (
+          <ProfileEdit
+            user={user}
+            organizer={organizerQuery.data}
+            isOrganizer={isOrganizer}
+            onDone={() => {
+              setMode('view')
+              queryClient.invalidateQueries({ queryKey: ['profile'] })
+              queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })
+            }}
+          />
+        )}
+      </Modal>
+
+      <Modal open={mode === 'password'} title="Đổi mật khẩu" onClose={() => setMode('view')} maxWidth="max-w-2xl">
+        <ChangePassword user={user} onDone={() => setMode('view')} />
+      </Modal>
     </div>
   )
 }
 
 function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
+  const queryClient = useQueryClient()
+  const toast = useToast()
   const [openSections, setOpenSections] = useState(() => new Set())
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false)
+  const profileUpdateMutation = useMutation({
+    mutationFn: submitOrganizerProfileUpdateRequest,
+    onSuccess: () => {
+      toast.success('Đã gửi yêu cầu cập nhật hồ sơ xác minh. Vui lòng chờ admin duyệt.')
+      setVerificationModalOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể gửi yêu cầu cập nhật hồ sơ xác minh.'))
+    },
+  })
 
   if (isLoading) {
     return (
@@ -240,7 +287,11 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
   const businessEmail = firstValue(request.business_email, organizer?.business_email)
   const description = firstValue(organizer?.description, request.organization_description, user.bio)
   const address = formatProfileAddress(user, organizer)
-
+  const pendingProfileUpdate = history.find(
+    (item) =>
+      String(item.request_action || '').toUpperCase() === 'PROFILE_UPDATE' &&
+      String(item.status || '').toUpperCase() === 'PENDING',
+  )
   const toggleSection = (sectionId) => {
     setOpenSections((current) => {
       const next = new Set(current)
@@ -279,6 +330,8 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
       </section>
 
       <div className="space-y-2">
+        <AccountSecurityPanel user={user} />
+
         <AccordionSection
           id="overview"
           title="Thông tin tổng quan"
@@ -318,18 +371,22 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           isOpen={openSections.has('legal')}
           onToggle={toggleSection}
         >
+          <VerificationUpdateHeader
+            pending={pendingProfileUpdate}
+            onOpen={() => setVerificationModalOpen(true)}
+          />
           <div className="organizer-info-grid organizer-info-grid-3">
             {isPersonal ? (
               <>
-                <Info icon={UserCircle} label="Họ tên pháp lý" value={firstValue(request.individual_full_name, organizer?.individual_full_name)} />
-                <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={firstValue(request.individual_identity_number, organizer?.individual_identity_number)} />
-                <Info icon={IdCard} label="Mã số thuế cá nhân" value={firstValue(request.individual_tax_code, organizer?.individual_tax_code)} />
+                <Info icon={UserCircle} label="Họ tên pháp lý" value={organizer?.individual_full_name} />
+                <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={organizer?.individual_identity_number} />
+                <Info icon={IdCard} label="Mã số thuế cá nhân" value={organizer?.individual_tax_code} />
               </>
             ) : (
               <>
-                <Info icon={UserCircle} label="Người đại diện pháp luật" value={firstValue(request.legal_representative_name, organizer?.legal_representative_name)} />
-                <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={firstValue(request.legal_representative_position, organizer?.legal_representative_position)} />
-                <Info icon={IdCard} label="Mã số thuế" value={firstValue(request.tax_code, organizer?.tax_code)} />
+                <Info icon={UserCircle} label="Người đại diện pháp luật" value={organizer?.legal_representative_name} />
+                <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={organizer?.legal_representative_position} />
+                <Info icon={IdCard} label="Mã số thuế" value={organizer?.tax_code} />
               </>
             )}
           </div>
@@ -342,19 +399,23 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           isOpen={openSections.has('documents')}
           onToggle={toggleSection}
         >
+          <VerificationUpdateHeader
+            pending={pendingProfileUpdate}
+            onOpen={() => setVerificationModalOpen(true)}
+          />
           <div className="organizer-document-list">
             {isPersonal ? (
               <>
-                <DocumentCard label="Ảnh CCCD mặt trước" url={firstValue(request.individual_id_front_url, organizer?.individual_id_front_url)} uploadedAt={request.created_at} />
-                <DocumentCard label="Ảnh CCCD mặt sau" url={firstValue(request.individual_id_back_url, organizer?.individual_id_back_url)} uploadedAt={request.created_at} />
-                <DocumentCard label="Ảnh chân dung/tự chụp" url={firstValue(request.individual_selfie_url, organizer?.individual_selfie_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Ảnh CCCD mặt trước" url={organizer?.individual_id_front_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label="Ảnh CCCD mặt sau" url={organizer?.individual_id_back_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label="Ảnh chân dung/tự chụp" url={organizer?.individual_selfie_url} uploadedAt={organizer?.updated_at || request.created_at} />
               </>
             ) : (
               <>
-                <DocumentCard label="Giấy ĐKDN/ERC" url={firstValue(request.legal_document_url, organizer?.legal_document_url)} uploadedAt={request.created_at} />
-                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={firstValue(request.business_license_url, organizer?.business_license_url)} uploadedAt={request.created_at} />
-                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={firstValue(request.legal_representative_id_url, organizer?.legal_representative_id_url)} uploadedAt={request.created_at} />
-                <DocumentCard label="Giấy ủy quyền" url={firstValue(request.authorization_letter_url, organizer?.authorization_letter_url)} uploadedAt={request.created_at} />
+                <DocumentCard label="Giấy ĐKDN/ERC" url={organizer?.legal_document_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={organizer?.business_license_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={organizer?.legal_representative_id_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label="Giấy ủy quyền" url={organizer?.authorization_letter_url} uploadedAt={organizer?.updated_at || request.created_at} />
               </>
             )}
           </div>
@@ -403,7 +464,283 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           </div>
         </AccordionSection>
       </div>
+
+      <Modal
+        open={verificationModalOpen}
+        title="Yêu cầu cập nhật hồ sơ xác minh"
+        onClose={() => setVerificationModalOpen(false)}
+        maxWidth="max-w-4xl"
+      >
+        <OrganizerVerificationUpdateForm
+          organizer={organizer}
+          request={request}
+          isPersonal={isPersonal}
+          pending={pendingProfileUpdate}
+          isSubmitting={profileUpdateMutation.isPending}
+          onCancel={() => setVerificationModalOpen(false)}
+          onSubmit={(payload) => profileUpdateMutation.mutate(payload)}
+        />
+      </Modal>
     </div>
+  )
+}
+
+function VerificationUpdateHeader({ pending, onOpen }) {
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border-soft/40 bg-panel-soft p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-bold text-content">
+          {pending ? 'Yêu cầu cập nhật đang chờ admin duyệt' : 'Thông tin này chỉ thay đổi sau khi admin duyệt'}
+        </p>
+        <p className="mt-1 text-sm text-subtle">
+          {pending
+            ? `Nội dung chờ duyệt: ${valueOrEmpty(pending.change_summary)}`
+            : 'Bạn có thể gửi yêu cầu cập nhật hồ sơ pháp lý và hồ sơ xác minh tại đây.'}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={Boolean(pending)}
+        className="inline-flex items-center justify-center gap-2 rounded-md border border-sky-300/40 bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-900/20 transition-all hover:-translate-y-0.5 hover:from-sky-400 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+      >
+        <Pencil className="size-4" />
+        Yêu cầu cập nhật
+      </button>
+    </div>
+  )
+}
+
+function OrganizerVerificationUpdateForm({
+  organizer,
+  request,
+  isPersonal,
+  pending,
+  isSubmitting,
+  onCancel,
+  onSubmit,
+}) {
+  const toast = useToast()
+  const [form, setForm] = useState(() => ({
+    individual_full_name: firstValue(organizer?.individual_full_name, request?.individual_full_name, ''),
+    individual_identity_number: firstValue(organizer?.individual_identity_number, request?.individual_identity_number, ''),
+    individual_tax_code: firstValue(organizer?.individual_tax_code, request?.individual_tax_code, ''),
+    individual_id_front_url: firstValue(organizer?.individual_id_front_url, request?.individual_id_front_url, ''),
+    individual_id_back_url: firstValue(organizer?.individual_id_back_url, request?.individual_id_back_url, ''),
+    individual_selfie_url: firstValue(organizer?.individual_selfie_url, request?.individual_selfie_url, ''),
+    legal_representative_name: firstValue(organizer?.legal_representative_name, request?.legal_representative_name, ''),
+    legal_representative_position: firstValue(organizer?.legal_representative_position, request?.legal_representative_position, ''),
+    tax_code: firstValue(organizer?.tax_code, request?.tax_code, ''),
+    legal_document_url: firstValue(organizer?.legal_document_url, request?.legal_document_url, ''),
+    business_license_url: firstValue(organizer?.business_license_url, request?.business_license_url, ''),
+    legal_representative_id_url: firstValue(organizer?.legal_representative_id_url, request?.legal_representative_id_url, ''),
+    authorization_letter_url: firstValue(organizer?.authorization_letter_url, request?.authorization_letter_url, ''),
+  }))
+  const [selectedDocuments, setSelectedDocuments] = useState({})
+  const [isUploadingDocuments, setIsUploadingDocuments] = useState(false)
+
+  const updateField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const updateDocument = (field, file) => {
+    setSelectedDocuments((current) => ({ ...current, [field]: file || null }))
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    const requestType = isPersonal ? 'INDIVIDUAL' : 'ORGANIZATION'
+    const fields = isPersonal
+      ? [
+          'individual_full_name',
+          'individual_identity_number',
+          'individual_tax_code',
+          'individual_id_front_url',
+          'individual_id_back_url',
+          'individual_selfie_url',
+        ]
+      : [
+          'legal_representative_name',
+          'legal_representative_position',
+          'tax_code',
+          'legal_document_url',
+          'business_license_url',
+          'legal_representative_id_url',
+          'authorization_letter_url',
+        ]
+
+    const imageOnlyFields = new Set([
+      'individual_id_front_url',
+      'individual_id_back_url',
+      'individual_selfie_url',
+      'legal_representative_id_url',
+    ])
+
+    try {
+      setIsUploadingDocuments(true)
+      const documentUrls = {}
+
+      for (const field of fields) {
+        const selectedFile = selectedDocuments[field]
+        if (selectedFile) {
+          const uploaded = await uploadOrganizerDocument(selectedFile, {
+            imageOnly: imageOnlyFields.has(field),
+          })
+          documentUrls[field] = uploaded.secure_url || uploaded.url
+        } else {
+          documentUrls[field] = String(form[field] || '').trim()
+        }
+      }
+
+      onSubmit({
+        request_type: requestType,
+        ...documentUrls,
+      })
+    } catch (err) {
+      toast.error(err.message || 'Không thể tải hồ sơ xác minh lên Cloudinary.')
+    } finally {
+      setIsUploadingDocuments(false)
+    }
+  }
+
+  if (pending) {
+    return (
+      <div className="rounded-lg border border-warning/30 bg-warning/10 p-5 text-content">
+        <p className="font-bold">Bạn đã có yêu cầu cập nhật đang chờ duyệt.</p>
+        <p className="mt-2 text-sm text-subtle">Nội dung chờ duyệt: {valueOrEmpty(pending.change_summary)}</p>
+        <div className="mt-5 flex justify-end">
+          <button type="button" onClick={onCancel} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft">
+            Đóng
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6 text-content">
+      <div className="rounded-lg border border-border-soft/50 bg-panel-soft p-5">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+            <IdCard className="size-5" />
+          </span>
+          <div>
+            <h3 className="font-display text-xl font-bold text-content">Thông tin pháp lý</h3>
+            <p className="mt-1 text-sm text-subtle">Thông tin mới sẽ được gửi cho admin duyệt trước khi trở thành chính thức.</p>
+          </div>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          {isPersonal ? (
+            <>
+              <Input label="Họ tên pháp lý" value={form.individual_full_name} onChange={(event) => updateField('individual_full_name', event.target.value)} />
+              <Input label="Số CCCD/Hộ chiếu" value={form.individual_identity_number} onChange={(event) => updateField('individual_identity_number', event.target.value)} />
+              <Input label="Mã số thuế cá nhân" value={form.individual_tax_code} onChange={(event) => updateField('individual_tax_code', event.target.value)} />
+            </>
+          ) : (
+            <>
+              <Input label="Người đại diện pháp luật" value={form.legal_representative_name} onChange={(event) => updateField('legal_representative_name', event.target.value)} />
+              <Input label="Chức vụ người đại diện" value={form.legal_representative_position} onChange={(event) => updateField('legal_representative_position', event.target.value)} />
+              <Input label="Mã số thuế" value={form.tax_code} onChange={(event) => updateField('tax_code', event.target.value)} />
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border-soft/50 bg-panel-soft p-5">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+            <FileCheck2 className="size-5" />
+          </span>
+          <h3 className="font-display text-xl font-bold text-content">Hồ sơ xác minh</h3>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          {isPersonal ? (
+            <>
+              <DocumentUploadInput label="Ảnh CCCD mặt trước" file={selectedDocuments.individual_id_front_url} existingUrl={form.individual_id_front_url} imageOnly onChange={(file) => updateDocument('individual_id_front_url', file)} />
+              <DocumentUploadInput label="Ảnh CCCD mặt sau" file={selectedDocuments.individual_id_back_url} existingUrl={form.individual_id_back_url} imageOnly onChange={(file) => updateDocument('individual_id_back_url', file)} />
+              <DocumentUploadInput label="Ảnh chân dung/tự chụp" file={selectedDocuments.individual_selfie_url} existingUrl={form.individual_selfie_url} imageOnly onChange={(file) => updateDocument('individual_selfie_url', file)} />
+            </>
+          ) : (
+            <>
+              <DocumentUploadInput label="Giấy ĐKDN/ERC" file={selectedDocuments.legal_document_url} existingUrl={form.legal_document_url} onChange={(file) => updateDocument('legal_document_url', file)} />
+              <DocumentUploadInput label="Giấy phép kinh doanh đặc thù" file={selectedDocuments.business_license_url} existingUrl={form.business_license_url} onChange={(file) => updateDocument('business_license_url', file)} />
+              <DocumentUploadInput label="Giấy tờ tùy thân người đại diện" file={selectedDocuments.legal_representative_id_url} existingUrl={form.legal_representative_id_url} imageOnly onChange={(file) => updateDocument('legal_representative_id_url', file)} />
+              <DocumentUploadInput label="Giấy ủy quyền" file={selectedDocuments.authorization_letter_url} existingUrl={form.authorization_letter_url} onChange={(file) => updateDocument('authorization_letter_url', file)} />
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button type="button" onClick={onCancel} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft" disabled={isSubmitting || isUploadingDocuments}>
+          Hủy
+        </button>
+        <button type="submit" disabled={isSubmitting || isUploadingDocuments} className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70">
+          {isSubmitting || isUploadingDocuments ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+          {isUploadingDocuments ? 'Đang tải file...' : isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu duyệt'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function DocumentUploadInput({ label, file, existingUrl, imageOnly = false, onChange }) {
+  const [previewUrl, setPreviewUrl] = useState('')
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl('')
+      return undefined
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setPreviewUrl('')
+      return undefined
+    }
+
+    const nextUrl = URL.createObjectURL(file)
+    setPreviewUrl(nextUrl)
+    return () => URL.revokeObjectURL(nextUrl)
+  }, [file])
+
+  const preview = previewUrl || (isImageUrl(existingUrl) ? existingUrl : '')
+  const hasExisting = Boolean(existingUrl)
+
+  return (
+    <label className="block space-y-2">
+      <span className="text-sm font-semibold text-muted">{label}</span>
+      <div className="rounded-lg border border-border-soft/50 bg-surface p-3">
+        {preview ? (
+          <img src={preview} alt={file?.name || label} className="mb-3 h-40 w-full rounded-md border border-border-soft/50 object-cover" />
+        ) : (
+          <div className="mb-3 grid h-40 place-items-center rounded-md border border-dashed border-border-soft/60 bg-panel-soft px-3 text-center text-sm font-semibold text-subtle">
+            {file?.name || (hasExisting ? 'Đã có file hồ sơ' : 'Chưa chọn file')}
+          </div>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="file"
+            accept={imageOnly ? 'image/png,image/jpeg,image/webp' : '.pdf,.docx,image/png,image/jpeg,image/webp'}
+            onChange={(event) => onChange(event.target.files?.[0] || null)}
+            className="block min-w-0 flex-1 text-sm text-subtle file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-primary/90"
+          />
+          {file && (
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="rounded-md border border-border-soft/50 px-3 py-2 text-sm font-bold text-content transition hover:bg-panel-soft"
+            >
+              Bỏ chọn
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-subtle">
+          {imageOnly ? 'Chọn ảnh JPG, PNG hoặc WEBP.' : 'Chọn PDF, DOCX hoặc ảnh JPG/PNG/WEBP.'}
+        </p>
+      </div>
+    </label>
   )
 }
 
@@ -536,9 +873,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, onEdit, onCha
             <CustomerInfoCard icon={MapPin} label="Địa chỉ" value={user.address} className="md:col-span-2" />
           </CustomerInfoSection>
 
-          <CustomerInfoSection title="Bảo mật tài khoản" icon={ShieldCheck} tone="green">
-            <CustomerInfoCard icon={Shield} label="Xác thực 2 lớp" value="Chưa kích hoạt" valueClassName="text-warning" />
-          </CustomerInfoSection>
+          <AccountSecurityPanel user={user} />
         </div>
       </div>
     </div>
@@ -601,6 +936,253 @@ function CustomerInfoCard({ icon: Icon, label, value, className = '', linkType, 
       </div>
     </div>
   )
+}
+
+function AccountSecurityPanel({ user }) {
+  const toast = useToast()
+  const queryClient = useQueryClient()
+  const userKey = getStoredUserKey(user)
+  const [otpFlow, setOtpFlow] = useState(null)
+  const [otp, setOtp] = useState('')
+  const [cooldown, setCooldown] = useState(0)
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [verifyingOtp, setVerifyingOtp] = useState(false)
+  const startPendingRef = useRef(false)
+  const verifyPendingRef = useRef(false)
+
+  const securityQuery = useQuery({
+    queryKey: ['account-security', userKey],
+    queryFn: getSecurityStatus,
+    enabled: Boolean(userKey),
+    retry: false,
+  })
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined
+    const timer = window.setTimeout(() => setCooldown((current) => Math.max(current - 1, 0)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [cooldown])
+
+  const refreshSecurity = async () => {
+    try {
+      await queryClient.fetchQuery({
+        queryKey: ['account-security', userKey],
+        queryFn: checkSecurity,
+      })
+      toast.success('Kiểm tra bảo mật hoàn tất.')
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể kiểm tra bảo mật.'))
+    }
+  }
+
+  const startOtp = async (enabled = true) => {
+    if (startPendingRef.current) return
+    startPendingRef.current = true
+    setOtp('')
+    setCooldown(60)
+    setSendingOtp(true)
+    setOtpFlow({
+      enabled,
+      email: user?.email || 'email tài khoản',
+      challengeId: null,
+      pending: true,
+    })
+
+    try {
+      const data = await startTwoFactor(enabled)
+      if (data.alreadyEnabled !== undefined) {
+        toast.success(data.enabled ? 'Xác thực 2 lớp đã được bật.' : 'Xác thực 2 lớp đang tắt.')
+        setOtpFlow(null)
+        setCooldown(0)
+        await queryClient.invalidateQueries({ queryKey: ['account-security', userKey] })
+        await queryClient.invalidateQueries({ queryKey: ['profile', userKey] })
+        return
+      }
+
+      setOtpFlow({ ...data, enabled })
+      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`)
+    } catch (err) {
+      setOtpFlow((current) => current ? { ...current, pending: false, sendFailed: true } : current)
+      toast.error(getApiMessage(err, 'Không thể gửi mã OTP. Vui lòng thử lại.'))
+    } finally {
+      startPendingRef.current = false
+      setSendingOtp(false)
+    }
+  }
+
+  const verifyOtp = async () => {
+    if (!otpFlow?.challengeId || otp.length !== 6) return
+    if (verifyPendingRef.current) return
+    verifyPendingRef.current = true
+    setVerifyingOtp(true)
+
+    try {
+      const data = await verifyTwoFactor({ challengeId: otpFlow.challengeId, otp })
+      setOtpFlow(null)
+      setOtp('')
+      setCooldown(0)
+      toast.success(data.enabled ? 'Đã bật xác thực 2 lớp.' : 'Đã tắt xác thực 2 lớp.')
+      await queryClient.invalidateQueries({ queryKey: ['account-security', userKey] })
+      await queryClient.invalidateQueries({ queryKey: ['profile', userKey] })
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+    } finally {
+      verifyPendingRef.current = false
+      setVerifyingOtp(false)
+    }
+  }
+
+  const security = securityQuery.data || createEmptyAccountSecurity()
+  const items = Array.isArray(security.items) && security.items.length ? security.items : createInitialAccountSecurityItems(user)
+  const twoFactorEnabled = Boolean(user?.two_factor_enabled || items.find((item) => item.key === 'two_factor')?.status === 'passed')
+  const score = Number(security.score ?? items.filter((item) => item.status === 'passed').length)
+  const total = Number(security.total ?? items.length)
+
+  return (
+    <section className="customer-profile-panel rounded-lg border p-5 text-content">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <span className="customer-section-icon customer-tone-green grid size-10 place-items-center rounded-md">
+            <ShieldCheck className="size-5" />
+          </span>
+          <div>
+            <h2 className="customer-panel-title font-display text-xl font-extrabold">Bảo mật tài khoản</h2>
+            <p className="mt-1 text-sm text-subtle">Hoàn thành {score}/{total} hạng mục bảo mật.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={refreshSecurity}
+          disabled={securityQuery.isFetching}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border-soft/40 px-4 py-2 text-sm font-extrabold text-content transition hover:border-primary/60 hover:bg-panel-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {securityQuery.isFetching ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+          Kiểm tra bảo mật
+        </button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {items.map((item) => (
+          <SecurityMiniItem key={item.key || item.label} item={item} />
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-lg border border-border-soft/30 bg-background/30 p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-extrabold text-content">Xác thực 2 lớp qua OTP email</p>
+            <p className="mt-1 text-sm text-subtle">
+              {twoFactorEnabled ? 'Đang bật. Khi đăng nhập, tài khoản sẽ cần nhập OTP email.' : 'Chưa bật. Bật OTP email để tăng bảo vệ tài khoản.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => startOtp(!twoFactorEnabled)}
+            disabled={sendingOtp || verifyingOtp}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {twoFactorEnabled ? 'Tắt 2FA' : 'Bật 2FA'}
+          </button>
+        </div>
+
+        {otpFlow && (
+          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/[0.06] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-extrabold">
+                  {sendingOtp ? 'Đang gửi mã OTP...' : otpFlow.sendFailed ? 'Chưa gửi được mã OTP' : 'Mã OTP đã được gửi'}
+                </p>
+                <p className="mt-1 text-sm text-subtle">
+                  {cooldown > 0 ? `Nếu chưa nhận được email, bạn có thể gửi lại sau ${cooldown}s.` : 'Nếu chưa nhận được email, bạn có thể gửi lại mã OTP.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => startOtp(Boolean(otpFlow.enabled))}
+                disabled={sendingOtp || cooldown > 0}
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cooldown > 0 ? `Gửi lại (${cooldown}s)` : 'Gửi lại OTP'}
+              </button>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otp}
+                onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Nhập mã OTP"
+                className="h-11 flex-1 rounded-md border border-border-soft/40 bg-background/35 px-4 text-sm font-semibold text-content outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              />
+              <button
+                type="button"
+                onClick={verifyOtp}
+                disabled={verifyingOtp || sendingOtp || !otpFlow.challengeId || otp.length !== 6}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-extrabold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {verifyingOtp && <Loader2 className="size-4 animate-spin" />}
+                Xác nhận OTP
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpFlow(null)
+                  setOtp('')
+                  setCooldown(0)
+                }}
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-border-soft/40 px-5 py-2 text-sm font-extrabold text-content transition hover:bg-panel-soft"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function SecurityMiniItem({ item }) {
+  const normalized = String(item.status || '').toLowerCase()
+  const config = {
+    passed: ['Đạt', 'text-success', CheckCircle2],
+    warning: ['Cần chú ý', 'text-warning', AlertCircle],
+    danger: ['Nguy hiểm', 'text-error', AlertCircle],
+    disabled: ['Chưa hỗ trợ', 'text-muted', InfoIcon],
+  }[normalized] || ['Cần chú ý', 'text-warning', AlertCircle]
+  const [label, className, Icon] = config
+
+  return (
+    <div className="rounded-lg border border-border-soft/30 bg-background/30 p-3">
+      <div className="flex items-start gap-3">
+        <Icon className={`mt-0.5 size-5 shrink-0 ${className}`} />
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-extrabold text-content">{item.label}</p>
+            <span className={`text-xs font-extrabold ${className}`}>{label}</span>
+          </div>
+          <p className="mt-1 break-words text-sm text-subtle">{item.message}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function createEmptyAccountSecurity() {
+  return { score: 0, total: 6, items: [] }
+}
+
+function createInitialAccountSecurityItems(user) {
+  return [
+    {
+      key: 'two_factor',
+      label: 'Xác thực 2 lớp',
+      status: user?.two_factor_enabled ? 'passed' : 'warning',
+      message: user?.two_factor_enabled ? 'Tài khoản đã bật xác thực 2 lớp qua OTP email.' : 'Bạn chưa bật xác thực 2 lớp.',
+    },
+  ]
 }
 
 function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
@@ -852,11 +1434,11 @@ function ChangePassword({ user, onDone }) {
   }
 
   return (
-    <section className="mx-auto max-w-xl rounded-lg border border-border-soft/50 bg-surface p-6 text-content shadow-sm">
-      <h2 className="text-center font-display text-2xl font-bold text-content">
+    <div className="text-content">
+      <h2 className="sr-only">
         {hasPassword ? 'Đổi mật khẩu' : 'Thiết lập mật khẩu mới'}
       </h2>
-      <p className="mt-2 text-center text-sm text-subtle">
+      <p className="text-sm leading-6 text-subtle">
         {hasPassword
           ? 'Cập nhật mật khẩu định kỳ để tăng cường bảo mật.'
           : 'Bạn đang đăng nhập bằng Google, hãy thiết lập mật khẩu để có thể đăng nhập trực tiếp bằng email.'}
@@ -899,7 +1481,7 @@ function ChangePassword({ user, onDone }) {
           </button>
         </div>
       </form>
-    </section>
+    </div>
   )
 }
 
@@ -938,14 +1520,22 @@ function DocumentCard({ label, url, uploadedAt }) {
   const hasUrl = displayUrl !== EMPTY_TEXT
   const href = hasUrl ? normalizeUrl(displayUrl) : ''
   const uploadedDate = hasUrl ? formatDateTime(uploadedAt) : EMPTY_TEXT
+  const isImage = hasUrl && isImageUrl(displayUrl)
 
   return (
-    <div className="organizer-document-row">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="organizer-document-icon grid size-8 shrink-0 place-items-center rounded-md">
-          <FileText className="size-4" />
-        </span>
-        <span className="organizer-info-value break-words text-sm font-semibold">{label}</span>
+    <div className={`organizer-document-row ${isImage ? 'items-start' : ''}`}>
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="organizer-document-icon grid size-8 shrink-0 place-items-center rounded-md">
+            <FileText className="size-4" />
+          </span>
+          <span className="organizer-info-value break-words text-sm font-semibold">{label}</span>
+        </div>
+        {isImage && (
+          <a href={href} target="_blank" rel="noreferrer" className="mt-3 block">
+            <img src={displayUrl} alt={label} className="h-32 w-52 rounded-lg border border-border-soft/50 object-cover" />
+          </a>
+        )}
       </div>
       <div className="organizer-document-date hidden text-sm font-medium md:block">
         {uploadedDate}
@@ -964,6 +1554,7 @@ function DocumentCard({ label, url, uploadedAt }) {
 
 function ReviewHistoryCard({ request, index }) {
   const rejected = String(request.status || '').toUpperCase() === 'REJECTED'
+  const changeSummary = valueOrEmpty(request.change_summary)
 
   return (
     <div className={`rounded-lg border p-4 ${rejected ? 'border-error/30 bg-error/10' : 'organizer-history-card'}`}>
@@ -972,6 +1563,7 @@ function ReviewHistoryCard({ request, index }) {
           <p className="organizer-info-empty text-xs font-bold uppercase tracking-wide">Yêu cầu {index + 1}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusPill status={request.status} />
+            <span className="organizer-profile-label text-sm font-semibold">{requestActionLabel(request.request_action)}</span>
             <span className="organizer-profile-label text-sm font-semibold">{organizerTypeLabel(request.request_type)}</span>
           </div>
         </div>
@@ -980,6 +1572,12 @@ function ReviewHistoryCard({ request, index }) {
           <CompactLine icon={Clock} label="Ngày xử lý" value={formatDateTime(request.reviewed_at)} />
         </div>
       </div>
+      {changeSummary !== EMPTY_TEXT && (
+        <div className="mt-4 rounded-lg border border-border-soft/40 bg-panel-soft p-4">
+          <p className="text-sm font-bold text-content">Nội dung xét duyệt</p>
+          <p className="organizer-info-value mt-1 whitespace-pre-line text-sm leading-6">{changeSummary}</p>
+        </div>
+      )}
       {rejected && (
         <div className="mt-4 rounded-lg border border-error/30 bg-error/10 p-4">
           <p className="text-sm font-bold text-error">Lý do từ chối</p>
@@ -1089,6 +1687,12 @@ function organizerTypeLabel(type) {
   return EMPTY_TEXT
 }
 
+function requestActionLabel(action) {
+  const normalized = String(action || 'APPLICATION').toUpperCase()
+  if (normalized === 'PROFILE_UPDATE') return 'Cập nhật hồ sơ pháp lý/xác minh'
+  return 'Đăng ký nhà tổ chức'
+}
+
 function requestStatusLabel(status) {
   const normalized = String(status || '').toLowerCase()
   const map = {
@@ -1146,6 +1750,14 @@ function normalizeUrl(url) {
   const text = valueOrEmpty(url)
   if (text === EMPTY_TEXT) return undefined
   return /^https?:\/\//i.test(text) ? text : `https://${text}`
+}
+
+function isImageUrl(url = '') {
+  return (
+    /\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url) ||
+    /\/image\/upload\//i.test(url) ||
+    /\/raw\/upload\/.*\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url)
+  )
 }
 
 function roleLabel(roles = []) {

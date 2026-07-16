@@ -5,6 +5,7 @@ const {
   requestIdSchema,
   reviewOrganizerRequestSchema,
   submitOrganizerRequestSchema,
+  organizerProfileUpdateSchema,
   verifyOrganizerBusinessEmailSchema,
 } = require('./organizerRequests.validation');
 
@@ -34,6 +35,16 @@ class OrganizerRequestsController {
       const payload = submitOrganizerRequestSchema.parse(req.body);
       const data = await organizerRequestsService.updateMyRequest(req.user.sub, id, payload);
       res.status(200).json(ApiResponse.success(data, 'Organizer request updated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  submitProfileUpdate = async (req, res, next) => {
+    try {
+      const payload = organizerProfileUpdateSchema.parse(req.body);
+      const data = await organizerRequestsService.submitProfileUpdateRequest(req.user.sub, payload);
+      res.status(201).json(ApiResponse.success(data, 'Organizer profile update request submitted successfully'));
     } catch (err) {
       next(err);
     }

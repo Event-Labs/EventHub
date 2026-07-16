@@ -73,7 +73,7 @@ export function LoginPage() {
       if (res.data?.requiresTwoFactor) {
         setOtpStep(res.data)
         setOtp('')
-        toast.success(`Mã OTP đã được gửi đến ${res.data.email || 'email quản trị'}.`)
+        toast.success(`Mã OTP đã được gửi đến ${res.data.email || 'email tài khoản'}.`)
         return
       }
       const { accessToken, user } = res.data
@@ -104,7 +104,7 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await authService.verifyAdminOtp({
+      const res = await authService.verifyLoginOtp({
         challengeId: otpStep.challengeId,
         otp,
       })
@@ -201,7 +201,7 @@ export function LoginPage() {
                   <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
                   <div>
                     <p className="font-bold">Xác thực 2 lớp</p>
-                    <p className="mt-1 text-muted">Nhập mã OTP 6 số đã gửi đến {otpStep.email || 'email quản trị'}.</p>
+                    <p className="mt-1 text-muted">Nhập mã OTP 6 số đã gửi đến {otpStep.email || 'email tài khoản'}.</p>
                   </div>
                 </div>
               </div>
