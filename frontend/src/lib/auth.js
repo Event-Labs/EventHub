@@ -3,6 +3,10 @@ const AUTH_USER_KEY = 'eventhub-user'
 const AUTH_FLAG_KEY = 'eventhub-auth'
 const REMEMBER_LOGIN_KEY = 'eventhub-remember-login'
 
+function dispatchAuthEvent(detail) {
+  window.dispatchEvent(new CustomEvent(AUTH_FLAG_KEY, { detail }))
+}
+
 function getStorageValue(key) {
   return localStorage.getItem(key) || sessionStorage.getItem(key)
 }
@@ -22,6 +26,10 @@ export function getStoredUser() {
   }
 }
 
+export function getStoredUserKey(user = getStoredUser()) {
+  return user?.id || user?.user_id || user?._id || user?.email || null
+}
+
 export function isAuthenticated() {
   return Boolean(getAuthToken())
 }
@@ -33,7 +41,7 @@ export function setAuthSession({ accessToken, user, remember = true }) {
   storage.setItem(AUTH_USER_KEY, JSON.stringify(user))
   storage.setItem(AUTH_FLAG_KEY, 'true')
   localStorage.setItem(REMEMBER_LOGIN_KEY, remember ? 'true' : 'false')
-  window.dispatchEvent(new Event(AUTH_FLAG_KEY))
+  dispatchAuthEvent({ type: 'login', userKey: getStoredUserKey(user) })
 }
 
 export function clearAuthSession({ dispatch = true } = {}) {
@@ -43,7 +51,7 @@ export function clearAuthSession({ dispatch = true } = {}) {
     storage.removeItem(AUTH_FLAG_KEY)
   }
   localStorage.setItem(AUTH_FLAG_KEY, 'false')
-  if (dispatch) window.dispatchEvent(new Event(AUTH_FLAG_KEY))
+  if (dispatch) dispatchAuthEvent({ type: 'logout' })
 }
 
 export function updateStoredUser(userPatch) {
@@ -51,7 +59,7 @@ export function updateStoredUser(userPatch) {
   const nextUser = { ...currentUser, ...userPatch }
   const storage = localStorage.getItem(AUTH_TOKEN_KEY) ? localStorage : sessionStorage
   storage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser))
-  window.dispatchEvent(new Event(AUTH_FLAG_KEY))
+  dispatchAuthEvent({ type: 'user-updated', userKey: getStoredUserKey(nextUser) })
   return nextUser
 }
 
