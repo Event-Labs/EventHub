@@ -201,7 +201,7 @@ export function ProfilePage() {
 }
 
 function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
-  const [openSections, setOpenSections] = useState(() => new Set(['overview', 'public', 'legal', 'documents']))
+  const [openSections, setOpenSections] = useState(() => new Set())
 
   if (isLoading) {
     return (

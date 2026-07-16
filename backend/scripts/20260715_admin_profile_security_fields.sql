@@ -9,8 +9,18 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS security_check_result JSONB;
 
 UPDATE users
-SET password_changed_at = COALESCE(updated_at, created_at, now())
+SET password_changed_at = COALESCE(created_at, now())
 WHERE password_changed_at IS NULL
+  AND password_hash IS NOT NULL
+  AND password_hash <> '*';
+
+UPDATE users
+SET password_changed_at = created_at
+WHERE password_changed_at IS NOT NULL
+  AND updated_at IS NOT NULL
+  AND created_at IS NOT NULL
+  AND password_changed_at = updated_at
+  AND created_at < password_changed_at
   AND password_hash IS NOT NULL
   AND password_hash <> '*';
 

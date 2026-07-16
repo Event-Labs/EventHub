@@ -1,5 +1,5 @@
-import { Eye, Lock, Mail } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Eye, Lock, Mail, ShieldCheck } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import heroImage from '@/assets/hero.png'
 import { clearAuthSession, getAuthToken, getPostLoginPath, getRememberLoginPreference, getStoredUser, setAuthSession } from '@/lib/auth.js'
@@ -21,6 +21,10 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [lockModalOpen, setLockModalOpen] = useState(false)
   const [lockData, setLockData] = useState(null)
+  const [otpStep, setOtpStep] = useState(null)
+  const [otp, setOtp] = useState('')
+  const loginPendingRef = useRef(false)
+  const otpPendingRef = useRef(false)
 
   useEffect(() => {
     const handleLockEvent = (e) => {
@@ -60,10 +64,18 @@ export function LoginPage() {
   }, [navigate, searchParams])
 
   const login = async () => {
+    if (loginPendingRef.current) return
+    loginPendingRef.current = true
     setError('')
     setLoading(true)
     try {
       const res = await authService.login(form)
+      if (res.data?.requiresTwoFactor) {
+        setOtpStep(res.data)
+        setOtp('')
+        toast.success(`Mã OTP đã được gửi đến ${res.data.email || 'email quản trị'}.`)
+        return
+      }
       const { accessToken, user } = res.data
       setAuthSession({ accessToken, user, remember: rememberLogin })
       toast.success('Đăng nhập thành công.')
@@ -79,6 +91,35 @@ export function LoginPage() {
       setError(message)
       toast.error(message)
     } finally {
+      loginPendingRef.current = false
+      setLoading(false)
+    }
+  }
+
+  const verifyOtp = async () => {
+    if (!otpStep?.challengeId) return
+    if (otpPendingRef.current) return
+    otpPendingRef.current = true
+
+    setError('')
+    setLoading(true)
+    try {
+      const res = await authService.verifyAdminOtp({
+        challengeId: otpStep.challengeId,
+        otp,
+      })
+      const { accessToken, user } = res.data
+      setAuthSession({ accessToken, user, remember: rememberLogin })
+      setOtpStep(null)
+      setOtp('')
+      toast.success('Xác thực OTP thành công.')
+      navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
+    } catch (err) {
+      const message = getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.')
+      setError(message)
+      toast.error(message)
+    } finally {
+      otpPendingRef.current = false
       setLoading(false)
     }
   }
@@ -146,9 +187,50 @@ export function LoginPage() {
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault()
-            login()
+            if (otpStep) {
+              verifyOtp()
+            } else {
+              login()
+            }
           }}
         >
+          {otpStep ? (
+            <>
+              <div className="rounded-md border border-primary/30 bg-primary/10 p-4 text-sm text-content">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
+                  <div>
+                    <p className="font-bold">Xác thực 2 lớp</p>
+                    <p className="mt-1 text-muted">Nhập mã OTP 6 số đã gửi đến {otpStep.email || 'email quản trị'}.</p>
+                  </div>
+                </div>
+              </div>
+              <Field
+                icon={ShieldCheck}
+                label="Mã OTP"
+                placeholder="123456"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                required
+                autoComplete="one-time-code"
+                value={otp}
+                onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpStep(null)
+                  setOtp('')
+                  setError('')
+                }}
+                className="text-sm font-bold text-primary hover:underline"
+              >
+                Đăng nhập bằng tài khoản khác
+              </button>
+            </>
+          ) : (
+            <>
           <Field
             icon={Mail}
             label="Email"
@@ -187,6 +269,8 @@ export function LoginPage() {
               Quên mật khẩu?
             </Link>
           </div>
+            </>
+          )}
           {error && (
             <div className="rounded-md border border-error/40 bg-error/10 p-3 text-sm text-error">
               {error}
@@ -194,10 +278,10 @@ export function LoginPage() {
           )}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (otpStep && otp.length !== 6)}
             className="w-full rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            {loading ? 'Đang đăng nhập...' : (otpStep ? 'Xác thực OTP' : 'Đăng nhập')}
           </button>
         </form>
         <p className="mt-6 text-center text-muted">
