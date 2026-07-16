@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Calendar, Home, LayoutDashboard, Settings, Settings2, ShoppingCart, User, Users } from 'lucide-react'
-import { getStoredUser, getUserRoles } from '@/lib/auth.js'
+import { getStoredUser, getStoredUserKey, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { fetchOrganizerProfile } from '@/services/organizerEvents.js'
@@ -64,16 +64,17 @@ const navSections = [
 
 export function OrganizerLayout() {
   const user = parseStoredUser()
+  const currentUserKey = getStoredUserKey(user)
   const roles = getUserRoles(user)
   const isAllowed = roles.some((role) => ['organizer', 'admin', 'super_admin'].includes(role))
   const profileQuery = useQuery({
-    queryKey: ['organizer-profile'],
+    queryKey: ['organizer-profile', currentUserKey],
     queryFn: fetchOrganizerProfile,
     enabled: isAllowed,
     retry: false,
   })
   const accountProfileQuery = useQuery({
-    queryKey: ['profile'],
+    queryKey: ['profile', currentUserKey],
     queryFn: getProfile,
     enabled: isAllowed,
     retry: false,
