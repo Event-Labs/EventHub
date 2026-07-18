@@ -1120,7 +1120,7 @@ function AccountSecurityPanel({ user }) {
                 type="button"
                 onClick={verifyOtp}
                 disabled={verifyingOtp || sendingOtp || !otpFlow.challengeId || otp.length !== 6}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-extrabold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-sky-300/40 bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-2 text-sm font-extrabold text-white shadow-lg shadow-sky-900/20 transition-all hover:-translate-y-0.5 hover:from-sky-400 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
                 {verifyingOtp && <Loader2 className="size-4 animate-spin" />}
                 Xác nhận OTP

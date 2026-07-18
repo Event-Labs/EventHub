@@ -46,14 +46,7 @@ const staffDirectBookingSchema = z.object({
     .string()
     .trim()
     .regex(/^(0|\+84)(3|5|7|8|9)[0-9]{8}$/),
-  buyer_email: z
-    .string()
-    .trim()
-    .email()
-    .max(255)
-    .optional()
-    .nullable()
-    .or(z.literal('')),
+  buyer_email: z.string().trim().email().max(255),
   internal_note: z.string().trim().max(1000).optional().nullable(),
   payment_method: z.enum(staffDirectPaymentMethods),
   items: z

@@ -10,6 +10,7 @@ router.get('/me', ticketsController.getMyTickets);
 router.post('/staff/verify-qr', authorize('STAFF'), ticketsController.staffVerifyTicketByQr);
 router.post('/staff/check-in/qr', authorize('STAFF'), ticketsController.staffCheckInByQr);
 router.post('/staff/search', authorize('STAFF'), ticketsController.staffSearchTickets);
+router.get('/staff/:ticketId', authorize('STAFF'), ticketsController.getStaffTicket);
 router.patch('/staff/:ticketId/check-in', authorize('STAFF'), ticketsController.staffCheckInTicket);
 router.get('/:ticketId', ticketsController.getTicketDetail);
 router.get('/:ticketId/download', ticketsController.downloadTicket);

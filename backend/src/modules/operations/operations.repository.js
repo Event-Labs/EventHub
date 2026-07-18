@@ -682,6 +682,179 @@ class OperationsRepository {
     return rows;
   }
 
+  async findStaffAssignedEvent(staffId, eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        e.id,
+        e.title,
+        e.slug,
+        e.short_description,
+        e.thumbnail_url,
+        e.banner_url,
+        e.status,
+        e.start_time,
+        e.end_time,
+        es.staff_role,
+        es.assigned_at,
+        venue_summary.venue_name,
+        venue_summary.address_line,
+        venue_summary.ward,
+        venue_summary.district,
+        venue_summary.city,
+        COALESCE(session_summary.sessions, '[]'::json) AS sessions
+      FROM event_staffs es
+      JOIN events e ON e.id = es.event_id
+      LEFT JOIN LATERAL (
+        SELECT v.name AS venue_name, v.address_line, v.ward, v.district, v.city
+        FROM event_sessions sess
+        JOIN venues v ON v.id = sess.venue_id
+        WHERE sess.event_id = e.id
+        ORDER BY sess.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', sess.id,
+            'name', sess.session_name,
+            'start_time', sess.start_time,
+            'end_time', sess.end_time,
+            'seat_map_id', sess.seat_map_id
+          )
+          ORDER BY sess.start_time ASC
+        ) AS sessions
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+      ) session_summary ON true
+      WHERE es.staff_id = $1
+        AND e.id = $2
+        AND e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
+      LIMIT 1
+      `,
+      [staffId, eventId],
+    );
+    return rows[0];
+  }
+
+  async getStaffCheckInReport(staffId, eventId = null) {
+    const params = [staffId, eventId];
+    const scope = `
+      JOIN events e ON e.id = t.event_id
+      JOIN event_staffs staff_scope
+        ON staff_scope.event_id = e.id
+       AND staff_scope.staff_id = $1
+      WHERE e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
+        AND ($2::uuid IS NULL OR e.id = $2::uuid)
+    `;
+
+    const [summaryResult, ticketTypesResult, recentResult, hourlyResult, staffResult] = await Promise.all([
+      db.query(
+        `
+        SELECT
+          COUNT(t.id) FILTER (WHERE t.status IN ('VALID', 'USED'))::int AS total_valid,
+          COUNT(t.id) FILTER (WHERE t.status = 'USED')::int AS checked_in,
+          COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int AS remaining,
+          COUNT(t.id) FILTER (WHERE t.status = 'CANCELLED')::int AS cancelled
+        FROM tickets t
+        ${scope}
+        `,
+        params,
+      ),
+      db.query(
+        `
+        SELECT
+          tt.id,
+          tt.name,
+          COUNT(t.id) FILTER (WHERE t.status IN ('VALID', 'USED'))::int AS total_valid,
+          COUNT(t.id) FILTER (WHERE t.status = 'USED')::int AS checked_in
+        FROM tickets t
+        JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        ${scope}
+        GROUP BY tt.id, tt.name
+        ORDER BY tt.name ASC
+        `,
+        params,
+      ),
+      db.query(
+        `
+        SELECT
+          t.id,
+          t.ticket_code,
+          COALESCE(t.attendee_name, o.buyer_name, 'Không rõ') AS attendee_name,
+          tt.name AS ticket_type_name,
+          COALESCE(cl.method::text, 'MANUAL') AS method,
+          t.checked_in_at,
+          checker.full_name AS checked_in_by_name,
+          e.id AS event_id,
+          e.title AS event_title
+        FROM tickets t
+        JOIN order_items oi ON oi.id = t.order_item_id
+        JOIN orders o ON o.id = oi.order_id
+        JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        LEFT JOIN checkin_logs cl ON cl.ticket_id = t.id
+        LEFT JOIN users checker ON checker.id = t.checked_in_by
+        ${scope}
+          AND t.status = 'USED'
+        ORDER BY t.checked_in_at DESC NULLS LAST
+        LIMIT 10
+        `,
+        params,
+      ),
+      db.query(
+        `
+        SELECT
+          date_trunc('hour', t.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS hour,
+          COUNT(*)::int AS count
+        FROM tickets t
+        ${scope}
+          AND t.status = 'USED'
+          AND t.checked_in_at IS NOT NULL
+        GROUP BY date_trunc('hour', t.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')
+        ORDER BY hour DESC
+        LIMIT 12
+        `,
+        params,
+      ),
+      eventId
+        ? db.query(
+            `
+            SELECT
+              u.id,
+              u.full_name,
+              u.email,
+              u.avatar_url,
+              es.staff_role,
+              es.assigned_at
+            FROM event_staffs es
+            JOIN users u ON u.id = es.staff_id
+            WHERE es.event_id = $1
+            ORDER BY es.assigned_at ASC
+            `,
+            [eventId],
+          )
+        : Promise.resolve({ rows: [] }),
+    ]);
+
+    return {
+      summary: summaryResult.rows[0],
+      ticket_types: ticketTypesResult.rows,
+      recent_checkins: recentResult.rows,
+      hourly_checkins: hourlyResult.rows.reverse(),
+      assigned_staff: staffResult.rows,
+    };
+  }
+
   async getStaffOverview(staffId) {
     const { rows } = await db.query(
       `
