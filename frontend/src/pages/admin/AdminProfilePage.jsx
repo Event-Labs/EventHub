@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
   AlertTriangle,
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { Page } from './AdminComponents'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
+import { Modal } from '@/components/Modal.jsx'
 import { adminProfileApi } from '@/services/adminProfile.js'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
@@ -49,6 +50,13 @@ export function AdminProfilePage() {
   const [loginSessions, setLoginSessions] = useState([])
   const [loadingSessions, setLoadingSessions] = useState(false)
   const [expandedSessionId, setExpandedSessionId] = useState(null)
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState(null)
+  const [twoFactorOtp, setTwoFactorOtp] = useState('')
+  const [savingTwoFactor, setSavingTwoFactor] = useState(false)
+  const [sendingTwoFactorOtp, setSendingTwoFactorOtp] = useState(false)
+  const [twoFactorCooldown, setTwoFactorCooldown] = useState(0)
+  const twoFactorStartPendingRef = useRef(false)
+  const twoFactorVerifyPendingRef = useRef(false)
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -78,6 +86,16 @@ export function AdminProfilePage() {
     }
     fetchProfile()
   }, [toast])
+
+  useEffect(() => {
+    if (twoFactorCooldown <= 0) return undefined
+
+    const timer = window.setTimeout(() => {
+      setTwoFactorCooldown((current) => Math.max(current - 1, 0))
+    }, 1000)
+
+    return () => window.clearTimeout(timer)
+  }, [twoFactorCooldown])
 
   const applySecuritySnapshot = (rawResult) => {
     const mappedItems = mapSecurityItemsToVietnamese(rawResult?.items || [])
@@ -236,11 +254,92 @@ export function AdminProfilePage() {
       const response = await adminProfileApi.listSessions()
       const sessions = response?.data?.data || response?.data || []
       setLoginSessions(Array.isArray(sessions) ? sessions : [])
-      setExpandedSessionId((current) => current || sessions?.[0]?.id || null)
+      setExpandedSessionId(null)
     } catch (err) {
       toast.error('Không thể tải danh sách phiên đăng nhập. Vui lòng thử lại.')
     } finally {
       setLoadingSessions(false)
+    }
+  }
+
+  const resetTwoFactorFlow = () => {
+    setMode('view')
+    setTwoFactorChallenge(null)
+    setTwoFactorOtp('')
+    setSendingTwoFactorOtp(false)
+    setTwoFactorCooldown(0)
+  }
+
+  const handleStartTwoFactor = async (enabled = true) => {
+    if (twoFactorStartPendingRef.current) return
+    twoFactorStartPendingRef.current = true
+    setMode('twoFactor')
+    setTwoFactorOtp('')
+    setTwoFactorCooldown(60)
+    setSendingTwoFactorOtp(true)
+    setTwoFactorChallenge({
+      enabled,
+      email: user?.email || 'email quản trị',
+      challengeId: null,
+      pending: true,
+    })
+    setSavingTwoFactor(true)
+    try {
+      const response = await adminProfileApi.startTwoFactor(enabled)
+      const data = response?.data?.data || response?.data || {}
+
+      if (data.alreadyEnabled !== undefined) {
+        toast.success(data.enabled ? 'Xác thực 2 lớp đã được bật.' : 'Xác thực 2 lớp đang tắt.')
+        resetTwoFactorFlow()
+        return
+      }
+
+      setTwoFactorChallenge({ ...data, enabled })
+      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email quản trị'}.`)
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể gửi mã OTP. Vui lòng thử lại.'))
+      setTwoFactorChallenge((current) => current ? {
+        ...current,
+        pending: false,
+        sendFailed: true,
+      } : current)
+    } finally {
+      twoFactorStartPendingRef.current = false
+      setSendingTwoFactorOtp(false)
+      setSavingTwoFactor(false)
+    }
+  }
+
+  const handleVerifyTwoFactor = async () => {
+    if (!twoFactorChallenge?.challengeId || twoFactorOtp.length !== 6) return
+    if (twoFactorVerifyPendingRef.current) return
+    twoFactorVerifyPendingRef.current = true
+
+    setSavingTwoFactor(true)
+    try {
+      const response = await adminProfileApi.verifyTwoFactor({
+        challengeId: twoFactorChallenge.challengeId,
+        otp: twoFactorOtp,
+      })
+      const data = response?.data?.data || response?.data || {}
+      setUser((current) => current ? { ...current, two_factor_enabled: Boolean(data.enabled) } : current)
+      setTwoFactorChallenge(null)
+      setTwoFactorOtp('')
+      setMode('view')
+      toast.success(data.enabled ? 'Đã bật xác thực 2 lớp.' : 'Đã tắt xác thực 2 lớp.')
+
+      try {
+        const securityResponse = await adminProfileApi.getSecurityStatus()
+        const rawSecurity = securityResponse?.data?.data || securityResponse?.data || {}
+        applySecuritySnapshot(rawSecurity)
+      } catch (securityErr) {
+        console.warn('Failed to refresh security status', securityErr)
+      }
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+    } finally {
+      twoFactorVerifyPendingRef.current = false
+      setSavingTwoFactor(false)
     }
   }
 
@@ -258,6 +357,8 @@ export function AdminProfilePage() {
 
   const displayName = user.full_name || user.email || 'Quản trị viên'
   const joinedDate = formatDate(user.created_at || user.createdAt)
+  const improvementSuggestion = getImprovementSuggestion(securityItems)
+  const showTwoFactorSetupAction = improvementSuggestion?.key === 'two_factor' && !user.two_factor_enabled
 
   const actionButtonClass = (active) =>
     `inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-extrabold transition ${
@@ -355,7 +456,7 @@ export function AdminProfilePage() {
             </div>
           </section>
 
-          {mode === 'view' && (
+          {!['sessions', 'twoFactor'].includes(mode) && (
             <>
               <ProfilePanel icon={UserCircle} title="Thông tin cá nhân">
                 <div className="rounded-2xl border border-border-soft/30 bg-background/30 px-5">
@@ -369,13 +470,21 @@ export function AdminProfilePage() {
               <ProfilePanel icon={ShieldCheck} title="Bảo mật tài khoản">
                 <div className="rounded-2xl border border-border-soft/30 bg-background/30 px-5">
                   <ActionRow icon={Lock} label="Mật khẩu" description="Cập nhật định kỳ để bảo vệ tài khoản." action="Đổi mật khẩu" onClick={() => setMode('password')} />
+                  <ActionRow
+                    icon={ShieldCheck}
+                    label="Xác thực 2 lớp"
+                    description={user.two_factor_enabled ? 'OTP email đang được yêu cầu khi admin đăng nhập.' : 'Bật OTP email để bảo vệ tài khoản admin.'}
+                    action={user.two_factor_enabled ? 'Tắt' : 'Bật'}
+                    onClick={() => handleStartTwoFactor(!user.two_factor_enabled)}
+                    disabled={savingTwoFactor}
+                  />
                   <ActionRow icon={Smartphone} label="Phiên đăng nhập" description="Quản lý thiết bị và phiên đăng nhập của bạn." action="Xem" onClick={handleViewSessions} last />
                 </div>
               </ProfilePanel>
             </>
           )}
 
-          {mode === 'edit' && (
+          {false && mode === 'edit' && (
             <ProfilePanel icon={Camera} title="Chỉnh sửa hồ sơ">
               <div className="grid gap-5 md:grid-cols-2">
                 <InputField label="Họ và tên" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
@@ -452,7 +561,7 @@ export function AdminProfilePage() {
             </ProfilePanel>
           )}
 
-          {mode === 'password' && (
+          {false && mode === 'password' && (
             <ProfilePanel icon={Lock} title="Đổi mật khẩu">
               <p className="mb-6 text-sm leading-6 text-subtle">
                 Sử dụng mật khẩu mạnh để tăng cường bảo mật cho tài khoản quản trị của bạn.
@@ -465,6 +574,86 @@ export function AdminProfilePage() {
               <FormActions saving={saving} onCancel={() => setMode('view')} onSave={handleChangePassword} saveText="Cập nhật mật khẩu" />
             </ProfilePanel>
           )}
+
+          {mode === 'twoFactor' && (
+            <ProfilePanel icon={ShieldCheck} title={twoFactorChallenge?.enabled ? 'Bật xác thực 2 lớp' : 'Tắt xác thực 2 lớp'}>
+              <p className="mb-6 text-sm leading-6 text-subtle">
+                Nhập mã OTP 6 số đã gửi đến {twoFactorChallenge?.email || 'email quản trị'} để hoàn tất thay đổi.
+              </p>
+              <div className="mb-5 rounded-xl border border-primary/20 bg-primary/[0.06] p-4 text-sm text-content">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-extrabold">
+                      {sendingTwoFactorOtp
+                        ? 'Đang gửi mã OTP...'
+                        : twoFactorChallenge?.sendFailed
+                          ? 'Chưa gửi được mã OTP'
+                          : 'Mã OTP đã được gửi'}
+                    </p>
+                    <p className="mt-1 text-subtle">
+                      {twoFactorCooldown > 0
+                        ? `Nếu chưa nhận được email, bạn có thể gửi lại sau ${twoFactorCooldown}s.`
+                        : 'Nếu chưa nhận được email, bạn có thể gửi lại mã OTP.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleStartTwoFactor(Boolean(twoFactorChallenge?.enabled))}
+                    disabled={sendingTwoFactorOtp || twoFactorCooldown > 0}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {twoFactorCooldown > 0 ? `Gửi lại (${twoFactorCooldown}s)` : 'Gửi lại OTP'}
+                  </button>
+                </div>
+              </div>
+              <InputField
+                label="Mã OTP"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={twoFactorOtp}
+                onChange={(e) => setTwoFactorOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+              <FormActions
+                saving={savingTwoFactor}
+                onCancel={resetTwoFactorFlow}
+                onSave={handleVerifyTwoFactor}
+                saveDisabled={!twoFactorChallenge?.challengeId || twoFactorOtp.length !== 6 || sendingTwoFactorOtp}
+                saveText="Xác nhận OTP"
+              />
+            </ProfilePanel>
+          )}
+          <AdminProfileEditModal
+            open={mode === 'edit'}
+            user={user}
+            displayName={displayName}
+            previewUrl={previewUrl}
+            selectedFile={selectedFile}
+            formData={formData}
+            saving={saving}
+            uploadingAvatar={uploadingAvatar}
+            onFileChange={handleFileChange}
+            onFormChange={setFormData}
+            onSave={handleSave}
+            onClearFile={() => {
+              setSelectedFile(null)
+              setPreviewUrl(user.avatar_url || '')
+            }}
+            onClose={() => {
+              setMode('view')
+              setPreviewUrl(user.avatar_url || '')
+              setSelectedFile(null)
+            }}
+          />
+
+          <AdminPasswordModal
+            open={mode === 'password'}
+            passwordData={passwordData}
+            saving={saving}
+            onPasswordChange={setPasswordData}
+            onSave={handleChangePassword}
+            onClose={() => setMode('view')}
+          />
         </div>
 
         <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
@@ -475,25 +664,114 @@ export function AdminProfilePage() {
             checkingIndex={checkingIndex}
             onCheck={handleSecurityCheck}
           />
-          <section className="rounded-2xl border border-warning/30 bg-warning/[0.07] p-5 text-content shadow-[0_18px_46px_rgba(3,8,24,0.18)]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-warning/15 text-warning">
-                  <AlertTriangle className="size-5" />
-                </span>
-                <div>
-                  <h3 className="font-display text-base font-extrabold text-content">Gợi ý cải thiện</h3>
-                  <p className="mt-1 text-sm leading-6 text-subtle">Bật xác thực 2 lớp để tăng cường bảo vệ tài khoản.</p>
+          {improvementSuggestion && (
+            <section className="rounded-2xl border border-warning/30 bg-warning/[0.07] p-5 text-content shadow-[0_18px_46px_rgba(3,8,24,0.18)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-warning/15 text-warning">
+                    <AlertTriangle className="size-5" />
+                  </span>
+                  <div>
+                    <h3 className="font-display text-base font-extrabold text-content">Gợi ý cải thiện</h3>
+                    <p className="mt-1 text-sm font-extrabold text-content">{improvementSuggestion.label}</p>
+                    <p className="mt-1 text-sm leading-6 text-subtle">{improvementSuggestion.message}</p>
+                  </div>
                 </div>
+                {showTwoFactorSetupAction && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartTwoFactor(true)}
+                    disabled={savingTwoFactor}
+                    className="rounded-xl border border-warning/40 px-4 py-2 text-sm font-extrabold text-content transition hover:bg-warning/10 hover:text-warning disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    Thiết lập 2FA
+                  </button>
+                )}
               </div>
-              <button type="button" className="rounded-xl border border-warning/40 px-4 py-2 text-sm font-extrabold text-content transition hover:bg-warning/10 hover:text-warning">
-                Thiết lập 2FA
-              </button>
-            </div>
-          </section>
+            </section>
+          )}
         </aside>
       </div>
     </Page>
+  )
+}
+
+function AdminProfileEditModal({
+  open,
+  user,
+  displayName,
+  previewUrl,
+  selectedFile,
+  formData,
+  saving,
+  uploadingAvatar,
+  onFileChange,
+  onFormChange,
+  onSave,
+  onClearFile,
+  onClose,
+}) {
+  return (
+    <Modal open={open} title="Chỉnh sửa hồ sơ" onClose={onClose} maxWidth="max-w-3xl">
+      <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="rounded-2xl border border-border-soft/30 bg-background/30 p-5 text-center">
+          <div className="relative mx-auto size-32">
+            <ProfileAvatar
+              sources={previewUrl || user.avatar_url}
+              name={displayName}
+              alt={displayName}
+              className="size-full ring-4 ring-primary/20"
+              fallbackClassName="bg-panel-soft text-4xl text-primary"
+            />
+            <label className="absolute bottom-0 right-0 grid size-10 cursor-pointer place-items-center rounded-full bg-tertiary text-white shadow-lg transition hover:scale-105">
+              <Camera className="size-5" />
+              <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
+            </label>
+          </div>
+          <p className="mt-4 text-sm font-semibold text-subtle">JPG, PNG. Nên dùng ảnh vuông để hiển thị đẹp hơn.</p>
+          {selectedFile && (
+            <button
+              type="button"
+              onClick={onClearFile}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-error/30 px-4 py-2 text-sm font-extrabold text-error transition hover:bg-error/10"
+            >
+              <X className="size-4" />
+              Bỏ ảnh mới
+            </button>
+          )}
+        </div>
+        <div className="space-y-5">
+          <div className="grid gap-5 md:grid-cols-2">
+            <InputField label="Họ và tên" value={formData.full_name} onChange={(e) => onFormChange({ ...formData, full_name: e.target.value })} />
+            <InputField label="Số điện thoại" value={formData.phone} onChange={(e) => onFormChange({ ...formData, phone: e.target.value })} />
+            <InputField label="Ngày sinh" type="date" value={formData.dob} onChange={(e) => onFormChange({ ...formData, dob: e.target.value })} />
+            <InputField label="Địa chỉ" className="md:col-span-2" value={formData.address} onChange={(e) => onFormChange({ ...formData, address: e.target.value })} />
+          </div>
+          <FormActions
+            saving={saving || uploadingAvatar}
+            onCancel={onClose}
+            onSave={onSave}
+            saveText={uploadingAvatar ? 'Đang tải ảnh...' : 'Lưu thay đổi'}
+          />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function AdminPasswordModal({ open, passwordData, saving, onPasswordChange, onSave, onClose }) {
+  return (
+    <Modal open={open} title="Đổi mật khẩu" onClose={onClose} maxWidth="max-w-xl">
+      <p className="mb-6 text-sm leading-6 text-subtle">
+        Sử dụng mật khẩu mạnh và không trùng với mật khẩu cũ để bảo vệ tài khoản.
+      </p>
+      <div className="space-y-5">
+        <InputField label="Mật khẩu hiện tại" type="password" value={passwordData.current} onChange={(e) => onPasswordChange({ ...passwordData, current: e.target.value })} />
+        <InputField label="Mật khẩu mới" type="password" value={passwordData.new} onChange={(e) => onPasswordChange({ ...passwordData, new: e.target.value })} />
+        <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={(e) => onPasswordChange({ ...passwordData, confirm: e.target.value })} />
+      </div>
+      <FormActions saving={saving} onCancel={onClose} onSave={onSave} saveText="Cập nhật mật khẩu" />
+    </Modal>
   )
 }
 
@@ -553,6 +831,11 @@ function SecuritySummary({ result, items, checking, checkingIndex, onCheck }) {
       </p>
     </section>
   )
+}
+
+function getImprovementSuggestion(items) {
+  if (!Array.isArray(items)) return null
+  return items.find((item) => normalizeSecurityStatus(item?.status) === 'warning') || null
 }
 
 function SecurityCheck({ item, active }) {
@@ -820,7 +1103,7 @@ function InfoRow({ icon: Icon, label, value, status, last = false }) {
   )
 }
 
-function ActionRow({ icon: Icon, label, description, action, onClick, last = false }) {
+function ActionRow({ icon: Icon, label, description, action, onClick, disabled = false, last = false }) {
   return (
     <div className={`flex items-center gap-4 py-4 ${last ? '' : 'border-b border-border-soft/20'}`}>
       <Icon className="size-5 shrink-0 text-subtle" />
@@ -831,7 +1114,8 @@ function ActionRow({ icon: Icon, label, description, action, onClick, last = fal
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border-soft/40 px-4 py-2 text-sm font-bold text-content transition hover:border-primary/60 hover:bg-panel-soft hover:text-primary"
+        disabled={disabled}
+        className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border-soft/40 px-4 py-2 text-sm font-bold text-content transition hover:border-primary/60 hover:bg-panel-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
       >
         {action || <ChevronRight className="size-4" />}
         {action && <ChevronRight className="size-4" />}
@@ -840,13 +1124,13 @@ function ActionRow({ icon: Icon, label, description, action, onClick, last = fal
   )
 }
 
-function FormActions({ saving, onCancel, onSave, saveText }) {
+function FormActions({ saving, onCancel, onSave, saveText, saveDisabled = false }) {
   return (
     <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
       <button type="button" onClick={onCancel} disabled={saving} className="admin-secondary bg-surface px-6 text-content hover:bg-panel-soft">
         Hủy
       </button>
-      <button type="button" onClick={onSave} disabled={saving} className="admin-primary flex items-center justify-center gap-2 px-6">
+      <button type="button" onClick={onSave} disabled={saving || saveDisabled} className="admin-primary flex items-center justify-center gap-2 px-6">
         {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
         {saving ? 'Đang lưu...' : saveText}
       </button>

@@ -347,12 +347,17 @@ class OrdersService {
           },
         });
 
+        const confirmationEmailSent = await paymentsService.sendTicketConfirmation(created.order.id);
+
         const status = await ordersRepository.findStaffDirectBookingStatus({
           orderId: created.order.id,
           staffId,
           roles,
         });
-        return mapStaffDirectBooking(status);
+        return {
+          ...mapStaffDirectBooking(status),
+          confirmation_email_sent: confirmationEmailSent,
+        };
       }
 
       try {
@@ -394,7 +399,11 @@ class OrdersService {
       items: normalizedItems,
     });
 
-    return mapStaffDirectBooking(data);
+    const confirmationEmailSent = await paymentsService.sendTicketConfirmation(data.order.id);
+    return {
+      ...mapStaffDirectBooking(data),
+      confirmation_email_sent: confirmationEmailSent,
+    };
   }
 
   async getStaffDirectBookingStatus(staffId, roles = [], orderId) {

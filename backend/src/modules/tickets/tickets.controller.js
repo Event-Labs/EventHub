@@ -58,6 +58,15 @@ class TicketsController {
     }
   };
 
+  getStaffTicket = async (req, res, next) => {
+    try {
+      const data = await ticketsService.getStaffTicket(req.user.sub, req.params.ticketId);
+      res.status(200).json(ApiResponse.success(data, 'Staff ticket fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   staffCheckInTicket = async (req, res, next) => {
     try {
       const data = await ticketsService.staffCheckInTicket(req.user.sub, req.params.ticketId);
