@@ -8,6 +8,8 @@ const crypto = require('crypto');
 // user_sessions:{userId}   → SET of session hashes (for bulk revoke)
 // pwd_reset:{hash}         → { user_id } JSON (TTL = expiry)
 // pending_user:{hash}      → user data JSON (TTL = expiry) [for registration]
+// admin_login_otp:{id}     → admin login challenge JSON (TTL = expiry)
+// admin_2fa_otp:{id}       → admin 2FA setup challenge JSON (TTL = expiry)
 // =============================================
 
 class AuthRepository {
@@ -68,11 +70,7 @@ class AuthRepository {
   }
 
   async createUser(userData) {
-    const query = `
-      INSERT INTO users (email, password_hash, full_name, phone, google_id, email_verified, avatar_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-    `;
+    const columns = ['email', 'password_hash', 'full_name', 'phone', 'google_id', 'email_verified', 'avatar_url'];
     const values = [
       userData.email,
       userData.password_hash,
@@ -82,6 +80,22 @@ class AuthRepository {
       userData.email_verified || false,
       userData.avatar_url || null,
     ];
+
+    if (
+      await this.userColumnExists('password_changed_at')
+      && userData.password_hash
+      && userData.password_hash !== '*'
+    ) {
+      columns.push('password_changed_at');
+      values.push(userData.password_changed_at || new Date());
+    }
+
+    const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
+    const query = `
+      INSERT INTO users (${columns.join(', ')})
+      VALUES (${placeholders})
+      RETURNING *
+    `;
     const { rows } = await db.query(query, values);
     return rows[0];
   }
@@ -251,6 +265,21 @@ class AuthRepository {
   async deletePendingUser(tokenHash) {
     const key = `pending_user:${tokenHash}`;
     await client.del(key);
+  }
+
+  async saveOtpChallenge(type, challengeId, data, expiresAt) {
+    const ttl = Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000);
+    if (ttl <= 0) return;
+    await client.setEx(`${type}:${challengeId}`, ttl, JSON.stringify(data));
+  }
+
+  async getOtpChallenge(type, challengeId) {
+    const data = await client.get(`${type}:${challengeId}`);
+    return data ? JSON.parse(data) : null;
+  }
+
+  async deleteOtpChallenge(type, challengeId) {
+    await client.del(`${type}:${challengeId}`);
   }
 }
 

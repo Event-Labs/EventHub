@@ -84,7 +84,7 @@ export function OrganizerLayout() {
   const organizerAvatarUrl = profileQuery.data?.organization_avatar_url
   const googleAvatarUrl = accountProfileQuery.data?.avatar_url || user?.avatar_url
   const organizerDisplayName =
-    profileQuery.data?.organization_name || user?.full_name || user?.email || 'Organizer'
+    profileQuery.data?.organization_name || user?.full_name || user?.email || 'Nhà tổ chức'
   const bottomItems = [
     ...(isIndividualOrganizer
       ? [{ label: 'Trang chủ', to: '/', icon: Home, end: true }]
@@ -96,8 +96,8 @@ export function OrganizerLayout() {
     <RolePortalLayout
       user={user}
       isAllowed={isAllowed}
-      portalLabel="Organizer Portal"
-      roleLabel="Organizer"
+      portalLabel="Cổng nhà tổ chức"
+      roleLabel="Nhà tổ chức"
       profileTo="/organizer/profile"
       navSections={navSections}
       bottomItems={bottomItems}
@@ -105,7 +105,7 @@ export function OrganizerLayout() {
         <ProfileAvatar
           sources={[organizerAvatarUrl, googleAvatarUrl]}
           name={organizerDisplayName}
-          alt="Ảnh đại diện Organizer"
+          alt="Ảnh đại diện nhà tổ chức"
           className="size-7"
           fallback="EH"
         />

@@ -14,6 +14,23 @@ const PAYMENT_METHODS = [
   { value: 'card', label: 'Thẻ' },
 ]
 
+const PAYMENT_STATUS_LABELS = {
+  PENDING: 'Chờ thanh toán',
+  PAID: 'Đã thanh toán',
+  CANCELLED: 'Đã hủy',
+  FAILED: 'Thanh toán thất bại',
+  EXPIRED: 'Đã hết hạn',
+  REFUNDED: 'Đã hoàn tiền',
+}
+
+const BOOKING_SOURCE_LABELS = {
+  staff_direct: 'Nhân sự đặt trực tiếp',
+}
+
+function paymentStatusLabel(status) {
+  return PAYMENT_STATUS_LABELS[status] || 'Chưa xác định'
+}
+
 function formatPrice(value) {
   const number = Number(value || 0)
   if (number === 0) return 'Miễn phí'
@@ -111,7 +128,13 @@ export function StaffDirectBookingPage() {
   const createMutation = useMutation({
     mutationFn: createStaffDirectBooking,
     onSuccess: (data) => {
-      toast.success('Đã tạo đơn đặt vé trực tiếp.')
+      if (data.order.status === 'PAID' && data.confirmation_email_sent === false) {
+        toast.error('Đã xuất vé nhưng chưa thể gửi email. Vui lòng kiểm tra cấu hình email.')
+      } else if (data.order.status === 'PAID') {
+        toast.success(`Đã xuất vé và gửi email tới ${data.order.buyer_email}.`)
+      } else {
+        toast.success('Đã tạo đơn. Vé sẽ được gửi qua email sau khi PayOS xác nhận thanh toán.')
+      }
       setResult(data)
       setShowDetail(true)
     },
@@ -130,7 +153,7 @@ export function StaffDirectBookingPage() {
   const displayResult = returnStatusQuery.data || statusQuery.data || result
   const activeStatusQuery = returnStatusQuery.data ? returnStatusQuery : statusQuery
 
-  const events = eventsQuery.data || []
+  const events = useMemo(() => eventsQuery.data || [], [eventsQuery.data])
   const filteredEvents = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     if (!keyword) return events
@@ -190,7 +213,9 @@ export function StaffDirectBookingPage() {
   const cashReceivedAmount = Number(String(cashReceived).replace(/[^\d]/g, '') || 0)
   const cashChange = Math.max(0, cashReceivedAmount - totalAmount)
   const cashIsEnough = paymentMethod !== 'cash' || totalAmount === 0 || cashReceivedAmount >= totalAmount
-  const canSubmit = selectedEvent && buyer.name.trim().length >= 2 && buyer.phone.trim() && selectedItems.length > 0 && cashIsEnough
+  const buyerEmail = buyer.email.trim().toLowerCase()
+  const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)
+  const canSubmit = selectedEvent && buyer.name.trim().length >= 2 && buyer.phone.trim() && emailIsValid && selectedItems.length > 0 && cashIsEnough
 
   function updateQuantity(ticketType, nextValue) {
     const next = Math.max(0, Math.min(Number(ticketType.available_quantity || 0), Number(nextValue || 0)))
@@ -216,7 +241,7 @@ export function StaffDirectBookingPage() {
       event_id: selectedEvent.id,
       buyer_name: buyer.name.trim(),
       buyer_phone: buyer.phone.trim(),
-      buyer_email: buyer.email.trim() || null,
+      buyer_email: buyerEmail,
       internal_note: buyer.note.trim() || null,
       payment_method: paymentMethod,
       items: selectedItems.map((item) => ({
@@ -229,8 +254,8 @@ export function StaffDirectBookingPage() {
 
   return (
     <StaffPage
-      title="Book vé trực tiếp"
-      description="Tạo booking paid và in vé cho khách tại quầy."
+      title="Đặt vé trực tiếp"
+      description="Tạo đơn đặt vé đã thanh toán và in vé cho khách tại quầy."
       action={
         result ? (
           <button
@@ -239,7 +264,7 @@ export function StaffDirectBookingPage() {
             className="inline-flex items-center justify-center gap-2 rounded-md border border-border-soft/50 px-4 py-2 text-sm font-bold text-content hover:border-primary hover:text-primary"
           >
             <RotateCcw className="size-4" />
-            Tạo booking mới
+            Tạo đơn đặt vé mới
           </button>
         ) : null
       }
@@ -313,17 +338,17 @@ export function StaffDirectBookingPage() {
                         setSelectedSeatIds([])
                         setQuantities({})
                       }}
-                      className={`overflow-hidden rounded-lg border text-left transition ${
+                      className={`flex h-full flex-col overflow-hidden rounded-lg border text-left transition ${
                         active ? 'border-primary bg-primary/10' : 'border-border-soft/40 bg-panel-soft hover:border-primary/60'
                       }`}
                     >
-                      <div className="h-28 bg-surface">
+                      <div className="h-28 shrink-0 bg-surface">
                         {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : null}
                       </div>
-                      <div className="p-4">
-                        <h3 className="line-clamp-2 font-bold text-content">{event.title}</h3>
+                      <div className="flex flex-1 flex-col p-4">
+                        <h3 className="line-clamp-2 min-h-12 break-words font-bold leading-6 text-content">{event.title}</h3>
                         <p className="mt-2 text-xs text-subtle">{formatDateTime(event.start_time)}</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-auto flex flex-wrap gap-2 pt-3">
                           <Badge tone="green">{available} vé còn lại</Badge>
                           <Badge tone="blue">{event.ticket_types.length} loại vé</Badge>
                         </div>
@@ -339,7 +364,14 @@ export function StaffDirectBookingPage() {
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <Input label="Họ tên" value={buyer.name} onChange={(value) => setBuyer((current) => ({ ...current, name: value }))} />
                 <Input label="Số điện thoại" value={buyer.phone} onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))} />
-                <Input label="Email nếu có" value={buyer.email} onChange={(value) => setBuyer((current) => ({ ...current, email: value }))} />
+                <Input
+                  label="Email nhận vé"
+                  value={buyer.email}
+                  onChange={(value) => setBuyer((current) => ({ ...current, email: value }))}
+                  type="email"
+                  required
+                  hint="Bắt buộc để hệ thống gửi vé và mã QR cho khách."
+                />
                 <Input label="Ghi chú nội bộ" value={buyer.note} onChange={(value) => setBuyer((current) => ({ ...current, note: value }))} />
               </div>
             </StaffPanel>
@@ -465,7 +497,7 @@ export function StaffDirectBookingPage() {
             </StaffPanel>
 
             <StaffPanel>
-              <SectionTitle step="5" title="Xác nhận booking" />
+              <SectionTitle step="5" title="Xác nhận đơn đặt vé" />
               <div className="mt-4 space-y-3 text-sm">
                 <SummaryLine label="Khách hàng" value={buyer.name || 'Chưa nhập'} />
                 <SummaryLine label="Sự kiện" value={selectedEvent?.title || 'Chưa chọn'} />
@@ -504,7 +536,7 @@ export function StaffDirectBookingPage() {
               )}
               {createMutation.isError && (
                 <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-                  {createMutation.error?.response?.data?.message || 'Không thể tạo booking trực tiếp.'}
+                  {createMutation.error?.response?.data?.message || 'Không thể tạo đơn đặt vé trực tiếp.'}
                 </p>
               )}
               <button
@@ -538,12 +570,19 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={isPendingPayos ? 'yellow' : 'green'}>{result.order.status}</Badge>
-              <Badge tone="blue">{result.order.booking_source}</Badge>
+              <Badge tone={isPendingPayos ? 'yellow' : 'green'}>{paymentStatusLabel(result.order.status)}</Badge>
+              <Badge tone="blue">{BOOKING_SOURCE_LABELS[result.order.booking_source] || 'Nguồn đặt vé khác'}</Badge>
             </div>
             <h2 className="mt-3 font-display text-2xl font-extrabold text-content">{result.order.order_code}</h2>
             <p className="mt-1 text-sm text-subtle">
               {result.order.buyer_name} · {result.event.title}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-content">
+              {result.confirmation_email_sent === false
+                ? `Chưa thể gửi vé tới ${result.order.buyer_email}. Vui lòng kiểm tra cấu hình email.`
+                : isPendingPayos
+                ? `Vé sẽ được gửi tới ${result.order.buyer_email} sau khi thanh toán thành công.`
+                : `Vé và mã QR được gửi tự động tới ${result.order.buyer_email}.`}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -572,7 +611,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               className="inline-flex items-center justify-center gap-2 rounded-md border border-border-soft/50 px-4 py-2 text-sm font-bold text-content hover:border-primary hover:text-primary"
             >
               <ReceiptText className="size-4" />
-              Xem chi tiết booking
+              Xem chi tiết đơn đặt vé
             </button>
             <button
               type="button"
@@ -580,7 +619,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               className="inline-flex items-center justify-center gap-2 rounded-md border border-border-soft/50 px-4 py-2 text-sm font-bold text-content hover:border-primary hover:text-primary"
             >
               <RotateCcw className="size-4" />
-              Tạo booking mới
+              Tạo đơn đặt vé mới
             </button>
           </div>
         </div>
@@ -603,9 +642,9 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
                 Vé sẽ chỉ được sinh sau khi PayOS xác nhận giao dịch thành công.
               </p>
               <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
-                <SummaryLine label="Mã booking" value={result.order.order_code} />
+                <SummaryLine label="Mã đơn đặt vé" value={result.order.order_code} />
                 <SummaryLine label="Số tiền" value={formatPrice(result.payment.amount || result.order.total_amount)} strong />
-                <SummaryLine label="Trạng thái" value={result.payment.status || result.order.status} />
+                <SummaryLine label="Trạng thái" value={paymentStatusLabel(result.payment.status || result.order.status)} />
                 <SummaryLine label="Khách hàng" value={result.order.buyer_name} />
               </div>
               {result.payment.checkout_url && (
@@ -646,7 +685,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent print:hidden" />
               <div className="absolute bottom-3 left-4 right-4">
-                <Badge tone="green">PAID</Badge>
+                <Badge tone="green">Đã thanh toán</Badge>
                 <h3 className="mt-2 line-clamp-2 font-display text-lg font-extrabold text-white print:text-slate-950">{ticket.event.title}</h3>
               </div>
             </div>
@@ -655,12 +694,12 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
                 <PrintInfo label="Khách hàng" value={result.order.buyer_name} />
                 <PrintInfo label="Loại vé" value={ticket.ticket_type.name} />
                 <PrintInfo label="Thời gian" value={formatDateTime(ticket.session.start_time)} />
-                <PrintInfo label="Mã booking" value={result.order.order_code} />
+                <PrintInfo label="Mã đơn đặt vé" value={result.order.order_code} />
                 <PrintInfo label="Địa điểm" value={venueLine(ticket.venue)} wide />
               </div>
               <div className="border-t border-dashed border-border-soft/50 pt-4 text-center print:border-slate-300">
                 <div className="mx-auto w-fit rounded-lg bg-white p-2">
-                  <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-36" />
+                  <img src={qrImageSrc(ticket)} alt="Mã QR soát vé" className="size-36" />
                 </div>
                 <p className="mt-3 font-mono text-sm font-black tracking-wide">{ticket.ticket_code}</p>
               </div>
@@ -681,15 +720,20 @@ function SectionTitle({ step, title }) {
   )
 }
 
-function Input({ label, value, onChange }) {
+function Input({ label, value, onChange, type = 'text', required = false, hint }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold uppercase tracking-wide text-subtle">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-wide text-subtle">
+        {label}{required ? ' *' : ''}
+      </span>
       <input
+        type={type}
+        required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 h-11 w-full rounded-md border border-border-soft/50 bg-panel-soft px-3 text-sm text-content outline-none transition focus:border-primary"
       />
+      {hint ? <span className="mt-2 block text-xs text-subtle">{hint}</span> : null}
     </label>
   )
 }
@@ -717,7 +761,7 @@ function PrintInfo({ label, value, wide }) {
   return (
     <div className={wide ? 'col-span-2' : ''}>
       <p className="text-[11px] font-bold uppercase tracking-wide text-subtle print:text-slate-500">{label}</p>
-      <p className="mt-1 font-bold">{value || 'N/A'}</p>
+      <p className="mt-1 font-bold">{value || 'Không có'}</p>
     </div>
   )
 }

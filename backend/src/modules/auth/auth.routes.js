@@ -11,6 +11,8 @@ const tokenLimiter = createRateLimiter(60 * 60 * 1000, 3, 'Too many requests, pl
 
 router.post('/register', registerLimiter, authController.register);
 router.post('/login', authLimiter, authController.login);
+router.post('/verify-login-otp', authLimiter, authController.verifyLoginOtp);
+router.post('/verify-admin-otp', authLimiter, authController.verifyAdminOtp);
 router.post('/google', authLimiter, authController.googleLogin);
 router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);

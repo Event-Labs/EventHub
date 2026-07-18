@@ -19,6 +19,7 @@ router.post('/staff-invitations/:invitationId/decline', operationsController.dec
 
 router.get('/staff/overview', authorize('STAFF', 'ADMIN'), operationsController.staffOverview);
 router.get('/staff/events', authorize('STAFF', 'ADMIN'), operationsController.staffEvents);
+router.get('/staff/check-in-report', authorize('STAFF', 'ADMIN'), operationsController.staffCheckInReport);
 router.get('/staff/tasks', authorize('STAFF', 'ADMIN'), operationsController.staffTasks);
 router.patch('/staff/tasks/:taskId/status', authorize('STAFF', 'ADMIN'), operationsController.updateStaffTaskStatus);
 
