@@ -40,6 +40,13 @@ export async function fetchAssignedStaffEvents() {
   return response.data.data
 }
 
+export async function fetchStaffCheckInReport(eventId) {
+  const response = await http.get('/operations/staff/check-in-report', {
+    params: eventId ? { event_id: eventId } : undefined,
+  })
+  return response.data.data
+}
+
 export async function fetchAssignedStaffTasks(params = {}) {
   const response = await http.get('/operations/staff/tasks', { params })
   return response.data.data

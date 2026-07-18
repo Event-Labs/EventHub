@@ -34,6 +34,11 @@ export async function searchStaffTickets(payload) {
   return response.data.data
 }
 
+export async function fetchStaffTicket(ticketId) {
+  const response = await http.get(`/staff/tickets/${ticketId}`)
+  return response.data.data
+}
+
 export async function checkInStaffTicket(ticketId) {
   const response = await http.patch(`/staff/tickets/${ticketId}/check-in`)
   return response.data.data

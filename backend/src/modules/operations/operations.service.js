@@ -446,6 +446,24 @@ class OperationsService {
     return operationsRepository.getStaffOverview(staffId);
   }
 
+  async getStaffCheckInReport(staffId, eventId = null) {
+    let event = null;
+
+    if (eventId) {
+      event = await operationsRepository.findStaffAssignedEvent(staffId, eventId);
+      if (!event) {
+        throw new AppError(
+          'Không tìm thấy sự kiện hoặc bạn không được phân công vào sự kiện này.',
+          403,
+          ErrorCodes.AUTH_FORBIDDEN,
+        );
+      }
+    }
+
+    const report = await operationsRepository.getStaffCheckInReport(staffId, eventId);
+    return { event, ...report };
+  }
+
   async listStaffTasks(staffId, eventId = null) {
     return operationsRepository.listStaffTasks(staffId, eventId);
   }

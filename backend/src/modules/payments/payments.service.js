@@ -15,15 +15,21 @@ function isPayosPaid(paymentData, paymentOrder) {
 }
 
 class PaymentsService {
+  async sendTicketConfirmation(orderId) {
+    try {
+      const details = await ordersRepository.findPaidOrderEmailDetails(orderId);
+      if (!details) return false;
+      return await ticketConfirmationEmail.sendOrderConfirmation(details.order, details.tickets);
+    } catch (error) {
+      logger.error(`Could not prepare ticket email for order ${orderId}: ${error.message}`);
+      return false;
+    }
+  }
+
   async confirmAndNotify(args) {
     const result = await ordersRepository.confirmPayment(args);
     if (!result.alreadyPaid) {
-      try {
-        const details = await ordersRepository.findPaidOrderEmailDetails(result.order.id);
-        if (details) await ticketConfirmationEmail.sendOrderConfirmation(details.order, details.tickets);
-      } catch (error) {
-        logger.error(`Could not prepare ticket email for order ${result.order.id}: ${error.message}`);
-      }
+      await this.sendTicketConfirmation(result.order.id);
     }
     return result;
   }

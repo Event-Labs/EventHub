@@ -87,6 +87,16 @@ class OperationsController {
     }
   };
 
+  staffCheckInReport = async (req, res, next) => {
+    try {
+      const query = eventIdQuerySchema.parse(req.query);
+      const data = await operationsService.getStaffCheckInReport(req.user.sub, query.event_id || null);
+      res.status(200).json(ApiResponse.success(data, 'Staff check-in report fetched successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   staffTasks = async (req, res, next) => {
     try {
       const query = eventIdQuerySchema.parse(req.query);

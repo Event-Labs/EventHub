@@ -148,6 +148,7 @@ function trimString(value) {
 
 function normalizeSearchPayload(payload = {}) {
   return {
+    eventId: trimString(payload.eventId || payload.event_id),
     ticketCode: trimString(payload.ticketCode || payload.ticket_code),
     buyerName: trimString(payload.buyerName || payload.buyer_name),
     buyerEmail: trimString(payload.buyerEmail || payload.buyer_email),
@@ -370,10 +371,9 @@ class TicketsService {
 
   async staffSearchTickets(staffId, payload = {}) {
     const filters = normalizeSearchPayload(payload);
-    const hasAnyFilter = Object.values(filters).some(Boolean);
 
-    if (!hasAnyFilter) {
-      throw new AppError('Vui lòng nhập ít nhất một thông tin để tìm vé.', 400, ErrorCodes.INVALID_INPUT);
+    if (!filters.eventId) {
+      throw new AppError('Vui lòng chọn sự kiện trước khi tải danh sách vé.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     const rows = await ticketsRepository.searchStaffTickets(staffId, filters);
@@ -381,6 +381,17 @@ class TicketsService {
       count: rows.length,
       tickets: rows.map(buildStaffTicketPayload),
     };
+  }
+
+  async getStaffTicket(staffId, ticketId) {
+    const ticket = await ticketsRepository.findTicketAccessForStaff(ticketId, staffId);
+    if (!ticket) {
+      throw new AppError('Không tìm thấy vé.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    if (!ticket.has_staff_access) {
+      throw new AppError('Nhân sự không có quyền xem vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+    return buildStaffTicketPayload(ticket);
   }
 
   async staffVerifyTicketByQr(staffId, payload = {}) {

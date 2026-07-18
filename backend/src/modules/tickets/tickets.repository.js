@@ -231,6 +231,11 @@ class TicketsRepository {
     const params = [staffId];
     const conditions = [];
 
+    if (filters.eventId) {
+      params.push(filters.eventId);
+      conditions.push(`t.event_id = $${params.length}`);
+    }
+
     if (filters.ticketCode) {
       params.push(`%${filters.ticketCode}%`);
       conditions.push(`(t.ticket_code ILIKE $${params.length} OR t.qr_code ILIKE $${params.length})`);
