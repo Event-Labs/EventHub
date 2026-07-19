@@ -27,8 +27,14 @@ class NotificationsRepository {
     return rows[0];
   }
 
-  async listByUser(userId, { limit, offset, unreadOnly }) {
+  async listByUser(userId, { limit, offset, unreadOnly, category = 'all' }) {
     const unreadClause = unreadOnly ? 'AND is_read = false' : '';
+    const listCategoryClause = category === 'invitation'
+      ? `AND n.title IN ('STAFF_INVITATION', 'Lời mời làm staff')`
+      : '';
+    const countCategoryClause = category === 'invitation'
+      ? `AND title IN ('STAFF_INVITATION', 'Lời mời làm staff')`
+      : '';
     const { rows } = await db.query(
       `
       SELECT
@@ -46,6 +52,7 @@ class NotificationsRepository {
       LEFT JOIN events e ON e.id = n.event_id
       WHERE n.user_id = $1
       ${unreadClause}
+      ${listCategoryClause}
       ORDER BY n.created_at DESC
       LIMIT $2 OFFSET $3
       `,
@@ -58,6 +65,7 @@ class NotificationsRepository {
       FROM notifications
       WHERE user_id = $1
       ${unreadClause}
+      ${countCategoryClause}
       `,
       [userId],
     );
