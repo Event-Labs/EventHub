@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw, Eye } from 'lucide-react'
 import {
   Badge,
@@ -195,6 +195,8 @@ function CancelConfirmModal({ event, onConfirm, onClose, loading, error }) {
 export function OrganizerEventsPage() {
   const toast = useToast()
   const location = useLocation()
+  const navigate = useNavigate()
+  const handledToastLocations = useRef(new Set())
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -210,11 +212,16 @@ export function OrganizerEventsPage() {
   const [cancelError, setCancelError] = useState('')
 
   useEffect(() => {
-    if (location.state?.message) {
-      toast.success(location.state.message)
-      window.history.replaceState({}, document.title)
-    }
-  }, [location.state, toast])
+    const message = location.state?.message
+    if (!message || handledToastLocations.current.has(location.key)) return
+
+    handledToastLocations.current.add(location.key)
+    toast.success(message)
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: null,
+    })
+  }, [location.hash, location.key, location.pathname, location.search, location.state, navigate, toast])
 
   const loadEvents = useCallback(async () => {
     setLoading(true)

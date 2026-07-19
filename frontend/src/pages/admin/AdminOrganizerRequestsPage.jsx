@@ -277,7 +277,7 @@ export function AdminOrganizerRequestsPage() {
                 <>
                   <Info label="Người đại diện" value={selectedRequest.legal_representative_name || 'Chưa cung cấp'} />
                   <Info label="Chức vụ" value={selectedRequest.legal_representative_position || 'Chưa cung cấp'} />
-                  <InfoDocument label="Giấy ĐKDN/ERC" url={selectedRequest.legal_document_url} />
+                  <InfoDocument label="Giấy chứng nhận đăng ký doanh nghiệp" url={selectedRequest.legal_document_url} />
                   <InfoDocument label="Giấy phép đặc thù" url={selectedRequest.business_license_url} />
                   <InfoDocument label="Giấy tờ người đại diện" url={selectedRequest.legal_representative_id_url} />
                   <InfoDocument label="Giấy ủy quyền" url={selectedRequest.authorization_letter_url} />

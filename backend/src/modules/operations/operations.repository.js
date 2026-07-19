@@ -166,11 +166,11 @@ class OperationsRepository {
 
     const { rows } = await db.query(
       `
-      SELECT u.id, u.full_name, u.email, u.phone, u.avatar_url, u.status
+      SELECT DISTINCT u.id, u.full_name, u.email, u.phone, u.avatar_url, u.status
       FROM users u
       JOIN user_roles ur ON ur.user_id = u.id
       JOIN roles r      ON r.id = ur.role_id
-      WHERE r.name = 'CUSTOMER'
+      WHERE r.name IN ('CUSTOMER', 'STAFF')
         AND u.deleted_at IS NULL
         AND u.status = 'ACTIVE'
         ${searchClause}
@@ -278,6 +278,31 @@ class OperationsRepository {
     const { rows } = await db.query(
       'SELECT id, event_id, staff_id FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
       [eventId, staffId],
+    );
+    return rows[0];
+  }
+
+  async findStaffScheduleConflict(staffId, targetEventId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        e.id AS event_id,
+        e.title AS event_title,
+        e.start_time,
+        e.end_time
+      FROM event_staffs es
+      JOIN events e ON e.id = es.event_id
+      JOIN events target ON target.id = $2
+      WHERE es.staff_id = $1
+        AND e.id <> target.id
+        AND e.deleted_at IS NULL
+        AND e.status IN ('PUBLISHED', 'COMPLETED')
+        AND e.start_time < COALESCE(target.end_time, target.start_time)
+        AND COALESCE(e.end_time, e.start_time) > target.start_time
+      ORDER BY e.start_time ASC
+      LIMIT 1
+      `,
+      [staffId, targetEventId],
     );
     return rows[0];
   }
