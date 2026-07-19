@@ -127,7 +127,7 @@ const PROFILE_UPDATE_FIELDS = {
     ['legal_representative_name', 'Người đại diện pháp luật'],
     ['legal_representative_position', 'Chức vụ người đại diện'],
     ['tax_code', 'Mã số thuế'],
-    ['legal_document_url', 'Giấy ĐKDN/ERC'],
+    ['legal_document_url', 'Giấy chứng nhận đăng ký doanh nghiệp'],
     ['business_license_url', 'Giấy phép kinh doanh đặc thù'],
     ['legal_representative_id_url', 'Giấy tờ tùy thân người đại diện'],
     ['authorization_letter_url', 'Giấy ủy quyền'],

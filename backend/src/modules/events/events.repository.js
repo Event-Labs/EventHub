@@ -116,6 +116,9 @@ function buildListQuery(filters) {
 
   if (filters.startDate) where.push(`COALESCE(e.start_time, time_summary.start_time) >= ${addParam(filters.startDate)}`);
   if (filters.endDate) where.push(`COALESCE(e.start_time, time_summary.start_time) <= ${addParam(filters.endDate)}`);
+  if (filters.activeAt) {
+    where.push(`COALESCE(e.end_time, time_summary.end_time, e.start_time, time_summary.start_time) >= ${addParam(filters.activeAt)}`);
+  }
 
   if (filters.minPrice !== undefined) {
     where.push(`EXISTS (

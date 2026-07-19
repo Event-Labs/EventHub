@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   BarChart3,
@@ -322,6 +323,7 @@ function BarChartSimple({ data, valueKey = 'gross_revenue', height = 180 }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function AdminAnalyticsPage() {
+  const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last30')
   const defaultRange = getDateRange('last30')
   const [customFrom, setCustomFrom] = useState(defaultRange.fromInput)
@@ -401,58 +403,6 @@ export function AdminAnalyticsPage() {
       title="Tổng quan nền tảng"
       description="Thống kê toàn hệ thống: người dùng, sự kiện, giao dịch vé và doanh thu gói dịch vụ."
     >
-      {/* ── Filters ── */}
-      <Panel className="mb-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-          <DateRangeFilter
-            value={datePreset}
-            customFrom={customFrom}
-            customTo={customTo}
-            comparisonEnabled={comparison.enabled}
-            comparisonMode={comparison.mode}
-            comparisonFrom={comparison.from}
-            comparisonTo={comparison.to}
-            onPresetChange={setDatePreset}
-            onCustomFromChange={setCustomFrom}
-            onCustomToChange={setCustomTo}
-            onComparisonChange={setComparison}
-            compact
-          />
-
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <span className="block text-sm font-semibold text-subtle">Nhóm theo</span>
-              <div className="mt-2 flex gap-2">
-                {[['day', 'Ngày'], ['week', 'Tuần'], ['month', 'Tháng']].map(([val, lbl]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setTrendGroupBy(val)}
-                    className={`h-9 rounded-xl border px-3 text-sm font-semibold transition ${
-                      trendGroupBy === val
-                        ? 'border-primary/60 bg-tertiary/15 text-tertiary'
-                        : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
-                    }`}
-                  >
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={load}
-              disabled={loading}
-              className="inline-flex h-9 items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
-            >
-              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-              Làm mới
-            </button>
-          </div>
-        </div>
-      </Panel>
-
       {/* ── Attention Required ── */}
       {overview && (
         <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/[0.06] p-4 sm:p-5">
@@ -466,14 +416,16 @@ export function AdminAnalyticsPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              ['Sự kiện chờ duyệt', Number(events?.pending_events || 0), Number(events?.pending_events || 0) > 5 ? 'critical' : 'warn'],
-              ['Yêu cầu Organizer', Number(orgReqs?.pending_requests || 0), Number(orgReqs?.pending_requests || 0) > 3 ? 'critical' : 'warn'],
-              ['Sự kiện đã hủy', Number(events?.cancelled_events || 0), 'warn'],
-              ['Đơn hàng đang xử lý', Number(orders?.pending_orders || 0), 'warn'],
-            ].map(([label, count, severity]) => (
-              <div
+              ['Sự kiện chờ duyệt', Number(events?.pending_events || 0), Number(events?.pending_events || 0) > 5 ? 'critical' : 'warn', '/admin/events/review?status=PENDING'],
+              ['Yêu cầu Organizer', Number(orgReqs?.pending_requests || 0), Number(orgReqs?.pending_requests || 0) > 3 ? 'critical' : 'warn', '/admin/organizer-requests?status=PENDING'],
+              ['Sự kiện đã hủy', Number(events?.cancelled_events || 0), 'warn', '/admin/events/review?status=CANCELLED'],
+              ['Đơn hàng đang xử lý', Number(orders?.pending_orders || 0), 'warn', '/admin/platform-fee?status=PENDING'],
+            ].map(([label, count, severity, to]) => (
+              <button
+                type="button"
                 key={label}
-                className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                onClick={() => navigate(to)}
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                   severity === 'critical'
                     ? 'border-error/30 bg-error/[0.07]'
                     : 'border-warning/30 bg-warning/[0.05]'
@@ -483,7 +435,7 @@ export function AdminAnalyticsPage() {
                 <span className={`shrink-0 text-xl font-extrabold ${severity === 'critical' ? 'text-error' : 'text-warning'}`}>
                   {count}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -580,6 +532,58 @@ export function AdminAnalyticsPage() {
               accentBar="bg-muted"
             />
           </div>
+
+          {/* ── Chart controls ── */}
+          <Panel className="mb-5">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+              <DateRangeFilter
+                value={datePreset}
+                customFrom={customFrom}
+                customTo={customTo}
+                comparisonEnabled={comparison.enabled}
+                comparisonMode={comparison.mode}
+                comparisonFrom={comparison.from}
+                comparisonTo={comparison.to}
+                onPresetChange={setDatePreset}
+                onCustomFromChange={setCustomFrom}
+                onCustomToChange={setCustomTo}
+                onComparisonChange={setComparison}
+                compact
+              />
+
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <span className="block text-sm font-semibold text-subtle">Nhóm theo</span>
+                  <div className="mt-2 flex gap-2">
+                    {[['day', 'Ngày'], ['week', 'Tuần'], ['month', 'Tháng']].map(([val, lbl]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setTrendGroupBy(val)}
+                        className={`h-9 rounded-xl border px-3 text-sm font-semibold transition ${
+                          trendGroupBy === val
+                            ? 'border-primary/60 bg-tertiary/15 text-tertiary'
+                            : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
+                        }`}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={load}
+                  disabled={loading}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
+                >
+                  <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+                  Làm mới
+                </button>
+              </div>
+            </div>
+          </Panel>
 
           {/* ── Revenue Trend Chart ── */}
           <Panel className="mb-6">

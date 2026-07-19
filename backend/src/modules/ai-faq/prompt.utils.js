@@ -51,6 +51,14 @@ function buildSourceRegistry(context) {
     });
   }
 
+  for (const event of context.ongoing_events?.items || []) {
+    sources.push({ id: event.id, title: event.title, category: 'events' });
+  }
+
+  for (const event of context.upcoming_events?.items || []) {
+    sources.push({ id: event.id, title: event.title, category: 'events' });
+  }
+
   for (const event of context.query_matched_events?.items || []) {
     sources.push({
       id: event.id,
@@ -88,7 +96,7 @@ function buildPrompt({ query, history, context, sessionId }) {
     '',
     '## NGUYÊN TẮC BẮT BUỘC',
     '1. Ưu tiên dùng dữ liệu từ SYSTEM_CONTEXT. Nếu SYSTEM_CONTEXT có dữ liệu liên quan, PHẢI dùng để trả lời.',
-    '2. Khi người dùng hỏi về sự kiện sắp diễn ra / đề xuất sự kiện → dùng public_events.items (đã lọc sự kiện chưa diễn ra). Liệt kê tên, thời gian, địa điểm.',
+    '2. Khi người dùng hỏi sự kiện đang diễn ra → chỉ dùng ongoing_events.items. Khi hỏi sự kiện sắp diễn ra / đề xuất sự kiện → dùng upcoming_events.items. Liệt kê tên, thời gian, địa điểm.',
     '3. Khi người dùng hỏi về vé của họ → dùng user_context.upcoming_tickets (vé sắp tới) và user_context.ticket_summary. Nếu upcoming_tickets rỗng → báo không có vé sắp tới.',
     '4. Ngày giờ đã được format sẵn theo giờ Việt Nam trong SYSTEM_CONTEXT — dùng nguyên văn, không tự tính lại.',
     '5. Trả lời bằng tiếng Việt, rõ ràng, thân thiện. Dùng gạch đầu dòng nếu liệt kê từ 3 mục trở lên.',
