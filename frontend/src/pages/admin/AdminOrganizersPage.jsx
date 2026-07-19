@@ -170,7 +170,6 @@ export function AdminOrganizersPage() {
             <div key="performance" className="space-y-1 text-sm">
               <p><span className="font-bold text-content">{organizer.total_events}</span> sự kiện</p>
               <p><span className="font-bold text-success">{formatCurrency(organizer.gross_revenue)}</span></p>
-              <p className="text-xs text-warning">Giảm giá {formatCurrency(organizer.total_discount)}</p>
             </div>,
             <Status key="status" value={organizer.status} />,
             <div key="actions" className="flex items-center gap-3 text-subtle">

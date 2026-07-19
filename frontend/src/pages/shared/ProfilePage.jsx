@@ -412,7 +412,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
               </>
             ) : (
               <>
-                <DocumentCard label="Giấy ĐKDN/ERC" url={organizer?.legal_document_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label="Giấy chứng nhận đăng ký doanh nghiệp" url={organizer?.legal_document_url} uploadedAt={organizer?.updated_at || request.created_at} />
                 <DocumentCard label="Giấy phép kinh doanh đặc thù" url={organizer?.business_license_url} uploadedAt={organizer?.updated_at || request.created_at} />
                 <DocumentCard label="Giấy tờ tùy thân người đại diện" url={organizer?.legal_representative_id_url} uploadedAt={organizer?.updated_at || request.created_at} />
                 <DocumentCard label="Giấy ủy quyền" url={organizer?.authorization_letter_url} uploadedAt={organizer?.updated_at || request.created_at} />
@@ -664,7 +664,7 @@ function OrganizerVerificationUpdateForm({
             </>
           ) : (
             <>
-              <DocumentUploadInput label="Giấy ĐKDN/ERC" file={selectedDocuments.legal_document_url} existingUrl={form.legal_document_url} onChange={(file) => updateDocument('legal_document_url', file)} />
+              <DocumentUploadInput label="Giấy chứng nhận đăng ký doanh nghiệp" file={selectedDocuments.legal_document_url} existingUrl={form.legal_document_url} onChange={(file) => updateDocument('legal_document_url', file)} />
               <DocumentUploadInput label="Giấy phép kinh doanh đặc thù" file={selectedDocuments.business_license_url} existingUrl={form.business_license_url} onChange={(file) => updateDocument('business_license_url', file)} />
               <DocumentUploadInput label="Giấy tờ tùy thân người đại diện" file={selectedDocuments.legal_representative_id_url} existingUrl={form.legal_representative_id_url} imageOnly onChange={(file) => updateDocument('legal_representative_id_url', file)} />
               <DocumentUploadInput label="Giấy ủy quyền" file={selectedDocuments.authorization_letter_url} existingUrl={form.authorization_letter_url} onChange={(file) => updateDocument('authorization_letter_url', file)} />
