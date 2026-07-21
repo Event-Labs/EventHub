@@ -63,25 +63,121 @@ function qrImageSrc(ticket) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(qrPayload(ticket))}`
 }
 
-const SEAT_WIDTH = 28
-const SEAT_HEIGHT = 28
-const SEAT_X_GAP = 8
-const SEAT_LAYOUT_PADDING = 20
-const STAGE_HEIGHT = 40
-const STAGE_GAP = 28
+const SEAT_WIDTH = 32
+const SEAT_HEIGHT = 32
+const SEAT_LAYOUT_PADDING = 24
+const STAGE_HEIGHT = 44
+const STAGE_GAP = 24
+
+// Trạng thái ghế và màu sắc tương ứng
+const SEAT_STATUS = {
+  AVAILABLE: 'AVAILABLE',
+  SELECTED: 'SELECTED',
+  BOOKED: 'BOOKED',
+  SOLD: 'SOLD',
+  HELD: 'HELD',
+  RESERVED: 'RESERVED',
+  BLOCKED: 'BLOCKED',
+  MAINTENANCE: 'MAINTENANCE',
+  DISABLED: 'DISABLED',
+}
+
+// Trả về className cho ghế — zone color KHÔNG được xử lý ở đây,
+// chỉ xử lý qua dải màu đáy (giống customer booking).
+function getSeatStatusClass(status, selected) {
+  if (selected) {
+    // Đang chọn: cam
+    return 'cursor-pointer border-orange-400 bg-orange-400 text-slate-950 shadow-md shadow-orange-400/40'
+  }
+  switch (status) {
+    case SEAT_STATUS.AVAILABLE:
+      // Trống: giống customer — border mờ, nền panel-soft, text subtle
+      return 'cursor-pointer border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
+    case SEAT_STATUS.SOLD:
+    case SEAT_STATUS.BOOKED:
+      // Đã bán: xám tối hoàn toàn (KHÔNG giữ zone color)
+      return 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+    case SEAT_STATUS.HELD:
+    case SEAT_STATUS.RESERVED:
+      // Đang giữ / đặt trước: xám tối (KHÔNG giữ zone color)
+      return 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+    case SEAT_STATUS.BLOCKED:
+    case SEAT_STATUS.DISABLED:
+    case SEAT_STATUS.MAINTENANCE:
+      // Khoá: xám tối
+      return 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+    default:
+      return 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+  }
+}
+
+function getSeatLabel(seat) {
+  // Ưu tiên label đầy đủ backend đã tạo (A1, B3...)
+  if (seat.label && seat.label !== seat.row_label) return seat.label
+  // Ghép row_label + seat_number
+  if (seat.row_label != null && seat.seat_number != null && seat.seat_number !== '') {
+    return `${seat.row_label}${seat.seat_number}`
+  }
+  return seat.label || seat.row_label || '?'
+}
+
+// Tính width cần thiết dựa trên label dài nhất
+function calcSeatWidth(seats) {
+  const maxLen = Math.max(2, ...(seats || []).map((s) => getSeatLabel(s).length))
+  // mỗi ký tự ~6.5px ở font-size 9-10px, padding 4px mỗi bên, min 28px
+  return Math.max(28, Math.ceil(maxLen * 6.5 + 8))
+}
+
+// Tính spacing thực tế giữa các ghế từ x_position
+function calcXSpacing(seats) {
+  const positioned = (seats || []).filter(
+    (s) => s.x_position != null && Number.isFinite(Number(s.x_position))
+  )
+  if (positioned.length < 2) return null
+  // Nhóm theo row_label, lấy spacing trong cùng row
+  const rowMap = new Map()
+  for (const s of positioned) {
+    const row = s.row_label || ''
+    if (!rowMap.has(row)) rowMap.set(row, [])
+    rowMap.get(row).push(Number(s.x_position))
+  }
+  const spacings = []
+  for (const xs of rowMap.values()) {
+    if (xs.length < 2) continue
+    xs.sort((a, b) => a - b)
+    for (let i = 1; i < xs.length; i++) {
+      const d = xs[i] - xs[i - 1]
+      if (d > 2 && d < 120) spacings.push(d) // bỏ lối đi lớn, chỉ lấy spacing ghế
+    }
+  }
+  if (!spacings.length) return null
+  spacings.sort((a, b) => a - b)
+  // Lấy median
+  return spacings[Math.floor(spacings.length / 2)]
+}
+
+function isClickable(status, selected) {
+  if (selected) return true
+  return status === SEAT_STATUS.AVAILABLE
+}
 
 function seatId(seat) {
   return String(seat?.session_seat_id || seat?.id || '')
 }
 
-function buildSeatLayout(seats) {
-  const positioned = (seats || []).filter((seat) => Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position)))
+// Xây dựng layout theo tọa độ x,y thực tế
+function buildXYLayout(seats, seatWidth) {
+  const w = seatWidth || SEAT_WIDTH
+  const positioned = (seats || []).filter(
+    (seat) => seat.x_position != null && seat.y_position != null &&
+      Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position))
+  )
   if (!positioned.length) return null
 
-  const minX = Math.min(...positioned.map((seat) => Number(seat.x_position)))
-  const minY = Math.min(...positioned.map((seat) => Number(seat.y_position)))
-  const maxX = Math.max(...positioned.map((seat) => Number(seat.x_position)))
-  const maxY = Math.max(...positioned.map((seat) => Number(seat.y_position)))
+  const minX = Math.min(...positioned.map((s) => Number(s.x_position)))
+  const minY = Math.min(...positioned.map((s) => Number(s.y_position)))
+  const maxX = Math.max(...positioned.map((s) => Number(s.x_position)))
+  const maxY = Math.max(...positioned.map((s) => Number(s.y_position)))
   const positions = new Map()
 
   positioned.forEach((seat) => {
@@ -93,9 +189,28 @@ function buildSeatLayout(seats) {
 
   return {
     positions,
-    width: Math.max(320, maxX - minX + SEAT_WIDTH + SEAT_LAYOUT_PADDING * 2),
-    height: Math.max(220, maxY - minY + SEAT_HEIGHT + SEAT_LAYOUT_PADDING * 2 + STAGE_HEIGHT + STAGE_GAP),
+    width: Math.max(360, maxX - minX + w + SEAT_LAYOUT_PADDING * 2),
+    height: Math.max(240, maxY - minY + SEAT_HEIGHT + SEAT_LAYOUT_PADDING * 2 + STAGE_HEIGHT + STAGE_GAP),
   }
+}
+
+// Xây dựng layout theo row/column thực tế (khi không có x,y)
+function buildRowColLayout(seats) {
+  const rowMap = new Map()
+  for (const seat of seats || []) {
+    const row = seat.row_label || 'A'
+    if (!rowMap.has(row)) rowMap.set(row, [])
+    rowMap.get(row).push(seat)
+  }
+  const rows = []
+  for (const [rowLabel, rowSeats] of rowMap.entries()) {
+    rows.push({
+      rowLabel,
+      seats: [...rowSeats].sort((a, b) => Number(a.seat_number || 0) - Number(b.seat_number || 0)),
+    })
+  }
+  rows.sort((a, b) => a.rowLabel.localeCompare(b.rowLabel))
+  return rows
 }
 
 export function StaffDirectBookingPage() {
@@ -462,7 +577,6 @@ export function StaffDirectBookingPage() {
                                   : [...current, seat],
                               )
                             }}
-                            colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
                           />
                         </div>
                       )}
@@ -766,72 +880,173 @@ function PrintInfo({ label, value, wide }) {
   )
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, colsCount }) {
-  const metrics = buildSeatLayout(seats)
+// Legend: chú thích màu ghế — giống customer booking
+function SeatLegend({ seats }) {
+  const zones = useMemo(() => {
+    const zoneMap = new Map()
+    for (const seat of seats || []) {
+      const color = seat.zone?.color || seat.seat_type?.color
+      const name = seat.zone?.name || seat.seat_type?.name
+      if (color && name && !zoneMap.has(name)) {
+        zoneMap.set(name, color)
+      }
+    }
+    return [...zoneMap.entries()]
+  }, [seats])
 
-  const renderSeat = (seat, style = {}) => {
+  return (
+    <div className="flex flex-wrap gap-4 text-xs font-semibold text-subtle">
+      <span className="inline-flex items-center gap-2">
+        <span className="size-3 rounded-sm border border-border-soft bg-panel-soft" />
+        Còn trống
+      </span>
+      <span className="inline-flex items-center gap-2">
+        <span className="size-3 rounded-sm border border-orange-400 bg-orange-400" />
+        Đang chọn
+      </span>
+      <span className="inline-flex items-center gap-2">
+        <span className="size-3 rounded-sm border border-slate-700 bg-slate-700" />
+        Đã giữ/bán
+      </span>
+      {zones.map(([name, color]) => (
+        <span key={name} className="inline-flex items-center gap-2">
+          <span className="size-3 rounded-sm border" style={{ borderColor: color, backgroundColor: `${color}40` }} />
+          {name}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat }) {
+  const seatWidth = calcSeatWidth(seats)
+  // Tính spacing thực tế trong xy layout để ghế không overlap và đủ chỗ hiện label
+  const xSpacing = calcXSpacing(seats)
+  // xyWidth = min(spacing - 2, seatWidth dựa trên label) để luôn hiện đủ chữ
+  const xyWidth = xSpacing ? Math.min(xSpacing - 2, Math.max(seatWidth, xSpacing - 2)) : seatWidth
+  const xyLayout = buildXYLayout(seats, xyWidth)
+
+  const renderSeat = (seat, overrideWidth, style = {}) => {
     const id = seat.session_seat_id
     const selected = selectedSeatIds.includes(id)
-    const disabled = seat.status !== 'AVAILABLE' && !selected
+    const status = seat.is_disabled ? SEAT_STATUS.BLOCKED : (seat.status || SEAT_STATUS.AVAILABLE)
+    const clickable = isClickable(status, selected)
+    const label = getSeatLabel(seat)
+    const zoneColor = seat.zone?.color || seat.seat_type?.color
+    const w = overrideWidth || seatWidth
+
     const mappedTicketTypeIds = seat.ticket_type_ids || []
     const ticketType = mappedTicketTypeIds.length
       ? ticketTypes.find((type) => mappedTicketTypeIds.some((mappedId) => String(mappedId) === String(type.id)))
       : ticketTypes.find((type) => type.is_seated)
-    const zoneColor = seat.zone?.color || seat.seat_type?.color
+
+    const statusLabel = {
+      AVAILABLE: 'Trống',
+      SOLD: 'Đã bán',
+      BOOKED: 'Đã đặt',
+      HELD: 'Đang giữ',
+      RESERVED: 'Đặt trước',
+      BLOCKED: 'Khoá',
+      MAINTENANCE: 'Bảo trì',
+      DISABLED: 'Khoá',
+    }[status] || status
+
+    const tooltipText = `${label} - ${statusLabel}${ticketType ? ` (${ticketType.name})` : ''}${seat.zone?.name ? ` · ${seat.zone.name}` : ''}`
+
+    // Zone color KHÔNG override border/text — chỉ dùng cho dải đáy (giống customer booking)
+    // Ghế bán/held/blocked: xám hoàn toàn, không hiện zone
 
     return (
       <button
         key={id}
         type="button"
-        disabled={disabled}
-        onClick={() => onToggleSeat(id)}
-        title={`${seat.label || ''}${ticketType ? ` - ${ticketType.name}` : ''}`}
-        style={{ width: SEAT_WIDTH, height: SEAT_HEIGHT, ...style }}
-        className={`rounded-md border text-[10px] font-bold transition ${
-          selected
-            ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
-            : disabled
-              ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
-              : 'border-border-soft bg-surface text-subtle hover:border-primary hover:text-primary'
-        }`}
+        disabled={!clickable}
+        onClick={() => clickable && onToggleSeat(id)}
+        title={tooltipText}
+        style={{ width: w, height: SEAT_HEIGHT, flexShrink: 0, ...style }}
+        className={`rounded-md border font-bold transition ${getSeatStatusClass(status, selected)}`}
       >
-        <span className="block truncate px-0.5 leading-4">{seat.row_label || seat.label}</span>
-        {!selected && !disabled && zoneColor && (
-          <span className="mx-auto mt-0.5 block h-0.5 w-4 rounded-full" style={{ backgroundColor: zoneColor }} />
+        <span
+          className="block truncate px-0.5 leading-4"
+          style={{ fontSize: w >= 36 ? '10px' : '9px' }}
+        >
+          {label}
+        </span>
+        {/* Dải màu zone ở đáy — CHỈ khi available và không đang chọn */}
+        {!selected && status === SEAT_STATUS.AVAILABLE && zoneColor && (
+          <span
+            className="mx-auto block rounded-full"
+            style={{ backgroundColor: zoneColor, height: 2, width: Math.max(4, w - 8), marginTop: 1 }}
+          />
         )}
       </button>
     )
   }
 
-  if (!metrics) {
+  // Render theo tọa độ x,y thực tế — giữ spacing gốc của designer
+  if (xyLayout) {
     return (
-      <div
-        className="grid w-max gap-2"
-        style={{ gridTemplateColumns: `repeat(${colsCount || 8}, ${SEAT_WIDTH}px)`, gap: SEAT_X_GAP }}
-      >
-        {seats.map((seat) => renderSeat(seat))}
+      <div className="space-y-3">
+        <SeatLegend seats={seats} />
+        <div
+          className="relative rounded-lg border border-border-soft/40 bg-background/40"
+          style={{ width: xyLayout.width, height: xyLayout.height, minWidth: 360 }}
+        >
+          {/* Sân khấu */}
+          <div
+            className="absolute left-1/2 top-4 -translate-x-1/2 rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
+            style={{
+              height: STAGE_HEIGHT,
+              width: Math.min(Math.max(xyLayout.width * 0.7, 260), 600),
+            }}
+          >
+            SÂN KHẤU
+          </div>
+          {seats.map((seat) => {
+            const position = xyLayout.positions.get(seatId(seat))
+            if (!position) return null
+            // Trong xy layout: dùng xyWidth (đã tính từ spacing thực tế)
+            return renderSeat(seat, xyWidth, {
+              position: 'absolute',
+              left: position.left,
+              top: position.top,
+            })
+          })}
+        </div>
       </div>
     )
   }
 
+  // Fallback: render theo row + column thực tế, dùng dynamic seatWidth để hiện đủ label
+  const rows = buildRowColLayout(seats)
+
   return (
-    <div className="relative w-max rounded-lg border border-border-soft/40 bg-background/40" style={{ width: metrics.width, height: metrics.height }}>
-      <div
-        className="absolute left-1/2 top-5 h-10 -translate-x-1/2 rounded-b-full bg-gradient-to-r from-primary via-sky-300 to-primary text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
-        style={{ width: Math.min(Math.max(metrics.width * 0.72, 280), 640) }}
-      >
-        SÂN KHẤU
+    <div className="space-y-3">
+      <SeatLegend seats={seats} />
+      <div className="w-max rounded-lg border border-border-soft/40 bg-background/40 p-4">
+        {/* Sân khấu */}
+        <div className="mb-6 flex justify-center">
+          <div
+            className="rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 px-12 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-primary/20"
+            style={{ minWidth: 200 }}
+          >
+            SÂN KHẤU
+          </div>
+        </div>
+        {/* Các dãy ghế */}
+        <div className="space-y-1.5">
+          {rows.map(({ rowLabel, seats: rowSeats }) => (
+            <div key={rowLabel} className="flex items-center gap-2">
+              {/* Nhãn hàng */}
+              <span className="w-6 shrink-0 text-right text-[10px] font-bold text-subtle">{rowLabel}</span>
+              {/* Ghế trong hàng */}
+              <div className="flex gap-1.5">
+                {rowSeats.map((seat) => renderSeat(seat, seatWidth))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-      {seats.map((seat) => {
-        const position = metrics.positions.get(seatId(seat))
-        if (!position) return null
-        return renderSeat(seat, {
-          position: 'absolute',
-          left: position.left,
-          top: position.top,
-          width: SEAT_WIDTH,
-        })
-      })}
     </div>
   )
 }
