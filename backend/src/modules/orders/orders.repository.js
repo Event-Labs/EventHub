@@ -1930,9 +1930,20 @@ class OrdersRepository {
   async findPaidOrderEmailDetails(orderId) {
     const { rows } = await db.query(
       `SELECT o.id, o.order_code, o.buyer_name, o.buyer_email, o.subtotal, o.discount_amount,
-        o.platform_fee, o.total_amount, e.title AS event_title, e.banner_url, e.thumbnail_url,
+        o.platform_fee, o.total_amount, event_info.title AS event_title,
+        event_info.banner_url, event_info.thumbnail_url,
         po.paid_at, COALESCE(pt.provider_transaction_id, po.provider_order_code::text) AS transaction_code
-      FROM orders o JOIN events e ON e.id = o.event_id
+      FROM orders o
+      JOIN LATERAL (
+        SELECT e.id, e.title, e.banner_url, e.thumbnail_url
+        FROM order_items oi
+        JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
+        WHERE oi.order_id = o.id
+        ORDER BY oi.id
+        LIMIT 1
+      ) event_info ON true
       JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
       LEFT JOIN LATERAL (SELECT provider_transaction_id FROM payment_transactions
         WHERE payment_order_id = po.id AND status = 'PAID' ORDER BY created_at DESC LIMIT 1) pt ON true

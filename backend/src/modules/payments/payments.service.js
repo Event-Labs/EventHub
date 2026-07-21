@@ -17,19 +17,31 @@ function isPayosPaid(paymentData, paymentOrder) {
 class PaymentsService {
   async sendTicketConfirmation(orderId) {
     try {
+      logger.info(`[PAYMENT_EMAIL] preparing orderId=${orderId}`);
       const details = await ordersRepository.findPaidOrderEmailDetails(orderId);
-      if (!details) return false;
-      return await ticketConfirmationEmail.sendOrderConfirmation(details.order, details.tickets);
+      if (!details) {
+        logger.warn(`[PAYMENT_EMAIL] skipped orderId=${orderId} reason=paid_order_details_not_found`);
+        return false;
+      }
+      logger.info(`[PAYMENT_EMAIL] details loaded orderId=${orderId} ticketCount=${details.tickets.length} hasRecipient=${Boolean(details.order.buyer_email)}`);
+      const sent = await ticketConfirmationEmail.sendOrderConfirmation(details.order, details.tickets);
+      logger.info(`[PAYMENT_EMAIL] finished orderId=${orderId} sent=${sent}`);
+      return sent;
     } catch (error) {
-      logger.error(`Could not prepare ticket email for order ${orderId}: ${error.message}`);
+      logger.error(`[PAYMENT_EMAIL] failed orderId=${orderId} code=${error.code || 'unknown'} message=${JSON.stringify(error.message || '')} stack=${JSON.stringify(error.stack || '')}`);
       return false;
     }
   }
 
   async confirmAndNotify(args) {
+    logger.info(`[PAYMENT_CONFIRM] started providerOrderCode=${args.providerOrderCode || 'missing'} transactionId=${args.transactionId || 'missing'} amount=${args.amount ?? 'missing'}`);
     const result = await ordersRepository.confirmPayment(args);
     if (!result.alreadyPaid) {
-      await this.sendTicketConfirmation(result.order.id);
+      logger.info(`[PAYMENT_CONFIRM] order paid orderId=${result.order.id} issuedTickets=${result.issuedTickets?.length || 0}`);
+      const emailSent = await this.sendTicketConfirmation(result.order.id);
+      logger.info(`[PAYMENT_CONFIRM] notification completed orderId=${result.order.id} emailSent=${emailSent}`);
+    } else {
+      logger.warn(`[PAYMENT_CONFIRM] already paid orderId=${result.orderId}; confirmation email is not retried`);
     }
     return result;
   }
@@ -67,17 +79,22 @@ class PaymentsService {
     const providerOrderCode = data.orderCode || data.order_code;
     const amount = data.amount;
 
+    logger.info(`[PAYOS_WEBHOOK] received providerOrderCode=${providerOrderCode || 'missing'} amount=${amount ?? 'missing'} code=${data.code || payload.code || 'missing'} hasSignature=${Boolean(payload.signature)}`);
+
     const paymentOrder = await paymentsRepository.findPaymentOrderByProviderCode(providerOrderCode);
     if (!paymentOrder) {
+      logger.warn(`[PAYOS_WEBHOOK] payment order not found providerOrderCode=${providerOrderCode || 'missing'}`);
       throw new AppError('Payment order not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (!payosClient.verifyWebhookData(data, payload.signature, paymentOrder.checksum_key_encrypted)) {
+      logger.warn(`[PAYOS_WEBHOOK] invalid signature providerOrderCode=${providerOrderCode}`);
       throw new AppError('Invalid PayOS webhook signature', 400, ErrorCodes.INVALID_INPUT);
     }
 
     const statusCode = data.code || payload.code;
     if (statusCode && statusCode !== '00') {
+      logger.info(`[PAYOS_WEBHOOK] ignored providerOrderCode=${providerOrderCode} statusCode=${statusCode}`);
       return { ok: true, ignored: true };
     }
 
@@ -87,6 +104,8 @@ class PaymentsService {
       transactionId: data.reference || data.transactionId || data.transaction_id,
       rawPayload: payload,
     });
+
+    logger.info(`[PAYOS_WEBHOOK] processed providerOrderCode=${providerOrderCode}`);
 
     return { ok: true };
   }
