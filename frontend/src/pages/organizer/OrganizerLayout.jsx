@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, Home, LayoutDashboard, Settings, Settings2, ShoppingCart, User, Users } from 'lucide-react'
+import { Bell, Calendar, ChartNoAxesCombined, CircleDollarSign, ClipboardCheck, FileText, Home, LayoutDashboard, MapPin, MessageSquareText, Percent, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
 import { getStoredUser, getStoredUserKey, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -16,7 +16,7 @@ const navSections = [
     group: true,
     icon: Calendar,
     children: [
-      { label: 'Tất cả sự kiện', to: '/organizer/events' },
+      { label: 'Tất cả sự kiện', to: '/organizer/events', icon: Calendar },
     ],
   },
   {
@@ -24,9 +24,9 @@ const navSections = [
     group: true,
     icon: ShoppingCart,
     children: [
-      { label: 'Đơn hàng', to: '/organizer/orders' },
-      { label: 'Phân tích vé', to: '/organizer/ticket-sales' },
-      { label: 'Mã khuyến mãi', to: '/organizer/promotions' },
+      { label: 'Đơn hàng', to: '/organizer/orders', icon: ShoppingCart },
+      { label: 'Phân tích vé', to: '/organizer/ticket-sales', icon: ChartNoAxesCombined },
+      { label: 'Mã khuyến mãi', to: '/organizer/promotions', icon: Percent },
     ],
   },
   {
@@ -34,9 +34,9 @@ const navSections = [
     group: true,
     icon: Users,
     children: [
-      { label: 'Người tham dự', to: '/organizer/attendees' },
-      { label: 'Check-in', to: '/organizer/checkin-dashboard' },
-      { label: 'Phản hồi', to: '/organizer/reports' },
+      { label: 'Người tham dự', to: '/organizer/attendees', icon: Users },
+      { label: 'Check-in', to: '/organizer/checkin-dashboard', icon: TicketCheck },
+      { label: 'Phản hồi', to: '/organizer/reports', icon: MessageSquareText },
     ],
   },
   {
@@ -44,9 +44,9 @@ const navSections = [
     group: true,
     icon: Settings2,
     children: [
-      { label: 'Địa điểm', to: '/organizer/venues' },
-      { label: 'Quản lý nhân sự', to: '/organizer/staff-management' },
-      { label: 'Công việc nhân sự', to: '/organizer/staff-tasks' },
+      { label: 'Địa điểm', to: '/organizer/venues', icon: MapPin },
+      { label: 'Quản lý nhân sự', to: '/organizer/staff-management', icon: UserCog },
+      { label: 'Công việc nhân sự', to: '/organizer/staff-tasks', icon: ClipboardCheck },
     ],
   },
   {
@@ -54,10 +54,10 @@ const navSections = [
     group: true,
     icon: Settings,
     children: [
-      { label: 'Thanh toán', to: '/organizer/settings/payment' },
-      { label: 'Gói dịch vụ', to: '/organizer/subscriptions' },
-      { label: 'Thông báo', to: '/organizer/announcements' },
-      { label: 'Chính sách', to: '/organizer/policies' },
+      { label: 'Thanh toán', to: '/organizer/settings/payment', icon: CircleDollarSign },
+      { label: 'Gói dịch vụ', to: '/organizer/subscriptions', icon: FileText },
+      { label: 'Thông báo', to: '/organizer/announcements', icon: Bell },
+      { label: 'Chính sách', to: '/organizer/policies', icon: Settings },
     ],
   },
 ]
