@@ -744,7 +744,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             <span className="text-xs font-medium text-warning animate-pulse">Gần giới hạn 2000</span>
           )}
         </div>
-        {error && <span className="max-w-[200px] truncate text-sm text-error font-semibold">{error}</span>}
+
         <button type="button" onClick={handleSave} disabled={saving} className="org-btn-primary min-w-[100px]">
           {saving ? 'Đang lưu...' : 'Lưu sơ đồ'}
         </button>

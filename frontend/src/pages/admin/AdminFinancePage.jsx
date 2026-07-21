@@ -514,11 +514,7 @@ function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
           </button>
         </div>
 
-        {error && (
-          <p className="mt-4 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
-            {error}
-          </p>
-        )}
+
 
         <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
           <button type="button" onClick={onClose} className="admin-secondary">
@@ -776,11 +772,10 @@ function TabButton({ active, children, ...props }) {
   return (
     <button
       type="button"
-      className={`inline-flex min-w-20 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
-        active
+      className={`inline-flex min-w-20 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${active
           ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
           : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
-      }`}
+        }`}
       {...props}
     >
       {children}
@@ -877,10 +872,10 @@ function cleanFeePayload(form) {
 
 function createDefaultPolicyConfig(policyType, existing = {}) {
   const nextConfig = { ...existing }
-  ;(policyConfigFields[policyType] || []).forEach(([key, , type]) => {
-    if (nextConfig[key] !== undefined && nextConfig[key] !== null) return
-    nextConfig[key] = type === 'boolean' ? false : type === 'number' ? 0 : ''
-  })
+    ; (policyConfigFields[policyType] || []).forEach(([key, , type]) => {
+      if (nextConfig[key] !== undefined && nextConfig[key] !== null) return
+      nextConfig[key] = type === 'boolean' ? false : type === 'number' ? 0 : ''
+    })
   return nextConfig
 }
 
