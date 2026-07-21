@@ -4,6 +4,10 @@ const logger = require('../../core/logger');
 const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0));
 const date = (value) => value ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value)) : 'N/A';
+const maskEmail = (value) => {
+  const [name = '', domain = ''] = String(value || '').split('@');
+  return domain ? `${name.slice(0, 2)}***@${domain}` : 'missing';
+};
 
 function qrUrl(ticket) {
   const payload = JSON.stringify({ type: 'EVENTHUB_TICKET', ticket_id: ticket.id, ticket_code: ticket.ticket_code, qr_code: ticket.qr_code || ticket.ticket_code, event_id: ticket.event_id, session_id: ticket.event_session_id });
@@ -36,18 +40,40 @@ function buildHtml(order, tickets) {
   <p style="font-size:13px;color:#64748b">Khong chia se ma QR. Moi ve chi check-in mot lan.</p></div></div></body></html>`;
 }
 
+function localizeVietnameseHtml(html) {
+  const replacements = [
+    ['Xin chao', 'Xin ch\u00e0o'],
+    ['EventHub da nhan thanh toan.', 'EventHub \u0111\u00e3 nh\u1eadn thanh to\u00e1n.'],
+    ['Ma don', 'M\u00e3 \u0111\u01a1n'],
+    ['Ma giao dich', 'M\u00e3 giao d\u1ecbch'],
+    ['Thanh toan luc', 'Thanh to\u00e1n l\u00fac'],
+    ['Tam tinh', 'T\u1ea1m t\u00ednh'],
+    ['Giam gia', 'Gi\u1ea3m gi\u00e1'],
+    ['Phi nen tang', 'Ph\u00ed n\u1ec1n t\u1ea3ng'],
+    ['Tong thanh toan', 'T\u1ed5ng thanh to\u00e1n'],
+    ['Ve cua ban', 'V\u00e9 c\u1ee7a b\u1ea1n'],
+    ['Khong chia se ma QR. Moi ve chi check-in mot lan.', 'Kh\u00f4ng chia s\u1ebb m\u00e3 QR. M\u1ed7i v\u00e9 ch\u1ec9 \u0111\u01b0\u1ee3c check-in m\u1ed9t l\u1ea7n.'],
+  ];
+  return replacements.reduce((result, [source, target]) => result.replaceAll(source, target), html);
+}
+
 async function sendOrderConfirmation(order, tickets) {
-  if (!order?.buyer_email || !tickets?.length) return false;
+  if (!order?.buyer_email || !tickets?.length) {
+    logger.warn(`[TICKET_EMAIL] skipped orderId=${order?.id || 'missing'} reason=${!order?.buyer_email ? 'missing_recipient' : 'no_tickets'} ticketCount=${tickets?.length || 0}`);
+    return false;
+  }
   try {
+    logger.info(`[TICKET_EMAIL] rendering orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length} total=${order.total_amount} paidAt=${order.paid_at || 'missing'}`);
     await emailService.sendEmail({
       email: order.buyer_email,
       subject: `V\u00e9 EventHub - ${order.event_title} (${order.order_code})`,
       message: `Thanh to\u00e1n th\u00e0nh c\u00f4ng \u0111\u01a1n ${order.order_code}. ${tickets.length} v\u00e9 \u0111\u00e3 ph\u00e1t h\u00e0nh. T\u1ed5ng: ${money(order.total_amount)}.`,
-      html: buildHtml(order, tickets),
+      html: localizeVietnameseHtml(buildHtml(order, tickets)),
     });
+    logger.info(`[TICKET_EMAIL] sent orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length}`);
     return true;
   } catch (error) {
-    logger.error(`Could not send ticket confirmation for order ${order.id}: ${error.message}`);
+    logger.error(`[TICKET_EMAIL] failed orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length} message=${JSON.stringify(error.message || '')} stack=${JSON.stringify(error.stack || '')}`);
     return false;
   }
 }
