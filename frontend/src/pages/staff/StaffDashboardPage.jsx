@@ -45,7 +45,7 @@ export function StaffDashboardPage() {
       ['Công việc được giao', overview?.assigned_tasks],
       ['Đã hoàn thành', overview?.completed_tasks],
       ['Đang chờ', overview?.pending_tasks],
-      ['Vé đã check-in', overview?.checked_in_tickets],
+      ['Vé đã soát', overview?.checked_in_tickets],
       ['Còn lại', overview?.remaining_tickets],
     ],
     [overview],
@@ -60,7 +60,7 @@ export function StaffDashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Shortcut to="/staff/qr-check-in" icon={QrCode} label="Quét QR" primary />
-        <Shortcut to="/staff/manual-check-in" icon={UserPlus} label="Check-in thủ công" />
+        <Shortcut to="/staff/manual-check-in" icon={UserPlus} label="Soát vé thủ công" />
         <Shortcut to="/staff/tasks" icon={ClipboardCheck} label="Công việc" />
       </div>
 
@@ -147,13 +147,13 @@ function TodayEvent({ event }) {
           {venue || 'Chưa cập nhật địa điểm'}
         </p>
         <p className="mt-4 text-sm font-semibold text-content">
-          Check-in <span className="float-right">{numberFormatter.format(checkedIn)} / {numberFormatter.format(total)}</span>
+          Soát vé <span className="float-right">{numberFormatter.format(checkedIn)} / {numberFormatter.format(total)}</span>
         </p>
         <div className="mt-2 h-2 rounded-full bg-surface">
           <div className="h-full rounded-full bg-tertiary" style={{ width: `${progress}%` }} />
         </div>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link to="/staff/qr-check-in" className="admin-primary">Bắt đầu check-in</Link>
+          <Link to="/staff/qr-check-in" className="admin-primary">Bắt đầu soát vé</Link>
           <Link to="/staff/events" className="admin-secondary">Xem sự kiện</Link>
         </div>
       </div>

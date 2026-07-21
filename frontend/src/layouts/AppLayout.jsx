@@ -49,10 +49,10 @@ const footerSections = [
     ],
   },
   {
-    title: 'Dành cho Staff',
+    title: 'Dành cho Nhân sự',
     links: [
-      { label: 'Điều khoản dành cho Staff', to: '/policies?policy_type=TERMS_STAFF' },
-      { label: 'Check-in và chống vé giả', to: '/policies?policy_type=CHECKIN_POLICY' },
+      { label: 'Điều khoản dành cho Nhân sự', to: '/policies?policy_type=TERMS_STAFF' },
+      { label: 'Soát vé và chống vé giả', to: '/policies?policy_type=CHECKIN_POLICY' },
     ],
   },
 ]
@@ -81,8 +81,8 @@ function getNotificationDisplay(notification) {
   }
 
   return {
-    title: 'Lời mời làm staff',
-    content: 'Bạn có lời mời làm staff đang chờ phản hồi.',
+    title: 'Lời mời làm nhân sự',
+    content: 'Bạn có lời mời làm nhân sự đang chờ phản hồi.',
   }
 }
 
@@ -468,11 +468,11 @@ export function AppLayout() {
           <div>
             <img src={logoSrc} alt="EventHub" className="h-12 w-[212px] object-cover object-center mix-blend-screen" />
             <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
-              Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành, check-in QR
+              Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành và soát vé bằng mã QR
               và hỗ trợ ban tổ chức bằng AI.
             </p>
             <p className="mt-5 text-xs text-neutral">
-              © 2026 EventHub. All rights reserved.
+              © 2026 EventHub. Bảo lưu mọi quyền.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">

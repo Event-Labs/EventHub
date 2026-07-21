@@ -26,6 +26,8 @@ const REQUEST_SELECT = `
   r.individual_tax_code,
   r.terms_accepted,
   r.terms_accepted_at,
+  r.request_action,
+  r.change_summary,
   r.status::text AS status,
   r.review_note,
   r.reviewed_by,
@@ -83,6 +85,21 @@ class OrganizerRequestsRepository {
     return rows[0];
   }
 
+  async findPendingProfileUpdateByUserId(userId) {
+    const { rows } = await db.query(
+      `
+      SELECT id
+      FROM organizer_requests
+      WHERE user_id = $1
+        AND status = 'PENDING'
+        AND request_action = 'PROFILE_UPDATE'
+      LIMIT 1
+      `,
+      [userId],
+    );
+    return rows[0];
+  }
+
   async findBusinessEmailConflict(email, excludeRequestId = null) {
     const { rows } = await db.query(
       `
@@ -123,6 +140,7 @@ class OrganizerRequestsRepository {
     organizationName,
     organizationDescription,
     businessEmail,
+    businessEmailVerified = false,
     businessPhone,
     organizationAvatarUrl,
     taxCode,
@@ -139,6 +157,8 @@ class OrganizerRequestsRepository {
     individualSelfieUrl,
     individualTaxCode,
     termsAccepted,
+    requestAction = 'APPLICATION',
+    changeSummary = null,
   }) {
     const { rows } = await db.query(
       `
@@ -149,6 +169,7 @@ class OrganizerRequestsRepository {
         organization_description,
         business_email,
         business_email_verified,
+        business_email_verified_at,
         business_phone,
         organization_avatar_url,
         tax_code,
@@ -165,9 +186,11 @@ class OrganizerRequestsRepository {
         individual_selfie_url,
         individual_tax_code,
         terms_accepted,
-        terms_accepted_at
+        terms_accepted_at,
+        request_action,
+        change_summary
       )
-      VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, CASE WHEN $21 THEN now() ELSE NULL END)
+      VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $6 THEN now() ELSE NULL END, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, CASE WHEN $22 THEN now() ELSE NULL END, $23, $24)
       RETURNING id
       `,
       [
@@ -176,6 +199,7 @@ class OrganizerRequestsRepository {
         organizationName,
         organizationDescription || null,
         businessEmail || null,
+        Boolean(businessEmailVerified),
         businessPhone || null,
         organizationAvatarUrl || null,
         taxCode || null,
@@ -192,6 +216,8 @@ class OrganizerRequestsRepository {
         individualSelfieUrl || null,
         individualTaxCode || null,
         Boolean(termsAccepted),
+        requestAction || 'APPLICATION',
+        changeSummary || null,
       ],
     );
     return this.findById(rows[0].id);
@@ -370,6 +396,7 @@ class OrganizerRequestsRepository {
           individual_tax_code,
           terms_accepted,
           terms_accepted_at,
+          request_action,
           status
         FROM organizer_requests
         WHERE id = $1
@@ -404,9 +431,10 @@ class OrganizerRequestsRepository {
       );
 
       if (status === 'APPROVED') {
+        const isProfileUpdate = request.request_action === 'PROFILE_UPDATE';
         let organizerUserId = request.user_id;
 
-        if (request.request_type === 'ORGANIZATION') {
+        if (request.request_type === 'ORGANIZATION' && !isProfileUpdate) {
           if (!request.business_email_verified) {
             await client.query('ROLLBACK');
             return { emailNotVerified: true };

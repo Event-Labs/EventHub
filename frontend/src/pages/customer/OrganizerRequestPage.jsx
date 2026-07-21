@@ -57,7 +57,7 @@ const validationLabels = {
   business_phone: 'Số điện thoại',
   organization_avatar_url: 'Ảnh đại diện',
   tax_code: 'Mã số thuế',
-  legal_document_url: 'Giấy ĐKDN/ERC',
+  legal_document_url: 'Giấy chứng nhận đăng ký doanh nghiệp',
   legal_representative_name: 'Người đại diện pháp luật',
   legal_representative_position: 'Chức vụ',
   legal_representative_id_url: 'Giấy tờ tùy thân người đại diện',
@@ -504,9 +504,9 @@ export function OrganizerRequestPage() {
 
     const requiredDocuments = isOrganization
       ? [
-        ['legal_document_url', 'Vui lòng tải Giấy ĐKDN/ERC.'],
-        ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
-      ]
+          ['legal_document_url', 'Vui lòng tải Giấy chứng nhận đăng ký doanh nghiệp.'],
+          ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
+        ]
       : [
         ['individual_id_front_url', 'Vui lòng tải ảnh CCCD mặt trước.'],
         ['individual_id_back_url', 'Vui lòng tải ảnh CCCD mặt sau.'],
@@ -773,7 +773,7 @@ export function OrganizerRequestPage() {
                   >
                     <div className="grid gap-4 sm:grid-cols-2">
                       <FileField
-                        label="Giấy ĐKDN/ERC"
+                        label="Giấy chứng nhận đăng ký doanh nghiệp"
                         required
                         file={selectedDocuments.legal_document_url}
                         existingUrl={form.legal_document_url}

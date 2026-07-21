@@ -243,7 +243,7 @@ export const router = createBrowserRouter([
         element: <NoAssignedEventsPage />,
       },
       {
-        path: 'events/detail',
+        path: 'events/:eventId',
         element: <StaffEventDetailPage />,
       },
       {

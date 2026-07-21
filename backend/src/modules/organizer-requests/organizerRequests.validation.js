@@ -136,6 +136,23 @@ const submitOrganizerRequestSchema = z.object({
   });
 });
 
+const organizerProfileUpdateSchema = z.object({
+  request_type: z.enum(['INDIVIDUAL', 'ORGANIZATION']).optional(),
+  tax_code: z.string().trim().max(30).optional().or(z.literal('')),
+  legal_document_url: optionalUrlSchema,
+  business_license_url: optionalUrlSchema,
+  legal_representative_name: z.string().trim().max(255).optional().or(z.literal('')),
+  legal_representative_position: z.string().trim().max(255).optional().or(z.literal('')),
+  legal_representative_id_url: optionalUrlSchema,
+  authorization_letter_url: optionalUrlSchema,
+  individual_full_name: z.string().trim().max(255).optional().or(z.literal('')),
+  individual_identity_number: z.string().trim().max(50).optional().or(z.literal('')),
+  individual_id_front_url: optionalUrlSchema,
+  individual_id_back_url: optionalUrlSchema,
+  individual_selfie_url: optionalUrlSchema,
+  individual_tax_code: z.string().trim().max(30).optional().or(z.literal('')),
+});
+
 const listOrganizerRequestsSchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
   request_type: z.enum(['INDIVIDUAL', 'ORGANIZATION']).optional(),
@@ -160,6 +177,7 @@ module.exports = {
   requestIdSchema,
   verifyOrganizerBusinessEmailSchema,
   submitOrganizerRequestSchema,
+  organizerProfileUpdateSchema,
   listOrganizerRequestsSchema,
   reviewOrganizerRequestSchema,
 };

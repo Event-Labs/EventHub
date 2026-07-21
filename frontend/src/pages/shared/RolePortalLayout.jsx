@@ -44,11 +44,6 @@ export function RolePortalLayout({
     return () => document.documentElement.classList.remove('light')
   }, [theme])
 
-  const activeSection = useMemo(() => {
-    const byRoute = navSections.find((section) => isSectionActive(section, location.pathname))
-    return byRoute || navSections[0]
-  }, [location.pathname, navSections])
-
   const setPortalTheme = (newTheme) => {
     setTheme(newTheme)
     localStorage.setItem(themeKey, newTheme)
@@ -94,7 +89,6 @@ export function RolePortalLayout({
                 key={section.label}
                 section={section}
                 expanded={sidebarExpanded}
-                active={activeSection.label === section.label}
                 showDivider={sectionIndex > 0}
                 pathname={location.pathname}
               />
@@ -155,24 +149,23 @@ export function RolePortalLayout({
   )
 }
 
-function SidebarSection({ section, expanded, active, showDivider, pathname }) {
+function SidebarSection({ section, expanded, showDivider, pathname }) {
   const Icon = getSectionIcon(section)
-  const target = getSectionTarget(section)
   const items = section.group ? section.children : section.items
 
   if (!expanded) {
     return (
       <div className="flex w-full flex-col items-center gap-1">
         {showDivider && <div className="my-1 h-px w-8 bg-border-soft/30" />}
-        <NavLink
-          to={target}
-          title={section.label}
-          className={`grid size-10 place-items-center rounded-2xl transition-all duration-200 ${
-            active ? 'bg-tertiary/15 text-tertiary' : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
-          }`}
-        >
-          <Icon className="size-[18px]" />
-        </NavLink>
+        {items.map((item) => (
+          <SidebarItem
+            key={item.to || item.label}
+            item={item}
+            expanded={false}
+            active={isItemActive(item, pathname)}
+            fallbackIcon={Icon}
+          />
+        ))}
       </div>
     )
   }
@@ -192,8 +185,8 @@ function SidebarSection({ section, expanded, active, showDivider, pathname }) {
   )
 }
 
-function SidebarItem({ item, expanded, active }) {
-  const Icon = item.icon
+function SidebarItem({ item, expanded, active, fallbackIcon }) {
+  const Icon = item.icon || fallbackIcon
 
   if (!expanded) {
     return (
@@ -312,16 +305,6 @@ function TopBarIconButton({ icon: Icon, label, onClick }) {
 function getSectionIcon(section) {
   if (section.icon) return section.icon
   return section.items?.[0]?.icon || Settings
-}
-
-function getSectionTarget(section) {
-  if (section.group) return section.children?.[0]?.to || '#'
-  return section.items?.[0]?.to || '#'
-}
-
-function isSectionActive(section, pathname) {
-  const items = section.group ? section.children : section.items
-  return items.some((item) => isItemActive(item, pathname))
 }
 
 function isItemActive(item, pathname) {
