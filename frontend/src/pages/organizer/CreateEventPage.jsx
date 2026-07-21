@@ -584,7 +584,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
       <div className="col-span-12 lg:col-span-4 sticky top-24">
         <div className="bg-surface rounded-xl border border-border-soft/30 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
           <div className="bg-tertiary/15 p-6 border-b border-border-soft/30">
-            <h3 className="text-[20px] font-semibold text-content mb-4">{formData.title || 'Event Draft'}</h3>
+            <h3 className="text-[20px] font-semibold text-content mb-4">{formData.title || 'Sự kiện nháp'}</h3>
             <div className="space-y-3 text-sm text-subtle">
               <div className="flex items-center gap-2">
                 <Icon name="calendar_month" className="text-sm" />
@@ -686,7 +686,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                   clientKey: newClientKey(),
                   session_key: sessionKey,
                   name: '',
-                  price: 0,
+                  price: '',
                   quantity: 1,
                   is_seated: false,
                 },
@@ -719,7 +719,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           clientKey,
           session_key: sessionKey,
           name: zone.name,
-          price: 0,
+          price: '',
           quantity: seatCount,
           is_seated: true,
           zone_id: zone.id,
@@ -750,7 +750,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           session_key: sessionKey,
           name: '',
           description: '',
-          price: 0,
+          price: '',
           quantity: 1,
           is_seated: false,
         },
@@ -936,47 +936,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                               {zone.name}
                             </td>
                             <td className="py-3 pr-4">{seatCount}</td>
-                            <td className="py-3 pr-4">
-                              <select
-                                className="h-9 w-full rounded border border-border-soft/40 bg-panel-soft text-content px-2 text-sm"
-                                value={ticketKey || ''}
-                                onChange={(e) => {
-                                  const selected = sessionTickets.find(
-                                    (tt) => String(tt.id || tt.clientKey) === String(e.target.value),
-                                  )
-                                  if (!selected) return
-                                  setFormData((p) => ({
-                                    ...p,
-                                    sessions: p.sessions.map((s, i) =>
-                                      i === activeTab
-                                        ? {
-                                          ...s,
-                                          zone_assignments: (s.zone_assignments || []).map((za) =>
-                                            za.zone_id === zone.id
-                                              ? {
-                                                zone_id: zone.id,
-                                                ticket_type_local_id:
-                                                  selected.clientKey || selected.id,
-                                              }
-                                              : za,
-                                          ),
-                                        }
-                                        : s,
-                                    ),
-                                    ticketTypes: p.ticketTypes.map((tt) =>
-                                      String(tt.id || tt.clientKey) === String(selected.id || selected.clientKey)
-                                        ? { ...tt, zone_id: zone.id, name: zone.name, quantity: seatCount }
-                                        : tt,
-                                    ),
-                                  }))
-                                }}
-                              >
-                                {sessionTickets.map((tt) => (
-                                  <option key={tt.id || tt.clientKey} value={tt.id || tt.clientKey}>
-                                    {tt.name}
-                                  </option>
-                                ))}
-                              </select>
+                            <td className="py-3 pr-4 text-content font-medium text-sm">
+                              {ticket?.name || zone.name}
                             </td>
                             <td className="py-3">
                               {ticketKey && (
@@ -984,9 +945,9 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                                   type="number"
                                   min="0"
                                   className="h-9 w-32 rounded border border-border-soft/40 bg-panel-soft text-content px-2 text-sm"
-                                  value={ticket?.price === 0 ? '' : ticket?.price}
+                                  value={ticket?.price === '' ? '' : ticket?.price}
                                   onChange={(e) =>
-                                    updateTicket(ticketKey, 'price', Number(e.target.value))
+                                    updateTicket(ticketKey, 'price', e.target.value === '' ? '' : Number(e.target.value))
                                   }
                                 />
                               )}
@@ -1050,8 +1011,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                           type="number"
                           min="0"
                           className="w-full rounded-lg border border-border-soft/40 bg-surface text-content px-3 py-2 text-sm focus:border-tertiary outline-none"
-                          value={tt.price === 0 ? '' : tt.price}
-                          onChange={(e) => updateTicket(key, 'price', Number(e.target.value))}
+                          value={tt.price === '' ? '' : tt.price}
+                          onChange={(e) => updateTicket(key, 'price', e.target.value === '' ? '' : Number(e.target.value))}
                         />
                       </div>
                       <div>
@@ -1285,8 +1246,8 @@ function Step4PoliciesSettings({ formData, setFormData }) {
                 <p className="text-sm font-bold text-content">Chính sách hoàn tiền</p>
                 <p className="text-xs text-muted">
                   {rp.allow_refunds
-                    ? `${rp.deadline_days || 7}-day refund enabled`
-                    : 'Refunds disabled'}
+                    ? `Hoàn tiền trước ${rp.deadline_days || 7} ngày`
+                    : 'Không hoàn tiền'}
                 </p>
               </div>
             </div>
@@ -1545,7 +1506,7 @@ export function CreateEventPage() {
       price: tt.price,
       quantity: tt.quantity,
       is_seated: tt.is_seated,
-      zone_id: null,
+      zone_id: tt.zone_id || null,
     }))
 
     setFormData({
@@ -1632,14 +1593,15 @@ export function CreateEventPage() {
         const seatingType = s.seating_type || 'GENERAL'
         if (seatingType === 'ASSIGNED') {
           if (!s.seat_map_id) {
-            return `Phiên sự kiện "${s.session_name || 'unnamed'}" cần chọn sơ đồ ghế.`
+            return `Phiên sự kiện "${s.session_name || 'chưa đặt tên'}" cần chọn sơ đồ ghế.`
           }
         }
         const tickets = formData.ticketTypes.filter((tt) => tt.session_key === key)
-        if (!tickets.length) return `Phiên sự kiện "${s.session_name || 'unnamed'}" cần ít nhất 1 loại vé.`
+        if (!tickets.length) return `Phiên sự kiện "${s.session_name || 'chưa đặt tên'}" cần ít nhất 1 loại vé.`
         for (const tt of tickets) {
           if (!tt.name?.trim()) return 'Tên loại vé không được để trống.'
-          if (tt.price < 0) return 'Giá vé phải >= 0.'
+          if (tt.price === '' || tt.price === null || tt.price === undefined) return 'Giá vé không được để trống.'
+          if (Number(tt.price) < 0) return 'Giá vé phải >= 0.'
           if (!tt.quantity || tt.quantity <= 0) return 'Số lượng vé phải > 0.'
         }
       }
@@ -1990,19 +1952,17 @@ export function CreateEventPage() {
         {/* Main Content Area */}
         <div className="flex-1 p-6 lg:p-10 bg-background/30">
 
-          {error && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error">
-              <Icon name="error" />
-              <span>{error}</span>
-              {paymentSetupRequired && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/organizer/settings/payment')}
-                  className="ml-auto rounded-md border border-error/30 bg-surface px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/10 transition"
-                >
-                  Đến cài đặt thanh toán
-                </button>
-              )}
+          {paymentSetupRequired && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+              <Icon name="warning" />
+              <span>Vui lòng cài đặt thanh toán nhận tiền trước khi đăng sự kiện bán vé.</span>
+              <button
+                type="button"
+                onClick={() => navigate('/organizer/settings/payment')}
+                className="ml-auto rounded-md border border-warning/30 bg-surface px-3 py-1.5 text-xs font-semibold text-warning hover:bg-warning/10 transition"
+              >
+                Đến cài đặt thanh toán
+              </button>
             </div>
           )}
           {subscriptionRequired && (

@@ -391,9 +391,9 @@ export function AdminAnalyticsPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
-  const users   = overview?.users
-  const events  = overview?.events
-  const orders  = overview?.orders
+  const users = overview?.users
+  const events = overview?.events
+  const orders = overview?.orders
   const orgReqs = overview?.organizer_requests
   const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
   const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
@@ -429,7 +429,7 @@ export function AdminAnalyticsPage() {
                   severity === 'critical'
                     ? 'border-error/30 bg-error/[0.07]'
                     : 'border-warning/30 bg-warning/[0.05]'
-                }`}
+                  }`}
               >
                 <span className="text-sm font-semibold text-subtle">{label}</span>
                 <span className={`shrink-0 text-xl font-extrabold ${severity === 'critical' ? 'text-error' : 'text-warning'}`}>
@@ -441,11 +441,7 @@ export function AdminAnalyticsPage() {
         </div>
       )}
 
-      {error && (
-        <div className="mb-5 rounded-xl border border-error/30 bg-error/[0.07] px-4 py-3 text-sm text-error">
-          {error}
-        </div>
-      )}
+
 
       {loading && !overview ? (
         <Panel className="flex items-center justify-center py-20">

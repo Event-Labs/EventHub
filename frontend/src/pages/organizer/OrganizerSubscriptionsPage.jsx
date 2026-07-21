@@ -175,11 +175,7 @@ export function OrganizerSubscriptionsPage() {
               </div>
             </div>
 
-            {error && (
-              <p className="mb-4 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
-                {error}
-              </p>
-            )}
+
 
             <button
               onClick={handlePayment}
@@ -226,19 +222,17 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
 
   return (
     <div
-      className={`relative flex min-w-[220px] flex-1 flex-col rounded-2xl border bg-surface/80 p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md text-content ${
-        isCurrentPlan
+      className={`relative flex min-w-[220px] flex-1 flex-col rounded-2xl border bg-surface/80 p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md text-content ${isCurrentPlan
           ? 'border-success ring-2 ring-success/20'
           : highlighted
             ? 'border-tertiary ring-2 ring-tertiary/20'
             : 'border-border-soft/30'
-      }`}
+        }`}
     >
       {/* Top accent */}
       <div
-        className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl ${
-          isCurrentPlan ? 'bg-success' : highlighted ? 'bg-tertiary' : 'bg-border-soft/20'
-        }`}
+        className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl ${isCurrentPlan ? 'bg-success' : highlighted ? 'bg-tertiary' : 'bg-border-soft/20'
+          }`}
       />
 
       {/* Badge */}
@@ -255,13 +249,12 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
       {/* Icon + Name */}
       <div className="mb-3 flex items-center gap-2">
         <span
-          className={`grid size-8 shrink-0 place-items-center rounded-xl ${
-            isCurrentPlan
+          className={`grid size-8 shrink-0 place-items-center rounded-xl ${isCurrentPlan
               ? 'bg-success/15 text-success border border-success/25'
               : highlighted
                 ? 'bg-tertiary/10 text-tertiary border border-tertiary/25'
                 : 'bg-panel-soft text-muted border border-border-soft/25'
-          }`}
+            }`}
         >
           <Icon className="size-4" />
         </span>
@@ -284,19 +277,19 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
       <div className="mb-4 space-y-2 border-t border-border-soft/10 pt-4">
         <StatLine icon={Layers} label="Sự kiện / kỳ"
           value={plan.event_limit === 0 ? 'Không giới hạn' : `${plan.event_limit} sự kiện`} />
-        <StatLine icon={Users}  label="Nhân sự / sự kiện"
+        <StatLine icon={Users} label="Nhân sự / sự kiện"
           value={plan.max_staff_per_event === 0 ? 'Không giới hạn' : `${plan.max_staff_per_event} người`} />
-        <StatLine icon={Zap}    label="Thời hạn"
+        <StatLine icon={Zap} label="Thời hạn"
           value={`${plan.duration_days} ngày`} />
       </div>
 
       {/* Feature pills */}
       <div className="mb-5 flex flex-wrap gap-1.5">
-        {plan.promo_code_enabled  && <Pill label="Mã KM" />}
-        {plan.seat_map_enabled    && <Pill label="Sơ đồ ghế" />}
-        {plan.ai_report_enabled   && <Pill label="Báo cáo AI" />}
+        {plan.promo_code_enabled && <Pill label="Mã KM" />}
+        {plan.seat_map_enabled && <Pill label="Sơ đồ ghế" />}
+        {plan.ai_report_enabled && <Pill label="Báo cáo AI" />}
         {plan.advanced_analytics_enabled && <Pill label="Analytics" />}
-        {plan.attendee_export_enabled    && <Pill label="Xuất DS" />}
+        {plan.attendee_export_enabled && <Pill label="Xuất DS" />}
       </div>
 
       {/* CTA */}
@@ -304,13 +297,12 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
         <button
           onClick={onSubscribe}
           disabled={isCurrentPlan}
-          className={`block w-full rounded-xl py-2.5 text-center text-xs font-extrabold transition duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
-            isCurrentPlan
+          className={`block w-full rounded-xl py-2.5 text-center text-xs font-extrabold transition duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${isCurrentPlan
               ? 'bg-success text-white'
               : highlighted
                 ? 'bg-tertiary text-white hover:bg-orange-600'
                 : 'border border-border-soft/40 text-content hover:border-tertiary hover:text-tertiary hover:bg-panel-soft'
-          }`}
+            }`}
         >
           {isCurrentPlan ? 'Đang sử dụng' : plan.price === 0 ? 'Kích hoạt' : 'Chọn gói này'}
         </button>
@@ -363,14 +355,14 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
 
   // Feature flags to display
   const features = [
-    { label: 'Mã khuyến mãi',       value: plan.promo_code_enabled },
-    { label: 'Sơ đồ chỗ ngồi',      value: plan.seat_map_enabled },
-    { label: 'Check-in thủ công',   value: plan.manual_checkin_enabled },
-    { label: 'Xuất danh sách',      value: plan.attendee_export_enabled },
-    { label: 'Phân tích nâng cao',  value: plan.advanced_analytics_enabled },
-    { label: 'Báo cáo AI',          value: plan.ai_report_enabled },
-    { label: 'Thương hiệu riêng',   value: plan.custom_branding_enabled },
-    { label: 'Hỗ trợ ưu tiên',      value: plan.priority_support },
+    { label: 'Mã khuyến mãi', value: plan.promo_code_enabled },
+    { label: 'Sơ đồ chỗ ngồi', value: plan.seat_map_enabled },
+    { label: 'Check-in thủ công', value: plan.manual_checkin_enabled },
+    { label: 'Xuất danh sách', value: plan.attendee_export_enabled },
+    { label: 'Phân tích nâng cao', value: plan.advanced_analytics_enabled },
+    { label: 'Báo cáo AI', value: plan.ai_report_enabled },
+    { label: 'Thương hiệu riêng', value: plan.custom_branding_enabled },
+    { label: 'Hỗ trợ ưu tiên', value: plan.priority_support },
   ]
 
   return (
@@ -396,12 +388,12 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
         {/* Col 1: Limits */}
         <div className="space-y-3 border-r border-border-soft/20 px-6 py-5">
           <h3 className="text-sm font-extrabold text-content">Giới hạn sử dụng</h3>
-          <StatRow icon={Layers}      label="Sự kiện / kỳ"         value={plan.event_limit === 0 ? 'Không giới hạn' : plan.event_limit} />
-          <StatRow icon={Zap}         label="Sự kiện active cùng lúc" value={plan.max_active_events === 0 ? 'Không giới hạn' : plan.max_active_events} />
-          <StatRow icon={Users}       label="Nhân sự / sự kiện"    value={plan.max_staff_per_event === 0 ? 'Không giới hạn' : plan.max_staff_per_event} />
-          <StatRow icon={Layers}      label="Loại vé / sự kiện"    value={plan.max_ticket_types_per_event === 0 ? 'Không giới hạn' : plan.max_ticket_types_per_event} />
-          <StatRow icon={Layers}      label="Mã KM / sự kiện"      value={plan.max_promo_codes_per_event === 0 ? 'Không giới hạn' : plan.max_promo_codes_per_event} />
-          <StatRow icon={CalendarDays} label="Thời hạn gói"        value={`${plan.duration_days} ngày`} />
+          <StatRow icon={Layers} label="Sự kiện / kỳ" value={plan.event_limit === 0 ? 'Không giới hạn' : plan.event_limit} />
+          <StatRow icon={Zap} label="Sự kiện active cùng lúc" value={plan.max_active_events === 0 ? 'Không giới hạn' : plan.max_active_events} />
+          <StatRow icon={Users} label="Nhân sự / sự kiện" value={plan.max_staff_per_event === 0 ? 'Không giới hạn' : plan.max_staff_per_event} />
+          <StatRow icon={Layers} label="Loại vé / sự kiện" value={plan.max_ticket_types_per_event === 0 ? 'Không giới hạn' : plan.max_ticket_types_per_event} />
+          <StatRow icon={Layers} label="Mã KM / sự kiện" value={plan.max_promo_codes_per_event === 0 ? 'Không giới hạn' : plan.max_promo_codes_per_event} />
+          <StatRow icon={CalendarDays} label="Thời hạn gói" value={`${plan.duration_days} ngày`} />
         </div>
 
         {/* Col 2: Feature flags */}
@@ -425,13 +417,13 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
           <h3 className="mb-4 text-sm font-extrabold text-content">Thời gian còn lại</h3>
 
           <div className="mb-5 flex items-end gap-2">
-            <CountdownUnit value={countdown.days}    label="Ngày"  urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.days} label="Ngày" urgent={urgency === 'red'} />
             <span className="mb-2 text-2xl font-extrabold text-border-soft/40">:</span>
-            <CountdownUnit value={countdown.hours}   label="Giờ"   urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.hours} label="Giờ" urgent={urgency === 'red'} />
             <span className="mb-2 text-2xl font-extrabold text-border-soft/40">:</span>
-            <CountdownUnit value={countdown.minutes} label="Phút"  urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.minutes} label="Phút" urgent={urgency === 'red'} />
             <span className="mb-2 text-2xl font-extrabold text-border-soft/40">:</span>
-            <CountdownUnit value={countdown.seconds} label="Giây"  urgent={urgency === 'red'} />
+            <CountdownUnit value={countdown.seconds} label="Giây" urgent={urgency === 'red'} />
           </div>
 
           <div>
@@ -468,9 +460,8 @@ function CountdownUnit({ value, label, urgent }) {
   return (
     <div className="flex flex-col items-center">
       <span
-        className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl font-extrabold tabular-nums border ${
-          urgent ? 'bg-error/15 text-error border-error/30' : 'bg-panel-soft text-content border-border-soft/20'
-        }`}
+        className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl font-extrabold tabular-nums border ${urgent ? 'bg-error/15 text-error border-error/30' : 'bg-panel-soft text-content border-border-soft/20'
+          }`}
       >
         {String(value).padStart(2, '0')}
       </span>

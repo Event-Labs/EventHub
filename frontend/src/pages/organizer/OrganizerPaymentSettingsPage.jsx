@@ -271,12 +271,7 @@ export function OrganizerPaymentSettingsPage() {
       <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm">
         {!showSavedSettings && <StepNav step={step} />}
 
-        {!showSavedSettings && error && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error">
-            <AlertCircle className="mt-0.5 size-4 shrink-0" />
-            <p>{error}</p>
-          </div>
-        )}
+
 
         {step === 1 && (
           <div className="space-y-6">
@@ -421,11 +416,10 @@ export function OrganizerPaymentSettingsPage() {
                         <button
                           type="button"
                           onClick={() => setGuideImageIndex(index)}
-                          className={`w-full rounded-xl border p-3 text-left transition ${
-                            isSelected
+                          className={`w-full rounded-xl border p-3 text-left transition ${isSelected
                               ? 'border-tertiary bg-tertiary/10'
                               : 'border-border-soft/25 bg-surface/40 hover:border-tertiary/40'
-                          }`}
+                            }`}
                         >
                           <span className="flex gap-3">
                             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-tertiary text-xs font-bold text-white">
