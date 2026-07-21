@@ -1,0 +1,2 @@
+2026-07-21 16:11:11:1111 [32minfo[39m: [32m[TICKET_EMAIL] rendering orderId=test orderCode=ORD-TEST recipient=te***@example.com ticketCount=1 total=100000 paidAt=Tue Jul 21 2026 16:11:11 GMT+0700 (Indochina Time)[39m
+2026-07-21 16:11:11:1111 [32minfo[39m: [32m[TICKET_EMAIL] sent orderId=test orderCode=ORD-TEST recipient=te***@example.com ticketCount=1[39m

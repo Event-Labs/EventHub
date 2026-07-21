@@ -65,6 +65,9 @@ function assertValidSessionTimes(startTime, endTime) {
   if (new Date(startTime) >= new Date(endTime)) {
     throw new AppError('end_time must be later than start_time', 400, ErrorCodes.INVALID_INPUT);
   }
+  if (new Date(startTime).getTime() < Date.now()) {
+    throw new AppError('start_time must not be in the past', 400, ErrorCodes.INVALID_INPUT);
+  }
 }
 
 const EDIT_LOCK_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -91,7 +94,8 @@ function hasChanged(current, next) {
 function buildEditPermissions(context, now = Date.now()) {
   const startAt = context?.start_time ? new Date(context.start_time).getTime() : null;
   const hoursUntilStart = startAt === null ? null : (startAt - now) / (60 * 60 * 1000);
-  const isTimeLocked = startAt !== null && startAt - now <= EDIT_LOCK_WINDOW_MS;
+  const isDraft = context?.status === 'DRAFT';
+  const isTimeLocked = !isDraft && startAt !== null && startAt - now <= EDIT_LOCK_WINDOW_MS;
   return {
     can_edit: !isTimeLocked,
     is_time_locked: isTimeLocked,
@@ -99,6 +103,7 @@ function buildEditPermissions(context, now = Date.now()) {
     paid_tickets: Number(context?.paid_tickets || 0),
     hours_until_start: hoursUntilStart,
     lock_window_hours: 48,
+    event_status: context?.status || null,
   };
 }
 
@@ -573,8 +578,11 @@ class OrganizerEventsService {
     if (payload.venue_id) {
       await this.assertVenueAccessible(organizerId, payload.venue_id);
     }
-    if (payload.start_time && payload.end_time) {
-      assertValidSessionTimes(payload.start_time, payload.end_time);
+    if (payload.start_time || payload.end_time) {
+      assertValidSessionTimes(
+        payload.start_time || session.start_time,
+        payload.end_time || session.end_time,
+      );
     }
 
     const updated = await organizerEventsRepository.updateSession(sessionId, eventId, payload);
