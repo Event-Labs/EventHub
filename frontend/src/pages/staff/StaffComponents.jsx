@@ -138,7 +138,7 @@ export function Insight({ children }) {
           <Sparkles className="size-4 text-ai" />
         </div>
         <p className="text-sm leading-6 text-subtle">
-          <span className="font-bold text-ai">AI Insight: </span>
+          <span className="font-bold text-ai">Gợi ý AI: </span>
           {children}
         </p>
       </div>

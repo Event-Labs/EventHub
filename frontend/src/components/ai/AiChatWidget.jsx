@@ -48,6 +48,7 @@ export function AiChatWidget({ enabled = true }) {
   const [animationState, setAnimationState] = useState('closed')
   const [launcherPosition, setLauncherPosition] = useState(getDefaultLauncherPosition)
   const [dragging, setDragging] = useState(false)
+  const [dragCollapsed, setDragCollapsed] = useState(false)
   // Re-check auth reactively (e.g. logout in another tab)
   const [authValid, setAuthValid] = useState(isLoggedIn)
   const dragRef = useRef(null)
@@ -170,7 +171,10 @@ export function AiChatWidget({ enabled = true }) {
 
     const deltaX = event.clientX - dragState.startX
     const deltaY = event.clientY - dragState.startY
-    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) movedRef.current = true
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      movedRef.current = true
+      if (open) setDragCollapsed(true)
+    }
 
     setLauncherPosition({
       x: clamp(dragState.originX + deltaX, EDGE_PADDING, window.innerWidth - LAUNCHER_SIZE - EDGE_PADDING),
@@ -183,6 +187,7 @@ export function AiChatWidget({ enabled = true }) {
     if (dragState?.pointerId === event.pointerId) {
       dragRef.current = null
       setDragging(false)
+      setDragCollapsed(false)
     }
   }
 
@@ -249,13 +254,15 @@ export function AiChatWidget({ enabled = true }) {
             top: panelPosition.top,
             width: panelPosition.width,
             height: panelPosition.height,
+            opacity: dragCollapsed ? 0 : 1,
+            transition: 'opacity 140ms ease',
             transformOrigin:
               launcherPosition.y + LAUNCHER_SIZE > window.innerHeight / 2
                 ? 'bottom right'
                 : 'top right',
           }}
           aria-label="EventHub AI Chatbox"
-          aria-hidden={!open}
+          aria-hidden={!open || dragCollapsed}
         >
           <div
             className="flex cursor-grab items-center gap-2.5 border-b border-primary/15 bg-[#081126] px-3.5 py-3 active:cursor-grabbing"

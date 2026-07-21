@@ -18,6 +18,16 @@ function compactEvent(event) {
   };
 }
 
+function splitEventTimeline(events, now = Date.now()) {
+  return events.reduce((timeline, event) => {
+    const start = event.start_time ? new Date(event.start_time).getTime() : null;
+    const end = event.end_time ? new Date(event.end_time).getTime() : start;
+    if (start && start <= now && (!end || end >= now)) timeline.ongoing.push(event);
+    else if (start && start > now) timeline.upcoming.push(event);
+    return timeline;
+  }, { ongoing: [], upcoming: [] });
+}
+
 class SystemContextService {
   async build(userId, queryText = '') {
     const context = {
@@ -38,6 +48,8 @@ class SystemContextService {
         status: 'unavailable',
         items: [],
       },
+      ongoing_events: { status: 'unavailable', items: [] },
+      upcoming_events: { status: 'unavailable', items: [] },
       query_matched_events: {
         status: 'not_requested',
         items: [],
@@ -53,20 +65,21 @@ class SystemContextService {
 
     const hasQuery = String(queryText || '').trim().length >= 2;
 
-    // Build shared upcoming filter — only events that haven't ended yet
-    const upcomingFilter = {
+    // Shared active filter includes both ongoing and upcoming public events.
+    const now = new Date();
+    const activeFilter = {
       page: 1,
       limit: PUBLIC_EVENTS_LIMIT,
       sort_by: 'start_time',
       sort_order: 'asc',
-      start_date: new Date(), // maps to filters.startDate in buildListQuery → e.start_time >= now
+      active_at: now,
     };
 
     const [eventsResult, queryEventsResult, categoriesResult, userContextResult] = await Promise.allSettled([
-      eventsService.getPublicEvents(upcomingFilter, userId || null),
+      eventsService.getPublicEvents(activeFilter, userId || null),
       hasQuery
         ? eventsService.getPublicEvents(
-            { ...upcomingFilter, keyword: queryText },
+            { ...activeFilter, keyword: queryText },
             userId || null,
           )
         : Promise.resolve(null),
@@ -75,11 +88,15 @@ class SystemContextService {
     ]);
 
     if (eventsResult.status === 'fulfilled') {
+      const activeEvents = (eventsResult.value.items || []).map(compactEvent);
+      const timeline = splitEventTimeline(activeEvents, now.getTime());
       context.public_events = {
         status: 'available',
-        items: (eventsResult.value.items || []).map(compactEvent),
+        items: activeEvents,
         total: eventsResult.value.pagination?.total || 0,
       };
+      context.ongoing_events = { status: 'available', items: timeline.ongoing, total: timeline.ongoing.length };
+      context.upcoming_events = { status: 'available', items: timeline.upcoming, total: timeline.upcoming.length };
     } else {
       context.public_events.error = eventsResult.reason?.message || 'Cannot load public events';
     }

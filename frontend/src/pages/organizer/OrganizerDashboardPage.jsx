@@ -43,6 +43,13 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+function fmtChartDay(value) {
+  if (!value) return ''
+  const [datePart] = String(value).split('T')
+  const [year, month, day] = datePart.split('-')
+  return year && month && day ? `${day}/${month}` : datePart
+}
+
 function riskLabel(level) {
   const labels = {
     LOW: 'Rủi ro thấp',
@@ -137,7 +144,7 @@ function BarChartSimple({ data, height = 160 }) {
           return (
             <g key={d.day}>
               <rect x={x} y={y} width={barWidth} height={barH} rx={3} fill={isHighest ? '#b3cde0' : 'rgba(43,92,146,0.55)'}>
-                <title>{`${d.day}: ${fmtCurrency(d.net_revenue)}`}</title>
+                <title>{`${fmtChartDay(d.day)}: ${fmtCurrency(d.net_revenue)}`}</title>
               </rect>
             </g>
           )
@@ -147,7 +154,7 @@ function BarChartSimple({ data, height = 160 }) {
           if (i % step !== 0) return null
           return (
             <text key={`lbl-${d.day}`} x={i * gap + gap / 2} y={height + 20} textAnchor="middle" fontSize={10} fill="#72787c">
-              {d.day ? d.day.slice(5) : ''}
+              {fmtChartDay(d.day)}
             </text>
           )
         })}

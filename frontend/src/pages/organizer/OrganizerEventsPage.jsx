@@ -189,6 +189,8 @@ function CancelConfirmModal({ event, onConfirm, onClose, loading, error }) {
 export function OrganizerEventsPage() {
   const toast = useToast()
   const location = useLocation()
+  const navigate = useNavigate()
+  const handledToastLocations = useRef(new Set())
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -212,7 +214,6 @@ export function OrganizerEventsPage() {
       window.history.replaceState({}, document.title)
     }
   }, [location.state, location.key, toast])
-
   const loadEvents = useCallback(async () => {
     setLoading(true)
     try {

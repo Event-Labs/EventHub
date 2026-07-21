@@ -6,10 +6,51 @@ const {
     forgotPasswordSchema,
     resetPasswordSchema,
     verifyEmailSchema,
-    googleLoginSchema
+    googleLoginSchema,
+    adminOtpSchema
 } = require('./auth.validation');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+
+function getClientIp(req) {
+    const directHeaders = [
+        req.headers['cf-connecting-ip'],
+        req.headers['x-real-ip'],
+    ];
+
+    for (const value of directHeaders) {
+        if (typeof value === 'string' && value.trim()) {
+            return normalizeIp(value.trim());
+        }
+    }
+
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+        return normalizeIp(forwardedFor.split(',')[0].trim());
+    }
+    return normalizeIp(req.ip || req.socket?.remoteAddress);
+}
+
+function normalizeIp(ip) {
+    const value = String(ip || '').trim();
+    if (!value) return null;
+    if (['::1', '127.0.0.1', '::ffff:127.0.0.1'].includes(value)) {
+        return 'Localhost (::1)';
+    }
+    if (value.startsWith('::ffff:')) {
+        return value.slice('::ffff:'.length);
+    }
+    return value;
+}
+
+function getDeviceInfo(req) {
+    return {
+        userAgent: req.headers['user-agent'],
+        browserHints: req.headers['sec-ch-ua'],
+        platform: req.headers['sec-ch-ua-platform'],
+        ip: getClientIp(req),
+    };
+}
 
 class AuthController {
     cookieOptions = {
@@ -33,16 +74,25 @@ class AuthController {
     login = async (req, res, next) => {
         try {
             const validatedData = loginSchema.parse(req.body);
-            const deviceInfo = {
-                userAgent: req.headers['user-agent'],
-                ip: req.ip,
-            };
+            const deviceInfo = getDeviceInfo(req);
 
-            const { user, accessToken, refreshToken } = await authService.login(
+            const result = await authService.login(
                 validatedData.email,
                 validatedData.password,
                 deviceInfo
             );
+
+            if (result.requiresTwoFactor) {
+                res.status(200).json(ApiResponse.success({
+                    requiresTwoFactor: true,
+                    challengeId: result.challengeId,
+                    expiresAt: result.expiresAt,
+                    email: result.email,
+                }, 'Admin OTP required'));
+                return;
+            }
+
+            const { user, accessToken, refreshToken } = result;
 
             res.cookie('refresh_token', refreshToken, this.cookieOptions);
             res.status(200).json(ApiResponse.success({ user, accessToken }, 'Login successful'));
@@ -51,15 +101,39 @@ class AuthController {
         }
     };
 
+    verifyLoginOtp = async (req, res, next) => {
+        try {
+            const { challengeId, otp } = adminOtpSchema.parse(req.body);
+            const deviceInfo = getDeviceInfo(req);
+            const { user, accessToken, refreshToken } = await authService.verifyLoginOtp(challengeId, otp, deviceInfo);
+
+            res.cookie('refresh_token', refreshToken, this.cookieOptions);
+            res.status(200).json(ApiResponse.success({ user, accessToken }, 'Login OTP verified'));
+        } catch (err) {
+            next(err);
+        }
+    };
+
+    verifyAdminOtp = this.verifyLoginOtp;
+
     googleLogin = async (req, res, next) => {
         try {
             const { credential } = googleLoginSchema.parse(req.body);
-            const deviceInfo = {
-                userAgent: req.headers['user-agent'],
-                ip: req.ip,
-            };
+            const deviceInfo = getDeviceInfo(req);
 
-            const { user, accessToken, refreshToken } = await authService.googleLogin(credential, deviceInfo);
+            const result = await authService.googleLogin(credential, deviceInfo);
+
+            if (result.requiresTwoFactor) {
+                res.status(200).json(ApiResponse.success({
+                    requiresTwoFactor: true,
+                    challengeId: result.challengeId,
+                    expiresAt: result.expiresAt,
+                    email: result.email,
+                }, 'Login OTP required'));
+                return;
+            }
+
+            const { user, accessToken, refreshToken } = result;
 
             res.cookie('refresh_token', refreshToken, this.cookieOptions);
             res.status(200).json(ApiResponse.success({ user, accessToken }, 'Google Login successful'));
@@ -75,10 +149,7 @@ class AuthController {
                 throw new AppError('Refresh token not found', 401, ErrorCodes.AUTH_INVALID_TOKEN);
             }
 
-            const deviceInfo = {
-                userAgent: req.headers['user-agent'],
-                ip: req.ip,
-            };
+            const deviceInfo = getDeviceInfo(req);
 
             const { accessToken, refreshToken } = await authService.refresh(token, deviceInfo);
 

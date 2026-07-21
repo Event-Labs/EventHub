@@ -55,6 +55,7 @@ class NotificationsService {
       limit,
       offset: (page - 1) * limit,
       unreadOnly: query.unread_only,
+      category: query.category,
     });
     const unread = await notificationsRepository.unreadCount(userId);
 

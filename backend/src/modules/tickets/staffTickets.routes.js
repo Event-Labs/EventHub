@@ -10,6 +10,7 @@ router.use(authorize('STAFF'));
 router.post('/verify-qr', ticketsController.staffVerifyTicketByQr);
 router.post('/check-in/qr', ticketsController.staffCheckInByQr);
 router.post('/search', ticketsController.staffSearchTickets);
+router.get('/:ticketId', ticketsController.getStaffTicket);
 router.patch('/:ticketId/check-in', ticketsController.staffCheckInTicket);
 
 module.exports = router;

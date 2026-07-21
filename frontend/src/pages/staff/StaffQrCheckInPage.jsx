@@ -18,9 +18,11 @@ import {
   searchStaffTickets,
   verifyStaffTicketByQr,
 } from '@/services/tickets.js'
+import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { StaffPage, StaffPanel } from './StaffComponents.jsx'
 
 const emptyManualForm = {
+  eventId: '',
   ticketCode: '',
   buyerName: '',
   buyerEmail: '',
@@ -50,10 +52,10 @@ function isTicketCheckedIn(ticket) {
 }
 
 function ticketStatusLabel(ticket) {
-  if (isTicketCheckedIn(ticket)) return 'Đã check-in'
-  if (ticket?.status === 'VALID') return 'Chưa check-in'
+  if (isTicketCheckedIn(ticket)) return 'Đã soát vé'
+  if (ticket?.status === 'VALID') return 'Chưa soát vé'
   if (ticket?.status === 'CANCELLED') return 'Đã hủy'
-  return ticket?.status || 'Không rõ'
+  return 'Không rõ'
 }
 
 function canCheckInTicket(ticket) {
@@ -98,7 +100,7 @@ function normalizeTicket(ticket) {
     ticketType: ticket.ticket_type?.name || 'Không rõ hạng vé',
     status: ticket.status,
     checkedInAt: ticket.checked_in_at,
-    checkedInBy: ticket.checked_in_by?.name || ticket.checked_in_by?.email || 'Staff hiện tại',
+    checkedInBy: ticket.checked_in_by?.name || ticket.checked_in_by?.email || 'Nhân sự hiện tại',
   }
 }
 
@@ -184,10 +186,10 @@ export function StaffQrCheckInPage() {
       playScanBeep()
       setScannedTicket(ticket)
       setScannedQrValue(value)
-      setQrMessage('Đã tìm thấy vé. Kiểm tra thông tin rồi xác nhận check-in.')
+      setQrMessage('Đã tìm thấy vé. Kiểm tra thông tin rồi xác nhận soát vé.')
       setCheckInState('ready')
     } catch (error) {
-      setQrMessage(getApiMessage(error, 'QR không hợp lệ hoặc vé không thể check-in.'))
+      setQrMessage(getApiMessage(error, 'Mã QR không hợp lệ hoặc vé không thể soát.'))
       setCheckInState('error')
       window.setTimeout(() => {
         processingRef.current = false
@@ -199,7 +201,7 @@ export function StaffQrCheckInPage() {
     if (!scannedTicket?.id) return
 
     setCheckInState('checking')
-    setQrMessage('Đang xác nhận check-in...')
+    setQrMessage('Đang xác nhận soát vé...')
 
     try {
       const ticket = scannedQrValue
@@ -211,7 +213,7 @@ export function StaffQrCheckInPage() {
       setQrMessage('Check-in thành công.')
       setCheckInState('success')
     } catch (error) {
-      setQrMessage(getApiMessage(error, 'Vé không thể check-in.'))
+      setQrMessage(getApiMessage(error, 'Vé không thể soát.'))
       setCheckInState('error')
       processingRef.current = false
     }
@@ -224,7 +226,7 @@ export function StaffQrCheckInPage() {
     setScannedQrValue('')
     setResultTicket(null)
     setCheckInState('idle')
-    setQrMessage(cameraState === 'active' ? 'Đưa QR code vào khung hình để bắt đầu.' : '')
+    setQrMessage(cameraState === 'active' ? 'Đưa mã QR vào khung hình để bắt đầu.' : '')
   }
 
   const startCamera = async () => {
@@ -256,8 +258,8 @@ export function StaffQrCheckInPage() {
 
       controlsRef.current = controls
       setCameraState('active')
-      setCameraMessage('Camera đang mở. Đưa QR code vào khung hình để quét.')
-      setQrMessage('Đưa QR code vào khung hình để bắt đầu.')
+      setCameraMessage('Camera đang mở. Đưa mã QR vào khung hình để quét.')
+      setQrMessage('Đưa mã QR vào khung hình để bắt đầu.')
     } catch (error) {
       const permissionDenied = ['NotAllowedError', 'SecurityError'].includes(error?.name)
       setCameraState(permissionDenied ? 'denied' : 'error')
@@ -281,15 +283,15 @@ export function StaffQrCheckInPage() {
   return (
     <StaffPage
       title="QR Check-in"
-      description="Bật camera laptop để quét QR trên vé và check-in tự động."
+      description="Bật camera máy tính để quét mã QR trên vé và tự động ghi nhận vào cổng."
     >
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-5">
           <StaffPanel>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase text-muted">QR check-in</p>
-                <h3 className="mt-1 text-lg font-extrabold text-content">Quét vé bằng camera laptop</h3>
+                <p className="text-xs font-bold uppercase text-muted">Soát vé bằng mã QR</p>
+                <h3 className="mt-1 text-lg font-extrabold text-content">Quét vé bằng camera máy tính</h3>
                 <p className="mt-1 text-sm text-subtle">{cameraMessage}</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -318,7 +320,7 @@ export function StaffQrCheckInPage() {
                   <QrCode className="mx-auto size-20 text-primary" />
                   <h3 className="mt-4 text-xl font-extrabold">Sẵn sàng quét QR</h3>
                   <p className="mt-2 max-w-md text-sm text-white/70">
-                    Nhấn bật camera, đưa QR code trên vé vào giữa khung hình, hệ thống sẽ tự check-in vé hợp lệ.
+                    Nhấn bật camera, đưa mã QR trên vé vào giữa khung hình, hệ thống sẽ tự ghi nhận vé hợp lệ.
                   </p>
                 </div>
               </div>
@@ -331,25 +333,28 @@ export function StaffQrCheckInPage() {
                   Đang xử lý QR...
                 </span>
               ) : (
-                qrMessage || 'Đưa QR code vào khung hình để bắt đầu.'
+                qrMessage || 'Đưa mã QR vào khung hình để bắt đầu.'
               )}
             </div>
           </div>
         </div>
 
         <aside className="space-y-5">
-          <SelectedTicketPanel
-            ticket={normalizedScanned}
-            onCheckIn={confirmQrCheckIn}
-            checking={checkInState === 'checking'}
-            onClear={resetQrScan}
-            emptyMessage="Quét QR để xem thông tin vé trước khi xác nhận check-in."
-          />
-          <ResultPanel ticket={normalizedResult} onClear={resetQrScan} />
+          {normalizedResult ? (
+            <ResultPanel ticket={normalizedResult} onClear={resetQrScan} />
+          ) : (
+            <SelectedTicketPanel
+              ticket={normalizedScanned}
+              onCheckIn={confirmQrCheckIn}
+              checking={checkInState === 'checking'}
+              onClear={resetQrScan}
+              emptyMessage="Quét mã QR để xem thông tin vé trước khi xác nhận soát vé."
+            />
+          )}
           <StaffPanel>
-            <h3 className="font-bold text-content">Lượt check-in gần đây</h3>
+            <h3 className="font-bold text-content">Lượt soát vé gần đây</h3>
             {recentTickets.length === 0 ? (
-              <p className="mt-3 text-sm text-subtle">Chưa có lượt check-in trong phiên này.</p>
+              <p className="mt-3 text-sm text-subtle">Chưa có lượt soát vé trong phiên này.</p>
             ) : (
               <div className="mt-4 space-y-3">
                 {recentTickets.map((ticket) => {
@@ -376,6 +381,9 @@ export function StaffQrCheckInPage() {
 export function ManualCheckInPage() {
   const searchRequestRef = useRef(0)
   const [manualForm, setManualForm] = useState(emptyManualForm)
+  const [assignedEvents, setAssignedEvents] = useState([])
+  const [eventsState, setEventsState] = useState('loading')
+  const [eventsMessage, setEventsMessage] = useState('')
   const [searchState, setSearchState] = useState('idle')
   const [searchMessage, setSearchMessage] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -384,8 +392,38 @@ export function ManualCheckInPage() {
   const [resultTicket, setResultTicket] = useState(null)
 
   const updateManualField = (field, value) => {
+    if (field === 'eventId') {
+      setManualForm({ ...emptyManualForm, eventId: value })
+      return
+    }
     setManualForm((current) => ({ ...current, [field]: value }))
   }
+
+  useEffect(() => {
+    let active = true
+
+    async function loadAssignedEvents() {
+      try {
+        const events = await fetchAssignedStaffEvents()
+        if (!active) return
+        const eventList = Array.isArray(events) ? events : []
+        setAssignedEvents(eventList)
+        setEventsState('success')
+        if (eventList.length === 0) {
+          setEventsMessage('Bạn chưa được phân công vào sự kiện nào đang hoạt động.')
+        }
+      } catch (error) {
+        if (!active) return
+        setEventsState('error')
+        setEventsMessage(getApiMessage(error, 'Không thể tải danh sách sự kiện được phân công.'))
+      }
+    }
+
+    loadAssignedEvents()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleManualSearch = async (event) => {
     event.preventDefault()
@@ -397,44 +435,46 @@ export function ManualCheckInPage() {
       Object.entries(manualForm).map(([key, value]) => [key, value.trim()]),
     )
 
-    if (!Object.values(payload).some(Boolean)) {
+    if (!payload.eventId) {
       setSearchState('error')
-      setSearchMessage('Vui lòng nhập ít nhất một thông tin để tìm vé.')
+      setSearchMessage('Vui lòng chọn sự kiện trước khi tải danh sách vé.')
       return
     }
 
+    const requestId = searchRequestRef.current + 1
+    searchRequestRef.current = requestId
     setSearchState('loading')
 
     try {
       const data = await searchStaffTickets(payload)
+      if (requestId !== searchRequestRef.current) return
       const tickets = data.tickets || []
       setSearchResults(tickets)
 
       if (tickets.length === 0) {
         setSearchState('empty')
-        setSearchMessage('Không tìm thấy vé phù hợp trong các sự kiện bạn được phân công.')
+        setSearchMessage('Sự kiện này chưa có vé phù hợp.')
         return
       }
 
       if (tickets.length === 1) {
         setSelectedTicket(tickets[0])
         setSearchState('single')
-        setSearchMessage('Tìm thấy 1 vé phù hợp. Vui lòng xác nhận check-in.')
+        setSearchMessage('Tìm thấy 1 vé phù hợp. Vui lòng xác nhận soát vé.')
         return
       }
 
       setSearchState('multiple')
-      setSearchMessage('Có nhiều kết quả, vui lòng chọn đúng vé để check-in.')
+      setSearchMessage('Có nhiều kết quả, vui lòng chọn đúng vé để soát.')
     } catch (error) {
+      if (requestId !== searchRequestRef.current) return
       setSearchState('error')
       setSearchMessage(getApiMessage(error, 'Không thể tìm vé.'))
     }
   }
 
   useEffect(() => {
-    const hasAnyFilter = Object.values(manualForm).some((value) => value.trim())
-
-    if (!hasAnyFilter) {
+    if (!manualForm.eventId.trim()) {
       const timeoutId = window.setTimeout(() => {
         searchRequestRef.current += 1
         setSearchState('idle')
@@ -447,9 +487,10 @@ export function ManualCheckInPage() {
       return () => window.clearTimeout(timeoutId)
     }
 
+    // Choosing an event loads its ticket list; the remaining fields refine that list.
     const timeoutId = window.setTimeout(() => {
       handleManualSearch({ preventDefault() {} })
-    }, 400)
+    }, Object.values(manualForm).slice(1).some((value) => value.trim()) ? 400 : 0)
 
     return () => window.clearTimeout(timeoutId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -459,16 +500,17 @@ export function ManualCheckInPage() {
     if (!ticket?.id) return
 
     setCheckInState('checking')
-    setSearchMessage('Đang check-in vé...')
+    setSearchMessage('Đang soát vé...')
 
     try {
       const checkedTicket = await checkInStaffTicket(ticket.id)
       setResultTicket(checkedTicket)
       setSelectedTicket(checkedTicket)
+      setSearchResults((current) => current.map((item) => (item.id === checkedTicket.id ? checkedTicket : item)))
       setSearchMessage('Check-in thành công.')
       setCheckInState('success')
     } catch (error) {
-      setSearchMessage(getApiMessage(error, 'Vé không thể check-in.'))
+      setSearchMessage(getApiMessage(error, 'Vé không thể soát.'))
       setCheckInState('error')
     }
   }
@@ -479,7 +521,7 @@ export function ManualCheckInPage() {
   return (
     <StaffPage
       title="Check-in thủ công"
-      description="Tìm vé bằng mã vé, tên, email hoặc số điện thoại người mua."
+      description="Chọn sự kiện để tải danh sách vé, sau đó có thể lọc thêm theo thông tin vé hoặc người mua."
     >
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <ManualSearchPanel
@@ -493,11 +535,21 @@ export function ManualCheckInPage() {
           onSelectTicket={setSelectedTicket}
           onCheckIn={handleManualCheckIn}
           checkInState={checkInState}
+          assignedEvents={assignedEvents}
+          eventsState={eventsState}
+          eventsMessage={eventsMessage}
         />
 
         <aside className="space-y-5">
-          <ResultPanel ticket={normalizedResult} />
-          <SelectedTicketPanel ticket={normalizedSelected} onCheckIn={() => handleManualCheckIn()} checking={checkInState === 'checking'} />
+          {normalizedResult ? (
+            <ResultPanel ticket={normalizedResult} />
+          ) : (
+            <SelectedTicketPanel
+              ticket={normalizedSelected}
+              onCheckIn={() => handleManualCheckIn()}
+              checking={checkInState === 'checking'}
+            />
+          )}
         </aside>
       </div>
     </StaffPage>
@@ -515,23 +567,56 @@ function ManualSearchPanel({
   onSelectTicket,
   onCheckIn,
   checkInState,
+  assignedEvents,
+  eventsState,
+  eventsMessage,
 }) {
+  const eventSelected = Boolean(form.eventId)
+
   return (
     <StaffPanel>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase text-muted">Check-in thủ công</p>
+          <p className="text-xs font-bold uppercase text-muted">Soát vé thủ công</p>
           <h3 className="mt-1 text-lg font-extrabold text-content">Tìm vé bằng thông tin vé hoặc người mua</h3>
         </div>
       </div>
 
       <form className="mt-5 grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
-        <ManualInput label="Mã vé" value={form.ticketCode} onChange={(value) => onChange('ticketCode', value)} />
-        <ManualInput label="Tên người mua" value={form.buyerName} onChange={(value) => onChange('buyerName', value)} />
-        <ManualInput label="Email người mua" value={form.buyerEmail} onChange={(value) => onChange('buyerEmail', value)} />
-        <ManualInput label="Số điện thoại" value={form.buyerPhone} onChange={(value) => onChange('buyerPhone', value)} />
+        <label className="block md:col-span-4">
+          <span className="text-xs font-bold uppercase text-muted">Sự kiện <span className="text-error">*</span></span>
+          <select
+            required
+            className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            value={form.eventId}
+            onChange={(event) => onChange('eventId', event.target.value)}
+            disabled={eventsState === 'loading' || eventsState === 'error'}
+          >
+            <option value="">
+              {eventsState === 'loading' ? 'Đang tải sự kiện...' : 'Chọn sự kiện để tải danh sách vé'}
+            </option>
+            {assignedEvents.map((event) => (
+              <option key={event.id} value={event.id}>{event.title}</option>
+            ))}
+          </select>
+        </label>
+
+        {eventsMessage && (
+          <div className={`md:col-span-4 rounded-xl border p-3 text-sm ${
+            eventsState === 'error'
+              ? 'border-error/30 bg-error/10 text-error'
+              : 'border-warning/30 bg-warning/10 text-warning'
+          }`}>
+            {eventsMessage}
+          </div>
+        )}
+
+        <ManualInput label="Mã vé" value={form.ticketCode} onChange={(value) => onChange('ticketCode', value)} disabled={!eventSelected} />
+        <ManualInput label="Tên người mua" value={form.buyerName} onChange={(value) => onChange('buyerName', value)} disabled={!eventSelected} />
+        <ManualInput label="Email người mua" value={form.buyerEmail} onChange={(value) => onChange('buyerEmail', value)} disabled={!eventSelected} />
+        <ManualInput label="Số điện thoại" value={form.buyerPhone} onChange={(value) => onChange('buyerPhone', value)} disabled={!eventSelected} />
         <div className="md:col-span-4 flex justify-end">
-          <button className="admin-primary" type="submit" disabled={state === 'loading'}>
+          <button className="admin-primary" type="submit" disabled={!eventSelected || state === 'loading'}>
             {state === 'loading' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
             Tìm vé
           </button>
@@ -544,9 +629,31 @@ function ManualSearchPanel({
         </div>
       )}
 
-      {results.length > 0 && (
-        <div className="mt-5 space-y-3">
-          {results.map((ticket) => {
+      {eventSelected && (
+        <div className="mt-5 space-y-3 border-t border-border-soft/20 pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="font-extrabold text-content">Danh sách vé</h4>
+            {state !== 'loading' && (
+              <span className="rounded-full bg-panel-soft px-2.5 py-1 text-xs font-bold text-subtle">
+                {results.length} vé
+              </span>
+            )}
+          </div>
+
+          {state === 'loading' && (
+            <div className="flex items-center gap-2 rounded-xl border border-border-soft/20 bg-panel-soft/30 p-4 text-sm text-subtle">
+              <Loader2 className="size-4 animate-spin" />
+              Đang tải danh sách vé...
+            </div>
+          )}
+
+          {state !== 'loading' && results.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border-soft/30 p-5 text-center text-sm text-subtle">
+              Không có vé phù hợp với bộ lọc hiện tại.
+            </div>
+          )}
+
+          {state !== 'loading' && results.map((ticket) => {
             const normalized = normalizeTicket(ticket)
             const selected = selectedTicket?.id === ticket.id
 
@@ -577,11 +684,11 @@ function ManualSearchPanel({
             )
           })}
 
-          {selectedTicket && canCheckInTicket(normalizeTicket(selectedTicket)) && (
+          {state !== 'loading' && selectedTicket && canCheckInTicket(normalizeTicket(selectedTicket)) && (
             <div className="flex justify-end">
               <button className="admin-primary" onClick={() => onCheckIn(selectedTicket)} disabled={checkInState === 'checking'}>
                 {checkInState === 'checking' ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
-                Xác nhận check-in
+                Xác nhận soát vé
               </button>
             </div>
           )}
@@ -591,15 +698,16 @@ function ManualSearchPanel({
   )
 }
 
-function ManualInput({ label, value, onChange }) {
+function ManualInput({ label, value, onChange, disabled = false }) {
   return (
     <label className="block">
       <span className="text-xs font-bold uppercase text-muted">{label}</span>
       <input
-        className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition placeholder:text-muted focus:border-primary"
+        className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition placeholder:text-muted focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
         placeholder={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
       />
     </label>
   )
@@ -610,8 +718,8 @@ function ResultPanel({ ticket, onClear }) {
     return (
       <StaffPanel className="text-center">
         <TicketCheck className="mx-auto size-14 text-muted" />
-        <h3 className="mt-4 text-lg font-extrabold text-content">Kết quả check-in</h3>
-        <p className="mt-2 text-sm text-subtle">Thông tin vé đã check-in thành công sẽ hiển thị tại đây.</p>
+        <h3 className="mt-4 text-lg font-extrabold text-content">Kết quả soát vé</h3>
+        <p className="mt-2 text-sm text-subtle">Thông tin vé đã soát thành công sẽ hiển thị tại đây.</p>
       </StaffPanel>
     )
   }
@@ -621,7 +729,7 @@ function ResultPanel({ ticket, onClear }) {
       <div className="flex items-start gap-3">
         <CheckCircle2 className="mt-1 size-6 shrink-0 text-success" />
         <div>
-          <p className="text-xs font-bold uppercase text-success">Check-in thành công</p>
+          <p className="text-xs font-bold uppercase text-success">Soát vé thành công</p>
           <h3 className="mt-1 text-lg font-extrabold text-content">{ticket.ticketCode}</h3>
         </div>
       </div>
@@ -677,13 +785,13 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
         <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
         <InfoRow label="Hạng vé" value={ticket.ticketType} />
         <InfoRow label="Trạng thái vé" value={ticketStatusLabel(ticket)} strong={isTicketCheckedIn(ticket)} />
-        <InfoRow label="Thời gian check-in" value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa check-in'} />
+        <InfoRow label="Thời gian soát vé" value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa soát vé'} />
       </div>
       <div className="mt-5 grid gap-2">
         {canCheckInTicket(ticket) && (
           <button className="admin-primary w-full" onClick={onCheckIn} disabled={checking}>
             {checking ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
-            Xác nhận check-in
+            Xác nhận soát vé
           </button>
         )}
         {onClear && (

@@ -218,6 +218,20 @@ class OperationsService {
     }
   }
 
+  async assertStaffScheduleAvailable(staffId, eventId) {
+    const conflict = await operationsRepository.findStaffScheduleConflict(staffId, eventId);
+    if (!conflict) return;
+
+    const conflictStart = this.formatVietnamDateTime(conflict.start_time);
+    const conflictEnd = this.formatVietnamDateTime(conflict.end_time || conflict.start_time);
+    throw new AppError(
+      `Nhân sự đã có lịch tại sự kiện "${conflict.event_title}" từ ${conflictStart} đến ${conflictEnd}.`,
+      409,
+      ErrorCodes.STAFF_SCHEDULE_CONFLICT,
+      conflict,
+    );
+  }
+
   async getOrganizerOverview(userId) {
     const organizer = await this.getOrganizerContext(userId);
     const [plan, events, staffAssignments, tasks, invitations] = await Promise.all([
@@ -283,6 +297,8 @@ class OperationsService {
     if (pendingInvite) {
       throw new AppError('Đã có lời mời đang chờ xử lý cho email này.', 409, ErrorCodes.STAFF_INVITE_PENDING_EXISTS);
     }
+
+    await this.assertStaffScheduleAvailable(invitedUser.id, payload.event_id);
 
     const quota = await this.assertStaffQuotaAvailable(organizer.id, payload.event_id);
 
@@ -396,6 +412,7 @@ class OperationsService {
     if (!existing && invitation.organizer_id) {
       const event = await operationsRepository.findOrganizerEvent(invitation.event_id, invitation.organizer_id);
       this.assertEventStaffManageable(event);
+      await this.assertStaffScheduleAvailable(user.id, invitation.event_id);
       await this.assertStaffQuotaAvailable(invitation.organizer_id, invitation.event_id);
     }
 
@@ -444,6 +461,24 @@ class OperationsService {
 
   async getStaffOverview(staffId) {
     return operationsRepository.getStaffOverview(staffId);
+  }
+
+  async getStaffCheckInReport(staffId, eventId = null) {
+    let event = null;
+
+    if (eventId) {
+      event = await operationsRepository.findStaffAssignedEvent(staffId, eventId);
+      if (!event) {
+        throw new AppError(
+          'Không tìm thấy sự kiện hoặc bạn không được phân công vào sự kiện này.',
+          403,
+          ErrorCodes.AUTH_FORBIDDEN,
+        );
+      }
+    }
+
+    const report = await operationsRepository.getStaffCheckInReport(staffId, eventId);
+    return { event, ...report };
   }
 
   async listStaffTasks(staffId, eventId = null) {

@@ -3,7 +3,7 @@ import { Building2, Camera, CheckCircle2, Clock3, History, Loader2, UserCircle, 
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
-import { getUserRoles, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
+import { getStoredUserKey, getUserRoles, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import {
   fetchMyOrganizerRequests,
   submitOrganizerRequest,
@@ -57,7 +57,7 @@ const validationLabels = {
   business_phone: 'Số điện thoại',
   organization_avatar_url: 'Ảnh đại diện',
   tax_code: 'Mã số thuế',
-  legal_document_url: 'Giấy ĐKDN/ERC',
+  legal_document_url: 'Giấy chứng nhận đăng ký doanh nghiệp',
   legal_representative_name: 'Người đại diện pháp luật',
   legal_representative_position: 'Chức vụ',
   legal_representative_id_url: 'Giấy tờ tùy thân người đại diện',
@@ -298,9 +298,10 @@ export function OrganizerRequestPage() {
   const location = useLocation()
   const queryClient = useQueryClient()
   const isAuthenticated = hasAuthSession()
+  const currentUserKey = getStoredUserKey()
 
   const profileQuery = useQuery({
-    queryKey: ['user-profile'],
+    queryKey: ['user-profile', currentUserKey],
     queryFn: getProfile,
     enabled: isAuthenticated,
   })
@@ -323,7 +324,7 @@ export function OrganizerRequestPage() {
   }, [isAuthenticated, location.pathname, navigate])
 
   const requestQuery = useQuery({
-    queryKey: ['my-organizer-requests'],
+    queryKey: ['my-organizer-requests', currentUserKey],
     queryFn: fetchMyOrganizerRequests,
     enabled: isAuthenticated,
   })
@@ -503,9 +504,9 @@ export function OrganizerRequestPage() {
 
     const requiredDocuments = isOrganization
       ? [
-        ['legal_document_url', 'Vui lòng tải Giấy ĐKDN/ERC.'],
-        ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
-      ]
+          ['legal_document_url', 'Vui lòng tải Giấy chứng nhận đăng ký doanh nghiệp.'],
+          ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
+        ]
       : [
         ['individual_id_front_url', 'Vui lòng tải ảnh CCCD mặt trước.'],
         ['individual_id_back_url', 'Vui lòng tải ảnh CCCD mặt sau.'],
@@ -772,7 +773,7 @@ export function OrganizerRequestPage() {
                   >
                     <div className="grid gap-4 sm:grid-cols-2">
                       <FileField
-                        label="Giấy ĐKDN/ERC"
+                        label="Giấy chứng nhận đăng ký doanh nghiệp"
                         required
                         file={selectedDocuments.legal_document_url}
                         existingUrl={form.legal_document_url}

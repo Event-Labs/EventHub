@@ -8,9 +8,48 @@ const crypto = require('crypto');
 // user_sessions:{userId}   → SET of session hashes (for bulk revoke)
 // pwd_reset:{hash}         → { user_id } JSON (TTL = expiry)
 // pending_user:{hash}      → user data JSON (TTL = expiry) [for registration]
+// admin_login_otp:{id}     → admin login challenge JSON (TTL = expiry)
+// admin_2fa_otp:{id}       → admin 2FA setup challenge JSON (TTL = expiry)
 // =============================================
 
 class AuthRepository {
+  constructor() {
+    this.userColumns = null;
+  }
+
+  async getUserColumns() {
+    if (this.userColumns) return this.userColumns;
+
+    const { rows } = await db.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'users'
+      `,
+    );
+    this.userColumns = new Set(rows.map((row) => row.column_name));
+    return this.userColumns;
+  }
+
+  async userColumnExists(columnName) {
+    const columns = await this.getUserColumns();
+    return columns.has(columnName);
+  }
+
+  async updateUserIfColumnsExist(id, updates) {
+    const columns = await this.getUserColumns();
+    const safeUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([key]) => columns.has(key)),
+    );
+
+    if (Object.keys(safeUpdates).length === 0) {
+      return this.findUserById(id);
+    }
+
+    return this.updateUser(id, safeUpdates);
+  }
+
   // --- USERS ---
   async findUserByEmail(email) {
     const query = `
@@ -31,11 +70,7 @@ class AuthRepository {
   }
 
   async createUser(userData) {
-    const query = `
-      INSERT INTO users (email, password_hash, full_name, phone, google_id, email_verified, avatar_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-    `;
+    const columns = ['email', 'password_hash', 'full_name', 'phone', 'google_id', 'email_verified', 'avatar_url'];
     const values = [
       userData.email,
       userData.password_hash,
@@ -45,6 +80,22 @@ class AuthRepository {
       userData.email_verified || false,
       userData.avatar_url || null,
     ];
+
+    if (
+      await this.userColumnExists('password_changed_at')
+      && userData.password_hash
+      && userData.password_hash !== '*'
+    ) {
+      columns.push('password_changed_at');
+      values.push(userData.password_changed_at || new Date());
+    }
+
+    const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
+    const query = `
+      INSERT INTO users (${columns.join(', ')})
+      VALUES (${placeholders})
+      RETURNING *
+    `;
     const { rows } = await db.query(query, values);
     return rows[0];
   }
@@ -96,6 +147,8 @@ class AuthRepository {
       user_id: sessionData.user_id,
       user_agent: sessionData.user_agent,
       ip_address: sessionData.ip_address,
+      device_name: sessionData.device_name,
+      created_at: sessionData.created_at || new Date().toISOString(),
       expires_at: sessionData.expires_at,
       revoked_at: null,
     };
@@ -118,6 +171,21 @@ class AuthRepository {
     const session = JSON.parse(data);
     if (session.revoked_at) return null;
     return session;
+  }
+
+  async listUserSessions(userId) {
+    const userKey = `user_sessions:${userId}`;
+    const hashes = await client.sMembers(userKey);
+    if (hashes.length === 0) return [];
+
+    const sessions = await Promise.all(hashes.map((hash) => this.findSessionByHash(hash)));
+    return sessions
+      .filter(Boolean)
+      .sort((a, b) => {
+        const bTime = new Date(b.created_at || b.expires_at || 0).getTime();
+        const aTime = new Date(a.created_at || a.expires_at || 0).getTime();
+        return bTime - aTime;
+      });
   }
 
   async revokeSession(id, hash) {
@@ -197,6 +265,21 @@ class AuthRepository {
   async deletePendingUser(tokenHash) {
     const key = `pending_user:${tokenHash}`;
     await client.del(key);
+  }
+
+  async saveOtpChallenge(type, challengeId, data, expiresAt) {
+    const ttl = Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000);
+    if (ttl <= 0) return;
+    await client.setEx(`${type}:${challengeId}`, ttl, JSON.stringify(data));
+  }
+
+  async getOtpChallenge(type, challengeId) {
+    const data = await client.get(`${type}:${challengeId}`);
+    return data ? JSON.parse(data) : null;
+  }
+
+  async deleteOtpChallenge(type, challengeId) {
+    await client.del(`${type}:${challengeId}`);
   }
 }
 

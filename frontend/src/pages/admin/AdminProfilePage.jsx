@@ -1,22 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  Shield,
-  Mail,
-  Phone,
-  MapPin,
+  AlertCircle,
+  AlertTriangle,
   Calendar,
-  Lock,
   Camera,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  KeyRound,
+  Loader2,
+  Lock,
+  Mail,
+  MapPin,
+  Monitor,
+  PencilLine,
+  Phone,
+  Shield,
+  ShieldCheck,
+  Smartphone,
   UserCircle,
   X,
-  Check,
-  Loader2,
+  Info,
 } from 'lucide-react'
-import {
-  Badge,
-  Panel,
-  Page,
-} from './AdminComponents'
+import { Page } from './AdminComponents'
+import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
+import { Modal } from '@/components/Modal.jsx'
+import { adminProfileApi } from '@/services/adminProfile.js'
 import { getProfile, updateProfile, changePassword } from '@/services/user.service.js'
 import { uploadAvatar } from '@/services/uploads.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -30,10 +40,23 @@ export function AdminProfilePage() {
   const [formData, setFormData] = useState({})
   const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' })
   const [saving, setSaving] = useState(false)
-  
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [securityResult, setSecurityResult] = useState(() => createEmptySecurityResult())
+  const [securityItems, setSecurityItems] = useState(() => createInitialSecurityItems())
+  const [checkingSecurity, setCheckingSecurity] = useState(false)
+  const [checkingIndex, setCheckingIndex] = useState(-1)
+  const [loginSessions, setLoginSessions] = useState([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [expandedSessionId, setExpandedSessionId] = useState(null)
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState(null)
+  const [twoFactorOtp, setTwoFactorOtp] = useState('')
+  const [savingTwoFactor, setSavingTwoFactor] = useState(false)
+  const [sendingTwoFactorOtp, setSendingTwoFactorOtp] = useState(false)
+  const [twoFactorCooldown, setTwoFactorCooldown] = useState(0)
+  const twoFactorStartPendingRef = useRef(false)
+  const twoFactorVerifyPendingRef = useRef(false)
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -45,8 +68,15 @@ export function AdminProfilePage() {
           full_name: res.full_name || '',
           phone: res.phone || '',
           dob: res.dob?.split('T')[0] || '',
-          address: res.address || ''
+          address: res.address || '',
         })
+        try {
+          const securityResponse = await adminProfileApi.getSecurityStatus()
+          const rawSecurity = securityResponse?.data?.data || securityResponse?.data || {}
+          applySecuritySnapshot(rawSecurity)
+        } catch (securityErr) {
+          console.warn('Failed to fetch saved security status', securityErr)
+        }
       } catch (err) {
         console.error('Failed to fetch admin profile', err)
         toast.error('Không thể tải hồ sơ quản trị. Vui lòng thử lại.')
@@ -57,16 +87,45 @@ export function AdminProfilePage() {
     fetchProfile()
   }, [toast])
 
+  useEffect(() => {
+    if (twoFactorCooldown <= 0) return undefined
+
+    const timer = window.setTimeout(() => {
+      setTwoFactorCooldown((current) => Math.max(current - 1, 0))
+    }, 1000)
+
+    return () => window.clearTimeout(timer)
+  }, [twoFactorCooldown])
+
+  const applySecuritySnapshot = (rawResult) => {
+    const mappedItems = mapSecurityItemsToVietnamese(rawResult?.items || [])
+    if (!mappedItems.length && !rawResult?.lastCheckedAt) return
+
+    setSecurityResult({
+      score: Number.isFinite(Number(rawResult?.score)) ? Number(rawResult.score) : mappedItems.filter((item) => item.status === 'passed').length,
+      total: Number.isFinite(Number(rawResult?.total)) ? Number(rawResult.total) : mappedItems.length,
+      level: rawResult?.level || '',
+      levelText: mapLevelToVietnamese(rawResult?.level, rawResult?.levelText),
+      lastCheckedAt: rawResult?.lastCheckedAt || null,
+      items: mappedItems,
+    })
+
+    if (mappedItems.length) {
+      setSecurityItems(mappedItems)
+    }
+  }
+
   const handleFileChange = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast.error('Vui lòng chọn tệp ảnh hợp lệ.')
-        return
-      }
-      setSelectedFile(file)
-      setPreviewUrl(URL.createObjectURL(file))
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn tệp ảnh hợp lệ.')
+      return
     }
+
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
   }
 
   const handleSave = async () => {
@@ -78,7 +137,7 @@ export function AdminProfilePage() {
     setSaving(true)
     try {
       let finalAvatarUrl = user.avatar_url
-      
+
       if (selectedFile) {
         setUploadingAvatar(true)
         const uploadRes = await uploadAvatar(selectedFile)
@@ -112,6 +171,7 @@ export function AdminProfilePage() {
       toast.error('Mật khẩu xác nhận không khớp.')
       return
     }
+
     setSaving(true)
     try {
       await changePassword(passwordData.current, passwordData.new)
@@ -125,189 +185,994 @@ export function AdminProfilePage() {
     }
   }
 
+  const handleSecurityCheck = async () => {
+    setCheckingSecurity(true)
+    setCheckingIndex(0)
+
+    try {
+      const response = await adminProfileApi.checkSecurity()
+      const rawResult = response?.data?.data || response?.data || {}
+      const mappedItems = mapSecurityItemsToVietnamese(rawResult.items || [])
+      const loadingItems = (mappedItems.length ? mappedItems : createInitialSecurityItems()).map((item) => ({
+        ...item,
+        uiStatus: 'loading',
+        uiMessage: 'Đang kiểm tra...',
+      }))
+
+      setSecurityResult((current) => ({
+        ...current,
+        score: rawResult.score ?? current.score,
+        total: rawResult.total ?? loadingItems.length,
+        level: rawResult.level || current.level,
+        levelText: 'Đang kiểm tra',
+      }))
+      setSecurityItems(loadingItems)
+
+      const revealedItems = []
+      for (let index = 0; index < mappedItems.length; index += 1) {
+        setCheckingIndex(index)
+        await delay(400)
+        revealedItems.push(mappedItems[index])
+        setSecurityItems([
+          ...revealedItems,
+          ...loadingItems.slice(revealedItems.length),
+        ])
+      }
+
+      const finalResult = {
+        score: Number.isFinite(Number(rawResult.score)) ? Number(rawResult.score) : mappedItems.filter((item) => item.status === 'passed').length,
+        total: Number.isFinite(Number(rawResult.total)) ? Number(rawResult.total) : mappedItems.length,
+        level: rawResult.level || '',
+        levelText: mapLevelToVietnamese(rawResult.level, rawResult.levelText),
+        lastCheckedAt: rawResult.lastCheckedAt || new Date().toISOString(),
+        items: mappedItems,
+      }
+
+      setSecurityResult(finalResult)
+      setSecurityItems(mappedItems)
+      toast.success('Kiểm tra bảo mật hoàn tất')
+    } catch (err) {
+      toast.error('Không thể kiểm tra bảo mật, vui lòng thử lại.')
+      setSecurityItems((current) => current.map((item) => (
+        item.uiStatus === 'loading'
+          ? { ...item, uiStatus: item.status || 'disabled', uiMessage: item.message || getDefaultSecurityMessage(item.key, item.status || 'disabled') }
+          : item
+      )))
+    } finally {
+      setCheckingSecurity(false)
+      setCheckingIndex(-1)
+    }
+  }
+
+  const handleViewSessions = async (force = false) => {
+    setMode('sessions')
+
+    if (!force && loginSessions.length > 0) return
+
+    setLoadingSessions(true)
+    try {
+      const response = await adminProfileApi.listSessions()
+      const sessions = response?.data?.data || response?.data || []
+      setLoginSessions(Array.isArray(sessions) ? sessions : [])
+      setExpandedSessionId(null)
+    } catch (err) {
+      toast.error('Không thể tải danh sách phiên đăng nhập. Vui lòng thử lại.')
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
+
+  const resetTwoFactorFlow = () => {
+    setMode('view')
+    setTwoFactorChallenge(null)
+    setTwoFactorOtp('')
+    setSendingTwoFactorOtp(false)
+    setTwoFactorCooldown(0)
+  }
+
+  const handleStartTwoFactor = async (enabled = true) => {
+    if (twoFactorStartPendingRef.current) return
+    twoFactorStartPendingRef.current = true
+    setMode('twoFactor')
+    setTwoFactorOtp('')
+    setTwoFactorCooldown(60)
+    setSendingTwoFactorOtp(true)
+    setTwoFactorChallenge({
+      enabled,
+      email: user?.email || 'email quản trị',
+      challengeId: null,
+      pending: true,
+    })
+    setSavingTwoFactor(true)
+    try {
+      const response = await adminProfileApi.startTwoFactor(enabled)
+      const data = response?.data?.data || response?.data || {}
+
+      if (data.alreadyEnabled !== undefined) {
+        toast.success(data.enabled ? 'Xác thực 2 lớp đã được bật.' : 'Xác thực 2 lớp đang tắt.')
+        resetTwoFactorFlow()
+        return
+      }
+
+      setTwoFactorChallenge({ ...data, enabled })
+      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email quản trị'}.`)
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể gửi mã OTP. Vui lòng thử lại.'))
+      setTwoFactorChallenge((current) => current ? {
+        ...current,
+        pending: false,
+        sendFailed: true,
+      } : current)
+    } finally {
+      twoFactorStartPendingRef.current = false
+      setSendingTwoFactorOtp(false)
+      setSavingTwoFactor(false)
+    }
+  }
+
+  const handleVerifyTwoFactor = async () => {
+    if (!twoFactorChallenge?.challengeId || twoFactorOtp.length !== 6) return
+    if (twoFactorVerifyPendingRef.current) return
+    twoFactorVerifyPendingRef.current = true
+
+    setSavingTwoFactor(true)
+    try {
+      const response = await adminProfileApi.verifyTwoFactor({
+        challengeId: twoFactorChallenge.challengeId,
+        otp: twoFactorOtp,
+      })
+      const data = response?.data?.data || response?.data || {}
+      setUser((current) => current ? { ...current, two_factor_enabled: Boolean(data.enabled) } : current)
+      setTwoFactorChallenge(null)
+      setTwoFactorOtp('')
+      setMode('view')
+      toast.success(data.enabled ? 'Đã bật xác thực 2 lớp.' : 'Đã tắt xác thực 2 lớp.')
+
+      try {
+        const securityResponse = await adminProfileApi.getSecurityStatus()
+        const rawSecurity = securityResponse?.data?.data || securityResponse?.data || {}
+        applySecuritySnapshot(rawSecurity)
+      } catch (securityErr) {
+        console.warn('Failed to refresh security status', securityErr)
+      }
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+    } finally {
+      twoFactorVerifyPendingRef.current = false
+      setSavingTwoFactor(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <Loader2 className="size-10 animate-spin text-primary" />
       </div>
     )
   }
 
-  if (!user) return <div className="text-center py-20 font-bold text-error">Không thể tải hồ sơ. Vui lòng thử lại.</div>
+  if (!user) {
+    return <div className="py-20 text-center font-bold text-error">Không thể tải hồ sơ. Vui lòng thử lại.</div>
+  }
 
-  const tabButtonClass = (active) =>
-    `admin-secondary px-4 py-2 text-xs ${
+  const displayName = user.full_name || user.email || 'Quản trị viên'
+  const joinedDate = formatDate(user.created_at || user.createdAt)
+  const improvementSuggestion = getImprovementSuggestion(securityItems)
+  const showTwoFactorSetupAction = improvementSuggestion?.key === 'two_factor' && !user.two_factor_enabled
+
+  const actionButtonClass = (active) =>
+    `inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-extrabold transition ${
       active
-        ? 'border-tertiary bg-tertiary text-white shadow-md shadow-tertiary/20 hover:bg-tertiary hover:text-white'
-        : 'bg-surface text-content hover:bg-panel-soft'
+        ? 'border-primary/70 bg-primary/15 text-primary shadow-[0_14px_30px_rgba(37,99,235,0.18)]'
+        : 'border-border-soft/50 bg-surface/60 text-content hover:border-primary/60 hover:bg-panel-soft hover:text-primary'
     }`
 
   return (
     <Page
       title="Hồ sơ cá nhân"
-      description="Quản lý thông tin tài khoản và thiết lập bảo mật của bạn."
+      description="Quản lý thông tin tài khoản và bảo mật để bảo vệ tài khoản của bạn."
       actions={
-        <div className="flex gap-2">
-           <button 
-            onClick={() => setMode('edit')}
-            className={tabButtonClass(mode === 'edit')}
-           >
-            Chỉnh sửa
-           </button>
-           <button 
-            onClick={() => setMode('password')}
-            className={tabButtonClass(mode === 'password')}
-           >
-            Đổi mật khẩu
-           </button>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => setMode('edit')} className={actionButtonClass(mode === 'edit')}>
+            <PencilLine className="size-4" />
+            Chỉnh sửa thông tin
+          </button>
         </div>
       }
     >
-      <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-6">
-          <Panel className="bg-surface py-10 text-center text-content">
-            <div className="relative mx-auto size-40">
-              {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt={user.full_name}
-                  className="mx-auto size-40 rounded-full object-cover ring-4 ring-primary/20"
-                />
-              ) : (
-                <div className="mx-auto flex size-40 items-center justify-center rounded-full bg-panel-soft ring-4 ring-primary/20">
-                  <UserCircle className="size-20 text-subtle" />
-                </div>
-              )}
-              {mode === 'edit' && (
-                <div className="absolute -bottom-2 inset-x-0 flex justify-center gap-2">
-                   <label className="grid size-10 cursor-pointer place-items-center rounded-full bg-tertiary text-white shadow-lg hover:scale-110 transition border-4 border-surface">
-                    <Camera className="size-5" />
-                    <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                  </label>
-                   {selectedFile && (
-                    <button 
-                      onClick={() => { setSelectedFile(null); setPreviewUrl(user.avatar_url || ''); }}
-                      className="grid size-10 place-items-center rounded-full bg-error text-white shadow-lg hover:scale-110 transition border-4 border-surface"
-                    >
-                      <X className="size-5" />
-                    </button>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="space-y-6">
+          <section className="customer-profile-hero relative overflow-hidden rounded-2xl border p-6 text-content sm:p-8">
+            <div className="customer-profile-hero-bg absolute inset-0" />
+            <div className="customer-profile-hero-wave absolute inset-0" />
+            <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                <div className="relative mx-auto size-36 shrink-0 sm:mx-0 sm:size-40">
+                  <ProfileAvatar
+                    sources={previewUrl || user.avatar_url}
+                    name={displayName}
+                    alt={displayName}
+                    className="size-full ring-4 ring-primary/25"
+                    fallbackClassName="bg-panel-soft text-5xl text-primary"
+                  />
+                  <span className="absolute bottom-1 right-1 grid size-11 place-items-center rounded-full border-4 border-[#0b1230] bg-primary/20 text-primary shadow-xl">
+                    <ShieldCheck className="size-5" />
+                  </span>
+                  {mode === 'edit' && (
+                    <div className="absolute inset-x-0 -bottom-4 flex justify-center gap-2">
+                      <label className="grid size-10 cursor-pointer place-items-center rounded-full border-4 border-[#0b1230] bg-tertiary text-white shadow-lg transition hover:scale-105">
+                        <Camera className="size-5" />
+                        <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                      </label>
+                      {selectedFile && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFile(null)
+                            setPreviewUrl(user.avatar_url || '')
+                          }}
+                          className="grid size-10 place-items-center rounded-full border-4 border-[#0b1230] bg-error text-white shadow-lg transition hover:scale-105"
+                        >
+                          <X className="size-5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-950/55 backdrop-blur-[2px]">
+                      <Loader2 className="size-8 animate-spin text-white" />
+                    </div>
                   )}
                 </div>
-              )}
-              {uploadingAvatar && (
-                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-900/40 backdrop-blur-[2px]">
-                   <Loader2 className="size-8 animate-spin text-white" />
+
+                <div className="min-w-0 text-center sm:text-left">
+                  <h2 className="customer-profile-title break-words font-display text-3xl font-extrabold sm:text-4xl">
+                    {displayName}
+                  </h2>
+                  <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+                    {(user.roles || ['ADMIN']).map((role) => (
+                      <span key={role} className="customer-role-badge inline-flex items-center rounded-md px-3 py-1 text-sm font-extrabold ring-1">
+                        {String(role).toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="customer-profile-meta mt-5 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm font-semibold sm:justify-start">
+                    <span className="inline-flex items-center gap-2">
+                      <Mail className="size-5" />
+                      {user.email || 'Chưa cập nhật'}
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <Calendar className="size-5" />
+                      Tham gia: {joinedDate}
+                    </span>
+                  </div>
                 </div>
-              )}
+              </div>
+
+              <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-4 py-2 text-sm font-bold text-success lg:mx-0">
+                <span className="size-2 rounded-full bg-success" />
+                Tài khoản đang hoạt động
+              </span>
             </div>
-            <h2 className="mt-8 font-display text-2xl font-extrabold text-content">
-              {user.full_name}
-            </h2>
-            <div className="mt-2 flex justify-center gap-2">
-              {user.roles?.map(role => (
-                <Badge key={role} tone="purple" className="px-3">{role}</Badge>
-              ))}
-            </div>
-          </Panel>
+          </section>
 
-          <Panel className="border-border-soft/50 bg-surface p-6 text-content">
-             <div className="flex items-center gap-3 mb-4">
-                <Shield className="size-5 text-primary" />
-                <h4 className="font-bold text-sm text-content">Trạng thái bảo mật</h4>
-             </div>
-             <p className="text-xs text-subtle mb-4">Tài khoản của bạn được bảo vệ với mức truy cập cao nhất.</p>
-             <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-soft/50 bg-panel-soft py-2.5 text-xs font-bold text-content transition hover:border-tertiary/50 hover:bg-surface hover:text-tertiary">
-                <Lock className="size-3" /> Kiểm tra bảo mật
-             </button>
-          </Panel>
-        </aside>
+          {!['sessions', 'twoFactor'].includes(mode) && (
+            <>
+              <ProfilePanel icon={UserCircle} title="Thông tin cá nhân">
+                <div className="rounded-2xl border border-border-soft/30 bg-background/30 px-5">
+                  <InfoRow icon={Mail} label="Email" value={user.email} status="Đã xác minh" />
+                  <InfoRow icon={Phone} label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} status={user.phone ? 'Đã xác minh' : null} />
+                  <InfoRow icon={Calendar} label="Ngày sinh" value={formatDate(user.dob)} />
+                  <InfoRow icon={MapPin} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} last />
+                </div>
+              </ProfilePanel>
 
-        <div className="space-y-6">
-           {mode === 'view' && (
-             <Panel className="animate-in fade-in slide-in-from-right-4 bg-surface p-8 text-content duration-300">
-                <div className="flex items-center justify-between mb-8 border-b border-border-soft/30 pb-4">
-                   <h3 className="font-display text-xl font-extrabold text-content">Thông tin cá nhân</h3>
+              <ProfilePanel icon={ShieldCheck} title="Bảo mật tài khoản">
+                <div className="rounded-2xl border border-border-soft/30 bg-background/30 px-5">
+                  <ActionRow icon={Lock} label="Mật khẩu" description="Cập nhật định kỳ để bảo vệ tài khoản." action="Đổi mật khẩu" onClick={() => setMode('password')} />
+                  <ActionRow
+                    icon={ShieldCheck}
+                    label="Xác thực 2 lớp"
+                    description={user.two_factor_enabled ? 'OTP email đang được yêu cầu khi admin đăng nhập.' : 'Bật OTP email để bảo vệ tài khoản admin.'}
+                    action={user.two_factor_enabled ? 'Tắt' : 'Bật'}
+                    onClick={() => handleStartTwoFactor(!user.two_factor_enabled)}
+                    disabled={savingTwoFactor}
+                  />
+                  <ActionRow icon={Smartphone} label="Phiên đăng nhập" description="Quản lý thiết bị và phiên đăng nhập của bạn." action="Xem" onClick={handleViewSessions} last />
                 </div>
-                
-                <div className="grid gap-6 md:grid-cols-2">
-                   <InfoField icon={Mail} label="Email" value={user.email} />
-                   <InfoField icon={Phone} label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
-                   <InfoField icon={Calendar} label="Ngày sinh" value={user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} />
-                   <InfoField icon={MapPin} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} className="md:col-span-2" />
-                </div>
-             </Panel>
-           )}
+              </ProfilePanel>
+            </>
+          )}
 
-           {mode === 'edit' && (
-             <Panel className="animate-in fade-in zoom-in-95 bg-surface p-8 text-content duration-300">
-                <h3 className="font-display text-xl font-extrabold text-content mb-8 border-b border-border-soft/30 pb-4">
-                   Chỉnh sửa hồ sơ
-                </h3>
-                <div className="grid gap-5 md:grid-cols-2">
-                   <InputField label="Họ và tên" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
-                   <InputField label="Số điện thoại" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                   <InputField label="Ngày sinh" type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
-                   <InputField label="Địa chỉ" className="md:col-span-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-                </div>
-                <div className="mt-8 flex justify-end gap-3">
-                   <button onClick={() => { setMode('view'); setPreviewUrl(user.avatar_url || ''); setSelectedFile(null); }} className="admin-secondary bg-surface px-6 text-content hover:bg-panel-soft">Hủy</button>
-                   <button onClick={handleSave} disabled={saving || uploadingAvatar} className="admin-primary flex items-center gap-2">
-                     {saving ? (
-                       <><Loader2 className="size-4 animate-spin" /> Đang lưu...</>
-                     ) : (
-                       <><Check className="size-4" /> Lưu thay đổi</>
-                     )}
-                   </button>
-                </div>
-             </Panel>
-           )}
+          {false && mode === 'edit' && (
+            <ProfilePanel icon={Camera} title="Chỉnh sửa hồ sơ">
+              <div className="grid gap-5 md:grid-cols-2">
+                <InputField label="Họ và tên" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
+                <InputField label="Số điện thoại" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                <InputField label="Ngày sinh" type="date" value={formData.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
+                <InputField label="Địa chỉ" className="md:col-span-2" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
+              </div>
+              <FormActions
+                saving={saving || uploadingAvatar}
+                onCancel={() => {
+                  setMode('view')
+                  setPreviewUrl(user.avatar_url || '')
+                  setSelectedFile(null)
+                }}
+                onSave={handleSave}
+                saveText={uploadingAvatar ? 'Đang tải ảnh...' : 'Lưu thay đổi'}
+              />
+            </ProfilePanel>
+          )}
 
-           {mode === 'password' && (
-             <Panel className="mx-auto max-w-2xl bg-surface p-8 text-content">
-                <h3 className="font-display text-xl font-extrabold text-content mb-4 text-center">
-                   Đổi mật khẩu
-                </h3>
-                <p className="text-center text-sm text-subtle mb-8">
-                   Sử dụng mật khẩu mạnh để bảo vệ tài khoản quản trị của bạn.
-                </p>
-                <div className="space-y-5">
-                   <InputField label="Mật khẩu hiện tại" type="password" value={passwordData.current} onChange={e => setPasswordData({...passwordData, current: e.target.value})} />
-                   <InputField label="Mật khẩu mới" type="password" value={passwordData.new} onChange={e => setPasswordData({...passwordData, new: e.target.value})} />
-                   <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={e => setPasswordData({...passwordData, confirm: e.target.value})} />
+          {mode === 'sessions' && (
+            <ProfilePanel icon={Smartphone} title="Phiên đăng nhập">
+              {loadingSessions ? (
+                <div className="flex min-h-40 items-center justify-center">
+                  <Loader2 className="size-8 animate-spin text-primary" />
                 </div>
-                <div className="mt-10 flex flex-col gap-3">
-                   <button onClick={handleChangePassword} disabled={saving} className="admin-primary w-full bg-tertiary py-4 text-sm font-extrabold text-white hover:bg-tertiary/90">{saving ? 'Đang thực hiện...' : 'Cập nhật mật khẩu'}</button>
-                   <button onClick={() => setMode('view')} className="text-sm font-bold text-subtle hover:text-content">Hủy bỏ</button>
+              ) : loginSessions.length > 0 ? (
+                <div className="space-y-3">
+                  {loginSessions.map((session) => {
+                    const isExpanded = expandedSessionId === session.id
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => setExpandedSessionId(isExpanded ? null : session.id)}
+                        className="w-full rounded-2xl border border-border-soft/30 bg-background/30 p-4 text-left transition hover:border-primary/50 hover:bg-panel-soft"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                            <Monitor className="size-5" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="break-words text-sm font-extrabold text-content">{session.device_name || 'Thiết bị không xác định'}</p>
+                              <span className="text-xs font-semibold text-subtle">{formatDateTime(session.created_at)}</span>
+                            </div>
+                            <p className="mt-1 text-xs font-semibold text-subtle">
+                              Hết hạn: {formatDateTime(session.expires_at)}
+                            </p>
+                            {isExpanded && (
+                              <div className="mt-4 grid gap-3 rounded-xl border border-border-soft/20 bg-surface/60 p-3 text-xs text-subtle">
+                                <div>
+                                  <span className="font-extrabold text-content">IP: </span>
+                                  {session.ip_address || 'Chưa ghi nhận'}
+                                </div>
+                                <div>
+                                  <span className="font-extrabold text-content">Thiết bị: </span>
+                                  {session.device_name || 'Thiết bị không xác định'}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
-             </Panel>
-           )}
+              ) : (
+                <div className="rounded-2xl border border-border-soft/30 bg-background/30 p-5 text-sm font-semibold text-subtle">
+                  Chưa có phiên đăng nhập đang hoạt động.
+                </div>
+              )}
+              <FormActions saving={false} onCancel={() => setMode('view')} onSave={handleViewSessions} saveText="Tải lại phiên" />
+            </ProfilePanel>
+          )}
+
+          {false && mode === 'password' && (
+            <ProfilePanel icon={Lock} title="Đổi mật khẩu">
+              <p className="mb-6 text-sm leading-6 text-subtle">
+                Sử dụng mật khẩu mạnh để tăng cường bảo mật cho tài khoản quản trị của bạn.
+              </p>
+              <div className="space-y-5">
+                <InputField label="Mật khẩu hiện tại" type="password" value={passwordData.current} onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })} />
+                <InputField label="Mật khẩu mới" type="password" value={passwordData.new} onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })} />
+                <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })} />
+              </div>
+              <FormActions saving={saving} onCancel={() => setMode('view')} onSave={handleChangePassword} saveText="Cập nhật mật khẩu" />
+            </ProfilePanel>
+          )}
+
+          {mode === 'twoFactor' && (
+            <ProfilePanel icon={ShieldCheck} title={twoFactorChallenge?.enabled ? 'Bật xác thực 2 lớp' : 'Tắt xác thực 2 lớp'}>
+              <p className="mb-6 text-sm leading-6 text-subtle">
+                Nhập mã OTP 6 số đã gửi đến {twoFactorChallenge?.email || 'email quản trị'} để hoàn tất thay đổi.
+              </p>
+              <div className="mb-5 rounded-xl border border-primary/20 bg-primary/[0.06] p-4 text-sm text-content">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-extrabold">
+                      {sendingTwoFactorOtp
+                        ? 'Đang gửi mã OTP...'
+                        : twoFactorChallenge?.sendFailed
+                          ? 'Chưa gửi được mã OTP'
+                          : 'Mã OTP đã được gửi'}
+                    </p>
+                    <p className="mt-1 text-subtle">
+                      {twoFactorCooldown > 0
+                        ? `Nếu chưa nhận được email, bạn có thể gửi lại sau ${twoFactorCooldown}s.`
+                        : 'Nếu chưa nhận được email, bạn có thể gửi lại mã OTP.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleStartTwoFactor(Boolean(twoFactorChallenge?.enabled))}
+                    disabled={sendingTwoFactorOtp || twoFactorCooldown > 0}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {twoFactorCooldown > 0 ? `Gửi lại (${twoFactorCooldown}s)` : 'Gửi lại OTP'}
+                  </button>
+                </div>
+              </div>
+              <InputField
+                label="Mã OTP"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={twoFactorOtp}
+                onChange={(e) => setTwoFactorOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+              <FormActions
+                saving={savingTwoFactor}
+                onCancel={resetTwoFactorFlow}
+                onSave={handleVerifyTwoFactor}
+                saveDisabled={!twoFactorChallenge?.challengeId || twoFactorOtp.length !== 6 || sendingTwoFactorOtp}
+                saveText="Xác nhận OTP"
+              />
+            </ProfilePanel>
+          )}
+          <AdminProfileEditModal
+            open={mode === 'edit'}
+            user={user}
+            displayName={displayName}
+            previewUrl={previewUrl}
+            selectedFile={selectedFile}
+            formData={formData}
+            saving={saving}
+            uploadingAvatar={uploadingAvatar}
+            onFileChange={handleFileChange}
+            onFormChange={setFormData}
+            onSave={handleSave}
+            onClearFile={() => {
+              setSelectedFile(null)
+              setPreviewUrl(user.avatar_url || '')
+            }}
+            onClose={() => {
+              setMode('view')
+              setPreviewUrl(user.avatar_url || '')
+              setSelectedFile(null)
+            }}
+          />
+
+          <AdminPasswordModal
+            open={mode === 'password'}
+            passwordData={passwordData}
+            saving={saving}
+            onPasswordChange={setPasswordData}
+            onSave={handleChangePassword}
+            onClose={() => setMode('view')}
+          />
         </div>
+
+        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+          <SecuritySummary
+            result={securityResult}
+            items={securityItems}
+            checking={checkingSecurity}
+            checkingIndex={checkingIndex}
+            onCheck={handleSecurityCheck}
+          />
+          {improvementSuggestion && (
+            <section className="rounded-2xl border border-warning/30 bg-warning/[0.07] p-5 text-content shadow-[0_18px_46px_rgba(3,8,24,0.18)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-warning/15 text-warning">
+                    <AlertTriangle className="size-5" />
+                  </span>
+                  <div>
+                    <h3 className="font-display text-base font-extrabold text-content">Gợi ý cải thiện</h3>
+                    <p className="mt-1 text-sm font-extrabold text-content">{improvementSuggestion.label}</p>
+                    <p className="mt-1 text-sm leading-6 text-subtle">{improvementSuggestion.message}</p>
+                  </div>
+                </div>
+                {showTwoFactorSetupAction && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartTwoFactor(true)}
+                    disabled={savingTwoFactor}
+                    className="rounded-xl border border-warning/40 px-4 py-2 text-sm font-extrabold text-content transition hover:bg-warning/10 hover:text-warning disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    Thiết lập 2FA
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+        </aside>
       </div>
     </Page>
   )
 }
 
-function InfoField({ icon: Icon, label, value, className = '' }) {
+function AdminProfileEditModal({
+  open,
+  user,
+  displayName,
+  previewUrl,
+  selectedFile,
+  formData,
+  saving,
+  uploadingAvatar,
+  onFileChange,
+  onFormChange,
+  onSave,
+  onClearFile,
+  onClose,
+}) {
   return (
-    <div className={`rounded-xl border border-border-soft/50 bg-panel-soft p-5 shadow-sm transition hover:border-tertiary/40 hover:bg-surface ${className}`}>
-      <div className="mb-2 flex items-center gap-2 text-subtle">
-        <Icon className="size-4" />
-        <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
+    <Modal open={open} title="Chỉnh sửa hồ sơ" onClose={onClose} maxWidth="max-w-3xl">
+      <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="rounded-2xl border border-border-soft/30 bg-background/30 p-5 text-center">
+          <div className="relative mx-auto size-32">
+            <ProfileAvatar
+              sources={previewUrl || user.avatar_url}
+              name={displayName}
+              alt={displayName}
+              className="size-full ring-4 ring-primary/20"
+              fallbackClassName="bg-panel-soft text-4xl text-primary"
+            />
+            <label className="absolute bottom-0 right-0 grid size-10 cursor-pointer place-items-center rounded-full bg-tertiary text-white shadow-lg transition hover:scale-105">
+              <Camera className="size-5" />
+              <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
+            </label>
+          </div>
+          <p className="mt-4 text-sm font-semibold text-subtle">JPG, PNG. Nên dùng ảnh vuông để hiển thị đẹp hơn.</p>
+          {selectedFile && (
+            <button
+              type="button"
+              onClick={onClearFile}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-error/30 px-4 py-2 text-sm font-extrabold text-error transition hover:bg-error/10"
+            >
+              <X className="size-4" />
+              Bỏ ảnh mới
+            </button>
+          )}
+        </div>
+        <div className="space-y-5">
+          <div className="grid gap-5 md:grid-cols-2">
+            <InputField label="Họ và tên" value={formData.full_name} onChange={(e) => onFormChange({ ...formData, full_name: e.target.value })} />
+            <InputField label="Số điện thoại" value={formData.phone} onChange={(e) => onFormChange({ ...formData, phone: e.target.value })} />
+            <InputField label="Ngày sinh" type="date" value={formData.dob} onChange={(e) => onFormChange({ ...formData, dob: e.target.value })} />
+            <InputField label="Địa chỉ" className="md:col-span-2" value={formData.address} onChange={(e) => onFormChange({ ...formData, address: e.target.value })} />
+          </div>
+          <FormActions
+            saving={saving || uploadingAvatar}
+            onCancel={onClose}
+            onSave={onSave}
+            saveText={uploadingAvatar ? 'Đang tải ảnh...' : 'Lưu thay đổi'}
+          />
+        </div>
       </div>
-      <p className="text-lg font-extrabold text-content">{value}</p>
+    </Modal>
+  )
+}
+
+function AdminPasswordModal({ open, passwordData, saving, onPasswordChange, onSave, onClose }) {
+  return (
+    <Modal open={open} title="Đổi mật khẩu" onClose={onClose} maxWidth="max-w-xl">
+      <p className="mb-6 text-sm leading-6 text-subtle">
+        Sử dụng mật khẩu mạnh và không trùng với mật khẩu cũ để bảo vệ tài khoản.
+      </p>
+      <div className="space-y-5">
+        <InputField label="Mật khẩu hiện tại" type="password" value={passwordData.current} onChange={(e) => onPasswordChange({ ...passwordData, current: e.target.value })} />
+        <InputField label="Mật khẩu mới" type="password" value={passwordData.new} onChange={(e) => onPasswordChange({ ...passwordData, new: e.target.value })} />
+        <InputField label="Xác nhận mật khẩu" type="password" value={passwordData.confirm} onChange={(e) => onPasswordChange({ ...passwordData, confirm: e.target.value })} />
+      </div>
+      <FormActions saving={saving} onCancel={onClose} onSave={onSave} saveText="Cập nhật mật khẩu" />
+    </Modal>
+  )
+}
+
+function SecuritySummary({ result, items, checking, checkingIndex, onCheck }) {
+  const score = Number(result?.score || 0)
+  const total = Number(result?.total || items.length || DEFAULT_SECURITY_KEYS.length)
+  const levelText = checking ? 'Đang kiểm tra' : mapLevelToVietnamese(result?.level, result?.levelText)
+  const percent = total > 0 ? Math.min(Math.max((score / total) * 100, 0), 100) : 0
+
+  return (
+    <section className="customer-profile-panel rounded-2xl border p-5 text-content">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div className="flex gap-3">
+          <span className="customer-section-icon customer-tone-blue grid size-12 shrink-0 place-items-center rounded-xl">
+            <ShieldCheck className="size-6" />
+          </span>
+          <div>
+            <h2 className="customer-panel-title font-display text-xl font-extrabold">Tình trạng bảo mật</h2>
+            <p className="mt-2 text-sm text-subtle">
+              Mức độ an toàn: <span className={getLevelClassName(result?.level, levelText)}>{levelText}</span>
+            </p>
+            <p className="mt-1 text-sm text-subtle">Bạn đã hoàn thành {score}/{total} hạng mục bảo mật.</p>
+          </div>
+        </div>
+        <div
+          className="grid size-20 shrink-0 place-items-center rounded-full border-[6px] bg-background/40 text-xl font-extrabold text-content shadow-[inset_0_0_0_6px_rgba(59,130,246,0.18)]"
+          style={{ borderColor: getProgressColor(result?.level, percent) }}
+        >
+          {score}/{total}
+        </div>
+      </div>
+
+      <div className="mb-5 h-2 overflow-hidden rounded-full bg-background/40">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-500"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      <div className="space-y-2">
+        {items.map((item, index) => (
+          <SecurityCheck key={item.key || item.label} item={item} active={checking && index === checkingIndex} />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onCheck}
+        disabled={checking}
+        className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-blue-950/20 transition hover:from-blue-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        {checking ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+        {checking ? 'Đang kiểm tra...' : 'Kiểm tra bảo mật'}
+      </button>
+      <p className="mt-3 text-center text-xs text-subtle">
+        Lần kiểm tra gần nhất: {formatDateTime(result?.lastCheckedAt)}
+      </p>
+    </section>
+  )
+}
+
+function getImprovementSuggestion(items) {
+  if (!Array.isArray(items)) return null
+  return items.find((item) => normalizeSecurityStatus(item?.status) === 'warning') || null
+}
+
+function SecurityCheck({ item, active }) {
+  const config = getSecurityStatusConfig(item.uiStatus || item.status)
+  const Icon = item.icon || config.icon
+  const BadgeIcon = config.badgeIcon
+
+  return (
+    <div className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition-all ${config.rowClassName} ${active ? 'animate-pulse' : ''}`}>
+      {config.loading ? (
+        <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-primary" />
+      ) : (
+        <Icon className={`mt-0.5 size-5 shrink-0 ${config.iconClassName}`} />
+      )}
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <p className="min-w-0 break-words text-sm font-bold leading-5 text-content">{item.label}</p>
+          <span className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-extrabold ${config.badgeClassName}`}>
+            {config.label}
+            {config.loading ? <Loader2 className="size-3.5 animate-spin" /> : <BadgeIcon className="size-3.5" />}
+          </span>
+        </div>
+        <p className="break-words text-xs leading-5 text-subtle">{item.uiMessage || item.message}</p>
+      </div>
+    </div>
+  )
+}
+
+const DEFAULT_SECURITY_KEYS = [
+  'email_verified',
+  'phone_exists',
+  'password_recent',
+  'two_factor',
+  'last_login',
+  'account_status',
+]
+
+const SECURITY_LABELS = {
+  email_verified: 'Email đã xác minh',
+  phone_exists: 'Số điện thoại',
+  password_recent: 'Mật khẩu',
+  two_factor: 'Xác thực 2 lớp',
+  last_login: 'Phiên đăng nhập gần nhất',
+  account_status: 'Trạng thái tài khoản',
+}
+
+const SECURITY_ICONS = {
+  email_verified: Mail,
+  phone_exists: Phone,
+  password_recent: KeyRound,
+  two_factor: Shield,
+  last_login: Clock3,
+  account_status: ShieldCheck,
+}
+
+const SECURITY_MESSAGES = {
+  email_verified: {
+    passed: 'Email của bạn đã được xác minh.',
+    warning: 'Email của bạn chưa được xác minh.',
+    danger: 'Email của bạn đang có vấn đề cần kiểm tra.',
+    disabled: 'Chưa có thông tin xác minh email.',
+  },
+  phone_exists: {
+    passed: 'Tài khoản đã có số điện thoại.',
+    warning: 'Bạn nên bổ sung số điện thoại.',
+    danger: 'Số điện thoại đang có vấn đề cần kiểm tra.',
+    disabled: 'Chưa hỗ trợ kiểm tra số điện thoại.',
+  },
+  password_recent: {
+    passed: 'Mật khẩu được cập nhật gần đây.',
+    warning: 'Bạn nên đổi mật khẩu nếu đã quá lâu chưa cập nhật.',
+    danger: 'Mật khẩu đang có vấn đề cần kiểm tra ngay.',
+    disabled: 'Chưa có thông tin lần đổi mật khẩu gần nhất.',
+  },
+  two_factor: {
+    passed: 'Tài khoản đã bật xác thực 2 lớp.',
+    warning: 'Bạn chưa bật xác thực 2 lớp.',
+    danger: 'Xác thực 2 lớp đang có vấn đề cần kiểm tra.',
+    disabled: 'Tính năng xác thực 2 lớp chưa được hỗ trợ.',
+  },
+  last_login: {
+    passed: 'Tài khoản có ghi nhận phiên đăng nhập gần nhất.',
+    warning: 'Chưa có thông tin phiên đăng nhập gần nhất.',
+    danger: 'Phiên đăng nhập gần nhất có dấu hiệu cần kiểm tra.',
+    disabled: 'Chưa hỗ trợ kiểm tra phiên đăng nhập.',
+  },
+  account_status: {
+    passed: 'Tài khoản đang hoạt động bình thường.',
+    warning: 'Tài khoản cần được kiểm tra thêm.',
+    danger: 'Tài khoản đang có vấn đề cần kiểm tra ngay.',
+    disabled: 'Chưa hỗ trợ kiểm tra trạng thái tài khoản.',
+  },
+}
+
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function createEmptySecurityResult() {
+  return {
+    score: 0,
+    total: DEFAULT_SECURITY_KEYS.length,
+    level: '',
+    levelText: 'Chưa kiểm tra',
+    lastCheckedAt: null,
+    items: [],
+  }
+}
+
+function createInitialSecurityItems() {
+  return DEFAULT_SECURITY_KEYS.map((key) => ({
+    key,
+    label: SECURITY_LABELS[key],
+    status: 'disabled',
+    message: 'Chưa kiểm tra.',
+    icon: SECURITY_ICONS[key] || Info,
+  }))
+}
+
+function normalizeSecurityStatus(status) {
+  const normalized = String(status || '').toLowerCase()
+  if (['passed', 'warning', 'danger', 'disabled', 'loading'].includes(normalized)) {
+    return normalized
+  }
+  return 'warning'
+}
+
+function containsVietnamese(text) {
+  return /[À-ỹĐđ]/.test(String(text || ''))
+}
+
+function getDefaultSecurityMessage(key, status) {
+  const normalizedStatus = normalizeSecurityStatus(status)
+  return SECURITY_MESSAGES[key]?.[normalizedStatus]
+    || SECURITY_MESSAGES[key]?.warning
+    || 'Cần kiểm tra thêm hạng mục này.'
+}
+
+function mapSecurityItemsToVietnamese(items) {
+  if (!Array.isArray(items)) return []
+
+  return items.map((item) => {
+    const key = item?.key || 'unknown'
+    const status = normalizeSecurityStatus(item?.status)
+    const apiMessage = String(item?.message || '').trim()
+    const apiLabel = String(item?.label || '').trim()
+
+    return {
+      key,
+      label: SECURITY_LABELS[key] || (containsVietnamese(apiLabel) ? apiLabel : 'Hạng mục bảo mật'),
+      status,
+      message: containsVietnamese(apiMessage) ? apiMessage : getDefaultSecurityMessage(key, status),
+      icon: SECURITY_ICONS[key] || Info,
+    }
+  })
+}
+
+function mapLevelToVietnamese(level, levelText) {
+  const text = String(levelText || '').trim()
+  if (containsVietnamese(text)) return text
+
+  const normalized = String(level || text || '').toLowerCase()
+  if (normalized === 'good') return 'Tốt'
+  if (normalized === 'medium') return 'Trung bình'
+  if (normalized === 'weak') return 'Yếu'
+  if (normalized === 'checking') return 'Đang kiểm tra'
+  return 'Chưa kiểm tra'
+}
+
+function getLevelClassName(level, levelText) {
+  const normalized = String(level || '').toLowerCase()
+  const text = String(levelText || '').toLowerCase()
+  if (normalized === 'weak' || text.includes('yếu')) return 'font-extrabold text-error'
+  if (normalized === 'medium' || text.includes('trung')) return 'font-extrabold text-warning'
+  if (normalized === 'good' || text.includes('tốt')) return 'font-extrabold text-success'
+  return 'font-extrabold text-primary'
+}
+
+function getProgressColor(level, percent) {
+  const normalized = String(level || '').toLowerCase()
+  if (normalized === 'weak' || percent < 50) return 'rgba(239, 68, 68, 0.72)'
+  if (normalized === 'medium' || percent < 80) return 'rgba(245, 158, 11, 0.78)'
+  if (normalized === 'good') return 'rgba(34, 197, 94, 0.72)'
+  return 'rgba(59, 130, 246, 0.72)'
+}
+
+function getSecurityStatusConfig(status) {
+  const normalized = normalizeSecurityStatus(status)
+  const configs = {
+    passed: {
+      label: 'Đạt',
+      icon: CheckCircle2,
+      badgeIcon: CheckCircle2,
+      iconClassName: 'text-success',
+      badgeClassName: 'bg-success/15 text-success',
+      rowClassName: 'border-success/20 bg-success/[0.06]',
+    },
+    warning: {
+      label: 'Cần chú ý',
+      icon: AlertTriangle,
+      badgeIcon: AlertTriangle,
+      iconClassName: 'text-warning',
+      badgeClassName: 'bg-warning/15 text-warning',
+      rowClassName: 'border-warning/20 bg-warning/[0.06]',
+    },
+    danger: {
+      label: 'Nguy hiểm',
+      icon: AlertCircle,
+      badgeIcon: AlertCircle,
+      iconClassName: 'text-error',
+      badgeClassName: 'bg-error/15 text-error',
+      rowClassName: 'border-error/20 bg-error/[0.06]',
+    },
+    disabled: {
+      label: 'Chưa hỗ trợ',
+      icon: Info,
+      badgeIcon: Info,
+      iconClassName: 'text-muted',
+      badgeClassName: 'bg-panel-soft text-muted',
+      rowClassName: 'border-border-soft/20 bg-background/25',
+    },
+    loading: {
+      label: 'Đang kiểm tra',
+      icon: Loader2,
+      badgeIcon: Loader2,
+      loading: true,
+      iconClassName: 'text-primary',
+      badgeClassName: 'bg-primary/15 text-primary',
+      rowClassName: 'border-primary/30 bg-primary/[0.06]',
+    },
+  }
+
+  return configs[normalized] || configs.warning
+}
+
+function ProfilePanel({ icon: Icon, title, children }) {
+  return (
+    <section className="customer-profile-panel rounded-2xl border p-5 text-content sm:p-6">
+      <div className="mb-4 flex items-center gap-3">
+        <span className="customer-section-icon customer-tone-blue grid size-10 place-items-center rounded-xl">
+          <Icon className="size-5" />
+        </span>
+        <h2 className="customer-panel-title font-display text-xl font-extrabold">{title}</h2>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function InfoRow({ icon: Icon, label, value, status, last = false }) {
+  return (
+    <div className={`grid gap-3 py-4 text-sm sm:grid-cols-[240px_minmax(0,1fr)_auto] sm:items-center ${last ? '' : 'border-b border-border-soft/20'}`}>
+      <div className="customer-profile-label flex items-center gap-3 font-semibold">
+        <Icon className="size-5" />
+        {label}
+      </div>
+      <p className="customer-info-value break-words font-extrabold">{value || 'Chưa cập nhật'}</p>
+      {status && (
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-success/10 px-3 py-1 text-xs font-extrabold text-success">
+          {status}
+          <CheckCircle2 className="size-3.5" />
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ActionRow({ icon: Icon, label, description, action, onClick, disabled = false, last = false }) {
+  return (
+    <div className={`flex items-center gap-4 py-4 ${last ? '' : 'border-b border-border-soft/20'}`}>
+      <Icon className="size-5 shrink-0 text-subtle" />
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-content">{label}</p>
+        <p className="mt-1 text-sm text-subtle">{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border-soft/40 px-4 py-2 text-sm font-bold text-content transition hover:border-primary/60 hover:bg-panel-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {action || <ChevronRight className="size-4" />}
+        {action && <ChevronRight className="size-4" />}
+      </button>
+    </div>
+  )
+}
+
+function FormActions({ saving, onCancel, onSave, saveText, saveDisabled = false }) {
+  return (
+    <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <button type="button" onClick={onCancel} disabled={saving} className="admin-secondary bg-surface px-6 text-content hover:bg-panel-soft">
+        Hủy
+      </button>
+      <button type="button" onClick={onSave} disabled={saving || saveDisabled} className="admin-primary flex items-center justify-center gap-2 px-6">
+        {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+        {saving ? 'Đang lưu...' : saveText}
+      </button>
     </div>
   )
 }
 
 function InputField({ label, className = '', type = 'text', ...props }) {
   return (
-    <div className={`space-y-2 ${className}`}>
-      <label className="text-xs font-bold text-subtle uppercase tracking-wider">{label}</label>
+    <label className={`block space-y-2 ${className}`}>
+      <span className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</span>
       <input
         type={type}
-        className="w-full rounded-xl border border-border-soft/50 bg-surface px-4 py-3 text-sm font-semibold text-content shadow-sm outline-none transition placeholder:text-muted focus:border-primary focus:ring-4 focus:ring-primary/10"
+        className="h-12 w-full rounded-xl border border-border-soft/40 bg-background/35 px-4 text-sm font-semibold text-content shadow-sm outline-none transition placeholder:text-muted focus:border-primary focus:ring-4 focus:ring-primary/10"
         {...props}
       />
-    </div>
+    </label>
   )
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Chưa kiểm tra'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Chưa kiểm tra'
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function formatDate(value) {
+  if (!value) return 'Chưa cập nhật'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật'
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
 }

@@ -41,6 +41,12 @@ function requestTypeLabel(type) {
   return type === 'ORGANIZATION' ? 'Tổ chức' : 'Cá nhân'
 }
 
+function requestActionLabel(action) {
+  return String(action || 'APPLICATION').toUpperCase() === 'PROFILE_UPDATE'
+    ? 'Cập nhật hồ sơ'
+    : 'Đăng ký organizer'
+}
+
 export function AdminOrganizerRequestsPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -103,6 +109,7 @@ export function AdminOrganizerRequestsPage() {
     if (
       status === 'APPROVED' &&
       selectedRequest.request_type === 'ORGANIZATION' &&
+      selectedRequest.request_action !== 'PROFILE_UPDATE' &&
       !selectedRequest.business_email_verified
     ) {
       const message = 'Email tổ chức chưa được xác thực. Chưa thể duyệt yêu cầu này.'
@@ -192,7 +199,7 @@ export function AdminOrganizerRequestsPage() {
               </p>
             </div>,
             <Badge key="type" tone={request.request_type === 'ORGANIZATION' ? 'green' : 'blue'}>
-              {requestTypeLabel(request.request_type)}
+              {requestActionLabel(request.request_action)} · {requestTypeLabel(request.request_type)}
             </Badge>,
             <div key="user">
               <p className="font-semibold text-content">{request.applicant?.full_name}</p>
@@ -235,7 +242,7 @@ export function AdminOrganizerRequestsPage() {
 
       {selectedRequest && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-          <Panel className="admin-review-modal-scroll max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto border-border-soft/60">
+          <Panel className="admin-review-modal-scroll max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto border-border-soft/60">
             {selectedRequest.organization_avatar_url && (
               <img
                 src={selectedRequest.organization_avatar_url}
@@ -251,6 +258,7 @@ export function AdminOrganizerRequestsPage() {
             </p>
             <div className="mt-4 grid gap-3 rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm sm:grid-cols-2">
               <Info label="Trạng thái" value={statusLabel(selectedRequest.status)} />
+              <Info label="Nội dung yêu cầu" value={requestActionLabel(selectedRequest.request_action)} />
               <Info label="Loại đăng ký" value={requestTypeLabel(selectedRequest.request_type)} />
               <Info label="Số điện thoại" value={selectedRequest.business_phone} />
               <Info label="SĐT tài khoản" value={selectedRequest.applicant?.phone || 'Chưa cung cấp'} />
@@ -269,25 +277,28 @@ export function AdminOrganizerRequestsPage() {
                 <>
                   <Info label="Người đại diện" value={selectedRequest.legal_representative_name || 'Chưa cung cấp'} />
                   <Info label="Chức vụ" value={selectedRequest.legal_representative_position || 'Chưa cung cấp'} />
-                  <InfoLink label="Giấy ĐKDN/ERC" url={selectedRequest.legal_document_url} />
-                  <InfoLink label="Giấy phép đặc thù" url={selectedRequest.business_license_url} />
-                  <InfoLink label="Giấy tờ người đại diện" url={selectedRequest.legal_representative_id_url} />
-                  <InfoLink label="Giấy ủy quyền" url={selectedRequest.authorization_letter_url} />
+                  <InfoDocument label="Giấy chứng nhận đăng ký doanh nghiệp" url={selectedRequest.legal_document_url} />
+                  <InfoDocument label="Giấy phép đặc thù" url={selectedRequest.business_license_url} />
+                  <InfoDocument label="Giấy tờ người đại diện" url={selectedRequest.legal_representative_id_url} />
+                  <InfoDocument label="Giấy ủy quyền" url={selectedRequest.authorization_letter_url} />
                 </>
               ) : (
                 <>
                   <Info label="Họ tên pháp lý" value={selectedRequest.individual_full_name || 'Chưa cung cấp'} />
                   <Info label="Số CCCD/Hộ chiếu" value={selectedRequest.individual_identity_number || 'Chưa cung cấp'} />
                   <Info label="MST cá nhân" value={selectedRequest.individual_tax_code || 'Chưa cung cấp'} />
-                  <InfoLink label="CCCD mặt trước" url={selectedRequest.individual_id_front_url} />
-                  <InfoLink label="CCCD mặt sau" url={selectedRequest.individual_id_back_url} />
-                  <InfoLink label="Ảnh selfie" url={selectedRequest.individual_selfie_url} />
+                  <InfoDocument label="CCCD mặt trước" url={selectedRequest.individual_id_front_url} />
+                  <InfoDocument label="CCCD mặt sau" url={selectedRequest.individual_id_back_url} />
+                  <InfoDocument label="Ảnh selfie" url={selectedRequest.individual_selfie_url} />
                 </>
               )}
               <Info
                 label="Điều khoản Organizer"
                 value={selectedRequest.terms_accepted ? 'Đã chấp nhận' : 'Chưa chấp nhận'}
               />
+              {selectedRequest.change_summary && (
+                <Info label="Duyệt về" value={selectedRequest.change_summary} />
+              )}
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm text-subtle leading-relaxed bg-panel-soft p-4 rounded-xl border border-border-soft/30">
               {selectedRequest.organization_description}
@@ -316,6 +327,7 @@ export function AdminOrganizerRequestsPage() {
                   disabled={
                     reviewMutation.isPending ||
                     (selectedRequest.request_type === 'ORGANIZATION' &&
+                      selectedRequest.request_action !== 'PROFILE_UPDATE' &&
                       !selectedRequest.business_email_verified)
                   }
                   onClick={() => submitReview('APPROVED')}
@@ -433,5 +445,44 @@ function InfoLink({ label, url }) {
         <p className="mt-1 font-semibold text-content">Không áp dụng</p>
       )}
     </div>
+  )
+}
+
+function InfoDocument({ label, url }) {
+  const image = url && isImageUrl(url)
+
+  return (
+    <div className={image ? 'sm:col-span-2' : ''}>
+      <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      {url ? (
+        image ? (
+          <a href={url} target="_blank" rel="noreferrer" className="mt-2 block">
+            <img src={url} alt={label} className="h-48 w-full rounded-xl border border-border-soft/40 object-cover" />
+            <span className="mt-2 inline-flex font-semibold text-tertiary underline-offset-4 hover:underline">
+              Mở ảnh gốc
+            </span>
+          </a>
+        ) : (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-flex font-semibold text-tertiary underline-offset-4 hover:underline"
+          >
+            Mở tài liệu
+          </a>
+        )
+      ) : (
+        <p className="mt-1 font-semibold text-content">Không áp dụng</p>
+      )}
+    </div>
+  )
+}
+
+function isImageUrl(url = '') {
+  return (
+    /\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url) ||
+    /\/image\/upload\//i.test(url) ||
+    /\/raw\/upload\/.*\.(jpg|jpeg|png|webp|gif|bmp|avif)(\?|#|$)/i.test(url)
   )
 }
