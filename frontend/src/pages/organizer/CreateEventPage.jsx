@@ -1439,6 +1439,7 @@ export function CreateEventPage() {
   const [uploadingThumb, setUploadingThumb] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [eventStatus, setEventStatus] = useState('DRAFT')
+  const [editPermissions, setEditPermissions] = useState(null)
   const [paymentSetupRequired, setPaymentSetupRequired] = useState(false)
   const [subscriptionRequired, setSubscriptionRequired] = useState(false)
 
@@ -1503,6 +1504,7 @@ export function CreateEventPage() {
       clientKey: tt.id,
       session_key: tt.event_session_id,
       name: tt.name,
+      description: tt.description || '',
       price: tt.price,
       quantity: tt.quantity,
       is_seated: tt.is_seated,
@@ -1535,6 +1537,7 @@ export function CreateEventPage() {
       .then((event) => {
         setEventId(event.id)
         setEventStatus(event.status || 'DRAFT')
+        setEditPermissions(event.edit_permissions || null)
         populateFromEvent(event)
         setCurrentStep(1)
         setMaxCompletedStep(5)
@@ -1980,7 +1983,9 @@ export function CreateEventPage() {
               </button>
             </div>
           )}
+          <fieldset disabled={Boolean(editPermissions?.is_time_locked)} className={editPermissions?.is_time_locked ? 'opacity-60' : ''}>
           {currentStep === 1 && (
+            /* Locked events are read-only; backend enforces the same rule. */
             <Step1EventInfo
               formData={formData}
               setFormData={setFormData}
@@ -2005,6 +2010,7 @@ export function CreateEventPage() {
           {currentStep === 5 && (
             <Step5ReviewSubmit formData={formData} categories={categories} venues={venues} />
           )}
+          </fieldset>
 
         </div>
 
@@ -2022,7 +2028,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleBack}
-                disabled={loading}
+                disabled={loading || editPermissions?.is_time_locked}
                 className="px-6 py-2.5 rounded-lg border border-border-soft/40 text-sm font-medium hover:bg-panel-soft transition flex items-center gap-2 text-content disabled:opacity-50"
               >
                 <Icon name="arrow_back" className="text-[18px]" />
@@ -2033,7 +2039,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={loading}
+                disabled={loading || editPermissions?.is_time_locked}
                 className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
               >
                 {loading ? 'Đang lưu...' : (currentStep === 4 ? 'Tiếp theo' : nextLabel)}
@@ -2045,7 +2051,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || !isValidAllSteps()}
+                disabled={loading || editPermissions?.is_time_locked || !isValidAllSteps()}
                 title={!isValidAllSteps() ? 'Bạn cần nhập đầy đủ và chuẩn xác tất cả các bước' : ''}
                 className="flex items-center gap-2 rounded-lg bg-success px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-success/80 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
@@ -2055,7 +2061,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || !isValidAllSteps()}
+                disabled={loading || editPermissions?.is_time_locked || !isValidAllSteps()}
                 title={!isValidAllSteps() ? 'Bạn cần nhập đầy đủ và chuẩn xác tất cả các bước' : ''}
                 className="rounded-lg border border-tertiary/50 px-6 py-2.5 text-sm font-bold text-tertiary hover:bg-tertiary/10 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
@@ -2067,7 +2073,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleUpdateEvent}
-                disabled={loading || !isValidAllSteps()}
+                disabled={loading || editPermissions?.is_time_locked || !isValidAllSteps()}
                 title={!isValidAllSteps() ? 'Thông tin sự kiện còn thiếu hoặc không hợp lệ' : ''}
                 className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
