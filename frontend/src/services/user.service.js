@@ -17,3 +17,23 @@ export async function changePassword(currentPassword, newPassword) {
   })
   return response.data
 }
+
+export async function getSecurityStatus() {
+  const response = await http.get('/users/me/security-status')
+  return response.data.data
+}
+
+export async function checkSecurity() {
+  const response = await http.get('/users/me/security-check')
+  return response.data.data
+}
+
+export async function startTwoFactor(enabled) {
+  const response = await http.post('/users/me/2fa/start', { enabled })
+  return response.data.data
+}
+
+export async function verifyTwoFactor({ challengeId, otp }) {
+  const response = await http.post('/users/me/2fa/verify', { challengeId, otp })
+  return response.data.data
+}

@@ -1,8 +1,10 @@
 const adminProfileRepository = require('./profile.repository');
+const authService = require('../auth/auth.service');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 
 const PASSWORD_RECENT_DAYS = 90;
+const ADMIN_2FA_OTP_KEY = 'admin_2fa_otp';
 
 function isUnknownDeviceName(value) {
   const text = String(value || '').toLowerCase();
@@ -83,6 +85,15 @@ function getPasswordAgeDays(passwordChangedAt) {
   return Math.floor(ageMs / (24 * 60 * 60 * 1000));
 }
 
+function hasPassword(user) {
+  return Boolean(user?.password_hash && user.password_hash !== '*');
+}
+
+function getInitialPasswordChangedAt(user) {
+  if (!hasPassword(user)) return null;
+  return user.created_at || null;
+}
+
 function getLatestSession(sessions) {
   if (!Array.isArray(sessions) || sessions.length === 0) return null;
   return sessions[0] || null;
@@ -133,6 +144,15 @@ class AdminProfileService {
 
     const sessions = await adminProfileRepository.listUserSessions(adminId);
     const latestSession = getLatestSession(sessions);
+    let passwordChangedAt = hasPasswordChangedAt ? user.password_changed_at : null;
+
+    if (hasPasswordChangedAt && !passwordChangedAt) {
+      const initialPasswordChangedAt = getInitialPasswordChangedAt(user);
+      if (initialPasswordChangedAt) {
+        const updatedUser = await adminProfileRepository.updatePasswordChangedAt(adminId, initialPasswordChangedAt);
+        passwordChangedAt = updatedUser?.password_changed_at || initialPasswordChangedAt;
+      }
+    }
 
     const items = [];
 
@@ -164,7 +184,7 @@ class AdminProfileService {
     });
 
     if (hasPasswordChangedAt) {
-      const recent = isPasswordRecent(user.password_changed_at);
+      const recent = isPasswordRecent(passwordChangedAt);
       items.push({
         key: 'password_recent',
         label: 'Mật khẩu',
@@ -228,7 +248,7 @@ class AdminProfileService {
         : 'Tài khoản đang bị khóa hoặc không hoạt động.',
     });
 
-    const passwordAgeDays = getPasswordAgeDays(user.password_changed_at);
+    const passwordAgeDays = getPasswordAgeDays(passwordChangedAt);
     const userDeviceName = hasLastLoginDevice && user.last_login_device
       ? user.last_login_device
       : getDeviceName(hasLastLoginUserAgent ? user.last_login_user_agent : null);
@@ -323,6 +343,67 @@ class AdminProfileService {
         expires_at: session.expires_at || null,
       };
     });
+  }
+
+  async startTwoFactorSetup(adminId, enabled) {
+    const user = await adminProfileRepository.findAdminById(adminId);
+    if (!user) {
+      throw new AppError('Admin not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const roles = Array.isArray(user.roles) ? user.roles : [];
+    if (!roles.some(isAdminRole)) {
+      throw new AppError('You do not have permission to perform this action', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    if (!await adminProfileRepository.hasUserColumn('two_factor_enabled')) {
+      throw new AppError('Two-factor authentication is not supported', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    if (!user.email_verified) {
+      throw new AppError('Email must be verified before enabling two-factor authentication', 400, ErrorCodes.AUTH_EMAIL_NOT_VERIFIED);
+    }
+
+    const targetEnabled = Boolean(enabled);
+    if (Boolean(user.two_factor_enabled) === targetEnabled) {
+      return {
+        alreadyEnabled: targetEnabled,
+        enabled: targetEnabled,
+      };
+    }
+
+    return authService.createOtpChallenge(ADMIN_2FA_OTP_KEY, {
+      userId: user.id,
+      email: user.email,
+      enabled: targetEnabled,
+      subject: targetEnabled
+        ? 'Ma OTP bat xac thuc 2 lop EventHub'
+        : 'Ma OTP tat xac thuc 2 lop EventHub',
+    });
+  }
+
+  async verifyTwoFactorSetup(adminId, challengeId, otp) {
+    const challenge = await authService.consumeOtpChallenge(ADMIN_2FA_OTP_KEY, challengeId, otp);
+    if (challenge.userId !== adminId) {
+      throw new AppError('Ma OTP khong hop le', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    const user = await adminProfileRepository.findAdminById(adminId);
+    if (!user) {
+      throw new AppError('Admin not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const roles = Array.isArray(user.roles) ? user.roles : [];
+    if (!roles.some(isAdminRole)) {
+      throw new AppError('You do not have permission to perform this action', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    const updated = await adminProfileRepository.updateTwoFactorEnabled(adminId, Boolean(challenge.enabled));
+    await this.securityCheck(adminId);
+
+    return {
+      enabled: Boolean(updated?.two_factor_enabled ?? challenge.enabled),
+    };
   }
 }
 

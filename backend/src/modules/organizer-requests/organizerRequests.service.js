@@ -5,6 +5,7 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const { sendEmail } = require('../../infrastructure/email/email.service');
 const { client: redisClient } = require('../../infrastructure/redis/redis.client');
+const organizerEventsRepository = require('../organizer/organizerEvents.repository');
 const organizerRequestsRepository = require('./organizerRequests.repository');
 
 const BUSINESS_EMAIL_VERIFY_PREFIX = 'organizer_business_email_verify:';
@@ -46,6 +47,8 @@ function mapRequest(row) {
     individual_tax_code: row.individual_tax_code,
     terms_accepted: row.terms_accepted,
     terms_accepted_at: row.terms_accepted_at,
+    request_action: row.request_action || 'APPLICATION',
+    change_summary: row.change_summary,
     status: row.status,
     review_note: row.review_note,
     reviewed_by: row.reviewed_by,
@@ -95,6 +98,41 @@ function buildRequestInput(payload) {
     termsAccepted: payload.terms_accepted,
   };
 }
+
+function firstNonEmpty(...values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+}
+
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
+function cleanOptional(value, maxLength = 2000) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const text = String(value).trim();
+  return text ? text.slice(0, maxLength) : null;
+}
+
+const PROFILE_UPDATE_FIELDS = {
+  INDIVIDUAL: [
+    ['individual_full_name', 'Họ tên pháp lý'],
+    ['individual_identity_number', 'Số CCCD/Hộ chiếu'],
+    ['individual_tax_code', 'Mã số thuế cá nhân'],
+    ['individual_id_front_url', 'Ảnh CCCD mặt trước'],
+    ['individual_id_back_url', 'Ảnh CCCD mặt sau'],
+    ['individual_selfie_url', 'Ảnh chân dung/tự chụp'],
+  ],
+  ORGANIZATION: [
+    ['legal_representative_name', 'Người đại diện pháp luật'],
+    ['legal_representative_position', 'Chức vụ người đại diện'],
+    ['tax_code', 'Mã số thuế'],
+    ['legal_document_url', 'Giấy chứng nhận đăng ký doanh nghiệp'],
+    ['business_license_url', 'Giấy phép kinh doanh đặc thù'],
+    ['legal_representative_id_url', 'Giấy tờ tùy thân người đại diện'],
+    ['authorization_letter_url', 'Giấy ủy quyền'],
+  ],
+};
 
 class OrganizerRequestsService {
   async assertCanSubmit(userId) {
@@ -212,6 +250,77 @@ class OrganizerRequestsService {
     return request;
   }
 
+  async submitProfileUpdateRequest(userId, payload) {
+    const organizer = await organizerEventsRepository.findOrganizerByUserId(userId);
+    if (!organizer) {
+      throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const pendingUpdate = await organizerRequestsRepository.findPendingProfileUpdateByUserId(userId);
+    if (pendingUpdate) {
+      throw new AppError(
+        'You already have a pending organizer profile update request',
+        400,
+        ErrorCodes.ORGANIZER_REQUEST_PENDING_EXISTS,
+      );
+    }
+
+    const requestHistory = await organizerEventsRepository.findProfileRequests(userId, organizer);
+    const sourceRequest =
+      [...requestHistory].reverse().find((request) => request.status === 'APPROVED') ||
+      requestHistory[requestHistory.length - 1] ||
+      {};
+    const requestType = firstNonEmpty(payload.request_type, organizer.request_type, sourceRequest.request_type, 'INDIVIDUAL');
+    const fields = PROFILE_UPDATE_FIELDS[requestType] || PROFILE_UPDATE_FIELDS.INDIVIDUAL;
+    const nextValues = {};
+    const changedLabels = [];
+
+    fields.forEach(([field, label]) => {
+      const current = firstNonEmpty(organizer[field], sourceRequest[field], '');
+      const incoming = cleanOptional(payload[field], field.endsWith('_url') ? 2000 : 255);
+      const next = incoming === undefined ? current || null : incoming;
+      nextValues[field] = next;
+      if (String(current || '').trim() !== String(next || '').trim()) {
+        changedLabels.push(label);
+      }
+    });
+
+    if (!changedLabels.length) {
+      throw new AppError('No organizer verification fields changed', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const row = await organizerRequestsRepository.create({
+      userId,
+      requestType,
+      organizationName: firstNonEmpty(organizer.organization_name, sourceRequest.organization_name),
+      organizationDescription: firstNonEmpty(organizer.description, sourceRequest.organization_description),
+      businessEmail: firstNonEmpty(organizer.business_email, sourceRequest.business_email),
+      businessEmailVerified: Boolean(firstDefined(sourceRequest.business_email_verified, true)),
+      businessPhone: firstNonEmpty(organizer.business_phone, sourceRequest.business_phone),
+      organizationAvatarUrl: firstNonEmpty(organizer.organization_avatar_url, sourceRequest.organization_avatar_url),
+      taxCode: requestType === 'ORGANIZATION'
+        ? nextValues.tax_code
+        : firstNonEmpty(organizer.tax_code, sourceRequest.tax_code),
+      legalDocumentUrl: nextValues.legal_document_url ?? firstNonEmpty(organizer.legal_document_url, sourceRequest.legal_document_url),
+      businessLicenseUrl: nextValues.business_license_url ?? firstNonEmpty(organizer.business_license_url, sourceRequest.business_license_url),
+      legalRepresentativeName: nextValues.legal_representative_name ?? firstNonEmpty(organizer.legal_representative_name, sourceRequest.legal_representative_name),
+      legalRepresentativePosition: nextValues.legal_representative_position ?? firstNonEmpty(organizer.legal_representative_position, sourceRequest.legal_representative_position),
+      legalRepresentativeIdUrl: nextValues.legal_representative_id_url ?? firstNonEmpty(organizer.legal_representative_id_url, sourceRequest.legal_representative_id_url),
+      authorizationLetterUrl: nextValues.authorization_letter_url ?? firstNonEmpty(organizer.authorization_letter_url, sourceRequest.authorization_letter_url),
+      individualFullName: nextValues.individual_full_name ?? firstNonEmpty(organizer.individual_full_name, sourceRequest.individual_full_name),
+      individualIdentityNumber: nextValues.individual_identity_number ?? firstNonEmpty(organizer.individual_identity_number, sourceRequest.individual_identity_number),
+      individualIdFrontUrl: nextValues.individual_id_front_url ?? firstNonEmpty(organizer.individual_id_front_url, sourceRequest.individual_id_front_url),
+      individualIdBackUrl: nextValues.individual_id_back_url ?? firstNonEmpty(organizer.individual_id_back_url, sourceRequest.individual_id_back_url),
+      individualSelfieUrl: nextValues.individual_selfie_url ?? firstNonEmpty(organizer.individual_selfie_url, sourceRequest.individual_selfie_url),
+      individualTaxCode: nextValues.individual_tax_code ?? firstNonEmpty(organizer.individual_tax_code, sourceRequest.individual_tax_code),
+      termsAccepted: Boolean(firstDefined(organizer.terms_accepted, sourceRequest.terms_accepted, true)),
+      requestAction: 'PROFILE_UPDATE',
+      changeSummary: changedLabels.join(', '),
+    });
+
+    return mapRequest(row);
+  }
+
   async sendBusinessEmailVerification(request) {
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = hashToken(rawToken);
@@ -296,7 +405,7 @@ class OrganizerRequestsService {
 
     if (payload.status === 'APPROVED') {
       const request = await this.getRequestById(requestId);
-      if (request.request_type === 'ORGANIZATION') {
+      if (request.request_type === 'ORGANIZATION' && request.request_action !== 'PROFILE_UPDATE') {
         if (!request.business_email_verified) {
           throw new AppError(
             'Organization email must be verified before approval',

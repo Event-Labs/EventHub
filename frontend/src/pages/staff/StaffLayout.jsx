@@ -1,4 +1,4 @@
-import { CalendarCheck, ClipboardList, Home, LayoutDashboard, QrCode, Ticket, UserCircle, UserPlus } from 'lucide-react'
+import { BarChart3, CalendarCheck, ClipboardList, Home, LayoutDashboard, QrCode, Ticket, UserCircle, UserPlus } from 'lucide-react'
 import { getStoredUser, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -16,11 +16,12 @@ const navSections = [
     items: [{ label: 'Danh sách công việc', to: '/staff/tasks', icon: ClipboardList }],
   },
   {
-    label: 'Check-in',
+    label: 'Soát vé',
     items: [
-      { label: 'Book vé trực tiếp', to: '/staff/direct-booking', icon: Ticket },
-      { label: 'QR Check-in', to: '/staff/qr-check-in', icon: QrCode },
-      { label: 'Check-in thủ công', to: '/staff/manual-check-in', icon: UserPlus },
+      { label: 'Đặt vé trực tiếp', to: '/staff/direct-booking', icon: Ticket },
+      { label: 'Quét vé bằng mã QR', to: '/staff/qr-check-in', icon: QrCode },
+      { label: 'Soát vé thủ công', to: '/staff/manual-check-in', icon: UserPlus },
+      { label: 'Thống kê soát vé', to: '/staff/check-in-count', icon: BarChart3 },
     ],
   },
 ]
@@ -48,7 +49,7 @@ export function StaffLayout() {
       avatar={
         <ProfileAvatar
           sources={user?.avatar_url}
-          name={user?.full_name || user?.email || 'Staff'}
+          name={user?.full_name || user?.email || 'Nhân sự'}
           alt="Ảnh đại diện nhân viên"
           className="size-7"
           fallback="ST"

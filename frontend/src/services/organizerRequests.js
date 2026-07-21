@@ -20,6 +20,11 @@ export async function updateOrganizerRequest(id, payload) {
   return response.data.data
 }
 
+export async function submitOrganizerProfileUpdateRequest(payload) {
+  const response = await http.post('/organizer-requests/me/profile-update', payload)
+  return response.data.data
+}
+
 export async function verifyOrganizerBusinessEmail(token) {
   const response = await http.get('/organizer-requests/verify-business-email', {
     params: { token },

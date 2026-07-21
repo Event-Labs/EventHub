@@ -28,6 +28,28 @@ class AdminProfileController {
       next(err);
     }
   };
+
+  startTwoFactor = async (req, res, next) => {
+    try {
+      const data = await adminProfileService.startTwoFactorSetup(req.user.sub, req.body?.enabled);
+      res.status(200).json(ApiResponse.success(data, 'Ma OTP da duoc gui den email quan tri'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  verifyTwoFactor = async (req, res, next) => {
+    try {
+      const data = await adminProfileService.verifyTwoFactorSetup(
+        req.user.sub,
+        String(req.body?.challengeId || ''),
+        String(req.body?.otp || ''),
+      );
+      res.status(200).json(ApiResponse.success(data, 'Cap nhat xac thuc 2 lop thanh cong'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new AdminProfileController();
