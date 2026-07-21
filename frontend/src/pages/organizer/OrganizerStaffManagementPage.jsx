@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
+  ArrowRight,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -37,6 +39,7 @@ function isStaffManageableEvent(event) {
 
 export function OrganizerStaffManagementPage() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [selectedEventId, setSelectedEventId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -187,6 +190,14 @@ export function OrganizerStaffManagementPage() {
         <OrganizerPanel className="py-10 text-center">
           <p className="font-bold text-error">Cần gói subscription đang hoạt động để mời staff.</p>
           <p className="mt-1 text-sm text-subtle">Vui lòng nâng cấp gói dịch vụ tại mục Gói dịch vụ.</p>
+          <button
+            type="button"
+            className="org-btn-primary mx-auto mt-5"
+            onClick={() => navigate('/organizer/subscriptions')}
+          >
+            Xem gói dịch vụ
+            <ArrowRight className="size-4" />
+          </button>
         </OrganizerPanel>
       ) : (
         <>
@@ -359,7 +370,6 @@ function InviteStaffModal({
   const [candidateSearch, setCandidateSearch] = useState('')
   const [candidates, setCandidates] = useState([])
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
 
   // Debounced candidate search
   useEffect(() => {
@@ -385,13 +395,11 @@ function InviteStaffModal({
     e.preventDefault()
     if (!form.event_id || !form.email.trim()) return
     setSaving(true)
-    setError('')
     try {
       const invitation = await inviteStaffToEvent({ event_id: form.event_id, email: form.email.trim(), staff_role: form.staff_role })
       onInvited(invitation)
     } catch (err) {
       const message = getApiMessage(err, 'Không thể gửi lời mời.')
-      setError(message)
       toast.error(message)
     } finally {
       setSaving(false)
@@ -400,7 +408,7 @@ function InviteStaffModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
           <div className="flex items-center gap-2 font-extrabold text-content">
@@ -414,10 +422,7 @@ function InviteStaffModal({
             <X className="size-4" />
           </button>
         </div>
-
-        <form className="px-6 py-5" onSubmit={handleSubmit}>
-
-
+        <form className="min-w-0 px-6 py-5" onSubmit={handleSubmit}>
           {limitReached && (
             <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
               Gói {subscriptionName} đã đạt giới hạn {perEventLimit} staff/sự kiện.
@@ -432,10 +437,11 @@ function InviteStaffModal({
 
           <div className="grid gap-4">
             {/* Event */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-subtle">
               Sự kiện
               <select
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary"
+                className="h-10 min-w-0 w-full truncate rounded-xl border border-border-soft/40 bg-panel-soft px-3 pr-9 text-sm font-semibold text-content outline-none focus:border-primary"
+                title={events.find((ev) => ev.id === form.event_id)?.title || ''}
                 value={form.event_id}
                 onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value }))}
                 required

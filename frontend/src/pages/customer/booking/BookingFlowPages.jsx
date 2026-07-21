@@ -111,8 +111,8 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
 }
 
-function seatMapMetrics(seats) {
-  const layout = buildSeatLayout(seats)
+function seatMapMetrics(seats, seatMap) {
+  const layout = buildSeatLayout(seats, seatMap)
   if (layout) return layout
   return null
 }
@@ -122,8 +122,6 @@ const SEAT_HEIGHT = 28
 const SEAT_X_GAP = 8
 const SEAT_Y_GAP = 8
 const SEAT_LAYOUT_PADDING = 20
-const STAGE_HEIGHT = 40
-const STAGE_GAP = 28
 const SAME_ROW_MESSAGE = 'Vui l\u00f2ng ch\u1ecdn c\u00e1c gh\u1ebf trong c\u00f9ng m\u1ed9t h\u00e0ng ngang.'
 const ADJACENT_SEATS_MESSAGE = '\u0110\u1ec3 \u0111\u1ea3m b\u1ea3o tr\u1ea3i nghi\u1ec7m t\u1ed1t nh\u1ea5t, vui l\u00f2ng ch\u1ecdn c\u00e1c gh\u1ebf n\u1eb1m c\u1ea1nh nhau.'
 const LONELY_SEAT_MESSAGE = 'L\u1ef1a ch\u1ecdn c\u1ee7a b\u1ea1n s\u1ebd \u0111\u1ec3 l\u1ea1i m\u1ed9t gh\u1ebf tr\u1ed1ng \u0111\u01a1n l\u1ebb b\u00ean c\u1ea1nh. Vui l\u00f2ng ch\u1ecdn gh\u1ebf li\u1ec1n k\u1ec1 ho\u1eb7c thay \u0111\u1ed5i v\u1ecb tr\u00ed \u0111\u1ec3 kh\u00f4ng b\u1ecf tr\u1ed1ng gh\u1ebf \u0111\u01a1n l\u1ebb nh\u00e9!'
@@ -155,27 +153,58 @@ function normalizeSeatingRules(raw) {
   }
 }
 
-function buildSeatLayout(seats) {
+function buildSeatLayout(seats, seatMap) {
   const positioned = (seats || []).filter((seat) => Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position)))
   if (!positioned.length) return null
 
-  const minX = Math.min(...positioned.map((seat) => Number(seat.x_position)))
-  const minY = Math.min(...positioned.map((seat) => Number(seat.y_position)))
-  const maxX = Math.max(...positioned.map((seat) => Number(seat.x_position)))
-  const maxY = Math.max(...positioned.map((seat) => Number(seat.y_position)))
+  const config = seatMap?.config || {}
+  const auxiliaryElements = Array.isArray(config.auxiliaryElements) ? config.auxiliaryElements : []
+  const stagePosition = config.stagePosition || seatMap?.stage_position
+  const stage = stagePosition && stagePosition !== 'HIDDEN' ? {
+    position: stagePosition,
+    label: config.stageLabel || 'SÂN KHẤU',
+    x: Number(config.stageX ?? seatMap?.custom_stage_x ?? 0),
+    y: Number(config.stageY ?? seatMap?.custom_stage_y ?? 0),
+    w: Number(config.stageWidth ?? seatMap?.custom_stage_width ?? 900),
+    h: Number(config.stageHeight ?? seatMap?.custom_stage_height ?? 52),
+    rotation: Number(config.stageRotation || 0),
+  } : null
+  const allX = positioned.flatMap((seat) => [Number(seat.x_position), Number(seat.x_position) + SEAT_WIDTH])
+  const allY = positioned.flatMap((seat) => [Number(seat.y_position), Number(seat.y_position) + SEAT_HEIGHT])
+  if (stage) {
+    allX.push(stage.x, stage.x + stage.w)
+    allY.push(stage.y, stage.y + stage.h)
+  }
+  auxiliaryElements.forEach((element) => {
+    allX.push(Number(element.x), Number(element.x) + Number(element.w))
+    allY.push(Number(element.y), Number(element.y) + Number(element.h))
+  })
+  const minX = Math.min(...allX)
+  const minY = Math.min(...allY)
+  const maxX = Math.max(...allX)
+  const maxY = Math.max(...allY)
   const positions = new Map()
 
   positioned.forEach((seat) => {
     positions.set(seatId(seat), {
       left: Number(seat.x_position) - minX + SEAT_LAYOUT_PADDING,
-      top: Number(seat.y_position) - minY + SEAT_LAYOUT_PADDING + STAGE_HEIGHT + STAGE_GAP,
+      top: Number(seat.y_position) - minY + SEAT_LAYOUT_PADDING,
     })
   })
 
   return {
     positions,
-    width: Math.max(320, maxX - minX + SEAT_WIDTH + SEAT_LAYOUT_PADDING * 2),
-    height: Math.max(220, maxY - minY + SEAT_HEIGHT + SEAT_LAYOUT_PADDING * 2 + STAGE_HEIGHT + STAGE_GAP),
+    width: Math.max(320, maxX - minX + SEAT_LAYOUT_PADDING * 2),
+    height: Math.max(220, maxY - minY + SEAT_LAYOUT_PADDING * 2),
+    stage: stage ? { ...stage, x: stage.x - minX + SEAT_LAYOUT_PADDING, y: stage.y - minY + SEAT_LAYOUT_PADDING } : null,
+    auxiliaryElements: auxiliaryElements.map((element) => ({
+      ...element,
+      x: Number(element.x) - minX + SEAT_LAYOUT_PADDING,
+      y: Number(element.y) - minY + SEAT_LAYOUT_PADDING,
+      w: Number(element.w),
+      h: Number(element.h),
+      rotation: Number(element.rotation || 0),
+    })),
   }
 }
 
@@ -203,12 +232,12 @@ function validateSeatSelection({ rules: rawRules, selectedSeatIds, seats }) {
   if (rules.disallow_single_seat_left && selected.length > 0) {
     const affectedRows = new Set(selected.map(rowLabel))
     const rows = new Map()
-    ;(seats || []).forEach((seat) => {
-      const key = rowLabel(seat)
-      if (!affectedRows.has(key)) return
-      if (!rows.has(key)) rows.set(key, [])
-      rows.get(key).push(seat)
-    })
+      ; (seats || []).forEach((seat) => {
+        const key = rowLabel(seat)
+        if (!affectedRows.has(key)) return
+        if (!rows.has(key)) rows.set(key, [])
+        rows.get(key).push(seat)
+      })
 
     for (const rowSeats of rows.values()) {
       const sorted = rowSeats.sort((a, b) => seatNumberValue(a) - seatNumberValue(b))
@@ -299,6 +328,7 @@ export function BookingTicketsPage() {
 export function BookingSeatsPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const toast = useToast()
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const seatMapViewportRef = useRef(null)
   const session = cart?.selectedSession || cart?.items?.[0]?.session
@@ -308,7 +338,6 @@ export function BookingSeatsPage() {
   const [selectedSeatIds, setSelectedSeatIds] = useState(
     cart?.selectedSeatIds || cart?.items?.flatMap((item) => item.sessionSeatIds || []) || [],
   )
-  const [availabilityError, setAvailabilityError] = useState('')
   const [checkingAvailability, setCheckingAvailability] = useState(false)
   const [seatZoom, setSeatZoom] = useState(1)
 
@@ -318,15 +347,21 @@ export function BookingSeatsPage() {
     enabled: Boolean(session),
   })
 
+  useEffect(() => {
+    if (seatsQuery.isError) {
+      toast.error(getApiMessage(seatsQuery.error, 'Không thể tải sơ đồ ghế. Vui lòng thử lại.'))
+    }
+  }, [seatsQuery.error, seatsQuery.isError, toast])
+
   const fitSeatMapToViewport = useCallback(() => {
     if (!seatMapViewportRef.current) return
-    const layout = seatMapMetrics(seatsQuery.data?.seats || [])
+    const layout = seatMapMetrics(seatsQuery.data?.seats || [], seatsQuery.data?.seat_map)
     const cols = Number(seatsQuery.data?.seat_map?.cols_count || 8)
     const estimatedSeatMapWidth = layout?.width || cols * (SEAT_WIDTH + SEAT_X_GAP) + SEAT_LAYOUT_PADDING * 2
     const viewportWidth = seatMapViewportRef.current.clientWidth
     const nextZoom = clamp((viewportWidth - 8) / estimatedSeatMapWidth, 0.45, 1)
     setSeatZoom(Number(nextZoom.toFixed(2)))
-  }, [seatsQuery.data?.seat_map?.cols_count, seatsQuery.data?.seats])
+  }, [seatsQuery.data?.seat_map, seatsQuery.data?.seats])
 
   useEffect(() => {
     if (!seatsQuery.data?.seats?.length) return
@@ -337,19 +372,19 @@ export function BookingSeatsPage() {
   const seatingRules = cart?.seatingRules || cart?.seating_rules || {}
   const colorByTicketTypeId = useMemo(() => {
     const colors = new Map()
-    ;(seatData || []).forEach((seat) => {
-      const color = seat.zone?.color || seat.seat_type?.color
-      if (!color) return
-      const seatZoneId = seat.zone_id || seat.zone?.id
-      ;(seat.ticket_type_ids || []).forEach((id) => {
-        if (!colors.has(String(id))) colors.set(String(id), color)
+      ; (seatData || []).forEach((seat) => {
+        const color = seat.zone?.color || seat.seat_type?.color
+        if (!color) return
+        const seatZoneId = seat.zone_id || seat.zone?.id
+          ; (seat.ticket_type_ids || []).forEach((id) => {
+            if (!colors.has(String(id))) colors.set(String(id), color)
+          })
+          ; (ticketTypes || []).forEach((ticketType) => {
+            if (ticketType.zone_id && seatZoneId && String(ticketType.zone_id) === String(seatZoneId)) {
+              colors.set(String(ticketType.id), color)
+            }
+          })
       })
-      ;(ticketTypes || []).forEach((ticketType) => {
-        if (ticketType.zone_id && seatZoneId && String(ticketType.zone_id) === String(seatZoneId)) {
-          colors.set(String(ticketType.id), color)
-        }
-      })
-    })
     return colors
   }, [seatData, ticketTypes])
   const buildDisplayItems = (seatIds) => {
@@ -412,10 +447,9 @@ export function BookingSeatsPage() {
   const continueFlow = async () => {
     const nextCart = { ...displayCart }
     if (seatRuleIssue) {
-      setAvailabilityError(seatRuleIssue)
+      toast.error(seatRuleIssue)
       return
     }
-    setAvailabilityError('')
     setCheckingAvailability(true)
     try {
       const hold = await holdSeats(availabilityPayloadFromCart(nextCart))
@@ -426,7 +460,7 @@ export function BookingSeatsPage() {
       saveBookingDraft(heldCart)
       navigate('/booking/attendees', { state: { cart: heldCart } })
     } catch (err) {
-      setAvailabilityError(err.response?.data?.message || 'Kh\u00f4ng th\u1ec3 gi\u1eef gh\u1ebf b\u1ea1n \u0111\u00e3 ch\u1ecdn. Vui l\u00f2ng th\u1eed l\u1ea1i.')
+      toast.error(getApiMessage(err, 'Không thể giữ ghế bạn đã chọn. Vui lòng thử lại.'))
       seatsQuery.refetch()
     } finally {
       setCheckingAvailability(false)
@@ -434,19 +468,18 @@ export function BookingSeatsPage() {
   }
 
   const toggleSeat = (seatId) => {
-    setAvailabilityError('')
     setSelectedSeatIds((current) => {
       const nextSeatIds = current.includes(seatId)
         ? current.filter((id) => id !== seatId)
         : [...current, seatId]
 
       if (nextSeatIds.length > 4) {
-        setAvailabilityError('B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a 4 gh\u1ebf trong m\u1ed9t \u0111\u01a1n h\u00e0ng.')
+        toast.error('Bạn chỉ được chọn tối đa 4 ghế trong một đơn hàng.')
         return current
       }
 
       const issue = validateSeatSelection({ rules: seatingRules, selectedSeatIds: nextSeatIds, seats: seatData })[0] || ''
-      setAvailabilityError(issue)
+      if (issue) toast.error(issue)
       return nextSeatIds
     })
   }
@@ -478,6 +511,7 @@ export function BookingSeatsPage() {
                       onToggleSeat={toggleSeat}
                       seatZoom={seatZoom}
                       colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
+                      seatMap={seatsQuery.data?.seat_map}
                     />
                   </div>
                   <div className="flex shrink-0 flex-col gap-1.5">
@@ -520,11 +554,6 @@ export function BookingSeatsPage() {
               </p>
             )}
 
-            {(availabilityError || seatRuleIssue) && (
-              <p className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
-                {availabilityError || seatRuleIssue}
-              </p>
-            )}
           </Panel>
         </section>
         <OrderCard
@@ -543,13 +572,12 @@ export function BookingSeatsPage() {
 export function BookingAttendeesPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const toast = useToast()
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
   const collectAttendees = requiresAttendeeInfo(cart)
   const [attendees, setAttendees] = useState(cart?.attendees || {})
   const [buyer, setBuyer] = useState(cart?.buyer || { name: '', email: '', phone: '' })
-  const [formError, setFormError] = useState('')
-  const formErrorRef = useRef(null)
 
 
   useEffect(() => {
@@ -562,21 +590,17 @@ export function BookingAttendeesPage() {
             phone: profile.phone || '',
           })
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }, [buyer.email])
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
   const showFormError = (message) => {
-    setFormError(message)
-    window.requestAnimationFrame(() => {
-      formErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    })
+    toast.error(message)
   }
 
   const updateAttendee = (slotId, field, value) => {
-    setFormError('')
     setAttendees((current) => ({
       ...current,
       [slotId]: {
@@ -633,17 +657,12 @@ export function BookingAttendeesPage() {
             title={collectAttendees ? 'Th\u00f4ng tin ng\u01b0\u1eddi tham gia' : 'Th\u00f4ng tin ng\u01b0\u1eddi mua'}
             subtitle={collectAttendees ? 'Th\u00f4ng tin n\u00e0y s\u1ebd \u0111\u01b0\u1ee3c d\u00f9ng khi xu\u1ea5t v\u00e9 sau thanh to\u00e1n' : 'V\u00e9 s\u1ebd ghi nh\u1eadn theo th\u00f4ng tin ng\u01b0\u1eddi mua'}
           />
-          {formError && (
-            <p ref={formErrorRef} className="rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error">
-              {formError}
-            </p>
-          )}
           <Panel>
             <h2 className="mb-4 font-display text-xl font-bold text-white">{'Ng\u01b0\u1eddi mua'}</h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label={'H\u1ecd v\u00e0 t\u00ean'} value={buyer.name} onChange={(value) => { setFormError(''); setBuyer((current) => ({ ...current, name: value })) }} />
-              <Input label="Email" type="email" value={buyer.email} onChange={(value) => { setFormError(''); setBuyer((current) => ({ ...current, email: value })) }} />
-              <Input label={'S\u1ed1 \u0111i\u1ec7n tho\u1ea1i'} value={buyer.phone} onChange={(value) => { setFormError(''); setBuyer((current) => ({ ...current, phone: value })) }} />
+              <Input label={'H\u1ecd v\u00e0 t\u00ean'} value={buyer.name} onChange={(value) => setBuyer((current) => ({ ...current, name: value }))} />
+              <Input label="Email" type="email" value={buyer.email} onChange={(value) => setBuyer((current) => ({ ...current, email: value }))} />
+              <Input label={'S\u1ed1 \u0111i\u1ec7n tho\u1ea1i'} value={buyer.phone} onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))} />
             </div>
           </Panel>
           {collectAttendees && attendeeSlots.map((slot, index) => (
@@ -678,11 +697,11 @@ export function BookingAttendeesPage() {
 export function BookingReviewPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const toast = useToast()
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const [promoCode, setPromoCode] = useState(cart?.promoCode || '')
   const [selectedPromo, setSelectedPromo] = useState(cart?.promo || null)
   const [voucherOpen, setVoucherOpen] = useState(false)
-  const [availabilityError, setAvailabilityError] = useState('')
   const [checkingAvailability, setCheckingAvailability] = useState(false)
 
 
@@ -692,18 +711,21 @@ export function BookingReviewPage() {
 
   const continueFlow = async () => {
     const nextCart = { ...cart, promoCode, promo: selectedPromo }
-    setAvailabilityError('')
     setCheckingAvailability(true)
     try {
       const result = await checkTicketAvailability(availabilityPayloadFromCart(nextCart))
       if (!result.available) {
-        setAvailabilityError(result.message || 'V\u00e9/gh\u1ebf b\u1ea1n ch\u1ecdn kh\u00f4ng c\u00f2n kh\u1ea3 d\u1ee5ng. Vui l\u00f2ng ch\u1ecdn l\u1ea1i.')
+        const message = result.message || 'Vé/ghế bạn chọn không còn khả dụng. Vui lòng chọn lại.'
+        toast.error(message)
+        navigate('/booking/seats', { state: { cart: nextCart } })
         return
       }
       saveBookingDraft(nextCart)
       navigate('/booking/payment', { state: { cart: nextCart } })
     } catch (err) {
-      setAvailabilityError(err.response?.data?.message || 'Kh\u00f4ng th\u1ec3 ki\u1ec3m tra t\u00ecnh tr\u1ea1ng v\u00e9/gh\u1ebf. Vui l\u00f2ng th\u1eed l\u1ea1i.')
+      const message = getApiMessage(err, 'Không thể kiểm tra tình trạng vé/ghế. Vui lòng thử lại.')
+      toast.error(message)
+      navigate('/booking/seats', { state: { cart: nextCart } })
     } finally {
       setCheckingAvailability(false)
     }
@@ -764,11 +786,6 @@ export function BookingReviewPage() {
             promoCode={promoCode}
             onOpenVoucher={() => setVoucherOpen(true)}
           />
-          {availabilityError && (
-            <p className="rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
-              {availabilityError}
-            </p>
-          )}
         </section>
         <OrderCard
           cart={{ ...cart, promoCode, promo: selectedPromo }}
@@ -801,14 +818,12 @@ export function BookingPaymentPage() {
   const existingOrderId = searchParams.get('orderId')
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const [checkout, setCheckout] = useState(location.state?.checkout || null)
-  const [error, setError] = useState('')
   const checkoutStartedRef = useRef(Boolean(location.state?.checkout || existingOrderId))
   const orderId = existingOrderId || checkout?.order?.id
 
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
-      setError('')
       toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       setCheckout(data)
       setCart((current) => ({ ...current, holdExpiresAt: data.order?.expired_at || current?.holdExpiresAt }))
@@ -816,7 +831,6 @@ export function BookingPaymentPage() {
     },
     onError: (err) => {
       const message = getApiMessage(err, 'Không thể tạo thanh toán PayOS. Vui lòng thử lại.')
-      setError(message)
       toast.error(message)
     },
   })
@@ -838,10 +852,10 @@ export function BookingPaymentPage() {
     enabled: Boolean(orderId),
     initialData: checkout
       ? {
-          order: checkout.order,
-          payment: checkout.payment,
-          items: checkout.items,
-        }
+        order: checkout.order,
+        payment: checkout.payment,
+        items: checkout.items,
+      }
       : undefined,
     refetchInterval: (query) => {
       const status = query.state.data?.order?.status
@@ -854,8 +868,10 @@ export function BookingPaymentPage() {
 
 
   useEffect(() => {
-    if (payment) setError('')
-  }, [payment])
+    if (statusQuery.isError) {
+      toast.error(getApiMessage(statusQuery.error, 'Không thể kiểm tra trạng thái thanh toán.'))
+    }
+  }, [statusQuery.error, statusQuery.isError, toast])
 
   useEffect(() => {
     if (order?.status === 'PAID') {
@@ -892,7 +908,6 @@ export function BookingPaymentPage() {
           <PageTitle title={'Thanh to\u00e1n'} subtitle={'Qu\u00e9t QR ho\u1eb7c m\u1edf PayOS \u0111\u1ec3 ho\u00e0n t\u1ea5t giao d\u1ecbch.'} />
           <Panel>
             {checkoutMutation.isPending && <p className="text-muted">{'\u0110ang gi\u1eef v\u00e9 v\u00e0 t\u1ea1o thanh to\u00e1n PayOS...'}</p>}
-            {error && <p className="text-error">{error}</p>}
             {payment && (
               <div className="text-center">
                 <p className="text-sm font-bold uppercase tracking-widest text-muted">{'S\u1ed1 ti\u1ec1n c\u1ea7n thanh to\u00e1n'}</p>
@@ -972,13 +987,12 @@ function BookingShell({ step, cart, children }) {
             return (
               <div key={label} className="flex flex-col items-center gap-2">
                 <div
-                  className={`grid size-11 place-items-center rounded-full text-sm font-bold transition ${
-                    active
+                  className={`grid size-11 place-items-center rounded-full text-sm font-bold transition ${active
                       ? 'bg-tertiary text-white shadow-lg shadow-tertiary/30'
                       : done
                         ? 'bg-tertiary/20 text-tertiary'
                         : 'bg-panel-soft text-muted'
-                  }`}
+                    }`}
                 >
                   {done ? <Check className="size-4" /> : index + 1}
                 </div>
@@ -1054,18 +1068,18 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, colorByTicketTypeId
                 />
                 <div className="min-w-0">
                   <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticketType.name}</p>
-                {qty > 0 ? (
-                  <p className="text-primary">
-                    {formatPrice(ticketType.price)} {'\u00d7'} {String(qty).padStart(2, '0')}
-                  </p>
-                ) : (
-                  <p className="text-slate-500">{formatPrice(ticketType.price)} / {'v\u00e9'}</p>
-                )}
-                {item?.seatLabels?.length > 0 && (
-                  <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
-                    {'Gh\u1ebf'}: <span className="ml-1 truncate">{item.seatLabels.join(', ')}</span>
-                  </p>
-                )}
+                  {qty > 0 ? (
+                    <p className="text-primary">
+                      {formatPrice(ticketType.price)} {'\u00d7'} {String(qty).padStart(2, '0')}
+                    </p>
+                  ) : (
+                    <p className="text-slate-500">{formatPrice(ticketType.price)} / {'v\u00e9'}</p>
+                  )}
+                  {item?.seatLabels?.length > 0 && (
+                    <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
+                      {'Gh\u1ebf'}: <span className="ml-1 truncate">{item.seatLabels.join(', ')}</span>
+                    </p>
+                  )}
                 </div>
               </div>
               <p className={qty > 0 ? 'font-bold text-primary' : 'font-bold text-slate-500'}>
@@ -1236,9 +1250,8 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
               type="button"
               disabled={!usable}
               onClick={() => choosePromo(promo)}
-              className={`flex w-full items-center justify-between rounded-lg border p-4 text-left transition ${
-                checked ? 'border-primary bg-primary/10' : 'border-slate-200'
-              } ${usable ? 'hover:border-primary' : 'cursor-not-allowed bg-slate-100 opacity-70'}`}
+              className={`flex w-full items-center justify-between rounded-lg border p-4 text-left transition ${checked ? 'border-primary bg-primary/10' : 'border-slate-200'
+                } ${usable ? 'hover:border-primary' : 'cursor-not-allowed bg-slate-100 opacity-70'}`}
             >
               <div>
                 <p className="font-bold text-slate-900">{formatPromoTitle(promo)}</p>
@@ -1353,9 +1366,8 @@ function VoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo
             key={code}
             type="button"
             onClick={() => setDraft(code)}
-            className={`flex w-full items-center justify-between rounded-lg border p-4 text-left ${
-              draft === code ? 'border-primary bg-primary/10' : 'border-slate-200'
-            }`}
+            className={`flex w-full items-center justify-between rounded-lg border p-4 text-left ${draft === code ? 'border-primary bg-primary/10' : 'border-slate-200'
+              }`}
           >
             <div>
               <p className="font-bold text-slate-900">{'Gi\u1ea3m'} {code === 'BLUE50' ? '50.000\u0111' : '100.000\u0111'}</p>
@@ -1454,8 +1466,8 @@ function Input({ label, value, onChange, type = 'text', placeholder }) {
   )
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seatZoom, colsCount }) {
-  const metrics = seatMapMetrics(seats)
+function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seatZoom, colsCount, seatMap }) {
+  const metrics = seatMapMetrics(seats, seatMap)
   const renderSeat = (seat, style = {}) => {
     const selected = selectedSeatIds.includes(seat.session_seat_id)
     const disabled = seat.status !== 'AVAILABLE' && !selected
@@ -1474,13 +1486,12 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seat
         onClick={() => onToggleSeat(seat.session_seat_id)}
         title={title}
         style={{ width: SEAT_WIDTH, height: SEAT_HEIGHT, ...style }}
-        className={`rounded-md border text-[10px] font-bold transition ${
-          selected
+        className={`rounded-md border text-[10px] font-bold transition ${selected
             ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
             : disabled
               ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
               : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
-        }`}
+          }`}
       >
         <span className="block truncate px-0.5 leading-4">{seat.row_label || seat.label}</span>
         {!selected && !disabled && zoneColor && (
@@ -1510,12 +1521,39 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seat
         className="relative origin-top-left"
         style={{ width: metrics.width, height: metrics.height, transform: `scale(${seatZoom})` }}
       >
-        <div
-          className="absolute left-1/2 top-5 h-10 -translate-x-1/2 rounded-b-full bg-gradient-to-r from-primary via-sky-300 to-primary text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
-          style={{ width: Math.min(Math.max(metrics.width * 0.72, 280), 640) }}
-        >
-          {'S\u00c2N KH\u1ea4U'}
-        </div>
+        {metrics.stage && (
+          <div
+            className="absolute grid place-items-center overflow-hidden rounded-lg border border-border-soft bg-panel-soft px-2 text-center text-xs font-extrabold text-content shadow-lg shadow-slate-950/20"
+            style={{
+              left: metrics.stage.x,
+              top: metrics.stage.y,
+              width: metrics.stage.w,
+              height: metrics.stage.h,
+              transform: metrics.stage.rotation ? `rotate(${metrics.stage.rotation}deg)` : undefined,
+              transformOrigin: 'center',
+            }}
+          >
+            <span style={{ transform: metrics.stage.h > metrics.stage.w ? 'rotate(-90deg)' : undefined }}>
+              {metrics.stage.label}
+            </span>
+          </div>
+        )}
+        {metrics.auxiliaryElements.map((element, index) => (
+          <div
+            key={element.id || `aux-${index}`}
+            className="absolute grid place-items-center overflow-hidden rounded-md border border-border-soft bg-panel-soft px-2 text-center text-[11px] font-bold text-content"
+            style={{
+              left: element.x,
+              top: element.y,
+              width: element.w,
+              height: element.h,
+              transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+              transformOrigin: 'center',
+            }}
+          >
+            {element.label}
+          </div>
+        ))}
         {seats.map((seat) => {
           const position = metrics.positions.get(seatId(seat))
           if (!position) return null
@@ -1559,18 +1597,18 @@ function Line({ label, value, large, tone }) {
 
 function expandAttendeeSlots(cart) {
   const slots = []
-  ;(cart?.items || []).forEach((item) => {
-    const seatIds = item.sessionSeatIds || item.session_seat_ids || []
-    for (let index = 0; index < item.quantity; index += 1) {
-      const sessionSeatId = seatIds[index] || null
-      slots.push({
-        id: `${item.ticketType.id}-${sessionSeatId || index}-${slots.length}`,
-        ticketTypeId: item.ticketType.id,
-        sessionSeatId,
-        ticketName: item.ticketType.name,
-      })
-    }
-  })
+    ; (cart?.items || []).forEach((item) => {
+      const seatIds = item.sessionSeatIds || item.session_seat_ids || []
+      for (let index = 0; index < item.quantity; index += 1) {
+        const sessionSeatId = seatIds[index] || null
+        slots.push({
+          id: `${item.ticketType.id}-${sessionSeatId || index}-${slots.length}`,
+          ticketTypeId: item.ticketType.id,
+          sessionSeatId,
+          ticketName: item.ticketType.name,
+        })
+      }
+    })
   return slots
 }
 

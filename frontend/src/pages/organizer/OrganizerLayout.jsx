@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Calendar, Home, LayoutDashboard, Settings, Settings2, ShoppingCart, User, Users } from 'lucide-react'
-import { getStoredUser, getUserRoles } from '@/lib/auth.js'
+import { getStoredUser, getStoredUserKey, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { fetchOrganizerProfile } from '@/services/organizerEvents.js'
@@ -64,16 +64,17 @@ const navSections = [
 
 export function OrganizerLayout() {
   const user = parseStoredUser()
+  const currentUserKey = getStoredUserKey(user)
   const roles = getUserRoles(user)
   const isAllowed = roles.some((role) => ['organizer', 'admin', 'super_admin'].includes(role))
   const profileQuery = useQuery({
-    queryKey: ['organizer-profile'],
+    queryKey: ['organizer-profile', currentUserKey],
     queryFn: fetchOrganizerProfile,
     enabled: isAllowed,
     retry: false,
   })
   const accountProfileQuery = useQuery({
-    queryKey: ['profile'],
+    queryKey: ['profile', currentUserKey],
     queryFn: getProfile,
     enabled: isAllowed,
     retry: false,
@@ -83,7 +84,7 @@ export function OrganizerLayout() {
   const organizerAvatarUrl = profileQuery.data?.organization_avatar_url
   const googleAvatarUrl = accountProfileQuery.data?.avatar_url || user?.avatar_url
   const organizerDisplayName =
-    profileQuery.data?.organization_name || user?.full_name || user?.email || 'Organizer'
+    profileQuery.data?.organization_name || user?.full_name || user?.email || 'Nhà tổ chức'
   const bottomItems = [
     ...(isIndividualOrganizer
       ? [{ label: 'Trang chủ', to: '/', icon: Home, end: true }]
@@ -95,8 +96,8 @@ export function OrganizerLayout() {
     <RolePortalLayout
       user={user}
       isAllowed={isAllowed}
-      portalLabel="Organizer Portal"
-      roleLabel="Organizer"
+      portalLabel="Cổng nhà tổ chức"
+      roleLabel="Nhà tổ chức"
       profileTo="/organizer/profile"
       navSections={navSections}
       bottomItems={bottomItems}
@@ -104,7 +105,7 @@ export function OrganizerLayout() {
         <ProfileAvatar
           sources={[organizerAvatarUrl, googleAvatarUrl]}
           name={organizerDisplayName}
-          alt="Ảnh đại diện Organizer"
+          alt="Ảnh đại diện nhà tổ chức"
           className="size-7"
           fallback="EH"
         />
