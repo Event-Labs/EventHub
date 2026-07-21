@@ -80,11 +80,7 @@ export function ForgotPasswordPage() {
                         onChange={(e) => setEmail(e.target.value)}
                     />
 
-                    {error && (
-                        <div className="rounded-md border border-error/40 bg-error/10 p-3 text-sm text-error">
-                            {error}
-                        </div>
-                    )}
+
 
                     <button
                         type="submit"

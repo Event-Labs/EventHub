@@ -216,11 +216,10 @@ export function AdminEventReviewPage() {
             key={tab.value}
             type="button"
             onClick={() => { setActiveStatus(tab.value); setPage(1) }}
-            className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
-              activeStatus === tab.value
+            className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${activeStatus === tab.value
                 ? 'bg-tertiary text-white shadow-tertiary/20'
                 : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -439,7 +438,7 @@ function EventReviewModal({
   onUnhide,
   onClose,
 }) {
-  const isPending  = event.status === 'PENDING_REVIEW'
+  const isPending = event.status === 'PENDING_REVIEW'
   const isPublished = event.status === 'PUBLISHED'
   const isHiddenApproved = event.status === 'HIDDEN' && event.approval_status === 'APPROVED'
 
@@ -565,7 +564,6 @@ function EventReviewModal({
         )}
 
         {/* Error */}
-        {error && <p className="mt-3 text-sm font-semibold text-error">{error}</p>}
 
         {/* Action buttons */}
         <div className="mt-5 flex flex-wrap gap-3">

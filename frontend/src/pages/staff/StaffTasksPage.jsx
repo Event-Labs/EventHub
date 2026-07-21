@@ -127,7 +127,7 @@ export function StaffTasksPage() {
       title="Công việc được giao"
       description="Theo dõi checklist và công việc vận hành từ ban tổ chức."
     >
-      {error && <div className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">{error}</div>}
+
 
       {loading ? (
         <StaffPanel>Đang tải dữ liệu...</StaffPanel>
@@ -143,9 +143,8 @@ export function StaffTasksPage() {
                 onDragOver={(event) => handleColumnDragOver(event, status)}
                 onDragLeave={() => setDragOverStatus((current) => (current === status ? '' : current))}
                 onDrop={(event) => handleColumnDrop(event, status)}
-                className={`rounded-md border border-border-soft/20 bg-panel-soft/35 p-3 transition ${
-                  dragOverStatus === status ? 'border-tertiary/60 bg-tertiary/10' : ''
-                }`}
+                className={`rounded-md border border-border-soft/20 bg-panel-soft/35 p-3 transition ${dragOverStatus === status ? 'border-tertiary/60 bg-tertiary/10' : ''
+                  }`}
               >
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-sm font-extrabold uppercase text-subtle">
@@ -196,9 +195,8 @@ function TaskPanel({ task, updating, dragging, disabled, onDragStart, onDragEnd,
       onDragStart={(event) => onDragStart(event, task.id)}
       onDragEnd={onDragEnd}
       onClick={() => onOpenDetail(task)}
-      className={`h-40 cursor-pointer rounded-md border border-border-soft/30 bg-surface p-4 shadow-[0_3px_12px_rgba(0,0,0,0.16)] transition hover:-translate-y-0.5 hover:border-tertiary/50 hover:shadow-[0_10px_24px_rgba(0,0,0,0.22)] active:cursor-grabbing ${
-        dragging ? 'scale-[0.99] ring-2 ring-tertiary/40' : ''
-      } ${disabled && !updating ? 'opacity-70' : ''}`}
+      className={`h-40 cursor-pointer rounded-md border border-border-soft/30 bg-surface p-4 shadow-[0_3px_12px_rgba(0,0,0,0.16)] transition hover:-translate-y-0.5 hover:border-tertiary/50 hover:shadow-[0_10px_24px_rgba(0,0,0,0.22)] active:cursor-grabbing ${dragging ? 'scale-[0.99] ring-2 ring-tertiary/40' : ''
+        } ${disabled && !updating ? 'opacity-70' : ''}`}
     >
       <div className="flex h-full flex-col">
         <div className="flex items-start justify-between gap-3">
