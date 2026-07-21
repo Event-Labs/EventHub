@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw, Eye } from 'lucide-react'
 import {
   Badge,
