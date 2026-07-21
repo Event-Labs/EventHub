@@ -231,58 +231,53 @@ export function LoginPage() {
             </>
           ) : (
             <>
-          <Field
-            icon={Mail}
-            label="Email"
-            placeholder="alex@example.com"
-            type="email"
-            required
-            autoComplete="email"
-            value={form.email}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
-          />
-          <Field
-            icon={Lock}
-            label="Mật khẩu"
-            placeholder="••••••••"
-            type="password"
-            trailing={Eye}
-            required
-            autoComplete="current-password"
-            value={form.password}
-            onChange={(event) => setForm({ ...form, password: event.target.value })}
-          />
-          <div className="flex items-center justify-between gap-3">
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted">
-              <input
-                type="checkbox"
-                checked={rememberLogin}
-                onChange={(event) => setRememberLogin(event.target.checked)}
-                className="size-4 rounded border-border-soft bg-surface accent-tertiary"
+              <Field
+                icon={Mail}
+                label="Email"
+                placeholder="alex@example.com"
+                type="email"
+                required
+                autoComplete="email"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
               />
-              <span>Ghi nhớ đăng nhập</span>
-            </label>
-            <Link
-              to="/forgot-password"
-              className="text-sm font-bold text-primary hover:underline"
-            >
-              Quên mật khẩu?
-            </Link>
-          </div>
+              <Field
+                icon={Lock}
+                label="Mật khẩu"
+                placeholder="••••••••"
+                type="password"
+                trailing={Eye}
+                required
+                autoComplete="current-password"
+                value={form.password}
+                onChange={(event) => setForm({ ...form, password: event.target.value })}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted">
+                  <input
+                    type="checkbox"
+                    checked={rememberLogin}
+                    onChange={(event) => setRememberLogin(event.target.checked)}
+                    className="size-4 rounded border-border-soft bg-surface accent-tertiary"
+                  />
+                  <span>Ghi nhớ đăng nhập</span>
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-sm font-bold text-primary hover:underline"
+                >
+                  Quên mật khẩu?
+                </Link>
+              </div>
+              <button
+                type="submit"
+                disabled={loading || (otpStep && otp.length !== 6)}
+                className="w-full rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? 'Đang đăng nhập...' : (otpStep ? 'Xác thực OTP' : 'Đăng nhập')}
+              </button>
             </>
           )}
-          {error && (
-            <div className="rounded-md border border-error/40 bg-error/10 p-3 text-sm text-error">
-              {error}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={loading || (otpStep && otp.length !== 6)}
-            className="w-full rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loading ? 'Đang đăng nhập...' : (otpStep ? 'Xác thực OTP' : 'Đăng nhập')}
-          </button>
         </form>
         <p className="mt-6 text-center text-muted">
           Chưa có tài khoản?

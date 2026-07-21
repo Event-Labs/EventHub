@@ -409,7 +409,7 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
               )}
             </div>
           </div>
-          {error && <p className="px-5 text-sm text-error font-semibold">{error}</p>}
+
           <div className="flex justify-end gap-3 border-t border-border-soft/20 px-5 py-4 bg-panel-soft/30">
             <button type="button" onClick={onClose} className="org-btn-secondary">
               Hủy

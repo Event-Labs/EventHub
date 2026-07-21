@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw, Eye } from 'lucide-react'
 import {
@@ -150,13 +150,7 @@ function CancelConfirmModal({ event, onConfirm, onClose, loading, error }) {
           </ul>
         </div>
 
-        {/* API error — hiện trong modal */}
-        {error && (
-          <div className="mt-4 rounded-xl border border-error/30 bg-error/[0.07] p-3 text-sm text-error">
-            <p className="font-semibold">Không thể hủy sự kiện:</p>
-            <p className="mt-1">{error}</p>
-          </div>
-        )}
+
 
         {/* Buttons */}
         <div className="mt-6 flex gap-3">
@@ -211,18 +205,15 @@ export function OrganizerEventsPage() {
   const [cancelLoading, setCancelLoading] = useState(false)
   const [cancelError, setCancelError] = useState('')
 
+  const toastShownRef = useRef('')
+
   useEffect(() => {
-    const message = location.state?.message
-    if (!message || handledToastLocations.current.has(location.key)) return
-
-    handledToastLocations.current.add(location.key)
-    toast.success(message)
-    navigate(`${location.pathname}${location.search}${location.hash}`, {
-      replace: true,
-      state: null,
-    })
-  }, [location.hash, location.key, location.pathname, location.search, location.state, navigate, toast])
-
+    if (location.state?.message && toastShownRef.current !== location.key) {
+      toast.success(location.state.message)
+      toastShownRef.current = location.key
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state, location.key, toast])
   const loadEvents = useCallback(async () => {
     setLoading(true)
     try {

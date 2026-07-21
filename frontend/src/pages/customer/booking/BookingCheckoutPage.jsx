@@ -44,7 +44,7 @@ export function BookingCheckoutPage() {
           setBuyerEmail(profile.email || '')
           setBuyerPhone(profile.phone || '')
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }, [buyerEmail, isAuthenticated])
 
@@ -149,7 +149,7 @@ export function BookingCheckoutPage() {
             </div>
           </section>
 
-          {error && <p className="text-sm text-error">{error}</p>}
+
         </div>
 
         <aside className="glass-panel h-fit rounded-lg p-6">

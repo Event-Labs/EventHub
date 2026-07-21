@@ -245,7 +245,14 @@ class OrganizerEventsRepository {
           'max_per_order', tt.max_per_order,
           'sale_start', tt.sale_start,
           'sale_end', tt.sale_end,
-          'is_seated', tt.is_seated
+          'is_seated', tt.is_seated,
+          'zone_id', (
+            SELECT s.zone_id
+            FROM ticket_type_seats tts
+            JOIN seats s ON s.id = tts.seat_id
+            WHERE tts.ticket_type_id = tt.id
+            LIMIT 1
+          )
         ) ORDER BY tt.price ASC) AS ticket_types
         FROM event_sessions es_tt
         JOIN ticket_types tt ON tt.event_session_id = es_tt.id

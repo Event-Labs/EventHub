@@ -191,12 +191,7 @@ export function OrganizerOrdersPage() {
         </div>
       </OrganizerPanel>
 
-      {/* ── Error ── */}
-      {error && (
-        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-          {error}
-        </div>
-      )}
+
 
       {/* ── Table ── */}
       {loading ? (
