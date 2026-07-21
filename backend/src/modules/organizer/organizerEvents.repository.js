@@ -429,6 +429,43 @@ class OrganizerEventsRepository {
     return rows[0]?.total ?? 0;
   }
 
+  async findEventEditContext(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT e.id, e.status, e.start_time,
+        COALESCE((
+          SELECT SUM(oi.quantity)
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = e.id AND o.status = 'PAID'
+        ), 0)::int AS paid_tickets,
+        COALESCE((
+          SELECT json_object_agg(sales.ticket_type_id, sales.paid_quantity)
+          FROM (
+            SELECT tt.id AS ticket_type_id,
+              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS paid_quantity
+            FROM event_sessions es
+            JOIN ticket_types tt ON tt.event_session_id = es.id
+            LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
+            LEFT JOIN orders o ON o.id = oi.order_id
+            WHERE es.event_id = e.id
+            GROUP BY tt.id
+          ) sales
+        ), '{}'::json) AS paid_by_ticket_type
+      FROM events e
+      WHERE e.id = $1 AND e.deleted_at IS NULL
+      `,
+      [eventId],
+    );
+    const context = rows[0];
+    if (!context) return null;
+    context.paid_tickets = Number(context.paid_tickets || 0);
+    context.paid_by_ticket_type = context.paid_by_ticket_type || {};
+    return context;
+  }
+
   /**
    * Hủy event — chỉ cho phép khi status = PUBLISHED hoặc COMPLETED (đã duyệt nhưng chưa public).
    * Không được hủy nếu đã có đơn PAID.
