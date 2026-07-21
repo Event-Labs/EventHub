@@ -81,7 +81,7 @@ export function RolePortalLayout({
         >
           <div
             className={`portal-sidebar-scroll flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden py-3 ${
-              sidebarExpanded ? 'px-2' : 'items-center px-1'
+              sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
             }`}
           >
             {navSections.map((section, sectionIndex) => (
