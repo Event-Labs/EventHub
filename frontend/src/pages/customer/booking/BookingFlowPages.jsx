@@ -159,6 +159,7 @@ function buildSeatLayout(seats, seatMap) {
 
   const config = seatMap?.config || {}
   const auxiliaryElements = Array.isArray(config.auxiliaryElements) ? config.auxiliaryElements : []
+  const standingAreas = Array.isArray(config.standingAreas) ? config.standingAreas : []
   const stagePosition = config.stagePosition || seatMap?.stage_position
   const stage = stagePosition && stagePosition !== 'HIDDEN' ? {
     position: stagePosition,
@@ -168,6 +169,8 @@ function buildSeatLayout(seats, seatMap) {
     w: Number(config.stageWidth ?? seatMap?.custom_stage_width ?? 900),
     h: Number(config.stageHeight ?? seatMap?.custom_stage_height ?? 52),
     rotation: Number(config.stageRotation || 0),
+    color: config.stageColor || '#3B82F6',
+    shape: config.stageShape || 'RECTANGLE',
   } : null
   const allX = positioned.flatMap((seat) => [Number(seat.x_position), Number(seat.x_position) + SEAT_WIDTH])
   const allY = positioned.flatMap((seat) => [Number(seat.y_position), Number(seat.y_position) + SEAT_HEIGHT])
@@ -178,6 +181,10 @@ function buildSeatLayout(seats, seatMap) {
   auxiliaryElements.forEach((element) => {
     allX.push(Number(element.x), Number(element.x) + Number(element.w))
     allY.push(Number(element.y), Number(element.y) + Number(element.h))
+  })
+  standingAreas.forEach((area) => {
+    allX.push(Number(area.x), Number(area.x) + Number(area.w))
+    allY.push(Number(area.y), Number(area.y) + Number(area.h))
   })
   const minX = Math.min(...allX)
   const minY = Math.min(...allY)
@@ -205,6 +212,15 @@ function buildSeatLayout(seats, seatMap) {
       h: Number(element.h),
       rotation: Number(element.rotation || 0),
     })),
+    standingAreas: standingAreas.map((area) => ({
+      ...area,
+      x: Number(area.x) - minX + SEAT_LAYOUT_PADDING,
+      y: Number(area.y) - minY + SEAT_LAYOUT_PADDING,
+      w: Number(area.w),
+      h: Number(area.h),
+      rotation: Number(area.rotation || 0),
+    })),
+    canvasBg: config.canvasBg || '#0F172A',
   }
 }
 
@@ -387,6 +403,7 @@ export function BookingSeatsPage() {
   const [checkingAvailability, setCheckingAvailability] = useState(false)
   const [seatZoom, setSeatZoom] = useState(1)
   const [invalidSeatId, setInvalidSeatId] = useState(null)
+  const [standingTicketType, setStandingTicketType] = useState(null)
 
   const seatsQuery = useQuery({
     queryKey: ['session-seats', session?.id],
@@ -432,8 +449,16 @@ export function BookingSeatsPage() {
             }
           })
       })
+    const standingAreas = seatsQuery.data?.seat_map?.config?.standingAreas || []
+    ; (ticketTypes || []).forEach((ticketType) => {
+      if (ticketType.is_seated !== false) return
+      const area = standingAreas.find(
+        (item) => item.name?.trim().toLowerCase() === ticketType.name?.trim().toLowerCase(),
+      )
+      if (area?.color) colors.set(String(ticketType.id), area.color)
+    })
     return colors
-  }, [seatData, ticketTypes])
+  }, [seatData, seatsQuery.data?.seat_map?.config?.standingAreas, ticketTypes])
   const buildDisplayItems = (seatIds) => {
     if (!seatData.length) return []
     const seatsById = new Map(seatData.map((seat) => [seat.session_seat_id, seat]))
@@ -471,7 +496,11 @@ export function BookingSeatsPage() {
     }))
   }
 
-  const displayItems = buildDisplayItems(selectedSeatIds)
+  const seatedItems = buildDisplayItems(selectedSeatIds)
+  const unseatedItems = (cart?.items || []).filter(
+    (item) => item.ticketType?.is_seated === false && Number(item.quantity || 0) > 0,
+  )
+  const displayItems = [...seatedItems, ...unseatedItems]
   const displayTicketTypes = (cart?.availableTicketTypes || []).map((ticketType) => ({
     ...ticketType,
     color: ticketTypeColor(ticketType, colorByTicketTypeId),
@@ -500,9 +529,12 @@ export function BookingSeatsPage() {
     setCheckingAvailability(true)
     try {
       const hold = await holdSeats(availabilityPayloadFromCart(nextCart))
+      const hasSelectedSeats = nextCart.items.some((item) => item.sessionSeatIds?.length > 0)
       const heldCart = {
         ...nextCart,
-        holdExpiresAt: hold.hold_expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        holdExpiresAt: hold.hold_expires_at || (hasSelectedSeats
+          ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          : null),
       }
       saveBookingDraft(heldCart)
       navigate('/booking/attendees', { state: { cart: heldCart } })
@@ -532,13 +564,47 @@ export function BookingSeatsPage() {
     })
   }
 
+  const updateUnseatedQuantity = (ticketType, delta) => {
+    setCart((current) => {
+      const coloredTicketType = {
+        ...ticketType,
+        color: ticketTypeColor(ticketType, colorByTicketTypeId),
+      }
+      const items = [...(current?.items || [])]
+      const itemIndex = items.findIndex(
+        (item) => String(item.ticketType.id) === String(ticketType.id),
+      )
+      const existing = itemIndex >= 0
+        ? items[itemIndex]
+        : { ticketType: coloredTicketType, quantity: 0, sessionSeatIds: [], seatLabels: [], session }
+      const available = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
+      const perOrder = Math.max(1, Number(ticketType.max_per_order || 20))
+      const maximum = Math.min(available, perOrder)
+      const quantity = clamp(Number(existing.quantity || 0) + delta, 0, maximum)
+      const nextItem = { ...existing, ticketType: coloredTicketType, quantity }
+
+      if (itemIndex >= 0) items[itemIndex] = nextItem
+      else if (quantity > 0) items.push(nextItem)
+
+      return {
+        ...current,
+        items: items.filter((item) => Number(item.quantity || 0) > 0),
+      }
+    })
+  }
+
+  const unseatedTicketTypes = ticketTypes.filter((ticketType) => ticketType.is_seated === false)
+  const hasSeatMap = seatData.length > 0
+
   return (
     <BookingShell step={1} cart={displayCart}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
           <PageTitle
-            title={'Ch\u1ecdn gh\u1ebf'}
-            subtitle={'Ch\u1ecdn gh\u1ebf tr\u1ef1c ti\u1ebfp tr\u00ean s\u01a1 \u0111\u1ed3 s\u00e2n kh\u1ea5u'}
+            title={hasSeatMap ? 'Ch\u1ecdn gh\u1ebf' : 'Ch\u1ecdn v\u00e9'}
+            subtitle={hasSeatMap
+              ? 'Ch\u1ecdn gh\u1ebf tr\u1ef1c ti\u1ebfp tr\u00ean s\u01a1 \u0111\u1ed3 s\u00e2n kh\u1ea5u'
+              : 'Ch\u1ecdn lo\u1ea1i v\u00e9 v\u00e0 s\u1ed1 l\u01b0\u1ee3ng mong mu\u1ed1n'}
           />
           <Panel>
             {seatsQuery.isLoading ? (
@@ -561,6 +627,12 @@ export function BookingSeatsPage() {
                       colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
                       seatMap={seatsQuery.data?.seat_map}
                       invalidSeatId={invalidSeatId}
+                      onSelectStandingArea={(area, index) => {
+                        const ticketType = unseatedTicketTypes.find(
+                          (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
+                        ) || unseatedTicketTypes[index]
+                        if (ticketType) setStandingTicketType(ticketType)
+                      }}
                     />
                   </div>
                   <div className="flex shrink-0 flex-col gap-1.5">
@@ -593,8 +665,24 @@ export function BookingSeatsPage() {
                   </div>
                 </div>
               </>
-            ) : (
+            ) : unseatedTicketTypes.length === 0 ? (
               <p className="text-muted text-center font-medium">{'S\u1ef1 ki\u1ec7n n\u00e0y hi\u1ec7n kh\u00f4ng c\u00f3 s\u01a1 \u0111\u1ed3 ch\u1ed7 ng\u1ed3i'}</p>
+            ) : null}
+
+            {!hasSeatMap && unseatedTicketTypes.length > 0 && (
+              <div className={'space-y-3'}>
+                {unseatedTicketTypes.map((ticketType) => (
+                  <UnseatedTicketRow
+                    key={ticketType.id}
+                    ticketType={ticketType}
+                    quantity={Number((cart?.items || []).find(
+                      (item) => String(item.ticketType.id) === String(ticketType.id),
+                    )?.quantity || 0)}
+                    onDecrease={() => updateUnseatedQuantity(ticketType, -1)}
+                    onIncrease={() => updateUnseatedQuantity(ticketType, 1)}
+                  />
+                ))}
+              </div>
             )}
 
             {seatsQuery.data?.seats?.length > 0 && (
@@ -614,6 +702,17 @@ export function BookingSeatsPage() {
           disabled={checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
         />
       </div>
+      {standingTicketType && (
+        <StandingQuantityModal
+          ticketType={standingTicketType}
+          quantity={Number((cart?.items || []).find(
+            (item) => String(item.ticketType.id) === String(standingTicketType.id),
+          )?.quantity || 0)}
+          onDecrease={() => updateUnseatedQuantity(standingTicketType, -1)}
+          onIncrease={() => updateUnseatedQuantity(standingTicketType, 1)}
+          onClose={() => setStandingTicketType(null)}
+        />
+      )}
     </BookingShell>
   )
 }
@@ -1116,7 +1215,7 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, colorByTicketTypeId
               <div className="flex min-w-0 items-start gap-2">
                 <span
                   className="mt-1 size-3 shrink-0 rounded-sm border border-white/20"
-                  style={{ backgroundColor: ticketTypeColor(item?.ticketType || ticketType, colorByTicketTypeId) }}
+                  style={{ backgroundColor: ticketTypeColor(ticketType, colorByTicketTypeId) }}
                 />
                 <div className="min-w-0">
                   <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticketType.name}</p>
@@ -1373,7 +1472,63 @@ function Input({ label, value, onChange, type = 'text', placeholder }) {
   )
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seatZoom, colsCount, seatMap, invalidSeatId }) {
+function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, onClose }) {
+  return createPortal(
+    <div className={'fixed inset-0 z-50 grid place-items-center bg-black/70 p-4'} onClick={onClose}>
+      <div className={'w-full max-w-md rounded-xl border border-border-soft bg-panel p-6 shadow-2xl'} onClick={(event) => event.stopPropagation()}>
+        <div className={'flex items-start justify-between gap-4'}>
+          <div><p className={'text-xs font-bold uppercase text-tertiary'}>{'Khu vực đứng'}</p><h3 className={'mt-1 text-xl font-bold text-white'}>{ticketType.name}</h3></div>
+          <button type={'button'} onClick={onClose} className={'text-muted hover:text-white'}><X className={'size-5'} /></button>
+        </div>
+        <p className={'mt-4 whitespace-pre-line text-sm leading-6 text-muted'}>{ticketType.description || 'Khu vực đứng, không có ghế ngồi cố định.'}</p>
+        <div className={'mt-5 flex items-center justify-between gap-4'}>
+          <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)} / vé</p>
+          <QuantityStepper quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
+        </div>
+        <button
+          type={'button'}
+          onClick={onClose}
+          className={'mt-6 w-full rounded-md bg-tertiary py-3 font-bold text-white shadow-lg shadow-tertiary/30 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-500 hover:shadow-xl hover:shadow-tertiary/40 active:translate-y-0'}
+        >
+          {'Xong'}
+        </button>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+function QuantityStepper({ quantity, onDecrease, onIncrease, className = '' }) {
+  return (
+    <div className={`flex items-center justify-end gap-4 ${className}`}>
+      <button type={'button'} onClick={onDecrease} disabled={quantity <= 0} className={'grid size-9 place-items-center rounded-full border border-border-soft text-white disabled:opacity-40'}><Minus className={'size-4'} /></button>
+      <span className={'min-w-8 text-center text-xl font-bold text-white'}>{quantity}</span>
+      <button type={'button'} onClick={onIncrease} className={'grid size-9 place-items-center rounded-full bg-tertiary text-white'}><Plus className={'size-4'} /></button>
+    </div>
+  )
+}
+
+function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
+  return (
+    <div className={'px-2 py-1'}>
+      <div className={'flex items-start justify-between gap-4'}>
+        <div><p className={'font-bold text-white'}>{ticketType.name}</p><p className={'mt-1 text-sm text-muted'}>{ticketType.description}</p></div>
+        <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)}</p>
+      </div>
+      <QuantityStepper className={'mt-4'} quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
+    </div>
+  )
+}
+
+function stageShapeStyle(shape) {
+  if (shape === 'CIRCLE') return { borderRadius: '50%' }
+  if (shape === 'SEMI_CIRCLE') return { borderRadius: '999px 999px 0 0' }
+  if (shape === 'DIAMOND') return { clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)' }
+  if (shape === 'T_STAGE') return { clipPath: 'polygon(0 0, 100% 0, 100% 45%, 70% 45%, 70% 100%, 30% 100%, 30% 45%, 0 45%)' }
+  return { borderRadius: 8 }
+}
+
+function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatZoom, colsCount, seatMap, invalidSeatId }) {
   const metrics = seatMapMetrics(seats, seatMap)
   const renderSeat = (seat, style = {}) => {
     const selected = selectedSeatIds.includes(seat.session_seat_id)
@@ -1422,7 +1577,13 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seat
   return (
     <div
       className="relative w-max rounded-lg border border-border-soft/40 bg-background/40"
-      style={{ width: metrics.width * seatZoom, height: metrics.height * seatZoom }}
+      style={{
+        width: metrics.width * seatZoom,
+        height: metrics.height * seatZoom,
+        backgroundColor: metrics.canvasBg,
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
+        backgroundSize: `${20 * seatZoom}px ${20 * seatZoom}px`,
+      }}
     >
       <div
         className="relative origin-top-left"
@@ -1430,7 +1591,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seat
       >
         {metrics.stage && (
           <div
-            className="absolute grid place-items-center overflow-hidden rounded-lg border border-border-soft bg-panel-soft px-2 text-center text-xs font-extrabold text-content shadow-lg shadow-slate-950/20"
+            className="absolute grid place-items-center overflow-hidden border-2 border-white/30 px-2 text-center text-xs font-extrabold text-white shadow-lg shadow-slate-950/20"
             style={{
               left: metrics.stage.x,
               top: metrics.stage.y,
@@ -1438,6 +1599,8 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seat
               height: metrics.stage.h,
               transform: metrics.stage.rotation ? `rotate(${metrics.stage.rotation}deg)` : undefined,
               transformOrigin: 'center',
+              backgroundColor: metrics.stage.color,
+              ...stageShapeStyle(metrics.stage.shape),
             }}
           >
             <span style={{ transform: metrics.stage.h > metrics.stage.w ? 'rotate(-90deg)' : undefined }}>
@@ -1445,6 +1608,31 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seat
             </span>
           </div>
         )}
+        {metrics.standingAreas.map((area, index) => (
+          <button
+            key={area.id || index}
+            type={'button'}
+            title={area.name}
+            aria-label={area.name}
+            style={{
+              position: 'absolute',
+              left: area.x,
+              top: area.y,
+              width: area.w,
+              height: area.h,
+              color: '#ffffff',
+              background: `color-mix(in srgb, ${area.color || '#EF4444'} 25%, transparent)`,
+              borderColor: area.color || '#EF4444',
+              borderStyle: 'dashed',
+              transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
+            }}
+            className={'flex flex-col items-center justify-center rounded-xl border-2 text-xs font-extrabold text-white shadow-lg'}
+            onClick={() => onSelectStandingArea?.(area, index)}
+          >
+            <span>{area.name}</span>
+            <span className={'mt-1 text-[10px] font-semibold text-white/85'}>Sức chứa: {area.capacity || 0} người</span>
+          </button>
+        ))}
         {metrics.auxiliaryElements.map((element, index) => (
           <div
             key={element.id || `aux-${index}`}

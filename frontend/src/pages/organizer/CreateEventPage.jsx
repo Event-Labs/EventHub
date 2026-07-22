@@ -1305,7 +1305,6 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                                       className="flex items-center gap-1.5 rounded-lg border border-tertiary/30 bg-tertiary/10 px-2.5 py-1 text-xs font-semibold text-tertiary hover:bg-tertiary/20 transition max-w-[280px] text-left truncate"
                                       title={ticket.description}
                                     >
-                                      <span>📝</span>
                                       <span className="truncate">{ticket.description}</span>
                                     </button>
                                   ) : (
@@ -1426,7 +1425,6 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                           }}
                           className="flex items-center gap-1.5 rounded-lg border border-tertiary/30 bg-tertiary/10 px-3 py-1.5 text-xs font-semibold text-tertiary hover:bg-tertiary/20 transition max-w-[400px] truncate"
                         >
-                          <span>📝</span>
                           <span className="truncate">Mô tả: {tt.description}</span>
                         </button>
                       ) : (
@@ -1746,16 +1744,16 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
             <Icon name="calendar_today" className="text-tertiary" />
             <h4 className="text-sm font-bold uppercase tracking-wider text-content">Lịch trình & Địa điểm</h4>
           </div>
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[120px_minmax(0,1fr)_140px] sm:gap-3">
             <div>
               <label className="block text-xs text-muted mb-1 uppercase">Phiên</label>
               <p className="font-semibold text-content">{formData.sessions.length} phiên</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs text-muted mb-1 uppercase">Địa điểm</label>
-              <p className="font-semibold text-content">{venue?.name || '—'}</p>
+              <p className="whitespace-nowrap font-semibold text-content" title={venue?.name}>{venue?.name || '—'}</p>
             </div>
-            <div>
+            <div className="sm:justify-self-end sm:text-left">
               <label className="block text-xs text-muted mb-1 uppercase">Hiển thị</label>
               <p className="font-semibold text-content">{formData.visibility}</p>
             </div>
@@ -2054,11 +2052,7 @@ export function CreateEventPage() {
         description: tt.description || null,
         price: tt.price,
         quantity: tt.quantity,
-        is_seated:
-          formData.sessions.find((s) => (s.id || s.clientKey) === tt.session_key)?.seating_type ===
-            'ASSIGNED'
-            ? true
-            : tt.is_seated,
+        is_seated: Boolean(tt.is_seated),
       }))
       .filter((tt) => tt.event_session_id && !String(tt.event_session_id).startsWith('tmp-'))
   }
