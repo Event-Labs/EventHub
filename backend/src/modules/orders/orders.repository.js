@@ -6,8 +6,6 @@ const promotionsRepository = require('../promotions/promotions.repository');
 const { validateSelectedSeats } = require('../events/seatingRules');
 
 const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
-const MAX_TICKETS_PER_ORDER = Number(process.env.MAX_TICKETS_PER_ORDER || 4);
-const MAX_TICKETS_PER_EVENT_ACCOUNT = Number(process.env.MAX_TICKETS_PER_EVENT_ACCOUNT || 6);
 
 function orderCode() {
   return `ORD-${Date.now()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
@@ -208,9 +206,6 @@ class OrdersRepository {
 
 
       const totalRequested = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-      if (totalRequested > MAX_TICKETS_PER_ORDER) {
-        throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
-      }
 
       const requireAttendeeInfo = Boolean(firstTicket.require_attendee_info);
       if (requireAttendeeInfo && attendees.length !== totalRequested) {
@@ -218,27 +213,6 @@ class OrdersRepository {
       }
       const attendeeQueues = requireAttendeeInfo ? buildAttendeeQueues(attendees) : new Map();
 
-      const purchasedResult = await client.query(
-        `
-        SELECT COALESCE(SUM(oi.quantity), 0)::int AS quantity
-        FROM order_items oi
-        JOIN orders o ON o.id = oi.order_id
-        JOIN ticket_types tt ON tt.id = oi.ticket_type_id
-        JOIN event_sessions es ON es.id = tt.event_session_id
-        WHERE es.event_id = $1
-          AND o.status = 'PAID'
-          AND (
-            o.user_id = $2
-            OR lower(o.buyer_email) = lower($3::text)
-            OR ($4::text IS NOT NULL AND o.buyer_phone = $4::text)
-          )
-        `,
-        [eventId, userId, buyer.email, buyer.phone || null],
-      );
-      const purchasedQuantity = Number(purchasedResult.rows[0]?.quantity || 0);
-      if (purchasedQuantity + totalRequested > MAX_TICKETS_PER_EVENT_ACCOUNT) {
-        throw new AppError(`T\u00e0i kho\u1ea3n n\u00e0y ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${MAX_TICKETS_PER_EVENT_ACCOUNT} v\u00e9 cho s\u1ef1 ki\u1ec7n n\u00e0y.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
-      }
       const expiresAtResult = await client.query(
         `SELECT now() + ($1::text || ' minutes')::interval AS expired_at`,
         [HOLD_MINUTES],
@@ -367,8 +341,8 @@ class OrdersRepository {
           throw new AppError(`V\u00e9 "${ticketType.name}" hi\u1ec7n ch\u01b0a m\u1edf b\u00e1n ho\u1eb7c \u0111\u00e3 ng\u1eebng b\u00e1n.`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
 
-        if (item.quantity > Math.min(ticketType.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)) {
-          throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${Math.min(ticketType.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        if (ticketType.max_per_order && item.quantity > Number(ticketType.max_per_order)) {
+          throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${Number(ticketType.max_per_order)} v\u00e9 cho lo\u1ea1i v\u00e9 n\u00e0y trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
         if (ticketType.is_seated || selectedSeatIds.length > 0) {
@@ -436,7 +410,6 @@ class OrdersRepository {
                     AND o_sold.status = 'PAID'
                     AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
                 ) THEN 'SOLD'
-                WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
                 WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
                 ELSE ss.status
               END AS status,
@@ -472,9 +445,9 @@ class OrdersRepository {
           for (const seat of seatsResult.rows) {
             const heldStillValid =
               seat.status === 'HELD' &&
-              seat.order_id &&
               seat.held_until &&
-              new Date(seat.held_until).getTime() > Date.now();
+              new Date(seat.held_until).getTime() > Date.now() &&
+              (seat.order_id || String(seat.held_by) !== String(userId));
             if (
               seat.is_disabled ||
               seat.has_paid_ticket ||

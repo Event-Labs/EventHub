@@ -10,12 +10,6 @@ function normalizePhone(phone) {
   return phone;
 }
 
-const MAX_TICKETS_PER_ORDER = Number(process.env.MAX_TICKETS_PER_ORDER || 4);
-
-function requestedQuantity(items = []) {
-  return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-}
-
 function mapMoney(value) {
   return Number(value || 0);
 }
@@ -191,11 +185,6 @@ class OrdersService {
         line_total: unitPrice * quantity,
       };
     });
-
-    const totalRequested = requestedQuantity(normalizedItems);
-    if (totalRequested > MAX_TICKETS_PER_ORDER) {
-      throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
-    }
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
     const paymentChannel = await paymentsService.getOrganizerPayosChannelForEvent(payload.event_id);

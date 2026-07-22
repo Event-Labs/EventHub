@@ -48,13 +48,6 @@ function mapCard(row) {
   };
 }
 
-const MAX_TICKETS_PER_ORDER = Number(process.env.MAX_TICKETS_PER_ORDER || 4);
-const MAX_TICKETS_PER_EVENT_ACCOUNT = Number(process.env.MAX_TICKETS_PER_EVENT_ACCOUNT || 6);
-
-function requestedQuantity(items = []) {
-  return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-}
-
 function mapDetail(row) {
   return {
     ...mapCard(row),
@@ -185,29 +178,6 @@ class EventsService {
   }
 
   async checkTicketAvailability(payload, userId = null) {
-    const totalRequested = requestedQuantity(payload.items);
-    if (totalRequested > MAX_TICKETS_PER_ORDER) {
-      return {
-        available: false,
-        message: `B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`,
-        items: [],
-      };
-    }
-
-    if (userId) {
-      const purchasedQuantity = await eventsRepository.countPaidTicketsForEvent({
-        userId,
-        eventId: payload.event_id,
-      });
-      if (purchasedQuantity + totalRequested > MAX_TICKETS_PER_EVENT_ACCOUNT) {
-        return {
-          available: false,
-          message: `T\u00e0i kho\u1ea3n n\u00e0y ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${MAX_TICKETS_PER_EVENT_ACCOUNT} v\u00e9 cho s\u1ef1 ki\u1ec7n n\u00e0y.`,
-          items: [],
-        };
-      }
-    }
-
     const rows = await eventsRepository.checkTicketAvailability(payload.event_id, payload.items);
     const itemResults = [];
     for (const row of rows) {
@@ -240,8 +210,8 @@ class EventsService {
       if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
         issues.push('V\u00e9 ch\u01b0a m\u1edf b\u00e1n ho\u1eb7c \u0111\u00e3 h\u1ebft th\u1eddi gian b\u00e1n.')
       }
-      if (row.requested_quantity > Math.min(row.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)) {
-        issues.push(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${Math.min(row.max_per_order || MAX_TICKETS_PER_ORDER, MAX_TICKETS_PER_ORDER)} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`);
+      if (row.max_per_order && row.requested_quantity > Number(row.max_per_order)) {
+        issues.push(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${Number(row.max_per_order)} v\u00e9 cho lo\u1ea1i v\u00e9 n\u00e0y trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`);
       }
 
       if (row.is_seated || selectedSeats.length > 0) {
@@ -301,19 +271,14 @@ class EventsService {
   }
 
   async holdSeats(userId, payload) {
-    const totalRequested = requestedQuantity(payload.items);
-    if (totalRequested > MAX_TICKETS_PER_ORDER) {
-      throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ch\u1ecdn t\u1ed1i \u0111a ${MAX_TICKETS_PER_ORDER} v\u00e9 trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+    const availability = await this.checkTicketAvailability(payload, userId);
+    if (!availability.available) {
+      throw new AppError(
+        availability.message || 'C\u00e1c gh\u1ebf \u0111\u00e3 ch\u1ecdn kh\u00f4ng h\u1ee3p l\u1ec7.',
+        400,
+        ErrorCodes.ORDER_INVALID_ITEMS,
+      );
     }
-
-    const purchasedQuantity = await eventsRepository.countPaidTicketsForEvent({
-      userId,
-      eventId: payload.event_id,
-    });
-    if (purchasedQuantity + totalRequested > MAX_TICKETS_PER_EVENT_ACCOUNT) {
-      throw new AppError(`T\u00e0i kho\u1ea3n n\u00e0y ch\u1ec9 \u0111\u01b0\u1ee3c mua t\u1ed1i \u0111a ${MAX_TICKETS_PER_EVENT_ACCOUNT} v\u00e9 cho s\u1ef1 ki\u1ec7n n\u00e0y.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
-    }
-
     return eventsRepository.holdSeats(userId, payload);
   }
 
