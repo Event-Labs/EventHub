@@ -738,10 +738,37 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
     }
     setLoadingMaps(true)
     getSeatMap(activeSession.seat_map_id)
-      .then(setLoadedSeatMap)
+      .then((sm) => {
+        setLoadedSeatMap(sm)
+        const standingAreas = sm.config?.standingAreas || []
+        if (standingAreas.length > 0 && sessionKey) {
+          setFormData((p) => {
+            const currentSessionTickets = p.ticketTypes.filter((tt) => String(tt.session_key) === String(sessionKey))
+            const missingStandingAreas = standingAreas.filter(
+              (a) => !currentSessionTickets.some((tt) => tt.standing_area_id === a.id || tt.name === a.name)
+            )
+            if (missingStandingAreas.length === 0) return p
+
+            const newStandingTickets = missingStandingAreas.map((area) => ({
+              clientKey: newClientKey(),
+              session_key: sessionKey,
+              name: area.name,
+              price: '',
+              quantity: Number(area.capacity || 0),
+              is_seated: false,
+              standing_area_id: area.id,
+            }))
+
+            return {
+              ...p,
+              ticketTypes: [...p.ticketTypes, ...newStandingTickets],
+            }
+          })
+        }
+      })
       .catch(console.error)
       .finally(() => setLoadingMaps(false))
-  }, [activeSession?.seat_map_id])
+  }, [activeSession?.seat_map_id, sessionKey])
 
   const updateActiveSession = (updates) => {
     setFormData((p) => ({
@@ -797,7 +824,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
         acc[s.zone_id] = (acc[s.zone_id] || 0) + 1
         return acc
       }, {})
-      const newTickets = (sm.zones || []).map((zone) => {
+      const seatedTickets = (sm.zones || []).map((zone) => {
         const seatCount = countsByZoneId[zone.id] || 0
         const clientKey = newClientKey()
         return {
@@ -810,14 +837,29 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           zone_id: zone.id,
         }
       })
-      const zoneAssignments = newTickets.map((tt) => ({
+      const standingAreas = sm.config?.standingAreas || []
+      const standingTickets = standingAreas.map((area) => {
+        const clientKey = newClientKey()
+        return {
+          clientKey,
+          session_key: sessionKey,
+          name: area.name,
+          price: '',
+          quantity: Number(area.capacity || 0),
+          is_seated: false,
+          standing_area_id: area.id,
+        }
+      })
+
+      const allNewTickets = [...seatedTickets, ...standingTickets]
+      const zoneAssignments = seatedTickets.map((tt) => ({
         zone_id: tt.zone_id,
         ticket_type_local_id: tt.clientKey,
       }))
       updateActiveSession({ seat_map_id: seatMapId, zone_assignments: zoneAssignments })
       setFormData((p) => ({
         ...p,
-        ticketTypes: [...p.ticketTypes.filter((tt) => tt.session_key !== sessionKey), ...newTickets],
+        ticketTypes: [...p.ticketTypes.filter((tt) => tt.session_key !== sessionKey), ...allNewTickets],
       }))
     } catch (err) {
       console.error(err)
@@ -995,55 +1037,155 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
             </section>
 
             {loadedSeatMap && (
-              <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-                <h2 className="mb-4 text-[20px] font-semibold text-content">Gán khu vực → Loại vé</h2>
+              <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
+                <div>
+                  <h2 className="text-[20px] font-semibold text-content">Gán khu vực & Vùng đứng → Giá vé</h2>
+                  <p className="text-sm text-subtle mt-1">
+                    Thiết lập mức giá vé cho từng khu vực ghế ngồi và từng vùng đứng không ghế trên sơ đồ.
+                  </p>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border-soft/30 text-left text-xs uppercase text-muted">
-                        <th className="py-2 pr-4">Khu vực</th>
-                        <th className="py-2 pr-4">Ghế</th>
-                        <th className="py-2 pr-4">Loại vé</th>
-                        <th className="py-2">Giá (VND)</th>
+                      <tr className="border-b border-border-soft/30 text-left text-xs uppercase tracking-wider text-muted">
+                        <th className="py-3 pr-4">Khu vực / Vùng</th>
+                        <th className="py-3 pr-4">Hình thức</th>
+                        <th className="py-3 pr-4">Sức chứa</th>
+                        <th className="py-3 pr-4">Tên loại vé</th>
+                        <th className="py-3">Giá vé (VND)*</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-border-soft/20">
+                      {/* Khu vực ghế ngồi */}
                       {(loadedSeatMap.zones || []).map((zone) => {
                         const seatCount = (loadedSeatMap.seats || []).filter(
                           (s) => s.zone_id === zone.id && !s.is_disabled,
                         ).length
-                        const ticket = sessionTickets.find((tt) => tt.zone_id === zone.id)
+                        const ticket = sessionTickets.find((tt) => tt.zone_id === zone.id || (tt.is_seated && tt.name === zone.name))
                         const ticketKey = ticket ? ticket.id || ticket.clientKey : null
+
                         return (
-                          <tr key={zone.id} className="border-b border-border-soft/20 text-content">
-                            <td className="py-3 pr-4">
-                              <span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ background: zone.color }} />
-                              {zone.name}
+                          <tr key={zone.id} className="text-content hover:bg-panel-soft/30 transition">
+                            <td className="py-3.5 pr-4 font-bold flex items-center gap-2">
+                              <span className="h-3.5 w-3.5 rounded-full border border-white/20 shrink-0" style={{ background: zone.color }} />
+                              <span>{zone.name}</span>
                             </td>
-                            <td className="py-3 pr-4">{seatCount}</td>
-                            <td className="py-3 pr-4 text-content font-medium text-sm">
-                              {ticket?.name || zone.name}
+                            <td className="py-3.5 pr-4 text-xs font-semibold text-primary">
+                              Ghế ngồi
                             </td>
-                            <td className="py-3">
-                              {ticketKey && (
+                            <td className="py-3.5 pr-4 font-semibold">{seatCount} ghế</td>
+                            <td className="py-3.5 pr-4 font-medium">
+                              {ticketKey ? (
                                 <input
-                                  type="number"
-                                  min="0"
-                                  className="h-9 w-32 rounded border border-border-soft/40 bg-panel-soft text-content px-2 text-sm"
-                                  value={ticket?.price === '' ? '' : ticket?.price}
-                                  onChange={(e) =>
-                                    updateTicket(ticketKey, 'price', e.target.value === '' ? '' : Number(e.target.value))
-                                  }
+                                  type="text"
+                                  className="h-9 w-full max-w-[200px] rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-xs font-bold text-content outline-none focus:border-tertiary"
+                                  value={ticket?.name || zone.name}
+                                  onChange={(e) => updateTicket(ticketKey, 'name', e.target.value)}
                                 />
+                              ) : (
+                                <span>{zone.name}</span>
+                              )}
+                            </td>
+                            <td className="py-3.5">
+                              {ticketKey && (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="VD: 500000"
+                                    className="h-9 w-36 rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm font-extrabold text-content outline-none focus:border-tertiary"
+                                    value={ticket?.price === '' ? '' : ticket?.price}
+                                    onChange={(e) =>
+                                      updateTicket(ticketKey, 'price', e.target.value === '' ? '' : Number(e.target.value))
+                                    }
+                                  />
+                                  <span className="text-xs font-bold text-muted">đ</span>
+                                </div>
                               )}
                             </td>
                           </tr>
                         )
                       })}
+
+                      {/* Vùng đứng không ghế */}
+                      {(loadedSeatMap.config?.standingAreas || []).map((area) => {
+                        const capacity = Number(area.capacity || 0)
+                        const ticket = sessionTickets.find((tt) => tt.standing_area_id === area.id || (!tt.is_seated && tt.name === area.name))
+                        const ticketKey = ticket ? ticket.id || ticket.clientKey : null
+
+                        return (
+                          <tr key={area.id} className="text-content hover:bg-panel-soft/30 transition bg-tertiary/5">
+                            <td className="py-3.5 pr-4 font-bold flex items-center gap-2">
+                              <span className="h-3.5 w-3.5 rounded-full border border-white/20 shrink-0" style={{ background: area.color || '#EF4444' }} />
+                              <span>{area.name}</span>
+                            </td>
+                            <td className="py-3.5 pr-4 text-xs font-semibold text-tertiary">
+                              Vé đứng (GA)
+                            </td>
+                            <td className="py-3.5 pr-4 font-semibold">{capacity} chỗ đứng</td>
+                            <td className="py-3.5 pr-4 font-medium">
+                              {ticketKey ? (
+                                <input
+                                  type="text"
+                                  className="h-9 w-full max-w-[200px] rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-xs font-bold text-content outline-none focus:border-tertiary"
+                                  value={ticket?.name || area.name}
+                                  onChange={(e) => updateTicket(ticketKey, 'name', e.target.value)}
+                                />
+                              ) : (
+                                <span>{area.name}</span>
+                              )}
+                            </td>
+                            <td className="py-3.5">
+                              {ticketKey ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="VD: 300000"
+                                    className="h-9 w-36 rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm font-extrabold text-content outline-none focus:border-tertiary"
+                                    value={ticket?.price === '' ? '' : ticket?.price}
+                                    onChange={(e) =>
+                                      updateTicket(ticketKey, 'price', e.target.value === '' ? '' : Number(e.target.value))
+                                    }
+                                  />
+                                  <span className="text-xs font-bold text-muted">đ</span>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newKey = newClientKey()
+                                    setFormData((p) => ({
+                                      ...p,
+                                      ticketTypes: [
+                                        ...p.ticketTypes,
+                                        {
+                                          clientKey: newKey,
+                                          session_key: sessionKey,
+                                          name: area.name,
+                                          price: '',
+                                          quantity: capacity,
+                                          is_seated: false,
+                                          standing_area_id: area.id,
+                                        },
+                                      ],
+                                    }))
+                                  }}
+                                  className="text-xs font-bold text-tertiary hover:underline"
+                                >
+                                  + Đặt giá vé đứng ({area.name})
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+
                       {unassignedCount > 0 && (
                         <tr>
                           <td className="py-3 pr-4 text-muted">Chưa gán</td>
-                          <td className="py-3 pr-4 text-content">{unassignedCount}</td>
+                          <td className="py-3 pr-4 text-muted">—</td>
+                          <td className="py-3 pr-4 text-content">{unassignedCount} ghế</td>
                           <td className="py-3 pr-4 text-muted">—</td>
                           <td />
                         </tr>

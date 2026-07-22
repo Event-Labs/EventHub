@@ -1042,7 +1042,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         />
         <div className="hidden items-center gap-3 sm:flex">
           <span className="rounded-xl bg-panel-soft border border-border-soft/20 px-3 py-1 text-xs font-semibold text-content">
-            💺 {stats.active} ghế · 🚶 {stats.standingCap} đứng · 🏆 {stats.totalCap} tổng chỗ
+            {stats.active} ghế ngồi · {stats.standingCap} chỗ đứng · {stats.totalCap} tổng chỗ
           </span>
           {stats.total > 1800 && (
             <span className="text-xs font-medium text-warning animate-pulse">Gần giới hạn 2000</span>
@@ -1861,7 +1861,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         fontWeight="600"
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
                       >
-                        🚶 Sức chứa: {capacity || 0} người
+                        Sức chứa: {capacity || 0} người
                       </text>
 
                       {isSelected && (
@@ -2183,7 +2183,7 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
                 fontWeight="600"
                 style={{ userSelect: 'none', pointerEvents: 'none' }}
               >
-                🚶 Sức chứa: {a.capacity || 0} người
+                Sức chứa: {a.capacity || 0} người
               </text>
             </g>
           ))}
