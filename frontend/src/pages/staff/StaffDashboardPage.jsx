@@ -125,7 +125,7 @@ function TodayEvent({ event }) {
   const total = Number(event.total_valid || checkedIn + remaining)
   const progress = total > 0 ? Math.min(100, Math.round((checkedIn / total) * 100)) : 0
   const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(', ')
-  const imageSrc = event.thumbnail_url || event.banner_url
+  const imageSrc = event.banner_url || event.thumbnail_url
 
   return (
     <div className="grid gap-5 border-b border-border-soft/20 pb-5 last:border-b-0 last:pb-0 md:grid-cols-[180px_1fr]">

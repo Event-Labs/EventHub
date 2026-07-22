@@ -381,7 +381,8 @@ export function TicketDetailPage() {
                 <CompactDetail label="Email ng\u01b0\u1eddi mua" value={ticket.order.buyer_email} />
                 <CompactDetail label={'Th\u1eddi gian'} value={formatDateTime(ticket.session.start_time)} />
                 <CompactDetail label={'\u0110\u01a1n h\u00e0ng'} value={ticket.order.order_code} />
-                <CompactDetail label={'Lo\u1ea1i v\u00e9 / Gh\u1ebf'} value={`${ticket.ticket_type.name} - ${seat}`} />
+                <CompactDetail label={'Lo\u1ea1i v\u00e9'} value={ticket.ticket_type.name} />
+                <CompactDetail label={'Gh\u1ebf ng\u1ed3i'} value={seat} />
                 <CompactDetail label="Check-in" value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at) : 'Ch\u01b0a check-in'} />
                 <CompactDetail label={'\u0110\u1ecba \u0111i\u1ec3m'} value={venueText || 'N/A'} wide />
               </div>

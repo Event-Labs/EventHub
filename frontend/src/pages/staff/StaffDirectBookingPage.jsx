@@ -47,7 +47,7 @@ function formatDateTime(value) {
 
 function venueLine(venue) {
   if (!venue) return 'Địa điểm cập nhật sau'
-  return [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') || 'Địa điểm cập nhật sau'
+  return [venue.name, venue.address_line, venue.ward, venue.district, venue.city].filter(Boolean).join(', ') || 'Địa điểm cập nhật sau'
 }
 
 function qrPayload(ticket) {
@@ -386,14 +386,67 @@ export function StaffDirectBookingPage() {
     >
       <style>{`
         @media print {
+          @page { size: A4 landscape; margin: 0; }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           body * { visibility: hidden !important; }
           .direct-booking-print, .direct-booking-print * { visibility: visible !important; }
           .direct-booking-print {
             position: absolute !important;
             inset: 0 auto auto 0 !important;
             width: 100% !important;
-            padding: 0 !important;
+            box-sizing: border-box !important;
+            padding: 10mm !important;
             background: white !important;
+          }
+          .direct-booking-ticket {
+            break-inside: avoid !important;
+            border: 1.5px solid #000 !important;
+            background: #fff !important;
+            color: #000 !important;
+            box-shadow: none !important;
+            -webkit-print-color-adjust: economy !important;
+            print-color-adjust: economy !important;
+          }
+          .direct-booking-ticket .ticket-print-header {
+            border-bottom: 1px solid #000 !important;
+            background: #fff !important;
+          }
+          .direct-booking-ticket .ticket-print-logo {
+            filter: grayscale(1) brightness(0) !important;
+          }
+          .direct-booking-ticket .ticket-print-status,
+          .direct-booking-ticket .ticket-print-type {
+            border: 1px solid #000 !important;
+            background: #fff !important;
+            color: #000 !important;
+          }
+          .direct-booking-ticket .ticket-print-banner,
+          .direct-booking-ticket .ticket-print-gradient {
+            display: none !important;
+          }
+          .direct-booking-ticket .ticket-print-hero {
+            min-height: 0 !important;
+            background: #fff !important;
+          }
+          .direct-booking-ticket .ticket-print-hero-content {
+            min-height: 0 !important;
+            padding: 16px 20px !important;
+          }
+          .direct-booking-ticket .ticket-print-title,
+          .direct-booking-ticket .ticket-print-code,
+          .direct-booking-ticket .ticket-print-details,
+          .direct-booking-ticket .ticket-print-details * {
+            color: #000 !important;
+          }
+          .direct-booking-ticket .ticket-print-separator {
+            border-color: #000 !important;
+          }
+          .direct-booking-ticket .ticket-print-qr {
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
           }
           .no-print { display: none !important; }
         }
@@ -441,7 +494,7 @@ export function StaffDirectBookingPage() {
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {filteredEvents.map((event) => {
                   const active = event.id === selectedEventId
-                  const image = event.thumbnail_url || event.banner_url
+                  const image = event.banner_url || event.thumbnail_url
                   const available = event.ticket_types.reduce((sum, ticketType) => sum + Number(ticketType.available_quantity || 0), 0)
                   return (
                     <button
@@ -790,32 +843,40 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
         </StaffPanel>
       )}
 
-      {canPrint && <div className="direct-booking-print grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {canPrint && <div className="direct-booking-print grid gap-5 xl:grid-cols-2">
         {result.tickets.map((ticket) => (
-          <article key={ticket.id} className="overflow-hidden rounded-xl border border-border-soft/40 bg-surface text-content shadow-lg print:break-inside-avoid print:border-slate-300 print:bg-white print:text-slate-950">
-            <div className="relative h-32 overflow-hidden bg-panel-soft print:h-24 print:bg-slate-100">
-              {(ticket.event.banner_url || ticket.event.thumbnail_url) && (
-                <img src={ticket.event.banner_url || ticket.event.thumbnail_url} alt="" className="h-full w-full object-cover opacity-80 print:hidden" />
+          <article key={ticket.id} className="direct-booking-ticket overflow-hidden rounded-xl border border-white/10 bg-[#101a33] text-white shadow-2xl shadow-slate-950/30">
+            <div className="ticket-print-header flex items-center justify-between gap-4 border-b border-white/10 bg-[#0f172a] px-5 py-3">
+              <img src="/images/LogoEH.png" alt="EventHub" className="ticket-print-logo h-10 w-44 object-contain object-left" />
+              <span className="ticket-print-status rounded-full bg-success/15 px-3 py-1 text-[11px] font-extrabold uppercase text-success">Hợp lệ</span>
+            </div>
+            <div className="ticket-print-hero relative min-h-40 overflow-hidden">
+              {(ticket.event.banner_url || ticket.event.thumbnail_url) ? (
+                <img src={ticket.event.banner_url || ticket.event.thumbnail_url} alt="" className="ticket-print-banner absolute inset-0 h-full w-full object-cover opacity-65" />
+              ) : (
+                <div className="ticket-print-banner absolute inset-0 bg-[#101a33]" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent print:hidden" />
-              <div className="absolute bottom-3 left-4 right-4">
-                <Badge tone="green">Đã thanh toán</Badge>
-                <h3 className="mt-2 line-clamp-2 font-display text-lg font-extrabold text-white print:text-slate-950">{ticket.event.title}</h3>
+              <div className="ticket-print-gradient absolute inset-0 bg-gradient-to-t from-[#101a33] via-[#101a33]/60 to-transparent" />
+              <div className="ticket-print-hero-content relative flex min-h-40 flex-col justify-end p-5">
+                <span className="ticket-print-type w-fit rounded-full bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase text-slate-200">{ticket.ticket_type.name}</span>
+                <h3 className="ticket-print-title mt-3 line-clamp-2 font-display text-2xl font-black leading-tight text-white">{ticket.event.title}</h3>
               </div>
             </div>
-            <div className="space-y-4 p-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="space-y-5 p-5">
+              <div className="ticket-print-details grid grid-cols-2 gap-4 text-sm">
                 <PrintInfo label="Khách hàng" value={result.order.buyer_name} />
+                <PrintInfo label="Email người mua" value={result.order.buyer_email} />
                 <PrintInfo label="Loại vé" value={ticket.ticket_type.name} />
+                <PrintInfo label="Ghế ngồi" value={ticket.seat?.label || 'Free seating'} />
                 <PrintInfo label="Thời gian" value={formatDateTime(ticket.session.start_time)} />
                 <PrintInfo label="Mã đơn đặt vé" value={result.order.order_code} />
                 <PrintInfo label="Địa điểm" value={venueLine(ticket.venue)} wide />
               </div>
-              <div className="border-t border-dashed border-border-soft/50 pt-4 text-center print:border-slate-300">
-                <div className="mx-auto w-fit rounded-lg bg-white p-2">
-                  <img src={qrImageSrc(ticket)} alt="Mã QR soát vé" className="size-36" />
+              <div className="ticket-print-separator relative border-t border-dashed border-white/10 pt-5 text-center before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-white after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-white">
+                <div className="ticket-print-qr mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
+                  <img src={qrImageSrc(ticket)} alt="Mã QR soát vé" className="size-40 rounded-md" />
                 </div>
-                <p className="mt-3 font-mono text-sm font-black tracking-wide">{ticket.ticket_code}</p>
+                <p className="ticket-print-code mt-4 font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
               </div>
             </div>
           </article>

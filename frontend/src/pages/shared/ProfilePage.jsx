@@ -1,5 +1,5 @@
 import { clearAuthSession, getAuthToken, getStoredUserKey, getUserRoles, updateStoredUser } from '@/lib/auth.js'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import {
@@ -44,7 +44,12 @@ import {
   verifyTwoFactor,
 } from '@/services/user.service.js'
 import { uploadAvatar, uploadOrganizerDocument } from '@/services/uploads.js'
-import { fetchOrganizerProfile, updateOrganizerProfile } from '@/services/organizerEvents.js'
+import {
+  fetchOrganizerProfile,
+  startOrganizerSensitiveAccess,
+  updateOrganizerProfile,
+  verifyOrganizerSensitiveAccess,
+} from '@/services/organizerEvents.js'
 import { submitOrganizerProfileUpdateRequest } from '@/services/organizerRequests.js'
 import { fetchMyTickets } from '@/services/tickets.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
@@ -56,6 +61,7 @@ const EMPTY_TEXT = 'Chưa cập nhật'
 
 export function ProfilePage() {
   const [mode, setMode] = useState('view')
+  const [sensitiveAccess, setSensitiveAccess] = useState(null)
   const queryClient = useQueryClient()
   const { pathname } = useLocation()
   const currentUserKey = getStoredUserKey()
@@ -76,10 +82,12 @@ export function ProfilePage() {
   const roles = getUserRoles(user)
   const isOrganizerProfileRoute = pathname.startsWith('/organizer')
   const isOrganizer = isOrganizerProfileRoute && roles.includes('organizer')
+  const organizerTwoFactorEnabled = Boolean(user?.two_factor_enabled)
+  const sensitiveAccessToken = sensitiveAccess?.accessToken || null
   const organizerQuery = useQuery({
-    queryKey: ['organizer-profile', currentUserKey],
-    queryFn: fetchOrganizerProfile,
-    enabled: Boolean(user && isOrganizer),
+    queryKey: ['organizer-profile', currentUserKey, sensitiveAccessToken],
+    queryFn: () => fetchOrganizerProfile(sensitiveAccessToken),
+    enabled: Boolean(user && isOrganizer && organizerTwoFactorEnabled),
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
@@ -90,6 +98,16 @@ export function ProfilePage() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
+
+  useEffect(() => {
+    if (!sensitiveAccess?.expiresAt) return undefined
+    const remaining = Math.max(new Date(sensitiveAccess.expiresAt).getTime() - Date.now(), 0)
+    const timer = window.setTimeout(() => {
+      queryClient.removeQueries({ queryKey: ['organizer-profile', currentUserKey, sensitiveAccess.accessToken], exact: true })
+      setSensitiveAccess(null)
+    }, remaining)
+    return () => window.clearTimeout(timer)
+  }, [currentUserKey, queryClient, sensitiveAccess])
 
   if (isLoading) {
     return (
@@ -127,6 +145,10 @@ export function ProfilePage() {
         </div>
       </div>
     )
+  }
+
+  if (isOrganizer && !organizerTwoFactorEnabled) {
+    return <OrganizerTwoFactorGate user={user} />
   }
 
   return (
@@ -175,6 +197,7 @@ export function ProfilePage() {
           isLoading={organizerQuery.isLoading}
           error={organizerQuery.error}
           onRetry={() => queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })}
+          onSensitiveAccessGranted={setSensitiveAccess}
         />
       )}
       {!isOrganizer && (
@@ -186,26 +209,6 @@ export function ProfilePage() {
           onChangePassword={() => setMode('password')}
         />
       )}
-      {false && mode === 'edit' && isOrganizer && organizerQuery.isLoading && (
-        <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-lg border border-border-soft/50 bg-surface p-6 shadow-sm">
-          <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
-        </div>
-      )}
-      {false && mode === 'edit' && (!isOrganizer || !organizerQuery.isLoading) && (
-        <ProfileEdit
-          user={user}
-          organizer={organizerQuery.data}
-          isOrganizer={isOrganizer}
-          onDone={() => {
-            setMode('view')
-            queryClient.invalidateQueries({ queryKey: ['profile'] })
-            queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })
-          }}
-        />
-      )}
-      {false && mode === 'password' && <ChangePassword user={user} onDone={() => setMode('view')} />}
-
       <Modal open={mode === 'edit'} title="Chỉnh sửa hồ sơ" onClose={() => setMode('view')} maxWidth="max-w-5xl">
         {isOrganizer && organizerQuery.isLoading ? (
           <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
@@ -233,11 +236,238 @@ export function ProfilePage() {
   )
 }
 
-function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
+function OrganizerTwoFactorGate({ user }) {
+  const toast = useToast()
+  const queryClient = useQueryClient()
+  const userKey = getStoredUserKey(user)
+  const [challenge, setChallenge] = useState(null)
+  const [otp, setOtp] = useState('')
+  const [sending, setSending] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined
+    const timer = window.setTimeout(() => setCooldown((value) => Math.max(value - 1, 0)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [cooldown])
+
+  const sendOtp = async () => {
+    if (sending) return
+    setSending(true)
+    setOtp('')
+    try {
+      const data = await startTwoFactor(true)
+      if (data.alreadyEnabled) {
+        await queryClient.invalidateQueries({ queryKey: ['profile', userKey] })
+        return
+      }
+      setChallenge(data)
+      setCooldown(60)
+      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`)
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể gửi mã OTP.'))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const enableTwoFactor = async () => {
+    if (!challenge?.challengeId || otp.length !== 6 || verifying) return
+    setVerifying(true)
+    try {
+      await verifyTwoFactor({ challengeId: challenge.challengeId, otp })
+      toast.success('Đã bật xác thực 2 lớp. Bạn có thể xem hồ sơ Organizer.')
+      await queryClient.invalidateQueries({ queryKey: ['account-security', userKey] })
+      await queryClient.invalidateQueries({ queryKey: ['profile', userKey] })
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  return (
+    <div className="mx-auto flex min-h-[70vh] max-w-2xl items-center px-4 py-12">
+      <section className="w-full rounded-xl border border-warning/30 bg-surface p-6 text-content shadow-xl sm:p-8">
+        <div className="mx-auto grid size-16 place-items-center rounded-full bg-warning/10 text-warning">
+          <ShieldCheck className="size-8" />
+        </div>
+        <h1 className="mt-5 text-center font-display text-2xl font-extrabold">Bật xác thực 2 lớp để xem hồ sơ</h1>
+        <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-6 text-subtle">
+          Vì hồ sơ nhà tổ chức chứa thông tin pháp lý, EventHub bắt buộc bảo vệ tài khoản bằng OTP qua email.
+        </p>
+
+        <div className="mt-6 rounded-lg border border-border-soft/40 bg-background/30 p-4">
+          <p className="text-sm font-bold">Email nhận OTP</p>
+          <p className="mt-1 break-all text-sm text-subtle">{user?.email}</p>
+
+          {!challenge ? (
+            <button
+              type="button"
+              onClick={sendOtp}
+              disabled={sending}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-600 px-5 font-extrabold text-white shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:from-indigo-400 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            >
+              {sending && <Loader2 className="size-4 animate-spin" />}
+              Gửi OTP và bật 2FA
+            </button>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+                value={otp}
+                onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={(event) => event.key === 'Enter' && enableTwoFactor()}
+                placeholder="Nhập mã OTP 6 số"
+                className="h-12 w-full rounded-md border border-border-soft/50 bg-background/40 px-4 text-center text-lg font-bold tracking-[0.35em] outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+              />
+              <button
+                type="button"
+                onClick={enableTwoFactor}
+                disabled={verifying || otp.length !== 6}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-emerald-500 to-teal-600 px-5 font-extrabold text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+              >
+                {verifying && <Loader2 className="size-4 animate-spin" />}
+                Xác nhận và vào hồ sơ
+              </button>
+              <button
+                type="button"
+                onClick={sendOtp}
+                disabled={sending || cooldown > 0}
+                className="min-h-10 w-full text-sm font-bold text-indigo-500 transition hover:text-violet-500 disabled:text-muted"
+              >
+                {cooldown > 0 ? `Gửi lại sau ${cooldown}s` : 'Gửi lại OTP'}
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
+  const toast = useToast()
+  const [challenge, setChallenge] = useState(null)
+  const [otp, setOtp] = useState('')
+  const [sending, setSending] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined
+    const timer = window.setTimeout(() => setCooldown((value) => Math.max(value - 1, 0)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [cooldown])
+
+  const sendOtp = async () => {
+    if (sending) return
+    setSending(true)
+    setOtp('')
+    try {
+      const data = await startOrganizerSensitiveAccess()
+      setChallenge(data)
+      setCooldown(60)
+      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`)
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể gửi mã OTP.'))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const verifyOtp = async () => {
+    if (!challenge?.challengeId || otp.length !== 6 || verifying) return
+    setVerifying(true)
+    try {
+      const data = await verifyOrganizerSensitiveAccess({ challengeId: challenge.challengeId, otp })
+      toast.success('Đã xác thực. Thông tin pháp lý được mở khóa trong 10 phút.')
+      setChallenge(null)
+      setOtp('')
+      setCooldown(0)
+      onVerified(data)
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const closeModal = () => {
+    setChallenge(null)
+    setOtp('')
+    setCooldown(0)
+    onClose()
+  }
+
+  return (
+    <Modal open={open} title="Xác thực để xem thông tin pháp lý" onClose={closeModal} maxWidth="max-w-lg">
+      <div className="text-content">
+        <div className="flex gap-3 rounded-lg border border-warning/30 bg-warning/10 p-4">
+          <Lock className="mt-0.5 size-5 shrink-0 text-warning" />
+          <p className="text-sm leading-6 text-subtle">
+            Thông tin pháp lý và tài liệu xác minh chỉ hiển thị sau khi bạn nhập OTP gửi về email tài khoản.
+          </p>
+        </div>
+
+        {!challenge ? (
+          <button
+            type="button"
+            onClick={sendOtp}
+            disabled={sending}
+            className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-600 px-5 font-extrabold text-white shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:from-indigo-400 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+          >
+            {sending && <Loader2 className="size-4 animate-spin" />}
+            Gửi mã OTP qua email
+          </button>
+        ) : (
+          <div className="mt-5 space-y-3">
+            <p className="text-sm text-subtle">Mã đã gửi đến <strong className="text-content">{challenge.email}</strong>.</p>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              autoFocus
+              value={otp}
+              onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={(event) => event.key === 'Enter' && verifyOtp()}
+              placeholder="Nhập mã OTP 6 số"
+              className="h-12 w-full rounded-md border border-border-soft/50 bg-background/40 px-4 text-center text-lg font-bold tracking-[0.35em] outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+            />
+            <button
+              type="button"
+              onClick={verifyOtp}
+              disabled={verifying || otp.length !== 6}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-emerald-500 to-teal-600 px-5 font-extrabold text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            >
+              {verifying && <Loader2 className="size-4 animate-spin" />}
+              Xác thực và xem thông tin
+            </button>
+            <button
+              type="button"
+              onClick={sendOtp}
+              disabled={sending || cooldown > 0}
+              className="min-h-10 w-full text-sm font-bold text-indigo-500 transition hover:text-violet-500 disabled:text-muted"
+            >
+              {cooldown > 0 ? `Gửi lại sau ${cooldown}s` : 'Gửi lại OTP'}
+            </button>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSensitiveAccessGranted }) {
   const queryClient = useQueryClient()
   const toast = useToast()
   const [openSections, setOpenSections] = useState(() => new Set())
   const [verificationModalOpen, setVerificationModalOpen] = useState(false)
+  const [sensitiveModalOpen, setSensitiveModalOpen] = useState(false)
   const profileUpdateMutation = useMutation({
     mutationFn: submitOrganizerProfileUpdateRequest,
     onSuccess: () => {
@@ -292,7 +522,12 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
       String(item.request_action || '').toUpperCase() === 'PROFILE_UPDATE' &&
       String(item.status || '').toUpperCase() === 'PENDING',
   )
+  const sensitiveUnlocked = Boolean(organizer?.sensitive_access?.unlocked)
   const toggleSection = (sectionId) => {
+    if (['legal', 'documents'].includes(sectionId) && !sensitiveUnlocked) {
+      setSensitiveModalOpen(true)
+      return
+    }
     setOpenSections((current) => {
       const next = new Set(current)
       if (next.has(sectionId)) {
@@ -370,6 +605,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           icon={IdCard}
           isOpen={openSections.has('legal')}
           onToggle={toggleSection}
+          locked={!sensitiveUnlocked}
         >
           <VerificationUpdateHeader
             pending={pendingProfileUpdate}
@@ -398,6 +634,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           icon={FileCheck2}
           isOpen={openSections.has('documents')}
           onToggle={toggleSection}
+          locked={!sensitiveUnlocked}
         >
           <VerificationUpdateHeader
             pending={pendingProfileUpdate}
@@ -464,6 +701,15 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry }) {
           </div>
         </AccordionSection>
       </div>
+
+      <SensitiveProfileAccessModal
+        open={sensitiveModalOpen}
+        onClose={() => setSensitiveModalOpen(false)}
+        onVerified={(access) => {
+          onSensitiveAccessGranted(access)
+          setSensitiveModalOpen(false)
+        }}
+      />
 
       <Modal
         open={verificationModalOpen}
@@ -687,23 +933,15 @@ function OrganizerVerificationUpdateForm({
 }
 
 function DocumentUploadInput({ label, file, existingUrl, imageOnly = false, onChange }) {
-  const [previewUrl, setPreviewUrl] = useState('')
+  const previewUrl = useMemo(
+    () => (file?.type?.startsWith('image/') ? URL.createObjectURL(file) : ''),
+    [file],
+  )
 
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl('')
-      return undefined
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setPreviewUrl('')
-      return undefined
-    }
-
-    const nextUrl = URL.createObjectURL(file)
-    setPreviewUrl(nextUrl)
-    return () => URL.revokeObjectURL(nextUrl)
-  }, [file])
+    if (!previewUrl) return undefined
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
 
   const preview = previewUrl || (isImageUrl(existingUrl) ? existingUrl : '')
   const hasExisting = Boolean(existingUrl)
@@ -744,7 +982,7 @@ function DocumentUploadInput({ label, file, existingUrl, imageOnly = false, onCh
   )
 }
 
-function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, children }) {
+function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, locked = false, children }) {
   return (
     <section className="organizer-profile-panel overflow-hidden rounded-lg border">
       <button
@@ -757,7 +995,14 @@ function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, children })
           <Icon className="size-5" />
         </span>
         <span className="organizer-panel-title min-w-0 flex-1 font-display text-lg font-extrabold">{title}</span>
-        <ChevronDown className={`organizer-panel-chevron size-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        {locked ? (
+          <span className="inline-flex shrink-0 items-center gap-2 text-xs font-bold text-warning">
+            <Lock className="size-4" />
+            Xác thực OTP để xem
+          </span>
+        ) : (
+          <ChevronDown className={`organizer-panel-chevron size-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        )}
       </button>
       {isOpen && (
         <div className="organizer-panel-body border-t p-5">
@@ -1079,7 +1324,7 @@ function AccountSecurityPanel({ user }) {
             type="button"
             onClick={() => startOtp(!twoFactorEnabled)}
             disabled={sendingOtp || verifyingOtp}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-indigo-300/50 px-4 py-2 text-sm font-extrabold text-indigo-500 transition hover:border-violet-400/60 hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {twoFactorEnabled ? 'Tắt 2FA' : 'Bật 2FA'}
           </button>
@@ -1100,7 +1345,7 @@ function AccountSecurityPanel({ user }) {
                 type="button"
                 onClick={() => startOtp(Boolean(otpFlow.enabled))}
                 disabled={sendingOtp || cooldown > 0}
-                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-indigo-300/50 px-4 py-2 text-sm font-extrabold text-indigo-500 transition hover:border-violet-400/60 hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {cooldown > 0 ? `Gửi lại (${cooldown}s)` : 'Gửi lại OTP'}
               </button>
@@ -1120,7 +1365,7 @@ function AccountSecurityPanel({ user }) {
                 type="button"
                 onClick={verifyOtp}
                 disabled={verifyingOtp || sendingOtp || !otpFlow.challengeId || otp.length !== 6}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-sky-300/40 bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-2 text-sm font-extrabold text-white shadow-lg shadow-sky-900/20 transition-all hover:-translate-y-0.5 hover:from-sky-400 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-300/40 bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2 text-sm font-extrabold text-white shadow-lg shadow-emerald-900/20 transition-all hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
                 {verifyingOtp && <Loader2 className="size-4 animate-spin" />}
                 Xác nhận OTP

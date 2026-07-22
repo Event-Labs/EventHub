@@ -126,6 +126,15 @@ function buildStaffTicketPayload(row) {
       name: row.ticket_type_name,
       price: row.ticket_type_price ? Number(row.ticket_type_price) : undefined,
     },
+    seat: row.session_seat_id
+      ? {
+          session_seat_id: row.session_seat_id,
+          seat_id: row.seat_id,
+          row_label: row.row_label,
+          seat_number: row.seat_number,
+          label: [row.row_label, row.seat_number].filter(Boolean).join(''),
+        }
+      : null,
     order: {
       id: row.order_id,
       order_code: row.order_code,
