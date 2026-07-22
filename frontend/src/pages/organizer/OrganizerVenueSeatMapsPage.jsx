@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Pencil, Trash2 } from 'lucide-react'
 import {
   Badge,
+  ConfirmModal,
   OrganizerPage,
   OrganizerTable,
 } from './OrganizerComponents.jsx'
@@ -21,6 +22,7 @@ export function OrganizerVenueSeatMapsPage() {
   const [message, setMessage] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingSeatMapId, setEditingSeatMapId] = useState(null)
+  const [seatMapToDelete, setSeatMapToDelete] = useState(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -51,8 +53,10 @@ export function OrganizerVenueSeatMapsPage() {
     setEditingSeatMapId(null)
   }
 
-  async function handleDelete(seatMapId) {
-    if (!window.confirm('Xóa sơ đồ ghế này?')) return
+  async function confirmDeleteSeatMap() {
+    if (!seatMapToDelete) return
+    const seatMapId = seatMapToDelete
+    setSeatMapToDelete(null)
     try {
       await deleteSeatMap(seatMapId)
       setMessage('Đã xóa sơ đồ ghế.')
@@ -113,7 +117,7 @@ export function OrganizerVenueSeatMapsPage() {
               <button type="button" onClick={() => openEditor(sm.id)} title="Sửa">
                 <Pencil className="size-4 hover:text-tertiary transition-colors" />
               </button>
-              <button type="button" onClick={() => handleDelete(sm.id)} title="Xóa">
+              <button type="button" onClick={() => setSeatMapToDelete(sm.id)} title="Xóa">
                 <Trash2 className="size-4 text-error hover:opacity-80 transition-opacity" />
               </button>
             </div>,
@@ -141,6 +145,17 @@ export function OrganizerVenueSeatMapsPage() {
           onClose={closeEditor}
         />
       )}
+
+      <ConfirmModal
+        open={Boolean(seatMapToDelete)}
+        title="Xóa sơ đồ ghế"
+        message="Bạn có chắc chắn muốn xóa sơ đồ ghế này không? Hành động này không thể hoàn tác."
+        confirmText="Xóa sơ đồ"
+        cancelText="Hủy"
+        tone="danger"
+        onConfirm={confirmDeleteSeatMap}
+        onCancel={() => setSeatMapToDelete(null)}
+      />
     </OrganizerPage>
   )
 }

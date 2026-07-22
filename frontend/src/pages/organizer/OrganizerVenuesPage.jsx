@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPin, Pencil, Search, Trash2 } from 'lucide-react'
-import { OrganizerPage } from './OrganizerComponents.jsx'
+import { ConfirmModal, OrganizerPage } from './OrganizerComponents.jsx'
 import {
   createVenue,
   deleteVenue,
@@ -426,6 +426,7 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
 
 function VenueCard({ venue, onEdit, onDelete }) {
   const location = [venue.city, venue.district].filter(Boolean).join(', ')
+  const maxCap = venue.max_seats || venue.total_seats || 0
 
   return (
     <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm text-content">
@@ -437,7 +438,7 @@ function VenueCard({ venue, onEdit, onDelete }) {
           <h3 className="font-bold text-content truncate">{venue.name}</h3>
           <p className="mt-1 text-sm text-subtle truncate">{location || venue.address_line}</p>
           <p className="mt-2 text-xs text-muted">
-            {venue.seat_map_count || 0} sơ đồ · {venue.total_seats || 0} ghế
+            {venue.seat_map_count || 0} sơ đồ · Sức chứa tối đa: <span className="font-bold text-content">{maxCap}</span> ghế
           </p>
         </div>
       </div>
@@ -472,6 +473,7 @@ export function OrganizerVenuesPage() {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editVenue, setEditVenue] = useState(null)
+  const [venueToDelete, setVenueToDelete] = useState(null)
   const [message, setMessage] = useState('')
 
   const loadVenues = useCallback(async () => {
@@ -512,8 +514,10 @@ export function OrganizerVenuesPage() {
     setModalOpen(true)
   }
 
-  async function handleDelete(venue) {
-    if (!window.confirm(`Xóa địa điểm "${venue.name}"?`)) return
+  async function confirmDeleteVenue() {
+    if (!venueToDelete) return
+    const venue = venueToDelete
+    setVenueToDelete(null)
     try {
       await deleteVenue(venue.id)
       setMessage('Đã xóa địa điểm.')
@@ -563,7 +567,7 @@ export function OrganizerVenuesPage() {
               key={venue.id}
               venue={venue}
               onEdit={openEdit}
-              onDelete={handleDelete}
+              onDelete={(v) => setVenueToDelete(v)}
             />
           ))}
         </div>
@@ -579,6 +583,17 @@ export function OrganizerVenuesPage() {
           toast.success(message)
           loadVenues()
         }}
+      />
+
+      <ConfirmModal
+        open={Boolean(venueToDelete)}
+        title="Xóa địa điểm"
+        message={`Bạn có chắc chắn muốn xóa địa điểm "${venueToDelete?.name}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa địa điểm"
+        cancelText="Hủy"
+        tone="danger"
+        onConfirm={confirmDeleteVenue}
+        onCancel={() => setVenueToDelete(null)}
       />
     </OrganizerPage>
   )

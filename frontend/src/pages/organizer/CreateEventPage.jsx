@@ -11,6 +11,7 @@ import {
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { assignZones, getSeatMap } from '@/services/organizerSeatMaps.js'
 import { SeatMapPreview } from './SeatMapEditor.jsx'
+import { ConfirmModal } from './OrganizerComponents.jsx'
 import { uploadEventBanner, uploadEventThumbnail } from '@/services/uploads.js'
 import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
@@ -393,6 +394,24 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
     })
   }
 
+  const updateSessionFields = (key, fieldsObj) => {
+    setFormData((p) => {
+      let nextTickets = p.ticketTypes;
+      const nextSessions = p.sessions.map((s) => {
+        if (String(s.id || s.clientKey) === String(key)) {
+          let updated = { ...s, ...fieldsObj };
+          if (fieldsObj.venue_id !== undefined && s.venue_id !== fieldsObj.venue_id) {
+            nextTickets = nextTickets.filter(tt => String(tt.session_key) !== String(key) || !tt.is_seated);
+            updated = { ...updated, seat_map_id: null, zone_assignments: [] };
+          }
+          return updated;
+        }
+        return s;
+      });
+      return { ...p, sessions: nextSessions, ticketTypes: nextTickets };
+    })
+  }
+
   const removeSession = (key) => {
     setFormData((p) => ({
       ...p,
@@ -458,73 +477,85 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
 
                   {isExpanded && (
                     <div className="p-6 pt-4 border-t border-border-soft/30 bg-panel-soft/10">
-                      <div className="grid grid-cols-2 gap-6 mb-4">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-[13px] text-subtle block mb-2">Ngày bắt đầu</label>
-                            <input
-                              type="date"
-                              className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
-                              min={today}
-                              value={session.start_date || ''}
-                              onChange={(e) => updateSession(key, 'start_date', e.target.value)}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[13px] text-subtle block mb-2">Thời gian bắt đầu</label>
-                            <input
-                              type="time"
-                              className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                              value={session.start_time || ''}
-                              onChange={(e) => updateSession(key, 'start_time', e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-[13px] text-subtle block mb-2">Ngày kết thúc</label>
-                            <input
-                              type="date"
-                              className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                              min={session.start_date || today}
-                              value={session.end_date || ''}
-                              onChange={(e) => updateSession(key, 'end_date', e.target.value)}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[13px] text-subtle block mb-2">Thời gian kết thúc</label>
-                            <input
-                              type="time"
-                              className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                              value={session.end_time || ''}
-                              onChange={(e) => updateSession(key, 'end_time', e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-6 mb-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                         <div>
-                          <label className="text-[13px] text-subtle block mb-2">Ngày check-in (Tùy chọn)</label>
+                          <label className="text-[13px] text-subtle block mb-2 font-medium">Thời gian bắt đầu*</label>
                           <input
-                            type="date"
-                            className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                            value={session.checkin_start_date || ''}
-                            onChange={(e) => updateSession(key, 'checkin_start_date', e.target.value)}
+                            type="datetime-local"
+                            className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
+                            value={session.start_date && session.start_time ? `${session.start_date}T${session.start_time}` : ''}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              if (!val) {
+                                updateSessionFields(key, { start_date: '', start_time: '' })
+                              } else {
+                                const [d, t] = val.split('T')
+                                updateSessionFields(key, { start_date: d || '', start_time: t || '' })
+                              }
+                            }}
                           />
                         </div>
                         <div>
-                          <label className="text-[13px] text-subtle block mb-2">Giờ check-in (Tùy chọn)</label>
+                          <label className="text-[13px] text-subtle block mb-2 font-medium">Thời gian kết thúc*</label>
                           <input
-                            type="time"
-                            className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                            value={session.checkin_start_time || ''}
-                            onChange={(e) => updateSession(key, 'checkin_start_time', e.target.value)}
+                            type="datetime-local"
+                            className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
+                            value={session.end_date && session.end_time ? `${session.end_date}T${session.end_time}` : ''}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              if (!val) {
+                                updateSessionFields(key, { end_date: '', end_time: '' })
+                              } else {
+                                const [d, t] = val.split('T')
+                                updateSessionFields(key, { end_date: d || '', end_time: t || '' })
+                              }
+                            }}
                           />
                         </div>
                       </div>
+
+                      <div className="mb-4">
+                        <label className="text-[13px] text-subtle block mb-2 font-medium">Thời gian check-in (Tùy chọn)</label>
+                        <input
+                          type="datetime-local"
+                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                          value={session.checkin_start_date && session.checkin_start_time ? `${session.checkin_start_date}T${session.checkin_start_time}` : ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            if (!val) {
+                              updateSessionFields(key, { checkin_start_date: '', checkin_start_time: '' })
+                            } else {
+                              const [d, t] = val.split('T')
+                              updateSessionFields(key, { checkin_start_date: d || '', checkin_start_time: t || '' })
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {(() => {
+                        if (!session.start_date || !session.start_time) return null
+                        const startMs = new Date(`${session.start_date}T${session.start_time}`).getTime()
+                        const nowMs = Date.now()
+                        const hoursDiff = (startMs - nowMs) / (60 * 60 * 1000)
+                        if (hoursDiff <= 48 && hoursDiff > 0) {
+                          return (
+                            <div className="mb-4 p-4 rounded-xl border border-warning/30 bg-warning/10 text-warning text-xs space-y-1.5">
+                              <div className="flex items-center gap-1.5 font-bold">
+                                <Icon name="warning" className="text-sm text-warning" />
+                                <span>Cảnh báo tạo phiên sát giờ ({Math.round(hoursDiff * 10) / 10} giờ tới):</span>
+                              </div>
+                              <p className="leading-relaxed">
+                                Phiên này sẽ bắt đầu trong vòng 48h tới. Khi sự kiện được Admin phê duyệt, hệ thống sẽ tự động bật chế độ <strong>Khóa thời gian (Time-Lock 48h)</strong>. Lúc đó bạn sẽ không thể tự do chỉnh sửa thông tin/suất diễn trừ khi liên hệ Admin trợ giúp.
+                              </p>
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
+
                       <div>
                         <div className="flex justify-between items-center mb-2">
-                          <label className="text-[13px] text-subtle block">Chọn địa điểm*</label>
+                          <label className="text-[13px] text-subtle block font-medium">Chọn địa điểm*</label>
                           <button
                             type="button"
                             onClick={() => window.open('/organizer/venues', '_blank')}
@@ -576,8 +607,10 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                   <Icon name="pin_drop" className="text-[16px]" />
                   {[selectedVenue.address_line, selectedVenue.district, selectedVenue.city].filter(Boolean).join(', ')}
                 </p>
-                {selectedVenue.seat_count > 0 && (
-                  <p className="text-sm mt-2 text-subtle">Sức chứa: {selectedVenue.seat_count} chỗ</p>
+                {(selectedVenue.max_seats > 0 || selectedVenue.seat_count > 0) && (
+                  <p className="text-sm mt-2 text-subtle">
+                    Sức chứa tối đa: <span className="font-bold text-content">{selectedVenue.max_seats || selectedVenue.seat_count} chỗ</span> (Sơ đồ lớn nhất)
+                  </p>
                 )}
               </div>
             </section>
@@ -622,12 +655,60 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
   const [seatMapOptions, setSeatMapOptions] = useState({})
   const [loadedSeatMap, setLoadedSeatMap] = useState(null)
   const [loadingMaps, setLoadingMaps] = useState(false)
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false)
 
   const sessions = formData.sessions
   const activeSession = sessions[activeTab]
   const sessionKey = activeSession ? activeSession.id || activeSession.clientKey : null
   const seatingType = activeSession?.seating_type || 'GENERAL'
   const venue = venues.find((v) => v.id === activeSession?.venue_id)
+
+  const handleSyncSessionConfig = () => {
+    if (!activeSession) return
+    setFormData((p) => {
+      let copiedCount = 0;
+      const newSessions = p.sessions.map((s) => {
+        if (String(s.id || s.clientKey) === String(sessionKey)) return s;
+        if (s.venue_id !== activeSession.venue_id) return s;
+        copiedCount++;
+        return {
+          ...s,
+          seating_type: activeSession.seating_type,
+          seat_map_id: activeSession.seat_map_id,
+          zone_assignments: activeSession.zone_assignments ? [...activeSession.zone_assignments] : []
+        }
+      });
+
+      if (copiedCount === 0 && p.sessions.length > 1) {
+        window.dispatchEvent(new CustomEvent('eventhub:toast', { detail: { type: 'warning', message: 'Không có phiên nào khác cùng địa điểm để đồng bộ.' } }))
+        return p;
+      }
+
+      const newTicketTypes = p.ticketTypes.filter((t) => String(t.session_key) === String(sessionKey))
+      for (const s of newSessions) {
+        if (String(s.id || s.clientKey) === String(sessionKey) || s.venue_id !== activeSession.venue_id) continue
+        const cloned = newTicketTypes.map(t => {
+          const idStr = String(t.id || t.clientKey);
+          return {
+            ...t,
+            id: idStr.startsWith('tmp-') ? null : undefined,
+            clientKey: newClientKey(),
+            session_key: s.id || s.clientKey
+          };
+        })
+        newTicketTypes.push(...cloned)
+      }
+
+      const untouchedTicketTypes = p.ticketTypes.filter((t) => {
+        const sess = p.sessions.find(x => String(x.id || x.clientKey) === String(t.session_key));
+        return sess && sess.venue_id !== activeSession.venue_id && String(sess.id || sess.clientKey) !== String(sessionKey);
+      });
+
+      return { ...p, sessions: newSessions, ticketTypes: [...newTicketTypes, ...untouchedTicketTypes] }
+    })
+    window.dispatchEvent(new CustomEvent('eventhub:toast', { detail: { type: 'success', message: 'Đã áp dụng cấu hình cho các phiên cùng địa điểm.' } }))
+    setShowSyncConfirm(false)
+  }
 
   const sessionTickets = formData.ticketTypes.filter((tt) => tt.session_key === sessionKey)
 
@@ -1063,51 +1144,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           <div className="pt-8 border-t border-border-soft/30 w-full mt-4">
             <button
               type="button"
-              onClick={() => {
-                if (!window.confirm('Bạn có chắc chắn muốn áp dụng cấu hình sơ đồ ghế và vé của phiên này cho các phiên khác CÙNG ĐỊA ĐIỂM? Đối với các phiên khác địa điểm, cấu hình sẽ không được áp dụng.')) return
-                setFormData((p) => {
-                  let copiedCount = 0;
-                  const newSessions = p.sessions.map((s) => {
-                    if (String(s.id || s.clientKey) === String(sessionKey)) return s;
-                    if (s.venue_id !== activeSession.venue_id) return s;
-                    copiedCount++;
-                    return {
-                      ...s,
-                      seating_type: activeSession.seating_type,
-                      seat_map_id: activeSession.seat_map_id,
-                      zone_assignments: activeSession.zone_assignments ? [...activeSession.zone_assignments] : []
-                    }
-                  });
-
-                  if (copiedCount === 0 && p.sessions.length > 1) {
-                    window.dispatchEvent(new CustomEvent('eventhub:toast', { detail: { type: 'warning', message: 'Không có phiên nào khác cùng địa điểm để đồng bộ.' } }))
-                    return p;
-                  }
-
-                  const newTicketTypes = p.ticketTypes.filter((t) => String(t.session_key) === String(sessionKey))
-                  for (const s of newSessions) {
-                    if (String(s.id || s.clientKey) === String(sessionKey) || s.venue_id !== activeSession.venue_id) continue
-                    const cloned = newTicketTypes.map(t => {
-                      const idStr = String(t.id || t.clientKey);
-                      return {
-                        ...t,
-                        id: idStr.startsWith('tmp-') ? null : undefined,
-                        clientKey: newClientKey(),
-                        session_key: s.id || s.clientKey
-                      };
-                    })
-                    newTicketTypes.push(...cloned)
-                  }
-
-                  const untouchedTicketTypes = p.ticketTypes.filter((t) => {
-                    const sess = p.sessions.find(x => String(x.id || x.clientKey) === String(t.session_key));
-                    return sess && sess.venue_id !== activeSession.venue_id && String(sess.id || sess.clientKey) !== String(sessionKey);
-                  });
-
-                  return { ...p, sessions: newSessions, ticketTypes: [...newTicketTypes, ...untouchedTicketTypes] }
-                })
-                window.dispatchEvent(new CustomEvent('eventhub:toast', { detail: { type: 'success', message: 'Đã áp dụng cấu hình cho các phiên cùng địa điểm.' } }))
-              }}
+              onClick={() => setShowSyncConfirm(true)}
               className="flex w-full items-center justify-center gap-3 rounded-xl bg-tertiary/10 text-tertiary shadow-sm px-6 py-4 text-sm font-bold border border-tertiary/30 hover:bg-tertiary hover:text-white transition-all transform hover:scale-[1.01]"
             >
               <Icon name="content_copy" className="text-[20px]" />
@@ -1116,6 +1153,17 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
             <p className="text-center text-xs text-subtle mt-3 font-medium">Thay vì phải làm lại thủ công, bạn có thể đồng bộ cấu hình hiện tại sang tất cả các phiên cùng sự kiện.</p>
           </div>
         )}
+
+        <ConfirmModal
+          open={showSyncConfirm}
+          title="Đồng bộ cấu hình phiên"
+          message="Bạn có chắc chắn muốn áp dụng cấu hình sơ đồ ghế và vé của phiên này cho các phiên khác CÙNG ĐỊA ĐIỂM? Đối với các phiên khác địa điểm, cấu hình sẽ không được áp dụng."
+          confirmText="Đồng bộ ngay"
+          cancelText="Hủy"
+          tone="primary"
+          onConfirm={handleSyncSessionConfig}
+          onCancel={() => setShowSyncConfirm(false)}
+        />
       </div>
 
       <div className="col-span-12 space-y-6 lg:col-span-4 lg:sticky lg:top-20">

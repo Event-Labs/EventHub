@@ -20,11 +20,12 @@ class VenuesRepository {
       SELECT
         v.*,
         COUNT(DISTINCT sm.id)::int AS seat_map_count,
+        COALESCE(MAX(seat_cnt.c), 0)::int AS max_seats,
         COALESCE(SUM(seat_cnt.c), 0)::int AS total_seats
       FROM venues v
       LEFT JOIN seat_maps sm ON sm.venue_id = v.id AND sm.deleted_at IS NULL
       LEFT JOIN LATERAL (
-        SELECT COUNT(*)::int AS c FROM seats WHERE seat_map_id = sm.id
+        SELECT COUNT(*)::int AS c FROM seats WHERE seat_map_id = sm.id AND COALESCE(is_disabled, false) = false
       ) seat_cnt ON true
       WHERE v.organizer_id = $1 AND v.deleted_at IS NULL
       GROUP BY v.id
