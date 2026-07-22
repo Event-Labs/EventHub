@@ -59,7 +59,13 @@ class SeatMapsRepository {
 
   async countSessionUsage(seatMapId) {
     const { rows } = await db.query(
-      `SELECT COUNT(*)::int AS count FROM event_sessions WHERE seat_map_id = $1`,
+      `
+      SELECT COUNT(*)::int AS count
+      FROM event_sessions es
+      JOIN events e ON e.id = es.event_id
+      WHERE es.seat_map_id = $1
+        AND e.status NOT IN ('DRAFT', 'CANCELLED')
+      `,
       [seatMapId],
     );
     return rows[0]?.count || 0;
@@ -190,6 +196,8 @@ class SeatMapsRepository {
     try {
       await client.query('BEGIN');
 
+      await client.query(`DELETE FROM ticket_type_seats WHERE seat_id IN (SELECT id FROM seats WHERE seat_map_id = $1)`, [seatMapId]);
+      await client.query(`DELETE FROM session_seats WHERE seat_id IN (SELECT id FROM seats WHERE seat_map_id = $1)`, [seatMapId]);
       await client.query(`DELETE FROM seats WHERE seat_map_id = $1`, [seatMapId]);
       await client.query(`DELETE FROM seat_zones WHERE seat_map_id = $1`, [seatMapId]);
 
