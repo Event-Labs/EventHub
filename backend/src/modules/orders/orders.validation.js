@@ -1,4 +1,4 @@
-﻿const { z } = require('zod');
+const { z } = require('zod');
 
 const checkoutSchema = z.object({
   event_id: z.string().uuid(),
@@ -26,7 +26,7 @@ const checkoutSchema = z.object({
     .array(
       z.object({
         ticket_type_id: z.string().uuid(),
-        quantity: z.coerce.number().int().min(1).max(4),
+        quantity: z.coerce.number().int().min(1),
         session_seat_ids: z.array(z.string().uuid()).optional().default([]),
       }),
     )

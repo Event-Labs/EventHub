@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   ExternalLink,
@@ -120,12 +121,11 @@ function seatMapMetrics(seats, seatMap) {
 const SEAT_WIDTH = 28
 const SEAT_HEIGHT = 28
 const SEAT_X_GAP = 8
-const SEAT_Y_GAP = 8
 const SEAT_LAYOUT_PADDING = 20
-const SAME_ROW_MESSAGE = 'Vui l\u00f2ng ch\u1ecdn c\u00e1c gh\u1ebf trong c\u00f9ng m\u1ed9t h\u00e0ng ngang.'
-const ADJACENT_SEATS_MESSAGE = '\u0110\u1ec3 \u0111\u1ea3m b\u1ea3o tr\u1ea3i nghi\u1ec7m t\u1ed1t nh\u1ea5t, vui l\u00f2ng ch\u1ecdn c\u00e1c gh\u1ebf n\u1eb1m c\u1ea1nh nhau.'
-const LONELY_SEAT_MESSAGE = 'L\u1ef1a ch\u1ecdn c\u1ee7a b\u1ea1n s\u1ebd \u0111\u1ec3 l\u1ea1i m\u1ed9t gh\u1ebf tr\u1ed1ng \u0111\u01a1n l\u1ebb b\u00ean c\u1ea1nh. Vui l\u00f2ng ch\u1ecdn gh\u1ebf li\u1ec1n k\u1ec1 ho\u1eb7c thay \u0111\u1ed5i v\u1ecb tr\u00ed \u0111\u1ec3 kh\u00f4ng b\u1ecf tr\u1ed1ng gh\u1ebf \u0111\u01a1n l\u1ebb nh\u00e9!'
-
+const SAME_ROW_MESSAGE = 'C\u00e1c gh\u1ebf trong c\u00f9ng m\u1ed9t \u0111\u01a1n ph\u1ea3i thu\u1ed9c c\u00f9ng m\u1ed9t h\u00e0ng.'
+const ADJACENT_SEATS_MESSAGE = 'Vui l\u00f2ng ch\u1ecdn c\u00e1c gh\u1ebf li\u1ec1n k\u1ec1 nhau.'
+const AISLE_SEATS_MESSAGE = 'C\u00e1c gh\u1ebf \u0111\u00e3 ch\u1ecdn b\u1ecb ng\u0103n c\u00e1ch b\u1edfi l\u1ed1i \u0111i.'
+const LONELY_SEAT_MESSAGE = 'L\u1ef1a ch\u1ecdn n\u00e0y s\u1ebd \u0111\u1ec3 l\u1ea1i m\u1ed9t gh\u1ebf tr\u1ed1ng \u0111\u01a1n l\u1ebb. Vui l\u00f2ng ch\u1ecdn c\u1ea3 hai gh\u1ebf ho\u1eb7c ch\u1ecdn v\u1ecb tr\u00ed kh\u00e1c.'
 function seatId(seat) {
   return String(seat?.session_seat_id || seat?.id || '')
 }
@@ -208,69 +208,112 @@ function buildSeatLayout(seats, seatMap) {
   }
 }
 
+function sortedPhysicalSeats(seats) {
+  return [...seats].sort((a, b) => {
+    const left = Number(a.x_position)
+    const right = Number(b.x_position)
+    if (Number.isFinite(left) && Number.isFinite(right)) return left - right
+    return seatNumberValue(a) - seatNumberValue(b)
+  })
+}
+
+function physicalPosition(seat) {
+  const x = Number(seat?.x_position)
+  return Number.isFinite(x) ? x : seatNumberValue(seat)
+}
+
+function normalSeatGap(rowSeats) {
+  const sorted = sortedPhysicalSeats(rowSeats)
+  const gaps = sorted.slice(1).map((seat, index) => physicalPosition(seat) - physicalPosition(sorted[index])).filter((gap) => gap > 0).sort((a, b) => a - b)
+  return gaps.length ? gaps[Math.floor((gaps.length - 1) / 2)] : null
+}
+
+function physicalNeighborInfo(left, right, rowSeats) {
+  if (!left || !right || rowLabel(left) !== rowLabel(right)) return { adjacent: false, aisle: false }
+  const leftBlock = left.block_id || left.blockId
+  const rightBlock = right.block_id || right.blockId
+  if (leftBlock && rightBlock && String(leftBlock) !== String(rightBlock)) return { adjacent: false, aisle: true }
+
+  const explicitRight = left.right_neighbor_id || left.rightNeighborId
+  const explicitLeft = right.left_neighbor_id || right.leftNeighborId
+  if (explicitRight || explicitLeft) {
+    const linked = (!explicitRight || [seatId(right), String(right.seat_id || '')].includes(String(explicitRight))) &&
+      (!explicitLeft || [seatId(left), String(left.seat_id || '')].includes(String(explicitLeft)))
+    return { adjacent: linked, aisle: !linked }
+  }
+
+  const sorted = sortedPhysicalSeats(rowSeats)
+  const leftIndex = sorted.findIndex((seat) => seatId(seat) === seatId(left))
+  const rightIndex = sorted.findIndex((seat) => seatId(seat) === seatId(right))
+  if (leftIndex < 0 || rightIndex !== leftIndex + 1) return { adjacent: false, aisle: false }
+  const standardGap = normalSeatGap(rowSeats)
+  const gap = physicalPosition(right) - physicalPosition(left)
+  const aisle = standardGap !== null && gap > standardGap * 1.6
+  return { adjacent: !aisle, aisle }
+}
+
+function physicalSegments(rowSeats) {
+  const sorted = sortedPhysicalSeats(rowSeats)
+  const segments = []
+  let current = []
+  sorted.forEach((seat, index) => {
+    if (index > 0 && !physicalNeighborInfo(sorted[index - 1], seat, sorted).adjacent) {
+      if (current.length) segments.push(current)
+      current = []
+    }
+    current.push(seat)
+  })
+  if (current.length) segments.push(current)
+  return segments
+}
+
+function singletonSeatIds(rowSeats, selectedIds = new Set()) {
+  const singletons = new Set()
+  physicalSegments(rowSeats).forEach((segment) => {
+    let run = []
+    const flush = () => {
+      if (run.length === 1) singletons.add(seatId(run[0]))
+      run = []
+    }
+    segment.forEach((seat) => {
+      if (isSeatAvailable(seat) && !selectedIds.has(seatId(seat))) run.push(seat)
+      else flush()
+    })
+    flush()
+  })
+  return singletons
+}
+
 function validateSeatSelection({ rules: rawRules, selectedSeatIds, seats }) {
   const rules = normalizeSeatingRules(rawRules)
   const selectedIds = new Set((selectedSeatIds || []).map(String))
   const selected = (seats || []).filter((seat) => selectedIds.has(seatId(seat)))
-  const issues = []
+  if (!selected.length) return []
 
-  if (selected.length >= 2) {
-    const selectedRows = new Set(selected.map(rowLabel))
-    if ((rules.require_same_row || rules.require_adjacent_seats) && selectedRows.size > 1) {
-      issues.push(SAME_ROW_MESSAGE)
-    }
+  const selectedRows = new Set(selected.map(rowLabel))
+  if ((rules.require_same_row || rules.require_adjacent_seats) && selectedRows.size > 1) return [SAME_ROW_MESSAGE]
 
-    if (rules.require_adjacent_seats && selectedRows.size === 1) {
-      const sorted = [...selected].sort((a, b) => seatNumberValue(a) - seatNumberValue(b))
-      const adjacent = sorted.every((seat, index) => index === 0 || seatNumberValue(seat) - seatNumberValue(sorted[index - 1]) === 1)
-      if (!adjacent) {
-        issues.push(ADJACENT_SEATS_MESSAGE)
-      }
+  if (rules.require_adjacent_seats && selected.length >= 2) {
+    const rowSeats = (seats || []).filter((seat) => rowLabel(seat) === rowLabel(selected[0]))
+    const sorted = sortedPhysicalSeats(selected)
+    for (let index = 1; index < sorted.length; index += 1) {
+      const relation = physicalNeighborInfo(sorted[index - 1], sorted[index], rowSeats)
+      if (!relation.adjacent) return [relation.aisle ? AISLE_SEATS_MESSAGE : ADJACENT_SEATS_MESSAGE]
     }
   }
 
-  if (rules.disallow_single_seat_left && selected.length > 0) {
+  if (rules.disallow_single_seat_left) {
     const affectedRows = new Set(selected.map(rowLabel))
-    const rows = new Map()
-      ; (seats || []).forEach((seat) => {
-        const key = rowLabel(seat)
-        if (!affectedRows.has(key)) return
-        if (!rows.has(key)) rows.set(key, [])
-        rows.get(key).push(seat)
-      })
-
-    for (const rowSeats of rows.values()) {
-      const sorted = rowSeats.sort((a, b) => seatNumberValue(a) - seatNumberValue(b))
-      let availableBlock = 0
-      let previousNumber = null
-
-      for (const seat of sorted) {
-        const number = seatNumberValue(seat)
-        const contiguous = previousNumber === null || number - previousNumber === 1
-        const availableAfterSelection = isSeatAvailable(seat) && !selectedIds.has(seatId(seat))
-
-        if (!availableAfterSelection || !contiguous) {
-          if (availableBlock === 1) {
-            issues.push(LONELY_SEAT_MESSAGE)
-            return issues
-          }
-          availableBlock = availableAfterSelection ? 1 : 0
-        } else {
-          availableBlock += 1
-        }
-        previousNumber = number
-      }
-
-      if (availableBlock === 1) {
-        issues.push(LONELY_SEAT_MESSAGE)
-        return issues
-      }
+    for (const affectedRow of affectedRows) {
+      const rowSeats = (seats || []).filter((seat) => rowLabel(seat) === affectedRow)
+      const before = singletonSeatIds(rowSeats)
+      const after = singletonSeatIds(rowSeats, selectedIds)
+      if ([...after].some((id) => !before.has(id))) return [LONELY_SEAT_MESSAGE]
     }
   }
 
-  return issues
+  return []
 }
-
 function normalizeCart(cart) {
   return cart || null
 }
@@ -296,21 +339,24 @@ function clearBookingDraft() {
   window.sessionStorage.removeItem(BOOKING_DRAFT_KEY)
 }
 
-function bookingCartKey(cart) {
-  const session = cart?.selectedSession || cart?.items?.[0]?.session
-  return cart?.eventId && session?.id ? `${cart.eventId}:${session.id}` : ''
+function hasActiveSeatHold(cart) {
+  return Boolean(
+    (cart?.holdExpiresAt || cart?.hold_expires_at) &&
+    secondsLeft(cart.holdExpiresAt || cart.hold_expires_at) > 0 &&
+    (cart.selectedSeatIds?.length || cart.items?.some((item) => item.sessionSeatIds?.length)),
+  )
 }
 
 function initialCartFromLocation(location) {
   const locationCart = normalizeCart(location.state?.cart)
   const draftCart = readBookingDraft()
-  const cart = locationCart && bookingCartKey(locationCart) !== bookingCartKey(draftCart)
-    ? locationCart
-    : draftCart || locationCart
+  const restoredCart = locationCart || draftCart
+  const cart = location.pathname === '/booking/seats' && hasActiveSeatHold(restoredCart)
+    ? { ...restoredCart, selectedSeatIds: [], items: [] }
+    : restoredCart
   if (cart) saveBookingDraft(cart)
   return cart
 }
-
 function ticketTypeColor(ticketType, colorByTicketTypeId) {
   return (
     colorByTicketTypeId?.get(String(ticketType?.id)) ||
@@ -340,6 +386,7 @@ export function BookingSeatsPage() {
   )
   const [checkingAvailability, setCheckingAvailability] = useState(false)
   const [seatZoom, setSeatZoom] = useState(1)
+  const [invalidSeatId, setInvalidSeatId] = useState(null)
 
   const seatsQuery = useQuery({
     queryKey: ['session-seats', session?.id],
@@ -473,13 +520,14 @@ export function BookingSeatsPage() {
         ? current.filter((id) => id !== seatId)
         : [...current, seatId]
 
-      if (nextSeatIds.length > 4) {
-        toast.error('Bạn chỉ được chọn tối đa 4 ghế trong một đơn hàng.')
+      const issue = validateSeatSelection({ rules: seatingRules, selectedSeatIds: nextSeatIds, seats: seatData })[0] || ''
+      if (issue) {
+        setInvalidSeatId(seatId)
+        toast.error(issue)
+        window.setTimeout(() => setInvalidSeatId((currentId) => currentId === seatId ? null : currentId), 1200)
         return current
       }
-
-      const issue = validateSeatSelection({ rules: seatingRules, selectedSeatIds: nextSeatIds, seats: seatData })[0] || ''
-      if (issue) toast.error(issue)
+      setInvalidSeatId(null)
       return nextSeatIds
     })
   }
@@ -512,6 +560,7 @@ export function BookingSeatsPage() {
                       seatZoom={seatZoom}
                       colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
                       seatMap={seatsQuery.data?.seat_map}
+                      invalidSeatId={invalidSeatId}
                     />
                   </div>
                   <div className="flex shrink-0 flex-col gap-1.5">
@@ -826,8 +875,10 @@ export function BookingPaymentPage() {
     onSuccess: (data) => {
       toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       setCheckout(data)
-      setCart((current) => ({ ...current, holdExpiresAt: data.order?.expired_at || current?.holdExpiresAt }))
-      navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart, checkout: data } })
+      const paymentCart = { ...cart, holdExpiresAt: data.order?.expired_at || cart?.holdExpiresAt }
+      setCart(paymentCart)
+      saveBookingDraft(paymentCart)
+      navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart: paymentCart, checkout: data } })
     },
     onError: (err) => {
       const message = getApiMessage(err, 'Không thể tạo thanh toán PayOS. Vui lòng thử lại.')
@@ -954,7 +1005,8 @@ function BookingShell({ step, cart, children }) {
   const labels = ['Gh\u1ebf', 'Th\u00f4ng tin', 'Ki\u1ec3m tra', 'Thanh to\u00e1n']
   const navigate = useNavigate()
   const [tick, setTick] = useState(0)
-  const remaining = secondsLeft(cart?.holdExpiresAt) + tick * 0
+  const holdExpiresAt = cart?.holdExpiresAt || cart?.hold_expires_at
+  const remaining = secondsLeft(holdExpiresAt) + tick * 0
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000)
@@ -1006,10 +1058,10 @@ function BookingShell({ step, cart, children }) {
         {cart?.eventTitle && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 p-4">
             <div>
-              <p className="text-xs font-bold uppercase text-tertiary">Booking</p>
+              <p className="text-xs font-bold uppercase text-tertiary">{'\u0110\u1eb7t v\u00e9'}</p>
               <h2 className="font-display text-xl font-bold text-white">{cart.eventTitle}</h2>
             </div>
-            {cart.holdExpiresAt && (
+            {holdExpiresAt && (
               <div className="rounded-md bg-background px-4 py-2 font-mono text-lg font-bold text-tertiary">
                 {formatCountdown(remaining)}
               </div>
@@ -1208,192 +1260,51 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
   }
 
   return (
-    <ModalFrame onClose={onClose} light>
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <h2 className="text-xl font-bold text-slate-900">{'Ch\u1ecdn 1 voucher'}</h2>
-        <button type="button" onClick={onClose} className="text-slate-500">
+    <ModalFrame>
+      <div className="flex items-center justify-between border-b border-border-soft/50 pb-5">
+        <div>
+          <h2 className="mt-1 font-display text-2xl font-extrabold text-content">{'Ch\u1ecdn voucher'}</h2>
+        </div>
+        <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full text-muted transition hover:bg-panel-soft hover:text-content" aria-label="Close">
           <X className="size-5" />
         </button>
       </div>
-      <div className="mt-5 flex gap-3">
-        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-md border border-slate-300 px-3">
-          <Ticket className="size-5 text-slate-500" />
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder={'Nh\u1eadp m\u00e3 voucher'}
-            className="w-full outline-none"
-          />
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-lg border border-border-soft bg-background/60 px-4 transition focus-within:border-primary">
+          <Ticket className="size-5 text-primary" />
+          <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={'Nh\u1eadp m\u00e3 voucher'} className="w-full bg-transparent text-content outline-none placeholder:text-muted" />
         </div>
-        <button type="button" onClick={applyDraft} className="rounded-md bg-slate-200 px-5 font-bold text-slate-600">
-          {'\u00c1p d\u1ee5ng'}
-        </button>
+        <button type="button" onClick={applyDraft} className="rounded-lg bg-tertiary px-6 py-3 font-bold text-white transition hover:bg-orange-600">{'\u00c1p d\u1ee5ng'}</button>
       </div>
 
-      <h3 className="mt-6 font-bold text-slate-900">{'Voucher t\u1eeb Ban t\u1ed5 ch\u1ee9c'}</h3>
+      <h3 className="mt-6 font-display text-lg font-bold text-content">{'Voucher t\u1eeb Ban t\u1ed5 ch\u1ee9c'}</h3>
       <div className="mt-4 space-y-3">
-        {promosQuery.isLoading && (
-          <p className="py-8 text-center text-lg font-semibold text-slate-400">{'\u0110ang t\u1ea3i voucher...'}</p>
-        )}
-        {!promosQuery.isLoading && organizerPromos.length === 0 && (
-          <p className="py-8 text-center text-lg font-semibold text-slate-400">{'Ch\u01b0a c\u00f3 voucher n\u00e0o'}</p>
-        )}
+        {promosQuery.isLoading && <p className="rounded-lg border border-border-soft bg-panel py-8 text-center font-semibold text-muted">{'\u0110ang t\u1ea3i voucher...'}</p>}
+        {!promosQuery.isLoading && organizerPromos.length === 0 && <p className="rounded-lg border border-dashed border-border-soft bg-panel/60 py-8 text-center font-semibold text-muted">{'Ch\u01b0a c\u00f3 voucher n\u00e0o'}</p>}
         {organizerPromos.map((promo) => {
-          const checked =
-            selectedPromo?.id === promo.id ||
-            draft.trim().toUpperCase() === String(promo.code).toUpperCase()
+          const checked = selectedPromo?.id === promo.id || draft.trim().toUpperCase() === String(promo.code).toUpperCase()
           const usable = isPromoUsable(promo, subtotal)
-
           return (
-            <button
-              key={promo.id}
-              type="button"
-              disabled={!usable}
-              onClick={() => choosePromo(promo)}
-              className={`flex w-full items-center justify-between rounded-lg border p-4 text-left transition ${checked ? 'border-primary bg-primary/10' : 'border-slate-200'
-                } ${usable ? 'hover:border-primary' : 'cursor-not-allowed bg-slate-100 opacity-70'}`}
-            >
+            <button key={promo.id} type="button" disabled={!usable} onClick={() => choosePromo(promo)} className={`flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition ${checked ? 'border-primary bg-primary/10 shadow-lg shadow-primary/5' : 'border-border-soft bg-panel'} ${usable ? 'hover:border-primary/70 hover:bg-panel-soft' : 'cursor-not-allowed opacity-50'}`}>
               <div>
-                <p className="font-bold text-slate-900">{formatPromoTitle(promo)}</p>
-                <p className="mt-1 text-sm text-slate-600">{'M\u00e3'}: {promo.code}</p>
-                <p className="mt-1 text-sm text-slate-600">{'\u0110\u01a1n t\u1ed1i thi\u1ec3u'} {formatPrice(promo.min_order_value || 0)}</p>
-                {promo.discount_type === 'PERCENTAGE' && promo.max_discount !== null && promo.max_discount !== undefined && (
-                  <p className="mt-1 text-sm text-slate-600">{'Gi\u1ea3m t\u1ed1i \u0111a'} {formatPrice(promo.max_discount)}</p>
-                )}
+                <p className="font-bold text-content">{formatPromoTitle(promo)}</p>
+                <p className="mt-1 text-sm text-muted">{'M\u00e3'}: <span className="font-mono font-semibold text-primary">{promo.code}</span></p>
+                <p className="mt-1 text-sm text-muted">{'\u0110\u01a1n t\u1ed1i thi\u1ec3u'} {formatPrice(promo.min_order_value || 0)}</p>
+                {promo.discount_type === 'PERCENTAGE' && promo.max_discount !== null && promo.max_discount !== undefined && <p className="mt-1 text-sm text-muted">{'Gi\u1ea3m t\u1ed1i \u0111a'} {formatPrice(promo.max_discount)}</p>}
                 <p className="mt-2 text-sm text-primary">HSD: {formatDateOnly(promo.end_time)}</p>
-                {!usable && (
-                  <p className="mt-2 text-xs font-bold text-error">{'\u0110\u01a1n h\u00e0ng ch\u01b0a \u0111\u1ee7 \u0111i\u1ec1u ki\u1ec7n \u00e1p d\u1ee5ng'}</p>
-                )}
+                {!usable && <p className="mt-2 text-xs font-bold text-error">{'\u0110\u01a1n h\u00e0ng ch\u01b0a \u0111\u1ee7 \u0111i\u1ec1u ki\u1ec7n \u00e1p d\u1ee5ng'}</p>}
               </div>
-              <span className="grid size-8 place-items-center rounded-full border border-primary">
-                {checked && <span className="size-4 rounded-full bg-primary" />}
+              <span className={`grid size-7 shrink-0 place-items-center rounded-full border-2 ${checked ? 'border-primary' : 'border-border-soft'}`}>
+                {checked && <Check className="size-4 text-primary" />}
               </span>
             </button>
           )
         })}
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <button type="button" onClick={onClose} className="rounded-md border border-primary py-3 font-bold text-primary">
-          {'H\u1ee7y b\u1ecf'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            applyDraft()
-            onClose()
-          }}
-          className="rounded-md bg-primary py-3 font-bold text-slate-950"
-        >
-          Xong
-        </button>
-      </div>
-    </ModalFrame>
-  )
-}
-
-function VoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, cart, onClose }) {
-  return (
-    <OrganizerVoucherModal
-      promoCode={promoCode}
-      setPromoCode={setPromoCode}
-      selectedPromo={selectedPromo}
-      setSelectedPromo={setSelectedPromo}
-      cart={cart}
-      onClose={onClose}
-    />
-  )
-
-  const [draft, setDraft] = useState(promoCode || '')
-  const subtotal = cartTotal(cart)
-  const promosQuery = useQuery({
-    queryKey: ['available-event-promos', cart?.eventId],
-    queryFn: async () => {
-      const response = await promotionService.getAvailableEventPromos(cart.eventId)
-      return response.data.data || []
-    },
-    enabled: Boolean(cart?.eventId),
-  })
-  const organizerPromos = promosQuery.data || []
-  const promoByCode = useMemo(
-    () => new Map(organizerPromos.map((promo) => [String(promo.code).toUpperCase(), promo])),
-    [organizerPromos],
-  )
-  const draftPromo = promoByCode.get(draft.trim().toUpperCase()) || null
-
-  const applyDraft = () => {
-    const nextCode = draft.trim()
-    setPromoCode(nextCode)
-    setSelectedPromo(draftPromo)
-  }
-
-  const choosePromo = (promo) => {
-    if (!isPromoUsable(promo, subtotal)) return
-    setDraft(promo.code)
-    setPromoCode(promo.code)
-    setSelectedPromo(promo)
-  }
-
-  return (
-    <ModalFrame onClose={onClose} light>
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <h2 className="text-xl font-bold text-slate-900">{'Ch\u1ecdn t\u1ed1i \u0111a 2 voucher'}</h2>
-        <button type="button" onClick={onClose} className="text-slate-500">
-          <X className="size-5" />
-        </button>
-      </div>
-      <div className="mt-5 flex gap-3">
-        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-md border border-slate-300 px-3">
-          <Ticket className="size-5 text-slate-500" />
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder={'Nh\u1eadp m\u00e3 voucher'}
-            className="w-full outline-none"
-          />
-        </div>
-        <button type="button" onClick={() => setPromoCode(draft)} className="rounded-md bg-slate-200 px-5 font-bold text-slate-600">
-          {'\u00c1p d\u1ee5ng'}
-        </button>
-      </div>
-      <h3 className="mt-6 font-bold text-slate-900">{'Voucher t\u1eeb Ban t\u1ed5 ch\u1ee9c'}</h3>
-      <p className="mt-5 text-center text-lg font-semibold text-slate-400">{'Ch\u01b0a c\u00f3 voucher n\u00e0o'}</p>
-      <div className="my-6 border-t border-slate-200" />
-      <h3 className="font-bold text-slate-900">{'Voucher t\u1eeb EventHub'}</h3>
-      <div className="mt-4 space-y-3">
-        {suggested.map((code) => (
-          <button
-            key={code}
-            type="button"
-            onClick={() => setDraft(code)}
-            className={`flex w-full items-center justify-between rounded-lg border p-4 text-left ${draft === code ? 'border-primary bg-primary/10' : 'border-slate-200'
-              }`}
-          >
-            <div>
-              <p className="font-bold text-slate-900">{'Gi\u1ea3m'} {code === 'BLUE50' ? '50.000\u0111' : '100.000\u0111'}</p>
-              <p className="mt-1 text-sm text-slate-600">{'\u0110\u01a1n t\u1ed1i thi\u1ec3u 300.000\u0111'}</p>
-              <p className="mt-2 text-sm text-primary">HSD: 30/06/2026</p>
-            </div>
-            <span className="grid size-8 place-items-center rounded-full border border-primary">
-              {draft === code && <span className="size-4 rounded-full bg-primary" />}
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <button type="button" onClick={onClose} className="rounded-md border border-primary py-3 font-bold text-primary">
-          {'H\u1ee7y b\u1ecf'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setPromoCode(draft)
-            onClose()
-          }}
-          className="rounded-md bg-primary py-3 font-bold text-slate-950"
-        >
-          Xong
-        </button>
+      <div className="mt-6 grid grid-cols-1 gap-3 border-t border-border-soft/50 pt-5 sm:grid-cols-2">
+        <button type="button" onClick={onClose} className="rounded-lg border border-border-soft py-3 font-bold text-muted transition hover:border-content/40 hover:text-content">{'H\u1ee7y b\u1ecf'}</button>
+        <button type="button" onClick={() => { applyDraft(); onClose() }} className="rounded-lg bg-tertiary py-3 font-bold text-white transition hover:bg-orange-600">Xong</button>
       </div>
     </ModalFrame>
   )
@@ -1401,39 +1312,35 @@ function VoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo
 
 function CancelBookingModal({ onStay, onCancel }) {
   return createPortal(
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 px-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-7 text-slate-900 shadow-2xl">
-        <h2 className="text-center text-2xl font-bold">{'H\u1ee7y \u0111\u01a1n h\u00e0ng?'}</h2>
-        <p className="mt-4 text-center text-lg">{'B\u1ea1n c\u00f3 ch\u1eafc ch\u1eafn mu\u1ed1n ti\u1ebfp t\u1ee5c?'}</p>
-        <ul className="mx-auto mt-4 max-w-xs list-disc text-slate-700">
-          <li>{'B\u1ea1n s\u1ebd m\u1ea5t v\u1ecb tr\u00ed m\u00ecnh \u0111\u00e3 l\u1ef1a ch\u1ecdn.'}</li>
-          <li>{'\u0110\u01a1n h\u00e0ng \u0111ang thanh to\u00e1n c\u00f3 th\u1ec3 b\u1ecb h\u1ee7y.'}</li>
-        </ul>
-        <div className="mt-7 grid grid-cols-2 gap-3">
-          <button type="button" onClick={onCancel} className="rounded-md border border-error py-3 font-bold text-error">
-            {'H\u1ee7y \u0111\u01a1n'}
-          </button>
-          <button type="button" onClick={onStay} className="rounded-md bg-tertiary py-3 font-bold text-white">
-            {'\u1ede l\u1ea1i'}
-          </button>
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
+      <section role="alertdialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 text-content shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+        <div className="flex items-start gap-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-error/15"><AlertTriangle className="size-5 text-error" /></span>
+          <div>
+            <h2 id="cancel-booking-title" className="font-display text-xl font-extrabold">{'H\u1ee7y \u0111\u01a1n h\u00e0ng?'}</h2>
+            <p className="mt-1 text-sm text-muted">{'B\u1ea1n c\u00f3 ch\u1eafc ch\u1eafn mu\u1ed1n ti\u1ebfp t\u1ee5c?'}</p>
+          </div>
         </div>
-      </div>
+        <ul className="mt-5 space-y-2 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-muted">
+          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'B\u1ea1n s\u1ebd m\u1ea5t v\u1ecb tr\u00ed m\u00ecnh \u0111\u00e3 l\u1ef1a ch\u1ecdn.'}</span></li>
+          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'\u0110\u01a1n h\u00e0ng \u0111ang thanh to\u00e1n c\u00f3 th\u1ec3 b\u1ecb h\u1ee7y.'}</span></li>
+        </ul>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onStay} className="rounded-lg border border-border-soft px-5 py-3 font-bold text-muted transition hover:border-content/40 hover:text-content">{'\u1ede l\u1ea1i'}</button>
+          <button type="button" onClick={onCancel} className="rounded-lg bg-error px-5 py-3 font-bold text-white transition hover:bg-error/90">{'H\u1ee7y \u0111\u01a1n'}</button>
+        </div>
+      </section>
     </div>,
     document.body,
   )
 }
 
-function ModalFrame({ children, onClose, light = false }) {
+function ModalFrame({ children }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 px-4">
-      <div className={`max-h-[90vh] w-full max-w-xl overflow-auto rounded-lg p-6 shadow-2xl ${light ? 'bg-white text-slate-900' : 'bg-surface text-white'}`}>
-        {!light && (
-          <button type="button" onClick={onClose} className="float-right text-muted hover:text-white">
-            <X className="size-5" />
-          </button>
-        )}
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <section role="dialog" aria-modal="true" className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-2xl border border-border-soft/50 bg-surface p-6 text-content shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
         {children}
-      </div>
+      </section>
     </div>
   )
 }
@@ -1466,7 +1373,7 @@ function Input({ label, value, onChange, type = 'text', placeholder }) {
   )
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seatZoom, colsCount, seatMap }) {
+function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seatZoom, colsCount, seatMap, invalidSeatId }) {
   const metrics = seatMapMetrics(seats, seatMap)
   const renderSeat = (seat, style = {}) => {
     const selected = selectedSeatIds.includes(seat.session_seat_id)
@@ -1486,7 +1393,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, seat
         onClick={() => onToggleSeat(seat.session_seat_id)}
         title={title}
         style={{ width: SEAT_WIDTH, height: SEAT_HEIGHT, ...style }}
-        className={`rounded-md border text-[10px] font-bold transition ${selected
+        className={`rounded-md border text-[10px] font-bold transition ${String(invalidSeatId) === String(seat.session_seat_id) ? 'ring-2 ring-error/70 ' : ''}${selected
             ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
             : disabled
               ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'

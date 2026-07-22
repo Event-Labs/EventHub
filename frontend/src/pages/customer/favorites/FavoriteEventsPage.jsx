@@ -6,6 +6,7 @@ import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { fetchFavoriteEvents, toggleFavorite } from '@/services/events.js'
 import { getApiMessage } from '@/lib/messages.js'
+import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function FavoriteEventsPage() {
@@ -29,14 +30,17 @@ export function FavoriteEventsPage() {
 
   const favoriteMutation = useMutation({
     mutationFn: (event) => toggleFavorite(event.id),
-    onSuccess: () => {
-      toast.success('Đã bỏ sự kiện khỏi danh sách yêu thích.')
-      queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
-      queryClient.invalidateQueries({ queryKey: ['events'] })
+    onMutate: (event) => {
+      const isFavorited = !event.is_favorited
+      const snapshots = optimisticallySetFavorite(queryClient, event, isFavorited)
+      toast.success(isFavorited ? '\u0110\u00e3 l\u01b0u s\u1ef1 ki\u1ec7n v\u00e0o y\u00eau th\u00edch.' : '\u0110\u00e3 b\u1ecf s\u1ef1 ki\u1ec7n kh\u1ecfi y\u00eau th\u00edch.')
+      return { snapshots }
     },
-    onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể cập nhật danh sách yêu thích.'))
+    onError: (err, _event, context) => {
+      restoreFavoriteSnapshots(queryClient, context?.snapshots)
+      toast.error(getApiMessage(err, 'Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt danh s\u00e1ch y\u00eau th\u00edch.'))
     },
+    onSettled: () => refreshFavoriteQueries(queryClient),
   })
 
   if (!isAuthenticated) return null
