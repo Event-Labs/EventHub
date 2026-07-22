@@ -157,6 +157,15 @@ class PromotionsService {
       throw new AppError('You do not have permission to deactivate this promo code', 403, ErrorCodes.FORBIDDEN);
     }
 
+    const usageCount = Number(promo.usage_count || promo.used_count || 0);
+    if (usageCount > 0) {
+      throw new AppError(
+        'Promo code has already been used and cannot be deleted',
+        409,
+        ErrorCodes.PROMO_CODE_IN_USE,
+      );
+    }
+
     return promotionsRepository.softDelete(id);
   }
 
