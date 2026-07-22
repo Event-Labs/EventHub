@@ -314,7 +314,6 @@ class EventsRepository {
               AND o_sold.status = 'PAID'
               AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
           ) THEN 'SOLD'
-          WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
           WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
           ELSE ss.status
         END AS status,
@@ -449,8 +448,7 @@ class EventsRepository {
                 AND o_sold.status = 'PAID'
                 AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
             ) THEN 'SOLD'
-            WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
-            WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
+              WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
             ELSE ss.status
           END AS status,
           ss.held_until,
@@ -548,7 +546,6 @@ class EventsRepository {
               AND o_sold.status = 'PAID'
               AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
           ) THEN 'SOLD'
-          WHEN ss.status = 'HELD' AND ss.order_id IS NULL THEN 'AVAILABLE'
           WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
           ELSE ss.status
         END AS status,
@@ -633,37 +630,6 @@ class EventsRepository {
       await client.query('BEGIN');
       await this.expireStandaloneSeatHolds(client);
 
-      await client.query(
-        `
-        UPDATE ticket_holds th
-        SET status = 'CANCELLED', updated_at = now()
-        FROM ticket_types tt
-        JOIN event_sessions es ON es.id = tt.event_session_id
-        WHERE th.ticket_type_id = tt.id
-          AND es.event_id = $1
-          AND th.user_id = $2
-          AND th.order_id IS NULL
-          AND th.status = 'ACTIVE'
-          AND (array_length($3::uuid[], 1) IS NULL OR th.session_seat_id <> ALL($3::uuid[]))
-        `,
-        [payload.event_id, userId, requestedSeatIds],
-      );
-
-      await client.query(
-        `
-        UPDATE session_seats ss
-        SET status = 'AVAILABLE', held_by = NULL, held_until = NULL, order_id = NULL
-        FROM event_sessions es
-        WHERE ss.event_session_id = es.id
-          AND es.event_id = $1
-          AND ss.held_by = $2
-          AND ss.order_id IS NULL
-          AND ss.status = 'HELD'
-          AND (array_length($3::uuid[], 1) IS NULL OR ss.id <> ALL($3::uuid[]))
-        `,
-        [payload.event_id, userId, requestedSeatIds],
-      );
-
       if (requestedSeatIds.length === 0) {
         await client.query('COMMIT');
         return { hold_expires_at: null, hold_minutes: HOLD_MINUTES, seats: [] };
@@ -728,8 +694,8 @@ class EventsRepository {
         if (selectedSeatIds.length !== Number(item.quantity)) {
           throw new AppError('Số ghế đã chọn không khớp với số lượng vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
-        if (Number(item.quantity) > Math.min(Number(ticketType.max_per_order || 4), 4)) {
-          throw new AppError('Bạn chỉ được phép mua tối đa 4 vé trên một đơn hàng.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        if (ticketType.max_per_order && Number(item.quantity) > Number(ticketType.max_per_order)) {
+          throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ph\u00e9p mua t\u1ed1i \u0111a ${Number(ticketType.max_per_order)} v\u00e9 cho lo\u1ea1i v\u00e9 n\u00e0y trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
         const hasSeatMapping = await client.query(

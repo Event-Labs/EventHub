@@ -14,6 +14,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
+import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import '@/components/RichTextEditor.css'
 
@@ -121,16 +122,18 @@ export function EventDetailPage() {
   })
 
   const favoriteMutation = useMutation({
-    mutationFn: () => toggleFavorite(eventQuery.data.id),
-    onSuccess: () => {
-      toast.success(eventQuery.data?.is_favorited ? 'Đã bỏ sự kiện khỏi yêu thích.' : 'Đã lưu sự kiện vào yêu thích.')
-      queryClient.invalidateQueries({ queryKey: ['event-detail', eventId] })
-      queryClient.invalidateQueries({ queryKey: ['events'] })
-      queryClient.invalidateQueries({ queryKey: ['favorite-events'] })
+    mutationFn: (event) => toggleFavorite(event.id),
+    onMutate: (event) => {
+      const isFavorited = !event.is_favorited
+      const snapshots = optimisticallySetFavorite(queryClient, event, isFavorited)
+      toast.success(isFavorited ? '\u0110\u00e3 l\u01b0u s\u1ef1 ki\u1ec7n v\u00e0o y\u00eau th\u00edch.' : '\u0110\u00e3 b\u1ecf s\u1ef1 ki\u1ec7n kh\u1ecfi y\u00eau th\u00edch.')
+      return { snapshots }
     },
-    onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể cập nhật yêu thích. Vui lòng thử lại.'))
+    onError: (err, _event, context) => {
+      restoreFavoriteSnapshots(queryClient, context?.snapshots)
+      toast.error(getApiMessage(err, 'Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt y\u00eau th\u00edch. Vui l\u00f2ng th\u1eed l\u1ea1i.'))
     },
+    onSettled: () => refreshFavoriteQueries(queryClient),
   })
 
   const requireLogin = () => {
@@ -142,7 +145,7 @@ export function EventDetailPage() {
 
   const handleFavorite = () => {
     if (requireLogin()) return
-    favoriteMutation.mutate()
+    favoriteMutation.mutate(eventQuery.data)
   }
 
   const event = eventQuery.data
