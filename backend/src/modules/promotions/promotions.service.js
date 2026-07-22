@@ -9,7 +9,7 @@ class PromotionsService {
     const organizer = await eventsRepository.findOrganizerByUserId(userId);
     if (organizer) return organizer.id;
 
-    throw new AppError('Organizer record not found. Please complete your organizer profile.', 403, ErrorCodes.FORBIDDEN);
+    throw new AppError('Chưa tìm thấy hồ sơ nhà tổ chức. Vui lòng hoàn tất thông tin nhà tổ chức.', 403, ErrorCodes.FORBIDDEN);
   }
 
   async getAllPromos(userId, query) {
@@ -22,11 +22,11 @@ class PromotionsService {
     const organizerId = await this._getOrganizerId(userId);
     const promo = await promotionsRepository.findById(id);
     if (!promo) {
-      throw new AppError('Promo code not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy mã khuyến mãi.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
     
     if (promo.organizer_id !== organizerId) {
-      throw new AppError('You do not have permission to view this promo code', 403, ErrorCodes.FORBIDDEN);
+      throw new AppError('Bạn không có quyền xem mã khuyến mãi này.', 403, ErrorCodes.FORBIDDEN);
     }
     return this._calculateStatusAndUsage(promo);
   }
@@ -49,7 +49,7 @@ class PromotionsService {
 
     const events = await promotionsRepository.findEventsByIds(uniqueEventIds, organizerId);
     if (events.length !== uniqueEventIds.length) {
-      throw new AppError('All selected events must belong to your organizer', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Tất cả các sự kiện được chọn phải thuộc quyền sở hữu của nhà tổ chức.', 400, ErrorCodes.INVALID_INPUT);
     }
     return uniqueEventIds;
   }
@@ -91,7 +91,7 @@ class PromotionsService {
       } else {
         const eventIds = await this._assertOrganizerEvents(explicitEventIds, organizerId);
         if (!eventIds.length) {
-          throw new AppError('Please select at least one event for this promotion', 400, ErrorCodes.INVALID_INPUT);
+          throw new AppError('Vui lòng chọn ít nhất một sự kiện cho chương trình khuyến mãi.', 400, ErrorCodes.INVALID_INPUT);
         }
         normalized.eventIds = eventIds;
         normalized.event_id = eventIds[0];
@@ -111,7 +111,7 @@ class PromotionsService {
     const endTime = data.end_time || existingPromo?.end_time;
 
     if (startTime && endTime && new Date(startTime) >= new Date(endTime)) {
-      throw new AppError('Start time must be before end_time', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Thời gian bắt đầu phải diễn ra trước thời gian kết thúc.', 400, ErrorCodes.INVALID_INPUT);
     }
   }
 
@@ -133,11 +133,11 @@ class PromotionsService {
     const organizerId = await this._getOrganizerId(userId);
     const promo = await promotionsRepository.findById(id);
     if (!promo) {
-      throw new AppError('Promo code not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy mã khuyến mãi.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (promo.organizer_id !== organizerId) {
-      throw new AppError('You do not have permission to edit this promo code', 403, ErrorCodes.FORBIDDEN);
+      throw new AppError('Bạn không có quyền chỉnh sửa mã khuyến mãi này.', 403, ErrorCodes.FORBIDDEN);
     }
 
     this._assertValidTimeRange(data, promo);
@@ -150,17 +150,17 @@ class PromotionsService {
     const organizerId = await this._getOrganizerId(userId);
     const promo = await promotionsRepository.findById(id);
     if (!promo) {
-      throw new AppError('Promo code not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy mã khuyến mãi.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (promo.organizer_id !== organizerId) {
-      throw new AppError('You do not have permission to deactivate this promo code', 403, ErrorCodes.FORBIDDEN);
+      throw new AppError('Bạn không có quyền dừng mã khuyến mãi này.', 403, ErrorCodes.FORBIDDEN);
     }
 
     const usageCount = Number(promo.usage_count || promo.used_count || 0);
     if (usageCount > 0) {
       throw new AppError(
-        'Promo code has already been used and cannot be deleted',
+        'Mã khuyến mãi đã được sử dụng và không thể xóa.',
         409,
         ErrorCodes.PROMO_CODE_IN_USE,
       );
