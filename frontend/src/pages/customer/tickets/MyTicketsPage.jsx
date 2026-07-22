@@ -145,7 +145,7 @@ function TicketCard({ ticket }) {
 
         <div className="mt-5 grid gap-3 text-xs text-muted">
           <InfoLine icon={CalendarDays} value={formatDateTime(ticket.session?.start_time)} />
-          <InfoLine icon={Ticket} value={`${ticket.ticket_type.name} - ${seat}`} />
+          <InfoLine icon={Ticket} value={seat !== 'Free seating' ? `${ticket.ticket_type.name} · Ghế ${seat}` : ticket.ticket_type.name} />
           <InfoLine icon={MapPin} value={venueText} wrap />
           <InfoLine icon={CheckCircle2} value={ticket.check_in_status === 'CHECKED_IN' ? '\u0110\u00e3 check-in' : 'Ch\u01b0a check-in'} />
         </div>

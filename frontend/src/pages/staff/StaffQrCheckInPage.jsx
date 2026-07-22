@@ -98,6 +98,7 @@ function normalizeTicket(ticket) {
     buyerEmail: ticket.buyer?.email || ticket.order?.buyer_email || ticket.attendee_email || 'Không rõ',
     buyerPhone: ticket.buyer?.phone || ticket.order?.buyer_phone || '',
     ticketType: ticket.ticket_type?.name || 'Không rõ hạng vé',
+    seat: ticket.seat?.label || null,
     status: ticket.status,
     checkedInAt: ticket.checked_in_at,
     checkedInBy: ticket.checked_in_by?.name || ticket.checked_in_by?.email || 'Nhân sự hiện tại',
@@ -673,6 +674,7 @@ function ManualSearchPanel({
                     <p className="font-bold text-content">{normalized.buyerName}</p>
                     <p className="mt-1 text-sm text-subtle">
                       {normalized.ticketCode} - {normalized.ticketType}
+                      {normalized.seat ? ` · Ghế ${normalized.seat}` : ''}
                     </p>
                     <p className="mt-1 text-xs text-subtle">{normalized.eventName}</p>
                   </div>
@@ -739,6 +741,7 @@ function ResultPanel({ ticket, onClear }) {
         <InfoRow label="Email" value={ticket.buyerEmail} />
         <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
         <InfoRow label="Hạng vé" value={ticket.ticketType} />
+        {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
         <InfoRow label="Trạng thái" value={ticketStatusLabel(ticket)} strong />
         <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} />
         <InfoRow label="Check-in bởi" value={ticket.checkedInBy} />
@@ -784,6 +787,7 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
         <InfoRow label="Email" value={ticket.buyerEmail} />
         <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
         <InfoRow label="Hạng vé" value={ticket.ticketType} />
+        {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
         <InfoRow label="Trạng thái vé" value={ticketStatusLabel(ticket)} strong={isTicketCheckedIn(ticket)} />
         <InfoRow label="Thời gian soát vé" value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa soát vé'} />
       </div>

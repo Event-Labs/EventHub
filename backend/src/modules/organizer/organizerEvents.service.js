@@ -1,8 +1,39 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const crypto = require('crypto');
+const authRepository = require('../auth/auth.repository');
+const authService = require('../auth/auth.service');
 const organizerEventsRepository = require('./organizerEvents.repository');
 const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
 const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
+
+const ORGANIZER_PROFILE_OTP_KEY = 'organizer_profile_sensitive_otp';
+const ORGANIZER_PROFILE_ACCESS_KEY = 'organizer_profile_sensitive_access';
+const ORGANIZER_PROFILE_ACCESS_SECONDS = 10 * 60;
+const SENSITIVE_PROFILE_FIELDS = [
+  'tax_code',
+  'legal_document_url',
+  'business_license_url',
+  'legal_representative_name',
+  'legal_representative_position',
+  'legal_representative_id_url',
+  'authorization_letter_url',
+  'individual_full_name',
+  'individual_identity_number',
+  'individual_id_front_url',
+  'individual_id_back_url',
+  'individual_selfie_url',
+  'individual_tax_code',
+];
+
+function redactSensitiveProfileFields(record) {
+  if (!record) return record;
+  const safe = { ...record };
+  SENSITIVE_PROFILE_FIELDS.forEach((field) => {
+    if (field in safe) safe[field] = null;
+  });
+  return safe;
+}
 
 function mapEvent(row) {
   if (!row) return null;
@@ -108,6 +139,77 @@ function buildEditPermissions(context, now = Date.now()) {
 }
 
 class OrganizerEventsService {
+  async assertProfileTwoFactorEnabled(userId) {
+    const user = await authRepository.findUserById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404, ErrorCodes.AUTH_USER_NOT_FOUND);
+    }
+    if (!user.two_factor_enabled) {
+      throw new AppError(
+        'Two-factor authentication is required to view the organizer profile',
+        403,
+        ErrorCodes.TWO_FACTOR_REQUIRED,
+      );
+    }
+    return user;
+  }
+
+  async hasSensitiveProfileAccess(userId, accessToken) {
+    if (!accessToken) return null;
+    const access = await authRepository.getOtpChallenge(ORGANIZER_PROFILE_ACCESS_KEY, accessToken);
+    if (!access || access.userId !== userId || new Date(access.expiresAt).getTime() <= Date.now()) {
+      return null;
+    }
+    return access;
+  }
+
+  async getOrganizerProfileForView(userId, accessToken) {
+    await this.assertProfileTwoFactorEnabled(userId);
+    const profile = await this.getActiveOrganizerProfile(userId);
+    const access = await this.hasSensitiveProfileAccess(userId, accessToken);
+    const sensitiveAccess = {
+      unlocked: Boolean(access),
+      expires_at: access?.expiresAt || null,
+    };
+
+    if (access) return { ...profile, sensitive_access: sensitiveAccess };
+
+    return {
+      ...redactSensitiveProfileFields(profile),
+      source_request: redactSensitiveProfileFields(profile.source_request),
+      request_history: (profile.request_history || []).map(redactSensitiveProfileFields),
+      sensitive_access: sensitiveAccess,
+    };
+  }
+
+  async startSensitiveProfileAccess(userId) {
+    const user = await this.assertProfileTwoFactorEnabled(userId);
+    await this.getActiveOrganizerProfile(userId);
+    return authService.createOtpChallenge(ORGANIZER_PROFILE_OTP_KEY, {
+      userId,
+      email: user.email,
+      subject: 'Ma OTP xem ho so xac minh Organizer EventHub',
+    });
+  }
+
+  async verifySensitiveProfileAccess(userId, challengeId, otp) {
+    const user = await this.assertProfileTwoFactorEnabled(userId);
+    const challenge = await authService.consumeOtpChallenge(ORGANIZER_PROFILE_OTP_KEY, challengeId, otp);
+    if (challenge.userId !== userId) {
+      throw new AppError('Ma OTP khong hop le', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    const accessToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + ORGANIZER_PROFILE_ACCESS_SECONDS * 1000);
+    await authRepository.saveOtpChallenge(ORGANIZER_PROFILE_ACCESS_KEY, accessToken, {
+      userId,
+      email: user.email,
+      expiresAt: expiresAt.toISOString(),
+    }, expiresAt);
+
+    return { accessToken, expiresAt: expiresAt.toISOString() };
+  }
+
   async getEditContext(eventId) {
     const context = await organizerEventsRepository.findEventEditContext(eventId);
     return { context, permissions: buildEditPermissions(context) };
@@ -144,7 +246,8 @@ class OrganizerEventsService {
     };
   }
 
-  async updateActiveOrganizerProfile(userId, payload = {}) {
+  async updateActiveOrganizerProfile(userId, payload = {}, accessToken = null) {
+    await this.assertProfileTwoFactorEnabled(userId);
     const organizer = await organizerEventsRepository.findOrganizerByUserId(userId);
     if (!organizer) {
       throw new AppError('Organizer profile not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
@@ -167,7 +270,7 @@ class OrganizerEventsService {
     }
 
     await organizerEventsRepository.updateOrganizerProfileByUserId(userId, updates);
-    return this.getActiveOrganizerProfile(userId);
+    return this.getOrganizerProfileForView(userId, accessToken);
   }
 
   async resolveOrganizerId(userId) {

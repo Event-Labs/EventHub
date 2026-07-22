@@ -1,7 +1,21 @@
 import { http } from '@/services/http.js'
 
-export async function fetchOrganizerProfile() {
-  const response = await http.get('/organizer/events/me')
+export async function fetchOrganizerProfile(sensitiveAccessToken = null) {
+  const response = await http.get('/organizer/events/me', {
+    headers: sensitiveAccessToken
+      ? { 'X-Organizer-Sensitive-Token': sensitiveAccessToken }
+      : undefined,
+  })
+  return response.data.data
+}
+
+export async function startOrganizerSensitiveAccess() {
+  const response = await http.post('/organizer/events/me/sensitive-access/start')
+  return response.data.data
+}
+
+export async function verifyOrganizerSensitiveAccess({ challengeId, otp }) {
+  const response = await http.post('/organizer/events/me/sensitive-access/verify', { challengeId, otp })
   return response.data.data
 }
 

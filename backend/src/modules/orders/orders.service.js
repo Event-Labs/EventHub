@@ -75,6 +75,7 @@ function mapVenue(row) {
   return {
     name: row.name || row.venue_name || null,
     address_line: row.address_line || null,
+    ward: row.ward || null,
     district: row.district || null,
     city: row.city || null,
   };
@@ -169,6 +170,7 @@ function mapStaffDirectBooking(data) {
         start_time: ticket.session_start_time,
         end_time: ticket.session_end_time,
       },
+      seat: ticket.seat_label ? { label: ticket.seat_label } : null,
       venue: mapVenue(ticket),
     })),
   };
