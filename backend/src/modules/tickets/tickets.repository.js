@@ -31,7 +31,12 @@ const STAFF_TICKET_SELECT = `
     o.buyer_phone,
     checker.id AS checked_in_by_id,
     checker.full_name AS checked_in_by_name,
-    checker.email AS checked_in_by_email
+    checker.email AS checked_in_by_email,
+    ss.id AS session_seat_id,
+    ss.status AS session_seat_status,
+    s.id AS seat_id,
+    s.row_label,
+    s.seat_number
   FROM tickets t
   JOIN order_items oi ON oi.id = t.order_item_id
   JOIN orders o ON o.id = oi.order_id
@@ -39,6 +44,8 @@ const STAFF_TICKET_SELECT = `
   JOIN event_sessions es ON es.id = t.event_session_id
   JOIN ticket_types tt ON tt.id = t.ticket_type_id
   LEFT JOIN users checker ON checker.id = t.checked_in_by
+  LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+  LEFT JOIN seats s ON s.id = ss.seat_id
 `;
 
 class TicketsRepository {

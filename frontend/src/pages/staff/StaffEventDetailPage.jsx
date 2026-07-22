@@ -84,8 +84,8 @@ export function StaffEventDetailPage() {
       <StaffPanel className="mb-5">
         <div className="grid gap-5 md:grid-cols-[180px_1fr]">
           <div className="grid h-36 place-items-center overflow-hidden rounded-lg bg-panel-soft text-primary">
-            {event.thumbnail_url || event.banner_url ? (
-              <img src={event.thumbnail_url || event.banner_url} alt={event.title} className="h-full w-full object-cover" />
+            {event.banner_url || event.thumbnail_url ? (
+              <img src={event.banner_url || event.thumbnail_url} alt={event.title} className="h-full w-full object-cover" />
             ) : (
               <Calendar className="size-12" />
             )}
