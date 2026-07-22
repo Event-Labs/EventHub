@@ -132,6 +132,7 @@ class EventsService {
   }
 
   async getSessionSeats(sessionId, query) {
+    await eventsRepository.ensureSessionSeats(sessionId);
     const rows = await eventsRepository.findSessionSeats(sessionId, query.ticket_type_id);
     const first = rows[0];
     return {

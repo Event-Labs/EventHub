@@ -10,6 +10,7 @@ const FILTERS = [
   { value: 'ALL', label: 'Tất cả' },
   { value: 'VALID', label: 'Hợp lệ' },
   { value: 'USED', label: 'Đã dùng' },
+  { value: 'EXPIRED', label: 'Hết hạn' },
   { value: 'CANCELLED', label: 'Đã hủy' },
 ]
 
@@ -28,6 +29,10 @@ function statusMeta(ticket) {
 
   if (ticket.status === 'CANCELLED') {
     return { label: 'Đã hủy', className: 'bg-error/15 text-error' }
+  }
+
+  if (ticket.status === 'EXPIRED') {
+    return { label: 'Hết hạn', className: 'bg-error/15 text-error' }
   }
 
   if (ticket.checked_in_at) {
@@ -76,7 +81,7 @@ export function MyTicketsPage() {
           title="Vé của tôi"
           description="Quản lý vé đã mua, trạng thái sử dụng và thông tin check-in"
         />
-        <div className="grid w-full grid-cols-4 rounded-full border border-white/10 bg-[#151d34] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:w-[460px]">
+        <div className="grid w-full grid-cols-5 rounded-full border border-white/10 bg-[#151d34] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:w-[560px]">
           {FILTERS.map((item) => (
             <button
               key={item.value}
@@ -123,7 +128,7 @@ function TicketCard({ ticket }) {
   const meta = statusMeta(ticket)
   const venue = venueLine(ticket)
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ') || 'N/A'
-  const seat = ticket.seat?.label || 'Free seating'
+  const seat = ticket.seat?.label
 
   return (
     <Link
@@ -145,9 +150,9 @@ function TicketCard({ ticket }) {
 
         <div className="mt-5 grid gap-3 text-xs text-muted">
           <InfoLine icon={CalendarDays} value={formatDateTime(ticket.session?.start_time)} />
-          <InfoLine icon={Ticket} value={seat !== 'Free seating' ? `${ticket.ticket_type.name} · Ghế ${seat}` : ticket.ticket_type.name} />
+          <InfoLine icon={Ticket} value={seat ? `${ticket.ticket_type.name} · Ghế ${seat}` : `${ticket.ticket_type.name} · Khu vực đứng`} />
           <InfoLine icon={MapPin} value={venueText} wrap />
-          <InfoLine icon={CheckCircle2} value={ticket.check_in_status === 'CHECKED_IN' ? '\u0110\u00e3 check-in' : 'Ch\u01b0a check-in'} />
+          <InfoLine icon={CheckCircle2} value={ticket.status === 'EXPIRED' ? 'Đã hết hạn check-in' : ticket.check_in_status === 'CHECKED_IN' ? '\u0110\u00e3 check-in' : 'Ch\u01b0a check-in'} />
         </div>
       </section>
 
