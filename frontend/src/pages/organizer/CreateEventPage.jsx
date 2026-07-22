@@ -1210,6 +1210,43 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
 
                           const ticketKey = ticket ? ticket.id || ticket.clientKey : null
 
+                          const ensureGroupTicket = (extraFields = {}) => {
+                            if (ticketKey) {
+                              setFormData((p) => ({
+                                ...p,
+                                ticketTypes: p.ticketTypes.map((tItem) => {
+                                  const currentKey = tItem.id || tItem.clientKey
+                                  if (currentKey === ticketKey) {
+                                    return { ...tItem, ...extraFields }
+                                  }
+                                  return tItem
+                                }),
+                              }))
+                              return ticketKey
+                            }
+
+                            const newKey = newClientKey()
+                            const newTicket = {
+                              clientKey: newKey,
+                              session_key: sessionKey,
+                              name: group.name,
+                              description: '',
+                              price: '',
+                              quantity: group.totalQuantity,
+                              is_seated: group.isSeated,
+                              zone_ids: group.zoneIds,
+                              standing_area_ids: group.standingAreaIds,
+                              zone_id: group.zoneIds[0] || null,
+                              standing_area_id: group.standingAreaIds[0] || null,
+                              ...extraFields,
+                            }
+                            setFormData((p) => ({
+                              ...p,
+                              ticketTypes: [...p.ticketTypes, newTicket],
+                            }))
+                            return newKey
+                          }
+
                           return (
                             <tr key={group.groupKey} className="hover:bg-panel-soft/30 transition text-content border-b border-border-soft/20">
                               <td className="py-4 pr-4 align-top">
@@ -1245,98 +1282,65 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                                     className="h-9 w-full max-w-[240px] rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-xs font-bold text-content outline-none focus:border-tertiary shadow-inner"
                                     value={ticket?.name ?? group.name}
                                     onChange={(e) => {
-                                      if (ticketKey) updateTicket(ticketKey, 'name', e.target.value)
+                                      ensureGroupTicket({ name: e.target.value })
                                     }}
                                     placeholder="Tên loại vé..."
                                   />
                                 </div>
                                 <div>
-                                  {ticketKey && (
-                                    ticket?.description?.trim() ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setDescModalState({
-                                            isOpen: true,
-                                            ticketName: ticket.name || group.name,
-                                            initialDescription: ticket.description || '',
-                                            onSave: (newDesc) => {
-                                              updateTicket(ticketKey, 'description', newDesc)
-                                              setDescModalState({ isOpen: false })
-                                            },
-                                          })
-                                        }}
-                                        className="flex items-center gap-1.5 rounded-lg border border-tertiary/30 bg-tertiary/10 px-2.5 py-1 text-xs font-semibold text-tertiary hover:bg-tertiary/20 transition max-w-[280px] text-left truncate"
-                                        title={ticket.description}
-                                      >
-                                        <span>📝</span>
-                                        <span className="truncate">{ticket.description}</span>
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setDescModalState({
-                                            isOpen: true,
-                                            ticketName: ticket?.name || group.name,
-                                            initialDescription: '',
-                                            onSave: (newDesc) => {
-                                              updateTicket(ticketKey, 'description', newDesc)
-                                              setDescModalState({ isOpen: false })
-                                            },
-                                          })
-                                        }}
-                                        className="flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft px-2.5 py-1 text-xs font-semibold text-subtle hover:text-tertiary hover:border-tertiary/50 transition"
-                                      >
-                                        <span>+ Thêm mô tả</span>
-                                      </button>
-                                    )
+                                  {ticket?.description?.trim() ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDescModalState({
+                                          isOpen: true,
+                                          ticketName: ticket?.name || group.name,
+                                          initialDescription: ticket.description || '',
+                                          onSave: (newDesc) => {
+                                            ensureGroupTicket({ description: newDesc })
+                                            setDescModalState({ isOpen: false })
+                                          },
+                                        })
+                                      }}
+                                      className="flex items-center gap-1.5 rounded-lg border border-tertiary/30 bg-tertiary/10 px-2.5 py-1 text-xs font-semibold text-tertiary hover:bg-tertiary/20 transition max-w-[280px] text-left truncate"
+                                      title={ticket.description}
+                                    >
+                                      <span>📝</span>
+                                      <span className="truncate">{ticket.description}</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDescModalState({
+                                          isOpen: true,
+                                          ticketName: ticket?.name || group.name,
+                                          initialDescription: '',
+                                          onSave: (newDesc) => {
+                                            ensureGroupTicket({ description: newDesc })
+                                            setDescModalState({ isOpen: false })
+                                          },
+                                        })
+                                      }}
+                                      className="flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft px-2.5 py-1 text-xs font-semibold text-subtle hover:text-tertiary hover:border-tertiary/50 transition"
+                                    >
+                                      <span>+ Thêm mô tả</span>
+                                    </button>
                                   )}
                                 </div>
                               </td>
 
                               <td className="py-4 align-top">
-                                {ticketKey ? (
-                                  <input
-                                    type="text"
-                                    placeholder="VD: 500.000"
-                                    className="h-9 w-36 rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm font-extrabold text-content outline-none focus:border-tertiary shadow-inner"
-                                    value={formatPriceString(ticket?.price)}
-                                    onChange={(e) => {
-                                      const rawNum = parsePriceNumber(e.target.value)
-                                      updateTicket(ticketKey, 'price', rawNum)
-                                    }}
-                                  />
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newKey = newClientKey()
-                                      setFormData((p) => ({
-                                        ...p,
-                                        ticketTypes: [
-                                          ...p.ticketTypes,
-                                          {
-                                            clientKey: newKey,
-                                            session_key: sessionKey,
-                                            name: group.name,
-                                            description: '',
-                                            price: '',
-                                            quantity: group.totalQuantity,
-                                            is_seated: group.isSeated,
-                                            zone_ids: group.zoneIds,
-                                            standing_area_ids: group.standingAreaIds,
-                                            zone_id: group.zoneIds[0] || null,
-                                            standing_area_id: group.standingAreaIds[0] || null,
-                                          },
-                                        ],
-                                      }))
-                                    }}
-                                    className="text-xs font-bold text-tertiary hover:underline"
-                                  >
-                                    + Đặt giá ({group.name})
-                                  </button>
-                                )}
+                                <input
+                                  type="text"
+                                  placeholder="VD: 500.000"
+                                  className="h-9 w-36 rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm font-extrabold text-content outline-none focus:border-tertiary shadow-inner"
+                                  value={ticket?.price !== undefined && ticket?.price !== null ? formatPriceString(ticket.price) : ''}
+                                  onChange={(e) => {
+                                    const rawNum = parsePriceNumber(e.target.value)
+                                    ensureGroupTicket({ price: rawNum })
+                                  }}
+                                />
                               </td>
                             </tr>
                           )
