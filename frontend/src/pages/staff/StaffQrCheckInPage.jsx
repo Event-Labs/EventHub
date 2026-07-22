@@ -534,8 +534,6 @@ export function ManualCheckInPage() {
           results={searchResults}
           selectedTicket={selectedTicket}
           onSelectTicket={setSelectedTicket}
-          onCheckIn={handleManualCheckIn}
-          checkInState={checkInState}
           assignedEvents={assignedEvents}
           eventsState={eventsState}
           eventsMessage={eventsMessage}
@@ -566,8 +564,6 @@ function ManualSearchPanel({
   results,
   selectedTicket,
   onSelectTicket,
-  onCheckIn,
-  checkInState,
   assignedEvents,
   eventsState,
   eventsMessage,
@@ -686,14 +682,6 @@ function ManualSearchPanel({
             )
           })}
 
-          {state !== 'loading' && selectedTicket && canCheckInTicket(normalizeTicket(selectedTicket)) && (
-            <div className="flex justify-end">
-              <button className="admin-primary" onClick={() => onCheckIn(selectedTicket)} disabled={checkInState === 'checking'}>
-                {checkInState === 'checking' ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
-                Xác nhận soát vé
-              </button>
-            </div>
-          )}
         </div>
       )}
     </StaffPanel>

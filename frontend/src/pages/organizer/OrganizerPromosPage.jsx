@@ -44,6 +44,7 @@ const formatVnd = (value) => Number(value || 0).toLocaleString('vi-VN', {
 })
 
 const PROMO_MESSAGE_LABELS = {
+  'Promo code has already been used and cannot be deleted': 'Mã khuyến mãi đã được sử dụng và không thể xóa',
   'Promo code already exists': 'Mã khuyến mãi đã tồn tại',
   'Promo code not found': 'Không tìm thấy mã khuyến mãi',
   'Discount type must be PERCENTAGE or FIXED': 'Loại giảm giá không hợp lệ',
@@ -237,6 +238,12 @@ export function OrganizerPromosPage() {
   }
 
   const handleDelete = async () => {
+    const usageCount = Number(selectedPromo?.usage_count || selectedPromo?.used_count || 0)
+    if (usageCount > 0) {
+      toast.error('Mã khuyến mãi đã được sử dụng và không thể xóa.')
+      setShowDeleteModal(false)
+      return
+    }
     try {
       await promotionService.deactivatePromo(selectedPromo.id)
       setShowDeleteModal(false)
@@ -391,16 +398,16 @@ export function OrganizerPromosPage() {
             <span key="period" className="whitespace-nowrap text-sm text-subtle">{formatDateRange(promo.start_time, promo.end_time)}</span>,
             <StatusBadge key="status" status={promo.status} />,
             <div key="actions" className="flex items-center gap-3 text-muted">
-              <button onClick={() => openDetail(promo)} className="hover:text-tertiary transition-colors" title="Xem chi tiết"><Eye className="size-4" /></button>
+              <button onClick={() => openDetail(promo)} className="rounded-md p-1.5 text-sky-500 transition-all hover:scale-110 hover:bg-sky-500/10 hover:text-sky-400" title="Xem chi tiết"><Eye className="size-4" /></button>
               <button 
                 onClick={() => openEdit(promo)} 
-                className={`hover:text-tertiary transition-colors ${promo.status === 'Expired' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`rounded-md p-1.5 text-violet-500 transition-all hover:scale-110 hover:bg-violet-500/10 hover:text-violet-400 ${promo.status === 'Expired' ? 'cursor-not-allowed opacity-50' : ''}`}
                 title="Chỉnh sửa"
                 disabled={promo.status === 'Expired'}
               >
                 <Pencil className="size-4" />
               </button>
-              <button onClick={() => { setSelectedPromo(promo); setShowDeleteModal(true); }} className="hover:text-error transition-colors" title="Ngừng hoạt động"><Trash2 className="size-4 text-error" /></button>
+              <button onClick={() => { setSelectedPromo(promo); setShowDeleteModal(true); }} className={`rounded-md p-1.5 transition-all ${Number(promo.usage_count || promo.used_count || 0) > 0 ? 'cursor-not-allowed text-muted opacity-50' : 'text-error hover:scale-110 hover:bg-error/10 hover:text-error'}`} title={Number(promo.usage_count || promo.used_count || 0) > 0 ? 'Mã đã được sử dụng, không thể xóa' : 'Ngừng hoạt động'} disabled={Number(promo.usage_count || promo.used_count || 0) > 0}><Trash2 className="size-4" /></button>
             </div>,
           ])}
         />

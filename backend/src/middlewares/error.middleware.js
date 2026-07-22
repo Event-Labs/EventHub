@@ -2,6 +2,7 @@ const ApiResponse = require('../core/response/ApiResponse');
 const logger = require('../core/logger');
 
 const MESSAGE_MAP = {
+    'Promo code has already been used and cannot be deleted': 'Mã khuyến mãi đã được sử dụng và không thể xóa.',
     'Invalid request data': 'Dữ liệu gửi lên chưa hợp lệ. Vui lòng kiểm tra lại.',
     'Something went wrong!': 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.',
     'Route not found': 'Không tìm thấy chức năng yêu cầu.',
