@@ -11,7 +11,8 @@ const securityMiddlewares = (app) => {
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: [
             'Content-Type',
-            'Authorization'
+            'Authorization',
+            'X-Organizer-Sensitive-Token'
         ]
     }));
 

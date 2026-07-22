@@ -710,6 +710,7 @@ class OrdersRepository {
         es.end_time AS session_end_time,
         v.name AS venue_name,
         v.address_line,
+        v.ward,
         v.district,
         v.city,
         ti.id AS ticket_type_id,
@@ -849,8 +850,10 @@ class OrdersRepository {
           e.deleted_at,
           v.name AS venue_name,
           v.address_line,
+          v.ward,
           v.district,
-          v.city
+          v.city,
+          CONCAT_WS('', s.row_label, s.seat_number) AS seat_label
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
         JOIN events e ON e.id = es.event_id
@@ -1131,6 +1134,7 @@ class OrdersRepository {
           e.thumbnail_url,
           v.name AS venue_name,
           v.address_line,
+          v.ward,
           v.district,
           v.city
         FROM tickets t
@@ -1139,6 +1143,8 @@ class OrdersRepository {
         JOIN events e ON e.id = t.event_id
         LEFT JOIN venues v ON v.id = es.venue_id
         JOIN order_items oi ON oi.id = t.order_item_id
+        LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+        LEFT JOIN seats s ON s.id = ss.seat_id
         WHERE oi.order_id = $1
         ORDER BY t.created_at ASC
         `,
@@ -1282,6 +1288,7 @@ class OrdersRepository {
         e.end_time AS event_end_time,
         v.name AS venue_name,
         v.address_line,
+        v.ward,
         v.district,
         v.city,
         u.full_name AS staff_full_name,
@@ -1358,14 +1365,18 @@ class OrdersRepository {
         e.thumbnail_url,
         v.name AS venue_name,
         v.address_line,
+        v.ward,
         v.district,
-        v.city
+        v.city,
+        CONCAT_WS('', s.row_label, s.seat_number) AS seat_label
       FROM tickets t
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       JOIN event_sessions es ON es.id = t.event_session_id
       JOIN events e ON e.id = t.event_id
       LEFT JOIN venues v ON v.id = es.venue_id
       JOIN order_items oi ON oi.id = t.order_item_id
+      LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+      LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE oi.order_id = $1
       ORDER BY t.created_at ASC
       `,
