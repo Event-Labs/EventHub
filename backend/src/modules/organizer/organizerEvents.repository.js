@@ -154,11 +154,21 @@ class OrganizerEventsRepository {
         v.latitude,
         v.longitude,
         v.description,
+        COALESCE((
+          SELECT MAX(sm_cnt.sc)::int
+          FROM (
+            SELECT COUNT(s.id) AS sc
+            FROM seat_maps sm
+            JOIN seats s ON s.seat_map_id = sm.id
+            WHERE sm.venue_id = v.id AND sm.deleted_at IS NULL AND COALESCE(s.is_disabled, false) = false
+            GROUP BY sm.id
+          ) sm_cnt
+        ), 0) AS max_seats,
         (
           SELECT COUNT(*)::int
           FROM seats s
           JOIN seat_maps sm ON sm.id = s.seat_map_id
-          WHERE sm.venue_id = v.id AND COALESCE(s.is_disabled, false) = false
+          WHERE sm.venue_id = v.id AND sm.deleted_at IS NULL AND COALESCE(s.is_disabled, false) = false
         ) AS seat_count
       FROM venues v
       WHERE (v.organizer_id = $1 OR v.organizer_id IS NULL)

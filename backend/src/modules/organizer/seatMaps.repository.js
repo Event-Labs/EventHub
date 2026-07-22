@@ -19,6 +19,7 @@ function ensureUniqueSeatLabels(seats) {
   });
 }
 
+
 class SeatMapsRepository {
   async findOrganizerByUserId(userId) {
     const { rows } = await db.query(

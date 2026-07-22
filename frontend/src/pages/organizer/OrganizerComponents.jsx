@@ -189,3 +189,38 @@ export function StatCard({ icon: Icon, label, value, sub, trend, accentColor = '
     </div>
   )
 }
+
+/**
+ * ConfirmModal – custom modal pop-up for confirmation (replaces browser native window.confirm)
+ */
+export function ConfirmModal({ open, title = 'Xác nhận hành động', message, confirmText = 'Xác nhận', cancelText = 'Hủy', tone = 'danger', onConfirm, onCancel }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-6 shadow-2xl transition-all">
+        <h3 className="text-lg font-bold text-content">{title}</h3>
+        <p className="mt-2 text-sm text-subtle leading-relaxed">{message}</p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl border border-border-soft/40 px-4 py-2 text-sm font-semibold text-content hover:bg-panel-soft transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+              tone === 'danger'
+                ? 'bg-error text-white hover:bg-error/90 shadow-sm'
+                : 'bg-primary text-white hover:bg-primary/90 shadow-sm'
+            }`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
