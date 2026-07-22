@@ -3,22 +3,20 @@ import { Search, Sparkles } from 'lucide-react'
 /**
  * StaffPage – page-level layout wrapper
  */
-export function StaffPage({ title, description, action, children }) {
+export function StaffPage({ title, description, action, children, className = '' }) {
   return (
-    <>
-      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold text-content tracking-tight">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-1.5 text-sm text-subtle">{description}</p>
-          )}
+    <div className={className}>
+      {(title || description || action) && (
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            {title && <h1 className="font-display text-2xl font-extrabold text-content tracking-tight">{title}</h1>}
+            {description && <p className="mt-1.5 text-sm text-subtle">{description}</p>}
+          </div>
+          {action}
         </div>
-        {action}
-      </div>
+      )}
       {children}
-    </>
+    </div>
   )
 }
 
