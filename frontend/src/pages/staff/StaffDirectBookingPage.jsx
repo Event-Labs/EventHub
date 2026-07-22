@@ -377,8 +377,9 @@ export function StaffDirectBookingPage() {
 
   return (
     <StaffPage
-      title="Đặt vé trực tiếp"
-      description="Chọn vé, tính tạm và kiểm tra lại trước khi nhận thanh toán và xuất vé cho khách."
+      className="direct-booking-page"
+      title={isReviewing ? null : 'Đặt vé trực tiếp'}
+      description={isReviewing ? null : 'Chọn vé, tính tạm và kiểm tra lại trước khi nhận thanh toán và xuất vé cho khách.'}
       action={
         result ? (
           <button
