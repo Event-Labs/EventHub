@@ -1,4 +1,4 @@
-﻿const { z } = require('zod');
+const { z } = require('zod');
 
 const listEventsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -37,7 +37,7 @@ const ticketAvailabilitySchema = z.object({
     .array(
       z.object({
         ticket_type_id: z.string().uuid(),
-        quantity: z.coerce.number().int().min(1).max(4),
+        quantity: z.coerce.number().int().min(1),
         session_seat_ids: z.array(z.string().uuid()).optional().default([]),
       }),
     )
