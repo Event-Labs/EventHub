@@ -1108,3 +1108,40 @@ html.light .organizer-history-card {
   border-color: #dbe7f6;
   background: rgba(255, 255, 255, 0.74);
 }
+
+/* Staff direct booking uses a deliberately rich dark palette in dark mode.
+   Flatten those surfaces into the shared light theme when light mode is active. */
+html.light .direct-booking-page section {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+html.light .direct-booking-page [class*="bg-[linear-gradient"],
+html.light .direct-booking-page [class*="bg-sky-950"],
+html.light .direct-booking-page [class*="bg-slate-950"] {
+  background: #f8fafc !important;
+}
+
+html.light .direct-booking-page [class*="border-sky-"] {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .direct-booking-page [class*="bg-sky-900"] {
+  background: #eef2f7 !important;
+}
+
+html.light .direct-booking-page [class*="bg-violet-500/[0.06]"],
+html.light .direct-booking-page [class*="bg-violet-500/10"],
+html.light .direct-booking-page [class*="bg-violet-600/25"] {
+  background: #f3e8ff !important;
+}
+
+html.light .direct-booking-page [class*="text-violet-200"],
+html.light .direct-booking-page [class*="text-violet-300"] {
+  color: #6d28d9 !important;
+}
+
+html.light .direct-booking-page [class*="text-slate-500"] {
+  color: #64748b !important;
+}
