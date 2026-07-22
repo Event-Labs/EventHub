@@ -1,5 +1,6 @@
 const emailService = require('../../infrastructure/email/email.service');
 const logger = require('../../core/logger');
+const env = require('../../config/env');
 
 const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0));
@@ -14,15 +15,44 @@ function qrUrl(ticket) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=2&data=${encodeURIComponent(payload)}`;
 }
 
-function ticketCard(ticket, eventTitle) {
+function logoUrl() {
+  return `${String(env.CLIENT_URL || '').replace(/\/$/, '')}/images/LogoEH.png`;
+}
+
+function ticketCard(ticket, order) {
   const venue = [ticket.venue_name, ticket.address_line, ticket.ward, ticket.district, ticket.city].filter(Boolean).join(', ');
-  return `<div style="margin:16px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px"><table width="100%"><tr><td style="vertical-align:top">
-    <small>M&#195; V&#201;</small><h3>${escapeHtml(ticket.ticket_code)}</h3><p><b>Lo&#7841;i v&#233;:</b> ${escapeHtml(ticket.ticket_type_name)}</p>
-    <p><b>Phi&#234;n:</b> ${escapeHtml(ticket.session_name || eventTitle)}</p><p><b>Th&#7901;i gian:</b> ${escapeHtml(date(ticket.session_start_time))}</p>
-    <p><b>&#272;&#7883;a &#273;i&#7875;m:</b> ${escapeHtml(venue)}</p>${ticket.seat_label ? `<p><b>Gh&#7871;:</b> ${escapeHtml(ticket.seat_label)}</p>` : ''}
-    ${ticket.attendee_name ? `<p><b>Ng&#432;&#7901;i tham d&#7921;:</b> ${escapeHtml(ticket.attendee_name)}</p>` : ''}</td>
-    <td width="180" style="text-align:center;vertical-align:top"><img src="${qrUrl(ticket)}" width="170" height="170" alt="QR check-in" style="border:1px solid #e2e8f0;border-radius:10px" /><small style="display:block;color:#64748b">QR check-in</small></td>
-  </tr></table></div>`;
+  const holderName = ticket.attendee_name || order.buyer_name;
+  const holderLabel = ticket.attendee_name ? 'Ng&#432;&#7901;i tham d&#7921;' : 'Ng&#432;&#7901;i mua v&#233;';
+  return `<div style="margin:20px 0;overflow:hidden;border:1px solid #24304b;border-radius:18px;background:#101a33;color:#fff">
+    <div style="padding:16px 20px;border-bottom:1px solid #293652;background:#0f172a">
+      <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td><img src="${escapeHtml(logoUrl())}" width="150" alt="EventHub" style="display:block;width:150px;max-width:100%;height:auto" /></td>
+        <td align="right"><span style="display:inline-block;padding:6px 10px;border-radius:999px;background:#153f36;color:#6ee7b7;font-size:11px;font-weight:bold;text-transform:uppercase">H&#7907;p l&#7879;</span></td>
+      </tr></table>
+    </div>
+    ${order.banner_url || order.thumbnail_url ? `<img src="${escapeHtml(order.banner_url || order.thumbnail_url)}" alt="${escapeHtml(order.event_title)}" style="display:block;width:100%;height:auto;max-height:230px;object-fit:cover" />` : ''}
+    <div style="padding:22px">
+      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:#ffffff18;color:#dbeafe;font-size:11px;font-weight:bold;text-transform:uppercase">${escapeHtml(ticket.ticket_type_name)}</span>
+      <h2 style="margin:12px 0 20px;color:#fff;font-size:25px;line-height:1.25">${escapeHtml(order.event_title)}</h2>
+      <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td style="padding-right:18px;vertical-align:top">
+          <table width="100%" cellspacing="0" cellpadding="6" style="font-size:14px;color:#fff">
+            <tr><td style="color:#94a3b8">${holderLabel}</td><td><b>${escapeHtml(holderName)}</b></td></tr>
+            <tr><td style="color:#94a3b8">Th&#7901;i gian</td><td><b>${escapeHtml(date(ticket.session_start_time))}</b></td></tr>
+            <tr><td style="color:#94a3b8">&#272;&#417;n h&#224;ng</td><td><b>${escapeHtml(order.order_code)}</b></td></tr>
+            <tr><td style="color:#94a3b8">Phi&#234;n</td><td><b>${escapeHtml(ticket.session_name || order.event_title)}</b></td></tr>
+            ${ticket.seat_label ? `<tr><td style="color:#94a3b8">Gh&#7871; ng&#7891;i</td><td><b>${escapeHtml(ticket.seat_label)}</b></td></tr>` : ''}
+            <tr><td style="color:#94a3b8">&#272;&#7883;a &#273;i&#7875;m</td><td><b>${escapeHtml(venue || 'N/A')}</b></td></tr>
+          </table>
+        </td>
+        <td width="190" style="padding-left:18px;border-left:1px dashed #475569;text-align:center;vertical-align:top">
+          <div style="display:inline-block;padding:9px;border-radius:12px;background:#fff"><img src="${qrUrl(ticket)}" width="160" height="160" alt="QR check-in" style="display:block;width:160px;height:160px" /></div>
+          <p style="margin:10px 0 0;color:#fff;font-family:monospace;font-size:13px;font-weight:bold;letter-spacing:1px">${escapeHtml(ticket.ticket_code)}</p>
+          <small style="display:block;margin-top:5px;color:#94a3b8">Qu&#233;t &#273;&#7875; check-in</small>
+        </td>
+      </tr></table>
+    </div>
+  </div>`;
 }
 
 function buildHtml(order, tickets) {
@@ -36,7 +66,7 @@ function buildHtml(order, tickets) {
   <tr><td>Ma giao dich</td><td align="right">${escapeHtml(order.transaction_code || 'N/A')}</td></tr><tr><td>Thanh toan luc</td><td align="right">${escapeHtml(date(order.paid_at))}</td></tr>
   <tr><td>Tam tinh</td><td align="right">${money(order.subtotal)}</td></tr><tr><td>Giam gia</td><td align="right">-${money(order.discount_amount)}</td></tr>
   <tr><td>Phi nen tang</td><td align="right">${money(order.platform_fee)}</td></tr><tr><td><b>Tong thanh toan</b></td><td align="right"><b>${money(order.total_amount)}</b></td></tr></table>
-  <h2>Ve cua ban (${tickets.length})</h2>${tickets.map((ticket) => ticketCard(ticket, order.event_title)).join('')}
+  <h2>Ve cua ban (${tickets.length})</h2>${tickets.map((ticket) => ticketCard(ticket, order)).join('')}
   <p style="font-size:13px;color:#64748b">Khong chia se ma QR. Moi ve chi check-in mot lan.</p></div></div></body></html>`;
 }
 

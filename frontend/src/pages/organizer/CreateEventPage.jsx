@@ -344,6 +344,8 @@ function Step1EventInfo({
 }
 
 function Step2ScheduleVenue({ formData, setFormData, venues }) {
+  const currentDate = new Date()
+  const today = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
   const [expandedSessions, setExpandedSessions] = useState(() => {
     return formData.sessions.reduce((acc, s) => ({ ...acc, [s.id || s.clientKey]: true }), {})
   })
@@ -463,6 +465,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                             <input
                               type="date"
                               className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
+                              min={today}
                               value={session.start_date || ''}
                               onChange={(e) => updateSession(key, 'start_date', e.target.value)}
                             />
@@ -483,6 +486,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                             <input
                               type="date"
                               className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                              min={session.start_date || today}
                               value={session.end_date || ''}
                               onChange={(e) => updateSession(key, 'end_date', e.target.value)}
                             />

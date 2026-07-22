@@ -4,7 +4,10 @@ const organizerEventsService = require('./organizerEvents.service');
 class OrganizerEventsController {
   getMe = async (req, res, next) => {
     try {
-      const data = await organizerEventsService.getActiveOrganizerProfile(req.user.sub);
+      const data = await organizerEventsService.getOrganizerProfileForView(
+        req.user.sub,
+        req.get('x-organizer-sensitive-token'),
+      );
       res.status(200).json(ApiResponse.success(data, 'Organizer profile fetched successfully'));
     } catch (err) {
       next(err);
@@ -13,8 +16,34 @@ class OrganizerEventsController {
 
   updateMe = async (req, res, next) => {
     try {
-      const data = await organizerEventsService.updateActiveOrganizerProfile(req.user.sub, req.body);
+      const data = await organizerEventsService.updateActiveOrganizerProfile(
+        req.user.sub,
+        req.body,
+        req.get('x-organizer-sensitive-token'),
+      );
       res.status(200).json(ApiResponse.success(data, 'Organizer profile updated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  startSensitiveAccess = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.startSensitiveProfileAccess(req.user.sub);
+      res.status(200).json(ApiResponse.success(data, 'Ma OTP da duoc gui den email'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  verifySensitiveAccess = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.verifySensitiveProfileAccess(
+        req.user.sub,
+        String(req.body?.challengeId || ''),
+        String(req.body?.otp || ''),
+      );
+      res.status(200).json(ApiResponse.success(data, 'Da mo khoa thong tin phap ly'));
     } catch (err) {
       next(err);
     }

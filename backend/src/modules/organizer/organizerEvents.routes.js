@@ -11,6 +11,8 @@ router.use(
 
 router.get('/me', organizerEventsController.getMe);
 router.patch('/me', organizerEventsController.updateMe);
+router.post('/me/sensitive-access/start', organizerEventsController.startSensitiveAccess);
+router.post('/me/sensitive-access/verify', organizerEventsController.verifySensitiveAccess);
 router.get('/venues', organizerEventsController.getVenues);
 router.post('/', organizerEventsController.createEvent);
 router.get('/', organizerEventsController.listEvents);
