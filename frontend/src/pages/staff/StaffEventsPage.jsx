@@ -105,7 +105,7 @@ function AssignedEventCard({ event, currentTime }) {
   const isOngoing = start <= currentTime && currentTime <= end
   const statusTone = isOngoing ? 'green' : 'blue'
   const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(', ')
-  const imageSrc = event.thumbnail_url || event.banner_url
+  const imageSrc = event.banner_url || event.thumbnail_url
 
   return (
     <StaffPanel className="flex h-full flex-col">
