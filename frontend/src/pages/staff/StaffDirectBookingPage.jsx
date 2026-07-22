@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, ExternalLink, Loader2, Printer, ReceiptText, RefreshCw, RotateCcw, Search, Ticket, UserRound } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CircleCheck, ExternalLink, Gift, Info, Loader2, Mail, MapPin, Minus, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Ticket, UserRound, UsersRound } from 'lucide-react'
 import { createStaffDirectBooking, fetchStaffDirectBookingEvents, fetchStaffDirectBookingStatus } from '@/services/orders.js'
 import { fetchSessionSeats } from '@/services/events.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
@@ -227,6 +227,7 @@ export function StaffDirectBookingPage() {
   const [quantities, setQuantities] = useState({})
   const [result, setResult] = useState(null)
   const [showDetail, setShowDetail] = useState(false)
+  const [isReviewing, setIsReviewing] = useState(false)
 
   const eventsQuery = useQuery({
     queryKey: ['staff-direct-booking-events'],
@@ -325,12 +326,18 @@ export function StaffDirectBookingPage() {
   }, [currentTicketTypes, quantities, seatsQuery.data?.seats, selectedEvent, selectedSeatIds])
   const totalQuantity = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
   const totalAmount = selectedItems.reduce((sum, item) => sum + item.quantity * Number(item.ticketType.price || 0), 0)
+  const hasSelectedItems = selectedItems.length > 0
+  const isFreeSelection = hasSelectedItems && totalAmount === 0
   const cashReceivedAmount = Number(String(cashReceived).replace(/[^\d]/g, '') || 0)
   const cashChange = Math.max(0, cashReceivedAmount - totalAmount)
   const cashIsEnough = paymentMethod !== 'cash' || totalAmount === 0 || cashReceivedAmount >= totalAmount
   const buyerEmail = buyer.email.trim().toLowerCase()
   const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)
-  const canSubmit = selectedEvent && buyer.name.trim().length >= 2 && buyer.phone.trim() && emailIsValid && selectedItems.length > 0 && cashIsEnough
+  const phoneIsValid = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/.test(buyer.phone.trim())
+  const phoneError = buyer.phone.trim() && !phoneIsValid ? 'Số điện thoại không đúng định dạng.' : ''
+  const emailError = buyer.email.trim() && !emailIsValid ? 'Email không đúng định dạng.' : ''
+  const canReview = selectedEvent && buyer.name.trim().length >= 2 && phoneIsValid && emailIsValid && selectedItems.length > 0
+  const canSubmit = canReview && cashIsEnough
 
   function updateQuantity(ticketType, nextValue) {
     const next = Math.max(0, Math.min(Number(ticketType.available_quantity || 0), Number(nextValue || 0)))
@@ -347,6 +354,7 @@ export function StaffDirectBookingPage() {
     setQuantities({})
     setResult(null)
     setShowDetail(false)
+    setIsReviewing(false)
     createMutation.reset()
   }
 
@@ -370,7 +378,7 @@ export function StaffDirectBookingPage() {
   return (
     <StaffPage
       title="Đặt vé trực tiếp"
-      description="Tạo đơn đặt vé đã thanh toán và in vé cho khách tại quầy."
+      description="Chọn vé, tính tạm và kiểm tra lại trước khi nhận thanh toán và xuất vé cho khách."
       action={
         result ? (
           <button
@@ -461,19 +469,47 @@ export function StaffDirectBookingPage() {
           onRefresh={() => activeStatusQuery.refetch()}
           refreshing={activeStatusQuery.isFetching}
         />
+      ) : isReviewing ? (
+        <BookingReview
+          buyer={buyer}
+          selectedEvent={selectedEvent}
+          selectedSession={selectedSession}
+          selectedItems={selectedItems}
+          totalQuantity={totalQuantity}
+          totalAmount={totalAmount}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
+          cashReceived={cashReceived}
+          setCashReceived={setCashReceived}
+          cashReceivedAmount={cashReceivedAmount}
+          cashChange={cashChange}
+          cashIsEnough={cashIsEnough}
+          canSubmit={canSubmit}
+          createMutation={createMutation}
+          onBack={() => {
+            setIsReviewing(false)
+            createMutation.reset()
+          }}
+          onConfirm={submitBooking}
+        />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="mx-auto grid max-w-[1280px] gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
           <div className="space-y-5">
-            <StaffPanel>
+            <StaffPanel className="border-sky-900/45 bg-[linear-gradient(145deg,rgba(8,20,44,0.88),rgba(10,24,53,0.72))] p-5 sm:p-6">
               <SectionTitle step="1" title="Chọn sự kiện đang mở bán" />
-              <div className="relative mt-4">
+              <div className="mt-5 flex gap-3">
+                <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Tìm sự kiện"
-                  className="h-11 w-full rounded-md border border-border-soft/50 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none transition focus:border-primary"
+                  className="h-11 w-full rounded-lg border border-sky-900/60 bg-sky-950/30 pl-10 pr-3 text-sm text-content outline-none transition focus:border-violet-400"
                 />
+                </div>
+                <button type="button" className="grid size-11 shrink-0 place-items-center rounded-lg border border-sky-900/60 bg-sky-950/30 text-subtle transition hover:border-violet-400 hover:text-content" aria-label="Bộ lọc sự kiện">
+                  <SlidersHorizontal className="size-4" />
+                </button>
               </div>
               {eventsQuery.isLoading && (
                 <div className="mt-5 flex items-center gap-2 text-sm text-subtle">
@@ -491,11 +527,10 @@ export function StaffDirectBookingPage() {
                   Chưa có sự kiện phù hợp hoặc sự kiện chưa còn vé không chọn ghế.
                 </p>
               )}
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="mt-4 grid gap-3">
                 {filteredEvents.map((event) => {
                   const active = event.id === selectedEventId
                   const image = event.banner_url || event.thumbnail_url
-                  const available = event.ticket_types.reduce((sum, ticketType) => sum + Number(ticketType.available_quantity || 0), 0)
                   return (
                     <button
                       key={event.id}
@@ -506,19 +541,20 @@ export function StaffDirectBookingPage() {
                         setSelectedSeatIds([])
                         setQuantities({})
                       }}
-                      className={`flex h-full flex-col overflow-hidden rounded-lg border text-left transition ${
-                        active ? 'border-primary bg-primary/10' : 'border-border-soft/40 bg-panel-soft hover:border-primary/60'
+                      className={`flex min-h-40 items-stretch gap-4 overflow-hidden rounded-lg border p-2 text-left transition sm:gap-5 sm:p-3 ${
+                        active ? 'border-violet-500 bg-violet-500/[0.06] shadow-[0_0_0_1px_rgba(139,92,246,0.2)]' : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/70'
                       }`}
                     >
-                      <div className="h-28 shrink-0 bg-surface">
-                        {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : null}
+                      <div className="h-32 w-40 shrink-0 overflow-hidden rounded-md bg-surface sm:h-36 sm:w-56">
+                        {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-sky-950" />}
                       </div>
-                      <div className="flex flex-1 flex-col p-4">
-                        <h3 className="line-clamp-2 min-h-12 break-words font-bold leading-6 text-content">{event.title}</h3>
-                        <p className="mt-2 text-xs text-subtle">{formatDateTime(event.start_time)}</p>
-                        <div className="mt-auto flex flex-wrap gap-2 pt-3">
-                          <Badge tone="green">{available} vé còn lại</Badge>
-                          <Badge tone="blue">{event.ticket_types.length} loại vé</Badge>
+                      <div className="flex min-w-0 flex-1 flex-col justify-center py-2 pr-2">
+                        <h3 className="line-clamp-2 break-words font-display text-lg font-black leading-6 text-content">{event.title}</h3>
+                        <p className="mt-3 flex items-center gap-2 text-xs text-subtle"><CalendarDays className="size-3.5" />{formatDateTime(event.start_time)}</p>
+                        <p className="mt-2 flex items-center gap-2 text-xs text-subtle"><MapPin className="size-3.5" />{venueLine(event.venue)}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Badge tone="green">Đang mở bán</Badge>
+                          <Badge tone="orange">{event.ticket_types.length} loại vé</Badge>
                         </div>
                       </div>
                     </button>
@@ -527,24 +563,26 @@ export function StaffDirectBookingPage() {
               </div>
             </StaffPanel>
 
-            <StaffPanel>
+            <StaffPanel className="border-sky-900/45 bg-[linear-gradient(145deg,rgba(8,20,44,0.88),rgba(10,24,53,0.72))] p-5 sm:p-6">
               <SectionTitle step="2" title="Thông tin khách hàng" />
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <Input label="Họ tên" value={buyer.name} onChange={(value) => setBuyer((current) => ({ ...current, name: value }))} />
-                <Input label="Số điện thoại" value={buyer.phone} onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))} />
+                <Input label="Họ và tên" value={buyer.name} onChange={(value) => setBuyer((current) => ({ ...current, name: value }))} required hint="Nhập họ và tên" />
+                <Input label="Số điện thoại" value={buyer.phone} onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))} required hint="Nhập số điện thoại" error={phoneError} />
                 <Input
                   label="Email nhận vé"
                   value={buyer.email}
                   onChange={(value) => setBuyer((current) => ({ ...current, email: value }))}
                   type="email"
                   required
-                  hint="Bắt buộc để hệ thống gửi vé và mã QR cho khách."
+                  hint="Nhập email"
+                  error={emailError}
                 />
-                <Input label="Ghi chú nội bộ" value={buyer.note} onChange={(value) => setBuyer((current) => ({ ...current, note: value }))} />
+                <Input label="Ghi chú" value={buyer.note} onChange={(value) => setBuyer((current) => ({ ...current, note: value }))} hint="Nhập ghi chú nếu có" />
               </div>
+              <p className="mt-4 text-xs text-subtle">Thông tin này sẽ được gửi về hóa đơn cho khách hàng.</p>
             </StaffPanel>
 
-            <StaffPanel>
+            <StaffPanel className="border-sky-900/45 bg-[linear-gradient(145deg,rgba(8,20,44,0.88),rgba(10,24,53,0.72))] p-5 sm:p-6">
               <SectionTitle step="3" title="Chọn loại vé và số lượng" />
               {!selectedEvent ? (
                 <p className="mt-4 text-sm text-subtle">Chọn sự kiện trước để xem loại vé còn bán.</p>
@@ -572,33 +610,38 @@ export function StaffDirectBookingPage() {
                   )}
 
                   {currentTicketTypes.map((ticketType) => (
-                    <div key={ticketType.id} className="grid gap-3 rounded-lg border border-border-soft/40 bg-panel-soft p-4 md:grid-cols-[minmax(0,1fr)_160px] md:items-center">
-                      <div>
-                        <h3 className="font-bold text-content">{ticketType.name}</h3>
-                        <p className="mt-1 text-sm text-subtle">
-                          {formatPrice(ticketType.price)} · còn {ticketType.available_quantity} vé
-                          {ticketType.is_seated ? ' · chọn ghế trên sơ đồ' : ''}
-                        </p>
+                    <div key={ticketType.id} className={`grid gap-3 rounded-lg border p-4 transition md:grid-cols-[minmax(0,1fr)_160px] md:items-center ${
+                      selectedItems.some((item) => item.ticketType.id === ticketType.id)
+                        ? 'border-violet-500 bg-violet-500/[0.06]'
+                        : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/60'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <span className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border ${
+                          selectedItems.some((item) => item.ticketType.id === ticketType.id) ? 'border-violet-400 bg-violet-500/20 text-violet-300' : 'border-slate-500 text-transparent'
+                        }`}><span className="size-2 rounded-full bg-violet-400" /></span>
+                        <div>
+                          <h3 className="font-bold text-content">{ticketType.name}</h3>
+                          <p className="mt-1 text-sm text-subtle">
+                            {formatPrice(ticketType.price)} · {ticketType.is_seated ? 'chọn ghế' : 'vé tự do'} · còn {ticketType.available_quantity} vé
+                          </p>
+                        </div>
                       </div>
                       {ticketType.is_seated ? (
-                        <span className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-center text-sm font-bold text-primary">
+                        <span className="rounded-lg border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-center text-sm font-bold text-violet-200">
                           {selectedItems.find((item) => item.ticketType.id === ticketType.id)?.quantity || 0} ghế
                         </span>
                       ) : (
-                        <input
-                          type="number"
-                          min="0"
-                          max={ticketType.available_quantity}
-                          value={quantities[ticketType.id] || ''}
-                          onChange={(event) => updateQuantity(ticketType, event.target.value)}
-                          className="h-11 rounded-md border border-border-soft/50 bg-surface px-3 text-right text-sm font-bold text-content outline-none focus:border-primary"
-                        />
+                        <div className="flex h-10 items-center justify-end">
+                          <button type="button" onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) - 1)} className="grid size-9 place-items-center rounded-l-lg border border-sky-800 bg-sky-950/50 text-subtle hover:text-content"><Minus className="size-4" /></button>
+                          <span className="grid h-9 min-w-10 place-items-center border-y border-sky-800 bg-sky-950/50 text-sm font-bold text-content">{quantities[ticketType.id] || 0}</span>
+                          <button type="button" onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) + 1)} className="grid size-9 place-items-center rounded-r-lg border border-sky-800 bg-sky-950/50 text-subtle hover:text-content"><Plus className="size-4" /></button>
+                        </div>
                       )}
                     </div>
                   ))}
 
                   {hasSeatedTickets && (
-                    <div className="rounded-lg border border-border-soft/40 bg-panel-soft p-4">
+                    <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <h3 className="font-bold text-content">Sơ đồ chỗ ngồi</h3>
@@ -618,7 +661,7 @@ export function StaffDirectBookingPage() {
                         </p>
                       )}
                       {seatsQuery.data?.seats?.length > 0 && (
-                        <div className="mt-4 overflow-auto rounded-lg border border-border-soft/40 bg-background/30 p-4">
+                        <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
                           <SeatMapCanvas
                             seats={seatsQuery.data.seats}
                             ticketTypes={currentTicketTypes}
@@ -640,46 +683,231 @@ export function StaffDirectBookingPage() {
             </StaffPanel>
           </div>
 
-          <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
-            <StaffPanel>
-              <SectionTitle step="4" title="Thanh toán" />
-              <div className="mt-4 grid gap-2">
-                {PAYMENT_METHODS.map((method) => (
-                  <button
-                    key={method.value}
-                    type="button"
-                    onClick={() => {
-                      setPaymentMethod(method.value)
-                      createMutation.reset()
-                    }}
-                    className={`flex items-center justify-between rounded-md border px-4 py-3 text-sm font-bold transition ${
-                      paymentMethod === method.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-soft/40 text-content hover:border-primary/60'
-                    }`}
-                  >
-                    {method.label}
-                    {paymentMethod === method.value ? <CheckCircle2 className="size-4" /> : null}
-                  </button>
-                ))}
+          <aside className="xl:sticky xl:top-24 xl:self-start">
+            <StaffPanel className="border-sky-900/45 bg-[linear-gradient(145deg,rgba(8,20,44,0.92),rgba(10,24,53,0.78))] p-5 sm:p-6">
+              <SectionTitle step="4" title="Tóm tắt đơn đặt vé" />
+              <div className="mt-6 space-y-5 text-sm">
+                <div>
+                  <p className="text-xs font-semibold text-subtle">Sự kiện</p>
+                  <p className="mt-3 font-extrabold leading-6 text-content">{selectedEvent?.title || 'Chưa chọn sự kiện'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-subtle">Thời gian</p>
+                  <p className="mt-3 font-semibold text-content">{selectedSession ? formatDateTime(selectedSession.start_time) : 'Chưa chọn suất diễn'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-subtle">Khu vực</p>
+                  <p className="mt-3 font-semibold text-content">{selectedItems[0]?.ticketType?.name || 'Chưa chọn loại vé'}</p>
+                </div>
               </div>
-            </StaffPanel>
 
-            <StaffPanel>
-              <SectionTitle step="5" title="Xác nhận đơn đặt vé" />
-              <div className="mt-4 space-y-3 text-sm">
-                <SummaryLine label="Khách hàng" value={buyer.name || 'Chưa nhập'} />
-                <SummaryLine label="Sự kiện" value={selectedEvent?.title || 'Chưa chọn'} />
-                <SummaryLine label="Số vé" value={`${totalQuantity} vé`} />
-                <SummaryLine label="Tổng tiền" value={formatPrice(totalAmount)} strong />
-                {selectedItems.map((item) => (
-                  <SummaryLine
-                    key={item.ticketType.id}
-                    label={item.ticketType.name}
-                    value={`${item.quantity} x ${formatPrice(item.ticketType.price)}`}
-                  />
+              <div className="my-6 border-t border-sky-900/50" />
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-display text-lg font-extrabold text-content">Chi tiết vé</h3>
+                <span className="rounded-lg border border-violet-400/30 bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-200">{totalQuantity} vé</span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {selectedItems.length === 0 ? <p className="text-sm text-subtle">Chưa chọn vé</p> : selectedItems.map((item) => (
+                  <div key={item.ticketType.id} className="flex items-start justify-between gap-3 text-sm">
+                    <span className="text-subtle">{item.ticketType.name}</span>
+                    <span className="text-right font-semibold text-content">{item.quantity} x {formatPrice(item.ticketType.price)}</span>
+                  </div>
                 ))}
               </div>
-              {paymentMethod === 'cash' && (
-                <div className="mt-5 rounded-lg border border-border-soft/40 bg-panel-soft p-4">
+
+              <div className="my-6 border-t border-sky-900/50" />
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-extrabold text-content">Tổng tiền</span>
+                <span className="font-display text-2xl font-black text-violet-400">{hasSelectedItems ? formatPrice(totalAmount) : '0 đ'}</span>
+              </div>
+              {isFreeSelection && <span className="mt-3 ml-auto block w-fit rounded-lg border border-violet-400/40 bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-200">Miễn phí</span>}
+
+              <p className="mt-6 flex gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-3 text-xs leading-5 text-violet-200">
+                <Info className="mt-0.5 size-4 shrink-0 text-violet-400" />
+                {isFreeSelection ? 'Vé miễn phí sẽ được gửi qua email cho khách hàng sau khi xác nhận.' : 'Chưa thu tiền và chưa xuất vé. Hãy kiểm tra lại trước khi tiếp tục.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsReviewing(true)}
+                disabled={!canReview}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CircleCheck className="size-4" />
+                Xác nhận và xem lại vé
+              </button>
+            </StaffPanel>
+          </aside>
+        </div>
+      )}
+    </StaffPage>
+  )
+}
+
+function BookingReview({
+  buyer,
+  selectedEvent,
+  selectedSession,
+  selectedItems,
+  totalQuantity,
+  totalAmount,
+  paymentMethod,
+  setPaymentMethod,
+  cashReceived,
+  setCashReceived,
+  cashReceivedAmount,
+  cashChange,
+  cashIsEnough,
+  canSubmit,
+  createMutation,
+  onBack,
+  onConfirm,
+}) {
+  const isFree = selectedItems.length > 0 && totalAmount === 0
+  const confirmLabel = paymentMethod === 'bank_transfer'
+    ? 'Tạo mã thanh toán'
+    : isFree
+      ? 'Xác nhận xuất vé'
+      : 'Xác nhận đã thanh toán và xuất vé'
+
+  return (
+    <div className="mx-auto max-w-[1280px]">
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={createMutation.isPending}
+        className="no-print inline-flex items-center gap-2 text-sm font-semibold text-subtle transition hover:text-content disabled:opacity-50"
+      >
+        <ArrowLeft className="size-4" />
+        Quay lại chỉnh sửa
+      </button>
+
+      <div className="mt-5">
+        <h2 className="font-display text-3xl font-black tracking-tight text-content">Xem lại vé đã chọn</h2>
+        <p className="mt-2 text-base text-subtle">Kiểm tra thông tin vé và khách hàng trước khi xác nhận thanh toán và xuất vé.</p>
+      </div>
+
+      <div className="mt-7 grid items-start gap-7 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)]">
+        <section className="overflow-hidden rounded-2xl border border-sky-900/45 bg-[linear-gradient(145deg,rgba(8,20,44,0.88),rgba(10,24,53,0.72))] shadow-[0_18px_55px_rgba(0,0,0,0.24)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sky-900/40 px-5 py-5 sm:px-7">
+            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-400">
+              Đơn tạm · Chưa thanh toán
+            </span>
+            <span className="rounded-full border border-orange-400/35 bg-orange-400/10 px-3 py-1 text-xs font-extrabold uppercase text-orange-400">
+              {totalQuantity} vé
+            </span>
+          </div>
+
+          <div className="border-b border-sky-900/40 px-5 py-6 sm:px-7">
+            <h3 className="font-display text-xl font-extrabold text-content">Thông tin khách hàng</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <ReviewInfoCard icon={UserRound} label="Khách hàng" value={buyer.name} />
+              <ReviewInfoCard icon={Mail} label="Email nhận vé" value={buyer.email} />
+              <ReviewInfoCard icon={Phone} label="Số điện thoại" value={buyer.phone} />
+              <ReviewInfoCard icon={CalendarDays} label="Sự kiện" value={selectedEvent?.title} />
+            </div>
+          </div>
+
+          <div className="px-5 py-6 sm:px-7">
+            <h3 className="font-display text-xl font-extrabold text-content">Thông tin vé</h3>
+            <div className="mt-4 overflow-hidden rounded-xl border border-sky-900/45 bg-sky-950/25">
+              <ReviewTicketRow label="Suất diễn" value={selectedSession?.session_name || formatDateTime(selectedSession?.start_time)} />
+              {selectedItems.map((item) => (
+                <ReviewTicketRow
+                  key={item.ticketType.id}
+                  label="Loại vé"
+                  value={`${item.quantity} x ${item.ticketType.name}`}
+                />
+              ))}
+              <div className="flex items-center justify-between gap-4 bg-sky-900/20 px-4 py-4 text-sm sm:px-5">
+                <span className="font-extrabold text-content">Tổng tạm tính</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-base font-black text-content">{isFree ? '0 đ' : formatPrice(totalAmount)}</span>
+                  {isFree && (
+                    <span className="rounded-full border border-emerald-400/25 bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-300">
+                      Miễn phí
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {buyer.note ? (
+              <div className="mt-4 rounded-xl border border-sky-900/40 bg-sky-950/20 px-4 py-3 text-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-subtle">Ghi chú nội bộ</p>
+                <p className="mt-1 whitespace-pre-wrap text-content">{buyer.note}</p>
+              </div>
+            ) : null}
+
+            {isFree && (
+              <div className="mt-5 flex gap-3 rounded-xl border border-violet-500/35 bg-violet-500/10 px-4 py-4 text-sm text-violet-200">
+                <Info className="mt-0.5 size-5 shrink-0 text-violet-400" />
+                <p>Vé miễn phí không cần thanh toán. Vui lòng kiểm tra thông tin trước khi xác nhận xuất vé.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="xl:sticky xl:top-24">
+          <div className="rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-sky-400 p-px shadow-[0_20px_70px_rgba(79,70,229,0.2)]">
+            <section className="rounded-[15px] bg-[linear-gradient(145deg,rgba(7,18,40,0.98),rgba(9,27,57,0.98))] p-5 sm:p-6">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-full bg-violet-600/25 font-black text-violet-200">5</span>
+                <h3 className="font-display text-2xl font-black text-content">Xác nhận xuất vé</h3>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <ConfirmStep
+                  icon={CircleCheck}
+                  tone="green"
+                  title="Kiểm tra thông tin"
+                  description="Đảm bảo thông tin khách hàng và vé chính xác."
+                  marker={<CircleCheck className="size-6 text-emerald-400" />}
+                />
+                <ConfirmStep
+                  icon={UsersRound}
+                  tone="purple"
+                  title="Xác nhận xuất vé"
+                  description="Vé sẽ được xuất và gửi đến email của khách."
+                  marker="2"
+                />
+              </div>
+
+              {isFree ? (
+                <div className="mt-6 flex gap-3 rounded-xl border border-orange-400/20 bg-orange-400/[0.08] px-4 py-4">
+                  <Gift className="mt-0.5 size-6 shrink-0 text-orange-400" />
+                  <div>
+                    <p className="font-extrabold text-content">Vé miễn phí</p>
+                    <p className="mt-1 text-sm leading-6 text-subtle">Vé không mất phí. Sau khi xác nhận, vé sẽ được gửi qua email cho khách hàng.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-subtle">Phương thức thanh toán</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {PAYMENT_METHODS.map((method) => (
+                      <button
+                        key={method.value}
+                        type="button"
+                        disabled={createMutation.isPending}
+                        onClick={() => {
+                          setPaymentMethod(method.value)
+                          createMutation.reset()
+                        }}
+                        className={`rounded-xl border px-2 py-3 text-xs font-extrabold transition ${
+                          paymentMethod === method.value
+                            ? 'border-violet-400 bg-violet-500/15 text-violet-200'
+                            : 'border-sky-900/50 bg-sky-950/25 text-subtle hover:border-violet-400/60 hover:text-content'
+                        }`}
+                      >
+                        {method.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isFree && paymentMethod === 'cash' && (
+                <div className="mt-5 rounded-xl border border-sky-900/50 bg-sky-950/30 p-4">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wide text-subtle">Số tiền khách đưa</span>
                     <input
@@ -687,43 +915,95 @@ export function StaffDirectBookingPage() {
                       value={cashReceived}
                       onChange={(event) => setCashReceived(event.target.value)}
                       placeholder="Nhập số tiền"
-                      className="mt-2 h-11 w-full rounded-md border border-border-soft/50 bg-surface px-3 text-right text-sm font-extrabold text-content outline-none focus:border-primary"
+                      className="mt-2 h-11 w-full rounded-lg border border-sky-900/60 bg-slate-950/35 px-3 text-right text-sm font-extrabold text-content outline-none transition focus:border-violet-400"
                     />
                   </label>
                   <div className="mt-4 space-y-2 text-sm">
                     <SummaryLine label="Khách đưa" value={formatPrice(cashReceivedAmount)} />
                     <SummaryLine label="Tiền thối" value={formatPrice(cashChange)} strong />
                   </div>
-                  {!cashIsEnough && (
-                    <p className="mt-3 text-sm font-semibold text-warning">
-                      Số tiền khách đưa chưa đủ để thanh toán.
-                    </p>
-                  )}
+                  {!cashIsEnough && <p className="mt-3 text-sm font-semibold text-warning">Số tiền khách đưa chưa đủ để thanh toán.</p>}
                 </div>
               )}
+
+              {!isFree && paymentMethod !== 'cash' && (
+                <div className="mt-5 rounded-xl border border-sky-900/45 bg-sky-950/25 px-4 py-3 text-sm leading-6 text-subtle">
+                  {paymentMethod === 'bank_transfer'
+                    ? 'Tạo mã để khách chuyển khoản. Vé chỉ được xuất sau khi PayOS xác nhận thanh toán.'
+                    : 'Chỉ xác nhận xuất vé sau khi khách đã thanh toán bằng thẻ.'}
+                </div>
+              )}
+
               {createMutation.isError && (
-                <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
+                <p className="mt-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
                   {createMutation.error?.response?.data?.message || 'Không thể tạo đơn đặt vé trực tiếp.'}
                 </p>
               )}
+
               <button
                 type="button"
-                onClick={submitBooking}
+                onClick={onConfirm}
                 disabled={!canSubmit || createMutation.isPending}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-4 text-base font-black text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {createMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <ReceiptText className="size-4" />}
-                {paymentMethod === 'bank_transfer'
-                  ? 'Tạo thanh toán PayOS'
-                  : paymentMethod === 'cash'
-                    ? 'Đã thanh toán - xuất vé'
-                    : 'Xác nhận đã thanh toán'}
+                {createMutation.isPending ? <Loader2 className="size-5 animate-spin" /> : <Ticket className="size-5" />}
+                {confirmLabel}
               </button>
-            </StaffPanel>
-          </aside>
-        </div>
-      )}
-    </StaffPage>
+
+              <p className="mt-5 flex items-center justify-center gap-2 text-xs text-subtle">
+                <ShieldCheck className="size-4" />
+                Thông tin được bảo mật tuyệt đối
+              </p>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+function ReviewInfoCard({ icon: Icon, label, value }) {
+  return (
+    <div className="flex min-h-24 items-center gap-4 rounded-xl border border-sky-900/45 bg-[linear-gradient(135deg,rgba(20,40,78,0.66),rgba(16,35,68,0.42))] px-4 py-4">
+      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-violet-600/25 text-violet-300">
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-extrabold uppercase tracking-wide text-subtle">{label}</p>
+        <p className="mt-1 break-words text-sm font-bold leading-5 text-content">{value || 'Chưa cập nhật'}</p>
+      </div>
+    </div>
+  )
+}
+
+function ReviewTicketRow({ label, value }) {
+  return (
+    <div className="flex items-start justify-between gap-5 border-b border-sky-900/40 px-4 py-3.5 text-sm last:border-0 sm:px-5">
+      <span className="text-subtle">{label}</span>
+      <span className="max-w-[70%] text-right font-semibold text-content">{value}</span>
+    </div>
+  )
+}
+
+function ConfirmStep({ icon: Icon, tone, title, description, marker }) {
+  const isGreen = tone === 'green'
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border px-3 py-3.5 ${
+      isGreen ? 'border-emerald-500/25 bg-emerald-500/[0.07]' : 'border-sky-900/50 bg-sky-950/25'
+    }`}>
+      <span className={`grid size-11 shrink-0 place-items-center rounded-full ${
+        isGreen ? 'bg-emerald-500/25 text-emerald-300' : 'bg-violet-600/25 text-violet-300'
+      }`}>
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-extrabold text-content">{title}</p>
+        <p className="mt-0.5 text-xs leading-5 text-subtle">{description}</p>
+      </div>
+      {typeof marker === 'string' ? (
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-violet-600/35 text-xs font-bold text-violet-200">{marker}</span>
+      ) : marker}
+    </div>
   )
 }
 
@@ -895,7 +1175,7 @@ function SectionTitle({ step, title }) {
   )
 }
 
-function Input({ label, value, onChange, type = 'text', required = false, hint }) {
+function Input({ label, value, onChange, type = 'text', required = false, hint, error = '' }) {
   return (
     <label className="block">
       <span className="text-xs font-bold uppercase tracking-wide text-subtle">
@@ -905,10 +1185,11 @@ function Input({ label, value, onChange, type = 'text', required = false, hint }
         type={type}
         required={required}
         value={value}
+        placeholder={hint || ''}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-11 w-full rounded-md border border-border-soft/50 bg-panel-soft px-3 text-sm text-content outline-none transition focus:border-primary"
+        className={`mt-2 h-11 w-full rounded-lg border bg-sky-950/25 px-3 text-sm text-content outline-none transition placeholder:text-slate-500 focus:border-violet-400 ${error ? 'border-error/70' : 'border-sky-900/60'}`}
       />
-      {hint ? <span className="mt-2 block text-xs text-subtle">{hint}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-semibold text-error">{error}</span> : null}
     </label>
   )
 }
