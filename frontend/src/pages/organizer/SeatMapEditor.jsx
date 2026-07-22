@@ -2,11 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Ban,
   Eraser,
+  Grid,
   Hand,
+  Layers,
   MousePointer2,
   Paintbrush,
+  Palette,
   Plus,
+  Settings,
+  Shapes,
+  Sparkles,
   Trash2,
+  Users,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -21,7 +28,22 @@ const GAP_Y = 8
 const SNAP_X = SEAT_W + GAP_X
 const SNAP_Y = SEAT_H + GAP_Y
 const STAGE_OFFSET_Y = 70
-const ZONE_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
+const ZONE_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F43F5E']
+
+const STAGE_SHAPES = [
+  { id: 'RECTANGLE', label: 'Hình chữ nhật / Vuông', icon: '▭' },
+  { id: 'CIRCLE', label: 'Hình tròn / Ellipse', icon: '◯' },
+  { id: 'SEMI_CIRCLE', label: 'Hình bán nguyệt', icon: '⌒' },
+  { id: 'T_STAGE', label: 'Sân khấu chữ T (Runway)', icon: '⊤' },
+  { id: 'DIAMOND', label: 'Hình thoi / Kim cương', icon: '◇' },
+]
+
+const CANVAS_THEMES = [
+  { id: '#0F172A', label: 'Dark Navy', color: '#0F172A' },
+  { id: '#090D16', label: 'Pure Dark', color: '#090D16' },
+  { id: '#1E293B', label: 'Studio Slate', color: '#1E293B' },
+  { id: '#F8FAFC', label: 'Light Canvas', color: '#F8FAFC', light: true },
+]
 
 const TOOLS = [
   { id: 'SELECT', label: 'Chọn', icon: MousePointer2, shortcut: 'V' },
@@ -38,6 +60,59 @@ function newLocalId() {
 function rowLabelForIndex(r) {
   if (r < 26) return String.fromCharCode(65 + r)
   return String.fromCharCode(64 + Math.floor(r / 26)) + String.fromCharCode(65 + (r % 26))
+}
+
+function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
+  const [val, setVal] = useState(initialValue || '')
+
+  useEffect(() => {
+    setVal(initialValue || '')
+  }, [initialValue, isOpen])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+      <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-6 shadow-2xl space-y-4 text-content">
+        <h3 className="text-base font-extrabold text-content">{title || 'Đổi tên'}</h3>
+        <div>
+          <label className="text-xs text-subtle font-semibold mb-1 block">Tên hiển thị mới:</label>
+          <input
+            type="text"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && val.trim()) {
+                onSave(val.trim())
+              }
+              if (e.key === 'Escape') onClose()
+            }}
+            placeholder="Nhập tên mới..."
+            className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2.5 text-sm font-bold text-content outline-none focus:border-tertiary shadow-inner"
+            autoFocus
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl px-4 py-2 text-xs font-semibold text-subtle hover:bg-panel-soft hover:text-content transition"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (val.trim()) onSave(val.trim())
+            }}
+            className="org-btn-primary px-5 py-2 text-xs"
+          >
+            Lưu thay đổi
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /** Gán row_label + seat_number duy nhất trước khi lưu (tránh UNIQUE constraint). */
@@ -109,6 +184,93 @@ function seatKey(x, y) {
   return `${x},${y}`
 }
 
+function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--color-panel-soft)', label = 'SÂN KHẤU', position = 'TOP') {
+  const fillColor = color || 'var(--color-panel-soft)'
+  const strokeColor = 'rgba(255,255,255,0.3)'
+
+  if (shape === 'CIRCLE') {
+    const rx = w / 2
+    const ry = h / 2
+    const cx = x + rx
+    const cy = y + ry
+    return (
+      <g>
+        <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
+        <ellipse cx={cx} cy={cy} rx={Math.max(2, rx - 8)} ry={Math.max(2, ry - 8)} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="4 4" />
+        <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize={13} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+          {label}
+        </text>
+      </g>
+    )
+  }
+
+  if (shape === 'SEMI_CIRCLE') {
+    const rx = w / 2
+    const ry = h
+    const cx = x + rx
+    return (
+      <g>
+        <path d={`M ${x} ${y + h} A ${rx} ${ry} 0 0 1 ${x + w} ${y + h} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
+        <text x={cx} y={y + h / 2 + 6} textAnchor="middle" fill="white" fontSize={13} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+          {label}
+        </text>
+      </g>
+    )
+  }
+
+  if (shape === 'T_STAGE') {
+    const topH = h * 0.45
+    const stemW = w * 0.4
+    const stemX = x + (w - stemW) / 2
+    const d = `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + topH} L ${stemX + stemW} ${y + topH} L ${stemX + stemW} ${y + h} L ${stemX} ${y + h} L ${stemX} ${y + topH} L ${x} ${y + topH} Z`
+    return (
+      <g>
+        <path d={d} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
+        <text x={x + w / 2} y={y + topH / 2 + 4} textAnchor="middle" fill="white" fontSize={12} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+          {label}
+        </text>
+      </g>
+    )
+  }
+
+  if (shape === 'DIAMOND') {
+    const cx = x + w / 2
+    const cy = y + h / 2
+    const points = `${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`
+    return (
+      <g>
+        <polygon points={points} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
+        <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize={13} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+          {label}
+        </text>
+      </g>
+    )
+  }
+
+  // RECTANGLE
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} fill={fillColor} rx={Math.min(w, h) > 20 ? 12 : 4} stroke={strokeColor} strokeWidth={2} />
+      {(position === 'TOP' || position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="rgba(255,255,255,0.3)" />}
+      {position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="rgba(255,255,255,0.3)" />}
+      {position === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="rgba(255,255,255,0.3)" />}
+      {position === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="rgba(255,255,255,0.3)" />}
+      <text
+        x={x + w / 2}
+        y={y + h / 2 + 5}
+        textAnchor="middle"
+        fill="white"
+        fontSize={13}
+        fontWeight="bold"
+        style={{ userSelect: 'none', pointerEvents: 'none' }}
+        transform={position === 'LEFT' || position === 'RIGHT' || (position === 'CUSTOM' && h > w) ? `rotate(-90 ${x + w / 2} ${y + h / 2})` : undefined}
+      >
+        {label}
+      </text>
+    </g>
+  )
+}
+
 export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const toast = useToast()
   const svgRef = useRef(null)
@@ -133,14 +295,33 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [zones, setZones] = useState([])
   const [seats, setSeats] = useState([])
   const [loading, setLoading] = useState(Boolean(seatMapId))
-  const [stageConfig, setStageConfig] = useState({ position: 'TOP', label: 'SÂN KHẤU', x: 0, y: 0, w: 900, h: 52 })
+  const [canvasBg, setCanvasBg] = useState('#0F172A')
+  const [sidebarTab, setSidebarTab] = useState('STAGE') // STAGE | ZONES | GRID | THEMES
+
+  const [renameModalState, setRenameModalState] = useState({ isOpen: false, title: '', initialValue: '', onSave: null })
+
+  const [stageConfig, setStageConfig] = useState({
+    position: 'TOP',
+    shape: 'RECTANGLE',
+    color: '#3B82F6',
+    label: 'SÂN KHẤU',
+    x: 0,
+    y: 0,
+    w: 900,
+    h: 52,
+    rotation: 0,
+  })
+
+  const [standingAreas, setStandingAreas] = useState([])
+  const [draggingStandingId, setDraggingStandingId] = useState(null)
+  const [standingDragOffset, setStandingDragOffset] = useState({ x: 0, y: 0 })
+
   const [isDraggingStage, setIsDraggingStage] = useState(false)
   const [stageDragOffset, setStageDragOffset] = useState({ x: 0, y: 0 })
   const [isDraggingSeats, setIsDraggingSeats] = useState(false)
   const [seatDragStartPt, setSeatDragStartPt] = useState(null)
   const [seatDragOriginals, setSeatDragOriginals] = useState({})
   const [hasDraggedSeats, setHasDraggedSeats] = useState(false)
-  const [clickToSelectId, setClickToSelectId] = useState(null)
 
   const [auxElements, setAuxElements] = useState([])
   const [draggingAuxId, setDraggingAuxId] = useState(null)
@@ -160,8 +341,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         setMapName(sm.name)
         setLayoutType(sm.layout_type || 'GRID')
         setGridConfig({ rows: sm.rows_count || 10, cols: sm.cols_count || 20 })
+        setCanvasBg(sm.config?.canvasBg || '#0F172A')
         setStageConfig({
           position: sm.config?.stagePosition || 'TOP',
+          shape: sm.config?.stageShape || 'RECTANGLE',
+          color: sm.config?.stageColor || '#3B82F6',
           label: sm.config?.stageLabel || 'SÂN KHẤU',
           x: sm.config?.stageX || 0,
           y: sm.config?.stageY || 0,
@@ -169,6 +353,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           h: sm.config?.stageHeight || 52,
           rotation: sm.config?.stageRotation || 0,
         })
+        setStandingAreas(sm.config?.standingAreas || [])
         setAuxElements(sm.config?.auxiliaryElements || [])
         setZones((sm.zones || []).map((z) => ({ localId: z.id, name: z.name, color: z.color })))
         const loaded = (sm.seats || []).map((s) => ({
@@ -185,22 +370,29 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       })
       .catch((err) => {
         console.error(err)
-        const message = 'Không thể tải sơ đồ ghế.'
+        const message = getApiMessage(err, 'Không thể tải dữ liệu sơ đồ ghế.')
         setError(message)
         toast.error(message)
       })
       .finally(() => setLoading(false))
-  }, [seatMapId])
-
-  const activeZone = zones.find((z) => z.localId === activeZoneId)
-  const selectedCount = selectedIds.size
+  }, [seatMapId, toast])
 
   const stats = useMemo(() => {
-    const active = seats.filter((s) => !s.isDisabled).length
-    const disabled = seats.length - active
-    const zoned = seats.filter((s) => s.zoneLocalId && !s.isDisabled).length
-    return { total: seats.length, active, disabled, zoned, unassigned: active - zoned }
-  }, [seats])
+    const activeSeats = seats.filter((s) => !s.isDisabled).length
+    const disabledSeats = seats.length - activeSeats
+    const zonedSeats = seats.filter((s) => s.zoneLocalId && !s.isDisabled).length
+    const standingCapacity = standingAreas.reduce((sum, a) => sum + Number(a.capacity || 0), 0)
+    const grandTotal = activeSeats + standingCapacity
+    return {
+      total: seats.length,
+      active: activeSeats,
+      disabled: disabledSeats,
+      zoned: zonedSeats,
+      unassigned: activeSeats - zonedSeats,
+      standingCap: standingCapacity,
+      totalCap: grandTotal,
+    }
+  }, [seats, standingAreas])
 
   const deleteSelected = useCallback(() => {
     if (!selectedIds.size) return
@@ -234,9 +426,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           e.preventDefault()
           deleteSelected()
         }
+        if (selectedShapeId && selectedShapeId.startsWith('std-')) {
+          e.preventDefault()
+          deleteStandingArea(selectedShapeId)
+        }
       }
       if (key === 'escape') {
         setSelectedIds(new Set())
+        setSelectedShapeId(null)
         setRubberBand(null)
       }
       const matched = TOOLS.find((t) => t.shortcut.toLowerCase() === key)
@@ -246,7 +443,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedIds, deleteSelected, layoutType])
+  }, [selectedIds, selectedShapeId, deleteSelected, layoutType])
 
   function toSVGPoint(e) {
     const rect = svgRef.current.getBoundingClientRect()
@@ -280,14 +477,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function addZone() {
-    setZones((prev) => [
-      ...prev,
-      {
-        localId: newLocalId(),
-        name: `Khu vực ${prev.length + 1}`,
-        color: ZONE_COLORS[prev.length % ZONE_COLORS.length],
-      },
-    ])
+    const newZone = {
+      localId: newLocalId(),
+      name: `Khu vực ${zones.length + 1}`,
+      color: ZONE_COLORS[zones.length % ZONE_COLORS.length],
+    }
+    setZones((prev) => [...prev, newZone])
+    setActiveZoneId(newZone.localId)
   }
 
   function deleteZone(zoneLocalId) {
@@ -296,6 +492,57 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       prev.map((s) => (s.zoneLocalId === zoneLocalId ? { ...s, zoneLocalId: null } : s)),
     )
     if (activeZoneId === zoneLocalId) setActiveZoneId(null)
+  }
+
+  function addStandingArea() {
+    const newArea = {
+      id: `std-${newLocalId()}`,
+      name: `Vùng Đứng ${standingAreas.length + 1}`,
+      capacity: 100,
+      color: ZONE_COLORS[standingAreas.length % ZONE_COLORS.length],
+      x: 200,
+      y: 200,
+      w: 240,
+      h: 120,
+      rotation: 0,
+    }
+    setStandingAreas((prev) => [...prev, newArea])
+    setSelectedShapeId(newArea.id)
+    setSidebarTab('ZONES')
+  }
+
+  function deleteStandingArea(id) {
+    setStandingAreas((prev) => prev.filter((a) => a.id !== id))
+    if (selectedShapeId === id) setSelectedShapeId(null)
+  }
+
+  function applyPreset(presetType) {
+    if (presetType === 'THEATER') {
+      setStageConfig({ position: 'TOP', shape: 'RECTANGLE', color: '#3B82F6', label: 'SÂN KHẤU CHÍNH', x: 0, y: 0, w: 900, h: 52, rotation: 0 })
+      setGridConfig({ rows: 10, cols: 20 })
+      setLayoutType('GRID')
+      setStandingAreas([])
+      generateGrid()
+      toast.success('Đã áp dụng mẫu Nhà hát / Hội trường')
+    } else if (presetType === 'T_STAGE') {
+      setStageConfig({ position: 'CUSTOM', shape: 'T_STAGE', color: '#8B5CF6', label: 'SÂN KHẤU T', x: 220, y: 20, w: 460, h: 220, rotation: 0 })
+      setLayoutType('GRID')
+      setGridConfig({ rows: 8, cols: 18 })
+      generateGrid()
+      setStandingAreas([
+        { id: `std-${newLocalId()}`, name: 'Khu Đứng VIP (Mặt sân)', capacity: 150, color: '#EF4444', x: 180, y: 260, w: 540, h: 100, rotation: 0 }
+      ])
+      toast.success('Đã áp dụng mẫu Concert Sân khấu T')
+    } else if (presetType === 'FESTIVAL') {
+      setStageConfig({ position: 'TOP', shape: 'SEMI_CIRCLE', color: '#10B981', label: 'SÂN KHẤU CHÍNH', x: 200, y: 10, w: 500, h: 90, rotation: 0 })
+      setLayoutType('GRID')
+      setGridConfig({ rows: 8, cols: 16 })
+      generateGrid()
+      setStandingAreas([
+        { id: `std-${newLocalId()}`, name: 'Vùng Đứng GA (Festival)', capacity: 300, color: '#F59E0B', x: 160, y: 120, w: 580, h: 140, rotation: 0 }
+      ])
+      toast.success('Đã áp dụng mẫu Festival Hỗn hợp (Ghế + Đứng)')
+    }
   }
 
   function handlePaintAt(pt) {
@@ -387,135 +634,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
   }
 
-  function handleMouseMove(e) {
-    if (isPanning && panStart) {
-      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y })
-      return
-    }
-    const pt = toSVGPoint(e)
-
-    if (draggingHandle) {
-      if (draggingHandle.type === 'RESIZE') {
-        const dx = pt.x - draggingHandle.startPt.x
-        const dy = pt.y - draggingHandle.startPt.y
-        const rad = (draggingHandle.rotation * Math.PI) / 180
-        const dw = dx * Math.cos(-rad) - dy * Math.sin(-rad)
-        const dh = dx * Math.sin(-rad) + dy * Math.cos(-rad)
-        const newW = Math.max(20, draggingHandle.startW + Math.round(dw))
-        const newH = Math.max(20, draggingHandle.startH + Math.round(dh))
-
-        if (draggingHandle.elementId === 'STAGE') {
-          setStageConfig((c) => ({ ...c, w: newW, h: newH }))
-        } else {
-          setAuxElements((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, w: newW, h: newH } : a)))
-        }
-      } else if (draggingHandle.type === 'ROTATE') {
-        const anglePt = Math.atan2(pt.y - draggingHandle.cy, pt.x - draggingHandle.cx) * (180 / Math.PI)
-        const angleStart = Math.atan2(draggingHandle.startPt.y - draggingHandle.cy, draggingHandle.startPt.x - draggingHandle.cx) * (180 / Math.PI)
-        const deltaAngle = anglePt - angleStart
-        const newRot = Math.round(draggingHandle.startRot + deltaAngle)
-
-        if (draggingHandle.elementId === 'STAGE') {
-          setStageConfig((c) => ({ ...c, rotation: newRot }))
-        } else {
-          setAuxElements((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, rotation: newRot } : a)))
-        }
-      }
-      return
-    }
-
-    if (draggingAuxId) {
-      setAuxElements((prev) => prev.map(a =>
-        a.id === draggingAuxId ? { ...a, x: Math.round(pt.x - auxDragOffset.x), y: Math.round(pt.y - auxDragOffset.y) } : a
-      ))
-      return
-    }
-
-    if (isDraggingStage) {
-      setStageConfig((c) => ({
-        ...c,
-        x: Math.round(pt.x - stageDragOffset.x),
-        y: Math.round(pt.y - stageDragOffset.y),
-      }))
-      return
-    }
-
-    if (isDraggingSeats && seatDragStartPt) {
-      setHasDraggedSeats(true)
-      const dx = pt.x - seatDragStartPt.x
-      const dy = pt.y - seatDragStartPt.y
-
-      let snappedDx = dx, snappedDy = dy
-      if (snapEnabled) {
-        snappedDx = Math.round(dx / SNAP_X) * SNAP_X
-        snappedDy = Math.round(dy / SNAP_Y) * SNAP_Y
-      } else {
-        snappedDx = Math.round(dx)
-        snappedDy = Math.round(dy)
-      }
-
-      const startX = stageConfig.position === 'LEFT' ? STAGE_OFFSET_Y : 0
-      const startY = stageConfig.position === 'TOP' ? STAGE_OFFSET_Y : 0
-
-      setSeats((prev) => prev.map((s) => {
-        if (seatDragOriginals[s.localId]) {
-          const orig = seatDragOriginals[s.localId]
-          return {
-            ...s,
-            x: Math.max(startX, orig.x + snappedDx),
-            y: Math.max(startY, orig.y + snappedDy)
-          }
-        }
-        return s
-      }))
-      return
-    }
-
-    if (isPainting) {
-      handlePaintAt(pt)
-      return
-    }
-
-    if (rubberBand) {
-      setRubberBand((rb) => ({ ...rb, x2: pt.x, y2: pt.y }))
-    }
-  }
-
-  function handleMouseUp(e) {
-    setIsPanning(false)
-    setIsPainting(false)
-    setIsDraggingStage(false)
-    setDraggingAuxId(null)
-    setDraggingHandle(null)
-
-    if (isDraggingSeats) {
-      if (!hasDraggedSeats && clickToSelectId && e && !e.shiftKey) {
-        setSelectedIds(new Set([clickToSelectId]))
-      }
-      setIsDraggingSeats(false)
-      setSeatDragStartPt(null)
-      setSeatDragOriginals({})
-      setHasDraggedSeats(false)
-      setClickToSelectId(null)
-    }
-
-    paintVisited.current = new Set()
-
-    if (rubberBand) {
-      const inRect = seatsInRect(seats, rubberBand.x1, rubberBand.y1, rubberBand.x2, rubberBand.y2)
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        inRect.forEach((s) => next.add(s.localId))
-        return next
-      })
-      setRubberBand(null)
-    }
-  }
-
   function handleStageMouseDown(e) {
     if (tool !== 'SELECT') return
     e.stopPropagation()
     setSelectedShapeId('STAGE')
+    setSidebarTab('STAGE')
     setIsDraggingStage(true)
     const pt = toSVGPoint(e)
 
@@ -531,13 +654,63 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
   }
 
+  function handleStageDoubleClick(e) {
+    e.stopPropagation()
+    setRenameModalState({
+      isOpen: true,
+      title: 'Đổi tên Sân khấu',
+      initialValue: stageConfig.label,
+      onSave: (newName) => {
+        setStageConfig((c) => ({ ...c, label: newName }))
+        setRenameModalState({ isOpen: false })
+      },
+    })
+  }
+
   function handleAuxMouseDown(e, aux) {
     if (tool !== 'SELECT') return
     e.stopPropagation()
     setSelectedShapeId(aux.id)
+    setSidebarTab('STAGE')
     setDraggingAuxId(aux.id)
     const pt = toSVGPoint(e)
     setAuxDragOffset({ x: pt.x - aux.x, y: pt.y - aux.y })
+  }
+
+  function handleAuxDoubleClick(e, aux) {
+    e.stopPropagation()
+    setRenameModalState({
+      isOpen: true,
+      title: 'Đổi tên Vật thể phụ',
+      initialValue: aux.label,
+      onSave: (newName) => {
+        setAuxElements((prev) => prev.map((a) => (a.id === aux.id ? { ...a, label: newName } : a)))
+        setRenameModalState({ isOpen: false })
+      },
+    })
+  }
+
+  function handleStandingMouseDown(e, area) {
+    if (tool !== 'SELECT') return
+    e.stopPropagation()
+    setSelectedShapeId(area.id)
+    setSidebarTab('ZONES')
+    setDraggingStandingId(area.id)
+    const pt = toSVGPoint(e)
+    setStandingDragOffset({ x: pt.x - area.x, y: pt.y - area.y })
+  }
+
+  function handleStandingDoubleClick(e, area) {
+    e.stopPropagation()
+    setRenameModalState({
+      isOpen: true,
+      title: 'Đổi tên Vùng đứng',
+      initialValue: area.name,
+      onSave: (newName) => {
+        setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, name: newName } : a)))
+        setRenameModalState({ isOpen: false })
+      },
+    })
   }
 
   function handleSeatMouseDown(e, seat) {
@@ -600,42 +773,164 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           if (!next.has(seat.localId)) {
             next = new Set([seat.localId])
             setSelectedIds(next)
-          } else {
-            setClickToSelectId(seat.localId)
           }
         }
-
-        if (next.has(seat.localId)) {
-          setIsDraggingSeats(true)
-          setSeatDragStartPt(toSVGPoint(e))
-          const orig = {}
-          seats.forEach((s) => {
-            if (next.has(s.localId)) orig[s.localId] = { x: s.x, y: s.y }
-          })
-          setSeatDragOriginals(orig)
-          setHasDraggedSeats(false)
-        }
+        setIsDraggingSeats(true)
+        const pt = toSVGPoint(e)
+        setSeatDragStartPt(pt)
+        const origs = {}
+        next.forEach((id) => {
+          const found = seatsRef.current.find((s) => s.localId === id)
+          if (found) origs[id] = { x: found.x, y: found.y }
+        })
+        setSeatDragOriginals(origs)
+        setHasDraggedSeats(false)
       }
     }
   }
 
+  function handleMouseMove(e) {
+    if (isPanning && panStart) {
+      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y })
+      return
+    }
+    const pt = toSVGPoint(e)
+
+    if (draggingHandle) {
+      if (draggingHandle.type === 'RESIZE') {
+        const dx = pt.x - draggingHandle.startPt.x
+        const dy = pt.y - draggingHandle.startPt.y
+        const rad = (draggingHandle.rotation * Math.PI) / 180
+        const dw = dx * Math.cos(-rad) - dy * Math.sin(-rad)
+        const dh = dx * Math.sin(-rad) + dy * Math.cos(-rad)
+        const newW = Math.max(30, draggingHandle.startW + Math.round(dw))
+        const newH = Math.max(20, draggingHandle.startH + Math.round(dh))
+
+        if (draggingHandle.elementId === 'STAGE') {
+          setStageConfig((c) => ({ ...c, w: newW, h: newH }))
+        } else if (draggingHandle.elementId.startsWith('std-')) {
+          setStandingAreas((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, w: newW, h: newH } : a)))
+        } else {
+          setAuxElements((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, w: newW, h: newH } : a)))
+        }
+      } else if (draggingHandle.type === 'ROTATE') {
+        const anglePt = Math.atan2(pt.y - draggingHandle.cy, pt.x - draggingHandle.cx) * (180 / Math.PI)
+        const angleStart = Math.atan2(draggingHandle.startPt.y - draggingHandle.cy, draggingHandle.startPt.x - draggingHandle.cx) * (180 / Math.PI)
+        const deltaAngle = anglePt - angleStart
+        const newRot = Math.round(draggingHandle.startRot + deltaAngle)
+
+        if (draggingHandle.elementId === 'STAGE') {
+          setStageConfig((c) => ({ ...c, rotation: newRot }))
+        } else if (draggingHandle.elementId.startsWith('std-')) {
+          setStandingAreas((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, rotation: newRot } : a)))
+        } else {
+          setAuxElements((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, rotation: newRot } : a)))
+        }
+      }
+      return
+    }
+
+    if (draggingStandingId) {
+      setStandingAreas((prev) => prev.map(a =>
+        a.id === draggingStandingId ? { ...a, x: Math.round(pt.x - standingDragOffset.x), y: Math.round(pt.y - standingDragOffset.y) } : a
+      ))
+      return
+    }
+
+    if (draggingAuxId) {
+      setAuxElements((prev) => prev.map(a =>
+        a.id === draggingAuxId ? { ...a, x: Math.round(pt.x - auxDragOffset.x), y: Math.round(pt.y - auxDragOffset.y) } : a
+      ))
+      return
+    }
+
+    if (isDraggingStage) {
+      setStageConfig((c) => ({
+        ...c,
+        x: Math.round(pt.x - stageDragOffset.x),
+        y: Math.round(pt.y - stageDragOffset.y),
+      }))
+      return
+    }
+
+    if (isDraggingSeats && seatDragStartPt) {
+      setHasDraggedSeats(true)
+      const dx = pt.x - seatDragStartPt.x
+      const dy = pt.y - seatDragStartPt.y
+
+      let snappedDx = dx, snappedDy = dy
+      if (snapEnabled) {
+        snappedDx = Math.round(dx / SNAP_X) * SNAP_X
+        snappedDy = Math.round(dy / SNAP_Y) * SNAP_Y
+      }
+
+      setSeats((prev) =>
+        prev.map((s) => {
+          if (seatDragOriginals[s.localId]) {
+            return {
+              ...s,
+              x: Math.max(0, seatDragOriginals[s.localId].x + snappedDx),
+              y: Math.max(0, seatDragOriginals[s.localId].y + snappedDy),
+            }
+          }
+          return s
+        }),
+      )
+      return
+    }
+
+    if (isPainting) {
+      handlePaintAt(pt)
+      return
+    }
+
+    if (rubberBand) {
+      setRubberBand((rb) => (rb ? { ...rb, x2: pt.x, y2: pt.y } : null))
+    }
+  }
+
+  function handleMouseUp() {
+    setIsPanning(false)
+    setPanStart(null)
+    setIsPainting(false)
+    setIsDraggingStage(false)
+    setDraggingAuxId(null)
+    setDraggingStandingId(null)
+    setDraggingHandle(null)
+
+    if (isDraggingSeats) {
+      setIsDraggingSeats(false)
+      setSeatDragStartPt(null)
+      setSeatDragOriginals({})
+    }
+
+    paintVisited.current = new Set()
+
+    if (rubberBand) {
+      const inRect = seatsInRect(seats, rubberBand.x1, rubberBand.y1, rubberBand.x2, rubberBand.y2)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        inRect.forEach((s) => next.add(s.localId))
+        return next
+      })
+      setRubberBand(null)
+    }
+  }
+
   function handleWheel(e) {
-    setZoom((z) => Math.min(3, Math.max(0.3, z - e.deltaY * 0.001)))
+    e.preventDefault()
+    const factor = e.deltaY < 0 ? 1.1 : 0.9
+    setZoom((z) => Math.min(2.5, Math.max(0.4, z * factor)))
   }
 
   async function handleSave() {
     if (!mapName.trim()) {
-      const message = 'Vui lòng nhập tên sơ đồ.'
+      const message = 'Vui lòng nhập tên sơ đồ ghế.'
       setError(message)
       toast.error(message)
       return
     }
-    if (!seats.length) {
-      const message = 'Sơ đồ cần có ít nhất 1 ghế.'
-      setError(message)
-      toast.error(message)
-      return
-    }
+
     if (seats.length > 2000) {
       const message = 'Tối đa 2000 ghế mỗi sơ đồ.'
       setError(message)
@@ -658,12 +953,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       config: {
         stageLabel: stageConfig.label,
         stagePosition: stageConfig.position,
+        stageShape: stageConfig.shape || 'RECTANGLE',
+        stageColor: stageConfig.color || '#3B82F6',
         stageX: Math.round(stageConfig.x),
         stageY: Math.round(stageConfig.y),
         stageWidth: Math.round(stageConfig.w),
         stageHeight: Math.round(stageConfig.h),
         stageRotation: stageConfig.rotation || 0,
         auxiliaryElements: auxElements,
+        standingAreas: standingAreas,
+        canvasBg: canvasBg || '#0F172A',
       },
       rows_count: gridConfig.rows,
       cols_count: gridConfig.cols,
@@ -720,12 +1019,17 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-content">
+      <RenameModal
+        {...renameModalState}
+        onClose={() => setRenameModalState({ isOpen: false, title: '', initialValue: '', onSave: null })}
+      />
+
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-soft/30 bg-surface/90 px-4 shadow-md backdrop-blur-sm">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl px-3 py-1.5 text-sm text-muted transition hover:bg-panel-soft hover:text-content"
+          className="rounded-xl px-3 py-1.5 text-sm font-semibold text-muted transition hover:bg-panel-soft hover:text-content"
         >
           ← Đóng
         </button>
@@ -736,9 +1040,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           placeholder="Tên sơ đồ ghế..."
           className="min-w-0 flex-1 border-0 bg-transparent text-lg font-bold text-content outline-none placeholder:text-muted"
         />
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="hidden items-center gap-3 sm:flex">
           <span className="rounded-xl bg-panel-soft border border-border-soft/20 px-3 py-1 text-xs font-semibold text-content">
-            {stats.total} ghế
+            💺 {stats.active} ghế · 🚶 {stats.standingCap} đứng · 🏆 {stats.totalCap} tổng chỗ
           </span>
           {stats.total > 1800 && (
             <span className="text-xs font-medium text-warning animate-pulse">Gần giới hạn 2000</span>
@@ -752,387 +1056,674 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="flex w-[300px] shrink-0 flex-col overflow-y-auto border-r border-border-soft/30 bg-surface/90 backdrop-blur-sm text-content">
-          <div className="space-y-4 p-4">
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                ['Tổng ghế', stats.total, 'var(--color-content)'],
-                ['Hoạt động', stats.active, 'var(--color-success)'],
-                ['Đã gán khu vực', stats.zoned, 'var(--color-primary)'],
-                ['Chưa gán', stats.unassigned, 'var(--color-neutral)'],
-              ].map(([label, value, color]) => (
-                <div key={label} className="rounded-xl border border-border-soft/30 bg-panel-soft p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</p>
-                  <p className="text-xl font-extrabold" style={{ color }}>
-                    {value}
+        <aside className="flex w-[320px] shrink-0 flex-col border-r border-border-soft/30 bg-surface/90 backdrop-blur-sm text-content overflow-hidden">
+          {/* Navigation Tabs */}
+          <div className="grid grid-cols-4 border-b border-border-soft/30 bg-panel-soft/30 p-1">
+            {[
+              { id: 'STAGE', label: 'Sân khấu', icon: Shapes },
+              { id: 'ZONES', label: 'Khu vực', icon: Users },
+              { id: 'GRID', label: 'Lưới ghế', icon: Grid },
+              { id: 'THEMES', label: 'Giao diện', icon: Palette },
+            ].map((tab) => {
+              const IconComp = tab.icon
+              const active = sidebarTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSidebarTab(tab.id)}
+                  className={`flex flex-col items-center gap-1 py-2 text-[10px] font-bold rounded-lg transition-all ${
+                    active ? 'bg-tertiary text-white shadow-sm' : 'text-subtle hover:text-content hover:bg-panel-soft'
+                  }`}
+                >
+                  <IconComp className="size-4" />
+                  <span>{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* TAB 1: SÂN KHẤU & PRESETS */}
+            {sidebarTab === 'STAGE' && (
+              <div className="space-y-4">
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
+                    <Shapes className="size-3.5 text-tertiary" /> Cấu hình sân khấu
                   </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Layout type */}
-            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Loại layout</p>
-              <div className="grid grid-cols-3 gap-1">
-                {[
-                  ['GRID', 'Lưới'],
-                  ['FREEFORM', 'Tự do'],
-                  ['MIXED', 'Hỗn hợp'],
-                ].map(([type, label]) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setLayoutType(type)}
-                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${layoutType === type
-                      ? 'bg-tertiary text-white shadow-sm'
-                      : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
-                      }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* Grid config */}
-            {layoutType === 'GRID' && (
-              <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Cấu hình lưới</p>
-                <div className="mb-3 grid grid-cols-2 gap-2">
-                  <label className="text-xs text-subtle">
-                    Hàng
+                  <label className="text-xs text-subtle block">
+                    Tên hiển thị
                     <input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={gridConfig.rows}
-                      onChange={(e) => setGridConfig((g) => ({ ...g, rows: Number(e.target.value) }))}
-                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
+                      type="text"
+                      value={stageConfig.label}
+                      onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm font-bold text-content outline-none focus:border-primary"
                     />
                   </label>
-                  <label className="text-xs text-subtle">
-                    Cột
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={gridConfig.cols}
-                      onChange={(e) => setGridConfig((g) => ({ ...g, cols: Number(e.target.value) }))}
-                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
-                    />
-                  </label>
-                </div>
-                <button type="button" onClick={generateGrid} className="org-btn-primary w-full text-sm">
-                  Tạo lưới ghế
-                </button>
-              </section>
-            )}
 
-            {/* Stage settings */}
-            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Sân khấu</p>
-              <div className="mb-3 space-y-2">
-                <label className="text-xs text-subtle block">
-                  Tên hiển thị
-                  <input
-                    type="text"
-                    value={stageConfig.label}
-                    onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
-                  />
-                </label>
-                <label className="text-xs text-subtle block">
-                  Vị trí
-                  <select
-                    value={stageConfig.position}
-                    onChange={(e) => setStageConfig((c) => ({ ...c, position: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-sm text-content outline-none focus:border-primary"
-                  >
-                    <option value="TOP">Bên trên</option>
-                    <option value="BOTTOM">Bên dưới</option>
-                    <option value="LEFT">Trái</option>
-                    <option value="RIGHT">Phải</option>
-                    <option value="CUSTOM">Tuỳ chỉnh (Kéo thả)</option>
-                    <option value="HIDDEN">Ẩn</option>
-                  </select>
-                </label>
-                {stageConfig.position === 'CUSTOM' && (
-                  <div className="grid grid-cols-3 gap-2 mt-1">
-                    <label className="text-[11px] text-subtle">
-                      Ngang
-                      <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
-                    </label>
-                    <label className="text-[11px] text-subtle">
-                      Dọc
-                      <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
-                    </label>
-                    <label className="text-[11px] text-subtle">
-                      Xoay (°)
-                      <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
-                    </label>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {layoutType !== 'GRID' && (
-              <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-subtle">
-                  <input
-                    type="checkbox"
-                    checked={snapEnabled}
-                    onChange={(e) => setSnapEnabled(e.target.checked)}
-                    className="rounded border-border-soft/40 bg-panel-soft accent-primary"
-                  />
-                  Snap vào lưới khi vẽ
-                </label>
-                <p className="mt-2 text-xs leading-relaxed text-muted">
-                  Dùng công cụ <b>Vẽ ghế</b> — click hoặc kéo để đặt nhiều ghế cùng lúc.
-                </p>
-              </section>
-            )}
-
-            {/* Aux Elements */}
-            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Vật thể phụ</p>
-              <div className="flex flex-col gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'AUX_STAGE', label: 'Sân khấu phụ', x: 300, y: 300, w: 200, h: 44 }])}
-                  className="flex items-center gap-2 p-2 rounded-lg border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-medium bg-surface text-content shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5 text-tertiary" /> Sân khấu phụ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'SCREEN', label: 'Màn hình', x: 300, y: 300, w: 100, h: 20 }])}
-                  className="flex items-center gap-2 p-2 rounded-lg border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-medium bg-surface text-content shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5 text-tertiary" /> Màn hình
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {auxElements.map(a => (
-                  <div key={a.id} className="flex flex-col gap-2 p-2 rounded-lg bg-surface/50 border border-border-soft/20 text-content shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <input
-                        type="text"
-                        value={a.label}
-                        onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
-                        className="bg-transparent font-semibold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
-                      />
-                      <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title="Xóa" className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <label className="text-[10px] text-muted">Ngang <input type="number" value={a.w} onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, w: Number(e.target.value) } : x))} className="w-full bg-surface box-border border-border-soft/30 border rounded px-1 py-0.5 mt-0.5" /></label>
-                      <label className="text-[10px] text-muted">Dọc <input type="number" value={a.h} onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, h: Number(e.target.value) } : x))} className="w-full bg-surface box-border border-border-soft/30 border rounded px-1 py-0.5 mt-0.5" /></label>
-                      <label className="text-[10px] text-muted">Xoay <input type="number" value={a.rotation || 0} onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, rotation: Number(e.target.value) } : x))} className="w-full bg-surface box-border border-border-soft/30 border rounded px-1 py-0.5 mt-0.5" /></label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Zones */}
-            <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">Khu vực</p>
-                <button type="button" onClick={addZone} className="text-xs font-bold text-primary hover:underline">
-                  + Thêm khu vực
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {zones.length === 0 && (
-                  <p className="py-2 text-center text-xs text-muted">Chưa có khu vực nào</p>
-                )}
-                {zones.map((zone) => {
-                  const count = seats.filter((s) => s.zoneLocalId === zone.localId).length
-                  const isActive = activeZoneId === zone.localId
-                  return (
-                    <div
-                      key={zone.localId}
-                      onClick={() => setActiveZoneId(isActive ? null : zone.localId)}
-                      className={`group flex cursor-pointer items-center gap-2 rounded-xl border-2 p-2 transition-all ${isActive
-                        ? 'border-primary bg-tertiary/10 shadow-sm'
-                        : 'border-transparent hover:border-border-soft/20 hover:bg-panel-soft/60'
-                        }`}
+                  <label className="text-xs text-subtle block">
+                    Hình dạng khối sân khấu
+                    <select
+                      value={stageConfig.shape || 'RECTANGLE'}
+                      onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
                     >
+                      {STAGE_SHAPES.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.icon} {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div>
+                    <label className="text-xs text-subtle block mb-1">Màu sắc sân khấu</label>
+                    <div className="flex items-center gap-2">
                       <input
                         type="color"
-                        value={zone.color}
-                        onChange={(e) =>
-                          setZones((prev) =>
-                            prev.map((z) =>
-                              z.localId === zone.localId ? { ...z, color: e.target.value } : z,
-                            ),
-                          )
-                        }
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-6 w-6 cursor-pointer rounded-md border-0 p-0 bg-transparent"
+                        value={stageConfig.color || '#3B82F6'}
+                        onChange={(e) => setStageConfig((c) => ({ ...c, color: e.target.value }))}
+                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
                       />
-                      <input
-                        type="text"
-                        value={zone.name}
-                        onChange={(e) =>
-                          setZones((prev) =>
-                            prev.map((z) =>
-                              z.localId === zone.localId ? { ...z, name: e.target.value } : z,
-                            ),
-                          )
-                        }
-                        onClick={(e) => e.stopPropagation()}
-                        className="min-w-0 flex-1 border-0 bg-transparent text-sm font-semibold outline-none text-content"
-                      />
-                      <span className="rounded-full bg-surface/50 border border-border-soft/20 px-2 py-0.5 text-[10px] font-bold text-muted shadow-sm">
-                        {count}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#64748B'].map((hex) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            onClick={() => setStageConfig((c) => ({ ...c, color: hex }))}
+                            className="size-5 rounded-full border border-white/20 transition-transform hover:scale-110"
+                            style={{ backgroundColor: hex }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="text-xs text-subtle block">
+                    Vị trí
+                    <select
+                      value={stageConfig.position}
+                      onChange={(e) => setStageConfig((c) => ({ ...c, position: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
+                    >
+                      <option value="TOP">Bên trên</option>
+                      <option value="BOTTOM">Bên dưới</option>
+                      <option value="LEFT">Trái</option>
+                      <option value="RIGHT">Phải</option>
+                      <option value="CUSTOM">Tuỳ chỉnh (Kéo thả)</option>
+                      <option value="HIDDEN">Ẩn sân khấu</option>
+                    </select>
+                  </label>
+
+                  {stageConfig.position === 'CUSTOM' && (
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <label className="text-[11px] text-subtle">
+                        Ngang
+                        <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                      </label>
+                      <label className="text-[11px] text-subtle">
+                        Dọc
+                        <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                      </label>
+                      <label className="text-[11px] text-subtle">
+                        Xoay (°)
+                        <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                      </label>
+                    </div>
+                  )}
+                </section>
+
+                {/* Mẫu có sẵn */}
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-tertiary" /> Mẫu thiết kế nhanh
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button type="button" onClick={() => applyPreset('THEATER')} className="flex items-center justify-between rounded-xl border border-border-soft/30 bg-surface p-2.5 text-xs font-semibold text-content hover:border-tertiary transition">
+                      <span>🎭 Nhà hát / Hội trường</span>
+                      <span className="text-[10px] text-muted">Vuông + 200 ghế</span>
+                    </button>
+                    <button type="button" onClick={() => applyPreset('T_STAGE')} className="flex items-center justify-between rounded-xl border border-border-soft/30 bg-surface p-2.5 text-xs font-semibold text-content hover:border-tertiary transition">
+                      <span>🎤 Concert Sân khấu T</span>
+                      <span className="text-[10px] text-muted">Sân T + Đứng + Ghế</span>
+                    </button>
+                    <button type="button" onClick={() => applyPreset('FESTIVAL')} className="flex items-center justify-between rounded-xl border border-border-soft/30 bg-surface p-2.5 text-xs font-semibold text-content hover:border-tertiary transition">
+                      <span>🔥 Festival Hỗn hợp</span>
+                      <span className="text-[10px] text-muted">Bán nguyệt + Vùng đứng</span>
+                    </button>
+                  </div>
+                </section>
+
+                {/* Aux elements */}
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Vật thể phụ khác</p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'AUX_STAGE', label: 'Sân khấu phụ', x: 300, y: 300, w: 180, h: 40 }])}
+                      className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-tertiary" /> Sân phụ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'SCREEN', label: 'Màn hình LED', x: 300, y: 300, w: 120, h: 20 }])}
+                      className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-tertiary" /> Màn hình
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {auxElements.map(a => (
+                      <div key={a.id} className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-surface border border-border-soft/30 text-content shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <input
+                            type="text"
+                            value={a.label}
+                            onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
+                            className="bg-transparent font-bold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
+                          />
+                          <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title="Xóa" className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* TAB 2: KHU VỰC & VÙNG ĐỨNG */}
+            {sidebarTab === 'ZONES' && (
+              <div className="space-y-4">
+                {/* Vùng đứng không ghế */}
+                <section className="rounded-xl border border-tertiary/30 p-3.5 bg-tertiary/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wide text-tertiary flex items-center gap-1.5">
+                      <Users className="size-3.5" /> Vùng đứng (Không ghế)
+                    </p>
+                    <button type="button" onClick={addStandingArea} className="org-btn-primary text-xs py-1 px-2.5">
+                      + Thêm vùng đứng
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-subtle leading-relaxed">
+                    Tạo các khu vực vé đứng tự do (GA Standing, VIP Standing...). Khách hàng mua vé vùng này sẽ không cần chọn từng số ghế.
+                  </p>
+
+                  <div className="space-y-2">
+                    {standingAreas.length === 0 && (
+                      <p className="py-2 text-center text-xs text-muted border border-dashed border-border-soft/30 rounded-xl">Chưa có vùng đứng nào</p>
+                    )}
+                    {standingAreas.map((area) => (
+                      <div key={area.id} className="p-3 rounded-xl bg-surface border border-border-soft/40 shadow-sm space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            value={area.name}
+                            onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, name: e.target.value } : a)))}
+                            className="bg-transparent font-bold text-xs text-content outline-none border-b border-border-soft/40 focus:border-tertiary w-full"
+                          />
+                          <input
+                            type="color"
+                            value={area.color || '#EF4444'}
+                            onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, color: e.target.value } : a)))}
+                            className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                          />
+                          <button type="button" onClick={() => deleteStandingArea(area.id)} className="text-muted hover:text-error transition"><Trash2 className="size-3.5" /></button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="text-[10px] text-subtle">
+                            Sức chứa (người)
+                            <input
+                              type="number"
+                              min={1}
+                              value={area.capacity}
+                              onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, capacity: Number(e.target.value) } : a)))}
+                              className="mt-0.5 w-full rounded-lg border border-border-soft/40 bg-panel-soft px-2 py-1 text-xs text-content outline-none focus:border-primary font-bold"
+                            />
+                          </label>
+                          <label className="text-[10px] text-subtle">
+                            Kích thước (W×H)
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <input type="number" value={area.w} onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, w: Number(e.target.value) } : a)))} className="w-1/2 rounded-lg border border-border-soft/40 bg-panel-soft px-1 py-1 text-[11px] text-content" />
+                              <input type="number" value={area.h} onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, h: Number(e.target.value) } : a)))} className="w-1/2 rounded-lg border border-border-soft/40 bg-panel-soft px-1 py-1 text-[11px] text-content" />
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Khu vực ghế ngồi */}
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
+                      <Layers className="size-3.5 text-tertiary" /> Khu vực vé (Ghế ngồi)
+                    </p>
+                    <button type="button" onClick={addZone} className="text-xs font-bold text-primary hover:underline">
+                      + Thêm khu vực
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {zones.length === 0 && (
+                      <p className="py-2 text-center text-xs text-muted">Chưa có khu vực ghế nào</p>
+                    )}
+                    {zones.map((zone) => {
+                      const count = seats.filter((s) => s.zoneLocalId === zone.localId).length
+                      const isActive = activeZoneId === zone.localId
+                      return (
+                        <div
+                          key={zone.localId}
+                          onClick={() => setActiveZoneId(isActive ? null : zone.localId)}
+                          className={`flex items-center justify-between rounded-xl border p-2.5 transition cursor-pointer ${
+                            isActive
+                              ? 'border-tertiary bg-tertiary/10 shadow-sm'
+                              : 'border-border-soft/30 bg-surface hover:border-border-soft/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <input
+                              type="color"
+                              value={zone.color}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) =>
+                                setZones((prev) =>
+                                  prev.map((z) => (z.localId === zone.localId ? { ...z, color: e.target.value } : z)),
+                                )
+                              }
+                              className="h-6 w-6 shrink-0 cursor-pointer rounded-full border-0 bg-transparent p-0"
+                            />
+                            <input
+                              type="text"
+                              value={zone.name}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) =>
+                                setZones((prev) =>
+                                  prev.map((z) => (z.localId === zone.localId ? { ...z, name: e.target.value } : z)),
+                                )
+                              }
+                              className="bg-transparent font-bold text-xs text-content outline-none border-b border-transparent focus:border-tertiary truncate flex-1"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-subtle">{count} ghế</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteZone(zone.localId)
+                              }}
+                              className="text-muted hover:text-error transition p-1"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* TAB 3: QUẢN LÝ LƯỚI GHẾ */}
+            {sidebarTab === 'GRID' && (
+              <div className="space-y-4">
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
+                    <Grid className="size-3.5 text-tertiary" /> Loại Layout & Tạo lưới
+                  </p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      ['GRID', 'Lưới cố định'],
+                      ['FREEFORM', 'Vẽ tự do'],
+                      ['MIXED', 'Hỗn hợp'],
+                    ].map(([type, label]) => (
                       <button
+                        key={type}
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteZone(zone.localId)
-                        }}
-                        className="opacity-0 transition-opacity group-hover:opacity-100 text-muted hover:text-error text-sm font-bold"
+                        onClick={() => setLayoutType(type)}
+                        className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${
+                          layoutType === type
+                            ? 'bg-tertiary text-white shadow-sm'
+                            : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
+                        }`}
                       >
-                        ×
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {layoutType === 'GRID' && (
+                    <div className="space-y-2 pt-2 border-t border-border-soft/20">
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="text-xs text-subtle">
+                          Số Hàng
+                          <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            value={gridConfig.rows}
+                            onChange={(e) => setGridConfig((g) => ({ ...g, rows: Number(e.target.value) }))}
+                            className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
+                          />
+                        </label>
+                        <label className="text-xs text-subtle">
+                          Số Cột
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={gridConfig.cols}
+                            onChange={(e) => setGridConfig((g) => ({ ...g, cols: Number(e.target.value) }))}
+                            className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
+                          />
+                        </label>
+                      </div>
+                      <button type="button" onClick={generateGrid} className="org-btn-primary w-full text-xs">
+                        Tạo lại lưới ghế ({gridConfig.rows * gridConfig.cols} ghế)
                       </button>
                     </div>
-                  )
-                })}
-              </div>
-            </section>
+                  )}
+                </section>
 
-            {/* Help */}
-            <section className="rounded-xl border border-dashed border-border-soft/30 bg-panel-soft/30 p-3">
-              <p className="mb-1 text-xs font-bold text-subtle">Phím tắt</p>
-              <ul className="space-y-0.5 text-[11px] leading-relaxed text-muted">
-                <li><kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">V</kbd> Chọn · <kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">A</kbd> Vẽ · <kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">P</kbd> Tô zone</li>
-                <li><kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">E</kbd> Xóa · <kbd className="rounded bg-surface border border-border-soft/25 px-1 text-content">Del</kbd> Xóa đã chọn</li>
-                <li>Shift+click chọn nhiều · Kéo vùng chọn hàng loạt</li>
-                <li>Alt+kéo hoặc giữ chuột giữa để pan</li>
-              </ul>
-            </section>
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Thao tác nhanh ghế</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIds(new Set(seats.map((s) => s.localId)))}
+                      className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
+                    >
+                      Chọn tất cả ghế ({seats.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIds(new Set())}
+                      className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
+                    >
+                      Bỏ chọn tất cả
+                    </button>
+                    <button
+                      type="button"
+                      onClick={disableSelected}
+                      disabled={!selectedIds.size}
+                      className="rounded-xl border border-error/30 bg-error/10 py-2 text-xs font-bold text-error hover:bg-error/20 transition disabled:opacity-50"
+                    >
+                      Vô hiệu hóa ({selectedIds.size}) ghế đang chọn
+                    </button>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* TAB 4: GIAO DIỆN & NỀN */}
+            {sidebarTab === 'THEMES' && (
+              <div className="space-y-4">
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
+                    <Palette className="size-3.5 text-tertiary" /> Màu nền Canvas
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CANVAS_THEMES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setCanvasBg(t.color)}
+                        className={`flex items-center gap-2 rounded-xl border p-2.5 text-xs font-semibold transition ${
+                          canvasBg === t.color ? 'border-tertiary ring-2 ring-tertiary/20' : 'border-border-soft/30'
+                        }`}
+                        style={{ backgroundColor: t.color, color: t.light ? '#0F172A' : '#FFFFFF' }}
+                      >
+                        <div className="size-4 rounded-full border border-white/20" style={{ backgroundColor: t.color }} />
+                        <span>{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-border-soft/20 flex items-center justify-between">
+                    <span className="text-xs text-subtle">Màu tự chọn:</span>
+                    <input
+                      type="color"
+                      value={canvasBg}
+                      onChange={(e) => setCanvasBg(e.target.value)}
+                      className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent p-0"
+                    />
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-content">
+                    <input
+                      type="checkbox"
+                      checked={snapEnabled}
+                      onChange={(e) => setSnapEnabled(e.target.checked)}
+                      className="rounded border-border-soft/40 bg-panel-soft accent-primary"
+                    />
+                    Căn chỉnh Lưới Snap (Snap to Grid)
+                  </label>
+                  <p className="text-[11px] leading-relaxed text-subtle">
+                    Tự động hít vị trí ghế & vật thể theo ô lưới khi kéo thả.
+                  </p>
+                </section>
+              </div>
+            )}
           </div>
         </aside>
 
-        {/* Canvas area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-soft/30 bg-surface/90 backdrop-blur-sm px-4 py-2">
-            <div className="flex items-center gap-1 rounded-xl border border-border-soft/30 bg-panel-soft p-1">
-              {visibleTools.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  title={label}
-                  onClick={() => setTool(id)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${tool === id
-                    ? 'bg-surface text-content border border-border-soft/20 shadow-md'
-                    : 'text-subtle hover:bg-panel-soft/60'
+        {/* Main Canvas Container */}
+        <main className="relative flex flex-1 flex-col overflow-hidden">
+          {/* Floating Toolbar */}
+          <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-2xl border border-border-soft/40 bg-surface/90 p-1.5 shadow-xl backdrop-blur-md">
+            <div className="flex items-center gap-1 border-r border-border-soft/30 pr-2">
+              {visibleTools.map((t) => {
+                const IconComp = t.icon
+                const isActive = tool === t.id
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTool(t.id)}
+                    title={`${t.label} (${t.shortcut})`}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all ${
+                      isActive
+                        ? 'bg-tertiary text-white shadow-md'
+                        : 'text-subtle hover:bg-panel-soft hover:text-content'
                     }`}
-                >
-                  <Icon className="size-3.5" />
-                  <span className="hidden md:inline">{label}</span>
-                </button>
-              ))}
+                  >
+                    <IconComp className="size-4" />
+                    <span className="hidden md:inline">{t.label}</span>
+                  </button>
+                )
+              })}
             </div>
 
-            <div className="h-6 w-px bg-border-soft/20" />
-
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))}
-                className="rounded-lg p-1.5 text-subtle hover:bg-panel-soft"
-                title="Thu nhỏ"
-              >
-                <ZoomOut className="size-4" />
-              </button>
-              <span className="min-w-[44px] text-center text-xs font-semibold text-subtle">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.min(3, z + 0.1))}
-                className="rounded-lg p-1.5 text-subtle hover:bg-panel-soft"
-                title="Phóng to"
-              >
-                <ZoomIn className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setZoom(1)
-                  setPan({ x: 40, y: 80 })
-                }}
-                className="ml-1 rounded-lg px-2.5 py-1 text-xs text-muted hover:bg-panel-soft transition-colors"
-              >
-                Reset
-              </button>
-            </div>
-
-            {activeZone && (tool === 'PAINT' || tool === 'SELECT') && (
-              <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs text-warning animate-in fade-in">
-                <div className="h-3 w-3 rounded-full ring-2 ring-white" style={{ background: activeZone.color }} />
-                <span>
-                  Đang tô: <b>{activeZone.name}</b>
-                </span>
-                <button type="button" onClick={() => setActiveZoneId(null)} className="text-muted hover:text-warning ml-1">
-                  ✕
-                </button>
+            {/* Quick Paint zone selector */}
+            {(tool === 'PAINT' || tool === 'SELECT') && zones.length > 0 && (
+              <div className="flex items-center gap-1.5 pl-1">
+                <span className="text-[11px] font-bold text-subtle hidden lg:inline">Tô khu vực:</span>
+                <div className="flex items-center gap-1">
+                  {zones.map((z) => (
+                    <button
+                      key={z.localId}
+                      type="button"
+                      onClick={() => {
+                        setActiveZoneId(z.localId)
+                        if (selectedIds.size > 0) applyZoneToSelected(z.localId)
+                      }}
+                      title={z.name}
+                      className={`size-6 rounded-full border-2 transition-transform ${
+                        activeZoneId === z.localId ? 'scale-115 border-white shadow-md' : 'border-transparent opacity-80 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: z.color }}
+                    />
+                  ))}
+                </div>
               </div>
-            )}
-
-            {tool === 'PAINT' && !activeZone && (
-              <span className="text-xs text-warning font-semibold">← Chọn khu vực ở panel trái để tô màu</span>
             )}
           </div>
 
-          {/* Selection action bar */}
-          {selectedCount > 0 && (
-            <div className="flex shrink-0 items-center gap-3 border-b border-tertiary/20 bg-tertiary/10 px-4 py-2 text-content animate-in slide-in-from-top duration-200">
-              <span className="text-sm font-bold text-primary">
-                {selectedCount} ghế đã chọn
+          {/* Quick Edit Popup Inspector on Selection */}
+          {selectedShapeId && (() => {
+            if (selectedShapeId === 'STAGE') {
+              return (
+                <div className="absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border border-primary/40 bg-surface/95 p-3 shadow-2xl backdrop-blur-md">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">⚡ Chỉnh sửa Sân khấu</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={stageConfig.label}
+                        onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
+                        placeholder="Nhập tên sân khấu..."
+                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-content outline-none focus:border-primary w-48 shadow-inner"
+                        autoFocus
+                      />
+                      <input
+                        type="color"
+                        value={stageConfig.color || '#3B82F6'}
+                        onChange={(e) => setStageConfig((c) => ({ ...c, color: e.target.value }))}
+                        className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                        title="Đổi màu sân khấu"
+                      />
+                      <select
+                        value={stageConfig.shape || 'RECTANGLE'}
+                        onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
+                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-xs font-bold text-content outline-none focus:border-primary"
+                      >
+                        {STAGE_SHAPES.map((s) => (
+                          <option key={s.id} value={s.id}>{s.icon} {s.label}</option>
+                        ))}
+                      </select>
+                      <button type="button" onClick={() => setSelectedShapeId(null)} className="text-muted hover:text-content text-xs font-bold px-1.5 py-1">✕</button>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            const standingItem = standingAreas.find((a) => a.id === selectedShapeId)
+            if (standingItem) {
+              return (
+                <div className="absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border border-tertiary/40 bg-surface/95 p-3 shadow-2xl backdrop-blur-md">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary">⚡ Chỉnh sửa Vùng đứng</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={standingItem.name}
+                        onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, name: e.target.value } : a)))}
+                        placeholder="Tên vùng đứng..."
+                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-content outline-none focus:border-tertiary w-44 shadow-inner"
+                        autoFocus
+                      />
+                      <label className="text-[10px] font-bold text-subtle flex items-center gap-1">
+                        Sức chứa:
+                        <input
+                          type="number"
+                          min={1}
+                          value={standingItem.capacity}
+                          onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, capacity: Number(e.target.value) } : a)))}
+                          className="w-16 rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1 text-xs font-bold text-content outline-none focus:border-tertiary"
+                        />
+                      </label>
+                      <input
+                        type="color"
+                        value={standingItem.color || '#EF4444'}
+                        onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, color: e.target.value } : a)))}
+                        className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                        title="Màu đại diện"
+                      />
+                      <button type="button" onClick={() => deleteStandingArea(standingItem.id)} className="text-error hover:bg-error/10 p-1.5 rounded-lg transition" title="Xóa vùng đứng"><Trash2 className="size-3.5" /></button>
+                      <button type="button" onClick={() => setSelectedShapeId(null)} className="text-muted hover:text-content text-xs font-bold px-1.5 py-1">✕</button>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            const auxItem = auxElements.find((a) => a.id === selectedShapeId)
+            if (auxItem) {
+              return (
+                <div className="absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border border-border-soft/40 bg-surface/95 p-3 shadow-2xl backdrop-blur-md">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted">⚡ Chỉnh sửa Vật thể phụ</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={auxItem.label}
+                        onChange={(e) => setAuxElements((prev) => prev.map((a) => (a.id === auxItem.id ? { ...a, label: e.target.value } : a)))}
+                        placeholder="Tên vật thể..."
+                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-content outline-none focus:border-primary w-48 shadow-inner"
+                        autoFocus
+                      />
+                      <button type="button" onClick={() => setAuxElements((prev) => prev.filter((a) => a.id !== auxItem.id))} className="text-error hover:bg-error/10 p-1.5 rounded-lg transition" title="Xóa"><Trash2 className="size-3.5" /></button>
+                      <button type="button" onClick={() => setSelectedShapeId(null)} className="text-muted hover:text-content text-xs font-bold px-1.5 py-1">✕</button>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            return null
+          })()}
+
+          {/* Floating Zoom Controls */}
+          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-2xl border border-border-soft/40 bg-surface/90 p-1.5 shadow-xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.min(2.5, z + 0.15))}
+              className="rounded-xl p-2 text-subtle hover:bg-panel-soft hover:text-content transition"
+              title="Phóng to"
+            >
+              <ZoomIn className="size-4" />
+            </button>
+            <span className="px-2 text-xs font-bold text-content">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))}
+              className="rounded-xl p-2 text-subtle hover:bg-panel-soft hover:text-content transition"
+              title="Thu nhỏ"
+            >
+              <ZoomOut className="size-4" />
+            </button>
+            <div className="h-4 w-px bg-border-soft/30 mx-1" />
+            <button
+              type="button"
+              onClick={() => { setZoom(1); setPan({ x: 40, y: 80 }); }}
+              className="rounded-xl px-2.5 py-1 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition"
+            >
+              100%
+            </button>
+          </div>
+
+          {/* Selection Action Bar for Seats */}
+          {selectedIds.size > 0 && (
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-3 rounded-2xl border border-tertiary/30 bg-surface/95 px-4 py-2 shadow-2xl backdrop-blur-md">
+              <span className="text-xs font-bold text-content">
+                Đã chọn <span className="text-tertiary font-extrabold">{selectedIds.size}</span> ghế
               </span>
-              <div className="flex flex-wrap items-center gap-2">
-                {zones.length > 0 && (
-                  <select
-                    className="h-8 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
-                    defaultValue=""
-                    onChange={(e) => {
-                      if (e.target.value) applyZoneToSelected(e.target.value)
-                      e.target.value = ''
-                    }}
-                  >
-                    <option value="" className="bg-surface text-content">Gán khu vực...</option>
-                    {zones.map((z) => (
-                      <option key={z.localId} value={z.localId} className="bg-surface text-content">
-                        {z.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={disableSelected}
-                  className="flex items-center gap-1 rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-semibold text-content hover:bg-panel-soft/80 transition-colors"
+                  className="flex items-center gap-1 rounded-xl border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-bold text-warning hover:bg-warning/20 transition"
                 >
-                  <Ban className="size-3" />
+                  <Ban className="size-3.5" />
                   Vô hiệu
                 </button>
                 <button
                   type="button"
                   onClick={deleteSelected}
-                  className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/20 transition-colors"
+                  className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/20 transition"
                 >
-                  <Trash2 className="size-3" />
-                  Xóa ({selectedCount})
+                  <Trash2 className="size-3.5" />
+                  Xóa
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-xs text-muted hover:text-content font-bold transition-colors"
+                  className="text-xs font-bold text-subtle hover:text-content px-2"
                 >
                   Bỏ chọn
                 </button>
@@ -1144,15 +1735,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           <div
             className="relative flex-1 overflow-hidden"
             style={{
-              backgroundColor: 'var(--color-background)',
-              backgroundImage: 'radial-gradient(circle, var(--color-border-soft) 1px, transparent 1px)',
+              backgroundColor: canvasBg,
+              backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
               backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
             }}
             onWheel={handleWheel}
           >
-            <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-xl bg-surface/90 border border-border-soft/20 px-2.5 py-1 text-[10px] text-muted shadow-lg backdrop-blur">
-              <Hand className="size-3" />
-              Alt + kéo để di chuyển bản đồ
+            <div className="pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 rounded-xl bg-surface/90 border border-border-soft/30 px-3 py-1.5 text-[11px] font-medium text-subtle shadow-lg backdrop-blur">
+              <Hand className="size-3.5 text-tertiary" />
+              Click khối để sửa tên trực tiếp · Giữ <b>Alt</b> + kéo chuột để di chuyển
             </div>
 
             <svg
@@ -1186,31 +1777,19 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     h = 600
                   }
 
+                  const isSelected = selectedShapeId === 'STAGE'
+
                   return (
                     <g
+                      key="stage-group"
                       onMouseDown={handleStageMouseDown}
+                      onDoubleClick={handleStageDoubleClick}
                       style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
                       transform={stageConfig.rotation ? `rotate(${stageConfig.rotation}, ${x + w / 2}, ${y + h / 2})` : undefined}
                     >
-                      <rect x={x} y={y} width={w} height={h} fill="var(--color-panel-soft)" rx={12} />
-                      {(stageConfig.position === 'TOP' || stageConfig.position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
-                      {stageConfig.position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
-                      {stageConfig.position === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
-                      {stageConfig.position === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
-                      <text
-                        x={x + w / 2}
-                        y={y + h / 2 + 5}
-                        textAnchor="middle"
-                        fill="var(--color-content)"
-                        fontSize={13}
-                        fontWeight="bold"
-                        style={{ userSelect: 'none', pointerEvents: 'none' }}
-                        transform={stageConfig.position === 'LEFT' || stageConfig.position === 'RIGHT' || (stageConfig.position === 'CUSTOM' && h > w) ? `rotate(-90 ${x + w / 2} ${y + h / 2})` : undefined}
-                      >
-                        {stageConfig.label}
-                      </text>
+                      {renderStageShapeBody(x, y, w, h, stageConfig.shape, stageConfig.color, stageConfig.label, stageConfig.position)}
 
-                      {selectedShapeId === 'STAGE' && (
+                      {isSelected && (
                         <>
                           <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y - 30} stroke="#3B82F6" strokeWidth={2} />
                           <circle
@@ -1229,18 +1808,94 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                               setDraggingHandle({ type: 'RESIZE', elementId: 'STAGE', startW: w, startH: h, startPt: toSVGPoint(e), cx: x + w / 2, cy: y + h / 2, rotation: stageConfig.rotation || 0 })
                             }}
                           />
-                          <rect x={x} y={y} width={w} height={h} fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="4 4" pointerEvents="none" />
+                          <rect x={x} y={y} width={w} height={h} rx={12} fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="4 4" pointerEvents="none" />
                         </>
                       )}
                     </g>
                   )
                 })()}
 
+                {/* Standing Areas (Vùng đứng không ghế) */}
+                {standingAreas.map((area) => {
+                  const isSelected = selectedShapeId === area.id
+                  const { id, name, capacity, color, x, y, w, h, rotation } = area
+                  const fillColor = color || '#EF4444'
+
+                  return (
+                    <g
+                      key={id}
+                      transform={rotation ? `rotate(${rotation}, ${x + w / 2}, ${y + h / 2})` : undefined}
+                      onMouseDown={(e) => handleStandingMouseDown(e, area)}
+                      onDoubleClick={(e) => handleStandingDoubleClick(e, area)}
+                      style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
+                    >
+                      <rect
+                        x={x}
+                        y={y}
+                        width={w}
+                        height={h}
+                        rx={12}
+                        fill={fillColor}
+                        fillOpacity={0.25}
+                        stroke={fillColor}
+                        strokeWidth={2}
+                        strokeDasharray="6 4"
+                      />
+                      <text
+                        x={x + w / 2}
+                        y={y + h / 2 - 6}
+                        textAnchor="middle"
+                        fill="white"
+                        fontSize={13}
+                        fontWeight="bold"
+                        style={{ userSelect: 'none', pointerEvents: 'none' }}
+                      >
+                        {name || 'Vùng đứng'}
+                      </text>
+                      <text
+                        x={x + w / 2}
+                        y={y + h / 2 + 12}
+                        textAnchor="middle"
+                        fill="rgba(255,255,255,0.85)"
+                        fontSize={11}
+                        fontWeight="600"
+                        style={{ userSelect: 'none', pointerEvents: 'none' }}
+                      >
+                        🚶 Sức chứa: {capacity || 0} người
+                      </text>
+
+                      {isSelected && (
+                        <>
+                          <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y - 30} stroke="#3B82F6" strokeWidth={2} />
+                          <circle
+                            cx={x + w / 2} cy={y - 30} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
+                            style={{ cursor: 'pointer' }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation()
+                              setDraggingHandle({ type: 'ROTATE', elementId: id, cx: x + w / 2, cy: y + h / 2, startRot: rotation || 0, startPt: toSVGPoint(e) })
+                            }}
+                          />
+                          <circle
+                            cx={x + w} cy={y + h} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
+                            style={{ cursor: 'nwse-resize' }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation()
+                              setDraggingHandle({ type: 'RESIZE', elementId: id, startW: w, startH: h, startPt: toSVGPoint(e), cx: x + w / 2, cy: y + h / 2, rotation: rotation || 0 })
+                            }}
+                          />
+                          <rect x={x} y={y} width={w} height={h} rx={12} fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="4 4" pointerEvents="none" />
+                        </>
+                      )}
+                    </g>
+                  )
+                })}
+
                 {/* Aux Elements */}
-                {auxElements.map(a => (
+                {auxElements.map((a) => (
                   <g
                     key={a.id}
                     onMouseDown={(e) => handleAuxMouseDown(e, a)}
+                    onDoubleClick={(e) => handleAuxDoubleClick(e, a)}
                     style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
                     transform={a.rotation ? `rotate(${a.rotation}, ${a.x + a.w / 2}, ${a.y + a.h / 2})` : undefined}
                   >
@@ -1299,103 +1954,106 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         height={SEAT_H}
                         rx={6}
                         fill={fill}
-                        stroke={
-                          isSelected
-                            ? 'var(--color-tertiary)'
-                            : activeZoneId && !seat.isDisabled
-                              ? '#ffffff50'
-                              : 'rgba(255,255,255,0.08)'
-                        }
-                        strokeWidth={isSelected ? 2.5 : 1}
-                        opacity={seat.isDisabled ? 0.4 : 1}
-                        filter={isSelected ? 'url(#seatGlow)' : undefined}
+                        stroke={isSelected ? '#3B82F6' : seat.isDisabled ? '#ffffff50' : 'rgba(255,255,255,0.1)'}
+                        strokeWidth={isSelected ? 3 : 1}
+                        opacity={seat.isDisabled ? 0.35 : 1}
                       />
                       <text
                         x={14}
                         y={18}
                         textAnchor="middle"
-                        fontSize={7}
+                        fontSize={8}
                         fill="white"
                         fontWeight="700"
                         style={{ pointerEvents: 'none', userSelect: 'none' }}
                       >
-                        {seat.rowLabel}
-                        {seat.seatNumber}
+                        {seat.rowLabel}{seat.seatNumber}
                       </text>
                     </g>
                   )
                 })}
 
-                {/* Rubber band */}
+                {/* Rubberband Selection Box */}
                 {rubberBand && (
                   <rect
                     x={Math.min(rubberBand.x1, rubberBand.x2)}
                     y={Math.min(rubberBand.y1, rubberBand.y2)}
                     width={Math.abs(rubberBand.x2 - rubberBand.x1)}
                     height={Math.abs(rubberBand.y2 - rubberBand.y1)}
-                    fill="rgba(59,130,246,0.1)"
+                    fill="rgba(59, 130, 246, 0.15)"
                     stroke="#3B82F6"
                     strokeWidth={1.5}
-                    strokeDasharray="5 3"
-                    rx={2}
+                    strokeDasharray="4 4"
+                    pointerEvents="none"
                   />
                 )}
-
-                <defs>
-                  <filter id="seatGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#FBBF24" floodOpacity="0.8" />
-                  </filter>
-                </defs>
               </g>
             </svg>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   )
 }
 
-export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 800, height = 300 }) {
+/**
+ * SeatMapPreview – component xem trước sơ đồ ghế (dùng trong chi tiết sự kiện & mua vé)
+ */
+export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, width: defaultWidth = 800, height = 300 }) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(defaultWidth)
 
   useEffect(() => {
-    if (!containerRef.current) return
-    const observer = new ResizeObserver((entries) => {
-      if (entries[0] && entries[0].contentRect.width > 0) {
-        setWidth(entries[0].contentRect.width)
+    if (!containerRef.current) return undefined
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setWidth(entry.contentRect.width)
+        }
       }
     })
-    observer.observe(containerRef.current)
-    return () => observer.disconnect()
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
   }, [])
 
-  const finalSeats = seats || seatMap?.seats || []
-  if (!finalSeats.length) return null
+  const finalSeats = propSeats || seatMap?.seats || []
+  const zones = propZones || seatMap?.zones || []
+  const standingAreas = seatMap?.config?.standingAreas || []
+  const canvasBg = seatMap?.config?.canvasBg || '#0F172A'
 
-  const allX = finalSeats.map((s) => s.x_position ?? s.x)
-  const allY = finalSeats.map((s) => s.y_position ?? s.y)
+  const stagePos = seatMap?.config?.stagePosition || 'TOP'
+  const stageShape = seatMap?.config?.stageShape || 'RECTANGLE'
+  const stageColor = seatMap?.config?.stageColor || '#3B82F6'
 
-  seatMap?.config?.auxiliaryElements?.forEach(a => {
-    allX.push(a.x, a.x + a.w)
-    allY.push(a.y, a.y + a.h)
+  let rawMinX = Infinity, rawMaxX = -Infinity, rawMinY = Infinity, rawMaxY = -Infinity
+
+  finalSeats.forEach((s) => {
+    const x = s.x_position ?? s.x
+    const y = s.y_position ?? s.y
+    if (x < rawMinX) rawMinX = x
+    if (x + 28 > rawMaxX) rawMaxX = x + 28
+    if (y < rawMinY) rawMinY = y
+    if (y + 28 > rawMaxY) rawMaxY = y + 28
   })
 
-  const stagePos = seatMap?.config?.stagePosition || seatMap?.stage_position
-  const stageCustomX = seatMap?.config?.stageX ?? seatMap?.custom_stage_x ?? 0
-  const stageCustomY = seatMap?.config?.stageY ?? seatMap?.custom_stage_y ?? 0
-  const stageCustomW = seatMap?.config?.stageWidth ?? seatMap?.custom_stage_width ?? 360
-  const stageCustomH = seatMap?.config?.stageHeight ?? seatMap?.custom_stage_height ?? 40
+  standingAreas.forEach((a) => {
+    if (a.x < rawMinX) rawMinX = a.x
+    if (a.x + a.w > rawMaxX) rawMaxX = a.x + a.w
+    if (a.y < rawMinY) rawMinY = a.y
+    if (a.y + a.h > rawMaxY) rawMaxY = a.y + a.h
+  })
+
+  const stageCustomX = seatMap?.config?.stageX || 0
+  const stageCustomY = seatMap?.config?.stageY || 0
+  const stageCustomW = seatMap?.config?.stageWidth || 900
+  const stageCustomH = seatMap?.config?.stageHeight || 52
 
   if (stagePos === 'CUSTOM') {
-    allX.push(stageCustomX, stageCustomX + stageCustomW)
-    allY.push(stageCustomY, stageCustomY + stageCustomH)
+    if (stageCustomX < rawMinX) rawMinX = stageCustomX
+    if (stageCustomX + stageCustomW > rawMaxX) rawMaxX = stageCustomX + stageCustomW
+    if (stageCustomY < rawMinY) rawMinY = stageCustomY
+    if (stageCustomY + stageCustomH > rawMaxY) rawMaxY = stageCustomY + stageCustomH
   }
-
-  let rawMinX = Math.min(...allX)
-  let rawMaxX = Math.max(...allX) + 28
-  let rawMinY = Math.min(...allY)
-  let rawMaxY = Math.max(...allY) + 28
 
   if (!isFinite(rawMinX)) {
     rawMinX = 0; rawMaxX = 300; rawMinY = 0; rawMaxY = 200;
@@ -1406,25 +2064,25 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
 
   if (stagePos && stagePos !== 'HIDDEN' && stagePos !== 'CUSTOM') {
     if (stagePos === 'TOP') {
-      stageW = rawMaxX - rawMinX
+      stageW = Math.max(300, rawMaxX - rawMinX)
       stageH = 52
       stageX = rawMinX
       stageY = rawMinY - gap - stageH
       rawMinY = stageY
     } else if (stagePos === 'BOTTOM') {
-      stageW = rawMaxX - rawMinX
+      stageW = Math.max(300, rawMaxX - rawMinX)
       stageH = 52
       stageX = rawMinX
       stageY = rawMaxY + gap
       rawMaxY = stageY + stageH
     } else if (stagePos === 'LEFT') {
-      stageH = rawMaxY - rawMinY
+      stageH = Math.max(200, rawMaxY - rawMinY)
       stageW = 52
       stageX = rawMinX - gap - stageW
       stageY = rawMinY
       rawMinX = stageX
     } else if (stagePos === 'RIGHT') {
-      stageH = rawMaxY - rawMinY
+      stageH = Math.max(200, rawMaxY - rawMinY)
       stageW = 52
       stageX = rawMaxX + gap
       stageY = rawMinY
@@ -1432,7 +2090,7 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
     }
   }
 
-  const padding = 20
+  const padding = 24
   const minX = rawMinX - padding
   const maxX = rawMaxX + padding
   const minY = rawMinY - padding
@@ -1447,7 +2105,7 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
 
   const zoneColorById = useMemo(() => {
     const m = new Map()
-      ; (zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
+    ;(zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
     return m
   }, [zones])
 
@@ -1469,23 +2127,7 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
 
     return (
       <g transform={seatMap?.config?.stageRotation ? `rotate(${seatMap.config.stageRotation}, ${x + w / 2}, ${y + h / 2})` : undefined}>
-        <rect x={x} y={y} width={w} height={h} fill="var(--color-panel-soft)" rx={Math.min(w, h) > 20 ? 12 : 4} />
-        {(stagePos === 'TOP' || stagePos === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="var(--color-border-soft)" />}
-        {stagePos === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="var(--color-border-soft)" />}
-        {stagePos === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
-        {stagePos === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="var(--color-border-soft)" />}
-        <text
-          x={x + w / 2}
-          y={y + h / 2 + 5}
-          textAnchor="middle"
-          fill="var(--color-content)"
-          fontSize={13}
-          fontWeight="bold"
-          style={{ userSelect: 'none', pointerEvents: 'none' }}
-          transform={stagePos === 'LEFT' || stagePos === 'RIGHT' || (stagePos === 'CUSTOM' && h > w) ? `rotate(-90 ${x + w / 2} ${y + h / 2})` : undefined}
-        >
-          {label}
-        </text>
+        {renderStageShapeBody(x, y, w, h, stageShape, stageColor, label, stagePos)}
       </g>
     )
   }
@@ -1495,8 +2137,8 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
       ref={containerRef}
       className="rounded-xl border border-border-soft/30 overflow-hidden w-full"
       style={{
-        backgroundColor: 'var(--color-background)',
-        backgroundImage: 'radial-gradient(circle, var(--color-border-soft) 1px, transparent 1px)',
+        backgroundColor: canvasBg,
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
         backgroundSize: `${20 * scale}px ${20 * scale}px`,
         width: '100%',
         height
@@ -1505,7 +2147,49 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
       <svg width={width} height={height}>
         <g transform={`translate(${(width - originalW * scale) / 2}, ${(height - originalH * scale) / 2}) scale(${scale})`}>
           {renderStage()}
-          {seatMap?.config?.auxiliaryElements?.map(a => (
+
+          {/* Standing Areas */}
+          {standingAreas.map((a) => (
+            <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${a.x - minX + a.w / 2}, ${a.y - minY + a.h / 2})` : undefined}>
+              <rect
+                x={a.x - minX}
+                y={a.y - minY}
+                width={a.w}
+                height={a.h}
+                rx={12}
+                fill={a.color || '#EF4444'}
+                fillOpacity={0.25}
+                stroke={a.color || '#EF4444'}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+              />
+              <text
+                x={a.x - minX + a.w / 2}
+                y={a.y - minY + a.h / 2 - 6}
+                textAnchor="middle"
+                fill="white"
+                fontSize={13}
+                fontWeight="bold"
+                style={{ userSelect: 'none', pointerEvents: 'none' }}
+              >
+                {a.name || 'Vùng đứng'}
+              </text>
+              <text
+                x={a.x - minX + a.w / 2}
+                y={a.y - minY + a.h / 2 + 12}
+                textAnchor="middle"
+                fill="rgba(255,255,255,0.85)"
+                fontSize={11}
+                fontWeight="600"
+                style={{ userSelect: 'none', pointerEvents: 'none' }}
+              >
+                🚶 Sức chứa: {a.capacity || 0} người
+              </text>
+            </g>
+          ))}
+
+          {/* Auxiliary Elements */}
+          {seatMap?.config?.auxiliaryElements?.map((a) => (
             <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${a.x - minX + a.w / 2}, ${a.y - minY + a.h / 2})` : undefined}>
               <rect x={a.x - minX} y={a.y - minY} width={a.w} height={a.h} fill="var(--color-panel-soft)" rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke="var(--color-border-soft)" strokeWidth={2} />
               <text
@@ -1521,6 +2205,8 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
               </text>
             </g>
           ))}
+
+          {/* Seats */}
           {finalSeats.map((s) => {
             const x = (s.x_position ?? s.x) - minX
             const y = (s.y_position ?? s.y) - minY
@@ -1533,15 +2219,15 @@ export function SeatMapPreview({ seatMap, seats, zones, width: defaultWidth = 80
                   height={28}
                   rx={6}
                   fill={fill}
-                  stroke={isDisabled ? '#ffffff50' : 'rgba(255,255,255,0.08)'}
+                  stroke={isDisabled ? '#ffffff50' : 'rgba(255,255,255,0.1)'}
                   strokeWidth={1}
-                  opacity={isDisabled ? 0.4 : 1}
+                  opacity={isDisabled ? 0.35 : 1}
                 />
                 <text
                   x={14}
                   y={18}
                   textAnchor="middle"
-                  fontSize={7}
+                  fontSize={8}
                   fill="white"
                   fontWeight="700"
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
