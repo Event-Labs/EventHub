@@ -1148,7 +1148,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
                 <PrintInfo label="Khách hàng" value={result.order.buyer_name} />
                 <PrintInfo label="Email người mua" value={result.order.buyer_email} />
                 <PrintInfo label="Loại vé" value={ticket.ticket_type.name} />
-                <PrintInfo label="Ghế ngồi" value={ticket.seat?.label || 'Free seating'} />
+                <PrintInfo label="Ghế ngồi" value={ticket.seat?.label || 'Không có ghế cố định'} />
                 <PrintInfo label="Thời gian" value={formatDateTime(ticket.session.start_time)} />
                 <PrintInfo label="Mã đơn đặt vé" value={result.order.order_code} />
                 <PrintInfo label="Địa điểm" value={venueLine(ticket.venue)} wide />

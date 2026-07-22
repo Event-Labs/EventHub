@@ -362,6 +362,26 @@ class EventsRepository {
     return rows;
   }
 
+  async ensureSessionSeats(sessionId) {
+    await db.query(
+      `
+      INSERT INTO session_seats (event_session_id, seat_id, status)
+      SELECT es.id, s.id, 'AVAILABLE'
+      FROM event_sessions es
+      JOIN seats s ON s.seat_map_id = es.seat_map_id
+      WHERE es.id = $1
+        AND COALESCE(s.is_disabled, false) = false
+        AND NOT EXISTS (
+          SELECT 1
+          FROM session_seats ss
+          WHERE ss.event_session_id = es.id AND ss.seat_id = s.id
+        )
+      ON CONFLICT (event_session_id, seat_id) DO NOTHING
+      `,
+      [sessionId],
+    );
+  }
+
   async checkTicketAvailability(eventId, items) {
     const params = [
       eventId,
@@ -691,11 +711,14 @@ class EventsRepository {
         if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
           throw new AppError(`V\u00e9 "${ticketType.name}" hi\u1ec7n ch\u01b0a m\u1edf b\u00e1n ho\u1eb7c \u0111\u00e3 ng\u1eebng b\u00e1n.`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
-        if (selectedSeatIds.length !== Number(item.quantity)) {
+        if ((ticketType.is_seated || selectedSeatIds.length > 0) && selectedSeatIds.length !== Number(item.quantity)) {
           throw new AppError('Số ghế đã chọn không khớp với số lượng vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
         if (ticketType.max_per_order && Number(item.quantity) > Number(ticketType.max_per_order)) {
           throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ph\u00e9p mua t\u1ed1i \u0111a ${Number(ticketType.max_per_order)} v\u00e9 cho lo\u1ea1i v\u00e9 n\u00e0y trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+        if (!ticketType.is_seated && selectedSeatIds.length === 0) {
+          continue;
         }
 
         const hasSeatMapping = await client.query(

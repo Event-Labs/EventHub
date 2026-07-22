@@ -29,13 +29,20 @@ function buildSeat(row) {
   };
 }
 
+function effectiveTicketStatus(row) {
+  if (row.status !== 'VALID') return row.status;
+  const endTime = row.session_end_time || row.event_end_time;
+  return endTime && new Date(endTime).getTime() < Date.now() ? 'EXPIRED' : row.status;
+}
+
 function buildTicketPayload(row) {
+  const status = effectiveTicketStatus(row);
   return {
     id: row.id,
     ticket_code: row.ticket_code,
     qr_code: row.qr_code || row.ticket_code,
-    status: row.status,
-    check_in_status: row.checked_in_at ? 'CHECKED_IN' : 'NOT_CHECKED_IN',
+    status,
+    check_in_status: status === 'EXPIRED' ? 'EXPIRED' : row.checked_in_at ? 'CHECKED_IN' : 'NOT_CHECKED_IN',
     attendee_name: row.attendee_name,
     attendee_email: row.attendee_email,
     created_at: row.created_at,
@@ -93,11 +100,12 @@ function buildTicketPayload(row) {
 }
 
 function buildStaffTicketPayload(row) {
+  const status = effectiveTicketStatus(row);
   return {
     id: row.id,
     ticket_code: row.ticket_code,
     qr_code: row.qr_code || row.ticket_code,
-    status: row.status,
+    status,
     attendee_name: row.attendee_name || row.buyer_name,
     attendee_email: row.attendee_email || row.buyer_email,
     checked_in_at: row.checked_in_at,
@@ -272,7 +280,7 @@ function buildDownloadSvg(ticket) {
     ticket.venue.district,
     ticket.venue.city,
   ].filter(Boolean).join(', ');
-  const seat = ticket.seat?.label || 'Free seating';
+  const seat = ticket.seat?.label || 'Không có ghế cố định';
   const qrSize = 204;
   const statusFill = invalid ? '#fee2e2' : '#dcfce7';
   const statusText = invalid ? '#991b1b' : '#166534';
@@ -349,15 +357,20 @@ function buildDownloadSvg(ticket) {
 
 class TicketsService {
   async getMyTickets(userId, filters = {}) {
-    const allowedStatuses = ['VALID', 'USED', 'CANCELLED'];
+    const allowedStatuses = ['VALID', 'USED', 'CANCELLED', 'EXPIRED'];
     const status = filters.status?.toUpperCase();
 
     if (status && !allowedStatuses.includes(status)) {
       throw new AppError('Invalid ticket status', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    const rows = await ticketsRepository.findTicketsByUserId(userId, { status });
-    return rows.map(buildTicketPayload);
+    const repositoryStatus = status === 'EXPIRED' ? undefined : status;
+    const tickets = (await ticketsRepository.findTicketsByUserId(userId, { status: repositoryStatus }))
+      .map(buildTicketPayload);
+    if (status === 'VALID' || status === 'EXPIRED') {
+      return tickets.filter((ticket) => ticket.status === status);
+    }
+    return tickets;
   }
 
   async getTicketDetail(userId, ticketId) {

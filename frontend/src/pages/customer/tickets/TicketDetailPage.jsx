@@ -38,6 +38,7 @@ function venueLine(ticket) {
 }
 
 function statusText(ticket) {
+  if (ticket?.status === 'EXPIRED') return 'Hết hạn'
   if (ticket?.status === 'USED') return '\u0110\u00e3 d\u00f9ng'
   if (ticket?.status === 'CANCELLED') return '\u0110\u00e3 h\u1ee7y'
   if (ticket?.checked_in_at) return '\u0110\u00e3 check-in'
@@ -135,7 +136,7 @@ function buildTicketDownloadSvg(ticket, qrSrc) {
   const invalid = ticket.status !== 'VALID'
   const venue = venueLine(ticket)
   const venueName = ticket.venue?.name || 'N/A'
-  const seat = ticket.seat?.label || 'Free seating'
+  const seat = ticket.seat?.label || 'Không có ghế cố định'
   const statusLabel = statusText(ticket)
   const statusFill = invalid ? '#fee2e2' : '#dcfce7'
   const statusColor = invalid ? '#991b1b' : '#166534'
@@ -314,7 +315,7 @@ export function TicketDetailPage() {
 
   const ticket = ticketQuery.data
   const venue = venueLine(ticket)
-  const seat = ticket.seat?.label || 'Free seating'
+  const seat = ticket.seat?.label || 'Không có ghế cố định'
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
   const isEntryEligible = ticket.status === 'VALID'
   const collectAttendees = Boolean(ticket.event?.require_attendee_info)
@@ -336,12 +337,14 @@ export function TicketDetailPage() {
           </Panel>
           <Panel title={'Th\u00f4ng tin check-in'} icon={CheckCircle2}>
             <Info label={'Tr\u1ea1ng th\u00e1i'} value={statusText(ticket)} />
-            {ticket.checked_in_at ? (
+            {ticket.status === 'EXPIRED' ? (
+              <Info label={'Check-in'} value={'Đã đóng do vé hết hạn'} />
+            ) : ticket.checked_in_at ? (
               <Info label={'Check-in l\u00fac'} value={formatDateTime(ticket.checked_in_at)} />
             ) : (
               <CheckInCountdown target={ticket.session.checkin_start_time} />
             )}
-            <Info label={'M\u1edf check-in'} value={formatDateTime(ticket.session.checkin_start_time)} />
+            {ticket.status !== 'EXPIRED' && <Info label={'M\u1edf check-in'} value={formatDateTime(ticket.session.checkin_start_time)} />}
           </Panel>
         </aside>
 
@@ -374,11 +377,11 @@ export function TicketDetailPage() {
                 {collectAttendees && (
                   <>
                     <CompactDetail label={'Ng\u01b0\u1eddi tham d\u1ef1'} value={ticket.attendee_name} />
-                    <CompactDetail label="Email ng\u01b0\u1eddi tham d\u1ef1" value={ticket.attendee_email} />
+                    <CompactDetail label={'Email ng\u01b0\u1eddi tham d\u1ef1'} value={ticket.attendee_email} />
                   </>
                 )}
                 <CompactDetail label={'Ng\u01b0\u1eddi mua v\u00e9'} value={ticket.order.buyer_name} />
-                <CompactDetail label="Email ng\u01b0\u1eddi mua" value={ticket.order.buyer_email} />
+                <CompactDetail label={'Email ng\u01b0\u1eddi mua'} value={ticket.order.buyer_email} />
                 <CompactDetail label={'Th\u1eddi gian'} value={formatDateTime(ticket.session.start_time)} />
                 <CompactDetail label={'\u0110\u01a1n h\u00e0ng'} value={ticket.order.order_code} />
                 <CompactDetail label={'Lo\u1ea1i v\u00e9'} value={ticket.ticket_type.name} />
@@ -388,10 +391,18 @@ export function TicketDetailPage() {
               </div>
 
               <div className="relative border-t border-dashed border-white/10 pt-6 before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-[#071022] after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-[#071022]">
-                <div className="mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
-                  <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-48 rounded-md" />
-                </div>
-                <p className="mt-4 text-center font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
+                {isEntryEligible ? (
+                  <>
+                    <div className="mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
+                      <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-48 rounded-md" />
+                    </div>
+                    <p className="mt-4 text-center font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-error/30 bg-error/10 p-5 text-center font-bold text-error">
+                    Vé đã hết hạn hoặc không còn hợp lệ để check-in.
+                  </div>
+                )}
               </div>
             </div>
           </section>
