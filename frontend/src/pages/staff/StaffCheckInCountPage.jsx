@@ -28,7 +28,13 @@ export function StaffCheckInCountPage() {
   const cancelled = Number(summary.cancelled || 0)
   const progress = totalValid > 0 ? Math.round((checkedIn / totalValid) * 100) : 0
   const hourlyCheckIns = report.hourly_checkins || []
-  const maxHourlyCount = Math.max(1, ...hourlyCheckIns.map((item) => Number(item.count || 0)))
+  const hourCategories = Array.from({ length: 24 }, (_, hour) => hour)
+  const hourlyCounts = new Map(
+    hourlyCheckIns.map((item) => [new Date(item.hour).getHours(), Number(item.count || 0)]),
+  )
+  const hourlySeries = hourCategories.map((hour) => hourlyCounts.get(hour) || 0)
+  const maxHourlyCount = Math.max(1, ...hourlySeries)
+  const chartHasData = hourlyCheckIns.length > 0
 
   return (
     <StaffPage
@@ -47,10 +53,7 @@ export function StaffCheckInCountPage() {
         </div>
       )}
 
-      {reportQuery.isLoading ? (
-        <StaffPanel>Đang tải dữ liệu...</StaffPanel>
-      ) : (
-        <>
+      <>
           <div className="grid gap-4 md:grid-cols-4">
             {[
               ['Tổng vé hợp lệ', totalValid],
@@ -77,26 +80,54 @@ export function StaffCheckInCountPage() {
 
           <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
             <StaffPanel>
-              <h3 className="font-bold text-content">Lượt soát vé theo giờ</h3>
-              {hourlyCheckIns.length === 0 ? (
-                <p className="mt-5 text-sm text-muted">Chưa có dữ liệu soát vé.</p>
-              ) : (
-                <div className="mt-6 flex h-64 items-end gap-3">
-                  {hourlyCheckIns.map((item) => {
-                    const count = Number(item.count || 0)
-                    const height = Math.max(8, Math.round((count / maxHourlyCount) * 100))
-                    return (
-                      <div key={item.hour} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
-                        <span className="text-xs font-bold text-content">{count}</span>
-                        <div className="w-full rounded-t bg-primary/70 transition-colors hover:bg-primary" style={{ height: `${height}%` }} />
-                        <span className="text-[10px] text-muted">
-                          {new Date(item.hour).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-bold text-content">Lượt soát vé theo giờ</h3>
+                {reportQuery.isLoading && <span className="text-xs font-semibold text-muted">Đang tải...</span>}
+              </div>
+              <div className="relative mt-6 grid grid-cols-[2rem_1fr] gap-3">
+                <div className="flex h-64 flex-col justify-between pb-5 text-right text-[10px] font-semibold text-muted">
+                  <span>{maxHourlyCount}</span>
+                  <span>{Math.ceil(maxHourlyCount * 0.75)}</span>
+                  <span>{Math.ceil(maxHourlyCount * 0.5)}</span>
+                  <span>{Math.ceil(maxHourlyCount * 0.25)}</span>
+                  <span>0</span>
+                </div>
+                <div className={`min-w-0 ${reportQuery.isLoading ? 'animate-pulse' : ''}`}>
+                  <div className="relative h-64 border-b border-l border-border-soft/50">
+                    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                      {[0, 1, 2, 3, 4].map((line) => (
+                        <div key={line} className="border-t border-dashed border-border-soft/35" />
+                      ))}
+                    </div>
+                    <div className="absolute inset-x-2 bottom-0 top-0 flex items-end gap-1 sm:gap-2">
+                      {hourlySeries.map((count, hour) => {
+                        const height = count > 0 ? Math.max(5, Math.round((count / maxHourlyCount) * 100)) : 1
+                        return (
+                          <div key={hour} className="group flex h-full min-w-0 flex-1 items-end justify-center">
+                            <div
+                              className={`w-full max-w-6 rounded-t transition-[height,background-color] duration-500 ${count > 0 ? 'bg-primary/75 group-hover:bg-primary' : 'bg-primary/15'}`}
+                              style={{ height: `${height}%` }}
+                              title={`${String(hour).padStart(2, '0')}:00 — ${count} lượt`}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {!reportQuery.isLoading && !chartHasData && (
+                      <div className="pointer-events-none absolute inset-0 grid place-items-center">
+                        <span className="rounded-full border border-border-soft/50 bg-surface/90 px-4 py-2 text-sm font-bold text-muted">
+                          Chưa có dữ liệu
                         </span>
                       </div>
-                    )
-                  })}
+                    )}
+                  </div>
+                  <div className="mt-2 grid grid-cols-[repeat(24,minmax(0,1fr))] text-center text-[9px] font-semibold text-muted">
+                    {hourCategories.map((hour) => (
+                      <span key={hour} className={hour % 2 ? 'hidden sm:block' : ''}>{String(hour).padStart(2, '0')}:00</span>
+                    ))}
+                  </div>
                 </div>
-              )}
+              </div>
             </StaffPanel>
 
             <StaffPanel>
@@ -141,8 +172,7 @@ export function StaffCheckInCountPage() {
               </p>
             )}
           </div>
-        </>
-      )}
+      </>
     </StaffPage>
   )
 }
