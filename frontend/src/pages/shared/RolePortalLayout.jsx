@@ -9,6 +9,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
+import { formatNotificationDisplay } from '@/lib/notifications.js'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const collapsedWidth = 76
@@ -435,29 +436,32 @@ function PortalNotificationBell() {
             {!notificationsQuery.isLoading && notifications.length === 0 && (
               <p className="px-4 py-5 text-center text-xs text-subtle">Bạn chưa có thông báo nào.</p>
             )}
-            {notifications.map((notification) => (
-              <button
-                key={notification.id}
-                type="button"
-                onClick={() => handleNotificationClick(notification)}
-                className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${
-                  notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {!notification.is_read && (
-                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-tertiary" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-1 text-xs font-extrabold text-content">{notification.title}</p>
-                    <p className="mt-1 line-clamp-2 text-xs leading-4 text-subtle">{notification.content}</p>
-                    <p className="mt-1 text-[10px] text-muted">
-                      {formatTimeAgo(notification.created_at)}
-                    </p>
+            {notifications.map((notification) => {
+              const display = formatNotificationDisplay(notification)
+              return (
+                <button
+                  key={notification.id}
+                  type="button"
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${
+                    notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {!notification.is_read && (
+                      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-tertiary" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-1 text-xs font-extrabold text-content">{display.title}</p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-4 text-subtle">{display.content}</p>
+                      <p className="mt-1 text-[10px] text-muted">
+                        {formatTimeAgo(notification.created_at)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
 
           <Link
