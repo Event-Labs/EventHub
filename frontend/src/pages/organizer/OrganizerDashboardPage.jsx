@@ -537,7 +537,7 @@ export function OrganizerDashboardPage() {
 
   useEffect(() => {
     fetchOrganizerEvents()
-      .then((data) => setEvents(data || []))
+      .then((data) => setEvents((data || []).filter((ev) => ev.status === 'PUBLISHED')))
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))
   }, [])
