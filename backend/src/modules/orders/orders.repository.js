@@ -330,8 +330,8 @@ class OrdersRepository {
         }
 
         const now = Date.now();
-        const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
-        if (sessionEnd && sessionEnd < now) {
+        const sessionStart = ticketType.session_start_time ? new Date(ticketType.session_start_time).getTime() : null;
+        if (sessionStart && sessionStart <= now) {
           throw new AppError('Su\u1ea5t di\u1ec5n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
 
@@ -706,7 +706,7 @@ class OrdersRepository {
         AND e.deleted_at IS NULL
         AND e.end_time >= now()
         AND es.status = 'UPCOMING'
-        AND es.end_time >= now()
+        AND es.start_time > now()
         AND (ti.sale_start IS NULL OR ti.sale_start <= now())
         AND (ti.sale_end IS NULL OR ti.sale_end >= now())
         AND GREATEST(ti.quantity - ti.sold_quantity - ti.active_hold_quantity, 0) > 0
@@ -943,8 +943,8 @@ class OrdersRepository {
         }
 
         const now = Date.now();
-        const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
-        if (sessionEnd && sessionEnd < now) {
+        const sessionStart = ticketType.session_start_time ? new Date(ticketType.session_start_time).getTime() : null;
+        if (sessionStart && sessionStart <= now) {
           throw new AppError('Suất diễn đã kết thúc, không thể bán vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
 

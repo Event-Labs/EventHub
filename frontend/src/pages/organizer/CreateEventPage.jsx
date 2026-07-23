@@ -666,64 +666,33 @@ function parsePriceNumber(str) {
 function getGroupedMapItems(seatMap) {
   if (!seatMap) return []
 
-  const countsByZoneId = (seatMap.seats || []).reduce((acc, s) => {
-    if (s.is_disabled) return acc
-    if (!s.zone_id) return acc
-    acc[s.zone_id] = (acc[s.zone_id] || 0) + 1
+  const countsByZoneId = (seatMap.seats || []).reduce((acc, seat) => {
+    if (seat.is_disabled || !seat.zone_id) return acc
+    acc[seat.zone_id] = (acc[seat.zone_id] || 0) + 1
     return acc
   }, {})
 
-  const groupsMap = new Map()
+  const seatedItems = (seatMap.zones || []).map((zone, index) => ({
+    groupKey: `seated:${zone.id || index}`,
+    name: (zone.name || 'Khu vực').trim(),
+    isSeated: true,
+    zoneIds: zone.id ? [zone.id] : [],
+    standingAreaIds: [],
+    totalQuantity: countsByZoneId[zone.id] || 0,
+    colors: [zone.color || '#3B82F6'],
+  }))
 
-  ;(seatMap.zones || []).forEach((zone) => {
-    const normName = (zone.name || 'Khu vực').trim()
-    const key = `seated:${normName.toLowerCase()}`
-    const seatCount = countsByZoneId[zone.id] || 0
-    if (!groupsMap.has(key)) {
-      groupsMap.set(key, {
-        groupKey: key,
-        name: normName,
-        isSeated: true,
-        zoneIds: [zone.id],
-        standingAreaIds: [],
-        totalQuantity: seatCount,
-        colors: [zone.color || '#3B82F6'],
-        blockCount: 1,
-      })
-    } else {
-      const g = groupsMap.get(key)
-      g.zoneIds.push(zone.id)
-      g.totalQuantity += seatCount
-      g.blockCount += 1
-      if (zone.color && !g.colors.includes(zone.color)) g.colors.push(zone.color)
-    }
-  })
+  const standingItems = (seatMap.config?.standingAreas || []).map((area, index) => ({
+    groupKey: `standing:${area.id || index}`,
+    name: (area.name || 'Vùng đứng').trim(),
+    isSeated: false,
+    zoneIds: [],
+    standingAreaIds: area.id ? [area.id] : [],
+    totalQuantity: Number(area.capacity || 0),
+    colors: [area.color || '#EF4444'],
+  }))
 
-  ;(seatMap.config?.standingAreas || []).forEach((area) => {
-    const normName = (area.name || 'Vùng đứng').trim()
-    const key = `standing:${normName.toLowerCase()}`
-    const cap = Number(area.capacity || 0)
-    if (!groupsMap.has(key)) {
-      groupsMap.set(key, {
-        groupKey: key,
-        name: normName,
-        isSeated: false,
-        zoneIds: [],
-        standingAreaIds: [area.id],
-        totalQuantity: cap,
-        colors: [area.color || '#EF4444'],
-        blockCount: 1,
-      })
-    } else {
-      const g = groupsMap.get(key)
-      g.standingAreaIds.push(area.id)
-      g.totalQuantity += cap
-      g.blockCount += 1
-      if (area.color && !g.colors.includes(area.color)) g.colors.push(area.color)
-    }
-  })
-
-  return Array.from(groupsMap.values())
+  return [...seatedItems, ...standingItems]
 }
 
 function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave, onClose }) {
@@ -878,9 +847,15 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
           const groups = getGroupedMapItems(sm)
           setFormData((p) => {
             const currentSessionTickets = p.ticketTypes.filter((tt) => String(tt.session_key) === String(sessionKey))
-            const missingGroups = groups.filter(
-              (g) => !currentSessionTickets.some((tt) => tt.name?.trim().toLowerCase() === g.name.trim().toLowerCase())
-            )
+            const missingGroups = groups.filter((group) => !currentSessionTickets.some((ticket) => {
+              if (group.isSeated !== Boolean(ticket.is_seated)) return false
+              if (group.isSeated) {
+                return group.zoneIds.some((id) => id === ticket.zone_id || (ticket.zone_ids || []).includes(id))
+              }
+              return group.standingAreaIds.some(
+                (id) => id === ticket.standing_area_id || (ticket.standing_area_ids || []).includes(id),
+              )
+            }))
             if (missingGroups.length === 0) return p
 
             const newTickets = missingGroups.map((g) => ({
@@ -1171,9 +1146,9 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
               return (
                 <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
                   <div>
-                    <h2 className="text-[20px] font-semibold text-content">Gán giá & mô tả vé theo nhóm khu vực</h2>
+                    <h2 className="text-[20px] font-semibold text-content">Gán giá & mô tả vé theo từng khu vực</h2>
                     <p className="text-sm text-subtle mt-1">
-                      Các khu vực hoặc vùng đứng có cùng tên sẽ được tự động gộp lại để thiết lập 1 mức giá và mô tả chung.
+                      Mỗi khu vực hoặc vùng đứng trên sơ đồ có một dòng riêng để thiết lập giá và mô tả.
                     </p>
                   </div>
 
@@ -1181,7 +1156,7 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border-soft/30 text-left text-xs uppercase tracking-wider text-muted">
-                          <th className="py-3 pr-4">Nhóm Khu vực / Vùng</th>
+                          <th className="py-3 pr-4">Khu vực / Vùng</th>
                           <th className="py-3 pr-4">Hình thức</th>
                           <th className="py-3 pr-4">Sức chứa</th>
                           <th className="py-3 pr-4">Tên loại vé & Mô tả</th>
@@ -1192,20 +1167,13 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                         {groupedItems.map((group) => {
                           const ticket = sessionTickets.find((tt) => {
                             if (group.isSeated) {
-                              return (
-                                tt.is_seated &&
-                                (group.zoneIds.some((id) => id === tt.zone_id) ||
-                                  group.zoneIds.some((id) => (tt.zone_ids || []).includes(id)) ||
-                                  tt.name?.trim().toLowerCase() === group.name.trim().toLowerCase())
-                              )
-                            } else {
-                              return (
-                                !tt.is_seated &&
-                                (group.standingAreaIds.some((id) => id === tt.standing_area_id) ||
-                                  group.standingAreaIds.some((id) => (tt.standing_area_ids || []).includes(id)) ||
-                                  tt.name?.trim().toLowerCase() === group.name.trim().toLowerCase())
+                              return Boolean(tt.is_seated) && group.zoneIds.some(
+                                (id) => id === tt.zone_id || (tt.zone_ids || []).includes(id),
                               )
                             }
+                            return !tt.is_seated && group.standingAreaIds.some(
+                              (id) => id === tt.standing_area_id || (tt.standing_area_ids || []).includes(id),
+                            )
                           })
 
                           const ticketKey = ticket ? ticket.id || ticket.clientKey : null
@@ -1258,11 +1226,6 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
                                   </div>
                                   <span className="font-extrabold text-sm">{group.name}</span>
                                 </div>
-                                {group.blockCount > 1 && (
-                                  <span className="text-[11px] font-semibold text-tertiary block mt-1">
-                                    Gộp {group.blockCount} {group.isSeated ? 'khu vực' : 'vùng đứng'}
-                                  </span>
-                                )}
                               </td>
 
                               <td className="py-4 pr-4 align-top">
