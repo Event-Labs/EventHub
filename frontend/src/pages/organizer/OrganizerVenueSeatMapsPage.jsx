@@ -640,6 +640,31 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
   )
 }
 
+function getSeatMapTotalSeats(sm) {
+  if (sm.total_capacity && sm.total_capacity > 0) return sm.total_capacity
+  if (sm.seat_count && sm.seat_count > 0) return sm.seat_count
+  if ((sm.layout_type || 'GRID') === 'GRID' && sm.rows_count > 0 && sm.cols_count > 0) {
+    const standingCap = (sm.config?.standingAreas || sm.config?.standing_areas || []).reduce(
+      (sum, sa) => sum + Number(sa.capacity || 0),
+      0,
+    )
+    return (sm.rows_count * sm.cols_count) + standingCap
+  }
+  const standingCap = (sm.config?.standingAreas || sm.config?.standing_areas || []).reduce(
+    (sum, sa) => sum + Number(sa.capacity || 0),
+    0,
+  )
+  return (sm.seats?.length || 0) + standingCap
+}
+
+function getSeatMapZoneCount(sm) {
+  const dbZoneCount = sm.zone_count ?? 0
+  const standingCount = (sm.config?.standingAreas || sm.config?.standing_areas || []).length
+  if (dbZoneCount > 0) return dbZoneCount
+  const configZones = (sm.zones || sm.config?.zones || []).length
+  return configZones + standingCount
+}
+
 export function OrganizerVenueSeatMapsPage() {
   const toast = useToast()
   const { venueId } = useParams()
@@ -742,8 +767,8 @@ export function OrganizerVenueSeatMapsPage() {
             sm.name,
             sm.layout_type,
             layoutLabel(sm),
-            sm.seat_count ?? 0,
-            sm.zone_count ?? 0,
+            getSeatMapTotalSeats(sm),
+            getSeatMapZoneCount(sm),
             <Badge key="status" tone={sm.is_active ? 'green' : 'gray'}>
               {sm.is_active ? 'Đang hoạt động' : 'Không hoạt động'}
             </Badge>,

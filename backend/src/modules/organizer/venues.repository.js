@@ -26,7 +26,13 @@ class VenuesRepository {
       LEFT JOIN seat_maps sm ON sm.venue_id = v.id AND sm.deleted_at IS NULL
       LEFT JOIN LATERAL (
         SELECT (
-          (SELECT COUNT(*)::int FROM seats WHERE seat_map_id = sm.id AND COALESCE(is_disabled, false) = false)
+          COALESCE(
+            NULLIF(
+              (SELECT COUNT(*)::int FROM seats WHERE seat_map_id = sm.id AND COALESCE(is_disabled, false) = false),
+              0
+            ),
+            CASE WHEN (sm.layout_type IS NULL OR sm.layout_type = 'GRID') AND COALESCE(sm.rows_count, 0) > 0 AND COALESCE(sm.cols_count, 0) > 0 THEN (sm.rows_count * sm.cols_count)::int ELSE 0 END
+          )
           +
           COALESCE((
             SELECT SUM(COALESCE(NULLIF(sa->>'capacity', '')::int, 0))::int
