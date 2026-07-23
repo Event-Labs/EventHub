@@ -3,3 +3,11 @@
 *.jpeg filter=lfs diff=lfs merge=lfs -text
 *.gif filter=lfs diff=lfs merge=lfs -text
 *.svg filter=lfs diff=lfs merge=lfs -text
+
+# Frontend assets must be stored as regular Git blobs so Vercel can bundle
+# and serve them even when Git LFS objects are unavailable during deployment.
+frontend/**/*.png -filter -diff -merge -text
+frontend/**/*.jpg -filter -diff -merge -text
+frontend/**/*.jpeg -filter -diff -merge -text
+frontend/**/*.gif -filter -diff -merge -text
+frontend/**/*.svg -filter -diff -merge -text
