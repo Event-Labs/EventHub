@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
+import QRCode from 'qrcode'
 import { ArrowLeft, CalendarDays, CircleCheck, ExternalLink, Gift, Info, Loader2, Mail, MapPin, Minus, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Ticket, UserRound, UsersRound, X } from 'lucide-react'
 import { createStaffDirectBooking, fetchStaffDirectBookingEvents, fetchStaffDirectBookingStatus } from '@/services/orders.js'
 import { fetchSessionSeats } from '@/services/events.js'
@@ -13,7 +14,6 @@ import logoSrc from '@/assets/eventhub-logo.png'
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Tiền mặt' },
   { value: 'bank_transfer', label: 'Chuyển khoản' },
-  { value: 'card', label: 'Thẻ' },
 ]
 
 const PAYMENT_STATUS_LABELS = {
@@ -39,6 +39,10 @@ function formatPrice(value) {
   return `${number.toLocaleString('vi-VN')} đ`
 }
 
+function formatAmount(value) {
+  return `${Number(value || 0).toLocaleString('vi-VN')} đ`
+}
+
 function formatDateTime(value) {
   if (!value) return 'Chưa cập nhật'
   return new Intl.DateTimeFormat('vi-VN', {
@@ -61,8 +65,38 @@ function qrPayload(ticket) {
   })
 }
 
-function qrImageSrc(ticket) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(qrPayload(ticket))}`
+function LocalQrImage({ value, size = 220, alt, className }) {
+  const [src, setSrc] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    QRCode.toDataURL(String(value || ''), {
+      width: size,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff',
+      },
+    })
+      .then((dataUrl) => {
+        if (active) setSrc(dataUrl)
+      })
+      .catch(() => {
+        if (active) setSrc('')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [size, value])
+
+  if (!src) {
+    return <div className={`${className || ''} animate-pulse rounded-md bg-slate-200`} aria-label="Đang tạo mã QR" />
+  }
+
+  return <img src={src} alt={alt} className={className} />
 }
 
 const SEAT_WIDTH = 32
@@ -695,6 +729,50 @@ export function StaffDirectBookingPage() {
                     </label>
                   )}
 
+                  {hasInteractiveSeatMap && (
+                    <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-bold text-content">Sơ đồ chọn vé</h3>
+                          <p className="mt-1 text-sm text-subtle">Bấm vào ghế hoặc khu vực đứng để chọn vé cho khách.</p>
+                        </div>
+                        <Badge tone="blue">Đã chọn {selectedSeatIds.length} ghế</Badge>
+                      </div>
+                      {seatsQuery.isLoading && (
+                        <div className="mt-4 flex items-center gap-2 text-sm text-subtle">
+                          <Loader2 className="size-4 animate-spin" />
+                          Đang tải sơ đồ ghế...
+                        </div>
+                      )}
+                      {seatsQuery.isError && (
+                        <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
+                          Không thể tải sơ đồ ghế.
+                        </p>
+                      )}
+                      <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
+                        <SeatMapCanvas
+                          seats={seatsQuery.data?.seats || []}
+                          ticketTypes={currentTicketTypes}
+                          selectedSeatIds={selectedSeatIds}
+                          seatMap={seatsQuery.data?.seat_map}
+                          onSelectStandingArea={(area, index) => {
+                            const ticketType = unseatedTicketTypes.find(
+                              (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
+                            ) || unseatedTicketTypes[index]
+                            if (ticketType) setStandingTicketType(ticketType)
+                          }}
+                          onToggleSeat={(seat) => {
+                            setSelectedSeatIds((current) =>
+                              current.includes(seat)
+                                ? current.filter((item) => item !== seat)
+                                : [...current, seat],
+                            )
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {currentTicketTypes.map((ticketType) => (
                     <div key={ticketType.id} className={`grid gap-3 rounded-lg border p-4 transition md:grid-cols-[minmax(0,1fr)_160px] md:items-center ${
                       selectedItems.some((item) => item.ticketType.id === ticketType.id)
@@ -726,51 +804,6 @@ export function StaffDirectBookingPage() {
                     </div>
                   ))}
 
-                  {hasInteractiveSeatMap && (
-                    <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h3 className="font-bold text-content">Sơ đồ chọn vé</h3>
-                          <p className="mt-1 text-sm text-subtle">Bấm vào ghế hoặc khu vực đứng để chọn vé cho khách.</p>
-                        </div>
-                        <Badge tone="blue">Đã chọn {selectedSeatIds.length} ghế</Badge>
-                      </div>
-                      {seatsQuery.isLoading && (
-                        <div className="mt-4 flex items-center gap-2 text-sm text-subtle">
-                          <Loader2 className="size-4 animate-spin" />
-                          Đang tải sơ đồ ghế...
-                        </div>
-                      )}
-                      {seatsQuery.isError && (
-                        <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-                          Không thể tải sơ đồ ghế.
-                        </p>
-                      )}
-                      {hasInteractiveSeatMap && (
-                        <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
-                          <SeatMapCanvas
-                            seats={seatsQuery.data?.seats || []}
-                            ticketTypes={currentTicketTypes}
-                            selectedSeatIds={selectedSeatIds}
-                            seatMap={seatsQuery.data?.seat_map}
-                            onSelectStandingArea={(area, index) => {
-                              const ticketType = unseatedTicketTypes.find(
-                                (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
-                              ) || unseatedTicketTypes[index]
-                              if (ticketType) setStandingTicketType(ticketType)
-                            }}
-                            onToggleSeat={(seat) => {
-                              setSelectedSeatIds((current) =>
-                                current.includes(seat)
-                                  ? current.filter((item) => item !== seat)
-                                  : [...current, seat],
-                              )
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </StaffPanel>
@@ -1021,8 +1054,8 @@ function BookingReview({
                     />
                   </label>
                   <div className="mt-4 space-y-2 text-sm">
-                    <SummaryLine label="Khách đưa" value={formatPrice(cashReceivedAmount)} />
-                    <SummaryLine label="Tiền thối" value={formatPrice(cashChange)} strong />
+                    <SummaryLine label="Khách đưa" value={formatAmount(cashReceivedAmount)} />
+                    <SummaryLine label="Tiền thối" value={formatAmount(cashChange)} strong />
                   </div>
                   {!cashIsEnough && <p className="mt-3 text-sm font-semibold text-warning">Số tiền khách đưa chưa đủ để thanh toán.</p>}
                 </div>
@@ -1210,8 +1243,9 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
             </div>
             <div className="mx-auto w-fit rounded-lg bg-white p-4">
               {result.payment.qr_code ? (
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=12&data=${encodeURIComponent(result.payment.qr_code)}`}
+                <LocalQrImage
+                  value={result.payment.qr_code}
+                  size={240}
                   alt="QR PayOS"
                   className="size-56"
                 />
@@ -1256,7 +1290,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               </div>
               <div className="ticket-print-separator relative border-t border-dashed border-white/10 pt-5 text-center before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-white after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-white">
                 <div className="ticket-print-qr mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
-                  <img src={qrImageSrc(ticket)} alt="Mã QR soát vé" className="size-40 rounded-md" />
+                  <LocalQrImage value={qrPayload(ticket)} size={220} alt="Mã QR soát vé" className="size-40 rounded-md" />
                 </div>
                 <p className="ticket-print-code mt-4 font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
               </div>
@@ -1325,6 +1359,10 @@ function PrintInfo({ label, value, wide }) {
 }
 
 function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, onClose }) {
+  const availableQuantity = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
+  const maxPerOrder = Math.max(1, Number(ticketType.max_per_order || 20))
+  const maxSelectableQuantity = Math.min(availableQuantity, maxPerOrder, 20)
+
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
       <div
@@ -1343,6 +1381,10 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
         <p className="mt-4 whitespace-pre-line text-sm leading-6 text-subtle">
           {ticketType.description || 'Khu vực đứng, không có ghế ngồi cố định.'}
         </p>
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-3">
+          <span className="text-sm font-semibold text-subtle">Số lượng vé còn lại</span>
+          <span className="text-base font-extrabold text-success">{availableQuantity} vé</span>
+        </div>
         <div className="mt-5 flex items-center justify-between gap-4">
           <p className="font-bold text-primary">{formatPrice(ticketType.price)} / vé</p>
           <div className="flex items-center justify-end gap-4">
@@ -1355,7 +1397,12 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
               <Minus className="size-4" />
             </button>
             <span className="min-w-8 text-center text-xl font-bold text-content">{quantity}</span>
-            <button type="button" onClick={onIncrease} className="grid size-9 place-items-center rounded-full bg-tertiary text-white">
+            <button
+              type="button"
+              onClick={onIncrease}
+              disabled={quantity >= maxSelectableQuantity}
+              className="grid size-9 place-items-center rounded-full bg-tertiary text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
               <Plus className="size-4" />
             </button>
           </div>

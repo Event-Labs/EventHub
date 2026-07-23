@@ -38,7 +38,7 @@ const orderIdParamSchema = z.object({
   orderId: z.string().uuid(),
 });
 
-const staffDirectPaymentMethods = ['cash', 'bank_transfer', 'card'];
+const staffDirectPaymentMethods = ['cash', 'bank_transfer'];
 
 const staffDirectBookingSchema = z.object({
   event_id: z.string().uuid(),
