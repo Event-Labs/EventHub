@@ -4,6 +4,7 @@ const mockOperationsRepository = {
   findPendingInvitation: jest.fn(),
   createStaffInvitation: jest.fn(),
   deleteStaffInvitation: jest.fn(),
+  findInvitationForOrganizer: jest.fn(),
 };
 
 jest.mock('./operations.repository', () => mockOperationsRepository);
@@ -57,5 +58,34 @@ describe('staff invitation email consistency', () => {
     });
 
     expect(mockOperationsRepository.deleteStaffInvitation).toHaveBeenCalledWith('invitation-1');
+  });
+
+  describe('deleteStaffInvitation', () => {
+    it('deletes the staff invitation when valid', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+      const event = { id: 'event-1', title: 'Event' };
+      const invitation = { id: 'invitation-1', event_id: 'event-1' };
+
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
+      jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
+      mockOperationsRepository.findInvitationForOrganizer.mockResolvedValue(invitation);
+      mockOperationsRepository.deleteStaffInvitation.mockResolvedValue(true);
+
+      const result = await operationsService.deleteStaffInvitation('owner-1', 'invitation-1');
+      expect(result).toEqual({ invitation_id: 'invitation-1', deleted: true });
+      expect(mockOperationsRepository.deleteStaffInvitation).toHaveBeenCalledWith('invitation-1');
+    });
+
+    it('throws error when invitation is not found', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      mockOperationsRepository.findInvitationForOrganizer.mockResolvedValue(null);
+
+      await expect(operationsService.deleteStaffInvitation('owner-1', 'invalid-id')).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
   });
 });

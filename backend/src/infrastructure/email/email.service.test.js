@@ -13,6 +13,7 @@ jest.mock('../../config/env', () => ({
 jest.mock('../../core/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
+  warn: jest.fn(),
 }));
 
 const { sendEmail } = require('./email.service');
@@ -56,5 +57,24 @@ describe('email.service', () => {
       subject: 'Your ticket',
       message: 'Attached',
     })).rejects.toMatchObject({ code: 'SMTP_RECIPIENT_REJECTED' });
+  });
+
+  it('retries the alternate SMTP port when the primary connection times out', async () => {
+    mockSendMail
+      .mockRejectedValueOnce(Object.assign(new Error('Greeting never received'), { code: 'ETIMEDOUT' }))
+      .mockResolvedValueOnce({
+        messageId: 'message-fallback',
+        accepted: ['customer@example.com'],
+        rejected: [],
+      });
+
+    const info = await sendEmail({
+      email: 'customer@example.com',
+      subject: 'Fallback',
+      message: 'Retry',
+    });
+
+    expect(info.messageId).toBe('message-fallback');
+    expect(mockSendMail).toHaveBeenCalledTimes(2);
   });
 });

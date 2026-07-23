@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Ban,
+  CheckSquare,
+  ClipboardPaste,
+  Copy,
   Eraser,
   Grid,
   Hand,
@@ -9,6 +12,7 @@ import {
   Paintbrush,
   Palette,
   Plus,
+  RotateCcw,
   Settings,
   Shapes,
   Sparkles,
@@ -394,33 +398,217 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
   }, [seats, standingAreas])
 
+  const historyStackRef = useRef([])
+  const clipboardRef = useRef(null)
+
+  const saveHistory = useCallback(() => {
+    historyStackRef.current.push({
+      seats: JSON.parse(JSON.stringify(seats)),
+      zones: JSON.parse(JSON.stringify(zones)),
+      standingAreas: JSON.parse(JSON.stringify(standingAreas)),
+      auxElements: JSON.parse(JSON.stringify(auxElements)),
+      stageConfig: JSON.parse(JSON.stringify(stageConfig)),
+    })
+    if (historyStackRef.current.length > 40) {
+      historyStackRef.current.shift()
+    }
+  }, [seats, zones, standingAreas, auxElements, stageConfig])
+
+  const undo = useCallback(() => {
+    if (!historyStackRef.current.length) return
+    const previous = historyStackRef.current.pop()
+    setSeats(previous.seats)
+    setZones(previous.zones)
+    setStandingAreas(previous.standingAreas)
+    setAuxElements(previous.auxElements)
+    setStageConfig(previous.stageConfig)
+    setSelectedIds(new Set())
+    setSelectedShapeId(null)
+  }, [])
+
+  const selectAll = useCallback(() => {
+    if (seats.length > 0) {
+      setSelectedIds(new Set(seats.map((s) => s.localId)))
+    }
+    if (standingAreas.length > 0) {
+      if (!selectedShapeId || !selectedShapeId.startsWith('std-')) {
+        setSelectedShapeId(standingAreas[0].id)
+      }
+    }
+  }, [seats, standingAreas, selectedShapeId])
+
+  const copySelected = useCallback(() => {
+    if (selectedIds.size > 0) {
+      const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
+      const selectedStanding = selectedShapeId
+        ? standingAreas.filter((a) => a.id === selectedShapeId)
+        : selectedIds.size === seats.length && seats.length > 0
+          ? standingAreas
+          : []
+      const selectedAux = selectedShapeId ? auxElements.filter((a) => a.id === selectedShapeId) : []
+
+      clipboardRef.current = {
+        type: 'COMPOSITE',
+        seats: JSON.parse(JSON.stringify(selectedSeats)),
+        standingAreas: JSON.parse(JSON.stringify(selectedStanding)),
+        auxElements: JSON.parse(JSON.stringify(selectedAux)),
+      }
+      return
+    }
+
+    if (selectedShapeId) {
+      const standing = standingAreas.find((a) => a.id === selectedShapeId)
+      if (standing) {
+        clipboardRef.current = {
+          type: 'STANDING',
+          item: JSON.parse(JSON.stringify(standing)),
+        }
+        return
+      }
+
+      const aux = auxElements.find((a) => a.id === selectedShapeId)
+      if (aux) {
+        clipboardRef.current = {
+          type: 'AUX',
+          item: JSON.parse(JSON.stringify(aux)),
+        }
+        return
+      }
+    }
+  }, [selectedIds, seats, selectedShapeId, standingAreas, auxElements])
+
+  const pasteCopied = useCallback(() => {
+    if (!clipboardRef.current) return
+
+    saveHistory()
+
+    const offset = 30 // Offset shift for pasted items
+
+    if (clipboardRef.current.type === 'COMPOSITE') {
+      const { seats: copiedSeats, standingAreas: copiedStanding, auxElements: copiedAux } = clipboardRef.current
+
+      if (copiedSeats && copiedSeats.length > 0) {
+        const newPastedSeats = copiedSeats.map((s) => ({
+          ...s,
+          localId: newLocalId(),
+          x: s.x + offset,
+          y: s.y + offset,
+        }))
+        setSeats((prev) => [...prev, ...newPastedSeats])
+        setSelectedIds(new Set(newPastedSeats.map((s) => s.localId)))
+      }
+
+      if (copiedStanding && copiedStanding.length > 0) {
+        const newPastedStanding = copiedStanding.map((a) => ({
+          ...a,
+          id: `std-${newLocalId()}`,
+          name: `${a.name} (Bản sao)`,
+          x: a.x + offset,
+          y: a.y + offset,
+        }))
+        setStandingAreas((prev) => [...prev, ...newPastedStanding])
+        if (newPastedStanding.length === 1) {
+          setSelectedShapeId(newPastedStanding[0].id)
+        }
+      }
+
+      if (copiedAux && copiedAux.length > 0) {
+        const newPastedAux = copiedAux.map((a) => ({
+          ...a,
+          id: `aux-${newLocalId()}`,
+          x: a.x + offset,
+          y: a.y + offset,
+        }))
+        setAuxElements((prev) => [...prev, ...newPastedAux])
+      }
+    } else if (clipboardRef.current.type === 'SEATS') {
+      const copied = clipboardRef.current.items
+      const newPastedSeats = copied.map((s) => ({
+        ...s,
+        localId: newLocalId(),
+        x: s.x + offset,
+        y: s.y + offset,
+      }))
+      setSeats((prev) => [...prev, ...newPastedSeats])
+      setSelectedIds(new Set(newPastedSeats.map((s) => s.localId)))
+    } else if (clipboardRef.current.type === 'STANDING') {
+      const item = clipboardRef.current.item
+      const newStanding = {
+        ...item,
+        id: `std-${newLocalId()}`,
+        name: `${item.name} (Bản sao)`,
+        x: item.x + offset,
+        y: item.y + offset,
+      }
+      setStandingAreas((prev) => [...prev, newStanding])
+      setSelectedShapeId(newStanding.id)
+    } else if (clipboardRef.current.type === 'AUX') {
+      const item = clipboardRef.current.item
+      const newAux = {
+        ...item,
+        id: `aux-${newLocalId()}`,
+        x: item.x + offset,
+        y: item.y + offset,
+      }
+      setAuxElements((prev) => [...prev, newAux])
+      setSelectedShapeId(newAux.id)
+    }
+  }, [saveHistory])
+
   const deleteSelected = useCallback(() => {
     if (!selectedIds.size) return
+    saveHistory()
     setSeats((prev) => prev.filter((s) => !selectedIds.has(s.localId)))
     setSelectedIds(new Set())
-  }, [selectedIds])
+  }, [selectedIds, saveHistory])
 
   const applyZoneToSelected = useCallback(
     (zoneId) => {
       if (!selectedIds.size) return
+      saveHistory()
       setSeats((prev) =>
         prev.map((s) => (selectedIds.has(s.localId) ? { ...s, zoneLocalId: zoneId } : s)),
       )
     },
-    [selectedIds],
+    [selectedIds, saveHistory],
   )
 
   const disableSelected = useCallback(() => {
     if (!selectedIds.size) return
+    saveHistory()
     setSeats((prev) =>
       prev.map((s) => (selectedIds.has(s.localId) ? { ...s, isDisabled: true } : s)),
     )
-  }, [selectedIds])
+  }, [selectedIds, saveHistory])
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
       const key = e.key.toLowerCase()
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+      const ctrlKey = isMac ? e.metaKey : e.ctrlKey
+
+      if (ctrlKey && key === 'z') {
+        e.preventDefault()
+        undo()
+        return
+      }
+      if (ctrlKey && key === 'a') {
+        e.preventDefault()
+        selectAll()
+        return
+      }
+      if (ctrlKey && key === 'c') {
+        e.preventDefault()
+        copySelected()
+        return
+      }
+      if (ctrlKey && key === 'v') {
+        e.preventDefault()
+        pasteCopied()
+        return
+      }
+
       if (key === 'delete' || key === 'backspace') {
         if (selectedIds.size) {
           e.preventDefault()
@@ -428,6 +616,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         }
         if (selectedShapeId && selectedShapeId.startsWith('std-')) {
           e.preventDefault()
+          saveHistory()
           deleteStandingArea(selectedShapeId)
         }
       }
@@ -443,7 +632,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedIds, selectedShapeId, deleteSelected, layoutType])
+  }, [selectedIds, selectedShapeId, deleteSelected, layoutType, undo, selectAll, copySelected, pasteCopied, saveHistory])
 
   function toSVGPoint(e) {
     const rect = svgRef.current.getBoundingClientRect()
@@ -495,6 +684,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function addStandingArea() {
+    saveHistory()
     const newArea = {
       id: `std-${newLocalId()}`,
       name: `Vùng Đứng ${standingAreas.length + 1}`,
@@ -508,10 +698,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
     setStandingAreas((prev) => [...prev, newArea])
     setSelectedShapeId(newArea.id)
+    setSelectedIds(new Set())
     setSidebarTab('ZONES')
   }
 
   function deleteStandingArea(id) {
+    saveHistory()
     setStandingAreas((prev) => prev.filter((a) => a.id !== id))
     if (selectedShapeId === id) setSelectedShapeId(null)
   }
@@ -670,7 +862,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   function handleAuxMouseDown(e, aux) {
     if (tool !== 'SELECT') return
     e.stopPropagation()
+    saveHistory()
     setSelectedShapeId(aux.id)
+    setSelectedIds(new Set())
     setSidebarTab('STAGE')
     setDraggingAuxId(aux.id)
     const pt = toSVGPoint(e)
@@ -684,6 +878,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       title: 'Đổi tên Vật thể phụ',
       initialValue: aux.label,
       onSave: (newName) => {
+        saveHistory()
         setAuxElements((prev) => prev.map((a) => (a.id === aux.id ? { ...a, label: newName } : a)))
         setRenameModalState({ isOpen: false })
       },
@@ -693,7 +888,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   function handleStandingMouseDown(e, area) {
     if (tool !== 'SELECT') return
     e.stopPropagation()
+    saveHistory()
     setSelectedShapeId(area.id)
+    setSelectedIds(new Set())
     setSidebarTab('ZONES')
     setDraggingStandingId(area.id)
     const pt = toSVGPoint(e)
@@ -1536,6 +1733,46 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   </button>
                 )
               })}
+            </div>
+
+            {/* Quick Actions: Undo, Select All, Copy, Paste */}
+            <div className="flex items-center gap-1 border-r border-border-soft/30 pr-2">
+              <button
+                type="button"
+                onClick={undo}
+                title="Hoàn tác (Ctrl+Z)"
+                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+              >
+                <RotateCcw className="size-4" />
+                <span className="hidden lg:inline">Undo</span>
+              </button>
+              <button
+                type="button"
+                onClick={selectAll}
+                title="Chọn tất cả ghế (Ctrl+A)"
+                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+              >
+                <CheckSquare className="size-4" />
+                <span className="hidden lg:inline">Chọn hết</span>
+              </button>
+              <button
+                type="button"
+                onClick={copySelected}
+                title="Sao chép (Ctrl+C)"
+                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+              >
+                <Copy className="size-4" />
+                <span className="hidden lg:inline">Copy</span>
+              </button>
+              <button
+                type="button"
+                onClick={pasteCopied}
+                title="Dán (Ctrl+V)"
+                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+              >
+                <ClipboardPaste className="size-4" />
+                <span className="hidden lg:inline">Paste</span>
+              </button>
             </div>
 
             {/* Quick Paint zone selector */}

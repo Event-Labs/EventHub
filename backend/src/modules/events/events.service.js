@@ -52,6 +52,7 @@ function mapDetail(row) {
   return {
     ...mapCard(row),
     description: row.description,
+    additional_terms: row.additional_terms || null,
     seating_rules: normalizeRules(row.seating_rules),
     require_attendee_info: Boolean(row.require_attendee_info),
     organizer: row.organizer,
@@ -187,7 +188,7 @@ class EventsService {
       const saleStart = row.sale_start ? new Date(row.sale_start).getTime() : null;
       const saleEnd = row.sale_end ? new Date(row.sale_end).getTime() : null;
       const eventEnd = row.event_end_time ? new Date(row.event_end_time).getTime() : null;
-      const sessionStart = row.session_start_time ? new Date(row.session_start_time).getTime() : null;
+      const sessionEnd = row.session_end_time ? new Date(row.session_end_time).getTime() : null;
       const selectedSeats = row.selected_seats || [];
 
       if (!row.ticket_type_id || row.event_id !== payload.event_id) {
@@ -199,12 +200,12 @@ class EventsService {
         row.event_status !== 'PUBLISHED' ||
         row.visibility !== 'PUBLIC' ||
         row.approval_status !== 'APPROVED' ||
-        row.session_status !== 'UPCOMING'
+        !['UPCOMING', 'ONGOING'].includes(row.session_status)
       ) {
         issues.push('S\u1ef1 ki\u1ec7n ho\u1eb7c su\u1ea5t di\u1ec5n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng.')
       }
 
-      if ((eventEnd && eventEnd <= now) || (sessionStart && sessionStart <= now)) {
+      if ((eventEnd && eventEnd <= now) || (sessionEnd && sessionEnd <= now)) {
         issues.push('Event or session has ended and tickets can no longer be sold.');
       }
 
