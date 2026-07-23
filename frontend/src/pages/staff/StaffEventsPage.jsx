@@ -1,17 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar, MapPin } from 'lucide-react'
+import { Calendar, Clock3, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel, StaffSearch } from './StaffComponents.jsx'
-
-const EVENT_STATUS_LABELS = {
-  DRAFT: 'Bản nháp',
-  PENDING_REVIEW: 'Chờ duyệt',
-  PUBLISHED: 'Đã xuất bản',
-  HIDDEN: 'Đã ẩn',
-  CANCELLED: 'Đã hủy',
-  COMPLETED: 'Đã kết thúc',
-}
 
 const STAFF_ROLE_LABELS = {
   staff: 'Nhân sự',
@@ -31,7 +22,7 @@ export function StaffEventsPage({ empty = false }) {
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [currentTime, setCurrentTime] = useState(0)
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
 
   useEffect(() => {
     let active = true
@@ -56,6 +47,11 @@ export function StaffEventsPage({ empty = false }) {
     return () => {
       active = false
     }
+  }, [])
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => setCurrentTime(Date.now()), 1000)
+    return () => window.clearInterval(timerId)
   }, [])
 
   const filteredEvents = useMemo(() => {
@@ -100,10 +96,9 @@ function AssignedEventCard({ event, currentTime }) {
   const checkedIn = Number(event.checked_in || 0)
   const totalValid = Number(event.total_valid || 0)
   const progress = totalValid > 0 ? Math.min(100, Math.round((checkedIn / totalValid) * 100)) : 0
-  const start = new Date(event.start_time).getTime()
-  const end = new Date(event.end_time).getTime()
-  const isOngoing = start <= currentTime && currentTime <= end
-  const statusTone = isOngoing ? 'green' : 'blue'
+  const checkinStart = new Date(event.checkin_start_time || event.start_time).getTime()
+  const isCheckInOpen = Number.isFinite(checkinStart) && currentTime >= checkinStart
+  const statusTone = isCheckInOpen ? 'green' : 'yellow'
   const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(', ')
   const imageSrc = event.banner_url || event.thumbnail_url
 
@@ -120,7 +115,7 @@ function AssignedEventCard({ event, currentTime }) {
         <div className="flex items-start justify-between gap-3">
           <h3 className="min-h-12 min-w-0 break-words font-extrabold leading-6">{event.title}</h3>
           <span className="shrink-0">
-            <Badge tone={statusTone}>{isOngoing ? 'Đang diễn ra' : (EVENT_STATUS_LABELS[event.status] || 'Chưa xác định')}</Badge>
+            <Badge tone={statusTone}>{isCheckInOpen ? 'Đã mở check-in' : 'Chưa đến giờ check-in'}</Badge>
           </span>
         </div>
         <p className="mt-3 flex items-start gap-2 text-sm text-subtle">
@@ -132,6 +127,11 @@ function AssignedEventCard({ event, currentTime }) {
           <span className="break-words">{venue || 'Chưa cập nhật địa điểm'}</span>
         </p>
         <p className="mt-3 break-words text-sm font-semibold text-subtle">Vai trò: {staffRoleLabel(event.staff_role)}</p>
+        <CheckInAvailability
+          checkinStartTime={event.checkin_start_time || event.start_time}
+          currentTime={currentTime}
+          isOpen={isCheckInOpen}
+        />
 
         <div className="mt-auto pt-5">
           <p className="flex items-center justify-between gap-3 text-sm font-semibold">
@@ -142,13 +142,81 @@ function AssignedEventCard({ event, currentTime }) {
             <div className="h-full rounded bg-primary" style={{ width: `${progress}%` }} />
           </div>
           <div className="mt-5 flex gap-3">
-            <Link to="/staff/qr-check-in" className="admin-primary flex-1">Bắt đầu</Link>
+            {isCheckInOpen ? (
+              <Link to="/staff/qr-check-in" className="admin-primary flex-1">Check-in</Link>
+            ) : (
+              <button
+                type="button"
+                className="admin-primary flex-1 cursor-not-allowed opacity-50"
+                disabled
+                title="Chưa đến giờ check-in do ban tổ chức thiết lập"
+              >
+                Check-in
+              </button>
+            )}
             <Link to={`/staff/events/${event.id}`} className="admin-secondary flex-1">Chi tiết</Link>
           </div>
         </div>
       </div>
     </StaffPanel>
   )
+}
+
+function CheckInAvailability({ checkinStartTime, currentTime, isOpen }) {
+  const targetTime = new Date(checkinStartTime).getTime()
+
+  if (!Number.isFinite(targetTime)) {
+    return (
+      <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm font-semibold text-warning">
+        Chưa xác định giờ check-in.
+      </div>
+    )
+  }
+
+  const formattedStart = new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(new Date(targetTime))
+
+  if (isOpen) {
+    return (
+      <div className="mt-4 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
+        <Clock3 className="mt-0.5 size-4 shrink-0" />
+        <div>
+          <p className="font-extrabold">Đã đến giờ check-in</p>
+          <p className="mt-0.5 text-xs font-semibold">Mở từ {formattedStart}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-4 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+      <Clock3 className="mt-0.5 size-4 shrink-0" />
+      <div>
+        <p className="font-extrabold">Chưa đến giờ check-in</p>
+        <p className="mt-0.5 text-xs font-semibold">Mở lúc {formattedStart}</p>
+        <p className="mt-1 font-mono text-sm font-extrabold tabular-nums">
+          Còn {formatCheckInCountdown(targetTime - currentTime)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function formatCheckInCountdown(remainingMs) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (totalSeconds <= 86400) {
+    const totalHours = Math.floor(totalSeconds / 3600)
+    return `${String(totalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  return `${days} ngày ${String(hours).padStart(2, '0')} giờ ${String(minutes).padStart(2, '0')} phút`
 }
 
 export function NoAssignedEventsPage() {
