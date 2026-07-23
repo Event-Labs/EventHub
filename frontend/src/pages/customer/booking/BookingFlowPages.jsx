@@ -378,13 +378,33 @@ function initialCartFromLocation(location) {
   if (cart) saveBookingDraft(cart)
   return cart
 }
+const TICKET_COLOR_PALETTE = [
+  '#38bdf8',
+  '#f97316',
+  '#a855f7',
+  '#22c55e',
+  '#eab308',
+  '#ef4444',
+  '#14b8a6',
+  '#ec4899',
+]
+
+function fallbackTicketTypeColor(ticketType) {
+  const identity = String(ticketType?.id || ticketType?.name || 'ticket')
+  const hash = [...identity].reduce(
+    (result, character) => ((result * 31) + character.charCodeAt(0)) >>> 0,
+    0,
+  )
+  return TICKET_COLOR_PALETTE[hash % TICKET_COLOR_PALETTE.length]
+}
+
 function ticketTypeColor(ticketType, colorByTicketTypeId) {
   return (
     colorByTicketTypeId?.get(String(ticketType?.id)) ||
     ticketType?.color ||
     ticketType?.zone?.color ||
     ticketType?.seat_type?.color ||
-    '#38bdf8'
+    fallbackTicketTypeColor(ticketType)
   )
 }
 
@@ -644,7 +664,7 @@ export function BookingSeatsPage() {
               ? 'Ch\u1ecdn gh\u1ebf tr\u1ef1c ti\u1ebfp tr\u00ean s\u01a1 \u0111\u1ed3 s\u00e2n kh\u1ea5u'
               : 'Ch\u1ecdn lo\u1ea1i v\u00e9 v\u00e0 s\u1ed1 l\u01b0\u1ee3ng mong mu\u1ed1n'}
           />
-          <Panel>
+          <Panel unstyled={!hasSeatMap && unseatedTicketTypes.length > 0}>
             {seatsQuery.isLoading ? (
               <p className="text-muted">{'\u0110ang t\u1ea3i s\u01a1 \u0111\u1ed3 gh\u1ebf...'}</p>
             ) : seatsQuery.data?.seats?.length ? (
@@ -1557,8 +1577,12 @@ function ModalFrame({ children }) {
   )
 }
 
-function Panel({ children }) {
-  return <section className="rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10">{children}</section>
+function Panel({ children, unstyled = false }) {
+  return (
+    <section className={unstyled ? '' : 'rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10'}>
+      {children}
+    </section>
+  )
 }
 
 function PageTitle({ title, subtitle }) {
@@ -1630,7 +1654,11 @@ function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
   const availability = ticketAvailability(ticketType)
 
   return (
-    <div className={'px-2 py-1'}>
+    <div className={`rounded-lg border p-4 transition ${
+      quantity > 0
+        ? 'border-tertiary/70 bg-tertiary/10 shadow-[0_0_0_1px_rgba(249,115,22,0.08)]'
+        : 'border-border-soft bg-surface/40 hover:border-primary/40'
+    }`}>
       <div className={'flex items-start justify-between gap-4'}>
         <div>
           <p className={'font-bold text-white'}>{ticketType.name}</p>
