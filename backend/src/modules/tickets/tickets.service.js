@@ -128,6 +128,7 @@ function buildStaffTicketPayload(row) {
       name: row.session_name,
       start_time: row.session_start_time,
       end_time: row.session_end_time,
+      checkin_start_time: row.checkin_start_time || row.session_start_time,
     },
     ticket_type: {
       id: row.ticket_type_id,
@@ -225,6 +226,17 @@ function assertQrMatchesTicket(qrPayload, ticket) {
 
   if (qrPayload.sessionId && ticket.event_session_id && qrPayload.sessionId !== ticket.event_session_id) {
     throw new AppError('QR không khớp phiên của vé.', 400, ErrorCodes.INVALID_INPUT);
+  }
+}
+
+function assertCheckInOpen(ticket) {
+  const checkinStartTime = ticket?.checkin_start_time || ticket?.session_start_time;
+  if (checkinStartTime && new Date(checkinStartTime).getTime() > Date.now()) {
+    throw new AppError(
+      'Vé này chưa đến giờ tham gia.',
+      400,
+      ErrorCodes.INVALID_INPUT,
+    );
   }
 }
 
@@ -431,6 +443,7 @@ class TicketsService {
       throw new AppError('Staff không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
     }
 
+    assertCheckInOpen(ticket);
     assertQrMatchesTicket(qrPayload, ticket);
 
     return buildStaffTicketPayload(ticket);
@@ -458,6 +471,14 @@ class TicketsService {
 
     if (result.state === 'INVALID_ORDER') {
       throw new AppError('Vé chưa được thanh toán hoặc đơn hàng không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    if (result.state === 'CHECKIN_NOT_OPEN') {
+      throw new AppError(
+        'Vé này chưa đến giờ tham gia.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
     }
 
     if (result.state === 'EXPIRED') {
