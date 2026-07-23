@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
 import { Avatar, Badge, StaffPage, StaffPanel, StaffTable } from './StaffComponents.jsx'
+import { SeatMapCanvas } from './StaffDirectBookingPage.jsx'
 
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 
@@ -232,93 +233,21 @@ export function StaffEventDetailPage() {
 
 function EventSeatMap({ data }) {
   const seats = data?.seats || []
-  const positionedSeats = seats.filter(
-    (seat) => Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position)),
-  )
-  const availableCount = seats.filter((seat) => seat.status === 'AVAILABLE').length
-  const heldCount = seats.filter((seat) => seat.status === 'HELD').length
-  const unavailableCount = Math.max(0, seats.length - availableCount - heldCount)
 
   if (seats.length === 0) {
     return <p className="mt-5 rounded-lg bg-panel-soft px-5 py-6 text-center text-sm text-muted">Sơ đồ chưa có dữ liệu ghế.</p>
   }
 
-  const minX = positionedSeats.length ? Math.min(...positionedSeats.map((seat) => Number(seat.x_position))) : 0
-  const minY = positionedSeats.length ? Math.min(...positionedSeats.map((seat) => Number(seat.y_position))) : 0
-  const maxX = positionedSeats.length ? Math.max(...positionedSeats.map((seat) => Number(seat.x_position))) : 0
-  const maxY = positionedSeats.length ? Math.max(...positionedSeats.map((seat) => Number(seat.y_position))) : 0
-  const seatSize = 30
-  const padding = 24
-  const stageHeight = 42
-  const stageGap = 28
-  const width = Math.max(360, maxX - minX + seatSize + padding * 2)
-  const height = Math.max(220, maxY - minY + seatSize + padding * 2 + stageHeight + stageGap)
-
   return (
     <div className="mt-5">
-      <div className="mb-4 flex flex-wrap gap-4 text-xs font-semibold text-subtle">
-        <SeatLegend className="border-success/60 bg-success/20" label={`Còn trống (${availableCount})`} />
-        <SeatLegend className="border-warning/60 bg-warning/20" label={`Đang giữ (${heldCount})`} />
-        <SeatLegend className="border-border-soft bg-panel-soft" label={`Không khả dụng (${unavailableCount})`} />
-      </div>
-      <div className="overflow-auto rounded-lg border border-border-soft/40 bg-background/40 p-4">
-        {positionedSeats.length > 0 ? (
-          <div className="relative mx-auto" style={{ width, height }}>
-            <div className="absolute left-1/2 top-0 grid h-10 w-52 -translate-x-1/2 place-items-center rounded-b-full border border-primary/40 bg-primary/15 text-xs font-extrabold text-primary">
-              SÂN KHẤU
-            </div>
-            {positionedSeats.map((seat) => (
-              <SeatCell
-                key={seat.session_seat_id}
-                seat={seat}
-                style={{
-                  position: 'absolute',
-                  left: Number(seat.x_position) - minX + padding,
-                  top: Number(seat.y_position) - minY + padding + stageHeight + stageGap,
-                  width: seatSize,
-                  height: seatSize,
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div
-            className="mx-auto grid w-max gap-2"
-            style={{ gridTemplateColumns: `repeat(${Number(data?.seat_map?.cols_count || 8)}, ${seatSize}px)` }}
-          >
-            {seats.map((seat) => <SeatCell key={seat.session_seat_id} seat={seat} style={{ width: seatSize, height: seatSize }} />)}
-          </div>
-        )}
-      </div>
+      <SeatMapCanvas
+        seats={seats}
+        ticketTypes={data?.ticket_types || []}
+        selectedSeatIds={[]}
+        seatMap={data?.seat_map}
+        readOnly
+        centered
+      />
     </div>
-  )
-}
-
-function SeatCell({ seat, style }) {
-  const statusClass = seat.status === 'AVAILABLE'
-    ? 'border-success/60 bg-success/20 text-success'
-    : seat.status === 'HELD'
-      ? 'border-warning/60 bg-warning/20 text-warning'
-      : 'border-border-soft bg-panel-soft text-muted'
-  const zoneColor = seat.zone?.color || seat.seat_type?.color
-
-  return (
-    <div
-      title={`${seat.label || ''}${seat.zone?.name ? ` - ${seat.zone.name}` : ''}`}
-      className={`relative grid place-items-center rounded-md border text-[10px] font-bold ${statusClass}`}
-      style={style}
-    >
-      <span className="max-w-full truncate px-0.5">{seat.row_label || seat.label}</span>
-      {zoneColor && <span className="absolute bottom-0.5 h-0.5 w-4 rounded-full" style={{ backgroundColor: zoneColor }} />}
-    </div>
-  )
-}
-
-function SeatLegend({ className, label }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className={`size-3 rounded-sm border ${className}`} />
-      {label}
-    </span>
   )
 }

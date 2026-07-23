@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import QRCode from 'qrcode'
 import { ArrowLeft, CalendarDays, CircleCheck, ExternalLink, Gift, Info, Loader2, Mail, MapPin, Minus, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Ticket, UserRound, UsersRound, X } from 'lucide-react'
 import { createStaffDirectBooking, fetchStaffDirectBookingEvents, fetchStaffDirectBookingStatus } from '@/services/orders.js'
 import { fetchSessionSeats } from '@/services/events.js'
@@ -65,38 +64,8 @@ function qrPayload(ticket) {
   })
 }
 
-function LocalQrImage({ value, size = 220, alt, className }) {
-  const [src, setSrc] = useState('')
-
-  useEffect(() => {
-    let active = true
-
-    QRCode.toDataURL(String(value || ''), {
-      width: size,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-      color: {
-        dark: '#0f172a',
-        light: '#ffffff',
-      },
-    })
-      .then((dataUrl) => {
-        if (active) setSrc(dataUrl)
-      })
-      .catch(() => {
-        if (active) setSrc('')
-      })
-
-    return () => {
-      active = false
-    }
-  }, [size, value])
-
-  if (!src) {
-    return <div className={`${className || ''} animate-pulse rounded-md bg-slate-200`} aria-label="Đang tạo mã QR" />
-  }
-
-  return <img src={src} alt={alt} className={className} />
+function qrImageSrc(ticket) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(qrPayload(ticket))}`
 }
 
 const SEAT_WIDTH = 32
@@ -1243,9 +1212,8 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
             </div>
             <div className="mx-auto w-fit rounded-lg bg-white p-4">
               {result.payment.qr_code ? (
-                <LocalQrImage
-                  value={result.payment.qr_code}
-                  size={240}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=12&data=${encodeURIComponent(result.payment.qr_code)}`}
                   alt="QR PayOS"
                   className="size-56"
                 />
@@ -1290,7 +1258,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               </div>
               <div className="ticket-print-separator relative border-t border-dashed border-white/10 pt-5 text-center before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-white after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-white">
                 <div className="ticket-print-qr mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
-                  <LocalQrImage value={qrPayload(ticket)} size={220} alt="Mã QR soát vé" className="size-40 rounded-md" />
+                  <img src={qrImageSrc(ticket)} alt="Mã QR soát vé" className="size-40 rounded-md" />
                 </div>
                 <p className="ticket-print-code mt-4 font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
               </div>
@@ -1458,7 +1426,16 @@ function SeatLegend({ seats }) {
   )
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatMap }) {
+export function SeatMapCanvas({
+  seats = [],
+  ticketTypes = [],
+  selectedSeatIds = [],
+  onToggleSeat,
+  onSelectStandingArea,
+  seatMap,
+  readOnly = false,
+  centered = false,
+}) {
   const viewportRef = useRef(null)
   const zoomSpacerRef = useRef(null)
   const zoomLayerRef = useRef(null)
@@ -1663,7 +1640,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
     const id = seat.session_seat_id
     const selected = selectedSeatIds.includes(id)
     const status = seat.is_disabled ? SEAT_STATUS.BLOCKED : (seat.status || SEAT_STATUS.AVAILABLE)
-    const clickable = isClickable(status, selected)
+    const clickable = !readOnly && isClickable(status, selected)
     const label = getSeatLabel(seat)
     const zoneColor = seat.zone?.color || seat.seat_type?.color
     const w = overrideWidth || seatWidth
@@ -1694,7 +1671,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
         key={id}
         type="button"
         disabled={!clickable}
-        onClick={() => clickable && onToggleSeat(id)}
+        onClick={() => clickable && onToggleSeat?.(id)}
         title={tooltipText}
         style={{ width: w, height: SEAT_HEIGHT, flexShrink: 0, ...style }}
         className={`rounded-md border font-bold transition ${getSeatStatusClass(status, selected)}`}
@@ -1743,7 +1720,14 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
           className="w-full overflow-auto overscroll-contain rounded-lg"
           style={{ maxHeight: 'min(70vh, 680px)', cursor: 'grab', touchAction: 'none' }}
         >
-          <div ref={zoomSpacerRef} style={{ width: xyLayout.width * zoom, height: xyLayout.height * zoom }}>
+          <div
+            ref={zoomSpacerRef}
+            style={{
+              width: xyLayout.width * zoom,
+              height: xyLayout.height * zoom,
+              marginInline: centered ? 'auto' : undefined,
+            }}
+          >
             <div
               ref={zoomLayerRef}
               className="relative origin-top-left rounded-lg border border-border-soft/40 bg-background/40"
@@ -1789,6 +1773,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
             <button
               key={area.id || index}
               type="button"
+              disabled={readOnly}
               title={area.name}
               aria-label={area.name}
               onClick={() => onSelectStandingArea?.(area, index)}
@@ -1864,7 +1849,14 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
         className="w-full overflow-auto overscroll-contain rounded-lg"
         style={{ maxHeight: 'min(70vh, 680px)', cursor: 'grab', touchAction: 'none' }}
       >
-        <div ref={zoomSpacerRef} style={{ width: fallbackWidth * zoom, height: fallbackHeight * zoom }}>
+        <div
+          ref={zoomSpacerRef}
+          style={{
+            width: fallbackWidth * zoom,
+            height: fallbackHeight * zoom,
+            marginInline: centered ? 'auto' : undefined,
+          }}
+        >
           <div
             ref={zoomLayerRef}
             className="origin-top-left rounded-lg border border-border-soft/40 bg-background/40 p-4"
