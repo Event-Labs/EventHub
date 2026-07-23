@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, Mail, Send, Smartphone } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Badge, Insight, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import {
   fetchOrganizerAnnouncementEvents,
   fetchOrganizerAnnouncements,
@@ -163,9 +163,6 @@ export function OrganizerAnnouncementsPage() {
               </button>
             </form>
           </OrganizerPanel>
-          <Insight title="Gợi ý vận hành">
-            Với thay đổi gấp về giờ diễn, hãy bật cả Web realtime và Email để người tham dự online nhận ngay, còn người offline vẫn nhận qua hộp thư.
-          </Insight>
         </div>
 
         <aside className="space-y-5">
