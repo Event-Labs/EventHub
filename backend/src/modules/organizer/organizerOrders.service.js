@@ -3,7 +3,133 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const organizerOrdersRepository = require('./organizerOrders.repository');
 const organizerEventsRepository = require('./organizerEvents.repository');
 
-const FINANCIAL_AI_URL = process.env.FINANCIAL_AI_URL || 'http://127.0.0.1:8001';
+const FINANCIAL_AI_URL = (process.env.FINANCIAL_AI_URL || 'http://127.0.0.1:8001').replace(/\/+$/, '');
+const FINANCIAL_AI_PROVIDER = process.env.FINANCIAL_AI_PROVIDER || 'auto';
+const FINANCIAL_AI_GRADIO_ENDPOINT = 'generate_financial_summary';
+
+function resolveFinancialAiProvider() {
+  if (FINANCIAL_AI_PROVIDER !== 'auto') {
+    return FINANCIAL_AI_PROVIDER;
+  }
+
+  return FINANCIAL_AI_URL.includes('.hf.space') ? 'gradio' : 'fastapi';
+}
+
+function parseGradioResult(streamText) {
+  const events = String(streamText || '').split(/\r?\n\r?\n/);
+
+  for (const eventBlock of events) {
+    const lines = eventBlock.split(/\r?\n/);
+    const eventType = lines
+      .find((line) => line.startsWith('event:'))
+      ?.slice('event:'.length)
+      .trim();
+    const data = lines
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice('data:'.length).trim())
+      .join('\n');
+
+    if (eventType === 'error') {
+      throw new Error(data || 'Financial AI generation failed');
+    }
+
+    if (eventType === 'complete' && data) {
+      const outputs = JSON.parse(data);
+      const summary = Array.isArray(outputs) ? outputs[0] : null;
+
+      if (typeof summary !== 'string' || !summary.trim()) {
+        throw new Error('Financial AI returned an empty summary');
+      }
+
+      return summary.trim();
+    }
+  }
+
+  throw new Error('Financial AI returned an invalid event stream');
+}
+
+async function requestGradioFinancialSummary(payload, signal) {
+  const submitResponse = await fetch(
+    `${FINANCIAL_AI_URL}/gradio_api/call/${FINANCIAL_AI_GRADIO_ENDPOINT}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: [
+          payload.event_title,
+          payload.gross_revenue,
+          payload.net_revenue,
+          payload.platform_fee,
+          payload.tickets_sold,
+          payload.total_orders,
+          payload.occupancy_rate,
+          payload.best_ticket_type,
+          payload.best_sales_day,
+        ],
+      }),
+      signal,
+    },
+  );
+
+  if (!submitResponse.ok) {
+    throw new Error(`Financial AI submit returned ${submitResponse.status}`);
+  }
+
+  const submitResult = await submitResponse.json();
+  if (!submitResult.event_id) {
+    throw new Error('Financial AI did not return an event ID');
+  }
+
+  const resultResponse = await fetch(
+    `${FINANCIAL_AI_URL}/gradio_api/call/${FINANCIAL_AI_GRADIO_ENDPOINT}/${submitResult.event_id}`,
+    {
+      headers: { Accept: 'text/event-stream' },
+      signal,
+    },
+  );
+
+  if (!resultResponse.ok) {
+    throw new Error(`Financial AI result returned ${resultResponse.status}`);
+  }
+
+  return parseGradioResult(await resultResponse.text());
+}
+
+async function requestFastApiFinancialSummary(payload, signal) {
+  const response = await fetch(`${FINANCIAL_AI_URL}/generate-financial-summary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Financial AI service returned ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function requestFinancialSummary(payload, signal) {
+  const provider = resolveFinancialAiProvider();
+
+  if (provider === 'gradio') {
+    const summary = await requestGradioFinancialSummary(payload, signal);
+    return {
+      result: {
+        summary,
+        model: 'Qwen/Qwen3-0.6B',
+        adapter: null,
+      },
+      source: 'HUGGING_FACE_SPACE',
+    };
+  }
+
+  return {
+    result: await requestFastApiFinancialSummary(payload, signal),
+    source: 'LOCAL_AI_SERVICE',
+  };
+}
 
 function toNumber(value) {
   return Number(value || 0);
@@ -458,22 +584,18 @@ class OrganizerOrdersService {
     try {
       const controller = new AbortController();
       timeout = setTimeout(() => controller.abort(), 120000);
-      const response = await fetch(`${FINANCIAL_AI_URL}/generate-financial-summary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Financial AI service returned ${response.status}`);
-      }
-
-      const aiResult = await response.json();
+      const { result: aiResult, source } = await requestFinancialSummary(
+        payload,
+        controller.signal,
+      );
       return {
         ...aiResult,
+        insights: aiResult.insights || {
+          occupancy: buildOccupancyInsight(payload.occupancy_rate),
+          recommendation: intelligence.recommendations?.[0] || '',
+        },
         intelligence,
-        source: 'LOCAL_AI_SERVICE',
+        source,
         metrics: payload,
       };
     } catch (error) {
