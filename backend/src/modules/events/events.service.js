@@ -104,7 +104,7 @@ class EventsService {
       location: query.location,
       startDate: query.start_date,
       endDate: query.end_date,
-      activeAt: query.active_at,
+      activeAt: query.upcoming_only ? new Date() : undefined,
       minPrice: query.min_price,
       maxPrice: query.max_price,
       sortBy: query.sort_by,
