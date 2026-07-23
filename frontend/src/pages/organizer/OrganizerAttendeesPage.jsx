@@ -386,6 +386,7 @@ export function OrganizerAttendeesPage() {
                         <div className="flex items-center gap-3">
                           <AvatarInitials
                             name={att.attendee_name || att.attendee_email || 'A'}
+                            src={att.attendee_avatar_url}
                             className="size-8 animate-pulse-slow"
                           />
                           <div>

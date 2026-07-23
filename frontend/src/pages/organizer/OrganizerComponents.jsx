@@ -1,4 +1,4 @@
-import { isValidElement } from 'react'
+import { isValidElement, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Sparkles } from 'lucide-react'
 
@@ -145,16 +145,30 @@ export function Insight({ children, title = 'AI Insights' }) {
 }
 
 /**
- * AvatarInitials
+ * AvatarInitials – renders a real avatar image when `src` is provided,
+ * falls back to coloured initials when the image is absent or broken.
  */
-export function AvatarInitials({ name, className = 'size-9' }) {
-  const initials = name
+export function AvatarInitials({ name, src, className = 'size-9' }) {
+  const [imgError, setImgError] = useState(false)
+
+  const initials = (name || '')
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0])
     .join('')
     .toUpperCase()
+
+  if (src && !imgError) {
+    return (
+      <img
+        src={src}
+        alt={name || 'avatar'}
+        className={`${className} shrink-0 rounded-full object-cover`}
+        onError={() => setImgError(true)}
+      />
+    )
+  }
 
   return (
     <span
