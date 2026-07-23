@@ -10,6 +10,7 @@ import {
 } from '@/services/notifications.js'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated } from '@/lib/auth.js'
+import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
@@ -72,17 +73,7 @@ function isStaffInvitationStoreNotification(notification) {
 }
 
 function getNotificationDisplay(notification) {
-  if (!isStaffInvitationNotification(notification)) {
-    return {
-      title: notification.title,
-      content: notification.content,
-    }
-  }
-
-  return {
-    title: 'Lời mời làm nhân sự',
-    content: 'Bạn có lời mời làm nhân sự đang chờ phản hồi.',
-  }
+  return formatNotificationDisplay(notification)
 }
 
 function getNotificationTarget(notification) {
