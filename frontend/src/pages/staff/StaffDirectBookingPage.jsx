@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, CircleCheck, ExternalLink, Gift, Info, Loader2, Mail, MapPin, Minus, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Ticket, UserRound, UsersRound } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { ArrowLeft, CalendarDays, CircleCheck, ExternalLink, Gift, Info, Loader2, Mail, MapPin, Minus, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Ticket, UserRound, UsersRound, X } from 'lucide-react'
 import { createStaffDirectBooking, fetchStaffDirectBookingEvents, fetchStaffDirectBookingStatus } from '@/services/orders.js'
 import { fetchSessionSeats } from '@/services/events.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
@@ -213,6 +214,81 @@ function buildRowColLayout(seats) {
   return rows
 }
 
+function stageShapeStyle(shape) {
+  if (shape === 'CIRCLE') return { borderRadius: '50%' }
+  if (shape === 'SEMI_CIRCLE') return { borderRadius: '999px 999px 0 0' }
+  if (shape === 'DIAMOND') return { clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)' }
+  if (shape === 'T_STAGE') return { clipPath: 'polygon(0 0, 100% 0, 100% 45%, 70% 45%, 70% 100%, 30% 100%, 30% 45%, 0 45%)' }
+  return { borderRadius: 8 }
+}
+
+function buildConfiguredLayout(seats, seatMap) {
+  const config = seatMap?.config || {}
+  const positioned = (seats || []).filter(
+    (seat) => Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position)),
+  )
+  const standingAreas = Array.isArray(config.standingAreas) ? config.standingAreas : []
+  const auxiliaryElements = Array.isArray(config.auxiliaryElements) ? config.auxiliaryElements : []
+  const stagePosition = config.stagePosition || seatMap?.stage_position
+  const stage = stagePosition && stagePosition !== 'HIDDEN'
+    ? {
+        label: config.stageLabel || 'SÂN KHẤU',
+        x: Number(config.stageX ?? seatMap?.custom_stage_x ?? 0),
+        y: Number(config.stageY ?? seatMap?.custom_stage_y ?? 0),
+        w: Number(config.stageWidth ?? seatMap?.custom_stage_width ?? 900),
+        h: Number(config.stageHeight ?? seatMap?.custom_stage_height ?? 52),
+        rotation: Number(config.stageRotation || 0),
+        color: config.stageColor || '#3B82F6',
+        shape: config.stageShape || 'RECTANGLE',
+      }
+    : null
+
+  if (!positioned.length && !standingAreas.length && !auxiliaryElements.length && !stage) return null
+
+  const allX = []
+  const allY = []
+  const includeBox = (x, y, w, h) => {
+    const left = Number(x || 0)
+    const top = Number(y || 0)
+    allX.push(left, left + Number(w || 0))
+    allY.push(top, top + Number(h || 0))
+  }
+  positioned.forEach((seat) => includeBox(seat.x_position, seat.y_position, SEAT_WIDTH, SEAT_HEIGHT))
+  standingAreas.forEach((area) => includeBox(area.x, area.y, area.w, area.h))
+  auxiliaryElements.forEach((element) => includeBox(element.x, element.y, element.w, element.h))
+  if (stage) includeBox(stage.x, stage.y, stage.w, stage.h)
+
+  const minX = Math.min(...allX)
+  const minY = Math.min(...allY)
+  const maxX = Math.max(...allX)
+  const maxY = Math.max(...allY)
+  const normalizeElement = (element) => ({
+    ...element,
+    x: Number(element.x || 0) - minX + SEAT_LAYOUT_PADDING,
+    y: Number(element.y || 0) - minY + SEAT_LAYOUT_PADDING,
+    w: Number(element.w || 0),
+    h: Number(element.h || 0),
+    rotation: Number(element.rotation || 0),
+  })
+  const positions = new Map()
+  positioned.forEach((seat) => {
+    positions.set(seatId(seat), {
+      left: Number(seat.x_position) - minX + SEAT_LAYOUT_PADDING,
+      top: Number(seat.y_position) - minY + SEAT_LAYOUT_PADDING,
+    })
+  })
+
+  return {
+    positions,
+    width: Math.max(360, maxX - minX + SEAT_LAYOUT_PADDING * 2),
+    height: Math.max(240, maxY - minY + SEAT_LAYOUT_PADDING * 2),
+    stage: stage ? normalizeElement(stage) : null,
+    standingAreas: standingAreas.map(normalizeElement),
+    auxiliaryElements: auxiliaryElements.map(normalizeElement),
+    canvasBg: config.canvasBg || '#0F172A',
+  }
+}
+
 export function StaffDirectBookingPage() {
   const toast = useToast()
   const [searchParams] = useSearchParams()
@@ -228,6 +304,7 @@ export function StaffDirectBookingPage() {
   const [result, setResult] = useState(null)
   const [showDetail, setShowDetail] = useState(false)
   const [isReviewing, setIsReviewing] = useState(false)
+  const [standingTicketType, setStandingTicketType] = useState(null)
 
   const eventsQuery = useQuery({
     queryKey: ['staff-direct-booking-events'],
@@ -285,12 +362,14 @@ export function StaffDirectBookingPage() {
         : selectedEvent?.ticket_types || [],
     [selectedEvent, selectedSession],
   )
-  const hasSeatedTickets = currentTicketTypes.some((ticketType) => ticketType.is_seated)
   const seatsQuery = useQuery({
     queryKey: ['staff-direct-session-seats', selectedSession?.id],
     queryFn: () => fetchSessionSeats(selectedSession.id),
-    enabled: Boolean(selectedSession?.id && hasSeatedTickets),
+    enabled: Boolean(selectedSession?.id),
   })
+  const standingAreas = seatsQuery.data?.seat_map?.config?.standingAreas || []
+  const unseatedTicketTypes = currentTicketTypes.filter((ticketType) => ticketType.is_seated === false)
+  const hasInteractiveSeatMap = Boolean((seatsQuery.data?.seats || []).length || standingAreas.length)
   const selectedItems = useMemo(() => {
     if (!selectedEvent) return []
     const seats = seatsQuery.data?.seats || []
@@ -340,7 +419,9 @@ export function StaffDirectBookingPage() {
   const canSubmit = canReview && cashIsEnough
 
   function updateQuantity(ticketType, nextValue) {
-    const next = Math.max(0, Math.min(Number(ticketType.available_quantity || 0), Number(nextValue || 0)))
+    const available = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
+    const perOrder = Math.max(1, Number(ticketType.max_per_order || 20))
+    const next = Math.max(0, Math.min(available, perOrder, 20, Number(nextValue || 0)))
     setQuantities((current) => ({ ...current, [ticketType.id]: next }))
   }
 
@@ -355,6 +436,7 @@ export function StaffDirectBookingPage() {
     setResult(null)
     setShowDetail(false)
     setIsReviewing(false)
+    setStandingTicketType(null)
     createMutation.reset()
   }
 
@@ -525,7 +607,7 @@ export function StaffDirectBookingPage() {
               )}
               {!eventsQuery.isLoading && !eventsQuery.isError && filteredEvents.length === 0 && (
                 <p className="mt-5 rounded-md border border-border-soft/40 bg-panel-soft px-4 py-3 text-sm text-subtle">
-                  Chưa có sự kiện phù hợp hoặc sự kiện chưa còn vé không chọn ghế.
+                  Chưa có sự kiện phù hợp hoặc sự kiện hiện không còn vé.
                 </p>
               )}
               <div className="mt-4 grid gap-3">
@@ -541,6 +623,7 @@ export function StaffDirectBookingPage() {
                         setSelectedSessionId(event.sessions?.[0]?.id || '')
                         setSelectedSeatIds([])
                         setQuantities({})
+                        setStandingTicketType(null)
                       }}
                       className={`flex min-h-40 items-stretch gap-4 overflow-hidden rounded-lg border p-2 text-left transition sm:gap-5 sm:p-3 ${
                         active ? 'border-violet-500 bg-violet-500/[0.06] shadow-[0_0_0_1px_rgba(139,92,246,0.2)]' : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/70'
@@ -598,6 +681,7 @@ export function StaffDirectBookingPage() {
                           setSelectedSessionId(event.target.value)
                           setSelectedSeatIds([])
                           setQuantities({})
+                          setStandingTicketType(null)
                         }}
                         className="mt-2 h-11 w-full rounded-md border border-border-soft/50 bg-panel-soft px-3 text-sm font-bold text-content outline-none focus:border-primary"
                       >
@@ -641,12 +725,12 @@ export function StaffDirectBookingPage() {
                     </div>
                   ))}
 
-                  {hasSeatedTickets && (
+                  {hasInteractiveSeatMap && (
                     <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h3 className="font-bold text-content">Sơ đồ chỗ ngồi</h3>
-                          <p className="mt-1 text-sm text-subtle">Bấm ghế trống để chọn chỗ cho khách.</p>
+                          <h3 className="font-bold text-content">Sơ đồ chọn vé</h3>
+                          <p className="mt-1 text-sm text-subtle">Bấm vào ghế hoặc khu vực đứng để chọn vé cho khách.</p>
                         </div>
                         <Badge tone="blue">Đã chọn {selectedSeatIds.length} ghế</Badge>
                       </div>
@@ -661,12 +745,19 @@ export function StaffDirectBookingPage() {
                           Không thể tải sơ đồ ghế.
                         </p>
                       )}
-                      {seatsQuery.data?.seats?.length > 0 && (
+                      {hasInteractiveSeatMap && (
                         <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
                           <SeatMapCanvas
-                            seats={seatsQuery.data.seats}
+                            seats={seatsQuery.data?.seats || []}
                             ticketTypes={currentTicketTypes}
                             selectedSeatIds={selectedSeatIds}
+                            seatMap={seatsQuery.data?.seat_map}
+                            onSelectStandingArea={(area, index) => {
+                              const ticketType = unseatedTicketTypes.find(
+                                (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
+                              ) || unseatedTicketTypes[index]
+                              if (ticketType) setStandingTicketType(ticketType)
+                            }}
                             onToggleSeat={(seat) => {
                               setSelectedSeatIds((current) =>
                                 current.includes(seat)
@@ -739,6 +830,15 @@ export function StaffDirectBookingPage() {
             </StaffPanel>
           </aside>
         </div>
+      )}
+      {standingTicketType && (
+        <StandingQuantityModal
+          ticketType={standingTicketType}
+          quantity={Number(quantities[standingTicketType.id] || 0)}
+          onDecrease={() => updateQuantity(standingTicketType, Number(quantities[standingTicketType.id] || 0) - 1)}
+          onIncrease={() => updateQuantity(standingTicketType, Number(quantities[standingTicketType.id] || 0) + 1)}
+          onClose={() => setStandingTicketType(null)}
+        />
       )}
     </StaffPage>
   )
@@ -1223,6 +1323,55 @@ function PrintInfo({ label, value, wide }) {
   )
 }
 
+function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, onClose }) {
+  return createPortal(
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl border border-border-soft bg-panel p-6 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase text-tertiary">Khu vực đứng</p>
+            <h3 className="mt-1 text-xl font-bold text-content">{ticketType.name}</h3>
+          </div>
+          <button type="button" onClick={onClose} className="text-subtle hover:text-content" aria-label="Đóng">
+            <X className="size-5" />
+          </button>
+        </div>
+        <p className="mt-4 whitespace-pre-line text-sm leading-6 text-subtle">
+          {ticketType.description || 'Khu vực đứng, không có ghế ngồi cố định.'}
+        </p>
+        <div className="mt-5 flex items-center justify-between gap-4">
+          <p className="font-bold text-primary">{formatPrice(ticketType.price)} / vé</p>
+          <div className="flex items-center justify-end gap-4">
+            <button
+              type="button"
+              onClick={onDecrease}
+              disabled={quantity <= 0}
+              className="grid size-9 place-items-center rounded-full border border-border-soft text-content disabled:opacity-40"
+            >
+              <Minus className="size-4" />
+            </button>
+            <span className="min-w-8 text-center text-xl font-bold text-content">{quantity}</span>
+            <button type="button" onClick={onIncrease} className="grid size-9 place-items-center rounded-full bg-tertiary text-white">
+              <Plus className="size-4" />
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 w-full rounded-md bg-tertiary py-3 font-bold text-white shadow-lg shadow-tertiary/30 transition hover:-translate-y-0.5 hover:bg-orange-500"
+        >
+          Xong
+        </button>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 // Legend: chú thích màu ghế — giống customer booking
 function SeatLegend({ seats }) {
   const zones = useMemo(() => {
@@ -1261,13 +1410,206 @@ function SeatLegend({ seats }) {
   )
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat }) {
+function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatMap }) {
+  const viewportRef = useRef(null)
+  const zoomSpacerRef = useRef(null)
+  const zoomLayerRef = useRef(null)
+  const zoomLabelRef = useRef(null)
+  const zoomRef = useRef(1)
+  const minimumZoomRef = useRef(1)
+  const zoomCommitTimerRef = useRef(null)
+  const scrollFrameRef = useRef(null)
+  const [zoom, setZoom] = useState(1)
   const seatWidth = calcSeatWidth(seats)
   // Tính spacing thực tế trong xy layout để ghế không overlap và đủ chỗ hiện label
   const xSpacing = calcXSpacing(seats)
   // xyWidth = min(spacing - 2, seatWidth dựa trên label) để luôn hiện đủ chữ
   const xyWidth = xSpacing ? Math.min(xSpacing - 2, Math.max(seatWidth, xSpacing - 2)) : seatWidth
-  const xyLayout = buildXYLayout(seats, xyWidth)
+  const configuredLayout = buildConfiguredLayout(seats, seatMap)
+  const xyLayout = configuredLayout || buildXYLayout(seats, xyWidth)
+  const rows = buildRowColLayout(seats)
+  const fallbackWidth = Math.max(
+    360,
+    ...rows.map(({ seats: rowSeats }) => 70 + rowSeats.length * (seatWidth + 6)),
+  )
+  const fallbackHeight = Math.max(240, 100 + rows.length * (SEAT_HEIGHT + 6))
+  const contentWidth = xyLayout?.width || fallbackWidth
+  const contentHeight = xyLayout?.height || fallbackHeight
+
+  function applyZoomToCanvas(nextZoom) {
+    zoomRef.current = nextZoom
+    if (zoomSpacerRef.current) {
+      zoomSpacerRef.current.style.width = `${contentWidth * nextZoom}px`
+      zoomSpacerRef.current.style.height = `${contentHeight * nextZoom}px`
+    }
+    if (zoomLayerRef.current) {
+      zoomLayerRef.current.style.transform = `scale(${nextZoom})`
+    }
+    if (zoomLabelRef.current) {
+      zoomLabelRef.current.textContent = `${Math.round(nextZoom * 100)}%`
+    }
+  }
+
+  function commitZoomAfterWheel() {
+    if (zoomCommitTimerRef.current) window.clearTimeout(zoomCommitTimerRef.current)
+    zoomCommitTimerRef.current = window.setTimeout(() => {
+      setZoom(zoomRef.current)
+      zoomCommitTimerRef.current = null
+    }, 120)
+  }
+
+  function fitToViewport() {
+    const viewport = viewportRef.current
+    if (!viewport || !contentWidth) return
+    const availableWidth = Math.max(1, viewport.clientWidth - 8)
+    const availableHeight = Math.max(220, Math.min(window.innerHeight * 0.7, 680) - 8)
+    const nextZoom = Math.max(0.1, Math.min(1, availableWidth / contentWidth, availableHeight / contentHeight))
+    minimumZoomRef.current = nextZoom
+    applyZoomToCanvas(nextZoom)
+    setZoom(nextZoom)
+    viewport.scrollTo({ left: 0, top: 0 })
+  }
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return undefined
+    const fit = () => {
+      const availableWidth = Math.max(1, viewport.clientWidth - 8)
+      const availableHeight = Math.max(220, Math.min(window.innerHeight * 0.7, 680) - 8)
+      const nextZoom = Math.max(0.1, Math.min(1, availableWidth / contentWidth, availableHeight / contentHeight))
+      minimumZoomRef.current = nextZoom
+      zoomRef.current = nextZoom
+      if (zoomSpacerRef.current) {
+        zoomSpacerRef.current.style.width = `${contentWidth * nextZoom}px`
+        zoomSpacerRef.current.style.height = `${contentHeight * nextZoom}px`
+      }
+      if (zoomLayerRef.current) zoomLayerRef.current.style.transform = `scale(${nextZoom})`
+      if (zoomLabelRef.current) zoomLabelRef.current.textContent = `${Math.round(nextZoom * 100)}%`
+      setZoom(nextZoom)
+      viewport.scrollTo({ left: 0, top: 0 })
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [contentHeight, contentWidth, seatMap?.id])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return undefined
+    const handleWheelZoom = (event) => {
+      event.preventDefault()
+      const rect = viewport.getBoundingClientRect()
+      const cursorX = event.clientX - rect.left
+      const cursorY = event.clientY - rect.top
+      const currentZoom = zoomRef.current
+      const contentX = (viewport.scrollLeft + cursorX) / currentZoom
+      const contentY = (viewport.scrollTop + cursorY) / currentZoom
+      const wheelDelta = event.deltaMode === 1
+        ? event.deltaY * 16
+        : event.deltaMode === 2
+          ? event.deltaY * viewport.clientHeight
+          : event.deltaY
+      const zoomFactor = Math.exp(-wheelDelta * 0.0015)
+      const nextZoom = Math.max(minimumZoomRef.current, Math.min(3, currentZoom * zoomFactor))
+      if (Math.abs(nextZoom - currentZoom) < 0.0001) return
+
+      zoomRef.current = nextZoom
+      if (zoomSpacerRef.current) {
+        zoomSpacerRef.current.style.width = `${contentWidth * nextZoom}px`
+        zoomSpacerRef.current.style.height = `${contentHeight * nextZoom}px`
+      }
+      if (zoomLayerRef.current) zoomLayerRef.current.style.transform = `scale(${nextZoom})`
+      if (zoomLabelRef.current) zoomLabelRef.current.textContent = `${Math.round(nextZoom * 100)}%`
+      commitZoomAfterWheel()
+      if (scrollFrameRef.current) window.cancelAnimationFrame(scrollFrameRef.current)
+      scrollFrameRef.current = window.requestAnimationFrame(() => {
+        viewport.scrollLeft = contentX * nextZoom - cursorX
+        viewport.scrollTop = contentY * nextZoom - cursorY
+        scrollFrameRef.current = null
+      })
+    }
+    viewport.addEventListener('wheel', handleWheelZoom, { passive: false })
+    return () => viewport.removeEventListener('wheel', handleWheelZoom)
+  }, [contentHeight, contentWidth])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return undefined
+    let dragging = false
+    let moved = false
+    let startX = 0
+    let startY = 0
+    let startScrollLeft = 0
+    let startScrollTop = 0
+    let activePointerId = null
+
+    const handlePointerDown = (event) => {
+      if (event.button !== 0) return
+      dragging = true
+      moved = false
+      activePointerId = event.pointerId
+      startX = event.clientX
+      startY = event.clientY
+      startScrollLeft = viewport.scrollLeft
+      startScrollTop = viewport.scrollTop
+    }
+    const handlePointerMove = (event) => {
+      if (!dragging || event.pointerId !== activePointerId) return
+      const deltaX = event.clientX - startX
+      const deltaY = event.clientY - startY
+      if (!moved && Math.hypot(deltaX, deltaY) < 4) return
+      if (!moved) {
+        moved = true
+        // Capturing on pointerdown retargets pointerup/click to the viewport,
+        // so seat and standing-area buttons never receive their click. Capture
+        // only after the gesture has crossed the drag threshold.
+        viewport.setPointerCapture?.(event.pointerId)
+      }
+      event.preventDefault()
+      viewport.style.cursor = 'grabbing'
+      viewport.style.userSelect = 'none'
+      viewport.scrollLeft = startScrollLeft - deltaX
+      viewport.scrollTop = startScrollTop - deltaY
+    }
+    const finishDragging = (event) => {
+      if (!dragging || event.pointerId !== activePointerId) return
+      dragging = false
+      activePointerId = null
+      if (viewport.hasPointerCapture?.(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+      viewport.style.cursor = 'grab'
+      viewport.style.userSelect = ''
+      if (moved) {
+        viewport.dataset.suppressSeatClick = 'true'
+        window.setTimeout(() => {
+          delete viewport.dataset.suppressSeatClick
+        }, 0)
+      }
+    }
+    const suppressClickAfterDrag = (event) => {
+      if (viewport.dataset.suppressSeatClick !== 'true') return
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    viewport.addEventListener('pointerdown', handlePointerDown)
+    viewport.addEventListener('pointermove', handlePointerMove)
+    viewport.addEventListener('pointerup', finishDragging)
+    viewport.addEventListener('pointercancel', finishDragging)
+    viewport.addEventListener('click', suppressClickAfterDrag, true)
+    viewport.style.cursor = 'grab'
+    return () => {
+      viewport.removeEventListener('pointerdown', handlePointerDown)
+      viewport.removeEventListener('pointermove', handlePointerMove)
+      viewport.removeEventListener('pointerup', finishDragging)
+      viewport.removeEventListener('pointercancel', finishDragging)
+      viewport.removeEventListener('click', suppressClickAfterDrag, true)
+    }
+  }, [contentWidth])
+
+  useEffect(() => () => {
+    if (zoomCommitTimerRef.current) window.clearTimeout(zoomCommitTimerRef.current)
+    if (scrollFrameRef.current) window.cancelAnimationFrame(scrollFrameRef.current)
+  }, [])
 
   const renderSeat = (seat, overrideWidth, style = {}) => {
     const id = seat.session_seat_id
@@ -1332,19 +1674,107 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat }) {
       <div className="space-y-3">
         <SeatLegend seats={seats} />
         <div
-          className="relative rounded-lg border border-border-soft/40 bg-background/40"
-          style={{ width: xyLayout.width, height: xyLayout.height, minWidth: 360 }}
+          className="flex flex-wrap items-center justify-between gap-2 text-xs text-subtle"
         >
-          {/* Sân khấu */}
-          <div
-            className="absolute left-1/2 top-4 -translate-x-1/2 rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
-            style={{
-              height: STAGE_HEIGHT,
-              width: Math.min(Math.max(xyLayout.width * 0.7, 260), 600),
-            }}
-          >
-            SÂN KHẤU
+          <span>Cuộn chuột để zoom · Giữ chuột trái và kéo để di chuyển sơ đồ.</span>
+          <div className="flex items-center gap-2">
+            <span ref={zoomLabelRef} className="min-w-12 text-center font-bold text-content">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              onClick={fitToViewport}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border-soft px-2.5 py-1.5 font-bold text-content hover:border-primary hover:text-primary"
+              title="Hiển thị toàn bộ sơ đồ"
+            >
+              <RefreshCw className="size-3.5" />
+              Vừa khung
+            </button>
           </div>
+        </div>
+        <div
+          ref={viewportRef}
+          className="w-full overflow-auto overscroll-contain rounded-lg"
+          style={{ maxHeight: 'min(70vh, 680px)', cursor: 'grab', touchAction: 'none' }}
+        >
+          <div ref={zoomSpacerRef} style={{ width: xyLayout.width * zoom, height: xyLayout.height * zoom }}>
+            <div
+              ref={zoomLayerRef}
+              className="relative origin-top-left rounded-lg border border-border-soft/40 bg-background/40"
+              style={{
+                width: xyLayout.width,
+                height: xyLayout.height,
+                transform: `scale(${zoom})`,
+                willChange: 'transform',
+                backgroundColor: configuredLayout?.canvasBg,
+                backgroundImage: configuredLayout
+                  ? 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)'
+                  : undefined,
+                backgroundSize: configuredLayout ? '20px 20px' : undefined,
+              }}
+            >
+          {configuredLayout?.stage ? (
+            <div
+              className="absolute grid place-items-center overflow-hidden border-2 border-white/30 px-2 text-center text-xs font-extrabold text-white shadow-lg shadow-slate-950/20"
+              style={{
+                left: configuredLayout.stage.x,
+                top: configuredLayout.stage.y,
+                width: configuredLayout.stage.w,
+                height: configuredLayout.stage.h,
+                transform: configuredLayout.stage.rotation ? `rotate(${configuredLayout.stage.rotation}deg)` : undefined,
+                transformOrigin: 'center',
+                backgroundColor: configuredLayout.stage.color,
+                ...stageShapeStyle(configuredLayout.stage.shape),
+              }}
+            >
+              <span style={{ transform: configuredLayout.stage.h > configuredLayout.stage.w ? 'rotate(-90deg)' : undefined }}>
+                {configuredLayout.stage.label}
+              </span>
+            </div>
+          ) : (
+            <div
+              className="absolute left-1/2 top-4 -translate-x-1/2 rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
+              style={{ height: STAGE_HEIGHT, width: Math.min(Math.max(xyLayout.width * 0.7, 260), 600) }}
+            >
+              SÂN KHẤU
+            </div>
+          )}
+          {configuredLayout?.standingAreas.map((area, index) => (
+            <button
+              key={area.id || index}
+              type="button"
+              title={area.name}
+              aria-label={area.name}
+              onClick={() => onSelectStandingArea?.(area, index)}
+              className="absolute flex flex-col items-center justify-center rounded-xl border-2 border-dashed text-xs font-extrabold text-white shadow-lg"
+              style={{
+                left: area.x,
+                top: area.y,
+                width: area.w,
+                height: area.h,
+                background: `color-mix(in srgb, ${area.color || '#EF4444'} 25%, transparent)`,
+                borderColor: area.color || '#EF4444',
+                transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
+              }}
+            >
+              <span>{area.name}</span>
+              <span className="mt-1 text-[10px] font-semibold text-white/85">Sức chứa: {area.capacity || 0} người</span>
+            </button>
+          ))}
+          {configuredLayout?.auxiliaryElements.map((element, index) => (
+            <div
+              key={element.id || `aux-${index}`}
+              className="absolute grid place-items-center overflow-hidden rounded-md border border-border-soft bg-panel-soft px-2 text-center text-[11px] font-bold text-content"
+              style={{
+                left: element.x,
+                top: element.y,
+                width: element.w,
+                height: element.h,
+                transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+                backgroundColor: element.color || undefined,
+              }}
+            >
+              {element.label || element.name}
+            </div>
+          ))}
           {seats.map((seat) => {
             const position = xyLayout.positions.get(seatId(seat))
             if (!position) return null
@@ -1355,18 +1785,49 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat }) {
               top: position.top,
             })
           })}
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
   // Fallback: render theo row + column thực tế, dùng dynamic seatWidth để hiện đủ label
-  const rows = buildRowColLayout(seats)
-
   return (
     <div className="space-y-3">
       <SeatLegend seats={seats} />
-      <div className="w-max rounded-lg border border-border-soft/40 bg-background/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-subtle">
+        <span>Cuộn chuột để zoom · Giữ chuột trái và kéo để di chuyển sơ đồ.</span>
+        <div className="flex items-center gap-2">
+          <span ref={zoomLabelRef} className="min-w-12 text-center font-bold text-content">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            onClick={fitToViewport}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-soft px-2.5 py-1.5 font-bold text-content hover:border-primary hover:text-primary"
+            title="Hiển thị toàn bộ sơ đồ"
+          >
+            <RefreshCw className="size-3.5" />
+            Vừa khung
+          </button>
+        </div>
+      </div>
+      <div
+        ref={viewportRef}
+        className="w-full overflow-auto overscroll-contain rounded-lg"
+        style={{ maxHeight: 'min(70vh, 680px)', cursor: 'grab', touchAction: 'none' }}
+      >
+        <div ref={zoomSpacerRef} style={{ width: fallbackWidth * zoom, height: fallbackHeight * zoom }}>
+          <div
+            ref={zoomLayerRef}
+            className="origin-top-left rounded-lg border border-border-soft/40 bg-background/40 p-4"
+            style={{
+              width: fallbackWidth,
+              minHeight: fallbackHeight,
+              transform: `scale(${zoom})`,
+              transformOrigin: 'top left',
+              willChange: 'transform',
+            }}
+          >
         {/* Sân khấu */}
         <div className="mb-6 flex justify-center">
           <div
@@ -1388,6 +1849,8 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat }) {
               </div>
             </div>
           ))}
+        </div>
+          </div>
         </div>
       </div>
     </div>

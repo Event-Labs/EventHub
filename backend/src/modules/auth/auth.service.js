@@ -180,11 +180,18 @@ class AuthService {
             expiresAt: expiresAt.toISOString(),
         }, expiresAt);
 
-        await this.sendOtpEmail({
-            email: data.email,
-            otp,
-            subject: data.subject || 'Ma OTP xac thuc EventHub',
-        });
+        try {
+            await this.sendOtpEmail({
+                email: data.email,
+                otp,
+                subject: data.subject || 'Ma OTP xac thuc EventHub',
+            });
+        } catch (error) {
+            // A challenge without a delivered OTP can never be completed. Remove it
+            // so a transient SMTP failure does not leave stale security state.
+            await authRepository.deleteOtpChallenge(type, challengeId);
+            throw error;
+        }
 
         return {
             challengeId,
