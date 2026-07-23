@@ -9,6 +9,7 @@ router.use(protect);
 router.get('/organizer/overview', authorize('ORGANIZER', 'ADMIN'), operationsController.organizerOverview);
 router.get('/organizer/staff-candidates', authorize('ORGANIZER', 'ADMIN'), operationsController.staffCandidates);
 router.post('/organizer/staff-invitations', authorize('ORGANIZER', 'ADMIN'), operationsController.inviteStaff);
+router.delete('/organizer/staff-invitations/:invitationId', authorize('ORGANIZER', 'ADMIN'), operationsController.deleteStaffInvitation);
 router.delete('/organizer/events/:eventId/staff/:staffId', authorize('ORGANIZER', 'ADMIN'), operationsController.removeStaff);
 router.post('/organizer/tasks', authorize('ORGANIZER', 'ADMIN'), operationsController.createTask);
 router.get('/organizer/tasks', authorize('ORGANIZER', 'ADMIN'), operationsController.organizerTasks);

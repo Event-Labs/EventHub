@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import {
+  deleteStaffInvitation,
   fetchOrganizerOperationsOverview,
   fetchStaffCandidates,
   inviteStaffToEvent,
@@ -48,6 +49,7 @@ export function OrganizerStaffManagementPage() {
   const [error, setError] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [removeConfirm, setRemoveConfirm] = useState(null) // { staffId, staffName }
+  const [deleteInviteConfirm, setDeleteInviteConfirm] = useState(null) // { invitationId, email }
 
   const loadData = async () => {
     setLoading(true)
@@ -113,6 +115,24 @@ export function OrganizerStaffManagementPage() {
       await loadData()
     } catch (err) {
       const message = getApiMessage(err, 'Không thể gỡ nhân sự.')
+      setError(message)
+      toast.error(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteInviteConfirm = async () => {
+    if (!deleteInviteConfirm) return
+    setSaving(true)
+    setError('')
+    try {
+      await deleteStaffInvitation(deleteInviteConfirm.invitationId)
+      toast.success('Đã xóa lời mời nhân sự.')
+      setDeleteInviteConfirm(null)
+      await loadData()
+    } catch (err) {
+      const message = getApiMessage(err, 'Không thể xóa lời mời.')
       setError(message)
       toast.error(message)
     } finally {
@@ -289,6 +309,7 @@ export function OrganizerStaffManagementPage() {
                       <th className="px-5 py-3 font-bold">Vai trò</th>
                       <th className="px-5 py-3 font-bold">Trạng thái</th>
                       <th className="px-5 py-3 font-bold">Hết hạn</th>
+                      <th className="px-5 py-3 font-bold">Hành động</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -304,6 +325,18 @@ export function OrganizerStaffManagementPage() {
                           {inv.expires_at
                             ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
                             : '—'}
+                        </td>
+                        <td className="px-5 py-3">
+                          <button
+                            className="flex items-center gap-1.5 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/20 disabled:opacity-50 transition-colors"
+                            onClick={() =>
+                              setDeleteInviteConfirm({ invitationId: inv.id, email: inv.invited_email })
+                            }
+                            disabled={saving || !selectedEventManageable}
+                          >
+                            <Trash2 className="size-3.5" />
+                            Xóa
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -346,6 +379,19 @@ export function OrganizerStaffManagementPage() {
           loading={saving}
           onConfirm={handleRemoveConfirm}
           onCancel={() => setRemoveConfirm(null)}
+        />
+      )}
+
+      {/* ── Delete invitation confirm dialog ── */}
+      {deleteInviteConfirm && (
+        <ConfirmDialog
+          title="Xóa lời mời nhân sự"
+          message={`Bạn có chắc muốn xóa lời mời gửi đến "${deleteInviteConfirm.email}" không?`}
+          confirmLabel="Xóa lời mời"
+          danger
+          loading={saving}
+          onConfirm={handleDeleteInviteConfirm}
+          onCancel={() => setDeleteInviteConfirm(null)}
         />
       )}
     </OrganizerPage>

@@ -370,6 +370,27 @@ class OperationsRepository {
     return parseInvitation(rows[0]);
   }
 
+  /** Find a specific invitation belonging to an organizer */
+  async findInvitationForOrganizer(invitationId, organizerId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        n.*,
+        e.title AS event_title,
+        e.slug AS event_slug,
+        e.organizer_id
+      FROM notifications n
+      JOIN events e ON e.id = n.event_id
+      WHERE n.id = $1
+        AND n.title = $2
+        AND n.content::json->>'organizer_id' = $3
+      LIMIT 1
+      `,
+      [invitationId, INVITE_TITLE, organizerId],
+    );
+    return rows[0] ? parseInvitation(rows[0]) : undefined;
+  }
+
   async deleteStaffInvitation(invitationId) {
     const { rowCount } = await db.query(
       'DELETE FROM notifications WHERE id = $1 AND title = $2',
