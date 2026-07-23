@@ -389,7 +389,6 @@ export function OrganizerAttendeesPage() {
                             src={att.attendee_avatar_url}
                             className="size-8 animate-pulse-slow"
                           />
-                          />
                           <div>
                             <p className="font-semibold text-content">{att.attendee_name}</p>
                             <p className="text-xs text-subtle">{att.attendee_email}</p>
