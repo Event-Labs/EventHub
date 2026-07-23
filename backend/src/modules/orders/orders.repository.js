@@ -133,7 +133,7 @@ class OrdersRepository {
     );
   }
 
-  async createPendingCheckout({ userId, eventId, buyer, attendees = [], promoCode, items, totals, paymentChannel }) {
+  async createPendingCheckout({ userId, eventId, buyer, attendees = [], promoCode, items, totals, paymentChannel, requireEventTermsAcceptance = false, eventTermsAccepted = false }) {
     const client = await db.getClient();
 
     try {
@@ -168,6 +168,7 @@ class OrdersRepository {
           e.approval_status,
           e.deleted_at,
           e.seating_rules,
+          e.additional_terms,
           e.require_attendee_info
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
@@ -194,6 +195,10 @@ class OrdersRepository {
         firstTicket.approval_status !== 'APPROVED'
       ) {
         throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      if (requireEventTermsAcceptance && String(firstTicket.additional_terms || '').trim() && !eventTermsAccepted) {
+        throw new AppError('Bạn cần đồng ý với điều khoản của sự kiện trước khi thanh toán.', 400, ErrorCodes.INVALID_INPUT);
       }
 
       if (firstTicket.event_end_time && new Date(firstTicket.event_end_time).getTime() < Date.now()) {
