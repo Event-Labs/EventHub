@@ -58,15 +58,26 @@ function Icon({ name, className = '', style = {} }) {
 
 function combineDateTime(date, time) {
   if (!date || !time) return null
-  return new Date(`${date}T${time}`).toISOString()
+  const d = new Date(`${date}T${time}`)
+  if (isNaN(d.getTime())) return null
+  return d.toISOString()
 }
 
 function splitDateTime(iso) {
   if (!iso) return { date: '', time: '' }
   const d = new Date(iso)
-  const date = d.toISOString().slice(0, 10)
-  const time = d.toTimeString().slice(0, 5)
-  return { date, time }
+  if (isNaN(d.getTime())) return { date: '', time: '' }
+
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hours}:${minutes}`,
+  }
 }
 
 function newClientKey() {
@@ -1944,7 +1955,7 @@ export function CreateEventPage() {
         const endTime = new Date(`${s.end_date}T${s.end_time}`)
         const now = new Date()
 
-        if (startTime < now) {
+        if (!s.id && startTime < new Date(Date.now() - 60000)) {
           return 'Thời gian bắt đầu sự kiện không được trong quá khứ.'
         }
         if (endTime <= startTime) {
@@ -2004,20 +2015,39 @@ export function CreateEventPage() {
 
   const buildTicketTypesPayload = () => {
     const sessionIdMap = new Map()
-    formData.sessions.forEach((s) => {
-      sessionIdMap.set(s.id || s.clientKey, s.id)
+    formData.sessions.forEach((s, idx) => {
+      if (s.id) {
+        sessionIdMap.set(s.id, s.id)
+      }
+      if (s.clientKey) {
+        sessionIdMap.set(s.clientKey, s.id)
+      }
     })
     return formData.ticketTypes
-      .map((tt) => ({
-        id: tt.id,
-        event_session_id: sessionIdMap.get(tt.session_key) || tt.session_key,
-        name: tt.name,
-        description: tt.description || null,
-        price: tt.price,
-        quantity: tt.quantity,
-        is_seated: Boolean(tt.is_seated),
-      }))
-      .filter((tt) => tt.event_session_id && !String(tt.event_session_id).startsWith('tmp-'))
+      .map((tt) => {
+        const resolvedSessionId =
+          sessionIdMap.get(tt.session_key) ||
+          formData.sessions.find(
+            (s) => s.id === tt.session_key || s.clientKey === tt.session_key,
+          )?.id ||
+          tt.session_key
+
+        return {
+          id: tt.id || undefined,
+          event_session_id: resolvedSessionId,
+          name: tt.name ? tt.name.trim() : '',
+          description: tt.description ? tt.description.trim() : null,
+          price: tt.price === '' || tt.price === null || tt.price === undefined ? 0 : Number(tt.price),
+          quantity: tt.quantity === '' || tt.quantity === null || tt.quantity === undefined ? 0 : Number(tt.quantity),
+          is_seated: Boolean(tt.is_seated),
+        }
+      })
+      .filter(
+        (tt) =>
+          tt.event_session_id &&
+          !String(tt.event_session_id).startsWith('tmp-') &&
+          !String(tt.event_session_id).startsWith('session-'),
+      )
   }
 
   const handleThumbnailUpload = async (file) => {
@@ -2101,11 +2131,13 @@ export function CreateEventPage() {
           setEventId(created.id)
         }
       } else if (currentStep === 2) {
-        const updated = await updateOrganizerEvent(eventId, { sessions: buildSessionsPayload() })
-        const sessions = (updated.sessions || []).map((s) => {
+        const sessionsPayload = buildSessionsPayload()
+        console.log('[CreateEventPage Step 2] Sessions Payload:', sessionsPayload)
+        const updated = await updateOrganizerEvent(eventId, { sessions: sessionsPayload })
+        const sessions = (updated.sessions || []).map((s, idx) => {
           const start = splitDateTime(s.start_time)
           const end = splitDateTime(s.end_time)
-          const old = formData.sessions.find(
+          const old = formData.sessions[idx] || formData.sessions.find(
             (os) => os.session_name === s.session_name && os.venue_id === s.venue_id,
           )
           return {
@@ -2125,22 +2157,32 @@ export function CreateEventPage() {
           }
         })
         setFormData((p) => {
+          const sessionKeyMap = new Map()
+          p.sessions.forEach((oldS, idx) => {
+            const newS = sessions[idx]
+            if (newS?.id) {
+              if (oldS.id) sessionKeyMap.set(oldS.id, newS.id)
+              if (oldS.clientKey) sessionKeyMap.set(oldS.clientKey, newS.id)
+            }
+          })
           const ticketTypes = p.ticketTypes.map((tt) => {
-            const oldSession = formData.sessions.find(
-              (s) => (s.id || s.clientKey) === tt.session_key,
-            )
-            if (!oldSession) return tt
-            const newSession = sessions.find(
-              (s) => s.session_name === oldSession.session_name && s.venue_id === oldSession.venue_id,
-            )
-            return newSession ? { ...tt, session_key: newSession.id } : tt
+            const newSessionId = sessionKeyMap.get(tt.session_key)
+            return newSessionId ? { ...tt, session_key: newSessionId } : tt
           })
           return { ...p, sessions, ticketTypes }
         })
       } else if (currentStep === 3) {
+        const sessionsPayload = buildSessionsPayload()
+        const ticketTypesPayload = buildTicketTypesPayload()
+        console.log('[CreateEventPage Step 3] Submitting Payload:', {
+          eventId,
+          sessions: sessionsPayload,
+          ticket_types: ticketTypesPayload,
+          seating_rules: formData.seating_rules,
+        })
         await updateOrganizerEvent(eventId, {
-          sessions: buildSessionsPayload(),
-          ticket_types: buildTicketTypesPayload(),
+          sessions: sessionsPayload,
+          ticket_types: ticketTypesPayload,
           seating_rules: formData.seating_rules,
         })
         await syncZoneAssignments()
@@ -2157,8 +2199,13 @@ export function CreateEventPage() {
       setCurrentStep(next)
       setMaxCompletedStep((prev) => Math.max(prev, next))
     } catch (err) {
-      console.error(err)
-      toast.error(getApiMessage(err, 'Đã xảy ra lỗi. Vui lòng thử lại.'))
+      console.error(`[CreateEventPage] Error at Step ${currentStep}:`, err)
+      if (err?.response?.data) {
+        console.error(`[CreateEventPage] Backend Response Status ${err.response.status}:`, JSON.stringify(err.response.data, null, 2))
+      }
+      const msg = getApiMessage(err, `Đã xảy ra lỗi ở bước ${currentStep}. Vui lòng thử lại.`)
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -2200,7 +2247,10 @@ export function CreateEventPage() {
         state: { message: 'Đã cập nhật sự kiện thành công.' },
       })
     } catch (err) {
-      console.error(err)
+      console.error('[CreateEventPage handleUpdateEvent Error]:', err)
+      if (err?.response?.data) {
+        console.error('[CreateEventPage handleUpdateEvent] Backend Response:', JSON.stringify(err.response.data, null, 2))
+      }
       toast.error(getApiMessage(err, 'Không thể cập nhật sự kiện.'))
     } finally {
       setLoading(false)
@@ -2250,7 +2300,10 @@ export function CreateEventPage() {
         state: { message: 'Đã gửi sự kiện để duyệt.' },
       })
     } catch (err) {
-      console.error(err)
+      console.error('[CreateEventPage handleSubmit Error]:', err)
+      if (err?.response?.data) {
+        console.error('[CreateEventPage handleSubmit] Backend Response:', JSON.stringify(err.response.data, null, 2))
+      }
       const errorCode = err.response?.data?.errorCode
       if (errorCode === 'PAYOS_NOT_CONFIGURED') {
         setPaymentSetupRequired(true)

@@ -338,16 +338,25 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   seatsRef.current = seats
 
   useEffect(() => {
-    if (!seatMapId) return
+    if (!seatMapId) {
+      if (layoutType === 'GRID' && seats.length === 0 && gridConfig.rows > 0 && gridConfig.cols > 0) {
+        generateGrid()
+      }
+      return
+    }
     setLoading(true)
     getSeatMap(seatMapId)
       .then((sm) => {
         setMapName(sm.name)
-        setLayoutType(sm.layout_type || 'GRID')
-        setGridConfig({ rows: sm.rows_count || 10, cols: sm.cols_count || 20 })
+        const lType = sm.layout_type || 'GRID'
+        setLayoutType(lType)
+        const rows = sm.rows_count || 10
+        const cols = sm.cols_count || 20
+        setGridConfig({ rows, cols })
         setCanvasBg(sm.config?.canvasBg || '#0F172A')
+        const stagePos = sm.config?.stagePosition || 'TOP'
         setStageConfig({
-          position: sm.config?.stagePosition || 'TOP',
+          position: stagePos,
           shape: sm.config?.stageShape || 'RECTANGLE',
           color: sm.config?.stageColor || '#3B82F6',
           label: sm.config?.stageLabel || 'SÂN KHẤU',
@@ -360,7 +369,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         setStandingAreas(sm.config?.standingAreas || [])
         setAuxElements(sm.config?.auxiliaryElements || [])
         setZones((sm.zones || []).map((z) => ({ localId: z.id, name: z.name, color: z.color })))
-        const loaded = (sm.seats || []).map((s) => ({
+        let loaded = (sm.seats || []).map((s) => ({
           localId: s.id,
           rowLabel: s.row_label,
           seatNumber: s.seat_number,
@@ -369,6 +378,26 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           zoneLocalId: s.zone_id,
           isDisabled: s.is_disabled,
         }))
+        if (loaded.length === 0 && lType === 'GRID' && rows > 0 && cols > 0) {
+          const generated = []
+          const startY = stagePos === 'TOP' ? STAGE_OFFSET_Y : 20
+          const startX = stagePos === 'LEFT' ? STAGE_OFFSET_Y : 20
+          for (let r = 0; r < rows; r += 1) {
+            const rowLabel = rowLabelForIndex(r)
+            for (let c = 0; c < cols; c += 1) {
+              generated.push({
+                localId: newLocalId(),
+                rowLabel,
+                seatNumber: String(c + 1),
+                x: startX + c * SNAP_X,
+                y: startY + r * SNAP_Y,
+                zoneLocalId: null,
+                isDisabled: false,
+              })
+            }
+          }
+          loaded = generated
+        }
         setSeats(loaded)
         seatCounter.current = loaded.length + 1
       })
@@ -1128,7 +1157,30 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       return
     }
 
-    if (seats.length > 2000) {
+    let seatsToSave = seats
+    if (layoutType === 'GRID' && seatsToSave.length === 0 && gridConfig.rows > 0 && gridConfig.cols > 0) {
+      const generated = []
+      const startY = stageConfig.position === 'TOP' ? STAGE_OFFSET_Y : 20
+      const startX = stageConfig.position === 'LEFT' ? STAGE_OFFSET_Y : 20
+      for (let r = 0; r < gridConfig.rows; r += 1) {
+        const rowLabel = rowLabelForIndex(r)
+        for (let c = 0; c < gridConfig.cols; c += 1) {
+          generated.push({
+            localId: newLocalId(),
+            rowLabel,
+            seatNumber: String(c + 1),
+            x: startX + c * SNAP_X,
+            y: startY + r * SNAP_Y,
+            zoneLocalId: null,
+            isDisabled: false,
+          })
+        }
+      }
+      seatsToSave = generated
+      setSeats(generated)
+    }
+
+    if (seatsToSave.length > 2000) {
       const message = 'Tối đa 2000 ghế mỗi sơ đồ.'
       setError(message)
       toast.error(message)
@@ -1140,7 +1192,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       zoneIndexMap[z.localId] = i
     })
 
-    const normalizedSeats = normalizeSeatsForSave(seats)
+    const normalizedSeats = normalizeSeatsForSave(seatsToSave)
 
     const payload = {
       name: mapName,
