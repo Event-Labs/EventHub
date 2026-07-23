@@ -20,6 +20,7 @@ const STAFF_TICKET_SELECT = `
     es.session_name,
     es.start_time AS session_start_time,
     es.end_time AS session_end_time,
+    es.checkin_start_time,
     tt.id AS ticket_type_id,
     tt.name AS ticket_type_name,
     tt.price AS ticket_type_price,
@@ -274,6 +275,7 @@ class TicketsRepository {
           e.status = 'PUBLISHED'
           OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
         )
+        AND COALESCE(es.checkin_start_time, es.start_time) <= now()
         AND COALESCE(e.end_time, e.start_time) >= now()
         AND o.status = 'PAID'
         ${conditions.length ? `AND ${conditions.join(' AND ')}` : ''}
@@ -353,6 +355,7 @@ class TicketsRepository {
           t.status,
           t.event_id,
           es.end_time AS session_end_time,
+          COALESCE(es.checkin_start_time, es.start_time) AS checkin_start_time,
           o.status AS order_status,
           EXISTS (
             SELECT 1
@@ -398,6 +401,14 @@ class TicketsRepository {
       if (lockedTicket.order_status !== 'PAID') {
         await client.query('ROLLBACK');
         return { state: 'INVALID_ORDER', ticket: lockedTicket };
+      }
+
+      if (
+        lockedTicket.checkin_start_time
+        && new Date(lockedTicket.checkin_start_time).getTime() > Date.now()
+      ) {
+        await client.query('ROLLBACK');
+        return { state: 'CHECKIN_NOT_OPEN', ticket: lockedTicket };
       }
 
       if (lockedTicket.session_end_time && new Date(lockedTicket.session_end_time).getTime() < Date.now()) {

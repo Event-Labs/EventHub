@@ -3,6 +3,7 @@ import {
   Camera,
   CameraOff,
   CheckCircle2,
+  Clock3,
   Loader2,
   QrCode,
   RotateCcw,
@@ -19,6 +20,7 @@ import {
   verifyStaffTicketByQr,
 } from '@/services/tickets.js'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
+import { Modal } from '@/components/Modal.jsx'
 import { StaffPage, StaffPanel } from './StaffComponents.jsx'
 
 const emptyManualForm = {
@@ -143,6 +145,8 @@ export function StaffQrCheckInPage() {
   const [scannedQrValue, setScannedQrValue] = useState('')
   const [resultTicket, setResultTicket] = useState(null)
   const [recentTickets, setRecentTickets] = useState([])
+  const [ticketPanelMessage, setTicketPanelMessage] = useState('')
+  const [ticketNoticeCountdown, setTicketNoticeCountdown] = useState(0)
 
   const showSuccess = (ticket) => {
     setResultTicket(ticket)
@@ -180,6 +184,8 @@ export function StaffQrCheckInPage() {
     setScannedTicket(null)
     setScannedQrValue('')
     setResultTicket(null)
+    setTicketPanelMessage('')
+    setTicketNoticeCountdown(0)
     setQrMessage('Đã đọc QR, đang kiểm tra vé...')
 
     try {
@@ -187,14 +193,23 @@ export function StaffQrCheckInPage() {
       playScanBeep()
       setScannedTicket(ticket)
       setScannedQrValue(value)
+      setTicketPanelMessage('')
+      setTicketNoticeCountdown(0)
       setQrMessage('Đã tìm thấy vé. Kiểm tra thông tin rồi xác nhận soát vé.')
       setCheckInState('ready')
     } catch (error) {
-      setQrMessage(getApiMessage(error, 'Mã QR không hợp lệ hoặc vé không thể soát.'))
+      const message = getApiMessage(error, 'Mã QR không hợp lệ hoặc vé không thể soát.')
+      if (message === 'Vé này chưa đến giờ tham gia.') {
+        setQrMessage('')
+        setTicketPanelMessage(message)
+        setTicketNoticeCountdown(3)
+      } else {
+        setQrMessage(message)
+        window.setTimeout(() => {
+          processingRef.current = false
+        }, 1500)
+      }
       setCheckInState('error')
-      window.setTimeout(() => {
-        processingRef.current = false
-      }, 1500)
     }
   }
 
@@ -226,13 +241,45 @@ export function StaffQrCheckInPage() {
     setScannedTicket(null)
     setScannedQrValue('')
     setResultTicket(null)
+    setTicketPanelMessage('')
+    setTicketNoticeCountdown(0)
     setCheckInState('idle')
     setQrMessage(cameraState === 'active' ? 'Đưa mã QR vào khung hình để bắt đầu.' : '')
   }
 
+  const dismissTicketNotice = () => {
+    processingRef.current = false
+    lastQrRef.current = { ...lastQrRef.current, time: Date.now() }
+    setTicketPanelMessage('')
+    setTicketNoticeCountdown(0)
+    setCheckInState('idle')
+  }
+
+  useEffect(() => {
+    if (!ticketPanelMessage) return undefined
+
+    const timerId = window.setTimeout(() => {
+      processingRef.current = false
+      lastQrRef.current = { ...lastQrRef.current, time: Date.now() }
+      setTicketPanelMessage('')
+      setTicketNoticeCountdown(0)
+      setCheckInState('idle')
+    }, 3000)
+    const countdownId = window.setInterval(() => {
+      setTicketNoticeCountdown((current) => Math.max(0, current - 1))
+    }, 1000)
+
+    return () => {
+      window.clearTimeout(timerId)
+      window.clearInterval(countdownId)
+    }
+  }, [ticketPanelMessage])
+
   const startCamera = async () => {
     stopCamera()
     setQrMessage('')
+    setTicketPanelMessage('')
+    setTicketNoticeCountdown(0)
     setCameraState('opening')
     setCameraMessage('Đang mở camera...')
 
@@ -286,6 +333,54 @@ export function StaffQrCheckInPage() {
       title="QR Check-in"
       description="Bật camera máy tính để quét mã QR trên vé và tự động ghi nhận vào cổng."
     >
+      <Modal
+        open={Boolean(ticketPanelMessage)}
+        title="Thông báo check-in"
+        onClose={dismissTicketNotice}
+        maxWidth="max-w-md"
+        footer={
+          <button type="button" className="admin-primary min-w-32" onClick={dismissTicketNotice}>
+            Đã hiểu ({ticketNoticeCountdown}s)
+          </button>
+        }
+      >
+        <div className="relative overflow-hidden rounded-2xl border border-warning/30 bg-gradient-to-b from-warning/15 to-warning/[0.03] px-6 py-7 text-center">
+          <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-warning/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-10 size-28 rounded-full bg-warning/10 blur-2xl" />
+
+          <div className="relative">
+            <div className="mx-auto grid size-20 place-items-center rounded-full border border-warning/40 bg-warning/15 shadow-[0_10px_35px_rgba(245,158,11,0.18)]">
+              <div className="grid size-14 place-items-center rounded-full bg-warning/20">
+                <ShieldAlert className="size-8 text-warning" />
+              </div>
+            </div>
+
+            <span className="mt-5 inline-flex rounded-full border border-warning/35 bg-warning/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-warning">
+              Chưa đến giờ check-in
+            </span>
+
+            <h3 className="mt-4 text-xl font-black leading-7 text-content">
+              {ticketPanelMessage}
+            </h3>
+            <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-subtle">
+              Vé hợp lệ nhưng cổng check-in của sự kiện hiện chưa mở.
+            </p>
+
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-border-soft/30 bg-surface/70 p-4 text-left shadow-sm">
+              <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-warning/15">
+                <Clock3 className="size-4 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold text-content">Vui lòng thử lại sau</p>
+                <p className="mt-1 text-xs leading-5 text-subtle">
+                  Chờ đến thời gian check-in do ban tổ chức thiết lập, sau đó quét lại mã vé này.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-5">
           <StaffPanel>
@@ -439,6 +534,16 @@ export function ManualCheckInPage() {
     if (!payload.eventId) {
       setSearchState('error')
       setSearchMessage('Vui lòng chọn sự kiện trước khi tải danh sách vé.')
+      return
+    }
+
+    const selectedEvent = assignedEvents.find((item) => String(item.id) === payload.eventId)
+    const checkinStartTime = new Date(selectedEvent?.checkin_start_time || selectedEvent?.start_time).getTime()
+    if (Number.isFinite(checkinStartTime) && checkinStartTime > Date.now()) {
+      searchRequestRef.current += 1
+      setSearchResults([])
+      setSearchState('not-open')
+      setSearchMessage('Sự kiện này chưa đến giờ mở check-in.')
       return
     }
 

@@ -670,6 +670,7 @@ class OperationsRepository {
         e.end_time,
         es.staff_role,
         es.assigned_at,
+        session_checkin.checkin_start_time,
         COALESCE(venue_summary.venue_name,   '') AS venue_name,
         COALESCE(venue_summary.address_line, '') AS address_line,
         COALESCE(venue_summary.district,     '') AS district,
@@ -678,6 +679,11 @@ class OperationsRepository {
         COALESCE(checkin_summary.total_valid, 0)::int AS total_valid
       FROM event_staffs es
       JOIN events e ON e.id = es.event_id
+      LEFT JOIN LATERAL (
+        SELECT MIN(COALESCE(sess.checkin_start_time, sess.start_time)) AS checkin_start_time
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+      ) session_checkin ON true
       LEFT JOIN LATERAL (
         SELECT v.name AS venue_name, v.address_line, v.district, v.city
         FROM event_sessions sess
