@@ -319,6 +319,15 @@ class OperationsService {
       invitation,
     });
 
+    if (!emailSent) {
+      await operationsRepository.deleteStaffInvitation(invitation.id);
+      throw new AppError(
+        'Không thể gửi email lời mời lúc này. Vui lòng thử lại.',
+        502,
+        ErrorCodes.EMAIL_DELIVERY_FAILED,
+      );
+    }
+
     return {
       ...invitation,
       event_title: event.title,
