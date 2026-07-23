@@ -96,13 +96,14 @@ export function OrganizerAttendeesPage() {
     return params
   }, [page, selectedSessionId, selectedTicketTypeId, selectedStatus, search])
 
-  // Load events once
+  // Load events once (only published events)
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
       .then((data) => {
-        setEvents(data || [])
-        if (!initialEventId && data?.length > 0) setSelectedEventId(data[0].id)
+        const publishedEvents = (data || []).filter((ev) => ev.status === 'PUBLISHED')
+        setEvents(publishedEvents)
+        if (!initialEventId && publishedEvents.length > 0) setSelectedEventId(publishedEvents[0].id)
       })
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))

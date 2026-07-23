@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Star } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
   fetchOrganizerFeedbackEvents,
   fetchOrganizerFeedbackReport,
@@ -34,7 +34,10 @@ export function OrganizerFeedbackReportPage() {
     queryFn: fetchOrganizerFeedbackEvents,
   })
 
-  const events = eventsQuery.data || []
+  const events = useMemo(
+    () => (eventsQuery.data || []).filter((e) => !e.status || e.status === 'PUBLISHED'),
+    [eventsQuery.data],
+  )
 
   useEffect(() => {
     if (!eventId && events.length > 0) {

@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MapPin, Pencil, Search, Trash2 } from 'lucide-react'
+import { Armchair, Building2, ExternalLink, Eye, Layers, MapPin, Pencil, Search, Trash2, X } from 'lucide-react'
 import { ConfirmModal, OrganizerPage } from './OrganizerComponents.jsx'
 import {
   createVenue,
   deleteVenue,
   getVenues,
+  getVenueSeatMaps,
   updateVenue,
 } from '@/services/organizerVenues.js'
 import { parseOpenCageAddress, reverseGeocode, searchAddress, forwardGeocode } from '@/services/opencage.js'
@@ -424,18 +425,259 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   )
 }
 
-function VenueCard({ venue, onEdit, onDelete }) {
+function VenueDetailModal({ open, venue, onClose, onEdit }) {
+  const mapRef = useRef(null)
+  const [seatMaps, setSeatMaps] = useState([])
+  const [loadingSeatMaps, setLoadingSeatMaps] = useState(false)
+
+  useEffect(() => {
+    if (!open || !venue) return
+    let isMounted = true
+    setLoadingSeatMaps(true)
+    getVenueSeatMaps(venue.id)
+      .then((data) => {
+        if (isMounted) setSeatMaps(data || [])
+      })
+      .catch((err) => {
+        console.error('Failed to load venue seat maps:', err)
+        if (isMounted) setSeatMaps([])
+      })
+      .finally(() => {
+        if (isMounted) setLoadingSeatMaps(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [open, venue])
+
+  useEffect(() => {
+    if (!open || !venue || !mapRef.current) return
+
+    const hasCoords = isValidCoordinate(venue.latitude) && isValidCoordinate(venue.longitude)
+    const lat = hasCoords ? Number(venue.latitude) : DEFAULT_CENTER.lat
+    const lng = hasCoords ? Number(venue.longitude) : DEFAULT_CENTER.lng
+
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([lat, lng], hasCoords ? 16 : 12)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map)
+
+    if (hasCoords) {
+      const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map)
+      marker.bindPopup(`<b>${venue.name}</b><br/>${venue.address_line || ''}`).openPopup()
+    }
+
+    const resizeTimer = setTimeout(() => map.invalidateSize(), 150)
+
+    return () => {
+      clearTimeout(resizeTimer)
+      map.remove()
+    }
+  }, [open, venue])
+
+  if (!open || !venue) return null
+
+  const fullAddress = [venue.address_line, venue.ward, venue.district, venue.city, venue.country]
+    .filter(Boolean)
+    .join(', ')
+
+  const maxCap = venue.max_seats || venue.total_seats || 0
+  const googleMapsUrl = isValidCoordinate(venue.latitude) && isValidCoordinate(venue.longitude)
+    ? `https://www.google.com/maps/search/?api=1&query=${venue.latitude},${venue.longitude}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-[850px] flex-col overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20">
+              <MapPin className="size-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-content">{venue.name}</h2>
+              <p className="text-xs text-subtle">Chi tiết địa điểm tổ chức</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted hover:bg-panel-soft hover:text-content transition-colors"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+                <Armchair className="size-4 text-tertiary" />
+                <span>Sức chứa tối đa</span>
+              </div>
+              <p className="text-xl font-extrabold text-content">{maxCap} <span className="text-xs font-normal text-subtle">ghế</span></p>
+            </div>
+
+            <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+                <Layers className="size-4 text-primary" />
+                <span>Số sơ đồ ghế</span>
+              </div>
+              <p className="text-xl font-extrabold text-content">{venue.seat_map_count || 0} <span className="text-xs font-normal text-subtle">sơ đồ</span></p>
+            </div>
+
+            <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+                <Building2 className="size-4 text-secondary" />
+                <span>Khu vực</span>
+              </div>
+              <p className="text-sm font-bold text-content truncate">{venue.city || venue.country || 'Việt Nam'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Col: Info & Description */}
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Địa chỉ & Tọa độ</h4>
+                <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-4 space-y-3">
+                  <div>
+                    <span className="text-xs text-muted block mb-0.5">Địa chỉ đầy đủ</span>
+                    <p className="text-sm font-medium text-content">{fullAddress || 'Chưa cập nhật'}</p>
+                  </div>
+
+                  {isValidCoordinate(venue.latitude) && isValidCoordinate(venue.longitude) && (
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-border-soft/20">
+                      <span className="text-muted">Tọa độ: <strong className="text-content">{venue.latitude}, {venue.longitude}</strong></span>
+                      <a
+                        href={googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-tertiary hover:underline font-semibold"
+                      >
+                        Google Maps <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Mô tả</h4>
+                <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-4 min-h-[80px]">
+                  <p className="text-sm text-subtle leading-relaxed whitespace-pre-wrap">
+                    {venue.description || 'Chưa có mô tả chi tiết cho địa điểm này.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Seat maps listing inside modal */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle">Sơ đồ ghế thuộc địa điểm</h4>
+                  <Link
+                    to={`/organizer/venues/${venue.id}/seat-maps`}
+                    className="text-xs text-tertiary hover:underline font-semibold"
+                  >
+                    Quản lý tất cả
+                  </Link>
+                </div>
+                <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-3">
+                  {loadingSeatMaps ? (
+                    <p className="text-xs text-muted text-center py-3">Đang tải danh sách sơ đồ...</p>
+                  ) : !seatMaps.length ? (
+                    <p className="text-xs text-muted text-center py-3">Chưa có sơ đồ ghế nào cho địa điểm này.</p>
+                  ) : (
+                    <ul className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                      {seatMaps.map((sm) => (
+                        <li key={sm.id} className="flex items-center justify-between rounded-lg bg-surface p-2.5 text-xs border border-border-soft/20">
+                          <span className="font-semibold text-content">{sm.name}</span>
+                          <span className="text-muted">{sm.total_seats || sm.seat_count || 0} ghế</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Col: Map view */}
+            <div className="flex flex-col">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Vị trí trên bản đồ</h4>
+              <div className="flex-1 min-h-[280px] rounded-xl border border-border-soft/30 overflow-hidden relative">
+                <div ref={mapRef} className="z-0 h-full w-full min-h-[280px]" />
+                {!isValidCoordinate(venue.latitude) && (
+                  <div className="absolute inset-0 bg-surface/80 backdrop-blur-xs flex items-center justify-center p-4 text-center z-10">
+                    <p className="text-xs text-muted">Địa điểm này chưa có tọa độ chính xác trên bản đồ.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-border-soft/20 px-6 py-4 bg-panel-soft/30">
+          <Link
+            to={`/organizer/venues/${venue.id}/seat-maps`}
+            className="org-btn-secondary text-xs"
+          >
+            <Layers className="size-4" />
+            Xem sơ đồ ghế
+          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onEdit(venue)
+              }}
+              className="org-btn-secondary text-xs"
+            >
+              <Pencil className="size-3.5" />
+              Chỉnh sửa
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="org-btn-primary text-xs"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function VenueCard({ venue, onDetail, onEdit, onDelete }) {
   const location = [venue.city, venue.district].filter(Boolean).join(', ')
   const maxCap = venue.max_seats || venue.total_seats || 0
 
   return (
-    <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm text-content">
+    <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm text-content transition-colors hover:border-tertiary/40">
       <div className="mb-3 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20">
+        <div
+          onClick={() => onDetail(venue)}
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20 hover:bg-tertiary/25 transition-colors"
+          title="Xem chi tiết"
+        >
           <MapPin className="size-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-content truncate">{venue.name}</h3>
+          <h3
+            onClick={() => onDetail(venue)}
+            className="font-bold text-content truncate cursor-pointer hover:text-tertiary transition-colors"
+            title="Xem chi tiết"
+          >
+            {venue.name}
+          </h3>
           <p className="mt-1 text-sm text-subtle truncate">{location || venue.address_line}</p>
           <p className="mt-2 text-xs text-muted">
             {venue.seat_map_count || 0} sơ đồ · Sức chứa tối đa: <span className="font-bold text-content">{maxCap}</span> ghế
@@ -443,6 +685,14 @@ function VenueCard({ venue, onEdit, onDelete }) {
         </div>
       </div>
       <div className="flex flex-wrap gap-2 pt-2">
+        <button
+          type="button"
+          onClick={() => onDetail(venue)}
+          className="org-btn-secondary text-xs"
+        >
+          <Eye className="size-3.5" />
+          Chi tiết
+        </button>
         <Link
           to={`/organizer/venues/${venue.id}/seat-maps`}
           className="org-btn-secondary text-xs"
@@ -472,7 +722,9 @@ export function OrganizerVenuesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [editVenue, setEditVenue] = useState(null)
+  const [detailVenue, setDetailVenue] = useState(null)
   const [venueToDelete, setVenueToDelete] = useState(null)
   const [message, setMessage] = useState('')
 
@@ -512,6 +764,11 @@ export function OrganizerVenuesPage() {
   function openEdit(venue) {
     setEditVenue(venue)
     setModalOpen(true)
+  }
+
+  function openDetail(venue) {
+    setDetailVenue(venue)
+    setDetailModalOpen(true)
   }
 
   async function confirmDeleteVenue() {
@@ -566,12 +823,20 @@ export function OrganizerVenuesPage() {
             <VenueCard
               key={venue.id}
               venue={venue}
+              onDetail={openDetail}
               onEdit={openEdit}
               onDelete={(v) => setVenueToDelete(v)}
             />
           ))}
         </div>
       )}
+
+      <VenueDetailModal
+        open={detailModalOpen}
+        venue={detailVenue}
+        onClose={() => setDetailModalOpen(false)}
+        onEdit={openEdit}
+      />
 
       <VenueFormModal
         open={modalOpen}

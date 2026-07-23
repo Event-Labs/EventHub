@@ -30,6 +30,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 function isStaffManageableEvent(event) {
   if (!event || event.status === 'DRAFT') return false
   const isApprovedForStaff = event.status === 'PUBLISHED'
+    || event.approval_status === 'APPROVED'
     || (event.status === 'COMPLETED' && event.approval_status === 'APPROVED')
   if (!isApprovedForStaff) return false
   const effectiveEnd = event.end_time || event.start_time
@@ -137,7 +138,7 @@ export function OrganizerStaffManagementPage() {
               onChange={(e) => setSelectedEventId(e.target.value)}
               disabled={loading}
             >
-              {(data?.events || []).map((ev) => (
+              {(data?.events || []).filter((ev) => ev.status === 'PUBLISHED' || ev.approval_status === 'APPROVED' || ev.status === 'COMPLETED').map((ev) => (
                 <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
               ))}
             </select>
@@ -448,7 +449,7 @@ function InviteStaffModal({
                 disabled={events.length === 0}
               >
                 <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
-                {events.map((ev) => (
+                {events.filter((ev) => ev.status === 'PUBLISHED' || ev.approval_status === 'APPROVED' || ev.status === 'COMPLETED').map((ev) => (
                   <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
                 ))}
               </select>

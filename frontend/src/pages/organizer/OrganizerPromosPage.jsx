@@ -138,7 +138,10 @@ export function OrganizerPromosPage() {
   const fetchEvents = useCallback(async () => {
     try {
       const eventsList = await fetchOrganizerEvents()
-      setEvents(Array.isArray(eventsList) ? eventsList : [])
+      const eligibleEvents = Array.isArray(eventsList)
+        ? eventsList.filter((e) => e.status === 'PUBLISHED' || e.approval_status === 'APPROVED' || e.status === 'COMPLETED')
+        : []
+      setEvents(eligibleEvents)
     } catch (error) {
       console.error('Error fetching events:', error)
       toast.error('Không thể tải danh sách sự kiện.')

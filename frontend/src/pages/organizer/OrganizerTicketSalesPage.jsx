@@ -401,11 +401,11 @@ export function OrganizerTicketSalesPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Load event list
+  // Load event list (only published events)
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
-      .then((data) => setEvents(data || []))
+      .then((data) => setEvents((data || []).filter((ev) => ev.status === 'PUBLISHED')))
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))
   }, [])

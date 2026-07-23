@@ -43,7 +43,11 @@ export function OrganizerAnnouncementsPage() {
     queryFn: fetchOrganizerAnnouncements,
   })
 
-  const events = eventsQuery.data || EMPTY_ITEMS
+  const rawEvents = eventsQuery.data || EMPTY_ITEMS
+  const events = useMemo(
+    () => rawEvents.filter((e) => !e.status || e.status === 'PUBLISHED'),
+    [rawEvents],
+  )
   const announcements = announcementsQuery.data || EMPTY_ITEMS
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === form.event_id),

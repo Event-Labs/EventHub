@@ -60,14 +60,12 @@ export function OrganizerCheckinDashboardPage() {
   const [error, setError] = useState('')
   const [lastRefresh, setLastRefresh] = useState(null)
 
-  // Load event list
+  // Load event list (only published events)
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
       .then((data) => {
-        const active = (data || []).filter((e) =>
-          ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(e.status),
-        )
+        const active = (data || []).filter((e) => e.status === 'PUBLISHED')
         setEvents(active)
         if (active.length > 0) setSelectedEventId(active[0].id)
       })
