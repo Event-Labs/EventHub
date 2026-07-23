@@ -3,6 +3,17 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const cleanEnvValue = (value) => {
+    const text = String(value ?? '').trim();
+    if (
+        text.length >= 2
+        && ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'")))
+    ) {
+        return text.slice(1, -1).trim();
+    }
+    return text;
+};
+
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     PORT: z.string().transform(Number).default('3000'),
@@ -19,11 +30,11 @@ const envSchema = z.object({
     JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
     JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
-    SMTP_HOST: z.string(),
-    SMTP_PORT: z.string().transform(Number),
-    SMTP_USER: z.string(),
-    SMTP_PASS: z.string(),
-    EMAIL_FROM: z.string().email(),
+    SMTP_HOST: z.string().transform(cleanEnvValue),
+    SMTP_PORT: z.string().transform(cleanEnvValue).transform(Number),
+    SMTP_USER: z.string().transform(cleanEnvValue),
+    SMTP_PASS: z.string().transform(cleanEnvValue),
+    EMAIL_FROM: z.preprocess(cleanEnvValue, z.string().email()),
 
     GOOGLE_CLIENT_ID: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
