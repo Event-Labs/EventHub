@@ -1,7 +1,7 @@
 import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Filter, RotateCcw, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
@@ -60,12 +60,18 @@ export function EventsPage() {
   const queryClient = useQueryClient()
   const filters = useMemo(() => readFilters(searchParams), [searchParams])
   const [draft, setDraft] = useState(filters)
-  const [timelineNow] = useState(() => Date.now())
+  const [timelineNow, setTimelineNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTimelineNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const queryParams = useMemo(() => buildQuery(filters), [filters])
   const eventsQuery = useQuery({
     queryKey: ['events', queryParams],
     queryFn: () => fetchEvents(queryParams),
+    refetchInterval: 30_000,
   })
 
   const categoriesQuery = useQuery({
