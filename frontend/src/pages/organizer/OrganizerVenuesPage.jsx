@@ -680,7 +680,7 @@ function VenueCard({ venue, onDetail, onEdit, onDelete }) {
           </h3>
           <p className="mt-1 text-sm text-subtle truncate">{location || venue.address_line}</p>
           <p className="mt-2 text-xs text-muted">
-            {venue.seat_map_count || 0} sơ đồ · Sức chứa tối đa: <span className="font-bold text-content">{maxCap}</span> ghế
+            {venue.seat_map_count || 0} sơ đồ · Sức chứa tối đa: <span className="font-bold text-content">{maxCap}</span> người (ghế + đứng)
           </p>
         </div>
       </div>
