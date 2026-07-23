@@ -11,6 +11,11 @@ const listEventsSchema = z.object({
   end_date: z.coerce.date().optional(),
   min_price: z.coerce.number().min(0).optional(),
   max_price: z.coerce.number().min(0).optional(),
+  upcoming_only: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional()
+    .default(false),
   sort_by: z.enum(['start_time', 'created_at', 'updated_at', 'price']).default('start_time'),
   sort_order: z.enum(['asc', 'desc']).default('asc'),
 });
