@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+﻿import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
-import { checkTicketAvailability, fetchSessionSeats, holdSeats } from '@/services/events.js'
+import { checkTicketAvailability, fetchSessionSeats, holdSeats, releaseSeatHolds } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import promotionService from '@/services/promotions.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -51,10 +51,6 @@ function paymentQrImageSrc(qrCode) {
   if (!qrCode) return ''
   if (/^(https?:|data:image\/)/i.test(qrCode)) return qrCode
   return `https://api.qrserver.com/v1/create-qr-code/?size=224x224&data=${encodeURIComponent(qrCode)}`
-}
-
-function firstTicketIdFromOrderStatus(data) {
-  return data?.items?.find((item) => item.ticket?.id)?.ticket?.id
 }
 
 function requiresAttendeeInfo(cart) {
@@ -404,6 +400,7 @@ export function BookingSeatsPage() {
   const [seatZoom, setSeatZoom] = useState(1)
   const [invalidSeatId, setInvalidSeatId] = useState(null)
   const [standingTicketType, setStandingTicketType] = useState(null)
+  const [resettingSelection, setResettingSelection] = useState(false)
 
   const seatsQuery = useQuery({
     queryKey: ['session-seats', session?.id],
@@ -546,6 +543,39 @@ export function BookingSeatsPage() {
     }
   }
 
+  const resetSelection = async () => {
+    setResettingSelection(true)
+    try {
+      if (hasActiveSeatHold(displayCart)) {
+        await releaseSeatHolds({
+          event_id: displayCart.eventId,
+          session_seat_ids: displayCart.items.flatMap((item) => item.sessionSeatIds || []),
+        })
+      }
+
+      const resetCart = {
+        ...displayCart,
+        selectedSeatIds: [],
+        items: [],
+        attendees: {},
+        holdExpiresAt: null,
+        hold_expires_at: null,
+        promo: null,
+        promoCode: '',
+      }
+      setSelectedSeatIds([])
+      setStandingTicketType(null)
+      setCart(resetCart)
+      saveBookingDraft(resetCart)
+      await seatsQuery.refetch()
+      toast.success('Đã xóa các vé đã chọn. Bạn có thể chọn lại ngay bây giờ.')
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Chưa thể xóa các vé đã chọn. Vui lòng thử lại.'))
+      throw err
+    } finally {
+      setResettingSelection(false)
+    }
+  }
   const toggleSeat = (seatId) => {
     const nextSeatIds = selectedSeatIds.includes(seatId)
       ? selectedSeatIds.filter((id) => id !== seatId)
@@ -699,6 +729,8 @@ export function BookingSeatsPage() {
           cta={'Ti\u1ebfp t\u1ee5c'}
           onClick={continueFlow}
           disabled={checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
+          onReset={resetSelection}
+          resetDisabled={resettingSelection || displayItems.length === 0}
         />
       </div>
       {standingTicketType && (
@@ -1024,11 +1056,10 @@ export function BookingPaymentPage() {
 
   useEffect(() => {
     if (order?.status === 'PAID') {
-      const ticketId = firstTicketIdFromOrderStatus(statusQuery.data)
       clearBookingDraft()
-      navigate(ticketId ? `/tickets/${ticketId}` : '/my-tickets', { replace: true })
+      navigate('/my-tickets', { replace: true })
     }
-  }, [navigate, order?.status, statusQuery.data])
+  }, [navigate, order?.status])
 
   useEffect(() => {
     if (!cart?.items?.length || orderId || checkoutMutation.isPending || checkoutStartedRef.current) return
@@ -1182,8 +1213,9 @@ function BookingShell({ step, cart, children }) {
   )
 }
 
-function OrderCard({ cart, cta, onClick, disabled, onCancel, colorByTicketTypeId, hideUnselectedTickets = false }) {
+function OrderCard({ cart, cta, onClick, disabled, onCancel, onReset, resetDisabled = false, colorByTicketTypeId, hideUnselectedTickets = false }) {
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [resetOpen, setResetOpen] = useState(false)
   const visibleTicketTypes = (cart?.availableTicketTypes || []).filter((ticketType) => {
     if (!hideUnselectedTickets) return true
     const item = (cart?.items || []).find((i) => String(i.ticketType.id) === String(ticketType.id))
@@ -1198,10 +1230,11 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, colorByTicketTypeId
         </div>
         <button
           type="button"
-          onClick={() => setCancelOpen(true)}
-          className="text-sm font-bold text-primary hover:text-sky-300"
+          onClick={() => onReset ? setResetOpen(true) : setCancelOpen(true)}
+          disabled={Boolean(onReset) && resetDisabled}
+          className="text-sm font-bold text-primary hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {'Ch\u1ecdn l\u1ea1i v\u00e9'}
+          {'Chọn lại vé'}
         </button>
       </div>
       <div className="space-y-3 border-y border-border-soft py-4">
@@ -1279,6 +1312,14 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, colorByTicketTypeId
               clearBookingDraft()
               window.location.href = `/events/${cart.eventSlug || cart.eventId}`
             })
+          }}
+        />
+      )}
+      {resetOpen && (
+        <ResetSelectionModal
+          onStay={() => setResetOpen(false)}
+          onReset={() => {
+            Promise.resolve(onReset()).then(() => setResetOpen(false)).catch(() => {})
           }}
         />
       )}
@@ -1433,6 +1474,29 @@ function CancelBookingModal({ onStay, onCancel }) {
   )
 }
 
+function ResetSelectionModal({ onStay, onReset }) {
+  return createPortal(
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
+      <section role="alertdialog" aria-modal="true" aria-labelledby="reset-selection-title" className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 text-content shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+        <div className="flex items-start gap-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-tertiary/15"><RefreshCw className="size-5 text-tertiary" /></span>
+          <div>
+            <h2 id="reset-selection-title" className="font-display text-xl font-extrabold">Bạn muốn chọn lại vé?</h2>
+            <p className="mt-1 text-sm text-muted">Các vé bạn đang chọn sẽ được xóa để bạn chọn lại từ đầu.</p>
+          </div>
+        </div>
+        <p className="mt-5 rounded-xl border border-tertiary/20 bg-tertiary/5 p-4 text-sm text-muted">
+          Ghế và số lượng vé đã chọn sẽ được xóa. Bạn vẫn ở trang này và có thể chọn vé mới ngay.
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onStay} className="rounded-lg border border-border-soft px-5 py-3 font-bold text-muted transition hover:border-content/40 hover:text-content">Giữ vé đã chọn</button>
+          <button type="button" onClick={onReset} className="rounded-lg bg-tertiary px-5 py-3 font-bold text-white transition hover:bg-orange-600">Chọn lại từ đầu</button>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  )
+}
 function ModalFrame({ children }) {
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
