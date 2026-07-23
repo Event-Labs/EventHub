@@ -991,13 +991,16 @@ export function BookingReviewPage() {
               <div className="mt-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md border border-border-soft bg-surface p-4 text-sm leading-6 text-slate-200">
                 {eventTerms}
               </div>
-              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-primary/30 bg-primary/10 p-4">
+              <label className="mt-4 flex cursor-pointer items-start gap-3 py-1">
                 <input
                   type="checkbox"
                   checked={termsAccepted}
                   onChange={(event) => setTermsAccepted(event.target.checked)}
-                  className="mt-0.5 size-5 shrink-0 accent-primary"
+                  className="peer sr-only"
                 />
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2 border-slate-400 transition peer-checked:border-tertiary">
+                  <span className={`size-2.5 rounded-full bg-tertiary transition ${termsAccepted ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} />
+                </span>
                 <span className="text-sm font-semibold leading-6 text-white">
                   Tôi đã đọc và đồng ý với điều khoản, quy định của sự kiện này.
                 </span>
