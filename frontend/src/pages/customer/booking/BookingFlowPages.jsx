@@ -547,21 +547,20 @@ export function BookingSeatsPage() {
   }
 
   const toggleSeat = (seatId) => {
-    setSelectedSeatIds((current) => {
-      const nextSeatIds = current.includes(seatId)
-        ? current.filter((id) => id !== seatId)
-        : [...current, seatId]
+    const nextSeatIds = selectedSeatIds.includes(seatId)
+      ? selectedSeatIds.filter((id) => id !== seatId)
+      : [...selectedSeatIds, seatId]
 
-      const issue = validateSeatSelection({ rules: seatingRules, selectedSeatIds: nextSeatIds, seats: seatData })[0] || ''
-      if (issue) {
-        setInvalidSeatId(seatId)
-        toast.error(issue)
-        window.setTimeout(() => setInvalidSeatId((currentId) => currentId === seatId ? null : currentId), 1200)
-        return current
-      }
-      setInvalidSeatId(null)
-      return nextSeatIds
-    })
+    const issue = validateSeatSelection({ rules: seatingRules, selectedSeatIds: nextSeatIds, seats: seatData })[0] || ''
+    if (issue) {
+      setInvalidSeatId(seatId)
+      toast.error(issue)
+      window.setTimeout(() => setInvalidSeatId((currentId) => currentId === seatId ? null : currentId), 1200)
+      return
+    }
+
+    setInvalidSeatId(null)
+    setSelectedSeatIds(nextSeatIds)
   }
 
   const updateUnseatedQuantity = (ticketType, delta) => {

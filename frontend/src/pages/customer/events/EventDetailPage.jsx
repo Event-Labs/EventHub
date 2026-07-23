@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   UserCircle,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
@@ -65,15 +65,14 @@ function getGoogleMapUrl(venue) {
   return `https://www.google.com/maps?q=${latitude},${longitude}&z=16&output=embed`
 }
 
-function isSaleOpen(ticketType) {
-  const now = Date.now()
+function isSaleOpen(ticketType, now) {
   const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null
   const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null
   return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now)
 }
 
-function isPastTime(value) {
-  return value ? new Date(value).getTime() < Date.now() : false
+function isPastTime(value, now) {
+  return value ? new Date(value).getTime() <= now : false
 }
 
 function latestSessionEndTime(sessions = []) {
@@ -103,7 +102,7 @@ function ticketAvailable(ticketType) {
 function isSoldOut(ticketType) {
   return ticketAvailable(ticketType) <= 0
 }
-
+
 
 export function EventDetailPage() {
   const toast = useToast()
@@ -115,11 +114,18 @@ export function EventDetailPage() {
   const [expandedSessionId, setExpandedSessionId] = useState(null)
   const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [bookingError, setBookingError] = useState('')
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
 
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
     queryFn: () => fetchEventDetail(eventId),
+    refetchInterval: 30_000,
   })
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 1_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const favoriteMutation = useMutation({
     mutationFn: (event) => toggleFavorite(event.id),
@@ -173,7 +179,7 @@ export function EventDetailPage() {
   const selectSession = (sessionId) => {
     if (requireLogin()) return
     const session = event?.sessions?.find((item) => String(item.id) === String(sessionId))
-    if (isPastTime(session?.end_time || getEventEndTime(event))) {
+    if (isPastTime(session?.start_time || getEventEndTime(event), currentTime)) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
@@ -184,7 +190,7 @@ export function EventDetailPage() {
   const handleBook = () => {
     if (requireLogin()) return
     if (!selectedSession) return
-    if (isPastTime(selectedSession?.end_time || getEventEndTime(event))) {
+    if (isPastTime(selectedSession?.start_time || getEventEndTime(event), currentTime)) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
@@ -220,8 +226,8 @@ export function EventDetailPage() {
   const firstVenue = event.venues?.[0]
   const overview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
   const eventEndTime = getEventEndTime(event)
-  const eventExpired = isPastTime(eventEndTime)
-  const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.end_time || eventEndTime) : false
+  const eventExpired = isPastTime(eventEndTime, currentTime)
+  const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.start_time || eventEndTime, currentTime) : false
 
   return (
     <div className="overflow-x-hidden">
@@ -296,7 +302,7 @@ export function EventDetailPage() {
               {event.sessions?.length ? (
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
-                  const sessionExpired = isPastTime(session.end_time || eventEndTime)
+                  const sessionExpired = isPastTime(session.start_time || eventEndTime, currentTime)
                   const selected = String(selectedSessionId) === String(session.id)
                   const expanded = expandedSessionId === session.id
 
@@ -361,7 +367,7 @@ export function EventDetailPage() {
                             {tickets.length ? (
                               tickets.map((ticketType) => {
                                 const soldOut = isSoldOut(ticketType)
-                                const saleOpen = !sessionExpired && isSaleOpen(ticketType) && !soldOut
+                                const saleOpen = !sessionExpired && isSaleOpen(ticketType, currentTime) && !soldOut
                                 const totalQuantity = ticketTotal(ticketType)
                                 const availableQuantity = ticketAvailable(ticketType)
                                 return (
