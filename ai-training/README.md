@@ -1,6 +1,20 @@
+---
+title: Event Hub AI
+emoji: 🤖
+colorFrom: blue
+colorTo: green
+sdk: gradio
+sdk_version: "5.38.2"
+python_version: "3.11"
+app_file: app.py
+pinned: false
+---
+
+# Event Hub AI
+
 # AI Training Setup
 
-Chay cac lenh bat buoc sau sau khi pull code.
+Chạy các lệnh bắt buộc sau sau khi pull code.
 
 ## Windows CMD
 
@@ -15,7 +29,7 @@ python -c "import torch; print('torch:', torch.__version__); print('cuda:', torc
 python -c "import json; from pathlib import Path; lines=Path('data/financial_summary_train.jsonl').read_text(encoding='utf-8').splitlines(); [json.loads(line) for line in lines]; print('JSON OK:', len(lines), 'samples')"
 ```
 
-## Tao Lai Dataset Neu Can
+## Tạo lại Dataset nếu cần
 
 ```bat
 python generate_dataset.py
@@ -33,12 +47,12 @@ python train_lora.py
 python test_model.py
 ```
 
-## Chay Local AI Service
+## Chạy Local AI Service
 
 ```bat
 uvicorn serve_model:app --host 127.0.0.1 --port 8001
 ```
 
-## Luu Y
+## Lưu ý
 
-`.venv/` va `outputs/` khong duoc commit len Git.
+`.venv/` và `outputs/` không được commit lên Git.
