@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, ChevronRight, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
 import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
+import logoSrc from '@/assets/eventhub-logo.png'
 
-const logoSrc = '/images/LogoEH.png'
 const collapsedWidth = 76
 const expandedWidth = 232
 const defaultTheme = 'dark'

@@ -8,8 +8,7 @@ import { GoogleLogin } from '@react-oauth/google'
 import { LockedAccountModal } from '@/components/LockedAccountModal'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-
-const logoSrc = '/images/LogoEH.png'
+import logoSrc from '@/assets/eventhub-logo.png'
 
 export function LoginPage() {
   const toast = useToast()

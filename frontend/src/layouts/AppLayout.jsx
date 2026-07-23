@@ -12,6 +12,7 @@ import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated } from '@/lib/auth.js'
 import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
+import logoSrc from '@/assets/eventhub-logo.png'
 
 const centerNavItems = [
   ['Sự kiện', '/events'],
@@ -56,8 +57,6 @@ const footerSections = [
     ],
   },
 ]
-
-const logoSrc = '/images/LogoEH.png'
 
 const navLinkClass = ({ isActive }) =>
   `relative z-10 px-3 py-2 text-sm font-bold transition ${
