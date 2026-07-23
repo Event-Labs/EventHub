@@ -94,6 +94,17 @@ function formatPromoDateTime(date) {
   return `${formatPromoDate(value)} ${time}`
 }
 
+function isApprovedOrPublishedEvent(e) {
+  if (!e) return false
+  const status = (e.status || '').toUpperCase()
+  const approvalStatus = (e.approval_status || '').toUpperCase()
+
+  if (['CANCELLED', 'DRAFT', 'HIDDEN', 'UNPUBLISHED'].includes(status)) return false
+  if (['PENDING', 'REJECTED'].includes(approvalStatus)) return false
+
+  return status === 'PUBLISHED' || approvalStatus === 'APPROVED'
+}
+
 export function OrganizerPromosPage() {
   const toast = useToast()
   const [promos, setPromos] = useState([])
@@ -139,7 +150,7 @@ export function OrganizerPromosPage() {
     try {
       const eventsList = await fetchOrganizerEvents()
       const eligibleEvents = Array.isArray(eventsList)
-        ? eventsList.filter((e) => e.status === 'PUBLISHED' || e.approval_status === 'APPROVED' || e.status === 'COMPLETED')
+        ? eventsList.filter(isApprovedOrPublishedEvent)
         : []
       setEvents(eligibleEvents)
     } catch (error) {
@@ -579,7 +590,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
                   })}
                 >
                   <option value="" className="bg-surface text-content">Chọn sự kiện cụ thể</option>
-                  {(events || []).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-surface text-content">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
+                  {(events || []).filter(isApprovedOrPublishedEvent).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-surface text-content">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
                 </select>
               )}
               {errors.eventIds && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.eventIds}</p>}

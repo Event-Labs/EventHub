@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import {
+  deleteStaffInvitation,
   fetchOrganizerOperationsOverview,
   fetchStaffCandidates,
   inviteStaffToEvent,
@@ -27,12 +28,19 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+function isApprovedOrPublishedEvent(event) {
+  if (!event) return false
+  const status = (event.status || '').toUpperCase()
+  const approvalStatus = (event.approval_status || '').toUpperCase()
+
+  if (['CANCELLED', 'DRAFT', 'HIDDEN', 'UNPUBLISHED'].includes(status)) return false
+  if (['PENDING', 'REJECTED'].includes(approvalStatus)) return false
+
+  return status === 'PUBLISHED' || approvalStatus === 'APPROVED'
+}
+
 function isStaffManageableEvent(event) {
-  if (!event || event.status === 'DRAFT') return false
-  const isApprovedForStaff = event.status === 'PUBLISHED'
-    || event.approval_status === 'APPROVED'
-    || (event.status === 'COMPLETED' && event.approval_status === 'APPROVED')
-  if (!isApprovedForStaff) return false
+  if (!isApprovedOrPublishedEvent(event)) return false
   const effectiveEnd = event.end_time || event.start_time
   if (!effectiveEnd) return false
   return new Date(effectiveEnd).getTime() >= Date.now()
@@ -48,6 +56,7 @@ export function OrganizerStaffManagementPage() {
   const [error, setError] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [removeConfirm, setRemoveConfirm] = useState(null) // { staffId, staffName }
+  const [deleteInviteConfirm, setDeleteInviteConfirm] = useState(null) // { invitationId, email }
 
   const loadData = async () => {
     setLoading(true)
@@ -55,7 +64,11 @@ export function OrganizerStaffManagementPage() {
     try {
       const ov = await fetchOrganizerOperationsOverview()
       setData(ov)
-      setSelectedEventId((cur) => cur || ov.events?.[0]?.id || '')
+      const approvedEvents = (ov.events || []).filter(isApprovedOrPublishedEvent)
+      setSelectedEventId((cur) => {
+        if (cur && approvedEvents.some((ev) => ev.id === cur)) return cur
+        return approvedEvents[0]?.id || ''
+      })
     } catch (err) {
       const message = getApiMessage(err, 'Không thể tải dữ liệu.')
       setError(message)
@@ -120,6 +133,24 @@ export function OrganizerStaffManagementPage() {
     }
   }
 
+  const handleDeleteInviteConfirm = async () => {
+    if (!deleteInviteConfirm) return
+    setSaving(true)
+    setError('')
+    try {
+      await deleteStaffInvitation(deleteInviteConfirm.invitationId)
+      toast.success('Đã xóa lời mời nhân sự.')
+      setDeleteInviteConfirm(null)
+      await loadData()
+    } catch (err) {
+      const message = getApiMessage(err, 'Không thể xóa lời mời.')
+      setError(message)
+      toast.error(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <OrganizerPage
       title="Quản lý nhân sự"
@@ -138,7 +169,7 @@ export function OrganizerStaffManagementPage() {
               onChange={(e) => setSelectedEventId(e.target.value)}
               disabled={loading}
             >
-              {(data?.events || []).filter((ev) => ev.status === 'PUBLISHED' || ev.approval_status === 'APPROVED' || ev.status === 'COMPLETED').map((ev) => (
+              {(data?.events || []).filter(isApprovedOrPublishedEvent).map((ev) => (
                 <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
               ))}
             </select>
@@ -289,6 +320,7 @@ export function OrganizerStaffManagementPage() {
                       <th className="px-5 py-3 font-bold">Vai trò</th>
                       <th className="px-5 py-3 font-bold">Trạng thái</th>
                       <th className="px-5 py-3 font-bold">Hết hạn</th>
+                      <th className="px-5 py-3 font-bold">Hành động</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -304,6 +336,18 @@ export function OrganizerStaffManagementPage() {
                           {inv.expires_at
                             ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
                             : '—'}
+                        </td>
+                        <td className="px-5 py-3">
+                          <button
+                            className="flex items-center gap-1.5 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/20 disabled:opacity-50 transition-colors"
+                            onClick={() =>
+                              setDeleteInviteConfirm({ invitationId: inv.id, email: inv.invited_email })
+                            }
+                            disabled={saving || !selectedEventManageable}
+                          >
+                            <Trash2 className="size-3.5" />
+                            Xóa
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -346,6 +390,19 @@ export function OrganizerStaffManagementPage() {
           loading={saving}
           onConfirm={handleRemoveConfirm}
           onCancel={() => setRemoveConfirm(null)}
+        />
+      )}
+
+      {/* ── Delete invitation confirm dialog ── */}
+      {deleteInviteConfirm && (
+        <ConfirmDialog
+          title="Xóa lời mời nhân sự"
+          message={`Bạn có chắc muốn xóa lời mời gửi đến "${deleteInviteConfirm.email}" không?`}
+          confirmLabel="Xóa lời mời"
+          danger
+          loading={saving}
+          onConfirm={handleDeleteInviteConfirm}
+          onCancel={() => setDeleteInviteConfirm(null)}
         />
       )}
     </OrganizerPage>
@@ -449,7 +506,7 @@ function InviteStaffModal({
                 disabled={events.length === 0}
               >
                 <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
-                {events.filter((ev) => ev.status === 'PUBLISHED' || ev.approval_status === 'APPROVED' || ev.status === 'COMPLETED').map((ev) => (
+                {events.filter(isApprovedOrPublishedEvent).map((ev) => (
                   <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
                 ))}
               </select>

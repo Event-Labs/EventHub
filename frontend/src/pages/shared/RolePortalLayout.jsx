@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, ChevronRight, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Bell, CheckCheck, ChevronRight, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
 import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
+import {
+  fetchNotifications,
+  getNotificationStreamUrl,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/services/notifications.js'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const collapsedWidth = 76
@@ -274,7 +281,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <div className="flex h-12 items-center gap-1 rounded-full border border-border-soft/30 bg-surface px-2 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm">
           <TopBarIconButton icon={theme === 'light' ? Sun : Moon} label={theme === 'light' ? '\u0043h\u1ebf \u0111\u1ed9 s\u00e1ng' : '\u0043h\u1ebf \u0111\u1ed9 t\u1ed1i'} onClick={onToggleTheme} />
-          <TopBarIconButton icon={Bell} label={'\u0054h\u00f4ng b\u00e1o'} />
+          <PortalNotificationBell />
           <TopBarIconButton icon={Settings} label={'\u0043\u00e0i \u0111\u1eb7t'} />
         </div>
         <NavLink
@@ -292,6 +299,190 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
       </div>
     </header>
   )
+}
+
+function PortalNotificationBell() {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [notificationOpen, setNotificationOpen] = useState(false)
+  const token = getAuthToken()
+
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications', 'portal-nav'],
+    queryFn: () => fetchNotifications({ limit: 5 }),
+    enabled: Boolean(token),
+  })
+
+  const markReadMutation = useMutation({
+    mutationFn: markNotificationRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+  })
+
+  const markAllMutation = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+  })
+
+  useEffect(() => {
+    if (!token) return undefined
+
+    const source = new EventSource(getNotificationStreamUrl(token))
+    const handleNotification = (event) => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+
+      try {
+        const data = JSON.parse(event.data)
+        if (data?.title) {
+          window.dispatchEvent(
+            new CustomEvent('eventhub:toast', {
+              detail: {
+                message: `🔔 ${data.title}`,
+                type: data.title.includes('từ chối') ? 'error' : 'success',
+                duration: 6000,
+              },
+            }),
+          )
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
+    const refreshCount = () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    }
+
+    source.addEventListener('notification', handleNotification)
+    source.addEventListener('unread_count', refreshCount)
+    source.onerror = () => {
+      source.close()
+    }
+
+    return () => source.close()
+  }, [token, queryClient])
+
+  const notifications = notificationsQuery.data?.items || []
+  const unreadCount = notificationsQuery.data?.unread_count || 0
+
+  const handleNotificationClick = (notification) => {
+    if (!notification.is_read) {
+      markReadMutation.mutate(notification.id)
+    }
+    setNotificationOpen(false)
+
+    const isOrganizerPortal = location.pathname.startsWith('/organizer')
+    if (notification.event_id && isOrganizerPortal) {
+      navigate(`/organizer/events/${notification.event_id}`)
+      return
+    }
+    if (notification.event?.slug) {
+      navigate(`/events/${notification.event.slug}`)
+      return
+    }
+    navigate('/notifications')
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        title="Thông báo"
+        onClick={() => setNotificationOpen((prev) => !prev)}
+        className="relative grid size-9 place-items-center rounded-full text-subtle transition hover:bg-panel-soft hover:text-content"
+        aria-label="Thông báo"
+        aria-expanded={notificationOpen}
+      >
+        <Bell className="size-[16px]" />
+        {unreadCount > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-tertiary px-1 text-[9px] font-extrabold text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {notificationOpen && (
+        <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border border-border-soft/40 bg-surface shadow-2xl backdrop-blur-md sm:w-96">
+          <div className="flex items-center justify-between border-b border-border-soft/30 px-4 py-3">
+            <div>
+              <p className="text-sm font-extrabold text-content">Thông báo</p>
+              <p className="text-xs text-subtle">{unreadCount} chưa đọc</p>
+            </div>
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                onClick={() => markAllMutation.mutate()}
+                className="grid size-8 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-tertiary"
+                title="Đánh dấu tất cả đã đọc"
+              >
+                <CheckCheck className="size-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {notificationsQuery.isLoading && (
+              <p className="px-4 py-5 text-center text-xs text-subtle">Đang tải thông báo...</p>
+            )}
+            {!notificationsQuery.isLoading && notifications.length === 0 && (
+              <p className="px-4 py-5 text-center text-xs text-subtle">Bạn chưa có thông báo nào.</p>
+            )}
+            {notifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                onClick={() => handleNotificationClick(notification)}
+                className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${
+                  notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {!notification.is_read && (
+                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-tertiary" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-xs font-extrabold text-content">{notification.title}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-4 text-subtle">{notification.content}</p>
+                    <p className="mt-1 text-[10px] text-muted">
+                      {formatTimeAgo(notification.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <Link
+            to="/notifications"
+            onClick={() => setNotificationOpen(false)}
+            className="block border-t border-border-soft/30 px-4 py-2.5 text-center text-xs font-extrabold text-tertiary hover:bg-panel-soft/60"
+          >
+            Xem tất cả thông báo
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function formatTimeAgo(isoDate) {
+  if (!isoDate) return ''
+  const date = new Date(isoDate)
+  const now = new Date()
+  const diffSec = Math.floor((now - date) / 1000)
+
+  if (diffSec < 60) return 'Vừa xong'
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function TopBarIconButton({ icon: Icon, label, onClick }) {

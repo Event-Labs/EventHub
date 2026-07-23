@@ -49,6 +49,16 @@ class OperationsController {
     }
   };
 
+  deleteStaffInvitation = async (req, res, next) => {
+    try {
+      const params = invitationIdParamSchema.parse(req.params);
+      const data = await operationsService.deleteStaffInvitation(req.user.sub, params.invitationId);
+      res.status(200).json(ApiResponse.success(data, 'Staff invitation deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   createTask = async (req, res, next) => {
     try {
       const payload = createTaskSchema.parse(req.body);

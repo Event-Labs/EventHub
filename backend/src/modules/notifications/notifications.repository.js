@@ -18,9 +18,24 @@ class NotificationsRepository {
   async createNotification({ userId, eventId = null, title, content, type = 'SYSTEM' }) {
     const { rows } = await db.query(
       `
-      INSERT INTO notifications (user_id, event_id, title, content, type)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, user_id, event_id, title, content, type, is_read, created_at
+      WITH inserted AS (
+        INSERT INTO notifications (user_id, event_id, title, content, type)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, user_id, event_id, title, content, type, is_read, created_at
+      )
+      SELECT
+        n.id,
+        n.user_id,
+        n.event_id,
+        n.title,
+        n.content,
+        n.type,
+        n.is_read,
+        n.created_at,
+        e.title AS event_title,
+        e.slug AS event_slug
+      FROM inserted n
+      LEFT JOIN events e ON e.id = n.event_id
       `,
       [userId, eventId, title, content, type],
     );
