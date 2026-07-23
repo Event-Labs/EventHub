@@ -11,6 +11,7 @@ const checkoutSchema = z.object({
     .optional()
     .nullable(),
   promo_code: z.string().trim().max(50).optional().nullable(),
+  event_terms_accepted: z.boolean().optional().default(false),
   attendees: z
     .array(
       z.object({

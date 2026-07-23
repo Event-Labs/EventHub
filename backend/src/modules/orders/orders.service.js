@@ -210,6 +210,8 @@ class OrdersService {
         total_amount: subtotal,
       },
       paymentChannel,
+      requireEventTermsAcceptance: true,
+      eventTermsAccepted: payload.event_terms_accepted,
     });
 
     try {

@@ -201,6 +201,7 @@ class EventsRepository {
       SELECT
         ${EVENT_CARD_SELECT},
         e.description,
+        e.additional_terms,
         e.seating_rules,
         e.require_attendee_info,
         json_build_object(

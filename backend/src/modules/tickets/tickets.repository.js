@@ -131,7 +131,7 @@ class TicketsRepository {
         AND o.status = 'PAID'
         AND e.deleted_at IS NULL
         ${statusFilter}
-      ORDER BY es.start_time DESC, t.created_at DESC
+      ORDER BY o.created_at DESC, t.created_at DESC
       `,
       params,
     );
