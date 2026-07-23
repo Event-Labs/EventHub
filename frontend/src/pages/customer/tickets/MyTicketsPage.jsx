@@ -1,7 +1,7 @@
 import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, Clock3, MapPin, Ticket } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, MapPin, Ticket } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { fetchMyTickets } from '@/services/tickets.js'
@@ -13,6 +13,7 @@ const FILTERS = [
   { value: 'EXPIRED', label: 'Hết hạn' },
   { value: 'CANCELLED', label: 'Đã hủy' },
 ]
+const TICKETS_PER_PAGE = 6
 
 function formatDateTime(value) {
   if (!value) return 'N/A'
@@ -55,6 +56,7 @@ export function MyTicketsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [status, setStatus] = useState('ALL')
+  const [page, setPage] = useState(1)
   const isAuthenticated = hasAuthSession()
   const currentUserKey = getStoredUserKey()
 
@@ -70,7 +72,12 @@ export function MyTicketsPage() {
     enabled: isAuthenticated,
   })
 
-  const tickets = ticketsQuery.data || []
+  const tickets = useMemo(() => [...(ticketsQuery.data || [])].sort((a, b) => {
+    const difference = new Date(b.order?.created_at || b.created_at || 0) - new Date(a.order?.created_at || a.created_at || 0)
+    return difference || String(b.id).localeCompare(String(a.id))
+  }), [ticketsQuery.data])
+  const totalPages = Math.max(1, Math.ceil(tickets.length / TICKETS_PER_PAGE))
+  const paginatedTickets = tickets.slice((page - 1) * TICKETS_PER_PAGE, page * TICKETS_PER_PAGE)
 
   if (!isAuthenticated) return null
 
@@ -86,7 +93,10 @@ export function MyTicketsPage() {
             <button
               key={item.value}
               type="button"
-              onClick={() => setStatus(item.value)}
+              onClick={() => {
+                setStatus(item.value)
+                setPage(1)
+              }}
               className={`min-w-0 rounded-full px-3 py-3 text-sm font-extrabold tracking-wide transition ${
                 status === item.value
                   ? 'bg-[#101848] text-slate-100 shadow-sm'
@@ -116,10 +126,26 @@ export function MyTicketsPage() {
       )}
 
       <div className="mt-8 grid gap-5 md:grid-cols-2">
-        {tickets.map((ticket) => (
+        {paginatedTickets.map((ticket) => (
           <TicketCard key={ticket.id} ticket={ticket} />
         ))}
       </div>
+
+      {!ticketsQuery.isLoading && !ticketsQuery.isError && totalPages > 1 && (
+        <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Phân trang vé của tôi">
+          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="grid size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang trước">
+            <ChevronLeft className="size-5" />
+          </button>
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+            <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} className={`size-10 rounded-full text-sm font-bold transition ${page === pageNumber ? 'bg-primary text-slate-950' : 'border border-white/10 bg-[#151d34] text-white hover:border-primary hover:text-primary'}`} aria-current={page === pageNumber ? 'page' : undefined} aria-label={`Trang ${pageNumber}`}>
+              {pageNumber}
+            </button>
+          ))}
+          <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={page === totalPages} className="grid size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang sau">
+            <ChevronRight className="size-5" />
+          </button>
+        </nav>
+      )}
     </div>
   )
 }

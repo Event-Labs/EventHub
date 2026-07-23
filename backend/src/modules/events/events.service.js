@@ -52,6 +52,7 @@ function mapDetail(row) {
   return {
     ...mapCard(row),
     description: row.description,
+    additional_terms: row.additional_terms || null,
     seating_rules: normalizeRules(row.seating_rules),
     require_attendee_info: Boolean(row.require_attendee_info),
     organizer: row.organizer,
