@@ -99,10 +99,10 @@ export function OrganizerOrdersPage() {
     }
   }, [page, selectedEventId, selectedStatus, search])
 
-  // Load events for filter dropdown
+  // Load events for filter dropdown (only published events)
   useEffect(() => {
     fetchOrganizerEvents()
-      .then(setEvents)
+      .then((data) => setEvents((data || []).filter((ev) => ev.status === 'PUBLISHED')))
       .catch(() => setEvents([]))
   }, [])
 
