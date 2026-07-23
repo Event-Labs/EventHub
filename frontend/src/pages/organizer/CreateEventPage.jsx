@@ -609,7 +609,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                 </p>
                 {(selectedVenue.max_seats > 0 || selectedVenue.seat_count > 0) && (
                   <p className="text-sm mt-2 text-subtle">
-                    Sức chứa tối đa: <span className="font-bold text-content">{selectedVenue.max_seats || selectedVenue.seat_count} chỗ</span> (Sơ đồ lớn nhất)
+                    Sức chứa tối đa: <span className="font-bold text-content">{selectedVenue.max_seats || selectedVenue.seat_count} người</span> (Gồm ghế + khu vực đứng)
                   </p>
                 )}
               </div>
