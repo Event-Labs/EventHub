@@ -1,7 +1,7 @@
 import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Filter, RotateCcw, Search } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, Filter, RotateCcw, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
@@ -41,16 +41,10 @@ function readFilters(searchParams) {
 
 function buildQuery(filters) {
   return Object.fromEntries(
-    Object.entries({ ...filters, limit: 12 }).filter(([, value]) => value),
+    Object.entries({ ...filters, limit: 9 }).filter(([, value]) => value),
   )
 }
 
-function isEventActiveOrUpcoming(event, now = Date.now()) {
-  const start = event.start_time ? new Date(event.start_time).getTime() : null
-  const end = event.end_time ? new Date(event.end_time).getTime() : start
-
-  return !end || end >= now
-}
 
 export function EventsPage() {
   const toast = useToast()
@@ -60,12 +54,6 @@ export function EventsPage() {
   const queryClient = useQueryClient()
   const filters = useMemo(() => readFilters(searchParams), [searchParams])
   const [draft, setDraft] = useState(filters)
-  const [timelineNow, setTimelineNow] = useState(() => Date.now())
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setTimelineNow(Date.now()), 30_000)
-    return () => window.clearInterval(timer)
-  }, [])
 
   const queryParams = useMemo(() => buildQuery(filters), [filters])
   const eventsQuery = useQuery({
@@ -125,9 +113,15 @@ export function EventsPage() {
     favoriteMutation.mutate(event)
   }
 
-  const events = useMemo(() => (eventsQuery.data?.items || []).filter((event) => isEventActiveOrUpcoming(event, timelineNow)), [eventsQuery.data?.items, timelineNow])
+  const events = eventsQuery.data?.items || []
   const pagination = eventsQuery.data?.pagination
   const categories = categoriesQuery.data || []
+
+  const changePage = (page) => {
+    if (!pagination || page < 1 || page > pagination.total_pages || page === pagination.page) return
+    setSearchParams(buildQuery({ ...filters, page: String(page) }))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -235,7 +229,7 @@ export function EventsPage() {
       <section>
         <SectionHeader
           title="Danh sách sự kiện"
-          description={pagination ? `${events.length} sự kiện phù hợp` : 'Đang tải sự kiện'}
+          description={pagination ? `${pagination.total} sự kiện phù hợp` : 'Đang tải sự kiện'}
         />
 
         {eventsQuery.isLoading && (
@@ -258,6 +252,22 @@ export function EventsPage() {
             />
           ))}
         </div>
+
+        {!eventsQuery.isLoading && !eventsQuery.isError && pagination?.total_pages > 1 && (
+          <nav className="mt-10 flex flex-wrap items-center justify-center gap-2" aria-label="Phân trang sự kiện">
+            <button type="button" onClick={() => changePage(pagination.page - 1)} disabled={pagination.page === 1} className="grid size-10 place-items-center rounded-full border border-border-soft bg-panel text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang trước">
+              <ChevronLeft className="size-5" />
+            </button>
+            {Array.from({ length: pagination.total_pages }, (_, index) => index + 1).map((pageNumber) => (
+              <button key={pageNumber} type="button" onClick={() => changePage(pageNumber)} className={`size-10 rounded-full text-sm font-bold transition ${pagination.page === pageNumber ? 'bg-primary text-slate-950' : 'border border-border-soft bg-panel text-white hover:border-primary hover:text-primary'}`} aria-current={pagination.page === pageNumber ? 'page' : undefined} aria-label={`Trang ${pageNumber}`}>
+                {pageNumber}
+              </button>
+            ))}
+            <button type="button" onClick={() => changePage(pagination.page + 1)} disabled={pagination.page === pagination.total_pages} className="grid size-10 place-items-center rounded-full border border-border-soft bg-panel text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang sau">
+              <ChevronRight className="size-5" />
+            </button>
+          </nav>
+        )}
       </section>
     </div>
   )
