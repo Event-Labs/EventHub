@@ -49,6 +49,14 @@ const TECHNICAL_MESSAGE_MAP = {
   'Organizer profile not found for this user.': 'Tài khoản chưa có hồ sơ Nhà tổ chức.',
   'Invalid ticket status': 'Trạng thái vé không hợp lệ.',
   'Ticket not found': 'Không tìm thấy vé.',
+  'end_time must be later than start_time': 'Thời gian kết thúc phải diễn ra sau thời gian bắt đầu.',
+  'start_time and end_time are required': 'Thời gian bắt đầu và kết thúc là bắt buộc.',
+  'start_time must not be in the past': 'Thời gian bắt đầu không được ở trong quá khứ.',
+  'Invalid session for ticket type': 'Phiên sự kiện cho loại vé không hợp lệ.',
+  'Ticket type name is required': 'Tên loại vé không được để trống.',
+  'Ticket price must be >= 0': 'Giá vé phải lớn hơn hoặc bằng 0.',
+  'Ticket quantity must be > 0': 'Số lượng vé phải lớn hơn 0.',
+  'Request failed with status code 400': 'Dữ liệu không hợp lệ (Mã 400). Vui lòng kiểm tra lại.',
   'Internal Server Error': 'Lỗi máy chủ nội bộ. Vui lòng thử lại sau.',
   'Network Error': 'Lỗi kết nối mạng. Vui lòng kiểm tra lại Internet.',
   'Request failed with status code 401': 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
@@ -75,7 +83,7 @@ export function normalizeMessage(message, fallback = 'Đã xảy ra lỗi. Vui l
   }
 
   if (ENGLISH_PATTERN.test(value)) {
-    return fallback
+    return value
   }
 
   return value
