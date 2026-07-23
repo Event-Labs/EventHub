@@ -250,15 +250,16 @@ class OrganizerOrdersRepository {
         t.id,
         t.ticket_code,
         t.status,
-        t.attendee_name,
-        t.attendee_email,
+        COALESCE(NULLIF(t.attendee_name, ''), o.buyer_name, u.full_name)  AS attendee_name,
+        COALESCE(NULLIF(t.attendee_email, ''), o.buyer_email, u.email)    AS attendee_email,
+        u.avatar_url    AS attendee_avatar_url,
         t.checked_in_at,
         t.created_at,
         tt.id   AS ticket_type_id,
         tt.name AS ticket_type_name,
         tt.price AS ticket_type_price,
         es.id           AS session_id,
-        es.session_name,
+        COALESCE(es.session_name, TO_CHAR(es.start_time AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM/YYYY HH24:MI')) AS session_name,
         es.start_time   AS session_start_time,
         es.end_time     AS session_end_time,
         v.name          AS venue_name,
@@ -273,6 +274,7 @@ class OrganizerOrdersRepository {
       FROM tickets t
       JOIN order_items oi ON oi.id = t.order_item_id
       JOIN orders o ON o.id = oi.order_id
+      LEFT JOIN users u ON u.id = o.user_id
       JOIN events e ON e.id = t.event_id
       JOIN event_sessions es ON es.id = t.event_session_id
       JOIN venues v ON v.id = es.venue_id
@@ -354,15 +356,16 @@ class OrganizerOrdersRepository {
         t.id,
         t.ticket_code,
         t.status,
-        t.attendee_name,
-        t.attendee_email,
+        COALESCE(NULLIF(t.attendee_name, ''), o.buyer_name, u.full_name)  AS attendee_name,
+        COALESCE(NULLIF(t.attendee_email, ''), o.buyer_email, u.email)    AS attendee_email,
+        u.avatar_url    AS attendee_avatar_url,
         t.checked_in_at,
         t.created_at,
         tt.id   AS ticket_type_id,
         tt.name AS ticket_type_name,
         tt.price AS ticket_type_price,
         es.id           AS session_id,
-        es.session_name,
+        COALESCE(es.session_name, TO_CHAR(es.start_time AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM/YYYY HH24:MI')) AS session_name,
         es.start_time   AS session_start_time,
         es.end_time     AS session_end_time,
         v.name          AS venue_name,
@@ -377,6 +380,7 @@ class OrganizerOrdersRepository {
       FROM tickets t
       JOIN order_items oi ON oi.id = t.order_item_id
       JOIN orders o ON o.id = oi.order_id
+      LEFT JOIN users u ON u.id = o.user_id
       JOIN events e ON e.id = t.event_id
       JOIN event_sessions es ON es.id = t.event_session_id
       JOIN venues v ON v.id = es.venue_id

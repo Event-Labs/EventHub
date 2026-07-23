@@ -23,14 +23,9 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 function isStaffManageableEvent(event) {
-  if (!event || event.status === 'DRAFT') return false
-  const isApprovedForStaff = event.status === 'PUBLISHED'
+  if (!event || event.status === 'DRAFT' || event.status === 'CANCELLED') return false
+  return event.status === 'PUBLISHED'
     || event.approval_status === 'APPROVED'
-    || (event.status === 'COMPLETED' && event.approval_status === 'APPROVED')
-  if (!isApprovedForStaff) return false
-  const effectiveEnd = event.end_time || event.start_time
-  if (!effectiveEnd) return false
-  return new Date(effectiveEnd).getTime() >= Date.now()
 }
 
 const STATUS_CONFIG = {
@@ -91,8 +86,9 @@ export function OrganizerTasksPage() {
       ])
       setOverview(ov)
       setTasks(taskList)
-      if (!selectedEventId && ov.events?.[0]?.id) {
-        setSelectedEventId(ov.events[0].id)
+      if (!selectedEventId) {
+        const firstManageable = (ov.events || []).find(isStaffManageableEvent)
+        if (firstManageable) setSelectedEventId(firstManageable.id)
       }
     } catch (err) {
       const message = getApiMessage(err, 'Không thể tải dữ liệu.')
@@ -184,7 +180,7 @@ export function OrganizerTasksPage() {
   }, [tasks])
 
   const selectedEvent = overview?.events?.find((e) => e.id === selectedEventId)
-  const selectedEventManageable = !selectedEventId || isStaffManageableEvent(selectedEvent)
+  const selectedEventManageable = !selectedEventId || !selectedEvent || isStaffManageableEvent(selectedEvent)
   const staffManageableEvents = useMemo(
     () => (overview?.events || []).filter(isStaffManageableEvent),
     [overview?.events],
@@ -211,7 +207,7 @@ export function OrganizerTasksPage() {
                 disabled={loading}
               >
                 <option value="" className="bg-surface text-content">Tất cả sự kiện</option>
-                {(overview?.events || []).filter((ev) => ev.status === 'PUBLISHED' || ev.approval_status === 'APPROVED' || ev.status === 'COMPLETED').map((ev) => (
+                {(overview?.events || []).filter(isStaffManageableEvent).map((ev) => (
                   <option key={ev.id} value={ev.id} className="bg-surface text-content">
                     {ev.title}
                   </option>
@@ -286,7 +282,7 @@ export function OrganizerTasksPage() {
         </button>
       </div>
 
-      {!loading && selectedEventId && !selectedEventManageable && (
+      {!loading && selectedEventId && selectedEvent && !selectedEventManageable && (
         <OrganizerPanel className="mb-5 border-warning/30 bg-warning/10">
           <p className="text-sm font-semibold text-warning">
             Sự kiện này đã hết hiệu lực, đang ở bản nháp hoặc chưa được duyệt. Bạn chỉ có thể xem tiến độ và báo cáo công việc, không thể tạo công việc mới.
@@ -368,7 +364,7 @@ export function OrganizerTasksPage() {
         <CreateTaskModal
           events={staffManageableEvents}
           selectedEventId={selectedEventId}
-          assignedStaff={assignedStaff}
+          assignedStaff={overview?.staff_assignments || []}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
             toast.success('Đã tạo công việc.')
