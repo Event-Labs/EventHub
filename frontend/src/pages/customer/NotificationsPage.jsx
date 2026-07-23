@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils.js'
 import { getRememberLoginPreference, setAuthSession } from '@/lib/auth.js'
 import { getApiMessage } from '@/lib/messages.js'
+import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
 function isStaffInvitationNotification(notification) {
@@ -288,8 +289,9 @@ export function NotificationsPage() {
           const isInvitation = isStaffInvitationNotification(notification)
           const invitationDetails = isInvitation ? getStaffInvitationDetails(notification, invitationsById) : null
           const eventPath = eventDetailPath(invitationDetails || notification)
-          const title = invitationDetails?.title || notification.title
-          const content = invitationDetails?.content || notification.content
+          const display = formatNotificationDisplay(notification)
+          const title = invitationDetails?.title || display.title
+          const content = invitationDetails?.content || display.content
           const invitationStatus = invitationDetails?.status
           const canRespondToInvitation = isStaffInvitationStoreNotification(notification) && invitationStatus === 'PENDING'
           const canOpenStaffPortal = isStaffInvitationStoreNotification(notification)
