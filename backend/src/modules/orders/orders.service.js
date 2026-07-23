@@ -299,13 +299,24 @@ class OrdersService {
     }));
     const hasSelectedSeats = normalizedItems.some((item) => item.session_seat_ids.length > 0);
 
-    if (payload.payment_method === 'bank_transfer' || hasSelectedSeats) {
+    // Use one transactional checkout path for every staff-direct payment
+    // method.  The previous cash/no-seat shortcut used a separate INSERT
+    // flow and could fail on installations with slightly different schema.
+    // Cash is confirmed immediately below; bank transfer remains pending
+    // until PayOS confirms it.
+    if (['cash', 'bank_transfer'].includes(payload.payment_method)) {
       const paymentChannel =
         payload.payment_method === 'bank_transfer'
           ? await paymentsService.getOrganizerPayosChannelForEvent(payload.event_id)
           : null;
       const created = await ordersRepository.createPendingCheckout({
-        userId: null,
+        // Use the staff member as the temporary hold owner while the order is
+        // being created.  The order is converted to an offline/staff order
+        // immediately afterwards, but keeping a real user id here is
+        // important for seated bookings: ticket_holds and session_seats use
+        // this value to validate ownership and some database deployments do
+        // not accept NULL hold owners.
+        userId: staffId,
         eventId: payload.event_id,
         buyer: {
           name: payload.buyer_name,
