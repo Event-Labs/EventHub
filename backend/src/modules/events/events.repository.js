@@ -253,10 +253,24 @@ class EventsRepository {
           'max_per_order', tt.max_per_order,
           'sale_start', tt.sale_start,
           'sale_end', tt.sale_end,
-          'is_seated', tt.is_seated
+          'is_seated', tt.is_seated,
+          'color', (
+            SELECT standing_area->>'color'
+            FROM jsonb_array_elements(
+              CASE
+                WHEN sm_tt.config IS NOT NULL
+                  AND jsonb_typeof(COALESCE((sm_tt.config::jsonb)->'standingAreas', '[]'::jsonb)) = 'array'
+                THEN COALESCE((sm_tt.config::jsonb)->'standingAreas', '[]'::jsonb)
+                ELSE '[]'::jsonb
+              END
+            ) AS standing_area
+            WHERE lower(trim(standing_area->>'name')) = lower(trim(tt.name))
+            LIMIT 1
+          )
         ) ORDER BY tt.price ASC) AS ticket_types
         FROM event_sessions es_tt
         JOIN ticket_types tt ON tt.event_session_id = es_tt.id
+        LEFT JOIN seat_maps sm_tt ON sm_tt.id = es_tt.seat_map_id
         LEFT JOIN LATERAL (
           SELECT
             COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
