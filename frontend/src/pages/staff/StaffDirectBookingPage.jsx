@@ -1541,23 +1541,30 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
     let startY = 0
     let startScrollLeft = 0
     let startScrollTop = 0
+    let activePointerId = null
 
     const handlePointerDown = (event) => {
       if (event.button !== 0) return
       dragging = true
       moved = false
+      activePointerId = event.pointerId
       startX = event.clientX
       startY = event.clientY
       startScrollLeft = viewport.scrollLeft
       startScrollTop = viewport.scrollTop
-      viewport.setPointerCapture?.(event.pointerId)
     }
     const handlePointerMove = (event) => {
-      if (!dragging) return
+      if (!dragging || event.pointerId !== activePointerId) return
       const deltaX = event.clientX - startX
       const deltaY = event.clientY - startY
       if (!moved && Math.hypot(deltaX, deltaY) < 4) return
-      moved = true
+      if (!moved) {
+        moved = true
+        // Capturing on pointerdown retargets pointerup/click to the viewport,
+        // so seat and standing-area buttons never receive their click. Capture
+        // only after the gesture has crossed the drag threshold.
+        viewport.setPointerCapture?.(event.pointerId)
+      }
       event.preventDefault()
       viewport.style.cursor = 'grabbing'
       viewport.style.userSelect = 'none'
@@ -1565,8 +1572,9 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
       viewport.scrollTop = startScrollTop - deltaY
     }
     const finishDragging = (event) => {
-      if (!dragging) return
+      if (!dragging || event.pointerId !== activePointerId) return
       dragging = false
+      activePointerId = null
       if (viewport.hasPointerCapture?.(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
       viewport.style.cursor = 'grab'
       viewport.style.userSelect = ''
