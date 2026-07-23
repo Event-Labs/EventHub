@@ -882,6 +882,8 @@ export function BookingReviewPage() {
   const [selectedPromo, setSelectedPromo] = useState(cart?.promo || null)
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+  const eventTerms = String(cart?.additionalTerms || cart?.additional_terms || '').trim()
+  const [termsAccepted, setTermsAccepted] = useState(() => !eventTerms || Boolean(cart?.eventTermsAccepted))
 
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
@@ -889,7 +891,17 @@ export function BookingReviewPage() {
   const collectAttendees = requiresAttendeeInfo(cart)
 
   const continueFlow = async () => {
-    const nextCart = { ...cart, promoCode, promo: selectedPromo }
+    if (eventTerms && !termsAccepted) {
+      toast.warning('Vui lòng đồng ý với điều khoản của sự kiện trước khi thanh toán.')
+      return
+    }
+
+    const nextCart = {
+      ...cart,
+      promoCode,
+      promo: selectedPromo,
+      eventTermsAccepted: eventTerms ? termsAccepted : false,
+    }
     setCheckingAvailability(true)
     try {
       const result = await checkTicketAvailability(availabilityPayloadFromCart(nextCart))
@@ -961,6 +973,28 @@ export function BookingReviewPage() {
               </div>
             )}
           </Panel>
+          {eventTerms && (
+            <Panel>
+              <h2 className="font-display text-xl font-bold text-white">Điều khoản của sự kiện</h2>
+              <p className="mt-1 text-sm text-muted">
+                Vui lòng đọc và xác nhận trước khi chuyển sang thanh toán.
+              </p>
+              <div className="mt-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md border border-border-soft bg-surface p-4 text-sm leading-6 text-slate-200">
+                {eventTerms}
+              </div>
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-primary/30 bg-primary/10 p-4">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(event) => setTermsAccepted(event.target.checked)}
+                  className="mt-0.5 size-5 shrink-0 accent-primary"
+                />
+                <span className="text-sm font-semibold leading-6 text-white">
+                  Tôi đã đọc và đồng ý với điều khoản, quy định của sự kiện này.
+                </span>
+              </label>
+            </Panel>
+          )}
           <PromoPanel
             promoCode={promoCode}
             onOpenVoucher={() => setVoucherOpen(true)}
@@ -998,6 +1032,7 @@ export function BookingPaymentPage() {
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const [checkout, setCheckout] = useState(location.state?.checkout || null)
   const checkoutStartedRef = useRef(Boolean(location.state?.checkout || existingOrderId))
+  const paymentSuccessHandledRef = useRef(false)
   const orderId = existingOrderId || checkout?.order?.id
 
   const checkoutMutation = useMutation({
@@ -1055,11 +1090,13 @@ export function BookingPaymentPage() {
   }, [statusQuery.error, statusQuery.isError, toast])
 
   useEffect(() => {
-    if (order?.status === 'PAID') {
-      clearBookingDraft()
-      navigate('/my-tickets', { replace: true })
-    }
-  }, [navigate, order?.status])
+    if (order?.status !== 'PAID' || paymentSuccessHandledRef.current) return
+
+    paymentSuccessHandledRef.current = true
+    clearBookingDraft()
+    toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
+    navigate('/my-tickets', { replace: true })
+  }, [navigate, order?.status, toast])
 
   useEffect(() => {
     if (!cart?.items?.length || orderId || checkoutMutation.isPending || checkoutStartedRef.current) return
@@ -1070,6 +1107,7 @@ export function BookingPaymentPage() {
       buyer_email: cart.buyer?.email || '',
       buyer_phone: cart.buyer?.phone || null,
       promo_code: cart.promoCode?.trim() || null,
+      event_terms_accepted: Boolean(cart.eventTermsAccepted),
       attendees: buildAttendeesPayload(cart),
       items: cart.items.map((item) => ({
         ticket_type_id: item.ticketType.id,

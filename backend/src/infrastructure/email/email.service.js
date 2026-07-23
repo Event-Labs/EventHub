@@ -20,9 +20,9 @@ function getTransporter(port) {
                 user: env.SMTP_USER,
                 pass: env.SMTP_PASS,
             },
-            connectionTimeout: 10000,
-            greetingTimeout: 10000,
-            socketTimeout: 30000,
+            connectionTimeout: 30000,
+            greetingTimeout: 30000,
+            socketTimeout: 120000,
         }));
     }
     return transporters.get(port);
