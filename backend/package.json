@@ -8,6 +8,7 @@
     "migrate:event-categories": "node scripts/run-sql-migration.js 20260530_event_categories_admin.sql",
     "migrate:subscriptions": "node scripts/run-sql-migration.js 20260530_subscriptions_admin.sql",
     "migrate:admin-profile-security": "node scripts/run-admin-profile-security-migration.js",
+    "migrate:staff-direct-booking": "node scripts/run-staff-direct-booking-migration.js",
     "test": "jest",
     "test:exploration": "jest --testPathPattern=bug-condition-exploration --verbose --no-coverage"
   },
