@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, Mail, Send, Smartphone } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Badge, Insight, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import {
   fetchOrganizerAnnouncementEvents,
   fetchOrganizerAnnouncements,

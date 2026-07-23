@@ -370,6 +370,14 @@ class OperationsRepository {
     return parseInvitation(rows[0]);
   }
 
+  async deleteStaffInvitation(invitationId) {
+    const { rowCount } = await db.query(
+      'DELETE FROM notifications WHERE id = $1 AND title = $2',
+      [invitationId, INVITE_TITLE],
+    );
+    return rowCount > 0;
+  }
+
   /** List all invitations sent by an organizer (optionally filtered by event) */
   async listOrganizerInvitations(organizerId, eventId = null) {
     const params = [organizerId, INVITE_TITLE];

@@ -29,10 +29,6 @@ function paymentQrImageSrc(qrCode) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=224x224&data=${encodeURIComponent(qrCode)}`
 }
 
-function firstTicketIdFromOrderStatus(data) {
-  return data?.items?.find((item) => item.ticket?.id)?.ticket?.id
-}
-
 export function PaymentConfirmationPage() {
   const toast = useToast()
   const location = useLocation()
@@ -77,8 +73,7 @@ export function PaymentConfirmationPage() {
 
   useEffect(() => {
     if (statusQuery.data?.order?.status !== 'PAID') return
-    const ticketId = firstTicketIdFromOrderStatus(statusQuery.data)
-    navigate(ticketId ? `/tickets/${ticketId}` : '/my-tickets', { replace: true })
+    navigate('/my-tickets', { replace: true })
   }, [navigate, statusQuery.data])
 
   const data = statusQuery.data
