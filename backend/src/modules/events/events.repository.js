@@ -696,7 +696,7 @@ class EventsRepository {
           ticketType.event_status !== 'PUBLISHED' ||
           ticketType.visibility !== 'PUBLIC' ||
           ticketType.approval_status !== 'APPROVED' ||
-          ticketType.session_status !== 'UPCOMING'
+          !['UPCOMING', 'ONGOING'].includes(ticketType.session_status)
         ) {
           throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
