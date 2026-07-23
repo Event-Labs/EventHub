@@ -207,6 +207,7 @@ export function EventDetailPage() {
           selectedSession,
           availableTicketTypes: selectedSessionTickets,
           seatingRules: event.seating_rules || {},
+          additionalTerms: event.additional_terms || '',
           requireAttendeeInfo: Boolean(event.require_attendee_info),
           items: [],
         },

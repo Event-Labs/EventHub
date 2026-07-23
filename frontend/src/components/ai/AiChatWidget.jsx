@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Loader2, MessageCircle, Send, User } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchAiChatMeta, sendAiChatMessage } from '@/services/aiChat.js'
+import logoMarkSrc from '@/assets/eventhub-mark.png'
 
 const MODE_LABELS = {
   eventhub_assistant: 'Đã kiểm tra thông tin',
@@ -20,8 +21,6 @@ const LAUNCHER_SIZE = 64
 const PANEL_WIDTH = 390
 const PANEL_HEIGHT = 580
 const EDGE_PADDING = 16
-const LOGO_SRC = '/images/ava.png'
-
 function getDefaultLauncherPosition() {
   if (typeof window === 'undefined') return { x: 24, y: 24 }
 
@@ -378,7 +377,7 @@ function EventHubLogoMark({ className = 'size-8' }) {
       aria-hidden="true"
     >
       <img
-        src={LOGO_SRC}
+        src={logoMarkSrc}
         alt=""
         className="h-full w-full object-cover object-center mix-blend-screen"
       />

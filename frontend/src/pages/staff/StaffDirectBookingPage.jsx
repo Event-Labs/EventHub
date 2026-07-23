@@ -8,6 +8,7 @@ import { fetchSessionSeats } from '@/services/events.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import logoSrc from '@/assets/eventhub-logo.png'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Tiền mặt' },
@@ -1228,7 +1229,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
         {result.tickets.map((ticket) => (
           <article key={ticket.id} className="direct-booking-ticket overflow-hidden rounded-xl border border-white/10 bg-[#101a33] text-white shadow-2xl shadow-slate-950/30">
             <div className="ticket-print-header flex items-center justify-between gap-4 border-b border-white/10 bg-[#0f172a] px-5 py-3">
-              <img src="/images/LogoEH.png" alt="EventHub" className="ticket-print-logo h-10 w-44 object-contain object-left" />
+              <img src={logoSrc} alt="EventHub" className="ticket-print-logo h-10 w-44 object-contain object-left" />
               <span className="ticket-print-status rounded-full bg-success/15 px-3 py-1 text-[11px] font-extrabold uppercase text-success">Hợp lệ</span>
             </div>
             <div className="ticket-print-hero relative min-h-40 overflow-hidden">

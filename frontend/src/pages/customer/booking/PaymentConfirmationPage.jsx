@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { CheckCircle, Clock3, ExternalLink, RefreshCw, XCircle } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, fetchOrderStatus } from '@/services/orders.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -37,6 +37,7 @@ export function PaymentConfirmationPage() {
   const checkout = location.state?.checkout
   const orderId = searchParams.get('orderId') || checkout?.order?.id
   const [tick, setTick] = useState(0)
+  const paymentSuccessHandledRef = useRef(false)
 
   const statusQuery = useQuery({
     queryKey: ['order-status', orderId],
@@ -72,9 +73,12 @@ export function PaymentConfirmationPage() {
   }, [])
 
   useEffect(() => {
-    if (statusQuery.data?.order?.status !== 'PAID') return
+    if (statusQuery.data?.order?.status !== 'PAID' || paymentSuccessHandledRef.current) return
+
+    paymentSuccessHandledRef.current = true
+    toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
     navigate('/my-tickets', { replace: true })
-  }, [navigate, statusQuery.data])
+  }, [navigate, statusQuery.data?.order?.status, toast])
 
   const data = statusQuery.data
   const remainingSeconds = useMemo(

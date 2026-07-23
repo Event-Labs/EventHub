@@ -2,6 +2,8 @@ const emailService = require('../../infrastructure/email/email.service');
 const logger = require('../../core/logger');
 const env = require('../../config/env');
 
+const MAX_TICKETS_PER_EMAIL = 6;
+
 const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0));
 const date = (value) => value ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value)) : 'N/A';
@@ -55,7 +57,10 @@ function ticketCard(ticket, order) {
   </div>`;
 }
 
-function buildHtml(order, tickets) {
+function buildHtml(order, tickets, delivery = {}) {
+  const partNotice = delivery.totalParts > 1
+    ? `<p style="padding:12px 16px;border-radius:10px;background:#e0f2fe;color:#075985"><b>Email ${delivery.part}/${delivery.totalParts}</b> &mdash; email n&#224;y c&#243; ${tickets.length} trong t&#7893;ng s&#7889; ${delivery.totalTickets} v&#233;.</p>`
+    : '';
   const image = order.banner_url || order.thumbnail_url;
   return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial;color:#334155">
   <div style="max-width:720px;margin:auto;padding:24px"><div style="background:#0f172a;color:white;padding:24px;border-radius:18px 18px 0 0">
@@ -66,7 +71,7 @@ function buildHtml(order, tickets) {
   <tr><td>Ma giao dich</td><td align="right">${escapeHtml(order.transaction_code || 'N/A')}</td></tr><tr><td>Thanh toan luc</td><td align="right">${escapeHtml(date(order.paid_at))}</td></tr>
   <tr><td>Tam tinh</td><td align="right">${money(order.subtotal)}</td></tr><tr><td>Giam gia</td><td align="right">-${money(order.discount_amount)}</td></tr>
   <tr><td>Phi nen tang</td><td align="right">${money(order.platform_fee)}</td></tr><tr><td><b>Tong thanh toan</b></td><td align="right"><b>${money(order.total_amount)}</b></td></tr></table>
-  <h2>Ve cua ban (${tickets.length})</h2>${tickets.map((ticket) => ticketCard(ticket, order)).join('')}
+  ${partNotice}<h2>Ve cua ban (${tickets.length})</h2>${tickets.map((ticket) => ticketCard(ticket, order)).join('')}
   <p style="font-size:13px;color:#64748b">Khong chia se ma QR. Moi ve chi check-in mot lan.</p></div></div></body></html>`;
 }
 
@@ -92,20 +97,45 @@ async function sendOrderConfirmation(order, tickets) {
     logger.warn(`[TICKET_EMAIL] skipped orderId=${order?.id || 'missing'} reason=${!order?.buyer_email ? 'missing_recipient' : 'no_tickets'} ticketCount=${tickets?.length || 0}`);
     return false;
   }
-  try {
-    logger.info(`[TICKET_EMAIL] rendering orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length} total=${order.total_amount} paidAt=${order.paid_at || 'missing'}`);
-    await emailService.sendEmail({
+
+  const ticketBatches = [];
+  for (let index = 0; index < tickets.length; index += MAX_TICKETS_PER_EMAIL) {
+    ticketBatches.push(tickets.slice(index, index + MAX_TICKETS_PER_EMAIL));
+  }
+
+  logger.info(`[TICKET_EMAIL] rendering orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length} emailParts=${ticketBatches.length} total=${order.total_amount} paidAt=${order.paid_at || 'missing'}`);
+
+  const results = await Promise.allSettled(ticketBatches.map((ticketBatch, index) => {
+    const part = index + 1;
+    const partLabel = ticketBatches.length > 1 ? ` - Phần ${part}/${ticketBatches.length}` : '';
+    return emailService.sendEmail({
       email: order.buyer_email,
-      subject: `V\u00e9 EventHub - ${order.event_title} (${order.order_code})`,
-      message: `Thanh to\u00e1n th\u00e0nh c\u00f4ng \u0111\u01a1n ${order.order_code}. ${tickets.length} v\u00e9 \u0111\u00e3 ph\u00e1t h\u00e0nh. T\u1ed5ng: ${money(order.total_amount)}.`,
-      html: localizeVietnameseHtml(buildHtml(order, tickets)),
+      subject: `Vé EventHub - ${order.event_title} (${order.order_code})${partLabel}`,
+      message: `Thanh toán thành công đơn ${order.order_code}. Email ${part}/${ticketBatches.length} gồm ${ticketBatch.length}/${tickets.length} vé. Tổng: ${money(order.total_amount)}.`,
+      html: localizeVietnameseHtml(buildHtml(order, ticketBatch, {
+        part,
+        totalParts: ticketBatches.length,
+        totalTickets: tickets.length,
+      })),
     });
-    logger.info(`[TICKET_EMAIL] sent orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length}`);
-    return true;
-  } catch (error) {
-    logger.error(`[TICKET_EMAIL] failed orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length} message=${JSON.stringify(error.message || '')} stack=${JSON.stringify(error.stack || '')}`);
+  }));
+
+  const failedParts = [];
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      failedParts.push(index + 1);
+      const error = result.reason || {};
+      logger.error(`[TICKET_EMAIL] part failed orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} part=${index + 1}/${ticketBatches.length} ticketCount=${ticketBatches[index].length} code=${error.code || 'unknown'} message=${JSON.stringify(error.message || '')}`);
+    }
+  });
+
+  if (failedParts.length) {
+    logger.error(`[TICKET_EMAIL] incomplete orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} failedParts=${failedParts.join(',')} totalParts=${ticketBatches.length}`);
     return false;
   }
+
+  logger.info(`[TICKET_EMAIL] sent orderId=${order.id} orderCode=${order.order_code} recipient=${maskEmail(order.buyer_email)} ticketCount=${tickets.length} emailParts=${ticketBatches.length}`);
+  return true;
 }
 
 module.exports = { sendOrderConfirmation };
