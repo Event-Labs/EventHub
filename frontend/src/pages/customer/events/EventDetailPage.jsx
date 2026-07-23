@@ -179,7 +179,7 @@ export function EventDetailPage() {
   const selectSession = (sessionId) => {
     if (requireLogin()) return
     const session = event?.sessions?.find((item) => String(item.id) === String(sessionId))
-    if (isPastTime(session?.start_time || getEventEndTime(event), currentTime)) {
+    if (isPastTime(session?.end_time || getEventEndTime(event), currentTime)) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
@@ -190,7 +190,7 @@ export function EventDetailPage() {
   const handleBook = () => {
     if (requireLogin()) return
     if (!selectedSession) return
-    if (isPastTime(selectedSession?.start_time || getEventEndTime(event), currentTime)) {
+    if (isPastTime(selectedSession?.end_time || getEventEndTime(event), currentTime)) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
@@ -227,7 +227,7 @@ export function EventDetailPage() {
   const overview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
   const eventEndTime = getEventEndTime(event)
   const eventExpired = isPastTime(eventEndTime, currentTime)
-  const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.start_time || eventEndTime, currentTime) : false
+  const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.end_time || eventEndTime, currentTime) : false
 
   return (
     <div className="overflow-x-hidden">
@@ -302,7 +302,7 @@ export function EventDetailPage() {
               {event.sessions?.length ? (
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
-                  const sessionExpired = isPastTime(session.start_time || eventEndTime, currentTime)
+                  const sessionExpired = isPastTime(session.end_time || eventEndTime, currentTime)
                   const selected = String(selectedSessionId) === String(session.id)
                   const expanded = expandedSessionId === session.id
 
