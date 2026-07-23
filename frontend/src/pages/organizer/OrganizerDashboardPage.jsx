@@ -734,7 +734,11 @@ export function OrganizerDashboardPage() {
                   <h2 className="font-bold text-content">Báo cáo tài chính AI</h2>
                 </div>
                 <span className="w-fit rounded border border-border-soft/30 bg-surface/80 px-2 py-1 text-xs font-bold text-subtle">
-                  {financialSummary.source === 'LOCAL_AI_SERVICE' ? 'Local AI' : 'Rule-based'}
+                  {financialSummary.source === 'HUGGING_FACE_SPACE'
+                    ? 'Hugging Face AI'
+                    : financialSummary.source === 'LOCAL_AI_SERVICE'
+                      ? 'Local AI'
+                      : 'Rule-based'}
                 </span>
               </div>
               <p className="text-sm font-semibold leading-7 text-content">
