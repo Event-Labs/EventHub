@@ -133,7 +133,7 @@ class OrdersRepository {
     );
   }
 
-  async createPendingCheckout({ userId, eventId, buyer, attendees = [], promoCode, items, totals, paymentChannel }) {
+  async createPendingCheckout({ userId, eventId, buyer, attendees = [], promoCode, items, totals, paymentChannel, requireEventTermsAcceptance = false, eventTermsAccepted = false }) {
     const client = await db.getClient();
 
     try {
@@ -168,6 +168,7 @@ class OrdersRepository {
           e.approval_status,
           e.deleted_at,
           e.seating_rules,
+          e.additional_terms,
           e.require_attendee_info
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
@@ -194,6 +195,10 @@ class OrdersRepository {
         firstTicket.approval_status !== 'APPROVED'
       ) {
         throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      if (requireEventTermsAcceptance && String(firstTicket.additional_terms || '').trim() && !eventTermsAccepted) {
+        throw new AppError('Bạn cần đồng ý với điều khoản của sự kiện trước khi thanh toán.', 400, ErrorCodes.INVALID_INPUT);
       }
 
       if (firstTicket.event_end_time && new Date(firstTicket.event_end_time).getTime() < Date.now()) {
@@ -325,13 +330,13 @@ class OrdersRepository {
           throw new AppError('Lo\u1ea1i v\u00e9 kh\u00f4ng thu\u1ed9c s\u1ef1 ki\u1ec7n n\u00e0y.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
-        if (ticketType.session_status !== 'UPCOMING') {
+        if (!['UPCOMING', 'ONGOING'].includes(ticketType.session_status)) {
           throw new AppError('Su\u1ea5t di\u1ec5n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
         const now = Date.now();
-        const sessionStart = ticketType.session_start_time ? new Date(ticketType.session_start_time).getTime() : null;
-        if (sessionStart && sessionStart <= now) {
+        const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
+        if (sessionEnd && sessionEnd <= now) {
           throw new AppError('Su\u1ea5t di\u1ec5n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
 
@@ -705,8 +710,8 @@ class OrdersRepository {
         AND e.approval_status = 'APPROVED'
         AND e.deleted_at IS NULL
         AND e.end_time >= now()
-        AND es.status = 'UPCOMING'
-        AND es.start_time > now()
+        AND es.status IN ('UPCOMING', 'ONGOING')
+        AND es.end_time > now()
         AND (ti.sale_start IS NULL OR ti.sale_start <= now())
         AND (ti.sale_end IS NULL OR ti.sale_end >= now())
         AND GREATEST(ti.quantity - ti.sold_quantity - ti.active_hold_quantity, 0) > 0
@@ -938,13 +943,13 @@ class OrdersRepository {
         if (!ticketType || ticketType.event_id !== eventId) {
           throw new AppError('Loại vé không thuộc sự kiện này.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
-        if (ticketType.session_status !== 'UPCOMING') {
+        if (!['UPCOMING', 'ONGOING'].includes(ticketType.session_status)) {
           throw new AppError('Suất diễn hiện không khả dụng để đặt vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
 
         const now = Date.now();
-        const sessionStart = ticketType.session_start_time ? new Date(ticketType.session_start_time).getTime() : null;
-        if (sessionStart && sessionStart <= now) {
+        const sessionEnd = ticketType.session_end_time ? new Date(ticketType.session_end_time).getTime() : null;
+        if (sessionEnd && sessionEnd <= now) {
           throw new AppError('Suất diễn đã kết thúc, không thể bán vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
 

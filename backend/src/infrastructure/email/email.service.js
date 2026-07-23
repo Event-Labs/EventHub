@@ -8,18 +8,34 @@ function maskEmail(value) {
     return `${name.slice(0, 2)}***@${domain}`;
 }
 
-const transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465,
-    auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 30000,
-});
+const transporters = new Map();
+
+function getTransporter(port) {
+    if (!transporters.has(port)) {
+        transporters.set(port, nodemailer.createTransport({
+            host: env.SMTP_HOST,
+            port,
+            secure: port === 465,
+            auth: {
+                user: env.SMTP_USER,
+                pass: env.SMTP_PASS,
+            },
+            connectionTimeout: 30000,
+            greetingTimeout: 30000,
+            socketTimeout: 120000,
+        }));
+    }
+    return transporters.get(port);
+}
+
+function isConnectionError(error) {
+    return ['ETIMEDOUT', 'ECONNREFUSED', 'ECONNRESET', 'ESOCKET', 'EHOSTUNREACH'].includes(error?.code);
+}
+
+async function sendWithPort(mailOptions, port) {
+    const transporter = getTransporter(port);
+    return transporter.sendMail(mailOptions);
+}
 
 const sendEmail = async (options) => {
     const mailOptions = {
@@ -33,7 +49,17 @@ const sendEmail = async (options) => {
 
     try {
         logger.info(`[SMTP] send started recipient=${maskEmail(options.email)} host=${env.SMTP_HOST} port=${env.SMTP_PORT} secure=${env.SMTP_PORT === 465} from=${env.EMAIL_FROM} subject=${JSON.stringify(options.subject || '')} attachments=${options.attachments?.length || 0}`);
-        const info = await transporter.sendMail(mailOptions);
+        let port = env.SMTP_PORT;
+        let info;
+        try {
+            info = await sendWithPort(mailOptions, port);
+        } catch (error) {
+            const fallbackPort = port === 465 ? 587 : 465;
+            if (!isConnectionError(error)) throw error;
+            logger.warn(`[SMTP] primary connection failed port=${port} code=${error.code || 'unknown'}; retrying fallback port=${fallbackPort}`);
+            port = fallbackPort;
+            info = await sendWithPort(mailOptions, port);
+        }
         const accepted = Array.isArray(info.accepted) ? info.accepted : [];
         const rejected = Array.isArray(info.rejected) ? info.rejected : [];
         if (accepted.length === 0 || rejected.length > 0) {
@@ -42,7 +68,7 @@ const sendEmail = async (options) => {
             error.rejected = rejected;
             throw error;
         }
-        logger.info(`[SMTP] send completed recipient=${maskEmail(options.email)} messageId=${info.messageId || 'missing'} accepted=${JSON.stringify(info.accepted || [])} rejected=${JSON.stringify(info.rejected || [])} response=${JSON.stringify(info.response || '')}`);
+        logger.info(`[SMTP] send completed recipient=${maskEmail(options.email)} port=${port} messageId=${info.messageId || 'missing'} accepted=${JSON.stringify(info.accepted || [])} rejected=${JSON.stringify(info.rejected || [])} response=${JSON.stringify(info.response || '')}`);
         return info;
     } catch (error) {
         logger.error(`[SMTP] send failed recipient=${maskEmail(options.email)} code=${error.code || 'unknown'} command=${error.command || 'unknown'} responseCode=${error.responseCode || 'unknown'} message=${JSON.stringify(error.message || '')} stack=${JSON.stringify(error.stack || '')}`);

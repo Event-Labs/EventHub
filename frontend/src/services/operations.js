@@ -15,6 +15,11 @@ export async function inviteStaffToEvent(payload) {
   return response.data.data
 }
 
+export async function deleteStaffInvitation(invitationId) {
+  const response = await http.delete(`/operations/organizer/staff-invitations/${invitationId}`)
+  return response.data.data
+}
+
 export async function removeStaffFromEvent(eventId, staffId) {
   const response = await http.delete(`/operations/organizer/events/${eventId}/staff/${staffId}`)
   return response.data.data

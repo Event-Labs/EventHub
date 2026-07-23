@@ -350,6 +350,23 @@ class OperationsService {
     return { event_id: eventId, staff_id: staffId, removed: true };
   }
 
+  async deleteStaffInvitation(userId, invitationId) {
+    const organizer = await this.getOrganizerContext(userId);
+    const invitation = await operationsRepository.findInvitationForOrganizer(invitationId, organizer.id);
+    if (!invitation) {
+      throw new AppError('Không tìm thấy lời mời nhân sự.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    const event = await this.resolveOrganizerEvent(organizer.id, invitation.event_id);
+    this.assertEventStaffManageable(event);
+
+    const deleted = await operationsRepository.deleteStaffInvitation(invitationId);
+    if (!deleted) {
+      throw new AppError('Không tìm thấy lời mời nhân sự.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    return { invitation_id: invitationId, deleted: true };
+  }
+
   async createTask(userId, payload) {
     const organizer = await this.getOrganizerContext(userId);
     const event = await this.resolveOrganizerEvent(organizer.id, payload.event_id);

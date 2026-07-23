@@ -43,7 +43,20 @@ class SeatMapsRepository {
       SELECT
         sm.*,
         COUNT(DISTINCT sz.id)::int AS zone_count,
-        COUNT(DISTINCT s.id)::int AS seat_count
+        COUNT(DISTINCT s.id)::int AS seat_count,
+        (
+          COUNT(DISTINCT s.id)::int +
+          COALESCE((
+            SELECT SUM(COALESCE(NULLIF(sa->>'capacity', '')::int, 0))::int
+            FROM jsonb_array_elements(
+              CASE 
+                WHEN sm.config IS NOT NULL AND (sm.config::jsonb) ? 'standingAreas' AND jsonb_typeof((sm.config::jsonb)->'standingAreas') = 'array' THEN (sm.config::jsonb)->'standingAreas'
+                WHEN sm.config IS NOT NULL AND (sm.config::jsonb) ? 'standing_areas' AND jsonb_typeof((sm.config::jsonb)->'standing_areas') = 'array' THEN (sm.config::jsonb)->'standing_areas'
+                ELSE '[]'::jsonb
+              END
+            ) AS sa
+          ), 0)
+        )::int AS total_capacity
       FROM seat_maps sm
       JOIN venues v ON v.id = sm.venue_id
       LEFT JOIN seat_zones sz ON sz.seat_map_id = sm.id
