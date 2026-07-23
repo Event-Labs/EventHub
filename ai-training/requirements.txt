@@ -9,3 +9,5 @@ protobuf
 fastapi
 uvicorn
 pydantic
+gradio
+spaces
