@@ -28,12 +28,19 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+function isApprovedOrPublishedEvent(event) {
+  if (!event) return false
+  const status = (event.status || '').toUpperCase()
+  const approvalStatus = (event.approval_status || '').toUpperCase()
+
+  if (['CANCELLED', 'DRAFT', 'HIDDEN', 'UNPUBLISHED'].includes(status)) return false
+  if (['PENDING', 'REJECTED'].includes(approvalStatus)) return false
+
+  return status === 'PUBLISHED' || approvalStatus === 'APPROVED'
+}
+
 function isStaffManageableEvent(event) {
-  if (!event || event.status === 'DRAFT') return false
-  const isApprovedForStaff = event.status === 'PUBLISHED'
-    || event.approval_status === 'APPROVED'
-    || (event.status === 'COMPLETED' && event.approval_status === 'APPROVED')
-  if (!isApprovedForStaff) return false
+  if (!isApprovedOrPublishedEvent(event)) return false
   const effectiveEnd = event.end_time || event.start_time
   if (!effectiveEnd) return false
   return new Date(effectiveEnd).getTime() >= Date.now()
@@ -57,7 +64,11 @@ export function OrganizerStaffManagementPage() {
     try {
       const ov = await fetchOrganizerOperationsOverview()
       setData(ov)
-      setSelectedEventId((cur) => cur || ov.events?.[0]?.id || '')
+      const approvedEvents = (ov.events || []).filter(isApprovedOrPublishedEvent)
+      setSelectedEventId((cur) => {
+        if (cur && approvedEvents.some((ev) => ev.id === cur)) return cur
+        return approvedEvents[0]?.id || ''
+      })
     } catch (err) {
       const message = getApiMessage(err, 'Không thể tải dữ liệu.')
       setError(message)
@@ -158,7 +169,7 @@ export function OrganizerStaffManagementPage() {
               onChange={(e) => setSelectedEventId(e.target.value)}
               disabled={loading}
             >
-              {(data?.events || []).filter((ev) => ev.status === 'PUBLISHED' || ev.approval_status === 'APPROVED' || ev.status === 'COMPLETED').map((ev) => (
+              {(data?.events || []).filter(isApprovedOrPublishedEvent).map((ev) => (
                 <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
               ))}
             </select>
@@ -495,7 +506,7 @@ function InviteStaffModal({
                 disabled={events.length === 0}
               >
                 <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
-                {events.filter((ev) => ev.status === 'PUBLISHED' || ev.approval_status === 'APPROVED' || ev.status === 'COMPLETED').map((ev) => (
+                {events.filter(isApprovedOrPublishedEvent).map((ev) => (
                   <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
                 ))}
               </select>
