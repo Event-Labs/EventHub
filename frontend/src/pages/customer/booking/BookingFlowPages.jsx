@@ -28,6 +28,15 @@ function formatPrice(value) {
   return `${number.toLocaleString('vi-VN')} \u0111`
 }
 
+function ticketAvailability(ticketType) {
+  const total = Math.max(0, Number(ticketType?.quantity ?? 0))
+  const available = Math.min(
+    total,
+    Math.max(0, Number(ticketType?.available_quantity ?? total)),
+  )
+  return { available, total }
+}
+
 function formatDateTime(value) {
   if (!value) return 'Ch\u01b0a c\u1eadp nh\u1eadt'
   return new Intl.DateTimeFormat('vi-VN', {
@@ -1574,6 +1583,8 @@ function Input({ label, value, onChange, type = 'text', placeholder }) {
 }
 
 function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, onClose }) {
+  const availability = ticketAvailability(ticketType)
+
   return createPortal(
     <div className={'fixed inset-0 z-50 grid place-items-center bg-black/70 p-4'} onClick={onClose}>
       <div className={'w-full max-w-md rounded-xl border border-border-soft bg-panel p-6 shadow-2xl'} onClick={(event) => event.stopPropagation()}>
@@ -1582,6 +1593,9 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
           <button type={'button'} onClick={onClose} className={'text-muted hover:text-white'}><X className={'size-5'} /></button>
         </div>
         <p className={'mt-4 whitespace-pre-line text-sm leading-6 text-muted'}>{ticketType.description || 'Khu vực đứng, không có ghế ngồi cố định.'}</p>
+        <p className={'mt-3 text-sm font-bold text-success'}>
+          Còn lại: {availability.available}/{availability.total} vé
+        </p>
         <div className={'mt-5 flex items-center justify-between gap-4'}>
           <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)} / vé</p>
           <QuantityStepper quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
@@ -1610,10 +1624,18 @@ function QuantityStepper({ quantity, onDecrease, onIncrease, className = '' }) {
 }
 
 function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
+  const availability = ticketAvailability(ticketType)
+
   return (
     <div className={'px-2 py-1'}>
       <div className={'flex items-start justify-between gap-4'}>
-        <div><p className={'font-bold text-white'}>{ticketType.name}</p><p className={'mt-1 text-sm text-muted'}>{ticketType.description}</p></div>
+        <div>
+          <p className={'font-bold text-white'}>{ticketType.name}</p>
+          <p className={'mt-1 text-sm text-muted'}>{ticketType.description}</p>
+          <p className={'mt-2 text-sm font-bold text-success'}>
+            Còn lại: {availability.available}/{availability.total} vé
+          </p>
+        </div>
         <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)}</p>
       </div>
       <QuantityStepper className={'mt-4'} quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
