@@ -125,7 +125,7 @@ export function HomePage() {
   const toast = useToast()
   const [keyword, setKeyword] = useState('')
   const [activeSlide, setActiveSlide] = useState(0)
-  const [timelineNow] = useState(() => Date.now())
+  const [timelineNow, setTimelineNow] = useState(() => Date.now())
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -154,6 +154,11 @@ export function HomePage() {
     queryKey: ['event-categories'],
     queryFn: fetchEventCategories,
   })
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTimelineNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const favoriteMutation = useMutation({
     mutationFn: (event) => toggleFavorite(event.id),
