@@ -10,6 +10,12 @@ import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
+const SORT_OPTIONS = [
+  ['start_time', 'Sắp diễn ra'],
+  ['created_at', 'Mới nhất'],
+  ['price', 'Giá thấp nhất'],
+]
+
 const LOCATION_OPTIONS = [
   ['', 'Tất cả địa điểm'],
   ['Thành phố Hồ Chí Minh', 'TP. Hồ Chí Minh'],
@@ -27,6 +33,8 @@ function readFilters(searchParams) {
     end_date: searchParams.get('end_date') || '',
     min_price: searchParams.get('min_price') || '',
     max_price: searchParams.get('max_price') || '',
+    sort_by: searchParams.get('sort_by') || 'start_time',
+    sort_order: searchParams.get('sort_order') || 'asc',
     page: searchParams.get('page') || '1',
   }
 }
@@ -36,8 +44,6 @@ function buildQuery(filters) {
     Object.entries({
       ...filters,
       upcoming_only: true,
-      sort_by: 'created_at',
-      sort_order: 'desc',
       limit: 9,
     }).filter(([, value]) => value),
   )
@@ -94,6 +100,8 @@ export function EventsPage() {
       end_date: '',
       min_price: '',
       max_price: '',
+      sort_by: 'start_time',
+      sort_order: 'asc',
       page: '1',
     }
     setDraft(reset)
@@ -178,7 +186,7 @@ export function EventsPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid items-end gap-4 lg:grid-cols-[minmax(170px,0.9fr)_minmax(170px,0.9fr)_auto]">
+        <div className="mt-4 grid items-end gap-4 lg:grid-cols-[minmax(170px,0.9fr)_minmax(170px,0.9fr)_minmax(190px,0.95fr)_auto]">
           <Input
             label="Giá từ"
             type="number"
@@ -193,6 +201,18 @@ export function EventsPage() {
             value={draft.max_price}
             onChange={(value) => setDraft({ ...draft, max_price: value })}
           />
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-muted">Sắp xếp</span>
+            <select
+              value={draft.sort_by}
+              onChange={(event) => setDraft({ ...draft, sort_by: event.target.value, sort_order: event.target.value === 'created_at' ? 'desc' : 'asc' })}
+              className="h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              {SORT_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
           <div className="flex flex-col gap-3 sm:flex-row">
             <button className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-md bg-primary px-5 font-bold text-slate-950 transition hover:bg-sky-300">
               <Filter className="size-4" />
