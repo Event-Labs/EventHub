@@ -2,7 +2,7 @@ const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 
-const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
+const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 10);
 
 const PUBLIC_EVENT_WHERE = `
   e.status = 'PUBLISHED'
@@ -667,12 +667,12 @@ class EventsRepository {
 
       if (requestedSeatIds.length === 0) {
         await client.query('COMMIT');
-        return { hold_expires_at: null, hold_minutes: HOLD_MINUTES, seats: [] };
+        return { hold_expires_at: null, hold_seconds: HOLD_SECONDS, seats: [] };
       }
 
       const expiresAtResult = await client.query(
-        `SELECT now() + ($1::text || ' minutes')::interval AS expired_at`,
-        [HOLD_MINUTES],
+        `SELECT now() + ($1 * interval '1 second') AS expired_at`,
+        [HOLD_SECONDS],
       );
       const expiresAt = expiresAtResult.rows[0].expired_at;
       const ticketTypeIds = [...new Set(payload.items.map((item) => item.ticket_type_id))];
@@ -827,7 +827,7 @@ class EventsRepository {
       }
 
       await client.query('COMMIT');
-      return { hold_expires_at: expiresAt, hold_minutes: HOLD_MINUTES, seats: heldSeats };
+      return { hold_expires_at: expiresAt, hold_seconds: HOLD_SECONDS, seats: heldSeats };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

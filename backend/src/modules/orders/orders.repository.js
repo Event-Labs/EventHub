@@ -5,7 +5,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
 const { validateSelectedSeats } = require('../events/seatingRules');
 
-const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
+const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 10);
 
 function orderCode() {
   return `ORD-${Date.now()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
@@ -219,8 +219,8 @@ class OrdersRepository {
       const attendeeQueues = requireAttendeeInfo ? buildAttendeeQueues(attendees) : new Map();
 
       const expiresAtResult = await client.query(
-        `SELECT now() + ($1::text || ' minutes')::interval AS expired_at`,
-        [HOLD_MINUTES],
+        `SELECT now() + ($1 * interval '1 second') AS expired_at`,
+        [HOLD_SECONDS],
       );
       const expiredAt = expiresAtResult.rows[0].expired_at;
 
