@@ -4,54 +4,12 @@ const {
   policyDocumentSchema,
   policyTypeQuerySchema,
   policyConfigSchema,
-  platformFeeSchema,
   updatePolicyConfigSchema,
   updatePolicyDocumentSchema,
-  updatePlatformFeeSchema,
   uuidParamSchema,
 } = require('./platformFinance.validation');
 
 class PlatformFinanceController {
-  listFees = async (req, res, next) => {
-    try {
-      const data = await platformFinanceService.listFees();
-      res.status(200).json(ApiResponse.success(data, 'Platform fee configurations fetched'));
-    } catch (err) {
-      next(err);
-    }
-  };
-
-  createFee = async (req, res, next) => {
-    try {
-      const payload = platformFeeSchema.parse(req.body);
-      const data = await platformFinanceService.createFee(payload, req.user.sub);
-      res.status(201).json(ApiResponse.success(data, 'Platform fee configuration created'));
-    } catch (err) {
-      next(err);
-    }
-  };
-
-  updateFee = async (req, res, next) => {
-    try {
-      const { id } = uuidParamSchema.parse(req.params);
-      const payload = updatePlatformFeeSchema.parse(req.body);
-      const data = await platformFinanceService.updateFee(id, payload);
-      res.status(200).json(ApiResponse.success(data, 'Platform fee configuration updated'));
-    } catch (err) {
-      next(err);
-    }
-  };
-
-  deleteFee = async (req, res, next) => {
-    try {
-      const { id } = uuidParamSchema.parse(req.params);
-      const data = await platformFinanceService.deleteFee(id);
-      res.status(200).json(ApiResponse.success(data, 'Platform fee configuration deleted'));
-    } catch (err) {
-      next(err);
-    }
-  };
-
   listPolicies = async (req, res, next) => {
     try {
       const { policy_type: policyType } = policyTypeQuerySchema.parse(req.query);

@@ -456,32 +456,8 @@ CREATE TABLE promo_code_events (
 );
 
 -- =========================================================
--- PLATFORM FEES
+-- PLATFORM POLICIES
 -- =========================================================
-
-CREATE TABLE platform_fee_configs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-    name VARCHAR(100) NOT NULL,
-
-    fee_type VARCHAR(20) NOT NULL,
-
-    percentage_value NUMERIC(5,2) DEFAULT 0,
-
-    fixed_amount NUMERIC(12,2) DEFAULT 0,
-
-    is_active BOOLEAN DEFAULT TRUE,
-
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE platform_fee_configs
-ADD COLUMN event_category_id UUID REFERENCES event_categories(id),
-ADD COLUMN effective_from TIMESTAMPTZ DEFAULT NOW(),
-ADD COLUMN effective_to TIMESTAMPTZ,
-ADD COLUMN created_by UUID REFERENCES users(id),
-ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
-
 
 CREATE TYPE platform_policy_type_enum AS ENUM (
     'REFUND',
@@ -555,9 +531,6 @@ CREATE TABLE orders (
     order_channel VARCHAR(20) DEFAULT 'ONLINE',
 
     promo_code_id UUID REFERENCES promo_codes(id),
-
-    platform_fee_config_id UUID
-    REFERENCES platform_fee_configs(id),
 
     order_code VARCHAR(50) UNIQUE NOT NULL,
 
