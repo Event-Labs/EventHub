@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -559,7 +559,7 @@ export function BookingSeatsPage() {
       const heldCart = {
         ...nextCart,
         holdExpiresAt: hold.hold_expires_at || (hasSelectedSeats
-          ? new Date(Date.now() + 10 * 1000).toISOString()
+          ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
           : null),
       }
       saveBookingDraft(heldCart)

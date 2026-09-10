@@ -89,6 +89,7 @@ class TicketsRepository {
         e.thumbnail_url AS event_thumbnail_url,
         e.banner_url AS event_banner_url,
         e.require_attendee_info,
+        e.refund_policy AS event_refund_policy,
         es.id AS event_session_id,
         es.session_name,
         es.start_time AS session_start_time,
@@ -114,6 +115,7 @@ class TicketsRepository {
         s.is_disabled,
         o.id AS order_id,
         o.order_code,
+        o.status AS order_status,
         o.buyer_name,
         o.buyer_email,
         o.total_amount,
@@ -128,7 +130,7 @@ class TicketsRepository {
       LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
       LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE o.user_id = $1
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
         ${statusFilter}
       ORDER BY o.created_at DESC, t.created_at DESC
@@ -164,6 +166,7 @@ class TicketsRepository {
         e.banner_url AS event_banner_url,
         e.thumbnail_url AS event_thumbnail_url,
         e.require_attendee_info,
+        e.refund_policy AS event_refund_policy,
         e.start_time AS event_start_time,
         e.end_time AS event_end_time,
         es.id AS event_session_id,
@@ -225,7 +228,7 @@ class TicketsRepository {
       ) p ON true
       WHERE t.id = $1
         AND o.user_id = $2
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
       ORDER BY p.paid_at DESC NULLS LAST
       LIMIT 1

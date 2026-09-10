@@ -2,7 +2,7 @@ const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 
-const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 10);
+const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
 const PUBLIC_EVENT_WHERE = `
   e.status = 'PUBLISHED'

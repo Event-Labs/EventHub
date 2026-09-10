@@ -285,6 +285,19 @@ CREATE TABLE event_reviews (
     UNIQUE(event_id, reviewed_by)
 );
 
+CREATE TABLE event_ai_reviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+
+    recommendation VARCHAR(30) NOT NULL CHECK (recommendation IN ('APPROVE', 'REJECT', 'NEEDS_REVIEW')),
+
+    warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
 -- =========================================================
 -- VENUES
 -- =========================================================
@@ -1228,34 +1241,63 @@ CREATE TYPE payment_reference_type_enum AS ENUM (
 
 
 -- =========================================================
--- REFUND (LÀM SAU)
+-- REFUNDS
 -- =========================================================
 
 CREATE TABLE refund_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    order_id UUID NOT NULL REFERENCES orders(id),
-    ticket_id UUID REFERENCES tickets(id),
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    ticket_id UUID REFERENCES tickets(id) ON DELETE SET NULL,
 
-    customer_id UUID REFERENCES users(id),
-    organizer_id UUID REFERENCES users(id),
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
 
-    refund_amount NUMERIC(12,2) NOT NULL,
+    customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    organizer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
-    reason TEXT,
+    refund_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
 
-    status VARCHAR(30) NOT NULL DEFAULT 'REQUESTED',
-    -- REQUESTED, APPROVED, REJECTED, REFUNDED, FAILED
+    reason TEXT NOT NULL,
 
-    refund_method VARCHAR(30) DEFAULT 'MANUAL_BANK_TRANSFER',
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    -- PENDING, APPROVED, REJECTED, REFUNDED
 
+    refund_method VARCHAR(50) DEFAULT 'MANUAL_BANK_TRANSFER',
+
+    bank_name VARCHAR(100),
+    bank_account_number VARCHAR(50),
+    bank_account_name VARCHAR(255),
+
+    organizer_note TEXT,
     organizer_proof_url TEXT,
-    organizer_transaction_ref TEXT,
+    organizer_transaction_ref VARCHAR(100),
+
+    processed_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
 
     requested_at TIMESTAMPTZ DEFAULT NOW(),
     reviewed_at TIMESTAMPTZ,
-    refunded_at TIMESTAMPTZ
+    refunded_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- =========================================================
+-- AI EVENT REVIEWS (AI-Assisted Event Review)
+-- =========================================================
+
+CREATE TABLE event_ai_reviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+
+    recommendation VARCHAR(30) NOT NULL CHECK (recommendation IN ('APPROVE', 'REJECT', 'NEEDS_REVIEW')),
+
+    warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 
 -- =========================================================

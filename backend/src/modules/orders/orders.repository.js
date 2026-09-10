@@ -5,7 +5,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
 const { validateSelectedSeats } = require('../events/seatingRules');
 
-const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 10);
+const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
 function orderCode() {
   return `ORD-${Date.now()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
