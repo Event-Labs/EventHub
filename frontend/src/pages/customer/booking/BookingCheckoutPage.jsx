@@ -176,7 +176,7 @@ export function BookingCheckoutPage() {
             </p>
           )}
           <p className="mt-3 text-xs text-subtle">
-            Backend sẽ giữ vé trong 15 phút, tạo đơn Pending và mở thanh toán PayOS của ban tổ chức.
+            Backend sẽ giữ vé trong 10 giây, tạo đơn Pending và mở thanh toán PayOS của ban tổ chức.
           </p>
           <button
             type="submit"

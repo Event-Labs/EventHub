@@ -116,6 +116,97 @@ class EventsAdminRepository {
     );
     return rows[0] ?? null;
   }
+
+  async getLatestAiReview(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        id,
+        event_id,
+        recommendation,
+        warnings,
+        created_at
+      FROM event_ai_reviews
+      WHERE event_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [eventId],
+    );
+    return rows[0] ?? null;
+  }
+
+  async saveAiReview({ eventId, recommendation, warnings }) {
+    const { rows } = await db.query(
+      `
+      INSERT INTO event_ai_reviews (
+        event_id,
+        recommendation,
+        warnings
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id, event_id, recommendation, warnings, created_at
+      `,
+      [eventId, recommendation, JSON.stringify(warnings || [])],
+    );
+    return rows[0] ?? null;
+  }
+
+  async findEventFullDetailForAi(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        e.id,
+        e.title,
+        e.short_description,
+        e.description,
+        e.thumbnail_url,
+        e.banner_url,
+        e.format,
+        e.visibility,
+        e.start_time,
+        e.end_time,
+        e.status,
+        e.approval_status,
+        COALESCE(session_summary.items, '[]'::json) AS sessions,
+        COALESCE(ticket_summary.items, '[]'::json) AS ticket_types
+      FROM events e
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', sess.id,
+            'session_name', sess.session_name,
+            'start_time', sess.start_time,
+            'end_time', sess.end_time
+          )
+          ORDER BY sess.start_time ASC
+        ) AS items
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+      ) session_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', tt.id,
+            'name', tt.name,
+            'price', tt.price,
+            'quantity', tt.quantity
+          )
+          ORDER BY tt.price ASC
+        ) AS items
+        FROM event_sessions sess
+        JOIN ticket_types tt ON tt.event_session_id = sess.id
+        WHERE sess.event_id = e.id
+      ) ticket_summary ON true
+      WHERE e.id = $1
+        AND e.deleted_at IS NULL
+      LIMIT 1
+      `,
+      [eventId],
+    );
+    return rows[0] ?? null;
+  }
 }
 
 module.exports = new EventsAdminRepository();
+

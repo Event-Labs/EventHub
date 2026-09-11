@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers } from 'lucide-react'
 import { fetchEventCategories } from '@/services/events.js'
 import {
   createOrganizerEvent,
@@ -7,6 +8,7 @@ import {
   fetchOrganizerVenues,
   submitOrganizerEvent,
   updateOrganizerEvent,
+  generateAiEventContent,
 } from '@/services/organizerEvents.js'
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { assignZones, getSeatMap } from '@/services/organizerSeatMaps.js'
@@ -148,6 +150,8 @@ function Step1EventInfo({
   uploadingThumb,
   uploadingBanner,
 }) {
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false)
+
   const addTag = () => {
     const tag = tagInput.trim()
     if (!tag || formData.tags.includes(tag)) return
@@ -159,10 +163,20 @@ function Step1EventInfo({
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-8">
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 hover:border-border-soft/60 transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
-            <Icon name="info" className="text-tertiary" />
-            Thông tin cơ bản
-          </h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[20px] font-semibold flex items-center gap-2 text-content">
+              <Icon name="info" className="text-tertiary" />
+              Thông tin cơ bản
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsAiModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110 active:scale-95"
+            >
+              <Sparkles className="size-4 animate-pulse" />
+              ✨ Tạo nội dung với AI
+            </button>
+          </div>
           <div className="space-y-6">
             <div>
               <label className="block text-[13px] font-medium mb-2 text-subtle">Tên sự kiện*</label>
@@ -351,7 +365,321 @@ function Step1EventInfo({
           </div>
         </div>
       </div>
-    </div >
+
+      {isAiModalOpen && (
+        <AiContentGeneratorModal
+          categories={categories}
+          currentCategory={formData.category_id}
+          onClose={() => setIsAiModalOpen(false)}
+          onApply={(generated) => {
+            setFormData((prev) => ({
+              ...prev,
+              title: generated.title || prev.title,
+              short_description: generated.short_description || prev.short_description,
+              description: generated.content_html || generated.description || prev.description,
+              tags: Array.from(new Set([...prev.tags, ...(generated.tags || [])])),
+            }))
+            setIsAiModalOpen(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function AiContentGeneratorModal({ categories, currentCategory, onClose, onApply }) {
+  const toast = useToast()
+  const [topic, setTopic] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState(currentCategory || '')
+  const [targetAudience, setTargetAudience] = useState('')
+  const [keyHighlights, setKeyHighlights] = useState('')
+  const [tone, setTone] = useState('Chuyên nghiệp, hấp dẫn')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+
+  // Edit states after generation
+  const [chosenTitle, setChosenTitle] = useState('')
+  const [editedShortDesc, setEditedShortDesc] = useState('')
+  const [editedContent, setEditedContent] = useState('')
+  const [selectedTags, setSelectedTags] = useState([])
+
+  const categoryName = categories.find((c) => c.id === selectedCategory)?.name || ''
+
+  const handleGenerate = async (e) => {
+    e?.preventDefault()
+    if (!topic.trim()) {
+      toast.error('Vui lòng nhập chủ đề hoặc ý tưởng sự kiện!')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const data = await generateAiEventContent({
+        topic: topic.trim(),
+        category_name: categoryName || undefined,
+        target_audience: targetAudience.trim() || undefined,
+        key_highlights: keyHighlights.trim() || undefined,
+        tone: tone || undefined,
+        language: 'vi',
+      })
+
+      if (data) {
+        setResult(data)
+        const firstTitle = data.suggested_titles?.[0] || topic
+        setChosenTitle(firstTitle)
+        setEditedShortDesc(data.short_description || '')
+        setEditedContent(data.content_html || data.description || '')
+        setSelectedTags(data.tags || [])
+        toast.success('Đã tạo đề xuất nội dung sự kiện bằng AI!')
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể tạo nội dung AI. Vui lòng thử lại.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleApply = () => {
+    if (!chosenTitle.trim()) {
+      toast.error('Vui lòng chọn hoặc nhập tiêu đề sự kiện!')
+      return
+    }
+    onApply({
+      title: chosenTitle,
+      short_description: editedShortDesc,
+      content_html: editedContent,
+      tags: selectedTags,
+    })
+    toast.success('Đã áp dụng nội dung AI vào biểu mẫu!')
+  }
+
+  const toggleTag = (tag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-indigo-500/30 bg-[#0f172a] p-6 shadow-2xl shadow-indigo-950/50">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+        >
+          <CloseIcon className="size-5" />
+        </button>
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 p-2.5 text-white shadow-md">
+            <Sparkles className="size-6" />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-white">Trợ lý AI Sáng tạo nội dung Sự kiện</h3>
+            <p className="text-xs text-slate-400">
+              Nhập từ khóa hoặc ý tưởng ban đầu, Gemini AI sẽ hỗ trợ bạn phác thảo tiêu đề, mô tả và nội dung chi tiết.
+            </p>
+          </div>
+        </div>
+
+        {/* Input Form */}
+        <div className="mt-5 space-y-4 rounded-xl border border-white/5 bg-[#162038] p-4 text-xs">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="block font-bold text-slate-200">Chủ đề / Ý tưởng sự kiện *</label>
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="VD: Hội thảo Khởi nghiệp Trẻ & Đổi mới sáng tạo 2026, Đêm nhạc Acoustic mùa thu..."
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-300">Danh mục</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white focus:border-indigo-400 focus:outline-none"
+              >
+                <option value="">Tự động theo chủ đề</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-300">Giọng văn (Tone)</label>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white focus:border-indigo-400 focus:outline-none"
+              >
+                <option value="Chuyên nghiệp, hấp dẫn">Chuyên nghiệp, hấp dẫn</option>
+                <option value="Sôi động, hào hứng">Sôi động, hào hứng</option>
+                <option value="Trang trọng, học thuật">Trang trọng, học thuật</option>
+                <option value="Nghệ thuật, cảm xúc">Nghệ thuật, cảm xúc</option>
+                <option value="Thân thiện, gần gũi">Thân thiện, gần gũi</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-300">Đối tượng tham gia</label>
+              <input
+                type="text"
+                value={targetAudience}
+                onChange={(e) => setTargetAudience(e.target.value)}
+                placeholder="VD: Sinh viên, lập trình viên, doanh nhân, giới trẻ yêu âm nhạc..."
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-300">Điểm nhấn / Khách mời nổi bật</label>
+              <input
+                type="text"
+                value={keyHighlights}
+                onChange={(e) => setKeyHighlights(e.target.value)}
+                placeholder="VD: Diễn giả CEO công ty công nghệ, quà tặng vé VIP, tiệc tea-break..."
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow transition hover:brightness-110 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  Đang xử lý nội dung với AI...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="size-4" />
+                  ✨ Tạo nội dung sự kiện
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Results Area (Editable before applying) */}
+        {result && (
+          <div className="mt-6 space-y-4 rounded-xl border border-indigo-500/20 bg-[#131d33] p-5 text-xs">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <span className="font-bold text-indigo-300">
+                📝 Kết quả đề xuất từ AI (Bạn có thể chỉnh sửa trước khi áp dụng):
+              </span>
+              <span className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-bold text-indigo-300">
+                AI Preview
+              </span>
+            </div>
+
+            {/* Suggested Titles */}
+            <div>
+              <label className="block font-bold text-slate-200">1. Chọn hoặc sửa Tiêu đề sự kiện</label>
+              {result.suggested_titles?.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {result.suggested_titles.map((t, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setChosenTitle(t)}
+                      className={`flex w-full items-center justify-between rounded-lg border p-2.5 text-left text-xs transition ${
+                        chosenTitle === t
+                          ? 'border-indigo-400 bg-indigo-500/20 text-white font-bold'
+                          : 'border-white/10 bg-[#1e293b] text-slate-300 hover:border-white/20'
+                      }`}
+                    >
+                      <span>{t}</span>
+                      {chosenTitle === t && <Check className="size-4 text-indigo-400" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <input
+                type="text"
+                value={chosenTitle}
+                onChange={(e) => setChosenTitle(e.target.value)}
+                placeholder="Tiêu đề sự kiện..."
+                className="mt-2 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs font-bold text-white focus:border-indigo-400 focus:outline-none"
+              />
+            </div>
+
+            {/* Short Description */}
+            <div>
+              <label className="block font-bold text-slate-200">2. Mô tả ngắn (Tối đa 150 ký tự)</label>
+              <textarea
+                rows={2}
+                maxLength={150}
+                value={editedShortDesc}
+                onChange={(e) => setEditedShortDesc(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] p-3 text-xs text-white focus:border-indigo-400 focus:outline-none"
+              />
+              <p className="text-right text-[10px] text-slate-400">{editedShortDesc.length} / 150</p>
+            </div>
+
+            {/* Detailed Content HTML */}
+            <div>
+              <label className="block font-bold text-slate-200">3. Nội dung chi tiết sự kiện (HTML / Format)</label>
+              <textarea
+                rows={8}
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="mt-1 w-full font-mono rounded-lg border border-white/10 bg-[#1e293b] p-3 text-xs text-slate-200 focus:border-indigo-400 focus:outline-none"
+              />
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="block font-bold text-slate-200">4. Thẻ phân loại (Tags)</label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {result.tags?.map((tag) => {
+                  const active = selectedTags.includes(tag)
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                        active
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'border border-white/10 bg-[#1e293b] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {active ? <Check className="size-3" /> : '+'}
+                      {tag}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Apply Bar */}
+            <div className="flex items-center justify-between border-t border-white/10 pt-4">
+              <p className="text-[11px] text-slate-400">
+                Sau khi áp dụng, bạn vẫn có thể chỉnh sửa tự do trên biểu mẫu sự kiện trước khi xuất bản.
+              </p>
+              <button
+                type="button"
+                onClick={handleApply}
+                className="rounded-lg bg-emerald-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-400"
+              >
+                ✅ Áp dụng vào sự kiện
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
