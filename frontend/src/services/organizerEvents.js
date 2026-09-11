@@ -64,6 +64,57 @@ export async function cancelOrganizerEvent(eventId) {
   return response.data.data
 }
 
+export async function generateAiEventContent(payload) {
+  // Client-side AI Generator (ready for local AI model integration)
+  const { topic = '', category_name = '', target_audience = '', key_highlights = '', tone = 'Chuyên nghiệp' } = payload || {}
+  
+  // Simulate intelligent generation delay
+  await new Promise((resolve) => setTimeout(resolve, 800))
+
+  const cleanTopic = topic.trim()
+  const audienceText = target_audience ? `dành riêng cho ${target_audience}` : 'dành cho tất cả mọi người yêu thích trải nghiệm mới'
+  const highlightText = key_highlights ? ` Điểm nhấn: ${key_highlights}.` : ''
+
+  const suggested_titles = [
+    `${cleanTopic}: Kết Nối & Đột Phá 2026`,
+    `Hội Tụ Đam Mê - ${cleanTopic}`,
+    `Đại Hội ${cleanTopic} & Trải Nghiệm Đỉnh Cao`,
+  ]
+
+  const short_description = `Chào đón sự kiện ${cleanTopic} ${audienceText}.${highlightText}`.slice(0, 150)
+
+  const content_html = `<p><strong>Chào mừng bạn đến với ${cleanTopic}!</strong></p>
+<p>Sự kiện quy tụ không gian trải nghiệm đẳng cấp ${audienceText}. Đây là cơ hội tuyệt vời để giao lưu, học hỏi và kết nối những giá trị mới.</p>
+<br/>
+<p><strong>🌟 Hoạt động và Điểm nhấn nổi bật:</strong></p>
+<ul>
+  <li><strong>Chương trình chính:</strong> Trình diễn, chia sẻ kiến thức chuyên sâu và giao lưu trực tiếp.</li>
+  <li><strong>Khách mời đặc biệt:</strong> ${keyHighlights || 'Các chuyên gia, diễn giả và khách mời có tầm ảnh hưởng.'}</li>
+  <li><strong>Trải nghiệm độc quyền:</strong> Khu vực tương tác, nhận quà lưu niệm và networking dành riêng cho người tham gia.</li>
+</ul>
+<br/>
+<p><strong>📋 Thông tin quan trọng:</strong></p>
+<ul>
+  <li>Vui lòng mang theo mã vé QR khi đến cổng check-in.</li>
+  <li>Tuân thủ quy định và hướng dẫn của Ban tổ chức.</li>
+</ul>`
+
+  const words = cleanTopic.split(/\s+/).filter((w) => w.length > 2)
+  const tags = Array.from(new Set([
+    category_name || 'Sự kiện',
+    'EventHub',
+    '2026',
+    ...words.slice(0, 3),
+  ])).filter(Boolean)
+
+  return {
+    suggested_titles,
+    short_description,
+    content_html,
+    tags,
+  }
+}
+
 export async function addOrganizerSession(eventId, payload) {
   const response = await http.post(`/organizer/events/${eventId}/sessions`, payload)
   return response.data.data

@@ -34,6 +34,27 @@ class EventsAdminController {
       next(err);
     }
   };
+
+  getAiReview = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const data = await eventsAdminService.getAiReview(eventId);
+      res.status(200).json(ApiResponse.success(data, 'AI review fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  runAiReview = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const data = await eventsAdminService.runAiReview(eventId);
+      res.status(200).json(ApiResponse.success(data, 'AI review generated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new EventsAdminController();
+

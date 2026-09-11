@@ -9,18 +9,13 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { fetchAdminEventCategories } from '@/services/events.js'
 import {
-  createPlatformFee,
   createPlatformPolicy,
   createPolicyDocument,
-  deletePlatformFee,
   deletePlatformPolicy,
   deletePolicyDocument,
-  fetchPlatformFees,
   fetchPlatformPolicies,
   fetchPolicyDocuments,
-  updatePlatformFee,
   updatePlatformPolicy,
 } from '@/services/platformFinance.js'
 import { uploadPolicyDocument } from '@/services/uploads.js'
@@ -31,12 +26,6 @@ const primaryActionClass =
   'inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
 
 const PAGE_SIZE = 10
-
-const feeTypes = [
-  ['PERCENTAGE', 'Theo phần trăm'],
-  ['FIXED', 'Số tiền cố định'],
-  ['COMBINED', 'Kết hợp'],
-]
 
 const policyTypes = [
   ['TERMS_CUSTOMER', '1. Điều khoản sử dụng dành cho Khách hàng'],
@@ -67,17 +56,6 @@ const policyConfigFields = {
   ],
 }
 
-const emptyFeeForm = {
-  name: '',
-  fee_type: 'COMBINED',
-  percentage_value: 0,
-  fixed_amount: 0,
-  event_category_id: '',
-  is_active: true,
-  effective_from: '',
-  effective_to: '',
-}
-
 const emptyPolicyForm = {
   policy_type: 'TERMS_CUSTOMER',
   title: '',
@@ -91,70 +69,27 @@ const emptyPolicyForm = {
 export function AdminFinancePage() {
   const toast = useToast()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('fees')
-  const [feeModal, setFeeModal] = useState(null)
   const [policyModal, setPolicyModal] = useState(null)
   const [documentPolicy, setDocumentPolicy] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [actionError, setActionError] = useState('')
-  const [feePage, setFeePage] = useState(1)
   const [policyPage, setPolicyPage] = useState(1)
-  const [feeForm, setFeeForm] = useState(emptyFeeForm)
   const [policyForm, setPolicyForm] = useState(emptyPolicyForm)
 
-  const feesQuery = useQuery({ queryKey: ['platform-fees'], queryFn: fetchPlatformFees })
   const policiesQuery = useQuery({
     queryKey: ['platform-policies-admin'],
     queryFn: fetchPlatformPolicies,
   })
-  const categoriesQuery = useQuery({
-    queryKey: ['admin-event-categories'],
-    queryFn: fetchAdminEventCategories,
-  })
 
-  const fees = feesQuery.data || []
   const policies = policiesQuery.data || []
-  const categories = categoriesQuery.data || []
-  const activeFee = fees.find((fee) => fee.is_active)
   const activePolicies = policies.filter((policy) => policy.is_active)
-  const feePagination = getPagination(fees.length, feePage, PAGE_SIZE)
   const policyPagination = getPagination(policies.length, policyPage, PAGE_SIZE)
-  const paginatedFees = fees.slice(feePagination.startIndex, feePagination.endIndex)
   const paginatedPolicies = policies.slice(policyPagination.startIndex, policyPagination.endIndex)
 
-  const refreshFees = () => queryClient.invalidateQueries({ queryKey: ['platform-fees'] })
   const refreshPolicies = () => {
     queryClient.invalidateQueries({ queryKey: ['platform-policies-admin'] })
     queryClient.invalidateQueries({ queryKey: ['platform-policy-documents'] })
   }
-
-  const feeMutation = useMutation({
-    mutationFn: ({ id, payload }) => (id ? updatePlatformFee(id, payload) : createPlatformFee(payload)),
-    onSuccess: (_data, variables) => {
-      toast.success(variables?.id ? 'Đã cập nhật cấu hình phí.' : 'Đã tạo cấu hình phí.')
-      setFeeModal(null)
-      setFeeForm(emptyFeeForm)
-      refreshFees()
-    },
-    onError: (error) => {
-      toast.error(getApiErrorMessage(error, 'Không thể lưu cấu hình phí. Vui lòng thử lại.'))
-    },
-  })
-
-  const feeDeleteMutation = useMutation({
-    mutationFn: deletePlatformFee,
-    onSuccess: () => {
-      toast.success('Đã xóa cấu hình phí.')
-      setActionError('')
-      setDeleteTarget(null)
-      refreshFees()
-    },
-    onError: (error) => {
-      const message = getApiErrorMessage(error, 'Không thể xóa cấu hình phí. Vui lòng thử lại.')
-      setActionError(message)
-      toast.error(message)
-    },
-  })
 
   const policyMutation = useMutation({
     mutationFn: ({ id, payload }) =>
@@ -187,40 +122,12 @@ export function AdminFinancePage() {
 
   const summary = useMemo(
     () => [
-      ['Phí đang áp dụng', activeFee ? formatFee(activeFee) : 'Chưa thiết lập'],
-      ['Cấu hình phí', fees.length],
       ['Chính sách hiệu lực', activePolicies.length],
+      ['Tổng số chính sách', policies.length],
       ['Tài liệu PDF/DOCX', policies.reduce((total, policy) => total + Number(policy.document_count || 0), 0)],
     ],
-    [activeFee, activePolicies.length, fees.length, policies],
+    [activePolicies.length, policies],
   )
-
-  const openCreateFee = () => {
-    setFeeForm(emptyFeeForm)
-    setFeeModal({ mode: 'create' })
-  }
-
-  const openEditFee = (fee) => {
-    setFeeForm({
-      name: fee.name || '',
-      fee_type: fee.fee_type || 'COMBINED',
-      percentage_value: fee.percentage_value || 0,
-      fixed_amount: fee.fixed_amount || 0,
-      event_category_id: fee.event_category_id || '',
-      is_active: Boolean(fee.is_active),
-      effective_from: toDateTimeInput(fee.effective_from),
-      effective_to: toDateTimeInput(fee.effective_to),
-    })
-    setFeeModal({ mode: 'edit', item: fee })
-  }
-
-  const submitFee = (event) => {
-    event.preventDefault()
-    feeMutation.mutate({
-      id: feeModal?.item?.id,
-      payload: cleanFeePayload(feeForm),
-    })
-  }
 
   const openCreatePolicy = () => {
     setPolicyForm({ ...emptyPolicyForm, config: createDefaultPolicyConfig(emptyPolicyForm.policy_type) })
@@ -255,136 +162,63 @@ export function AdminFinancePage() {
 
   const confirmDelete = () => {
     if (!deleteTarget) return
-
-    if (deleteTarget.type === 'fee') {
-      feeDeleteMutation.mutate(deleteTarget.item.id)
-      return
-    }
-
     policyDeleteMutation.mutate(deleteTarget.item.id)
   }
 
-  const isBusy =
-    feeMutation.isPending ||
-    feeDeleteMutation.isPending ||
-    policyMutation.isPending ||
-    policyDeleteMutation.isPending
+  const isBusy = policyMutation.isPending || policyDeleteMutation.isPending
 
   return (
     <Page
-      title="Tài chính nền tảng"
-      description="Quản lý phí giao dịch, chính sách nền tảng và tài liệu PDF đang áp dụng cho hệ thống"
+      title="Chính sách nền tảng"
+      description="Quản lý chính sách nền tảng, điều khoản và tài liệu PDF đang áp dụng cho hệ thống"
       actions={
-        <div className="flex items-center gap-2">
-          <TabButton active={activeTab === 'fees'} onClick={() => setActiveTab('fees')}>
-            Phí
-          </TabButton>
-          <TabButton active={activeTab === 'policies'} onClick={() => setActiveTab('policies')}>
-            Chính sách
-          </TabButton>
-        </div>
+        <button
+          type="button"
+          className={primaryActionClass}
+          onClick={openCreatePolicy}
+        >
+          <Plus className="size-4" />
+          Thêm chính sách
+        </button>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         {summary.map(([label, value], index) => (
           <MetricCard
             key={label}
             label={label}
             value={value}
-            accent={['bg-[#0057c2]', 'bg-green-600', 'bg-tertiary', 'bg-[#6a1edb]'][index]}
+            accent={['bg-[#0057c2]', 'bg-tertiary', 'bg-[#6a1edb]'][index]}
           />
         ))}
       </div>
 
-      <div className="mt-5 flex justify-end">
-        <button
-          type="button"
-          className={primaryActionClass}
-          onClick={activeTab === 'fees' ? openCreateFee : openCreatePolicy}
-        >
-          <Plus className="size-4" />
-          {activeTab === 'fees' ? 'Thêm phí' : 'Thêm chính sách'}
-        </button>
-      </div>
-
       <div className="mt-6">
-        {activeTab === 'fees' ? (
-          <>
-            <FeeTable
-              fees={paginatedFees}
-              isLoading={feesQuery.isLoading}
-              isError={feesQuery.isError}
-              isBusy={isBusy}
-              onEdit={openEditFee}
-              onDelete={(fee) => requestDelete('fee', fee)}
-              onToggle={(fee) =>
-                feeMutation.mutate({
-                  id: fee.id,
-                  payload: { is_active: !fee.is_active },
-                })
-              }
-            />
-            {!feesQuery.isLoading && !feesQuery.isError && (
-              <PaginationControls
-                page={feePagination.page}
-                pageSize={PAGE_SIZE}
-                total={fees.length}
-                label="cấu hình phí"
-                onPageChange={setFeePage}
-              />
-            )}
-          </>
-        ) : (
-          <>
-            <PolicyTable
-              policies={paginatedPolicies}
-              isLoading={policiesQuery.isLoading}
-              isError={policiesQuery.isError}
-              isBusy={isBusy}
-              onEdit={openEditPolicy}
-              onDocuments={setDocumentPolicy}
-              onDelete={(policy) => requestDelete('policy', policy)}
-              onToggle={(policy) =>
-                policyMutation.mutate({
-                  id: policy.id,
-                  payload: { is_active: !policy.is_active },
-                })
-              }
-            />
-            {!policiesQuery.isLoading && !policiesQuery.isError && (
-              <PaginationControls
-                page={policyPagination.page}
-                pageSize={PAGE_SIZE}
-                total={policies.length}
-                label="chính sách"
-                onPageChange={setPolicyPage}
-              />
-            )}
-          </>
+        <PolicyTable
+          policies={paginatedPolicies}
+          isLoading={policiesQuery.isLoading}
+          isError={policiesQuery.isError}
+          isBusy={isBusy}
+          onEdit={openEditPolicy}
+          onDocuments={setDocumentPolicy}
+          onDelete={(policy) => requestDelete('policy', policy)}
+          onToggle={(policy) =>
+            policyMutation.mutate({
+              id: policy.id,
+              payload: { is_active: !policy.is_active },
+            })
+          }
+        />
+        {!policiesQuery.isLoading && !policiesQuery.isError && (
+          <PaginationControls
+            page={policyPagination.page}
+            pageSize={PAGE_SIZE}
+            total={policies.length}
+            label="chính sách"
+            onPageChange={setPolicyPage}
+          />
         )}
       </div>
-
-      {feeModal && (
-        <Modal title={feeModal.mode === 'edit' ? 'Cập nhật phí nền tảng' : 'Thêm phí nền tảng'} onClose={() => setFeeModal(null)}>
-          <form onSubmit={submitFee} className="space-y-4">
-            <TextInput label="Tên cấu hình" value={feeForm.name} onChange={(name) => setFeeForm({ ...feeForm, name })} required />
-            <SelectInput label="Loại phí" value={feeForm.fee_type} options={feeTypes} onChange={(fee_type) => setFeeForm({ ...feeForm, fee_type })} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <NumberInput label="Giá trị phần trăm" value={feeForm.percentage_value} onChange={(percentage_value) => setFeeForm({ ...feeForm, percentage_value })} />
-              <NumberInput label="Số tiền cố định" value={feeForm.fixed_amount} onChange={(fixed_amount) => setFeeForm({ ...feeForm, fixed_amount })} />
-            </div>
-            <SelectInput
-              label="Loại sự kiện"
-              value={feeForm.event_category_id}
-              options={[['', 'Toàn hệ thống'], ...categories.map((category) => [category.id, category.name])]}
-              onChange={(event_category_id) => setFeeForm({ ...feeForm, event_category_id })}
-            />
-            <DateInputs form={feeForm} setForm={setFeeForm} />
-            <ActiveInput checked={feeForm.is_active} onChange={(is_active) => setFeeForm({ ...feeForm, is_active })} />
-            <FormActions isSaving={feeMutation.isPending} onCancel={() => setFeeModal(null)} />
-          </form>
-        </Modal>
-      )}
 
       {policyModal && (
         <Modal title={policyModal.mode === 'edit' ? 'Cập nhật chính sách nền tảng' : 'Thêm chính sách nền tảng'} onClose={() => setPolicyModal(null)}>
@@ -412,32 +246,12 @@ export function AdminFinancePage() {
         <DeleteConfirmModal
           target={deleteTarget}
           error={actionError}
-          isDeleting={feeDeleteMutation.isPending || policyDeleteMutation.isPending}
+          isDeleting={policyDeleteMutation.isPending}
           onClose={() => setDeleteTarget(null)}
           onConfirm={confirmDelete}
         />
       )}
     </Page>
-  )
-}
-
-function FeeTable({ fees, isLoading, isError, isBusy, onEdit, onDelete, onToggle }) {
-  if (isLoading) return <Panel><p className="text-sm font-semibold">Đang tải cấu hình phí...</p></Panel>
-  if (isError) return <Panel><p className="text-sm font-semibold text-error">Không thể tải cấu hình phí.</p></Panel>
-
-  return (
-    <Table
-      headers={['Tên cấu hình', 'Loại phí', 'Loại sự kiện', 'Mức phí', 'Hiệu lực', 'Trạng thái', 'Hành động']}
-      rows={fees.map((fee) => [
-        <span key="name" className="font-extrabold">{fee.name}</span>,
-        labelFrom(feeTypes, fee.fee_type),
-        fee.event_category_name || 'Toàn hệ thống',
-        formatFee(fee),
-        formatRange(fee.effective_from, fee.effective_to),
-        <Badge key="status" tone={fee.is_active ? 'green' : 'blue'}>{fee.is_active ? 'Đang áp dụng' : 'Tạm ẩn'}</Badge>,
-        <ActionButtons key="actions" isBusy={isBusy} toggleTitle={fee.is_active ? 'Tạm ẩn' : 'Hiện lại'} onEdit={() => onEdit(fee)} onToggle={() => onToggle(fee)} onDelete={() => onDelete(fee)} />,
-      ])}
-    />
   )
 }
 
@@ -494,7 +308,6 @@ function PaginationControls({ page, pageSize, total, label, onPageChange }) {
 }
 
 function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
-  const isFee = target.type === 'fee'
   const itemName = target.item.name || target.item.title
 
   return (
@@ -502,11 +315,9 @@ function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
       <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-5 text-content shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-xl font-extrabold text-content">{isFee ? 'Xóa cấu hình phí?' : 'Xóa chính sách?'}</h3>
+            <h3 className="text-xl font-extrabold text-content">Xóa chính sách?</h3>
             <p className="mt-2 text-sm font-semibold text-subtle">
-              {isFee
-                ? `Cấu hình phí "${itemName}" sẽ được xóa khỏi danh sách quản lý.`
-                : `Chính sách "${itemName}" sẽ được xóa khỏi danh sách quản lý.`}
+              Chính sách "{itemName}" sẽ được xóa khỏi danh sách quản lý.
             </p>
           </div>
           <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft">
@@ -514,7 +325,7 @@ function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
           </button>
         </div>
 
-
+        {error && <p className="mt-4 text-xs font-semibold text-error">{error}</p>}
 
         <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
           <button type="button" onClick={onClose} className="admin-secondary">
@@ -768,21 +579,6 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
   )
 }
 
-function TabButton({ active, children, ...props }) {
-  return (
-    <button
-      type="button"
-      className={`inline-flex min-w-20 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${active
-          ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
-          : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
-        }`}
-      {...props}
-    >
-      {children}
-    </button>
-  )
-}
-
 function TextInput({ label, value, onChange, ...props }) {
   return (
     <label className="block">
@@ -857,19 +653,6 @@ function MetricCard({ label, value, accent }) {
   )
 }
 
-function cleanFeePayload(form) {
-  return {
-    name: form.name.trim(),
-    fee_type: form.fee_type,
-    percentage_value: Number(form.percentage_value || 0),
-    fixed_amount: Number(form.fixed_amount || 0),
-    event_category_id: form.event_category_id || null,
-    is_active: form.is_active,
-    effective_from: form.effective_from || null,
-    effective_to: form.effective_to || null,
-  }
-}
-
 function createDefaultPolicyConfig(policyType, existing = {}) {
   const nextConfig = { ...existing }
     ; (policyConfigFields[policyType] || []).forEach(([key, , type]) => {
@@ -908,17 +691,6 @@ function cleanPolicyPayload(form) {
     effective_from: form.effective_from || null,
     effective_to: form.effective_to || null,
   }
-}
-
-function formatFee(fee) {
-  const parts = []
-  if (Number(fee.percentage_value) > 0) parts.push(`${Number(fee.percentage_value)}%`)
-  if (Number(fee.fixed_amount) > 0) parts.push(formatMoney(fee.fixed_amount))
-  return parts.join(' + ') || formatMoney(0)
-}
-
-function formatMoney(value) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }
 
 function formatRange(from, to) {

@@ -12,21 +12,6 @@ const nullableDate = z
     message: 'Invalid date',
   });
 
-const platformFeeSchema = z.object({
-  name: z.string().trim().min(2).max(100),
-  fee_type: z.enum(['PERCENTAGE', 'FIXED', 'COMBINED']),
-  percentage_value: z.coerce.number().min(0).max(100).default(0),
-  fixed_amount: z.coerce.number().min(0).default(0),
-  event_category_id: z.string().uuid().optional().nullable(),
-  is_active: z.coerce.boolean().default(true),
-  effective_from: nullableDate,
-  effective_to: nullableDate,
-});
-
-const updatePlatformFeeSchema = platformFeeSchema.partial().refine(
-  (data) => Object.keys(data).length > 0,
-  { message: 'At least one field is required' },
-);
 
 const policyTypes = [
   'TERMS_CUSTOMER',
@@ -94,7 +79,6 @@ module.exports = {
   policyConfigSchema,
   updatePolicyConfigSchema,
   updatePolicyDocumentSchema,
-  platformFeeSchema,
-  updatePlatformFeeSchema,
   uuidParamSchema,
 };
+

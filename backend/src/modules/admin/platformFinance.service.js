@@ -2,44 +2,12 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const platformFinanceRepository = require('./platformFinance.repository');
 
-function toNumber(value) {
-  return Number(value || 0);
-}
-
-function roundMoney(value) {
-  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
-}
-
 function assertEffectiveRange(payload) {
   if (!payload.effective_from || !payload.effective_to) return;
 
   if (new Date(payload.effective_from).getTime() > new Date(payload.effective_to).getTime()) {
     throw new AppError('Effective from must be before effective to', 400, ErrorCodes.INVALID_INPUT);
   }
-}
-
-function normalizeFeePayload(payload) {
-  const normalized = { ...payload };
-
-  if (normalized.fee_type === 'PERCENTAGE') {
-    normalized.fixed_amount = 0;
-  }
-
-  if (normalized.fee_type === 'FIXED') {
-    normalized.percentage_value = 0;
-  }
-
-  return normalized;
-}
-
-function serializeFee(row) {
-  if (!row) return row;
-
-  return {
-    ...row,
-    percentage_value: toNumber(row.percentage_value),
-    fixed_amount: toNumber(row.fixed_amount),
-  };
 }
 
 function serializeDocument(row) {
@@ -70,62 +38,6 @@ function isSupportedPolicyDocument(mimeType = '') {
 }
 
 class PlatformFinanceService {
-  calculatePlatformFee(subtotal, feeConfig) {
-    if (!feeConfig) {
-      return {
-        platform_fee_config_id: null,
-        platform_fee: 0,
-        total_amount: roundMoney(subtotal),
-      };
-    }
-
-    const percentageFee = subtotal * (toNumber(feeConfig.percentage_value) / 100);
-    const fixedFee = toNumber(feeConfig.fixed_amount);
-    const platformFee = roundMoney(percentageFee + fixedFee);
-
-    return {
-      platform_fee_config_id: feeConfig.id,
-      platform_fee: platformFee,
-      total_amount: roundMoney(subtotal + platformFee),
-    };
-  }
-
-  async findActiveFeeForCategory(categoryId) {
-    return serializeFee(await platformFinanceRepository.findActiveFeeForCategory(categoryId || null));
-  }
-
-  async listFees() {
-    const rows = await platformFinanceRepository.findFees();
-    return rows.map(serializeFee);
-  }
-
-  async createFee(payload, userId) {
-    assertEffectiveRange(payload);
-    const fee = await platformFinanceRepository.createFee(normalizeFeePayload(payload), userId);
-    return serializeFee(fee);
-  }
-
-  async updateFee(id, payload) {
-    const existing = await platformFinanceRepository.findFeeById(id);
-    if (!existing) {
-      throw new AppError('Platform fee configuration not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
-    }
-
-    const merged = { ...existing, ...payload };
-    assertEffectiveRange(merged);
-    const fee = await platformFinanceRepository.updateFee(id, normalizeFeePayload(payload));
-    return serializeFee(fee);
-  }
-
-  async deleteFee(id) {
-    const deleted = await platformFinanceRepository.deleteFee(id);
-    if (!deleted) {
-      throw new AppError('Platform fee configuration not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
-    }
-
-    return { id, deleted: true };
-  }
-
   async listPolicies(policyType = null) {
     const rows = await platformFinanceRepository.findPolicies(policyType);
     return rows.map((row) => serializePolicy(row));
