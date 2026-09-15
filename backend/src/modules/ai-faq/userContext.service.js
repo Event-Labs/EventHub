@@ -34,7 +34,7 @@ class UserContextService {
         [userId],
       ),
       db.query(
-        `SELECT COUNT(*)::int AS total FROM favorite_events WHERE user_id = $1`,
+        `SELECT COALESCE(array_length(favorite_event_ids, 1), 0)::int AS total FROM users WHERE id = $1`,
         [userId],
       ),
     ]);

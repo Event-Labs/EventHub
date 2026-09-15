@@ -829,15 +829,12 @@ class OrganizerEventsService {
     return { assigned: assignments.length };
   }
 
-  async getLatestAiContentGeneration(userId, eventId) {
+  async getLatestAiContentGeneration(userId, _eventId) {
     const organizer = await organizerEventsRepository.findOrganizerByUserId(userId);
     if (!organizer) {
       throw new AppError('Organizer profile not found', 403, ErrorCodes.AUTH_FORBIDDEN);
     }
-    return organizerEventsRepository.getLatestContentGeneration({
-      organizerId: organizer.id,
-      eventId: eventId || null,
-    });
+    return null;
   }
 
   async generateAiEventContent(userId, payload = {}) {
@@ -910,16 +907,15 @@ class OrganizerEventsService {
       tone,
     };
 
-    const record = await organizerEventsRepository.saveContentGeneration({
-      organizerId: organizer.id,
-      eventId: event_id || null,
-      promptData,
-      generatedContent,
-    });
-
-    return record;
+    return {
+      organizer_id: organizer.id,
+      event_id: event_id || null,
+      prompt_data: promptData,
+      generated_content: generatedContent,
+    };
   }
 }
 
 module.exports = new OrganizerEventsService();
+
 
