@@ -239,19 +239,10 @@ class OrdersRepository {
           FROM promo_codes
           WHERE (
               event_id = $1
-              OR EXISTS (
-                SELECT 1
-                FROM promo_code_events pce
-                WHERE pce.promo_code_id = promo_codes.id
-                  AND pce.event_id = $1
-              )
+              OR $1 = ANY(event_ids)
               OR (
                 event_id IS NULL
-                AND NOT EXISTS (
-                  SELECT 1
-                  FROM promo_code_events pce_any
-                  WHERE pce_any.promo_code_id = promo_codes.id
-                )
+                AND COALESCE(cardinality(event_ids), 0) = 0
               )
             )
             AND organizer_id = $3
@@ -1825,14 +1816,6 @@ class OrdersRepository {
       );
 
       if (order.promo_code_id) {
-        await client.query(
-          `
-          INSERT INTO promo_code_usages (promo_code_id, user_id, order_id)
-          VALUES ($1, $2, $3)
-          ON CONFLICT DO NOTHING
-          `,
-          [order.promo_code_id, order.user_id, order.id],
-        );
         await client.query(
           `
           UPDATE promo_codes
