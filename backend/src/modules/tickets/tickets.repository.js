@@ -11,6 +11,7 @@ const STAFF_TICKET_SELECT = `
     t.created_at,
     t.checked_in_at,
     t.checked_in_by,
+    t.checkin_method,
     e.id AS event_id,
     e.title AS event_title,
     e.slug AS event_slug,
@@ -424,19 +425,11 @@ class TicketsRepository {
         UPDATE tickets
         SET status = 'USED',
             checked_in_at = now(),
-            checked_in_by = $2
+            checked_in_by = $2,
+            checkin_method = $3
         WHERE id = $1
         `,
-        [ticketId, staffId],
-      );
-
-      await client.query(
-        `
-        INSERT INTO checkin_logs (ticket_id, staff_id, method, checked_in_at)
-        VALUES ($1, $2, $3, now())
-        ON CONFLICT (ticket_id) DO NOTHING
-        `,
-        [ticketId, staffId, method],
+        [ticketId, staffId, method || 'QR'],
       );
 
       const ticketResult = await client.query(

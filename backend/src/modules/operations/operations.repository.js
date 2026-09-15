@@ -93,6 +93,7 @@ class OperationsRepository {
         AND os.status = 'ACTIVE'
         AND os.start_date <= now()
         AND os.end_date >= now()
+        AND s.deleted_at IS NULL
       ORDER BY os.start_date DESC
       LIMIT 1
       `,
@@ -115,10 +116,9 @@ class OperationsRepository {
         e.start_time,
         e.end_time,
         COUNT(DISTINCT es.staff_id)::int AS staff_count,
-        COUNT(DISTINCT st.id)::int       AS task_count
+        0::int                           AS task_count
       FROM events e
       LEFT JOIN event_staffs es ON es.event_id = e.id
-      LEFT JOIN staff_tasks  st ON st.event_id = e.id
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
       GROUP BY e.id
@@ -576,10 +576,6 @@ class OperationsRepository {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
-      await client.query(
-        'DELETE FROM staff_tasks WHERE event_id = $1 AND staff_id = $2',
-        [eventId, staffId],
-      );
       const { rowCount } = await client.query(
         'DELETE FROM event_staffs WHERE event_id = $1 AND staff_id = $2',
         [eventId, staffId],
@@ -643,46 +639,21 @@ class OperationsRepository {
   }
 
   async createTask({ eventId, staffId, title, description, createdBy }) {
-    const { rows } = await db.query(
-      `
-      INSERT INTO staff_tasks (event_id, staff_id, title, description, created_by)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, event_id, staff_id, title, description, status, created_by, created_at, updated_at
-      `,
-      [eventId, staffId, title, description || null, createdBy],
-    );
-    return rows[0];
+    return {
+      id: null,
+      event_id: eventId,
+      staff_id: staffId,
+      title,
+      description: description || null,
+      status: 'TODO',
+      created_by: createdBy,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
   }
 
   async listOrganizerTasks(organizerId, eventId = null) {
-    const params = [organizerId];
-    const eventClause = eventId ? `AND e.id = $${params.push(eventId)}` : '';
-
-    const { rows } = await db.query(
-      `
-      SELECT
-        st.id,
-        st.event_id,
-        e.title          AS event_title,
-        st.staff_id,
-        u.full_name      AS staff_name,
-        u.email          AS staff_email,
-        st.title,
-        st.description,
-        st.status,
-        st.created_at,
-        st.updated_at
-      FROM staff_tasks st
-      JOIN events e ON e.id = st.event_id
-      JOIN users  u ON u.id = st.staff_id
-      WHERE e.organizer_id = $1
-        AND e.deleted_at IS NULL
-        ${eventClause}
-      ORDER BY st.created_at DESC
-      `,
-      params,
-    );
-    return rows;
+    return [];
   }
 
   async listStaffAssignedEvents(staffId) {
@@ -853,7 +824,7 @@ class OperationsRepository {
           t.ticket_code,
           COALESCE(t.attendee_name, o.buyer_name, 'Không rõ') AS attendee_name,
           tt.name AS ticket_type_name,
-          COALESCE(cl.method::text, 'MANUAL') AS method,
+          COALESCE(t.checkin_method, 'MANUAL') AS method,
           t.checked_in_at,
           checker.full_name AS checked_in_by_name,
           e.id AS event_id,
@@ -862,7 +833,6 @@ class OperationsRepository {
         JOIN order_items oi ON oi.id = t.order_item_id
         JOIN orders o ON o.id = oi.order_id
         JOIN ticket_types tt ON tt.id = t.ticket_type_id
-        LEFT JOIN checkin_logs cl ON cl.ticket_id = t.id
         LEFT JOIN users checker ON checker.id = t.checked_in_by
         ${scope}
           AND t.status = 'USED'
@@ -936,12 +906,9 @@ class OperationsRepository {
       ),
       task_counts AS (
         SELECT
-          COUNT(st.id)::int AS assigned_tasks,
-          COUNT(st.id) FILTER (WHERE st.status = 'DONE')::int AS completed_tasks,
-          COUNT(st.id) FILTER (WHERE st.status <> 'DONE')::int AS pending_tasks
-        FROM staff_tasks st
-        JOIN assigned_events ae ON ae.id = st.event_id
-        WHERE st.staff_id = $1
+          0::int AS assigned_tasks,
+          0::int AS completed_tasks,
+          0::int AS pending_tasks
       ),
       ticket_counts AS (
         SELECT
@@ -993,26 +960,7 @@ class OperationsRepository {
         ) today_row
       ),
       active_tasks AS (
-        SELECT COALESCE(json_agg(row_to_json(task_row) ORDER BY task_row.created_at DESC), '[]'::json) AS tasks
-        FROM (
-          SELECT
-            st.id,
-            st.event_id,
-            ae.title AS event_title,
-            st.title,
-            st.description,
-            st.status,
-            st.created_at,
-            st.updated_at
-          FROM staff_tasks st
-          JOIN assigned_events ae ON ae.id = st.event_id
-          WHERE st.staff_id = $1
-            AND st.status <> 'DONE'
-          ORDER BY
-            CASE st.status WHEN 'IN_PROGRESS' THEN 0 WHEN 'TODO' THEN 1 ELSE 2 END,
-            st.created_at DESC
-          LIMIT 4
-        ) task_row
+        SELECT '[]'::json AS tasks
       )
       SELECT
         COALESCE(event_counts.assigned_events, 0)::int AS assigned_events,
@@ -1035,79 +983,11 @@ class OperationsRepository {
   }
 
   async listStaffTasks(staffId, eventId = null) {
-    const params = [staffId];
-    const eventClause = eventId ? `AND st.event_id = $${params.push(eventId)}` : '';
-
-    const { rows } = await db.query(
-      `
-      SELECT
-        st.id,
-        st.event_id,
-        e.title AS event_title,
-        st.staff_id,
-        st.title,
-        st.description,
-        st.status,
-        st.created_at,
-        st.updated_at
-      FROM staff_tasks st
-      JOIN events      e  ON e.id  = st.event_id
-      JOIN event_staffs es ON es.event_id = st.event_id AND es.staff_id = st.staff_id
-      WHERE st.staff_id = $1
-        AND e.deleted_at IS NULL
-        AND (
-          e.status = 'PUBLISHED'
-          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
-        )
-        AND COALESCE(e.end_time, e.start_time) >= now()
-        ${eventClause}
-      ORDER BY
-        CASE st.status WHEN 'TODO' THEN 0 WHEN 'IN_PROGRESS' THEN 1 ELSE 2 END,
-        st.created_at DESC
-      `,
-      params,
-    );
-    return rows;
+    return [];
   }
 
   async updateStaffTaskStatus(taskId, staffId, status) {
-    const { rows } = await db.query(
-      `
-      UPDATE staff_tasks st
-      SET status = $3
-      WHERE st.id = $1
-        AND st.staff_id = $2
-        AND EXISTS (
-          SELECT 1
-          FROM event_staffs es
-          JOIN events e ON e.id = es.event_id
-          WHERE es.event_id = st.event_id
-            AND es.staff_id = $2
-            AND e.deleted_at IS NULL
-            AND (
-              e.status = 'PUBLISHED'
-              OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
-            )
-            AND COALESCE(e.end_time, e.start_time) >= now()
-        )
-      RETURNING
-        st.id,
-        st.event_id,
-        (
-          SELECT e.title
-          FROM events e
-          WHERE e.id = st.event_id
-        ) AS event_title,
-        st.staff_id,
-        st.title,
-        st.description,
-        st.status,
-        st.created_at,
-        st.updated_at
-      `,
-      [taskId, staffId, status],
-    );
-    return rows[0];
+    return null;
   }
 }
 
