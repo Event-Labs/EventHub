@@ -23,14 +23,7 @@ function assertLimit(label, current, limit) {
 
 class SubscriptionGuardService {
   async ensurePromoCodeEventsTable() {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS promo_code_events (
-        promo_code_id UUID NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
-        event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-        created_at TIMESTAMPTZ DEFAULT now(),
-        PRIMARY KEY (promo_code_id, event_id)
-      )
-    `);
+    // Deprecated: promo_code_events merged into promo_codes.event_ids array
   }
 
   async getActivePlanByOrganizerId(organizerId) {
@@ -112,12 +105,8 @@ class SubscriptionGuardService {
       LEFT JOIN promo_codes pc ON pc.organizer_id = e.organizer_id
         AND (
           pc.event_id = e.id
-          OR EXISTS (
-            SELECT 1
-            FROM promo_code_events pce
-            WHERE pce.promo_code_id = pc.id
-              AND pce.event_id = e.id
-          )
+          OR e.id = ANY(pc.event_ids)
+          OR (pc.event_id IS NULL AND COALESCE(cardinality(pc.event_ids), 0) = 0)
         )
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
