@@ -1047,31 +1047,20 @@ class OrdersRepository {
           currency,
           description,
           status,
-          paid_at
-        )
-        VALUES ($1, $2, 'ORGANIZER', NULL, 'TICKET_ORDER', $1, 'MANUAL', $3, $4, 'VND', $5, 'PAID', now())
-        RETURNING *
-        `,
-        [order.id, firstTicket.organizer_id, providerOrderCode(), subtotal, `Direct ${order.order_code}`.slice(0, 25)],
-      );
-      const paymentOrder = paymentOrderResult.rows[0];
-
-      await client.query(
-        `
-        INSERT INTO payment_transactions (
-          payment_order_id,
-          provider,
+          paid_at,
           provider_transaction_id,
-          amount,
-          status,
           raw_payload
         )
-        VALUES ($1, 'MANUAL', $2, $3, 'PAID', $4::jsonb)
+        VALUES ($1, $2, 'ORGANIZER', NULL, 'TICKET_ORDER', $1, 'MANUAL', $3, $4, 'VND', $5, 'PAID', now(), $6, $7::jsonb)
+        RETURNING *
         `,
         [
-          paymentOrder.id,
-          `${paymentMethod}-${order.order_code}`,
+          order.id,
+          firstTicket.organizer_id,
+          providerOrderCode(),
           subtotal,
+          `Direct ${order.order_code}`.slice(0, 25),
+          `${paymentMethod}-${order.order_code}`,
           JSON.stringify({
             bookingSource: 'staff_direct',
             paymentMethod,
@@ -1081,6 +1070,7 @@ class OrdersRepository {
           }),
         ],
       );
+      const paymentOrder = paymentOrderResult.rows[0];
 
       const ticketsResult = await client.query(
         `
@@ -1432,30 +1422,16 @@ class OrdersRepository {
         `
         UPDATE payment_orders
         SET provider = 'MANUAL',
+            provider_transaction_id = $2,
+            raw_payload = $3::jsonb,
             status = 'PAID',
             paid_at = now(),
             updated_at = now()
         WHERE id = $1
         `,
-        [paymentOrder.id],
-      );
-
-      await client.query(
-        `
-        INSERT INTO payment_transactions (
-          payment_order_id,
-          provider,
-          provider_transaction_id,
-          amount,
-          status,
-          raw_payload
-        )
-        VALUES ($1, 'MANUAL', $2, $3, 'PAID', $4::jsonb)
-        `,
         [
           paymentOrder.id,
           `${paymentMethod}-${order.order_code}`,
-          Number(paymentOrder.amount || order.total_amount || 0),
           JSON.stringify({
             ...rawPayload,
             bookingSource: 'staff_direct',
@@ -1766,26 +1742,15 @@ class OrdersRepository {
 
       await client.query(
         `
-        INSERT INTO payment_transactions (
-          payment_order_id,
-          provider,
-          provider_transaction_id,
-          amount,
-          status,
-          raw_payload
-        )
-        VALUES ($1, 'PAYOS', $2, $3, 'PAID', $4::jsonb)
-        `,
-        [paymentOrder.id, transactionId || String(providerOrderCode), amount, JSON.stringify(rawPayload || {})],
-      );
-
-      await client.query(
-        `
         UPDATE payment_orders
-        SET status = 'PAID', paid_at = now(), updated_at = now()
+        SET status = 'PAID',
+            provider_transaction_id = $2,
+            raw_payload = $3::jsonb,
+            paid_at = now(),
+            updated_at = now()
         WHERE id = $1
         `,
-        [paymentOrder.id],
+        [paymentOrder.id, transactionId || String(providerOrderCode), JSON.stringify(rawPayload || {})],
       );
       await client.query(
         `
@@ -1904,7 +1869,7 @@ class OrdersRepository {
       `SELECT o.id, o.order_code, o.buyer_name, o.buyer_email, o.subtotal, o.discount_amount,
         o.platform_fee, o.total_amount, event_info.title AS event_title,
         event_info.banner_url, event_info.thumbnail_url,
-        po.paid_at, COALESCE(pt.provider_transaction_id, po.provider_order_code::text) AS transaction_code
+        po.paid_at, COALESCE(po.provider_transaction_id, po.provider_order_code::text) AS transaction_code
       FROM orders o
       JOIN LATERAL (
         SELECT e.id, e.title, e.banner_url, e.thumbnail_url
@@ -1917,8 +1882,6 @@ class OrdersRepository {
         LIMIT 1
       ) event_info ON true
       JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
-      LEFT JOIN LATERAL (SELECT provider_transaction_id FROM payment_transactions
-        WHERE payment_order_id = po.id AND status = 'PAID' ORDER BY created_at DESC LIMIT 1) pt ON true
       WHERE o.id = $1 AND o.status = 'PAID' ORDER BY po.paid_at DESC NULLS LAST LIMIT 1`,
       [orderId],
     );
