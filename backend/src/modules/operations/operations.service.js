@@ -147,9 +147,7 @@ class OperationsService {
 
   async getStaffQuota(organizerId, eventId) {
     const plan = await operationsRepository.findOrganizerCurrentPlan(organizerId);
-    const perEventLimit = Number(plan?.max_staff_per_event || plan?.staff_limit || 0);
-
-    if (!plan || perEventLimit <= 0) {
+    if (!plan) {
       return {
         active: false,
         per_event_limit: 0,
@@ -161,6 +159,7 @@ class OperationsService {
       };
     }
 
+    const perEventLimit = Number(plan?.max_staff_per_event || plan?.staff_limit || 0);
     const [assignedCount, pendingCount] = await Promise.all([
       operationsRepository.countEventStaff(eventId),
       operationsRepository.countPendingInvitations(eventId),
@@ -191,9 +190,12 @@ class OperationsService {
       );
     }
 
-    if (quota.remaining_slots <= 0) {
+    if (quota.per_event_limit <= 0 || quota.remaining_slots <= 0) {
+      const msg = quota.per_event_limit <= 0
+        ? `Gói ${quota.plan_name || 'hiện tại'} không hỗ trợ thêm nhân sự (giới hạn 0 staff/sự kiện). Vui lòng nâng cấp gói dịch vụ.`
+        : `Đã đạt giới hạn staff của gói hiện tại (${quota.per_event_limit} staff cho mỗi sự kiện).`;
       throw new AppError(
-        `Đã đạt giới hạn staff của gói hiện tại (${quota.per_event_limit} staff cho mỗi sự kiện).`,
+        msg,
         400,
         ErrorCodes.STAFF_LIMIT_REACHED,
         quota,

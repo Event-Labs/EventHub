@@ -763,6 +763,57 @@ class OrganizerEventsRepository {
       client.release();
     }
   }
+
+  async saveContentGeneration({ organizerId, eventId, promptData, generatedContent }) {
+    const { rows } = await db.query(
+      `
+      INSERT INTO event_content_generations (
+        organizer_id,
+        event_id,
+        prompt_data,
+        generated_content
+      )
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, organizer_id, event_id, prompt_data, generated_content, created_at, updated_at
+      `,
+      [
+        organizerId,
+        eventId || null,
+        JSON.stringify(promptData || {}),
+        JSON.stringify(generatedContent || {}),
+      ],
+    );
+    return rows[0] ?? null;
+  }
+
+  async getLatestContentGeneration({ organizerId, eventId }) {
+    if (eventId) {
+      const { rows } = await db.query(
+        `
+        SELECT id, organizer_id, event_id, prompt_data, generated_content, created_at, updated_at
+        FROM event_content_generations
+        WHERE organizer_id = $1 AND event_id = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+        `,
+        [organizerId, eventId],
+      );
+      if (rows[0]) return rows[0];
+    }
+
+    const { rows } = await db.query(
+      `
+      SELECT id, organizer_id, event_id, prompt_data, generated_content, created_at, updated_at
+      FROM event_content_generations
+      WHERE organizer_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [organizerId],
+    );
+    return rows[0] ?? null;
+  }
 }
 
 module.exports = new OrganizerEventsRepository();
+
