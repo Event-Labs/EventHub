@@ -135,7 +135,7 @@ class OrganizerOrdersRepository {
         po.status                AS payment_status,
         po.amount                AS payment_amount,
         po.paid_at               AS payment_paid_at,
-        pt.provider_transaction_id AS payment_transaction_id
+        po.provider_transaction_id AS payment_transaction_id
       FROM orders o
       JOIN LATERAL (
         SELECT es_inner.event_id
@@ -149,19 +149,12 @@ class OrganizerOrdersRepository {
       LEFT JOIN users u ON u.id = o.user_id
       LEFT JOIN promo_codes pc ON pc.id = o.promo_code_id
       LEFT JOIN LATERAL (
-        SELECT id, provider, provider_order_code, status, amount, paid_at
+        SELECT id, provider, provider_order_code, status, amount, paid_at, provider_transaction_id
         FROM payment_orders po_inner
         WHERE po_inner.order_id = o.id
         ORDER BY po_inner.created_at DESC
         LIMIT 1
       ) po ON true
-      LEFT JOIN LATERAL (
-        SELECT provider_transaction_id
-        FROM payment_transactions pt_inner
-        WHERE pt_inner.payment_order_id = po.id
-        ORDER BY pt_inner.created_at DESC
-        LIMIT 1
-      ) pt ON true
       WHERE o.id = $1
         AND o.organizer_id = $2
       LIMIT 1

@@ -46,33 +46,21 @@ class EventsAdminRepository {
         return null;
       }
 
-      // Upsert review record
-      await client.query(
-        `
-        INSERT INTO event_reviews (event_id, reviewed_by, status, review_note)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (event_id, reviewed_by)
-        DO UPDATE SET
-          status       = EXCLUDED.status,
-          review_note  = EXCLUDED.review_note,
-          created_at   = event_reviews.created_at
-        `,
-        [eventId, reviewedBy, approvalStatus, reviewNote || null],
-      );
-
-      // Update the event
+      // Update the event with review status, reviewer, and review note
       const updateRes = await client.query(
         `
         UPDATE events
         SET approval_status = $2,
             status          = $3,
             approved_by     = $4,
+            review_note     = $5,
+            reviewed_at     = NOW(),
             updated_at      = NOW()
         WHERE id = $1
           AND deleted_at IS NULL
-        RETURNING id, title, status, approval_status, organizer_id, start_time, end_time
+        RETURNING id, title, status, approval_status, organizer_id, start_time, end_time, review_note, reviewed_at
         `,
-        [eventId, approvalStatus, eventStatus, reviewedBy],
+        [eventId, approvalStatus, eventStatus, reviewedBy, reviewNote || null],
       );
 
       await client.query('COMMIT');
@@ -122,13 +110,13 @@ class EventsAdminRepository {
       `
       SELECT
         id,
-        event_id,
-        recommendation,
-        warnings,
-        created_at
-      FROM event_ai_reviews
-      WHERE event_id = $1
-      ORDER BY created_at DESC
+        id AS event_id,
+        ai_recommendation AS recommendation,
+        COALESCE(ai_warnings, '[]'::jsonb) AS warnings,
+        ai_reviewed_at AS created_at
+      FROM events
+      WHERE id = $1
+        AND ai_recommendation IS NOT NULL
       LIMIT 1
       `,
       [eventId],
@@ -139,13 +127,13 @@ class EventsAdminRepository {
   async saveAiReview({ eventId, recommendation, warnings }) {
     const { rows } = await db.query(
       `
-      INSERT INTO event_ai_reviews (
-        event_id,
-        recommendation,
-        warnings
-      )
-      VALUES ($1, $2, $3)
-      RETURNING id, event_id, recommendation, warnings, created_at
+      UPDATE events
+      SET ai_recommendation = $2,
+          ai_warnings = $3,
+          ai_reviewed_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, id AS event_id, ai_recommendation AS recommendation, ai_warnings AS warnings, ai_reviewed_at AS created_at
       `,
       [eventId, recommendation, JSON.stringify(warnings || [])],
     );

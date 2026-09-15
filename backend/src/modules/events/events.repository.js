@@ -34,7 +34,7 @@ const EVENT_CARD_SELECT = `
   venue_summary.address_line,
   price_summary.min_price,
   price_summary.max_price,
-  CASE WHEN my_fav.event_id IS NULL THEN false ELSE true END AS is_favorited
+  CASE WHEN fav_user.id IS NOT NULL AND e.id = ANY(COALESCE(fav_user.favorite_event_ids, '{}')) THEN true ELSE false END AS is_favorited
 `;
 
 const EVENT_CARD_JOINS = `
@@ -60,7 +60,7 @@ const EVENT_CARD_JOINS = `
     JOIN ticket_types tt ON tt.event_session_id = es.id
     WHERE es.event_id = e.id
   ) price_summary ON true
-  LEFT JOIN favorite_events my_fav ON my_fav.event_id = e.id AND my_fav.user_id = $1
+  LEFT JOIN users fav_user ON fav_user.id = $1
 `;
 
 function buildListQuery(filters) {
@@ -97,7 +97,6 @@ function buildListQuery(filters) {
 
   if (filters.categoryId) where.push(`e.category_id = ${addParam(filters.categoryId)}`);
   if (filters.categorySlug) where.push(`c.slug = ${addParam(filters.categorySlug)}`);
-
   if (filters.location) {
     const locationParam = addParam(`%${filters.location}%`);
     where.push(`EXISTS (
@@ -881,14 +880,15 @@ class EventsRepository {
       client.release();
     }
   }
+
   async findFavoriteEvents(userId) {
     const query = `
-      SELECT ${EVENT_CARD_SELECT}, fe.created_at AS favorited_at
-      FROM favorite_events fe
-      JOIN events e ON e.id = fe.event_id
+      SELECT ${EVENT_CARD_SELECT}, NULL AS favorited_at
+      FROM events e
       ${EVENT_CARD_JOINS}
-      WHERE fe.user_id = $1 AND ${PUBLIC_EVENT_WHERE}
-      ORDER BY fe.created_at DESC
+      WHERE e.id = ANY(COALESCE((SELECT favorite_event_ids FROM users WHERE id = $1), '{}'::uuid[]))
+        AND ${PUBLIC_EVENT_WHERE}
+      ORDER BY e.start_time ASC
     `;
     const { rows } = await db.query(query, [userId]);
     return rows;
@@ -896,29 +896,30 @@ class EventsRepository {
 
   async findFavorite(userId, eventId) {
     const { rows } = await db.query(
-      'SELECT user_id, event_id FROM favorite_events WHERE user_id = $1 AND event_id = $2',
+      `SELECT id FROM users WHERE id = $1 AND $2::uuid = ANY(COALESCE(favorite_event_ids, '{}'))`,
       [userId, eventId],
     );
-    return rows[0];
+    return rows[0] ? { user_id: userId, event_id: eventId } : null;
   }
 
   async createFavorite(userId, eventId) {
-    const { rows } = await db.query(
-      `INSERT INTO favorite_events (user_id, event_id)
-       VALUES ($1, $2)
-       ON CONFLICT (user_id, event_id) DO NOTHING
-       RETURNING user_id, event_id, created_at`,
+    await db.query(
+      `UPDATE users
+       SET favorite_event_ids = array_append(COALESCE(favorite_event_ids, '{}'), $2::uuid)
+       WHERE id = $1 AND NOT ($2::uuid = ANY(COALESCE(favorite_event_ids, '{}')))`,
       [userId, eventId],
     );
-    return rows[0];
+    return { user_id: userId, event_id: eventId };
   }
 
   async deleteFavorite(userId, eventId) {
-    const { rowCount } = await db.query(
-      'DELETE FROM favorite_events WHERE user_id = $1 AND event_id = $2',
+    await db.query(
+      `UPDATE users
+       SET favorite_event_ids = array_remove(COALESCE(favorite_event_ids, '{}'), $2::uuid)
+       WHERE id = $1`,
       [userId, eventId],
     );
-    return rowCount > 0;
+    return true;
   }
 
   async findByOrganizer(userId) {

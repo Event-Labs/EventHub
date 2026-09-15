@@ -70,8 +70,8 @@ class EventsListAdminRepository {
         ou.email AS organizer_email,
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types,
-        review_summary.review_note,
-        review_summary.reviewed_at
+        e.review_note,
+        e.reviewed_at
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users ou ON ou.id = o.user_id
@@ -117,13 +117,6 @@ class EventsListAdminRepository {
         ) sold ON true
         WHERE sess.event_id = e.id
       ) ticket_summary ON true
-      LEFT JOIN LATERAL (
-        SELECT er.review_note, er.created_at AS reviewed_at
-        FROM event_reviews er
-        WHERE er.event_id = e.id
-        ORDER BY er.created_at DESC
-        LIMIT 1
-      ) review_summary ON true
       WHERE ${listClause}
       ORDER BY e.created_at DESC
       LIMIT $1 OFFSET $2
