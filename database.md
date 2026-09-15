@@ -107,11 +107,6 @@ CREATE TYPE notification_type_enum AS ENUM (
     'PROMOTION'
 );
 
-CREATE TYPE task_status_enum AS ENUM (
-    'TODO',
-    'IN_PROGRESS',
-    'DONE'
-);
 
 CREATE TYPE subscription_status_enum AS ENUM (
     'ACTIVE',
@@ -296,6 +291,20 @@ CREATE TABLE event_ai_reviews (
 
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE event_content_generations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    organizer_id UUID NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+    event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+
+    prompt_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    generated_content JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 
 -- =========================================================
@@ -755,25 +764,6 @@ CREATE TABLE event_staffs (
     UNIQUE(event_id, staff_id)
 );
 
-CREATE TABLE staff_tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-    event_id UUID REFERENCES events(id),
-
-    staff_id UUID REFERENCES users(id),
-
-    title VARCHAR(255) NOT NULL,
-
-    description TEXT,
-
-    status task_status_enum DEFAULT 'TODO',
-
-    created_by UUID REFERENCES users(id),
-
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- =========================================================
 -- SUBSCRIPTIONS
@@ -1009,10 +999,6 @@ BEFORE UPDATE ON orders
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_staff_tasks_updated_at
-BEFORE UPDATE ON staff_tasks
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trigger_ticket_holds_updated_at
 BEFORE UPDATE ON ticket_holds
