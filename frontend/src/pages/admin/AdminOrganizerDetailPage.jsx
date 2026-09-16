@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Building2, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -8,6 +9,7 @@ import {
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, Page, Panel, Status, Table, UserCell } from './AdminComponents.jsx'
+import { ConfirmSuspendOrganizerModal } from './ConfirmSuspendOrganizerModal.jsx'
 
 const EVENT_STATUS_LABEL = {
   DRAFT: 'Bản nháp',
@@ -29,6 +31,7 @@ export function AdminOrganizerDetailPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const queryClient = useQueryClient()
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false)
 
   const detailQuery = useQuery({
     queryKey: ['admin-organizers', 'detail', organizerId],
@@ -40,6 +43,7 @@ export function AdminOrganizerDetailPage() {
     mutationFn: ({ id, status }) => updateAdminOrganizerStatus(id, status),
     onSuccess: (_data, variables) => {
       toast.success(variables.status === 'ACTIVE' ? 'Đã kích hoạt lại organizer.' : 'Đã tạm ngưng organizer.')
+      setStatusConfirmOpen(false)
       queryClient.invalidateQueries({ queryKey: ['admin-organizers'] })
       queryClient.invalidateQueries({ queryKey: ['admin-organizers', 'detail', organizerId] })
     },
@@ -51,6 +55,11 @@ export function AdminOrganizerDetailPage() {
   const data = detailQuery.data || {}
   const organizer = data.organizer
   const nextStatus = organizer?.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
+
+  const handleConfirmStatusChange = () => {
+    if (!organizer) return
+    statusMutation.mutate({ id: organizer.id, status: nextStatus })
+  }
 
   if (detailQuery.isLoading) {
     return (
@@ -85,7 +94,7 @@ export function AdminOrganizerDetailPage() {
           <button
             type="button"
             disabled={statusMutation.isPending}
-            onClick={() => statusMutation.mutate({ id: organizer.id, status: nextStatus })}
+            onClick={() => setStatusConfirmOpen(true)}
             className={
               organizer.status === 'ACTIVE'
                 ? 'admin-primary border-none bg-error text-white hover:bg-error/90 disabled:opacity-50'
@@ -244,6 +253,15 @@ export function AdminOrganizerDetailPage() {
           </div>
         </Panel>
       </section>
+
+      <ConfirmSuspendOrganizerModal
+        open={statusConfirmOpen}
+        organizer={organizer}
+        targetStatus={nextStatus}
+        isPending={statusMutation.isPending}
+        onClose={() => setStatusConfirmOpen(false)}
+        onConfirm={handleConfirmStatusChange}
+      />
     </Page>
   )
 }
