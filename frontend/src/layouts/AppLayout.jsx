@@ -9,7 +9,7 @@ import {
   markNotificationRead,
 } from '@/services/notifications.js'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
-import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated, updateStoredUser } from '@/lib/auth.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
@@ -152,6 +152,14 @@ export function AppLayout() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
+
+  useEffect(() => {
+    if (staffEventsQuery.isSuccess && Array.isArray(staffEventsQuery.data) && staffEventsQuery.data.length === 0 && hasStaffRole) {
+      const nextRoles = currentUserRoles.filter((r) => r !== 'staff')
+      if (nextRoles.length === 0) nextRoles.push('customer')
+      updateStoredUser({ roles: nextRoles })
+    }
+  }, [staffEventsQuery.isSuccess, staffEventsQuery.data, hasStaffRole, currentUserRoles])
 
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
