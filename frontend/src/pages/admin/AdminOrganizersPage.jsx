@@ -9,11 +9,13 @@ import {
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, KpiGrid, Page, Panel, Status, Table, UserCell } from './AdminComponents.jsx'
+import { ConfirmSuspendOrganizerModal } from './ConfirmSuspendOrganizerModal.jsx'
 
 export function AdminOrganizersPage() {
   const toast = useToast()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [statusConfirmTarget, setStatusConfirmTarget] = useState(null)
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -36,6 +38,7 @@ export function AdminOrganizersPage() {
           ? 'Đã kích hoạt lại organizer.'
           : 'Đã tạm ngưng organizer. Các phiên đăng nhập hiện tại đã được làm mới.',
       )
+      setStatusConfirmTarget(null)
       queryClient.invalidateQueries({ queryKey: ['admin-organizers'] })
     },
     onError: (err) => {
@@ -69,7 +72,15 @@ export function AdminOrganizersPage() {
 
   const handleToggleStatus = (organizer) => {
     const nextStatus = organizer.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
-    statusMutation.mutate({ id: organizer.id, status: nextStatus })
+    setStatusConfirmTarget({ organizer, targetStatus: nextStatus })
+  }
+
+  const handleConfirmStatusChange = () => {
+    if (!statusConfirmTarget) return
+    statusMutation.mutate({
+      id: statusConfirmTarget.organizer.id,
+      status: statusConfirmTarget.targetStatus,
+    })
   }
 
   return (
@@ -245,6 +256,14 @@ export function AdminOrganizersPage() {
         </div>
       </div>
 
+      <ConfirmSuspendOrganizerModal
+        open={Boolean(statusConfirmTarget)}
+        organizer={statusConfirmTarget?.organizer}
+        targetStatus={statusConfirmTarget?.targetStatus}
+        isPending={statusMutation.isPending}
+        onClose={() => setStatusConfirmTarget(null)}
+        onConfirm={handleConfirmStatusChange}
+      />
     </Page>
   )
 }
