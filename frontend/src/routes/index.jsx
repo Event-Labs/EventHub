@@ -32,6 +32,7 @@ import {
   AdminOrganizerRequestsPage,
   AdminPlansPage,
   AdminProfilePage,
+  AdminEventReviewDetailPage,
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
@@ -113,6 +114,10 @@ export const router = createBrowserRouter([
       {
         path: 'events/review',
         element: <AdminEventReviewPage />,
+      },
+      {
+        path: 'events/review/:eventId',
+        element: <AdminEventReviewDetailPage />,
       },
       {
         path: 'platform-fee',

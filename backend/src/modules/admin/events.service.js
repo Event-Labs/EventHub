@@ -8,6 +8,14 @@ const HIDEABLE_STATUSES    = new Set(['PUBLISHED', 'COMPLETED']);
 const UNHIDEABLE_STATUSES  = new Set(['HIDDEN']);
 
 class EventsAdminService {
+  async getEventDetail(eventId) {
+    const event = await eventsAdminRepository.findByIdForAdmin(eventId);
+    if (!event) {
+      throw new AppError('Event not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    return event;
+  }
+
   async reviewEvent(adminId, eventId, payload) {
     // 1. Fetch event (with organizer contact info for notification)
     const event = await eventsAdminRepository.findByIdForAdmin(eventId);

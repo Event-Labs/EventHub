@@ -1954,6 +1954,30 @@ class OrdersRepository {
     );
     return { order, tickets: ticketResult.rows };
   }
+
+  /**
+   * Lightweight query used by AI behavior tracking to get user_id and event_id
+   * for a confirmed order. Called fire-and-forget after payment confirmation.
+   *
+   * @param {string} orderId
+   * @returns {{ user_id, event_id, total_amount }|null}
+   */
+  async findOrderWithEventInfo(orderId) {
+    const { rows } = await db.query(
+      `SELECT
+         o.user_id,
+         o.total_amount,
+         es.event_id
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+       JOIN event_sessions es ON es.id = tt.event_session_id
+       WHERE o.id = $1
+       LIMIT 1`,
+      [orderId],
+    );
+    return rows[0] || null;
+  }
 }
 
 module.exports = new OrdersRepository();

@@ -996,6 +996,25 @@ class EventsRepository {
     );
     return rows[0];
   }
+
+  /**
+   * Fetch multiple public events by IDs — used by recommendation service.
+   * Returns only PUBLISHED + APPROVED events to prevent serving stale recommendations.
+   */
+  async findPublicEventsByIds(eventIds, userId = null) {
+    if (!eventIds || eventIds.length === 0) return [];
+
+    const placeholders = eventIds.map((_, i) => `$${i + 2}`).join(', ');
+    const { rows } = await db.query(
+      `SELECT ${EVENT_CARD_SELECT}
+       FROM events e
+       ${EVENT_CARD_JOINS}
+       WHERE e.id IN (${placeholders})
+         AND ${PUBLIC_EVENT_WHERE}`,
+      [userId, ...eventIds],
+    );
+    return rows;
+  }
 }
 
 module.exports = new EventsRepository();

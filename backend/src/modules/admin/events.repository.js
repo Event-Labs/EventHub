@@ -7,12 +7,31 @@ class EventsAdminRepository {
       SELECT
         e.id,
         e.title,
+        e.short_description,
+        e.description,
+        e.banner_url,
+        e.category_id,
+        e.format,
+        e.start_time,
+        e.end_time,
+        e.seating_rules,
+        e.refund_policy,
         e.organizer_id,
         e.status,
         e.approval_status,
         o.user_id AS organizer_user_id,
         COALESCE(u.email, '') AS organizer_email,
-        COALESCE(u.full_name, o.organization_name, '') AS organizer_name
+        COALESCE(u.full_name, o.organization_name, '') AS organizer_name,
+        (
+          SELECT json_build_object(
+            'recommendation', ar.recommendation,
+            'warnings', ar.warnings
+          )
+          FROM event_ai_reviews ar
+          WHERE ar.event_id = e.id
+          ORDER BY ar.created_at DESC
+          LIMIT 1
+        ) as "aiReview"
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users u ON u.id = o.user_id

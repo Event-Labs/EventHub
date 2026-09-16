@@ -14,6 +14,9 @@ const eventsListAdminController = require('./events.list.controller');
 // List pending review events
 router.get('/pending', eventsListAdminController.listPendingReview);
 
+// Get event details for review
+router.get('/:eventId', eventsAdminController.getEventDetail);
+
 // Review event (approve / reject)
 router.patch('/:eventId/review', eventsAdminController.reviewEvent);
 
