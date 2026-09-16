@@ -19,3 +19,8 @@ export async function unhideAdminEvent(eventId) {
   const response = await http.patch(`/admin/events/${eventId}/unhide`)
   return response.data.data
 }
+
+export async function fetchAdminEventDetail(eventId) {
+  const response = await http.get(`/admin/events/${eventId}`)
+  return response.data.data
+}

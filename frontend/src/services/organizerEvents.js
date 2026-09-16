@@ -101,3 +101,15 @@ export async function deleteOrganizerTicketType(eventId, sessionId, ticketTypeId
   )
   return response.data.data
 }
+
+export async function fetchDemandPrediction(eventId) {
+  const response = await http.get(`/organizer/events/${eventId}/demand-prediction`)
+  return response.data.data
+}
+
+// ── AI Generation endpoints ───────────────────────────────────────────────────
+
+export async function generateAiFinancialSummary(eventId, payload) {
+  const response = await http.post(`/organizer/events/${eventId}/ai/financial-summary`, payload)
+  return response.data.data
+}

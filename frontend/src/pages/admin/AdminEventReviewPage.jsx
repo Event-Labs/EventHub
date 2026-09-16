@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Calendar, CheckCircle2, Eye, EyeOff, MapPin, Tag, Ticket, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { fetchAdminEvents, hideAdminEvent, reviewAdminEvent, unhideAdminEvent } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -54,6 +55,7 @@ function formatDate(value) {
 export function AdminEventReviewPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const [activeStatus, setActiveStatus] = useState('PENDING_REVIEW')
   const [page, setPage] = useState(1)
@@ -344,12 +346,10 @@ export function AdminEventReviewPage() {
                     {/* View detail button */}
                     <button
                       type="button"
-                      title="Xem chi tiết"
-                      onClick={() => openModal(event)}
-                      className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition hover:border-tertiary hover:bg-panel-soft hover:text-tertiary"
-                      aria-label={`Xem chi tiết ${event.title}`}
+                      onClick={() => navigate(`/admin/events/review/${event.id}`)}
+                      className="flex items-center gap-1.5 rounded-xl border border-tertiary/30 bg-tertiary/5 px-3 h-9 text-xs font-bold text-tertiary transition hover:bg-tertiary/10"
                     >
-                      <Eye className="size-4" />
+                      Duyệt chi tiết
                     </button>
                   </div>
                 </div>,

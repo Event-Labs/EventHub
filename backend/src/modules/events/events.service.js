@@ -2,6 +2,7 @@ const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const { normalizeRules, validateSelectedSeats } = require('./seatingRules');
+const logger = require('../../core/logger');
 
 function toNumber(value) {
   if (value === null || value === undefined) return null;
