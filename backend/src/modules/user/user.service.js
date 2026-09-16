@@ -57,12 +57,13 @@ class UserService {
         }
 
         const { password_hash, deleted_at, ...profile } = user;
-        const roles = await authRepository.findUserRoles(userId);
+        const rawRoles = await authRepository.findUserRoles(userId);
+        const effective = await authService.resolveEffectiveRoles(user, rawRoles);
         
         // hasPassword is true if the user has a real password hash (not null, empty, or '*')
         const hasPassword = !!(password_hash && password_hash !== '*');
         
-        return { ...profile, roles, hasPassword };
+        return { ...profile, roles: effective.roles, hasPassword };
     }
 
     async updateProfile(userId, updateData) {
@@ -108,10 +109,11 @@ class UserService {
         const updatedUser = await authRepository.updateUser(userId, updates);
         
         const { password_hash, deleted_at, ...profile } = updatedUser;
-        const roles = await authRepository.findUserRoles(userId);
+        const rawRoles = await authRepository.findUserRoles(userId);
+        const effective = await authService.resolveEffectiveRoles(updatedUser, rawRoles);
         const hasPassword = !!(password_hash && password_hash !== '*');
         
-        return { ...profile, roles, hasPassword };
+        return { ...profile, roles: effective.roles, hasPassword };
     }
 
     async changePassword(userId, currentPassword, newPassword) {
