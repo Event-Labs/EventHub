@@ -5,7 +5,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
 const { validateSelectedSeats } = require('../events/seatingRules');
 
-const HOLD_MINUTES = Number(process.env.TICKET_HOLD_MINUTES || 15);
+const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
 function orderCode() {
   return `ORD-${Date.now()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
@@ -219,8 +219,8 @@ class OrdersRepository {
       const attendeeQueues = requireAttendeeInfo ? buildAttendeeQueues(attendees) : new Map();
 
       const expiresAtResult = await client.query(
-        `SELECT now() + ($1::text || ' minutes')::interval AS expired_at`,
-        [HOLD_MINUTES],
+        `SELECT now() + ($1 * interval '1 second') AS expired_at`,
+        [HOLD_SECONDS],
       );
       const expiredAt = expiresAtResult.rows[0].expired_at;
 
@@ -239,19 +239,10 @@ class OrdersRepository {
           FROM promo_codes
           WHERE (
               event_id = $1
-              OR EXISTS (
-                SELECT 1
-                FROM promo_code_events pce
-                WHERE pce.promo_code_id = promo_codes.id
-                  AND pce.event_id = $1
-              )
+              OR $1 = ANY(event_ids)
               OR (
                 event_id IS NULL
-                AND NOT EXISTS (
-                  SELECT 1
-                  FROM promo_code_events pce_any
-                  WHERE pce_any.promo_code_id = promo_codes.id
-                )
+                AND COALESCE(cardinality(event_ids), 0) = 0
               )
             )
             AND organizer_id = $3
@@ -1056,31 +1047,20 @@ class OrdersRepository {
           currency,
           description,
           status,
-          paid_at
-        )
-        VALUES ($1, $2, 'ORGANIZER', NULL, 'TICKET_ORDER', $1, 'MANUAL', $3, $4, 'VND', $5, 'PAID', now())
-        RETURNING *
-        `,
-        [order.id, firstTicket.organizer_id, providerOrderCode(), subtotal, `Direct ${order.order_code}`.slice(0, 25)],
-      );
-      const paymentOrder = paymentOrderResult.rows[0];
-
-      await client.query(
-        `
-        INSERT INTO payment_transactions (
-          payment_order_id,
-          provider,
+          paid_at,
           provider_transaction_id,
-          amount,
-          status,
           raw_payload
         )
-        VALUES ($1, 'MANUAL', $2, $3, 'PAID', $4::jsonb)
+        VALUES ($1, $2, 'ORGANIZER', NULL, 'TICKET_ORDER', $1, 'MANUAL', $3, $4, 'VND', $5, 'PAID', now(), $6, $7::jsonb)
+        RETURNING *
         `,
         [
-          paymentOrder.id,
-          `${paymentMethod}-${order.order_code}`,
+          order.id,
+          firstTicket.organizer_id,
+          providerOrderCode(),
           subtotal,
+          `Direct ${order.order_code}`.slice(0, 25),
+          `${paymentMethod}-${order.order_code}`,
           JSON.stringify({
             bookingSource: 'staff_direct',
             paymentMethod,
@@ -1090,6 +1070,7 @@ class OrdersRepository {
           }),
         ],
       );
+      const paymentOrder = paymentOrderResult.rows[0];
 
       const ticketsResult = await client.query(
         `
@@ -1441,30 +1422,16 @@ class OrdersRepository {
         `
         UPDATE payment_orders
         SET provider = 'MANUAL',
+            provider_transaction_id = $2,
+            raw_payload = $3::jsonb,
             status = 'PAID',
             paid_at = now(),
             updated_at = now()
         WHERE id = $1
         `,
-        [paymentOrder.id],
-      );
-
-      await client.query(
-        `
-        INSERT INTO payment_transactions (
-          payment_order_id,
-          provider,
-          provider_transaction_id,
-          amount,
-          status,
-          raw_payload
-        )
-        VALUES ($1, 'MANUAL', $2, $3, 'PAID', $4::jsonb)
-        `,
         [
           paymentOrder.id,
           `${paymentMethod}-${order.order_code}`,
-          Number(paymentOrder.amount || order.total_amount || 0),
           JSON.stringify({
             ...rawPayload,
             bookingSource: 'staff_direct',
@@ -1775,26 +1742,15 @@ class OrdersRepository {
 
       await client.query(
         `
-        INSERT INTO payment_transactions (
-          payment_order_id,
-          provider,
-          provider_transaction_id,
-          amount,
-          status,
-          raw_payload
-        )
-        VALUES ($1, 'PAYOS', $2, $3, 'PAID', $4::jsonb)
-        `,
-        [paymentOrder.id, transactionId || String(providerOrderCode), amount, JSON.stringify(rawPayload || {})],
-      );
-
-      await client.query(
-        `
         UPDATE payment_orders
-        SET status = 'PAID', paid_at = now(), updated_at = now()
+        SET status = 'PAID',
+            provider_transaction_id = $2,
+            raw_payload = $3::jsonb,
+            paid_at = now(),
+            updated_at = now()
         WHERE id = $1
         `,
-        [paymentOrder.id],
+        [paymentOrder.id, transactionId || String(providerOrderCode), JSON.stringify(rawPayload || {})],
       );
       await client.query(
         `
@@ -1825,14 +1781,6 @@ class OrdersRepository {
       );
 
       if (order.promo_code_id) {
-        await client.query(
-          `
-          INSERT INTO promo_code_usages (promo_code_id, user_id, order_id)
-          VALUES ($1, $2, $3)
-          ON CONFLICT DO NOTHING
-          `,
-          [order.promo_code_id, order.user_id, order.id],
-        );
         await client.query(
           `
           UPDATE promo_codes
@@ -1921,7 +1869,7 @@ class OrdersRepository {
       `SELECT o.id, o.order_code, o.buyer_name, o.buyer_email, o.subtotal, o.discount_amount,
         o.platform_fee, o.total_amount, event_info.title AS event_title,
         event_info.banner_url, event_info.thumbnail_url,
-        po.paid_at, COALESCE(pt.provider_transaction_id, po.provider_order_code::text) AS transaction_code
+        po.paid_at, COALESCE(po.provider_transaction_id, po.provider_order_code::text) AS transaction_code
       FROM orders o
       JOIN LATERAL (
         SELECT e.id, e.title, e.banner_url, e.thumbnail_url
@@ -1934,8 +1882,6 @@ class OrdersRepository {
         LIMIT 1
       ) event_info ON true
       JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
-      LEFT JOIN LATERAL (SELECT provider_transaction_id FROM payment_transactions
-        WHERE payment_order_id = po.id AND status = 'PAID' ORDER BY created_at DESC LIMIT 1) pt ON true
       WHERE o.id = $1 AND o.status = 'PAID' ORDER BY po.paid_at DESC NULLS LAST LIMIT 1`,
       [orderId],
     );

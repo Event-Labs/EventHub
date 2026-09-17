@@ -1,15 +1,21 @@
-﻿import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
-import { useQuery } from '@tanstack/react-query'
+import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
   Download,
   ReceiptText,
+  RotateCcw,
+  X,
+  AlertCircle,
+  HelpCircle,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { fetchTicketDetail } from '@/services/tickets.js'
+import { submitRefundRequest } from '@/services/refunds.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 
 function formatDateTime(value) {
   if (!value) return 'N/A'
@@ -38,13 +44,14 @@ function venueLine(ticket) {
 }
 
 function statusText(ticket) {
+  if (ticket?.status === 'REFUND_REQUESTED') return 'Đang chờ hoàn vé'
+  if (ticket?.status === 'REFUNDED') return 'Đã hoàn vé'
   if (ticket?.status === 'EXPIRED') return 'Hết hạn'
-  if (ticket?.status === 'USED') return '\u0110\u00e3 d\u00f9ng'
-  if (ticket?.status === 'CANCELLED') return '\u0110\u00e3 h\u1ee7y'
-  if (ticket?.checked_in_at) return '\u0110\u00e3 check-in'
-  return 'H\u1ee3p l\u1ec7'
+  if (ticket?.status === 'USED') return 'Đã dùng'
+  if (ticket?.status === 'CANCELLED') return 'Đã hủy'
+  if (ticket?.checked_in_at) return 'Đã check-in'
+  return 'Hợp lệ'
 }
-
 
 function countdownParts(target, now) {
   if (!target) return null
@@ -110,17 +117,6 @@ function svgTextLines(lines, { x, y, fill = '#ffffff', size = 22, weight = 800, 
   return `<text x="${x}" y="${y}" fill="${fill}" font-family="${family}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}"${extra}>${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('')}</text>`
 }
 
-function ticketDetailBlock({ label, value, x, y, width = 330, size = 21 }) {
-  const maxChars = Math.max(18, Math.floor(width / (size * 0.5)))
-  const lines = wrapText(value, maxChars)
-  const labelSvg = `<text x="${x}" y="${y}" fill="#9fb4d2" font-family="Manrope, Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="850" letter-spacing="1.6">${escapeXml(label)}</text>`
-  const valueSvg = svgTextLines(lines, { x, y: y + 30, size, lineHeight: size + 8, weight: 850 })
-  return {
-    svg: `${labelSvg}${valueSvg}`,
-    height: 44 + lines.length * (size + 8),
-  }
-}
-
 async function imageToDataUrl(src) {
   const response = await fetch(src)
   const blob = await response.blob()
@@ -147,7 +143,7 @@ function buildTicketDownloadSvg(ticket, qrSrc) {
   const titleLines = wrapText(ticket.event?.title, 30)
   const ticketTypeLines = wrapText(ticket.ticket_type?.name, 48)
   const collectAttendees = Boolean(ticket.event?.require_attendee_info)
-  const holderLabel = collectAttendees ? 'NG\u01af\u1edcI THAM D\u1ef0 (ATTENDEE)' : 'NG\u01af\u1edcI MUA V\u00c9 (BUYER)'
+  const holderLabel = collectAttendees ? 'NGƯỜI THAM DỰ (ATTENDEE)' : 'NGƯỜI MUA VÉ (BUYER)'
   const holderName = collectAttendees ? ticket.attendee_name || ticket.order?.buyer_name : ticket.order?.buyer_name
   const attendeeLines = wrapText(holderName, 24)
   const orderLines = wrapText(ticket.order?.order_code, 26)
@@ -187,39 +183,40 @@ function buildTicketDownloadSvg(ticket, qrSrc) {
     <circle cx="660" cy="0" r="24" fill="#f4f7fb"/>
     <circle cx="660" cy="${ticketHeight}" r="24" fill="#f4f7fb"/>
 
-    <text x="44" y="62" fill="#38bdf8" font-family="${uiFont}" font-size="15" font-weight="800" letter-spacing="2.5">V\u00c9 CHECK-IN EVENTHUB (EVENTHUB CHECK-IN TICKET)</text>
+    <text x="44" y="62" fill="#38bdf8" font-family="${uiFont}" font-size="15" font-weight="800" letter-spacing="2.5">VÉ CHECK-IN EVENTHUB (EVENTHUB CHECK-IN TICKET)</text>
     ${svgTextLines(titleLines, { x: 44, y: 112, size: titleSize, lineHeight: titleLineHeight, weight: 850, family: uiFont })}
     ${svgTextLines(ticketTypeLines, { x: 44, y: ticketTypeY, fill: '#a9bdd8', size: 18, lineHeight: 24, weight: 650, family: uiFont })}
 
     <rect x="44" y="${infoY}" width="258" height="88" rx="14" fill="#1f2937" opacity=".72"/>
-    <text x="66" y="${infoY + 34}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">PHI\u00caN (SESSION)</text>
+    <text x="66" y="${infoY + 34}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">PHIÊN (SESSION)</text>
     <text x="66" y="${infoY + 62}" fill="#ffffff" font-family="${uiFont}" font-size="19" font-weight="800">${escapeXml(formatDateTime(ticket.session?.start_time))}</text>
 
     <rect x="328" y="${infoY}" width="244" height="88" rx="14" fill="#1f2937" opacity=".72"/>
-    <text x="350" y="${infoY + 34}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">GH\u1ebe (SEAT)</text>
+    <text x="350" y="${infoY + 34}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">GHẾ (SEAT)</text>
     <text x="350" y="${infoY + 62}" fill="#ffffff" font-family="${uiFont}" font-size="22" font-weight="850">${escapeXml(seat)}</text>
 
     <text x="44" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">${escapeXml(holderLabel)}</text>
     ${svgTextLines(attendeeLines, { x: 44, y: attendeeY + 28, size: 21, lineHeight: 27, weight: 850, family: uiFont })}
-    <text x="328" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">\u0110\u01a0N H\u00c0NG (ORDER)</text>
+    <text x="328" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">ĐƠN HÀNG (ORDER)</text>
     ${svgTextLines(orderLines, { x: 328, y: attendeeY + 28, size: 19, lineHeight: 25, weight: 850, family: uiFont })}
 
-    <text x="44" y="${venueY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">\u0110\u1ecaA \u0110I\u1ec2M (VENUE)</text>
+    <text x="44" y="${venueY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">ĐỊA ĐIỂM (VENUE)</text>
     ${svgTextLines(venueNameLines, { x: 44, y: venueY + 27, size: 21, lineHeight: 28, weight: 850, family: uiFont })}
     ${svgTextLines(addressLines, { x: 44, y: venueY + 27 + venueNameLines.length * 28, fill: '#d6e2f2', size: 13, lineHeight: 18, weight: 600, family: uiFont })}
 
-    <text x="820" y="54" fill="#0f172a" font-family="${uiFont}" font-size="13" font-weight="850" text-anchor="middle" letter-spacing="1.4">QU\u00c9T \u0110\u1ec2 CHECK-IN (SCAN TO CHECK IN)</text>
+    <text x="820" y="54" fill="#0f172a" font-family="${uiFont}" font-size="13" font-weight="850" text-anchor="middle" letter-spacing="1.4">QUÉT ĐỂ CHECK-IN (SCAN TO CHECK IN)</text>
     <rect x="712" y="82" width="216" height="216" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
     <image x="718" y="88" width="${qrSize}" height="${qrSize}" href="${escapeXml(qrSrc)}"/>
     <text x="820" y="342" fill="#0f172a" font-family="${monoFont}" font-size="17" font-weight="800" text-anchor="middle">${escapeXml(ticket.ticket_code)}</text>
     <rect x="738" y="372" width="164" height="42" rx="21" fill="${statusFill}"/>
     <text x="820" y="399" fill="${statusColor}" font-family="${uiFont}" font-size="15" font-weight="850" text-anchor="middle">${escapeXml(statusLabel)}</text>
-    <text x="820" y="${ticketHeight - 50}" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">Lu\u00f4n s\u1eb5n s\u00e0ng v\u00e9 t\u1ea1i c\u1ed5ng</text>
+    <text x="820" y="${ticketHeight - 50}" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">Luôn sẵn sàng vé tại cổng</text>
     <text x="820" y="${ticketHeight - 32}" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">(Keep this ticket ready at the gate)</text>
   </g>
   ${invalid ? `<text x="800" y="470" fill="#dc2626" opacity=".15" font-family="${uiFont}" font-size="92" font-weight="900" text-anchor="middle" transform="rotate(-15 800 470)">${escapeXml(statusLabel)}</text>` : ''}
 </svg>`
 }
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -289,7 +286,7 @@ export function TicketDetailPage() {
       const blob = await svgToRasterBlob(svg, 'png')
       downloadBlob(blob, `${baseName}.png`)
     } catch (err) {
-      setDownloadError('Kh\u00f4ng th\u1ec3 t\u1ea1o file v\u00e9. Vui l\u00f2ng th\u1eed l\u1ea1i sau.')
+      setDownloadError('Không thể tạo file vé. Vui lòng thử lại sau.')
     } finally {
       setDownloading(false)
     }
@@ -298,7 +295,7 @@ export function TicketDetailPage() {
   if (!isAuthenticated) return null
 
   if (ticketQuery.isLoading) {
-    return <div className="mx-auto max-w-5xl px-4 py-10 text-muted">Äang táº£i vÃ©...</div>
+    return <div className="mx-auto max-w-5xl px-4 py-10 text-muted">Đang tải thông tin vé...</div>
   }
 
   if (ticketQuery.isError || !ticketQuery.data) {
@@ -306,9 +303,9 @@ export function TicketDetailPage() {
       <div className="mx-auto max-w-5xl px-4 py-10">
         <Link to="/my-tickets" className="inline-flex items-center gap-2 text-sm font-bold text-primary">
           <ArrowLeft className="size-4" />
-          VÃ© cá»§a tÃ´i
+          Vé của tôi
         </Link>
-        <p className="mt-8 text-error">KhÃ´ng thá»ƒ táº£i thÃ´ng tin vÃ© hoáº·c vÃ© khÃ´ng thuá»™c tÃ i khoáº£n cá»§a báº¡n.</p>
+        <p className="mt-8 text-error">Không thể tải thông tin vé hoặc vé không thuộc tài khoản của bạn.</p>
       </div>
     )
   }
@@ -317,41 +314,43 @@ export function TicketDetailPage() {
   const venue = venueLine(ticket)
   const seat = ticket.seat?.label || 'Không có ghế cố định'
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
+  const isOrderPaid = ['PAID', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
   const isEntryEligible = ticket.status === 'VALID'
   const collectAttendees = Boolean(ticket.event?.require_attendee_info)
+  const canRequestRefund = isOrderPaid && isEntryEligible && !ticket.checked_in_at
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <Link to="/my-tickets" className="inline-flex items-center gap-2 text-sm font-bold text-primary">
         <ArrowLeft className="size-4" />
-        {'V\u00e9 c\u1ee7a t\u00f4i'}
+        Vé của tôi
       </Link>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,620px)_320px] lg:items-start">
         <aside className="order-2 space-y-5 lg:order-2 lg:sticky lg:top-24">
-          <Panel title={'Thanh to\u00e1n'} icon={ReceiptText}>
-            <Info label={'M\u00e3 giao d\u1ecbch'} value={ticket.payment?.transaction_code || 'N/A'} />
-            <Info label={'Ph\u01b0\u01a1ng th\u1ee9c'} value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
-            <Info label={'T\u1ed5ng thanh to\u00e1n'} value={formatCurrency(ticket.order.total_amount)} />
-            <Info label={'Thanh to\u00e1n l\u00fac'} value={formatDateTime(ticket.payment?.paid_at)} />
+          <Panel title="Thanh toán" icon={ReceiptText}>
+            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || 'N/A'} />
+            <Info label="Phương thức" value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
+            <Info label="Tổng thanh toán" value={formatCurrency(ticket.order?.total_amount)} />
+            <Info label="Thanh toán lúc" value={formatDateTime(ticket.payment?.paid_at)} />
           </Panel>
-          <Panel title={'Th\u00f4ng tin check-in'} icon={CheckCircle2}>
-            <Info label={'Tr\u1ea1ng th\u00e1i'} value={statusText(ticket)} />
+          <Panel title="Thông tin check-in" icon={CheckCircle2}>
+            <Info label="Trạng thái" value={statusText(ticket)} />
             {ticket.status === 'EXPIRED' ? (
-              <Info label={'Check-in'} value={'Đã đóng do vé hết hạn'} />
+              <Info label="Check-in" value="Đã đóng do vé hết hạn" />
             ) : ticket.checked_in_at ? (
-              <Info label={'Check-in l\u00fac'} value={formatDateTime(ticket.checked_in_at)} />
+              <Info label="Check-in lúc" value={formatDateTime(ticket.checked_in_at)} />
             ) : (
-              <CheckInCountdown target={ticket.session.checkin_start_time} />
+              <CheckInCountdown target={ticket.session?.checkin_start_time} />
             )}
-            {ticket.status !== 'EXPIRED' && <Info label={'M\u1edf check-in'} value={formatDateTime(ticket.session.checkin_start_time)} />}
+            {ticket.status !== 'EXPIRED' && <Info label="Mở check-in" value={formatDateTime(ticket.session?.checkin_start_time)} />}
           </Panel>
         </aside>
 
         <div className="order-1 lg:justify-self-start">
           <section className="mx-auto max-w-[620px] overflow-hidden rounded-xl border border-white/10 bg-[#101a33] shadow-2xl shadow-slate-950/30 lg:mx-0">
             <div className="relative min-h-56 overflow-hidden">
-              {ticket.event.banner_url ? (
+              {ticket.event?.banner_url ? (
                 <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-65" />
               ) : (
                 <div className="absolute inset-0 bg-panel-soft" />
@@ -363,11 +362,11 @@ export function TicketDetailPage() {
                     {statusText(ticket)}
                   </span>
                   <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase text-slate-200">
-                    {ticket.ticket_type.name}
+                    {ticket.ticket_type?.name}
                   </span>
                 </div>
                 <h1 className="mt-3 font-display text-2xl font-black leading-tight text-white sm:text-3xl">
-                  {ticket.event.title}
+                  {ticket.event?.title}
                 </h1>
               </div>
             </div>
@@ -376,18 +375,18 @@ export function TicketDetailPage() {
               <div className="grid gap-5 sm:grid-cols-2">
                 {collectAttendees && (
                   <>
-                    <CompactDetail label={'Ng\u01b0\u1eddi tham d\u1ef1'} value={ticket.attendee_name} />
-                    <CompactDetail label={'Email ng\u01b0\u1eddi tham d\u1ef1'} value={ticket.attendee_email} />
+                    <CompactDetail label="Người tham dự" value={ticket.attendee_name} />
+                    <CompactDetail label="Email người tham dự" value={ticket.attendee_email} />
                   </>
                 )}
-                <CompactDetail label={'Ng\u01b0\u1eddi mua v\u00e9'} value={ticket.order.buyer_name} />
-                <CompactDetail label={'Email ng\u01b0\u1eddi mua'} value={ticket.order.buyer_email} />
-                <CompactDetail label={'Th\u1eddi gian'} value={formatDateTime(ticket.session.start_time)} />
-                <CompactDetail label={'\u0110\u01a1n h\u00e0ng'} value={ticket.order.order_code} />
-                <CompactDetail label={'Lo\u1ea1i v\u00e9'} value={ticket.ticket_type.name} />
-                <CompactDetail label={'Gh\u1ebf ng\u1ed3i'} value={seat} />
-                <CompactDetail label="Check-in" value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at) : 'Ch\u01b0a check-in'} />
-                <CompactDetail label={'\u0110\u1ecba \u0111i\u1ec3m'} value={venueText || 'N/A'} wide />
+                <CompactDetail label="Người mua vé" value={ticket.order?.buyer_name} />
+                <CompactDetail label="Email người mua" value={ticket.order?.buyer_email} />
+                <CompactDetail label="Thời gian" value={formatDateTime(ticket.session?.start_time)} />
+                <CompactDetail label="Đơn hàng" value={ticket.order?.order_code} />
+                <CompactDetail label="Loại vé" value={ticket.ticket_type?.name} />
+                <CompactDetail label="Ghế ngồi" value={seat} />
+                <CompactDetail label="Check-in" value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at) : 'Chưa check-in'} />
+                <CompactDetail label="Địa điểm" value={venueText || 'N/A'} wide />
               </div>
 
               <div className="relative border-t border-dashed border-white/10 pt-6 before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-[#071022] after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-[#071022]">
@@ -400,14 +399,18 @@ export function TicketDetailPage() {
                   </>
                 ) : (
                   <div className="rounded-lg border border-error/30 bg-error/10 p-5 text-center font-bold text-error">
-                    Vé đã hết hạn hoặc không còn hợp lệ để check-in.
+                    {ticket.status === 'REFUND_REQUESTED'
+                      ? 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xử lý.'
+                      : ticket.status === 'REFUNDED'
+                      ? 'Vé này đã được hoàn tiền thành công.'
+                      : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in.'}
                   </div>
                 )}
               </div>
             </div>
           </section>
 
-          <div className="mx-auto mt-5 max-w-[620px] lg:mx-0">
+          <div className="mx-auto mt-5 max-w-[620px] space-y-3 lg:mx-0">
             <button
               type="button"
               onClick={handleDownload}
@@ -415,18 +418,184 @@ export function TicketDetailPage() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-[#111a31] px-5 py-4 text-sm font-extrabold text-white transition hover:bg-[#17213b] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Download className="size-4" />
-              {downloading ? '\u0110ang t\u1ea1o file...' : 'T\u1ea3i v\u00e9'}
+              {downloading ? 'Đang tạo file...' : 'Tải vé'}
             </button>
-            {downloadError && <p className="mt-3 text-sm text-error">{downloadError}</p>}
+            {downloadError && <p className="text-sm text-error">{downloadError}</p>}
             {!isEntryEligible && (
-              <p className="mt-3 text-sm text-warning">
-                {'V\u00e9 kh\u00f4ng c\u00f2n h\u1ee3p l\u1ec7 \u0111\u1ec3 v\u00e0o c\u1ed5ng. File t\u1ea3i xu\u1ed1ng s\u1ebd c\u00f3 watermark tr\u1ea1ng th\u00e1i.'}
+              <p className="text-sm text-warning">
+                Vé không còn hợp lệ để vào cổng. File tải xuống sẽ có watermark trạng thái.
               </p>
             )}
+
+            {ticket.status === 'REFUND_REQUESTED' ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center">
+                <p className="font-bold text-amber-300">Yêu cầu hoàn vé đang được xử lý (Pending Review)</p>
+                <p className="mt-1 text-xs text-amber-200/80">Nhà tổ chức sự kiện đang xem xét yêu cầu hoàn tiền của bạn.</p>
+              </div>
+            ) : ticket.status === 'REFUNDED' ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
+                <p className="font-bold text-emerald-300">Vé này đã được hoàn tiền (Refunded).</p>
+                <p className="mt-1 text-xs text-emerald-200/80">Bạn không thể sử dụng mã QR này để vào cổng.</p>
+              </div>
+            ) : canRequestRefund ? (
+              <RefundButton ticket={ticket} onRefundSubmitted={() => ticketQuery.refetch()} />
+            ) : null}
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function RefundButton({ ticket, onRefundSubmitted }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const toast = useToast()
+  const [reason, setReason] = useState('Khách hàng đổi lịch / không thể tham dự')
+  const [customerNote, setCustomerNote] = useState('')
+  const [bankName, setBankName] = useState('')
+  const [accountNumber, setAccountNumber] = useState('')
+  const [accountHolder, setAccountHolder] = useState('')
+
+  const refundMutation = useMutation({
+    mutationFn: (payload) => submitRefundRequest(payload),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Gửi yêu cầu hoàn vé thành công!')
+      setIsOpen(false)
+      onRefundSubmitted?.()
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Không thể gửi yêu cầu hoàn tiền. Vui lòng kiểm tra chính sách hoàn vé của sự kiện.')
+    },
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    refundMutation.mutate({
+      ticket_id: ticket.id,
+      reason,
+      customer_note: customerNote,
+      bank_info: bankName ? { bank_name: bankName, account_number: accountNumber, account_holder: accountHolder } : undefined,
+    })
+  }
+
+  const refundPolicy = ticket.event?.refund_policy
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20"
+      >
+        <RotateCcw className="size-4" />
+        Yêu cầu hoàn vé (Refund)
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0f172a] p-6 shadow-2xl">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="absolute right-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+            >
+              <X className="size-5" />
+            </button>
+
+            <div className="flex items-center gap-3 text-amber-400">
+              <RotateCcw className="size-6" />
+              <h3 className="text-xl font-bold text-white">Yêu cầu hoàn tiền vé</h3>
+            </div>
+
+            <p className="mt-2 text-xs text-slate-400">
+              Vé: <span className="font-mono font-bold text-white">{ticket.ticket_code}</span> ({ticket.ticket_type?.name})
+            </p>
+
+            {refundPolicy && (
+              <div className="mt-3 rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-xs text-blue-200">
+                <p className="font-semibold text-blue-300">Chính sách hoàn vé của sự kiện:</p>
+                <p className="mt-1">
+                  {refundPolicy.allow_refunds === false
+                    ? '⚠️ Sự kiện không hỗ trợ hoàn vé theo quy định của ban tổ chức.'
+                    : `Hạn chót hoàn vé: trước sự kiện ${refundPolicy.deadline_days || 1} ngày. Phí xử lý: ${refundPolicy.fee_percentage || 0}%.`}
+                </p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300">Lý do hoàn vé</label>
+                <select
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:border-amber-400 focus:outline-none"
+                >
+                  <option value="Khách hàng đổi lịch / không thể tham dự">Khách hàng đổi lịch / không thể tham dự</option>
+                  <option value="Mua nhầm số lượng hoặc loại vé">Mua nhầm số lượng hoặc loại vé</option>
+                  <option value="Sự kiện thay đổi thời gian / địa điểm">Sự kiện thay đổi thời gian / địa điểm</option>
+                  <option value="Lý do sức khỏe / cá nhân khẩn cấp">Lý do sức khỏe / cá nhân khẩn cấp</option>
+                  <option value="Lý do khác">Lý do khác</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300">Ghi chú chi tiết (nếu có)</label>
+                <textarea
+                  rows={2}
+                  value={customerNote}
+                  onChange={(e) => setCustomerNote(e.target.value)}
+                  placeholder="Mô tả cụ thể hơn để BTC xem xét..."
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] p-3 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-2 rounded-lg border border-white/5 bg-[#172033] p-3">
+                <p className="text-xs font-semibold text-slate-300">Thông tin nhận tiền hoàn (Nếu hoàn qua chuyển khoản):</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Tên ngân hàng (VD: Vietcombank, MB...)"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Số tài khoản"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500"
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Tên chủ tài khoản (viết hoa không dấu)"
+                  value={accountHolder}
+                  onChange={(e) => setAccountHolder(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-400 hover:bg-white/10 hover:text-white"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={refundMutation.isPending}
+                  className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-400 disabled:opacity-50"
+                >
+                  {refundMutation.isPending ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu hoàn tiền'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -451,7 +620,6 @@ function Panel({ title, icon: Icon, children }) {
   )
 }
 
-
 function CheckInCountdown({ target }) {
   const [now, setNow] = useState(() => Date.now())
   const parts = countdownParts(target, now)
@@ -462,8 +630,8 @@ function CheckInCountdown({ target }) {
     return () => window.clearInterval(timer)
   }, [parts?.ended, target])
 
-  if (!target) return <Info label={'Check-in l\u00fac'} value="N/A" />
-  if (parts?.ended) return <Info label={'Check-in l\u00fac'} value={'\u0110\u00e3 m\u1edf'} />
+  if (!target) return <Info label="Check-in lúc" value="N/A" />
+  if (parts?.ended) return <Info label="Check-in lúc" value="Đã mở" />
 
   return (
     <div className="rounded-lg border border-white/10 bg-[#121b3a] p-4">
@@ -497,11 +665,3 @@ function Info({ label, value }) {
     </div>
   )
 }
-
-
-
-
-
-
-
-

@@ -11,6 +11,7 @@ import {
   Ban,
   ShieldAlert,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 
@@ -114,6 +115,8 @@ export function AdminEventReviewDetailPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const queryClient = useQueryClient()
+
+  const [confirmState, setConfirmState] = useState(null)
 
   // -------------------------------------------------------------------------
   // Queries
@@ -224,14 +227,40 @@ export function AdminEventReviewDetailPage() {
 
   const onSubmitReview = (status) => {
     return handleSubmit((data) => {
-      reviewMutation.mutate({
-        status,
-        review_note: data.review_note?.trim() || null,
-      })
+      if (status === 'APPROVED') {
+        setConfirmState({
+          title: 'Xác nhận phê duyệt',
+          description: 'Bạn có chắc chắn muốn phê duyệt sự kiện này?',
+          confirmText: 'Phê duyệt',
+          confirmColor: 'bg-success',
+          onConfirm: () => {
+            reviewMutation.mutate({
+              status,
+              review_note: data.review_note?.trim() || null,
+            })
+            setConfirmState(null)
+          }
+        })
+      } else {
+        setConfirmState({
+          title: 'Xác nhận từ chối',
+          description: 'Bạn có chắc chắn muốn từ chối sự kiện này? Vui lòng đảm bảo đã nhập lý do.',
+          confirmText: 'Từ chối',
+          confirmColor: 'bg-error',
+          onConfirm: () => {
+            reviewMutation.mutate({
+              status,
+              review_note: data.review_note?.trim() || null,
+            })
+            setConfirmState(null)
+          }
+        })
+      }
     })()
   }
 
   const isPending = reviewMutation.isPending
+  const isPendingReview = event?.status === 'PENDING_REVIEW'
 
   // -------------------------------------------------------------------------
   // Main Render
@@ -256,8 +285,15 @@ export function AdminEventReviewDetailPage() {
 
       {/* Main Split Screen */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Column: Event Details (60%) */}
-        <div className="w-[60%] overflow-y-auto p-6 scrollbar-thin">
+        {/* Left Column: Event Details */}
+        <div className={`overflow-y-auto p-6 scrollbar-thin ${isPendingReview ? 'w-[60%]' : 'w-full max-w-5xl mx-auto'}`}>
+          {!isPendingReview && event.review_note && (
+            <div className={`mb-6 p-4 rounded-xl border ${event.status === 'REJECTED' ? 'bg-error/10 border-error/20 text-error' : event.status === 'HIDDEN' ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-panel-soft border-border-soft text-content'}`}>
+              <h3 className="font-bold mb-1">Ghi chú từ quản trị viên:</h3>
+              <p className="text-sm whitespace-pre-wrap">{event.review_note}</p>
+            </div>
+          )}
+
           <Panel className="mb-6 p-0 overflow-hidden">
             {event.banner_url ? (
               <img
@@ -356,8 +392,9 @@ export function AdminEventReviewDetailPage() {
           </Panel>
         </div>
 
-        {/* Right Column: AI Assistant & Actions (40%) */}
-        <div className="flex w-[40%] flex-col border-l border-border-soft bg-panel-soft">
+        {/* Right Column: AI Assistant & Actions (40%) - ONLY FOR PENDING_REVIEW */}
+        {isPendingReview && (
+          <div className="flex w-[40%] flex-col border-l border-border-soft bg-panel-soft">
           {/* AI Info Area */}
           <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
             <div className="mb-6 flex items-center gap-2">
@@ -429,7 +466,18 @@ export function AdminEventReviewDetailPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
+
+      <ConfirmModal
+        open={!!confirmState}
+        title={confirmState?.title}
+        description={confirmState?.description}
+        confirmText={confirmState?.confirmText}
+        confirmColor={confirmState?.confirmColor}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   )
 }
@@ -451,5 +499,25 @@ function SparklesIcon(props) {
       <path d="M3 5h4" />
       <path d="M17 19h4" />
     </svg>
+  )
+}
+
+function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'bg-primary' }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
+      <Panel className="w-full max-w-sm border-border-soft/60">
+        <h3 className="text-lg font-bold text-content">{title}</h3>
+        <p className="mt-2 text-sm text-subtle">{description}</p>
+        <div className="mt-5 flex justify-end gap-3">
+          <button type="button" className="admin-secondary" onClick={onCancel}>
+            {cancelText}
+          </button>
+          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
+            {confirmText}
+          </button>
+        </div>
+      </Panel>
+    </div>
   )
 }

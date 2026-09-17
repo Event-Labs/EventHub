@@ -1,25 +1,5 @@
 import { http } from '@/services/http.js'
 
-export async function fetchPlatformFees() {
-  const response = await http.get('/admin/platform-finance/fees')
-  return response.data.data
-}
-
-export async function createPlatformFee(payload) {
-  const response = await http.post('/admin/platform-finance/fees', payload)
-  return response.data.data
-}
-
-export async function updatePlatformFee(id, payload) {
-  const response = await http.patch(`/admin/platform-finance/fees/${id}`, payload)
-  return response.data.data
-}
-
-export async function deletePlatformFee(id) {
-  const response = await http.delete(`/admin/platform-finance/fees/${id}`)
-  return response.data.data
-}
-
 export async function fetchPlatformPolicies(params = {}) {
   const response = await http.get('/admin/platform-finance/policies', { params })
   return response.data.data

@@ -20,10 +20,15 @@ router.get('/:eventId', eventsAdminController.getEventDetail);
 // Review event (approve / reject)
 router.patch('/:eventId/review', eventsAdminController.reviewEvent);
 
+// AI-assisted Review
+router.get('/:eventId/ai-review', eventsAdminController.getAiReview);
+router.post('/:eventId/ai-review', eventsAdminController.runAiReview);
+
 // Hide / unhide event
 router.patch('/:eventId/hide',   eventsAdminController.hideEvent);
 router.patch('/:eventId/unhide', eventsAdminController.unhideEvent);
 
 module.exports = router;
+
 
 

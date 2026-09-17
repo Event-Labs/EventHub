@@ -218,6 +218,17 @@ export function OrganizerStaffManagementPage() {
         <OrganizerPanel className="flex items-center justify-center py-16">
           <Loader2 className="size-7 animate-spin text-primary" />
         </OrganizerPanel>
+      ) : error ? (
+        <OrganizerPanel className="border-error/30 bg-error/10 py-10 text-center">
+          <p className="font-bold text-error">{error}</p>
+          <button
+            type="button"
+            className="org-btn-primary mx-auto mt-4"
+            onClick={loadData}
+          >
+            Thử lại
+          </button>
+        </OrganizerPanel>
       ) : !subscriptionActive ? (
         <OrganizerPanel className="py-10 text-center">
           <p className="font-bold text-error">Cần gói subscription đang hoạt động để mời staff.</p>

@@ -11,6 +11,7 @@ const STAFF_TICKET_SELECT = `
     t.created_at,
     t.checked_in_at,
     t.checked_in_by,
+    t.checkin_method,
     e.id AS event_id,
     e.title AS event_title,
     e.slug AS event_slug,
@@ -89,6 +90,7 @@ class TicketsRepository {
         e.thumbnail_url AS event_thumbnail_url,
         e.banner_url AS event_banner_url,
         e.require_attendee_info,
+        e.refund_policy AS event_refund_policy,
         es.id AS event_session_id,
         es.session_name,
         es.start_time AS session_start_time,
@@ -114,6 +116,7 @@ class TicketsRepository {
         s.is_disabled,
         o.id AS order_id,
         o.order_code,
+        o.status AS order_status,
         o.buyer_name,
         o.buyer_email,
         o.total_amount,
@@ -128,7 +131,7 @@ class TicketsRepository {
       LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
       LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE o.user_id = $1
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
         ${statusFilter}
       ORDER BY o.created_at DESC, t.created_at DESC
@@ -164,6 +167,7 @@ class TicketsRepository {
         e.banner_url AS event_banner_url,
         e.thumbnail_url AS event_thumbnail_url,
         e.require_attendee_info,
+        e.refund_policy AS event_refund_policy,
         e.start_time AS event_start_time,
         e.end_time AS event_end_time,
         es.id AS event_session_id,
@@ -211,21 +215,20 @@ class TicketsRepository {
       LEFT JOIN seats s ON s.id = ss.seat_id
       LEFT JOIN LATERAL (
         SELECT
-          COALESCE(pt.provider_transaction_id, po.provider_order_code::text) AS transaction_code,
+          COALESCE(po.provider_transaction_id, po.provider_order_code::text) AS transaction_code,
           'CASH'::text AS payment_method,
           po.provider::text AS provider,
           po.status,
           po.paid_at
         FROM payment_orders po
-        LEFT JOIN payment_transactions pt ON pt.payment_order_id = po.id
         WHERE po.order_id = o.id
           AND po.status = 'PAID'
-        ORDER BY po.paid_at DESC NULLS LAST, pt.created_at DESC NULLS LAST
+        ORDER BY po.paid_at DESC NULLS LAST
         LIMIT 1
       ) p ON true
       WHERE t.id = $1
         AND o.user_id = $2
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
       ORDER BY p.paid_at DESC NULLS LAST
       LIMIT 1
@@ -421,19 +424,11 @@ class TicketsRepository {
         UPDATE tickets
         SET status = 'USED',
             checked_in_at = now(),
-            checked_in_by = $2
+            checked_in_by = $2,
+            checkin_method = $3
         WHERE id = $1
         `,
-        [ticketId, staffId],
-      );
-
-      await client.query(
-        `
-        INSERT INTO checkin_logs (ticket_id, staff_id, method, checked_in_at)
-        VALUES ($1, $2, $3, now())
-        ON CONFLICT (ticket_id) DO NOTHING
-        `,
-        [ticketId, staffId, method],
+        [ticketId, staffId, method || 'QR'],
       );
 
       const ticketResult = await client.query(
