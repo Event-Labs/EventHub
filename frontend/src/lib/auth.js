@@ -63,6 +63,19 @@ export function updateStoredUser(userPatch) {
   return nextUser
 }
 
+export function updateAuthToken(newAccessToken) {
+  if (!newAccessToken) return
+  if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+    localStorage.setItem(AUTH_TOKEN_KEY, newAccessToken)
+  } else if (sessionStorage.getItem(AUTH_TOKEN_KEY)) {
+    sessionStorage.setItem(AUTH_TOKEN_KEY, newAccessToken)
+  } else {
+    const remember = getRememberLoginPreference()
+    const storage = remember ? localStorage : sessionStorage
+    storage.setItem(AUTH_TOKEN_KEY, newAccessToken)
+  }
+}
+
 export function getRememberLoginPreference() {
   return localStorage.getItem(REMEMBER_LOGIN_KEY) !== 'false'
 }
