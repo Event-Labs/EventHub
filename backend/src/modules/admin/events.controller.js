@@ -3,6 +3,16 @@ const eventsAdminService = require('./events.service');
 const { eventIdSchema, reviewEventSchema, hideEventSchema } = require('./events.validation');
 
 class EventsAdminController {
+  getEventDetail = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const data = await eventsAdminService.getEventDetail(eventId);
+      res.status(200).json(ApiResponse.success(data, 'Event detail retrieved successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   reviewEvent = async (req, res, next) => {
     try {
       const { eventId } = eventIdSchema.parse(req.params);
