@@ -1000,8 +1000,27 @@ class OrdersRepository {
         const orderItem = itemResult.rows[0];
         orderItems.push({ ...orderItem, ticket_type_name: ticketType.name });
 
+        const ticketsToInsert = [];
         for (let index = 0; index < Number(item.quantity); index += 1) {
           const code = ticketCode();
+          ticketsToInsert.push([
+            orderItem.id,
+            ticketType.event_id,
+            ticketType.event_session_id,
+            ticketType.id,
+            null,
+            code,
+            code,
+            buyer.name,
+            buyer.email || null,
+          ]);
+        }
+
+        if (ticketsToInsert.length > 0) {
+          const placeholders = ticketsToInsert.map((_, idx) => {
+            const o = idx * 9;
+            return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}::varchar(100), $${o + 7}::text, $${o + 8}, $${o + 9}, 'VALID')`;
+          }).join(', ');
           await client.query(
             `
             INSERT INTO tickets (
@@ -1016,18 +1035,9 @@ class OrdersRepository {
               attendee_email,
               status
             )
-            VALUES ($1, $2, $3, $4, NULL, $5::varchar(100), $6::text, $7, $8, 'VALID')
+            VALUES ${placeholders}
             `,
-            [
-              orderItem.id,
-              ticketType.event_id,
-              ticketType.event_session_id,
-              ticketType.id,
-              code,
-              code,
-              buyer.name,
-              buyer.email || null,
-            ],
+            ticketsToInsert.flat(),
           );
         }
       }
@@ -1490,41 +1500,50 @@ class OrdersRepository {
         [orderId],
       );
 
+      const ticketsToInsert = [];
       for (const item of itemResult.rows) {
         if (item.existing_ticket_id) continue;
 
         const quantity = item.session_seat_id ? 1 : Number(item.quantity);
         for (let index = 0; index < quantity; index += 1) {
           const code = ticketCode();
-          await client.query(
-            `
-            INSERT INTO tickets (
-              order_item_id,
-              event_id,
-              event_session_id,
-              ticket_type_id,
-              session_seat_id,
-              ticket_code,
-              qr_code,
-              attendee_name,
-              attendee_email,
-              status
-            )
-            VALUES ($1, $2, $3, $4, $5, $6::varchar(100), $7::text, $8, $9, 'VALID')
-            `,
-            [
-              item.id,
-              item.event_id,
-              item.event_session_id,
-              item.ticket_type_id,
-              item.session_seat_id,
-              code,
-              code,
-              order.buyer_name,
-              order.buyer_email,
-            ],
-          );
+          ticketsToInsert.push([
+            item.id,
+            item.event_id,
+            item.event_session_id,
+            item.ticket_type_id,
+            item.session_seat_id,
+            code,
+            code,
+            order.buyer_name,
+            order.buyer_email,
+          ]);
         }
+      }
+
+      if (ticketsToInsert.length > 0) {
+        const placeholders = ticketsToInsert.map((_, idx) => {
+          const o = idx * 9;
+          return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}::varchar(100), $${o + 7}::text, $${o + 8}, $${o + 9}, 'VALID')`;
+        }).join(', ');
+        await client.query(
+          `
+          INSERT INTO tickets (
+            order_item_id,
+            event_id,
+            event_session_id,
+            ticket_type_id,
+            session_seat_id,
+            ticket_code,
+            qr_code,
+            attendee_name,
+            attendee_email,
+            status
+          )
+          VALUES ${placeholders}
+          `,
+          ticketsToInsert.flat(),
+        );
       }
 
       await client.query('COMMIT');
@@ -1812,7 +1831,7 @@ class OrdersRepository {
         [order.id],
       );
 
-      const issuedTickets = [];
+      const ticketsToInsert = [];
       for (const item of itemResult.rows) {
         if (item.existing_ticket_id) continue;
 
@@ -1821,37 +1840,46 @@ class OrdersRepository {
         for (let index = 0; index < quantity; index += 1) {
           const attendee = item.require_attendee_info ? attendeeInfo[index] : null;
           const code = ticketCode();
-          const ticketResult = await client.query(
-            `
-            INSERT INTO tickets (
-              order_item_id,
-              event_id,
-              event_session_id,
-              ticket_type_id,
-              session_seat_id,
-              ticket_code,
-              qr_code,
-              attendee_name,
-              attendee_email,
-              status
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'VALID')
-            RETURNING id, ticket_code, status, created_at
-            `,
-            [
-              item.id,
-              item.event_id,
-              item.event_session_id,
-              item.ticket_type_id,
-              item.session_seat_id,
-              code,
-              code,
-              attendee?.name || null,
-              attendee?.email || null,
-            ],
-          );
-          issuedTickets.push(ticketResult.rows[0]);
+          ticketsToInsert.push([
+            item.id,
+            item.event_id,
+            item.event_session_id,
+            item.ticket_type_id,
+            item.session_seat_id,
+            code,
+            code,
+            attendee?.name || null,
+            attendee?.email || null,
+          ]);
         }
+      }
+
+      let issuedTickets = [];
+      if (ticketsToInsert.length > 0) {
+        const placeholders = ticketsToInsert.map((_, idx) => {
+          const o = idx * 9;
+          return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}, $${o + 7}, $${o + 8}, $${o + 9}, 'VALID')`;
+        }).join(', ');
+        const ticketResult = await client.query(
+          `
+          INSERT INTO tickets (
+            order_item_id,
+            event_id,
+            event_session_id,
+            ticket_type_id,
+            session_seat_id,
+            ticket_code,
+            qr_code,
+            attendee_name,
+            attendee_email,
+            status
+          )
+          VALUES ${placeholders}
+          RETURNING id, ticket_code, status, created_at
+          `,
+          ticketsToInsert.flat(),
+        );
+        issuedTickets = ticketResult.rows;
       }
 
       await client.query('COMMIT');

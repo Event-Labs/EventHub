@@ -735,23 +735,25 @@ class OrganizerEventsRepository {
         [sessionId],
       );
 
-      for (const { zone_id: zoneId, ticket_type_id: ticketTypeId } of assignments) {
+      if (assignments.length > 0) {
+        const ticketTypeIds = assignments.map((a) => a.ticket_type_id);
+        const zoneIds = assignments.map((a) => a.zone_id);
         await client.query(
           `
           INSERT INTO ticket_type_seats (ticket_type_id, seat_id)
-          SELECT $1, s.id
-          FROM seats s
-          WHERE s.zone_id = $2
-            AND s.seat_map_id = (
-              SELECT seat_map_id FROM event_sessions WHERE id = $3
-            )
+          SELECT a.ticket_type_id, s.id
+          FROM UNNEST($1::uuid[], $2::uuid[]) AS a(ticket_type_id, zone_id)
+          JOIN seats s ON s.zone_id = a.zone_id
+          WHERE s.seat_map_id = (
+            SELECT seat_map_id FROM event_sessions WHERE id = $3
+          )
             AND COALESCE(s.is_disabled, false) = false
             AND NOT EXISTS (
               SELECT 1 FROM ticket_type_seats tts
-              WHERE tts.ticket_type_id = $1 AND tts.seat_id = s.id
+              WHERE tts.ticket_type_id = a.ticket_type_id AND tts.seat_id = s.id
             )
           `,
-          [ticketTypeId, zoneId, sessionId],
+          [ticketTypeIds, zoneIds, sessionId],
         );
       }
 

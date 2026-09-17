@@ -80,6 +80,10 @@ class OperationsService {
 
     if (rawRoles.includes('STAFF') && staffEventIds.length === 0) {
       roles = rawRoles.filter((role) => role !== 'STAFF');
+      if (roles.length === 0) roles.push('CUSTOMER');
+      try {
+        await authRepository.removeRole(user.id, 'STAFF');
+      } catch (_) {}
     }
 
     const payload = { sub: user.id, roles };

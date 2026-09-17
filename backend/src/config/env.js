@@ -27,7 +27,7 @@ const envSchema = z.object({
 
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),
-    JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+    JWT_ACCESS_EXPIRES_IN: z.string().default('2h'),
     JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
     SMTP_HOST: z.string().transform(cleanEnvValue),
@@ -47,7 +47,7 @@ const envSchema = z.object({
     PLATFORM_PAYOS_API_KEY: z.string().optional(),
     PLATFORM_PAYOS_CHECKSUM_KEY: z.string().optional(),
 
-    BCRYPT_SALT_ROUNDS: z.string().transform(Number).default('12'),
+    BCRYPT_SALT_ROUNDS: z.string().transform(Number).default('10'),
     EMAIL_VERIFY_EXPIRES_IN: z.string().transform(Number).default('86400'),
     PASSWORD_RESET_EXPIRES_IN: z.string().transform(Number).default('3600'),
 });
