@@ -1,5 +1,6 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const organizerEventsService = require('./organizerEvents.service');
+const logger = require('../../core/logger');
 
 class OrganizerEventsController {
   getMe = async (req, res, next) => {
@@ -75,6 +76,8 @@ class OrganizerEventsController {
       next(err);
     }
   };
+
+
 
   createEvent = async (req, res, next) => {
     try {

@@ -1,5 +1,10 @@
 import { http } from './http.js'
 
+export async function fetchAdminEventDetail(eventId) {
+  const response = await http.get(`/admin/events/${eventId}`)
+  return response.data.data
+}
+
 export async function reviewAdminEvent(eventId, payload) {
   const response = await http.patch(`/admin/events/${eventId}/review`, payload)
   return response.data.data

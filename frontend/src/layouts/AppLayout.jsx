@@ -11,8 +11,8 @@ import {
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated, updateStoredUser } from '@/lib/auth.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
-import { AiChatWidget } from '@/components/ai/AiChatWidget.jsx'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
+import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const centerNavItems = [
@@ -460,7 +460,6 @@ export function AppLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      {loggedIn && <AiChatWidget enabled={loggedIn} />}
       <footer className="border-t border-primary/15 bg-[#081126]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
@@ -491,6 +490,7 @@ export function AppLayout() {
           </div>
         </div>
       </footer>
+      <CustomerAiAssistantWidget enabled={true} />
     </div>
   )
 }
