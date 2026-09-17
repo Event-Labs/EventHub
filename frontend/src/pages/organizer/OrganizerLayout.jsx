@@ -1,10 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Calendar, ChartNoAxesCombined, CircleDollarSign, ClipboardCheck, FileText, Home, LayoutDashboard, MapPin, MessageSquareText, Percent, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
+import { Bell, Calendar, ChartNoAxesCombined, CircleDollarSign, ClipboardCheck, FileText, Home, LayoutDashboard, MapPin, MessageSquareText, Percent, RotateCcw, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
 import { getStoredUser, getStoredUserKey, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { fetchOrganizerProfile } from '@/services/organizerEvents.js'
 import { getProfile } from '@/services/user.service.js'
+
+function parseStoredUser() {
+  return getStoredUser()
+}
 
 const navSections = [
   {
@@ -25,6 +29,7 @@ const navSections = [
     icon: ShoppingCart,
     children: [
       { label: 'Đơn hàng', to: '/organizer/orders', icon: ShoppingCart },
+      { label: 'Yêu cầu hoàn vé', to: '/organizer/refunds', icon: RotateCcw },
       { label: 'Phân tích vé', to: '/organizer/ticket-sales', icon: ChartNoAxesCombined },
       { label: 'Mã khuyến mãi', to: '/organizer/promotions', icon: Percent },
     ],
@@ -112,8 +117,4 @@ export function OrganizerLayout() {
       }
     />
   )
-}
-
-function parseStoredUser() {
-  return getStoredUser()
 }

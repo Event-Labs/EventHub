@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers } from 'lucide-react'
 import { fetchEventCategories } from '@/services/events.js'
 import {
   createOrganizerEvent,
@@ -7,6 +8,7 @@ import {
   fetchOrganizerVenues,
   submitOrganizerEvent,
   updateOrganizerEvent,
+  generateAiEventContent,
 } from '@/services/organizerEvents.js'
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { assignZones, getSeatMap } from '@/services/organizerSeatMaps.js'
@@ -17,8 +19,10 @@ import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { AiEventContentGeneratorModal } from './AiEventContentGeneratorModal.jsx'
 
 const STEP_LABELS = [
+
   'Thông tin sự kiện',
   'Ngày giờ & Địa điểm',
   'Hạng vé & Sơ đồ ghế',
@@ -148,6 +152,8 @@ function Step1EventInfo({
   uploadingThumb,
   uploadingBanner,
 }) {
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false)
+
   const addTag = () => {
     const tag = tagInput.trim()
     if (!tag || formData.tags.includes(tag)) return
@@ -159,10 +165,20 @@ function Step1EventInfo({
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-8">
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 hover:border-border-soft/60 transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
-            <Icon name="info" className="text-tertiary" />
-            Thông tin cơ bản
-          </h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[20px] font-semibold flex items-center gap-2 text-content">
+              <Icon name="info" className="text-tertiary" />
+              Thông tin cơ bản
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsAiModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110 active:scale-95"
+            >
+              <Sparkles className="size-4 animate-pulse" />
+              ✨ Tạo nội dung với AI
+            </button>
+          </div>
           <div className="space-y-6">
             <div>
               <label className="block text-[13px] font-medium mb-2 text-subtle">Tên sự kiện*</label>
@@ -351,9 +367,28 @@ function Step1EventInfo({
           </div>
         </div>
       </div>
-    </div >
+
+      <AiEventContentGeneratorModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        categories={categories}
+        initialCategory={categories.find((c) => c.id === formData.category_id)?.name || ''}
+        eventId={formData.id || null}
+        onApply={(generated) => {
+          setFormData((prev) => ({
+            ...prev,
+            title: generated.title || prev.title,
+            short_description: generated.short_description || prev.short_description,
+            description: generated.description || generated.content_html || prev.description,
+            tags: Array.from(new Set([...prev.tags, ...(generated.tags || [])])),
+          }))
+          setIsAiModalOpen(false)
+        }}
+      />
+    </div>
   )
 }
+
 
 function Step2ScheduleVenue({ formData, setFormData, venues }) {
   const currentDate = new Date()

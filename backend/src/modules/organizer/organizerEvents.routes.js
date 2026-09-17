@@ -14,6 +14,8 @@ router.patch('/me', organizerEventsController.updateMe);
 router.post('/me/sensitive-access/start', organizerEventsController.startSensitiveAccess);
 router.post('/me/sensitive-access/verify', organizerEventsController.verifySensitiveAccess);
 router.get('/venues', organizerEventsController.getVenues);
+router.get('/ai-content-generation/latest', organizerEventsController.getLatestAiContentGeneration);
+router.post('/ai-content-generation', organizerEventsController.generateAiEventContent);
 router.post('/', organizerEventsController.createEvent);
 router.get('/', organizerEventsController.listEvents);
 router.get('/:eventId', organizerEventsController.getEvent);

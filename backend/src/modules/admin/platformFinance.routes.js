@@ -6,11 +6,6 @@ const router = express.Router();
 
 router.use(protect, authorize('ADMIN', 'admin', 'SUPER_ADMIN', 'super_admin'));
 
-router.get('/fees', platformFinanceController.listFees);
-router.post('/fees', platformFinanceController.createFee);
-router.patch('/fees/:id', platformFinanceController.updateFee);
-router.delete('/fees/:id', platformFinanceController.deleteFee);
-
 router.get('/policies', platformFinanceController.listPolicies);
 router.post('/policies', platformFinanceController.createPolicy);
 router.patch('/policies/:id', platformFinanceController.updatePolicy);

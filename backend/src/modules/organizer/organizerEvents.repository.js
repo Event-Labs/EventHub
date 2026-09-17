@@ -766,3 +766,4 @@ class OrganizerEventsRepository {
 }
 
 module.exports = new OrganizerEventsRepository();
+

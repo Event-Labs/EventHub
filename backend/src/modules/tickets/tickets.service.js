@@ -57,6 +57,7 @@ function buildTicketPayload(row) {
       thumbnail_url: row.event_thumbnail_url,
       banner_url: row.event_banner_url || row.event_thumbnail_url,
       require_attendee_info: Boolean(row.require_attendee_info),
+      refund_policy: typeof row.event_refund_policy === 'string' ? JSON.parse(row.event_refund_policy) : (row.event_refund_policy || {}),
     },
     session: {
       id: row.event_session_id,
@@ -82,6 +83,7 @@ function buildTicketPayload(row) {
     order: {
       id: row.order_id,
       order_code: row.order_code,
+      status: row.order_status,
       buyer_name: row.buyer_name,
       buyer_email: row.buyer_email,
       total_amount: row.total_amount ? Number(row.total_amount) : undefined,
@@ -300,8 +302,8 @@ function buildDownloadSvg(ticket) {
     ? ticket.attendee_name || ticket.order.buyer_name
     : ticket.order.buyer_name;
   const holderLabel = ticket.event?.require_attendee_info
-    ? 'NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)'
-    : 'NG&#431;&#7900;I MUA V&#201; (BUYER)';
+    ? 'NGƯỜI THAM DỰ (ATTENDEE)'
+    : 'NGƯỜI MUA VÉ (BUYER)';
   const attendee = clipText(holderName, 30);
   const orderCode = clipText(ticket.order.order_code, 26);
   const addressLine = clipText(venue, 74);
@@ -333,34 +335,34 @@ function buildDownloadSvg(ticket) {
     <circle cx="660" cy="0" r="24" fill="#f4f7fb"/>
     <circle cx="660" cy="500" r="24" fill="#f4f7fb"/>
 
-    <text x="44" y="62" fill="#38bdf8" font-family="${uiFont}" font-size="15" font-weight="800" letter-spacing="2.5">V&#201; CHECK-IN EVENTHUB (EVENTHUB CHECK-IN TICKET)</text>
+    <text x="44" y="62" fill="#38bdf8" font-family="${uiFont}" font-size="15" font-weight="800" letter-spacing="2.5">VÉ CHECK-IN EVENTHUB (EVENTHUB CHECK-IN TICKET)</text>
     <text x="44" y="116" fill="#ffffff" font-family="${uiFont}" font-size="42" font-weight="850">${escapeHtml(clipText(ticket.event.title, 24))}</text>
     <text x="44" y="152" fill="#a9bdd8" font-family="${uiFont}" font-size="20" font-weight="500">${escapeHtml(clipText(ticket.ticket_type.name, 40))}</text>
 
     <rect x="44" y="198" width="258" height="88" rx="14" fill="#1f2937" opacity=".72"/>
-    <text x="66" y="232" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">PHI&#202;N (SESSION)</text>
+    <text x="66" y="232" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">PHIÊN (SESSION)</text>
     <text x="66" y="260" fill="#ffffff" font-family="${uiFont}" font-size="19" font-weight="800">${escapeHtml(formatForTicket(ticket.session.start_time))}</text>
 
     <rect x="328" y="198" width="244" height="88" rx="14" fill="#1f2937" opacity=".72"/>
-    <text x="350" y="232" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">GH&#7870; (SEAT)</text>
+    <text x="350" y="232" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">GHẾ (SEAT)</text>
     <text x="350" y="260" fill="#ffffff" font-family="${uiFont}" font-size="22" font-weight="850">${escapeHtml(seat)}</text>
 
     <text x="44" y="338" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">${holderLabel}</text>
     <text x="44" y="366" fill="#ffffff" font-family="${uiFont}" font-size="21" font-weight="850">${escapeHtml(attendee)}</text>
-    <text x="328" y="338" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">&#272;&#416;N H&#192;NG (ORDER)</text>
+    <text x="328" y="338" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">ĐƠN HÀNG (ORDER)</text>
     <text x="328" y="366" fill="#ffffff" font-family="${uiFont}" font-size="19" font-weight="850">${escapeHtml(orderCode)}</text>
 
-    <text x="44" y="426" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">&#272;&#7882;A &#272;I&#7874;M (VENUE)</text>
+    <text x="44" y="426" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">ĐỊA ĐIỂM (VENUE)</text>
     <text x="44" y="453" fill="#ffffff" font-family="${uiFont}" font-size="21" font-weight="850">${escapeHtml(clipText(ticket.venue.name, 36))}</text>
     <text x="44" y="478" fill="#d6e2f2" font-family="${uiFont}" font-size="13" font-weight="500">${escapeHtml(addressLine)}</text>
 
-    <text x="820" y="54" fill="#0f172a" font-family="${uiFont}" font-size="13" font-weight="850" text-anchor="middle" letter-spacing="1.4">QU&#201;T &#272;&#7874; CHECK-IN (SCAN TO CHECK IN)</text>
+    <text x="820" y="54" fill="#0f172a" font-family="${uiFont}" font-size="13" font-weight="850" text-anchor="middle" letter-spacing="1.4">QUÉT ĐỂ CHECK-IN (SCAN TO CHECK IN)</text>
     <rect x="712" y="82" width="216" height="216" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
     <image x="718" y="88" width="${qrSize}" height="${qrSize}" href="${escapeHtml(qrImageUrl(ticket, qrSize))}"/>
     <text x="820" y="342" fill="#0f172a" font-family="${monoFont}" font-size="17" font-weight="800" text-anchor="middle">${escapeHtml(ticket.ticket_code)}</text>
     <rect x="738" y="372" width="164" height="42" rx="21" fill="${statusFill}"/>
     <text x="820" y="399" fill="${statusText}" font-family="${uiFont}" font-size="15" font-weight="850" text-anchor="middle">${escapeHtml(ticket.status)}</text>
-    <text x="820" y="450" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">Lu&#244;n s&#7861;n s&#224;ng v&#233; t&#7841;i c&#7893;ng</text>
+    <text x="820" y="450" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">Luôn sẵn sàng vé tại cổng</text>
     <text x="820" y="468" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">(Keep this ticket ready at the gate)</text>
   </g>
   ${invalid ? `<text x="800" y="470" fill="#dc2626" opacity=".15" font-family="${uiFont}" font-size="92" font-weight="900" text-anchor="middle" transform="rotate(-15 800 470)">${escapeHtml(ticket.status)}</text>` : ''}

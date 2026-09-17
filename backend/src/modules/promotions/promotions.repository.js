@@ -10,14 +10,7 @@ class PromotionsRepository {
   async ensureSupportSchema(client = db) {
     if (this.schemaReady) return;
     await client.query('ALTER TABLE promo_codes ALTER COLUMN event_id DROP NOT NULL');
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS promo_code_events (
-        promo_code_id UUID NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
-        event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-        created_at TIMESTAMPTZ DEFAULT now(),
-        PRIMARY KEY (promo_code_id, event_id)
-      )
-    `);
+    await client.query('ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS event_ids UUID[] DEFAULT \'{}\'');
     if (client === db) {
       this.schemaReady = true;
     }
@@ -26,18 +19,18 @@ class PromotionsRepository {
   _selectFields(linkedEventAlias = 'linked_event') {
     return `
       pc.*,
-      COALESCE(cardinality(pce.event_ids), 0) AS event_count,
-      COALESCE(pce.event_ids, ARRAY[]::uuid[]) AS event_ids,
+      COALESCE(cardinality(pc.event_ids), 0) AS event_count,
+      COALESCE(pc.event_ids, ARRAY[]::uuid[]) AS event_ids,
       CASE
-        WHEN pc.event_id IS NULL AND COALESCE(cardinality(pce.event_ids), 0) = 0 THEN true
+        WHEN pc.event_id IS NULL AND COALESCE(cardinality(pc.event_ids), 0) = 0 THEN true
         ELSE false
       END AS "applyToAllEvents",
       CASE
-        WHEN pc.event_id IS NULL AND COALESCE(cardinality(pce.event_ids), 0) = 0 THEN NULL
-        WHEN pce.event_names IS NOT NULL THEN pce.event_names
+        WHEN pc.event_id IS NULL AND COALESCE(cardinality(pc.event_ids), 0) = 0 THEN NULL
+        WHEN matched_events.event_names IS NOT NULL THEN matched_events.event_names
         ELSE ${linkedEventAlias}.title
       END AS event_name,
-      (SELECT COUNT(*) FROM promo_code_usages pcu WHERE pcu.promo_code_id = pc.id) AS usage_count
+      (SELECT COUNT(*)::int FROM orders o WHERE o.promo_code_id = pc.id AND o.status = 'PAID') AS usage_count
     `;
   }
 
@@ -45,13 +38,10 @@ class PromotionsRepository {
     return `
       LEFT JOIN events ${linkedEventAlias} ON pc.event_id = ${linkedEventAlias}.id
       LEFT JOIN LATERAL (
-        SELECT
-          array_agg(pce.event_id ORDER BY ev.title ASC) AS event_ids,
-          string_agg(ev.title, ', ' ORDER BY ev.title ASC) AS event_names
-        FROM promo_code_events pce
-        JOIN events ev ON ev.id = pce.event_id
-        WHERE pce.promo_code_id = pc.id
-      ) pce ON true
+        SELECT string_agg(ev.title, ', ' ORDER BY ev.title ASC) AS event_names
+        FROM events ev
+        WHERE ev.id = ANY(pc.event_ids)
+      ) matched_events ON true
     `;
   }
 
@@ -84,7 +74,7 @@ class PromotionsRepository {
 
     if (filters.keyword) {
       params.push(`%${filters.keyword}%`);
-      query += ` AND (pc.code ILIKE $${params.length} OR linked_event.title ILIKE $${params.length} OR pce.event_names ILIKE $${params.length})`;
+      query += ` AND (pc.code ILIKE $${params.length} OR linked_event.title ILIKE $${params.length} OR matched_events.event_names ILIKE $${params.length})`;
     }
 
     if (filters.status && filters.status !== 'All Statuses') {
@@ -142,20 +132,11 @@ class PromotionsRepository {
         AND e.deleted_at IS NULL
         AND pc.is_active = true
         AND (
-          EXISTS (
-            SELECT 1
-            FROM promo_code_events pce_match
-            WHERE pce_match.promo_code_id = pc.id
-              AND pce_match.event_id = e.id
-          )
-          OR pc.event_id = e.id
+          pc.event_id = e.id
+          OR e.id = ANY(pc.event_ids)
           OR (
             pc.event_id IS NULL
-            AND NOT EXISTS (
-              SELECT 1
-              FROM promo_code_events pce_any
-              WHERE pce_any.promo_code_id = pc.id
-            )
+            AND COALESCE(cardinality(pc.event_ids), 0) = 0
           )
         )
         AND (pc.start_time IS NULL OR pc.start_time <= now())
@@ -184,6 +165,14 @@ class PromotionsRepository {
       is_active,
     } = data;
 
+    const finalEventIds = Array.isArray(eventIds) && eventIds.length > 0
+      ? eventIds
+      : event_id
+        ? [event_id]
+        : [];
+
+    const primaryEventId = finalEventIds.length === 1 ? finalEventIds[0] : (event_id || null);
+
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
@@ -191,13 +180,14 @@ class PromotionsRepository {
 
       const { rows } = await client.query(`
         INSERT INTO promo_codes (
-          organizer_id, event_id, code, discount_type, discount_value,
+          organizer_id, event_id, event_ids, code, discount_type, discount_value,
           min_order_value, max_discount, usage_limit, start_time, end_time, is_active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `, [
         organizer_id,
-        event_id,
+        primaryEventId,
+        finalEventIds,
         code,
         discount_type,
         discount_value,
@@ -208,17 +198,6 @@ class PromotionsRepository {
         end_time,
         is_active !== undefined ? is_active : true,
       ]);
-
-      if (eventIds.length > 0) {
-        await client.query(
-          `
-          INSERT INTO promo_code_events (promo_code_id, event_id)
-          SELECT $1, unnest($2::uuid[])
-          ON CONFLICT DO NOTHING
-          `,
-          [rows[0].id, eventIds],
-        );
-      }
 
       await client.query('COMMIT');
       return this.findById(rows[0].id);
@@ -237,6 +216,7 @@ class PromotionsRepository {
     await this.ensureSupportSchema();
     const allowedColumns = [
       'event_id',
+      'event_ids',
       'code',
       'discount_type',
       'discount_value',
@@ -252,43 +232,34 @@ class PromotionsRepository {
     const hasEventIds = Object.prototype.hasOwnProperty.call(data, 'eventIds');
     const eventIds = data.eventIds || [];
 
+    const updatePayload = { ...data };
+    if (hasEventIds) {
+      const finalEventIds = Array.isArray(eventIds) ? eventIds : [];
+      updatePayload.event_ids = finalEventIds;
+      updatePayload.event_id = finalEventIds.length === 1 ? finalEventIds[0] : null;
+    }
+
     allowedColumns.forEach((key) => {
-      if (data[key] !== undefined) {
+      if (updatePayload[key] !== undefined) {
         fields.push(`${key} = $${params.length + 1}`);
-        params.push(data[key]);
+        params.push(updatePayload[key]);
       }
     });
 
-    if (fields.length === 0 && !hasEventIds) return this.findById(id);
+    if (fields.length === 0) return this.findById(id);
 
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
       await this.ensureSupportSchema(client);
 
-      if (fields.length > 0) {
-        const query = `
-          UPDATE promo_codes
-          SET ${fields.join(', ')}
-          WHERE id = $1
-          RETURNING *
-        `;
-        await client.query(query, params);
-      }
-
-      if (hasEventIds) {
-        await client.query('DELETE FROM promo_code_events WHERE promo_code_id = $1', [id]);
-        if (eventIds.length > 0) {
-          await client.query(
-            `
-            INSERT INTO promo_code_events (promo_code_id, event_id)
-            SELECT $1, unnest($2::uuid[])
-            ON CONFLICT DO NOTHING
-            `,
-            [id, eventIds],
-          );
-        }
-      }
+      const query = `
+        UPDATE promo_codes
+        SET ${fields.join(', ')}
+        WHERE id = $1
+        RETURNING *
+      `;
+      await client.query(query, params);
 
       await client.query('COMMIT');
       return this.findById(id);

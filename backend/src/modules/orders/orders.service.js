@@ -257,7 +257,7 @@ class OrdersService {
         unit_price: mapMoney(item.unit_price),
         final_price: mapMoney(item.final_price),
       })),
-      hold_minutes: Number(process.env.TICKET_HOLD_MINUTES || 15),
+      hold_seconds: Number(process.env.TICKET_HOLD_SECONDS || 900),
     };
   }
 
