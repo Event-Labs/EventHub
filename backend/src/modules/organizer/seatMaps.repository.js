@@ -20,6 +20,42 @@ function ensureUniqueSeatLabels(seats) {
 }
 
 
+async function insertSeatsBatch(client, seatMapId, seats, zoneIdMap) {
+  const uniqueSeats = ensureUniqueSeatLabels(seats);
+  if (!uniqueSeats || uniqueSeats.length === 0) return;
+
+  const CHUNK_SIZE = 200;
+  for (let i = 0; i < uniqueSeats.length; i += CHUNK_SIZE) {
+    const chunk = uniqueSeats.slice(i, i + CHUNK_SIZE);
+    const values = [];
+    const placeholders = chunk.map((seat, idx) => {
+      const zoneId = seat.zone_index != null ? zoneIdMap[seat.zone_index] ?? null : null;
+      const offset = idx * 7;
+      values.push(
+        seatMapId,
+        seat.row_label,
+        seat.seat_number,
+        seat.x_position,
+        seat.y_position,
+        zoneId,
+        seat.is_disabled ?? false,
+      );
+      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
+    });
+
+    await client.query(
+      `
+      INSERT INTO seats (
+        seat_map_id, row_label, seat_number,
+        x_position, y_position, zone_id, is_disabled
+      )
+      VALUES ${placeholders.join(', ')}
+      `,
+      values,
+    );
+  }
+}
+
 class SeatMapsRepository {
   async findOrganizerByUserId(userId) {
     const { rows } = await db.query(
@@ -200,27 +236,7 @@ class SeatMapsRepository {
         zoneIdMap[i] = zoneRows[0].id;
       }
 
-      for (const seat of ensureUniqueSeatLabels(data.seats)) {
-        const zoneId = seat.zone_index != null ? zoneIdMap[seat.zone_index] ?? null : null;
-        await client.query(
-          `
-          INSERT INTO seats (
-            seat_map_id, row_label, seat_number,
-            x_position, y_position, zone_id, is_disabled
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `,
-          [
-            seatMap.id,
-            seat.row_label,
-            seat.seat_number,
-            seat.x_position,
-            seat.y_position,
-            zoneId,
-            seat.is_disabled ?? false,
-          ],
-        );
-      }
+      await insertSeatsBatch(client, seatMap.id, data.seats, zoneIdMap);
 
       await client.query('COMMIT');
       return seatMap.id;
@@ -282,27 +298,7 @@ class SeatMapsRepository {
         zoneIdMap[i] = zoneRows[0].id;
       }
 
-      for (const seat of ensureUniqueSeatLabels(data.seats)) {
-        const zoneId = seat.zone_index != null ? zoneIdMap[seat.zone_index] ?? null : null;
-        await client.query(
-          `
-          INSERT INTO seats (
-            seat_map_id, row_label, seat_number,
-            x_position, y_position, zone_id, is_disabled
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `,
-          [
-            seatMapId,
-            seat.row_label,
-            seat.seat_number,
-            seat.x_position,
-            seat.y_position,
-            zoneId,
-            seat.is_disabled ?? false,
-          ],
-        );
-      }
+      await insertSeatsBatch(client, seatMapId, data.seats, zoneIdMap);
 
       await client.query('COMMIT');
     } catch (err) {
