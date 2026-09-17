@@ -45,16 +45,14 @@ After getting the GGUF model (`eventhub-qwen3-4b.gguf`), place it in the root of
 
 ---
 
-## 🚀 Hướng dẫn cho Team Members (Sau khi Pull code về)
-
-Vì file mô hình AI (`eventhub-qwen3-4b.gguf`) nặng tới 6.2GB nên nó **không được đẩy lên Git**. Để chạy được AI trên máy cá nhân, các thành viên trong team chỉ cần làm đúng 3 bước:
+## Hướng dẫn cho Team Members
 
 **Bước 1: Cài đặt phần mềm chạy AI (Ollama)**
 - Tải và cài đặt Ollama tại: [https://ollama.com/download](https://ollama.com/download)
 
 **Bước 2: Lấy bộ não AI (File GGUF)**
-- Xin người train mô hình (chủ dự án) link Google Drive để tải file `eventhub-qwen3-4b.gguf`.
-- Tải về xong, chép file đó vào đúng thư mục `EventHub/ai/`.
+- Tải file model tại: https://drive.google.com/file/d/1ooapIamcWThRdXlM9gnWpzQ_6uLV9TPy/view?usp=sharing
+- Đặt file đó vào thư mục `EventHub/ai/`.
 
 **Bước 3: Gắn não vào hệ thống**
 - Mở Terminal tại thư mục `EventHub/ai/` và chạy lệnh sau để nạp mô hình:
