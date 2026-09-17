@@ -37,9 +37,11 @@ class PaymentsService {
     logger.info(`[PAYMENT_CONFIRM] started providerOrderCode=${args.providerOrderCode || 'missing'} transactionId=${args.transactionId || 'missing'} amount=${args.amount ?? 'missing'}`);
     const result = await ordersRepository.confirmPayment(args);
     if (!result.alreadyPaid) {
-      logger.info(`[PAYMENT_CONFIRM] order paid orderId=${result.order.id} issuedTickets=${result.issuedTickets?.length || 0}`);
-      const emailSent = await this.sendTicketConfirmation(result.order.id);
-      logger.info(`[PAYMENT_CONFIRM] notification completed orderId=${result.order.id} emailSent=${emailSent}`);
+      this.sendTicketConfirmation(result.order.id).then((emailSent) => {
+        logger.info(`[PAYMENT_CONFIRM] notification completed orderId=${result.order.id} emailSent=${emailSent}`);
+      }).catch((err) => {
+        logger.error(`[PAYMENT_CONFIRM] notification failed orderId=${result.order.id}`, err);
+      });
     } else {
       logger.warn(`[PAYMENT_CONFIRM] already paid orderId=${result.orderId}; confirmation email is not retried`);
     }

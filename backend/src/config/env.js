@@ -47,7 +47,7 @@ const envSchema = z.object({
     PLATFORM_PAYOS_API_KEY: z.string().optional(),
     PLATFORM_PAYOS_CHECKSUM_KEY: z.string().optional(),
 
-    BCRYPT_SALT_ROUNDS: z.string().transform(Number).default('12'),
+    BCRYPT_SALT_ROUNDS: z.string().transform(Number).default('10'),
     EMAIL_VERIFY_EXPIRES_IN: z.string().transform(Number).default('86400'),
     PASSWORD_RESET_EXPIRES_IN: z.string().transform(Number).default('3600'),
 });
