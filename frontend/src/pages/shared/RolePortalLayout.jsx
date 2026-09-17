@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, ChevronRight, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
+import { Bell, CheckCheck, ChevronRight, Home, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
 import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
 import {
   fetchNotifications,
@@ -251,17 +251,19 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b border-border-soft/20 bg-background/90 px-6 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.12)] backdrop-blur-md">
       <div className="flex min-w-0 flex-1 items-center gap-5">
-        <img
-          src={logoSrc}
-          alt="EventHub"
-          className="logo-fixed h-10 w-[176px] shrink-0 object-cover object-center"
-          style={{ filter: 'none' }}
-        />
+        <NavLink to="/" title="Về trang chủ" className="shrink-0 transition opacity-90 hover:opacity-100">
+          <img
+            src={logoSrc}
+            alt="EventHub"
+            className="logo-fixed h-10 w-[176px] shrink-0 object-cover object-center"
+            style={{ filter: 'none' }}
+          />
+        </NavLink>
         <div className="min-w-0 flex-1">
         {searchOpen ? (
           <div className="flex h-12 w-full max-w-2xl items-center gap-2 rounded-full border border-border-soft/30 bg-surface px-4 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm">
             <Search className="size-5 shrink-0 text-subtle" />
-            <input autoFocus className="w-full bg-transparent text-base text-content outline-none placeholder:text-subtle" placeholder={'\u0054\u00ecm ki\u1ebfm...'} />
+            <input autoFocus className="w-full bg-transparent text-base text-content outline-none placeholder:text-subtle" placeholder={'Tìm kiếm...'} />
             <button type="button" onClick={() => setSearchOpen(false)} className="grid size-7 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-content">
               <X className="size-4" />
             </button>
@@ -273,17 +275,25 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
             className="flex h-12 w-full max-w-2xl items-center gap-3 rounded-full border border-border-soft/30 bg-surface px-5 text-base text-subtle shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-tertiary hover:text-content"
           >
             <Search className="size-5" />
-            <span>{'\u0054\u00ecm ki\u1ebfm...'}</span>
+            <span>{'Tìm kiếm...'}</span>
           </button>
         )}
         </div>
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-3">
+        <NavLink
+          to="/"
+          className="hidden sm:inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-xs font-bold text-primary transition hover:border-primary hover:bg-primary hover:text-[#081126]"
+          title="Chuyển sang trang khách hàng"
+        >
+          <Home className="size-3.5" />
+          <span>Trang khách hàng</span>
+        </NavLink>
         <div className="flex h-12 items-center gap-1 rounded-full border border-border-soft/30 bg-surface px-2 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm">
-          <TopBarIconButton icon={theme === 'light' ? Sun : Moon} label={theme === 'light' ? '\u0043h\u1ebf \u0111\u1ed9 s\u00e1ng' : '\u0043h\u1ebf \u0111\u1ed9 t\u1ed1i'} onClick={onToggleTheme} />
+          <TopBarIconButton icon={theme === 'light' ? Sun : Moon} label={theme === 'light' ? 'Chế độ sáng' : 'Chế độ tối'} onClick={onToggleTheme} />
           <PortalNotificationBell />
-          <TopBarIconButton icon={Settings} label={'\u0043\u00e0i \u0111\u1eb7t'} />
+          <TopBarIconButton icon={Settings} label={'Cài đặt'} />
         </div>
         <NavLink
           to={profileTo}

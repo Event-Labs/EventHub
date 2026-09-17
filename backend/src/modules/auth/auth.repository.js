@@ -136,6 +136,15 @@ class AuthRepository {
     await db.query(query, [userId, roleName]);
   }
 
+  async removeRole(userId, roleName) {
+    const query = `
+      DELETE FROM user_roles
+      WHERE user_id = $1
+        AND role_id = (SELECT id FROM roles WHERE name = $2)
+    `;
+    await db.query(query, [userId, roleName]);
+  }
+
   // --- SESSIONS (Redis-based — no user_sessions table in DB) ---
   async createSession(sessionData) {
     const id = crypto.randomUUID();

@@ -61,6 +61,7 @@ app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin/analytics', adminAnalyticsRoutes);
 app.use('/api/admin/organizers', adminOrganizerRoutes);
 app.use('/api/admin/profile', adminProfileRoutes);
+
 app.use('/api/organizer-requests', organizerRequestRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/organizer/feedback', organizerFeedbackRoutes);
@@ -74,7 +75,7 @@ app.use('/api/organizer/refunds', organizerRefundRoutes);
 
 app.use('/api/orders', orderRoutes);
 app.use('/api/ai-assistant', aiAssistantRoutes);
-app.use('/api/refunds', refundRoutes)
+app.use('/api/refunds', refundRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/staff/tickets', staffTicketRoutes);
 app.use('/api/events', eventRoutes);
