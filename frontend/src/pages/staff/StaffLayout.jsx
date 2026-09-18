@@ -1,4 +1,4 @@
-import { BarChart3, CalendarCheck, ClipboardList, Home, LayoutDashboard, QrCode, Ticket, UserCircle, UserPlus } from 'lucide-react'
+import { BarChart3, CalendarCheck, Home, LayoutDashboard, QrCode, Ticket, UserCircle, UserPlus } from 'lucide-react'
 import { getStoredUser, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -10,10 +10,6 @@ const navSections = [
       { label: 'Tổng quan', to: '/staff', icon: LayoutDashboard, end: true },
       { label: 'Sự kiện được giao', to: '/staff/events', icon: CalendarCheck },
     ],
-  },
-  {
-    label: 'Công việc',
-    items: [{ label: 'Danh sách công việc', to: '/staff/tasks', icon: ClipboardList }],
   },
   {
     label: 'Soát vé',
