@@ -4,6 +4,8 @@ import {
   CameraOff,
   CheckCircle2,
   Clock3,
+  DoorOpen,
+  Layers,
   Loader2,
   QrCode,
   RotateCcw,
@@ -147,6 +149,21 @@ export function StaffQrCheckInPage() {
   const [recentTickets, setRecentTickets] = useState([])
   const [ticketPanelMessage, setTicketPanelMessage] = useState('')
   const [ticketNoticeCountdown, setTicketNoticeCountdown] = useState(0)
+  const [assignedEvents, setAssignedEvents] = useState([])
+
+  useEffect(() => {
+    let active = true
+    fetchAssignedStaffEvents()
+      .then((events) => {
+        if (active && Array.isArray(events)) {
+          setAssignedEvents(events)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   const showSuccess = (ticket) => {
     setResultTicket(ticket)
@@ -383,6 +400,39 @@ export function StaffQrCheckInPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-5">
+          {assignedEvents.length > 0 && (
+            <StaffPanel className="!py-3.5">
+              <p className="text-xs font-bold uppercase text-muted">Vị trí phân công của bạn</p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {assignedEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft/60 px-3 py-2 text-xs"
+                  >
+                    <span className="font-bold text-content">{event.title}</span>
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
+                      {event.staff_role || 'Nhân sự'}
+                    </span>
+                    {event.gate ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/15 px-2 py-0.5 font-bold text-purple-400">
+                        <DoorOpen className="size-3" />
+                        Cổng: {event.gate}
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-white/5 px-2 py-0.5 text-muted">Tất cả cổng</span>
+                    )}
+                    {event.zone && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 px-2 py-0.5 font-bold text-indigo-400">
+                        <Layers className="size-3" />
+                        Khu vực: {event.zone}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </StaffPanel>
+          )}
+
           <StaffPanel>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -709,11 +759,47 @@ function ManualSearchPanel({
             <option value="">
               {eventsState === 'loading' ? 'Đang tải sự kiện...' : 'Chọn sự kiện để tải danh sách vé'}
             </option>
-            {assignedEvents.map((event) => (
-              <option key={event.id} value={event.id}>{event.title}</option>
-            ))}
+            {assignedEvents.map((event) => {
+              const dutyParts = [
+                event.staff_role || 'Nhân sự',
+                event.gate ? `Cổng: ${event.gate}` : null,
+                event.zone ? `Khu vực: ${event.zone}` : null,
+              ].filter(Boolean).join(' • ')
+              return (
+                <option key={event.id} value={event.id}>
+                  {event.title} ({dutyParts})
+                </option>
+              )
+            })}
           </select>
         </label>
+
+        {eventSelected && (() => {
+          const selectedEvent = assignedEvents.find((item) => String(item.id) === form.eventId)
+          if (!selectedEvent) return null
+          return (
+            <div className="md:col-span-4 flex flex-wrap items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft/60 px-3.5 py-2.5 text-xs">
+              <span className="font-bold text-muted">Vị trí của bạn:</span>
+              <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
+                {selectedEvent.staff_role || 'Nhân sự'}
+              </span>
+              {selectedEvent.gate ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/15 px-2 py-0.5 font-bold text-purple-400">
+                  <DoorOpen className="size-3" />
+                  Cổng: {selectedEvent.gate}
+                </span>
+              ) : (
+                <span className="rounded-md bg-white/5 px-2 py-0.5 text-muted">Tất cả cổng</span>
+              )}
+              {selectedEvent.zone && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 px-2 py-0.5 font-bold text-indigo-400">
+                  <Layers className="size-3" />
+                  Khu vực: {selectedEvent.zone}
+                </span>
+              )}
+            </div>
+          )
+        })()}
 
         {eventsMessage && (
           <div className={`md:col-span-4 rounded-xl border p-3 text-sm ${

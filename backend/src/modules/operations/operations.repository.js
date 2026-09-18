@@ -19,6 +19,8 @@ const db = require('../../infrastructure/database/db.client');
 //   "organizer_id": uuid,
 //   "invited_email": string,
 //   "staff_role": string | null,
+//   "gate": string | null,
+//   "zone": string | null,
 //   "invited_by": uuid,
 //   "expires_at": ISO string,
 //   "responded_at": ISO string | null
@@ -47,6 +49,8 @@ function parseInvitation(row) {
     invited_user_name: row.invited_user_name || null,
     invited_email: meta.invited_email || null,
     staff_role: meta.staff_role || null,
+    gate: meta.gate || null,
+    zone: meta.zone || null,
     organizer_id: meta.organizer_id || null,
     invited_by: meta.invited_by || null,
     status: meta.status || 'PENDING',
@@ -115,8 +119,7 @@ class OperationsRepository {
         e.approval_status,
         e.start_time,
         e.end_time,
-        COUNT(DISTINCT es.staff_id)::int AS staff_count,
-        0::int                           AS task_count
+        COUNT(DISTINCT es.staff_id)::int AS staff_count
       FROM events e
       LEFT JOIN event_staffs es ON es.event_id = e.id
       WHERE e.organizer_id = $1
@@ -276,7 +279,7 @@ class OperationsRepository {
 
   async findEventStaffAssignment(eventId, staffId) {
     const { rows } = await db.query(
-      'SELECT id, event_id, staff_id FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+      'SELECT id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
       [eventId, staffId],
     );
     return rows[0];
@@ -326,19 +329,37 @@ class OperationsRepository {
     return rows.map(r => r.event_id);
   }
 
-  async assignStaff({ eventId, staffId, staffRole, assignedBy }) {
+  async assignStaff({ eventId, staffId, staffRole, gate, zone, assignedBy }) {
     const { rows } = await db.query(
       `
-      INSERT INTO event_staffs (event_id, staff_id, staff_role, assigned_by)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, assigned_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (event_id, staff_id)
       DO UPDATE SET
         staff_role  = EXCLUDED.staff_role,
+        gate        = EXCLUDED.gate,
+        zone        = EXCLUDED.zone,
         assigned_by = EXCLUDED.assigned_by,
         assigned_at = now()
-      RETURNING id, event_id, staff_id, staff_role, assigned_by, assigned_at
+      RETURNING id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at
       `,
-      [eventId, staffId, staffRole || null, assignedBy],
+      [eventId, staffId, staffRole || null, gate || null, zone || null, assignedBy],
+    );
+    return rows[0];
+  }
+
+  async updateStaffAssignment(eventId, staffId, { staffRole, gate, zone }) {
+    const { rows } = await db.query(
+      `
+      UPDATE event_staffs
+      SET
+        staff_role = COALESCE($3, staff_role),
+        gate = $4,
+        zone = $5
+      WHERE event_id = $1 AND staff_id = $2
+      RETURNING id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at
+      `,
+      [eventId, staffId, staffRole, gate !== undefined ? gate : null, zone !== undefined ? zone : null],
     );
     return rows[0];
   }
@@ -347,13 +368,15 @@ class OperationsRepository {
    * Creates a staff invitation as a notification row.
    * Returns a normalised invitation object.
    */
-  async createStaffInvitation({ eventId, organizerId, invitedUserId, email, staffRole, invitedBy }) {
+  async createStaffInvitation({ eventId, organizerId, invitedUserId, email, staffRole, gate, zone, invitedBy }) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const meta = JSON.stringify({
       status: 'PENDING',
       organizer_id: organizerId,
       invited_email: email.toLowerCase(),
       staff_role: staffRole || null,
+      gate: gate || null,
+      zone: zone || null,
       invited_by: invitedBy,
       expires_at: expiresAt,
       responded_at: null,
@@ -479,10 +502,10 @@ class OperationsRepository {
    * Accept invitation:
    *   1. Mark notification as read + update content status → ACCEPTED
    *   2. Add STAFF role to user
-   *   3. Insert into event_staffs
+   *   3. Insert into event_staffs (with staff_role, gate, and zone)
    * All in one transaction.
    */
-  async acceptInvitation({ invitationId, userId, staffRole, acceptedBy }) {
+  async acceptInvitation({ invitationId, userId, staffRole, gate, zone, acceptedBy }) {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
@@ -525,16 +548,18 @@ class OperationsRepository {
       // Assign to event
       const assignmentResult = await client.query(
         `
-        INSERT INTO event_staffs (event_id, staff_id, staff_role, assigned_by)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, assigned_by)
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (event_id, staff_id)
         DO UPDATE SET
           staff_role  = EXCLUDED.staff_role,
+          gate        = EXCLUDED.gate,
+          zone        = EXCLUDED.zone,
           assigned_by = EXCLUDED.assigned_by,
           assigned_at = now()
-        RETURNING id, event_id, staff_id, staff_role, assigned_by, assigned_at
+        RETURNING id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at
         `,
-        [notif.event_id, userId, staffRole || meta.staff_role || null, acceptedBy],
+        [notif.event_id, userId, staffRole || meta.staff_role || null, gate || meta.gate || null, zone || meta.zone || null, acceptedBy],
       );
 
       await client.query('COMMIT');
@@ -622,6 +647,8 @@ class OperationsRepository {
         u.email        AS staff_email,
         u.phone        AS staff_phone,
         es.staff_role,
+        es.gate,
+        es.zone,
         es.assigned_at,
         assigner.full_name AS assigned_by_name
       FROM event_staffs es
@@ -638,24 +665,6 @@ class OperationsRepository {
     return rows;
   }
 
-  async createTask({ eventId, staffId, title, description, createdBy }) {
-    return {
-      id: null,
-      event_id: eventId,
-      staff_id: staffId,
-      title,
-      description: description || null,
-      status: 'TODO',
-      created_by: createdBy,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-  }
-
-  async listOrganizerTasks(organizerId, eventId = null) {
-    return [];
-  }
-
   async listStaffAssignedEvents(staffId) {
     const { rows } = await db.query(
       `
@@ -669,6 +678,8 @@ class OperationsRepository {
         e.start_time,
         e.end_time,
         es.staff_role,
+        es.gate,
+        es.zone,
         es.assigned_at,
         session_checkin.checkin_start_time,
         COALESCE(venue_summary.venue_name,   '') AS venue_name,
@@ -727,6 +738,8 @@ class OperationsRepository {
         e.start_time,
         e.end_time,
         es.staff_role,
+        es.gate,
+        es.zone,
         es.assigned_at,
         venue_summary.venue_name,
         venue_summary.address_line,
@@ -865,6 +878,8 @@ class OperationsRepository {
               u.email,
               u.avatar_url,
               es.staff_role,
+              es.gate,
+              es.zone,
               es.assigned_at
             FROM event_staffs es
             JOIN users u ON u.id = es.staff_id
@@ -889,7 +904,7 @@ class OperationsRepository {
     const { rows } = await db.query(
       `
       WITH assigned_events AS (
-        SELECT e.id, e.title, e.slug, e.thumbnail_url, e.banner_url, e.status, e.start_time, e.end_time
+        SELECT e.id, e.title, e.slug, e.thumbnail_url, e.banner_url, e.status, e.start_time, e.end_time, es.staff_role, es.gate, es.zone
         FROM event_staffs es
         JOIN events e ON e.id = es.event_id
         WHERE es.staff_id = $1
@@ -903,12 +918,6 @@ class OperationsRepository {
       event_counts AS (
         SELECT COUNT(*)::int AS assigned_events
         FROM assigned_events
-      ),
-      task_counts AS (
-        SELECT
-          0::int AS assigned_tasks,
-          0::int AS completed_tasks,
-          0::int AS pending_tasks
       ),
       ticket_counts AS (
         SELECT
@@ -929,6 +938,9 @@ class OperationsRepository {
             ae.status,
             ae.start_time,
             ae.end_time,
+            ae.staff_role,
+            ae.gate,
+            ae.zone,
             COALESCE(venue_summary.venue_name, '') AS venue_name,
             COALESCE(venue_summary.address_line, '') AS address_line,
             COALESCE(venue_summary.district, '') AS district,
@@ -958,36 +970,19 @@ class OperationsRepository {
           ORDER BY ae.start_time ASC
           LIMIT 5
         ) today_row
-      ),
-      active_tasks AS (
-        SELECT '[]'::json AS tasks
       )
       SELECT
         COALESCE(event_counts.assigned_events, 0)::int AS assigned_events,
-        COALESCE(task_counts.assigned_tasks, 0)::int AS assigned_tasks,
-        COALESCE(task_counts.completed_tasks, 0)::int AS completed_tasks,
-        COALESCE(task_counts.pending_tasks, 0)::int AS pending_tasks,
         COALESCE(ticket_counts.checked_in_tickets, 0)::int AS checked_in_tickets,
         COALESCE(ticket_counts.remaining_tickets, 0)::int AS remaining_tickets,
-        COALESCE(today_events.events, '[]'::json) AS today_events,
-        COALESCE(active_tasks.tasks, '[]'::json) AS active_tasks
+        COALESCE(today_events.events, '[]'::json) AS today_events
       FROM event_counts
-      CROSS JOIN task_counts
       CROSS JOIN ticket_counts
       CROSS JOIN today_events
-      CROSS JOIN active_tasks
       `,
       [staffId],
     );
     return rows[0];
-  }
-
-  async listStaffTasks(staffId, eventId = null) {
-    return [];
-  }
-
-  async updateStaffTaskStatus(taskId, staffId, status) {
-    return null;
   }
 }
 
