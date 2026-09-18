@@ -60,8 +60,7 @@ const footerSections = [
 ]
 
 const navLinkClass = ({ isActive }) =>
-  `relative z-10 px-3 py-2 text-sm font-bold transition ${
-    isActive ? 'text-primary' : 'text-subtle hover:text-primary'
+  `relative z-10 px-3 py-2 text-sm font-bold transition ${isActive ? 'text-primary' : 'text-subtle hover:text-primary'
   }`
 
 function isStaffInvitationNotification(notification) {
@@ -363,9 +362,8 @@ export function AppLayout() {
                           setNotificationOpen(false)
                           navigate(getNotificationTarget(notification))
                         }}
-                        className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${
-                          notification.is_read ? '' : 'bg-primary/10'
-                        }`}
+                        className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${notification.is_read ? '' : 'bg-primary/10'
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           {!notification.is_read && <span className="mt-2 size-2 rounded-full bg-primary" />}
