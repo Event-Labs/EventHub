@@ -30,19 +30,24 @@ class OperationsService {
     const notificationsUrl = `${process.env.CLIENT_URL}/notifications`;
     const subject = `Lời mời làm staff cho sự kiện ${event.title}`;
     const role = invitation.staff_role || 'Staff';
+    const locParts = [
+      invitation.gate ? `tại ${invitation.gate}` : '',
+      invitation.zone ? `khu vực ${invitation.zone}` : '',
+    ].filter(Boolean);
+    const locationStr = locParts.length > 0 ? ` (${locParts.join(' • ')})` : '';
     const expiresAt = this.formatVietnamDateTime(invitation.expires_at);
     const organizerName = organizer.organization_name || 'Ban tổ chức';
     const message = [
       `Xin chào ${invitedUser.full_name || invitedUser.email},`,
       '',
-      `${organizerName} đã mời bạn làm ${role} cho sự kiện "${event.title}".`,
+      `${organizerName} đã mời bạn làm ${role}${locationStr} cho sự kiện "${event.title}".`,
       `Lời mời hết hạn lúc: ${expiresAt}.`,
       '',
       `Vui lòng đăng nhập EventHub và vào trang Thông báo để chấp nhận hoặc từ chối lời mời: ${notificationsUrl}`,
     ].join('\n');
     const html = `
       <p>Xin chào <strong>${this.escapeHtml(invitedUser.full_name || invitedUser.email)}</strong>,</p>
-      <p><strong>${this.escapeHtml(organizerName)}</strong> đã mời bạn làm <strong>${this.escapeHtml(role)}</strong> cho sự kiện <strong>${this.escapeHtml(event.title)}</strong>.</p>
+      <p><strong>${this.escapeHtml(organizerName)}</strong> đã mời bạn làm <strong>${this.escapeHtml(role)}</strong>${locationStr ? ` (<strong>${this.escapeHtml(locationStr)}</strong>)` : ''} cho sự kiện <strong>${this.escapeHtml(event.title)}</strong>.</p>
       <p>Lời mời hết hạn lúc: <strong>${this.escapeHtml(expiresAt)}</strong>.</p>
       <p>
         <a href="${this.escapeHtml(notificationsUrl)}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">
@@ -240,11 +245,10 @@ class OperationsService {
 
   async getOrganizerOverview(userId) {
     const organizer = await this.getOrganizerContext(userId);
-    const [plan, events, staffAssignments, tasks, invitations] = await Promise.all([
+    const [plan, events, staffAssignments, invitations] = await Promise.all([
       operationsRepository.findOrganizerCurrentPlan(organizer.id),
       operationsRepository.findOrganizerEvents(organizer.id),
       operationsRepository.listEventStaff(null, organizer.id),
-      operationsRepository.listOrganizerTasks(organizer.id),
       operationsRepository.listOrganizerInvitations(organizer.id),
     ]);
 
@@ -273,7 +277,6 @@ class OperationsService {
           },
       events,
       staff_assignments: staffAssignments,
-      tasks,
       invitations,
     };
   }
@@ -314,6 +317,8 @@ class OperationsService {
       invitedUserId: invitedUser.id,
       email: invitedUser.email,
       staffRole: payload.staff_role,
+      gate: payload.gate,
+      zone: payload.zone,
       invitedBy: userId,
     });
 
@@ -341,6 +346,25 @@ class OperationsService {
       email_sent: emailSent,
       quota,
     };
+  }
+
+  async updateStaffAssignment(userId, { eventId, staffId, staffRole, gate, zone }) {
+    const organizer = await this.getOrganizerContext(userId);
+    const event = await this.resolveOrganizerEvent(organizer.id, eventId);
+    this.assertEventStaffManageable(event);
+
+    const existing = await operationsRepository.findEventStaffAssignment(eventId, staffId);
+    if (!existing) {
+      throw new AppError('Không tìm thấy phân công nhân sự cho sự kiện này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const updated = await operationsRepository.updateStaffAssignment(eventId, staffId, {
+      staffRole: staffRole !== undefined ? staffRole : existing.staff_role,
+      gate: gate !== undefined ? gate : existing.gate,
+      zone: zone !== undefined ? zone : existing.zone,
+    });
+
+    return updated;
   }
 
   async removeStaff(userId, { eventId, staffId }) {
@@ -371,43 +395,6 @@ class OperationsService {
     }
 
     return { invitation_id: invitationId, deleted: true };
-  }
-
-  async createTask(userId, payload) {
-    const organizer = await this.getOrganizerContext(userId);
-    const event = await this.resolveOrganizerEvent(organizer.id, payload.event_id);
-    this.assertEventStaffManageable(event);
-
-    const assigned = await operationsRepository.findEventStaffAssignment(payload.event_id, payload.staff_id);
-    if (!assigned) {
-      throw new AppError('Staff phải được phân công vào sự kiện trước khi nhận công việc.', 400, ErrorCodes.STAFF_NOT_ASSIGNED);
-    }
-
-    const task = await operationsRepository.createTask({
-      eventId: payload.event_id,
-      staffId: payload.staff_id,
-      title: payload.title,
-      description: payload.description,
-      createdBy: userId,
-    });
-
-    const staffUser = await operationsRepository.findActiveUserById(payload.staff_id);
-    if (staffUser) {
-      await notificationsService.createAndDispatch({
-        userId: staffUser.id,
-        eventId: payload.event_id,
-        title: 'Công việc mới được giao',
-        content: `Bạn được giao công việc "${payload.title}" cho sự kiện "${event.title}".`,
-        type: 'EVENT',
-      });
-    }
-
-    return task;
-  }
-
-  async listOrganizerTasks(userId, eventId = null) {
-    const organizer = await this.getOrganizerContext(userId);
-    return operationsRepository.listOrganizerTasks(organizer.id, eventId);
   }
 
   async listMyInvitations(userId) {
@@ -452,6 +439,8 @@ class OperationsService {
       invitationId,
       userId: user.id,
       staffRole: invitation.staff_role,
+      gate: invitation.gate,
+      zone: invitation.zone,
       acceptedBy: invitation.invited_by,
     });
 
@@ -511,18 +500,6 @@ class OperationsService {
 
     const report = await operationsRepository.getStaffCheckInReport(staffId, eventId);
     return { event, ...report };
-  }
-
-  async listStaffTasks(staffId, eventId = null) {
-    return operationsRepository.listStaffTasks(staffId, eventId);
-  }
-
-  async updateStaffTaskStatus(staffId, taskId, status) {
-    const task = await operationsRepository.updateStaffTaskStatus(taskId, staffId, status);
-    if (!task) {
-      throw new AppError('Không tìm thấy công việc hoặc bạn không còn quyền staff cho sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
-    }
-    return task;
   }
 }
 

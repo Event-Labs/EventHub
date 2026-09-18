@@ -48,7 +48,6 @@ import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
 import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
 import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'
 import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscriptionsPage.jsx'
-import { OrganizerTasksPage } from '@/pages/organizer/OrganizerTasksPage.jsx'
 import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
 import { OrganizerCheckinDashboardPage } from '@/pages/organizer/OrganizerCheckinDashboardPage.jsx'
 import { OrganizerTicketSalesPage } from '@/pages/organizer/OrganizerTicketSalesPage.jsx'
@@ -62,7 +61,6 @@ import { StaffEventsPage, NoAssignedEventsPage } from '@/pages/staff/StaffEvents
 import { StaffLayout } from '@/pages/staff/StaffLayout.jsx'
 import { CameraDeniedPage, ManualCheckInPage, StaffQrCheckInPage } from '@/pages/staff/StaffQrCheckInPage.jsx'
 import { TicketResultPage } from '@/pages/staff/StaffResultsPage.jsx'
-import { StaffTasksPage } from '@/pages/staff/StaffTasksPage.jsx'
 import { ProfilePage } from '@/pages/shared/ProfilePage.jsx'
 import { PlatformPoliciesPage } from '@/pages/shared/PlatformPoliciesPage.jsx'
 import { RegisterPage } from '@/pages/auth/RegisterPage.jsx'
@@ -183,10 +181,6 @@ export const router = createBrowserRouter([
         element: <OrganizerRefundsPage />,
       },
       {
-        path: 'staff-tasks',
-        element: <OrganizerTasksPage />,
-      },
-      {
         path: 'staff-management',
         element: <OrganizerStaffManagementPage />,
       },
@@ -255,10 +249,6 @@ export const router = createBrowserRouter([
       {
         path: 'events/:eventId',
         element: <StaffEventDetailPage />,
-      },
-      {
-        path: 'tasks',
-        element: <StaffTasksPage />,
       },
       {
         path: 'direct-booking',
