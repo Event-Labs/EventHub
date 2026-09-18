@@ -89,15 +89,56 @@ function cleanOptionalText(value, maxLength) {
   return text.slice(0, maxLength);
 }
 
+function toVietnamDateString(dateInput) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+}
+
 function assertValidSessionTimes(startTime, endTime, validatePast = true) {
   if (!startTime || !endTime) {
     throw new AppError('Thời gian bắt đầu và kết thúc là bắt buộc.', 400, ErrorCodes.INVALID_INPUT);
   }
-  if (new Date(startTime) >= new Date(endTime)) {
+  const startDate = new Date(startTime);
+  const endDate = new Date(endTime);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    throw new AppError('Thời gian bắt đầu hoặc kết thúc không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+  }
+  if (startDate >= endDate) {
     throw new AppError('Thời gian kết thúc phải diễn ra sau thời gian bắt đầu.', 400, ErrorCodes.INVALID_INPUT);
   }
-  if (validatePast && new Date(startTime).getTime() < Date.now() - 60000) {
+  if (toVietnamDateString(startDate) !== toVietnamDateString(endDate)) {
+    throw new AppError('Mỗi phiên sự kiện phải bắt đầu và kết thúc trong cùng một ngày.', 400, ErrorCodes.INVALID_INPUT);
+  }
+  if (validatePast && startDate.getTime() < Date.now() - 60000) {
     throw new AppError('Thời gian bắt đầu sự kiện không được ở trong quá khứ.', 400, ErrorCodes.INVALID_INPUT);
+  }
+}
+
+function assertNoOverlappingSessions(sessions) {
+  if (!Array.isArray(sessions) || sessions.length <= 1) return;
+  for (let i = 0; i < sessions.length; i++) {
+    const sA = sessions[i];
+    const startA = new Date(sA.start_time).getTime();
+    const endA = new Date(sA.end_time).getTime();
+    if (isNaN(startA) || isNaN(endA)) continue;
+
+    for (let j = i + 1; j < sessions.length; j++) {
+      const sB = sessions[j];
+      const startB = new Date(sB.start_time).getTime();
+      const endB = new Date(sB.end_time).getTime();
+      if (isNaN(startB) || isNaN(endB)) continue;
+
+      if (startA < endB && startB < endA) {
+        const nameA = sA.session_name || `Phiên ${i + 1}`;
+        const nameB = sB.session_name || `Phiên ${j + 1}`;
+        throw new AppError(
+          `Phiên "${nameA}" và phiên "${nameB}" bị trùng lặp thời gian. Các phiên sự kiện không được diễn ra đồng thời.`,
+          400,
+          ErrorCodes.INVALID_INPUT
+        );
+      }
+    }
   }
 }
 
@@ -430,6 +471,7 @@ class OrganizerEventsService {
     }
 
     if (Array.isArray(data.sessions)) {
+      assertNoOverlappingSessions(data.sessions);
       const existing = await organizerEventsRepository.findEventById(eventId, organizerId);
       const existingSessions = existing?.sessions || [];
       const existingIds = new Set(existingSessions.map((s) => s.id));
@@ -828,6 +870,94 @@ class OrganizerEventsService {
     await organizerEventsRepository.assignZonesToTicketTypes(sessionId, assignments);
     return { assigned: assignments.length };
   }
+
+  async getLatestAiContentGeneration(userId, _eventId) {
+    const organizer = await organizerEventsRepository.findOrganizerByUserId(userId);
+    if (!organizer) {
+      throw new AppError('Organizer profile not found', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+    return null;
+  }
+
+  async generateAiEventContent(userId, payload = {}) {
+    const organizer = await organizerEventsRepository.findOrganizerByUserId(userId);
+    if (!organizer) {
+      throw new AppError('Organizer profile not found', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    const {
+      topic = '',
+      category_name = '',
+      target_audience = '',
+      key_highlights = '',
+      tone = 'Chuyên nghiệp',
+      event_id = null,
+    } = payload;
+
+    if (!topic || !topic.trim()) {
+      throw new AppError('Chủ đề hoặc tên ý tưởng sự kiện là bắt buộc', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const cleanTopic = topic.trim();
+    const audienceText = target_audience?.trim()
+      ? `dành riêng cho ${target_audience.trim()}`
+      : 'dành cho tất cả khách tham dự quan tâm';
+    const highlightText = key_highlights?.trim() ? ` Điểm nhấn: ${key_highlights.trim()}.` : '';
+
+    const suggested_titles = [
+      `${cleanTopic}: Khám Phá & Đột Phá 2026`,
+      `Hội Tụ Đam Mê - ${cleanTopic}`,
+      `Đại Hội ${cleanTopic} & Trải Nghiệm Đỉnh Cao`,
+    ];
+
+    const short_description = `Chào mừng bạn đến với ${cleanTopic} ${audienceText}.${highlightText}`.slice(0, 160);
+
+    const content_html = `<p><strong>Chào mừng bạn đến với sự kiện ${cleanTopic}!</strong></p>
+<p>Sự kiện mang đến không gian trải nghiệm đẳng cấp ${audienceText}. Đây là cơ hội tuyệt vời để giao lưu, học hỏi và kết nối những giá trị mới.</p>
+<br/>
+<p><strong>🌟 Hoạt động và Điểm nhấn nổi bật:</strong></p>
+<ul>
+  <li><strong>Chương trình chính:</strong> Trình diễn, chia sẻ kiến thức chuyên sâu và giao lưu trực tiếp.</li>
+  <li><strong>Khách mời đặc biệt:</strong> ${key_highlights || 'Các chuyên gia, nghệ sĩ và diễn giả có tầm ảnh hưởng.'}</li>
+  <li><strong>Trải nghiệm độc quyền:</strong> Khu vực tương tác, nhận quà lưu niệm và networking dành riêng cho người tham gia.</li>
+</ul>
+<br/>
+<p><strong>📋 Thông tin quan trọng:</strong></p>
+<ul>
+  <li>Vui lòng mang theo mã vé QR khi đến cổng check-in.</li>
+  <li>Tuân thủ quy định và hướng dẫn của Ban tổ chức trong suốt thời gian diễn ra sự kiện.</li>
+</ul>`;
+
+    const words = cleanTopic.split(/\s+/).filter((w) => w.length > 2);
+    const tags = Array.from(
+      new Set([category_name || 'Sự kiện', 'EventHub', '2026', ...words.slice(0, 3)]),
+    ).filter(Boolean);
+
+    const generatedContent = {
+      suggested_titles,
+      selected_title: suggested_titles[0],
+      short_description,
+      content_html,
+      tags,
+    };
+
+    const promptData = {
+      topic: cleanTopic,
+      category_name,
+      target_audience,
+      key_highlights,
+      tone,
+    };
+
+    return {
+      organizer_id: organizer.id,
+      event_id: event_id || null,
+      prompt_data: promptData,
+      generated_content: generatedContent,
+    };
+  }
 }
 
 module.exports = new OrganizerEventsService();
+
+

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# AI / Large files
+*.gguf
+*.bin
+*.pt
+*.safetensors
+ai/datasets/
+ai/checkpoints/
+ai/merged_model/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

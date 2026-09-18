@@ -1,4 +1,4 @@
-﻿const ApiResponse = require('../../core/response/ApiResponse');
+const ApiResponse = require('../../core/response/ApiResponse');
 const eventsService = require('./events.service');
 const {
   eventIdentifierSchema,
@@ -129,6 +129,8 @@ class EventsController {
       next(err);
     }
   };
+
+
 }
 
 module.exports = new EventsController();

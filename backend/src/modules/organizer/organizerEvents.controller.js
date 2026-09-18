@@ -1,5 +1,6 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const organizerEventsService = require('./organizerEvents.service');
+const logger = require('../../core/logger');
 
 class OrganizerEventsController {
   getMe = async (req, res, next) => {
@@ -75,6 +76,8 @@ class OrganizerEventsController {
       next(err);
     }
   };
+
+
 
   createEvent = async (req, res, next) => {
     try {
@@ -213,6 +216,26 @@ class OrganizerEventsController {
       next(err);
     }
   };
+
+  getLatestAiContentGeneration = async (req, res, next) => {
+    try {
+      const { eventId } = req.query;
+      const data = await organizerEventsService.getLatestAiContentGeneration(req.user.sub, eventId);
+      res.status(200).json(ApiResponse.success(data, 'Latest AI content generation fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  generateAiEventContent = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.generateAiEventContent(req.user.sub, req.body);
+      res.status(200).json(ApiResponse.success(data, 'AI event content generated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new OrganizerEventsController();
+

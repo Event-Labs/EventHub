@@ -32,6 +32,7 @@ import {
   AdminOrganizerRequestsPage,
   AdminPlansPage,
   AdminProfilePage,
+  AdminEventReviewDetailPage,
 } from '@/pages/admin/AdminPages.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
@@ -42,6 +43,7 @@ import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
 import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
 import { OrganizerEventDetailPage } from '@/pages/organizer/OrganizerEventDetailPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
+import { OrganizerRefundsPage } from '@/pages/organizer/OrganizerRefundsPage.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
 import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
 import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'
@@ -115,6 +117,10 @@ export const router = createBrowserRouter([
         element: <AdminEventReviewPage />,
       },
       {
+        path: 'events/review/:eventId',
+        element: <AdminEventReviewDetailPage />,
+      },
+      {
         path: 'platform-fee',
         element: <AdminFinancePage />,
       },
@@ -171,6 +177,10 @@ export const router = createBrowserRouter([
       {
         path: 'orders',
         element: <OrganizerOrdersPage />,
+      },
+      {
+        path: 'refunds',
+        element: <OrganizerRefundsPage />,
       },
       {
         path: 'staff-tasks',

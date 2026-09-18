@@ -162,13 +162,14 @@ export async function uploadOrganizerDocument(file, options = {}) {
 const POLICY_DOCUMENT_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
 ]
 
 export async function uploadPolicyDocument(file) {
   if (!file) return null
 
   if (!POLICY_DOCUMENT_TYPES.includes(file.type)) {
-    throw new Error('Vui long chon file PDF hoac DOCX')
+    throw new Error('Vui lòng chọn file PDF, DOCX hoặc TXT')
   }
 
   const signatureResponse = await http.post('/uploads/cloudinary/policy-pdf/signature')

@@ -31,9 +31,7 @@ export function StaffLayout() {
   const roles = getUserRoles(user)
   const isAllowed = roles.some((role) => ['staff', 'admin', 'super_admin'].includes(role))
   const bottomItems = [
-    ...(roles.includes('customer')
-      ? [{ label: 'Trang chủ', to: '/', icon: Home, end: true }]
-      : []),
+    { label: 'Trang khách hàng', to: '/', icon: Home, end: true },
     { label: 'Hồ sơ', to: '/staff/profile', icon: UserCircle },
   ]
 

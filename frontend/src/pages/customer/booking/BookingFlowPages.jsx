@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -26,6 +26,15 @@ function formatPrice(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return '0 \u0111'
   return `${number.toLocaleString('vi-VN')} \u0111`
+}
+
+function ticketAvailability(ticketType) {
+  const total = Math.max(0, Number(ticketType?.quantity ?? 0))
+  const available = Math.min(
+    total,
+    Math.max(0, Number(ticketType?.available_quantity ?? total)),
+  )
+  return { available, total }
 }
 
 function formatDateTime(value) {
@@ -369,13 +378,33 @@ function initialCartFromLocation(location) {
   if (cart) saveBookingDraft(cart)
   return cart
 }
+const TICKET_COLOR_PALETTE = [
+  '#38bdf8',
+  '#f97316',
+  '#a855f7',
+  '#22c55e',
+  '#eab308',
+  '#ef4444',
+  '#14b8a6',
+  '#ec4899',
+]
+
+function fallbackTicketTypeColor(ticketType) {
+  const identity = String(ticketType?.id || ticketType?.name || 'ticket')
+  const hash = [...identity].reduce(
+    (result, character) => ((result * 31) + character.charCodeAt(0)) >>> 0,
+    0,
+  )
+  return TICKET_COLOR_PALETTE[hash % TICKET_COLOR_PALETTE.length]
+}
+
 function ticketTypeColor(ticketType, colorByTicketTypeId) {
   return (
     colorByTicketTypeId?.get(String(ticketType?.id)) ||
     ticketType?.color ||
     ticketType?.zone?.color ||
     ticketType?.seat_type?.color ||
-    '#38bdf8'
+    fallbackTicketTypeColor(ticketType)
   )
 }
 
@@ -635,7 +664,7 @@ export function BookingSeatsPage() {
               ? 'Ch\u1ecdn gh\u1ebf tr\u1ef1c ti\u1ebfp tr\u00ean s\u01a1 \u0111\u1ed3 s\u00e2n kh\u1ea5u'
               : 'Ch\u1ecdn lo\u1ea1i v\u00e9 v\u00e0 s\u1ed1 l\u01b0\u1ee3ng mong mu\u1ed1n'}
           />
-          <Panel>
+          <Panel unstyled={!hasSeatMap && unseatedTicketTypes.length > 0}>
             {seatsQuery.isLoading ? (
               <p className="text-muted">{'\u0110ang t\u1ea3i s\u01a1 \u0111\u1ed3 gh\u1ebf...'}</p>
             ) : seatsQuery.data?.seats?.length ? (
@@ -982,13 +1011,16 @@ export function BookingReviewPage() {
               <div className="mt-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md border border-border-soft bg-surface p-4 text-sm leading-6 text-slate-200">
                 {eventTerms}
               </div>
-              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-primary/30 bg-primary/10 p-4">
+              <label className="mt-4 flex cursor-pointer items-start gap-3 py-1">
                 <input
                   type="checkbox"
                   checked={termsAccepted}
                   onChange={(event) => setTermsAccepted(event.target.checked)}
-                  className="mt-0.5 size-5 shrink-0 accent-primary"
+                  className="peer sr-only"
                 />
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2 border-slate-400 transition peer-checked:border-tertiary">
+                  <span className={`size-2.5 rounded-full bg-tertiary transition ${termsAccepted ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} />
+                </span>
                 <span className="text-sm font-semibold leading-6 text-white">
                   Tôi đã đọc và đồng ý với điều khoản, quy định của sự kiện này.
                 </span>
@@ -1545,8 +1577,12 @@ function ModalFrame({ children }) {
   )
 }
 
-function Panel({ children }) {
-  return <section className="rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10">{children}</section>
+function Panel({ children, unstyled = false }) {
+  return (
+    <section className={unstyled ? '' : 'rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10'}>
+      {children}
+    </section>
+  )
 }
 
 function PageTitle({ title, subtitle }) {
@@ -1574,6 +1610,8 @@ function Input({ label, value, onChange, type = 'text', placeholder }) {
 }
 
 function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, onClose }) {
+  const availability = ticketAvailability(ticketType)
+
   return createPortal(
     <div className={'fixed inset-0 z-50 grid place-items-center bg-black/70 p-4'} onClick={onClose}>
       <div className={'w-full max-w-md rounded-xl border border-border-soft bg-panel p-6 shadow-2xl'} onClick={(event) => event.stopPropagation()}>
@@ -1582,6 +1620,9 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
           <button type={'button'} onClick={onClose} className={'text-muted hover:text-white'}><X className={'size-5'} /></button>
         </div>
         <p className={'mt-4 whitespace-pre-line text-sm leading-6 text-muted'}>{ticketType.description || 'Khu vực đứng, không có ghế ngồi cố định.'}</p>
+        <p className={'mt-3 text-sm font-bold text-success'}>
+          Còn lại: {availability.available}/{availability.total} vé
+        </p>
         <div className={'mt-5 flex items-center justify-between gap-4'}>
           <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)} / vé</p>
           <QuantityStepper quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
@@ -1610,10 +1651,22 @@ function QuantityStepper({ quantity, onDecrease, onIncrease, className = '' }) {
 }
 
 function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
+  const availability = ticketAvailability(ticketType)
+
   return (
-    <div className={'px-2 py-1'}>
+    <div className={`rounded-lg border p-4 transition ${
+      quantity > 0
+        ? 'border-tertiary/70 bg-tertiary/10 shadow-[0_0_0_1px_rgba(249,115,22,0.08)]'
+        : 'border-border-soft bg-surface/40 hover:border-primary/40'
+    }`}>
       <div className={'flex items-start justify-between gap-4'}>
-        <div><p className={'font-bold text-white'}>{ticketType.name}</p><p className={'mt-1 text-sm text-muted'}>{ticketType.description}</p></div>
+        <div>
+          <p className={'font-bold text-white'}>{ticketType.name}</p>
+          <p className={'mt-1 text-sm text-muted'}>{ticketType.description}</p>
+          <p className={'mt-2 text-sm font-bold text-success'}>
+            Còn lại: {availability.available}/{availability.total} vé
+          </p>
+        </div>
         <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)}</p>
       </div>
       <QuantityStepper className={'mt-4'} quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
