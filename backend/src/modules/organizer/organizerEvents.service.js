@@ -48,6 +48,9 @@ function mapEvent(row) {
       require_adjacent_seats: Boolean(seatingRulesRaw.require_adjacent_seats),
       require_same_row: Boolean(seatingRulesRaw.require_same_row),
       disallow_single_seat_left: Boolean(seatingRulesRaw.disallow_single_seat_left),
+      max_tickets_per_order: Number.isInteger(Number(seatingRulesRaw.max_tickets_per_order)) && Number(seatingRulesRaw.max_tickets_per_order) > 0
+        ? Number(seatingRulesRaw.max_tickets_per_order)
+        : 10,
     },
     refund_policy:
       typeof row.refund_policy === 'string'
@@ -73,6 +76,9 @@ function sanitizeEventPayload(payload) {
       require_adjacent_seats: Boolean(input.require_adjacent_seats),
       require_same_row: Boolean(input.require_same_row),
       disallow_single_seat_left: Boolean(input.disallow_single_seat_left),
+      max_tickets_per_order: Number.isInteger(Number(input.max_tickets_per_order)) && Number(input.max_tickets_per_order) > 0
+        ? Math.min(Math.max(1, Number(input.max_tickets_per_order)), 100)
+        : 10,
     };
   }
   if (data.require_attendee_info !== undefined) {
@@ -615,6 +621,27 @@ class OrganizerEventsService {
     }
     if (!fullEvent.ticket_types?.length) {
       throw new AppError('Event must have at least one ticket type before submit', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    // Business Rule: Thời điểm nộp duyệt sự kiện phải cách thời điểm bắt đầu sự kiện tối thiểu 72 giờ (Lead Time >= 72h)
+    const validSessionStarts = (fullEvent.sessions || [])
+      .map((s) => new Date(s.start_time).getTime())
+      .filter((time) => !Number.isNaN(time));
+
+    if (validSessionStarts.length > 0) {
+      const earliestStart = Math.min(...validSessionStarts);
+      const leadTimeMs = earliestStart - Date.now();
+      const requiredLeadTimeMs = 72 * 60 * 60 * 1000;
+
+      if (leadTimeMs < requiredLeadTimeMs) {
+        const hoursLeft = Math.max(0, Math.round((leadTimeMs / (60 * 60 * 1000)) * 10) / 10);
+        throw new AppError(
+          `Sự kiện phải được nộp duyệt trước thời điểm bắt đầu tối thiểu 72 giờ (hiện tại còn ${hoursLeft} giờ). Vui lòng điều chỉnh lịch trình sự kiện để đảm bảo thời gian xét duyệt.`,
+          400,
+          'EVENT_SUBMIT_LEAD_TIME_INSUFFICIENT',
+          { lead_time_hours: hoursLeft, required_hours: 72 }
+        );
+      }
     }
 
     const hasPaidTickets = fullEvent.ticket_types.some((tt) => Number(tt.price) > 0);
