@@ -45,6 +45,7 @@ const INITIAL_FORM = {
     require_adjacent_seats: false,
     require_same_row: false,
     disallow_single_seat_left: false,
+    max_tickets_per_order: 10,
   },
   refund_policy: {
     allow_refunds: false,
@@ -908,15 +909,28 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                         const startMs = new Date(`${session.start_date}T${session.start_time}`).getTime()
                         const nowMs = Date.now()
                         const hoursDiff = (startMs - nowMs) / (60 * 60 * 1000)
-                        if (hoursDiff <= 48 && hoursDiff > 0) {
+                        if (hoursDiff < 72 && hoursDiff > 0) {
+                          return (
+                            <div className="mb-4 p-4 rounded-xl border border-danger/30 bg-danger/10 text-danger text-xs space-y-1.5">
+                              <div className="flex items-center gap-1.5 font-bold">
+                                <Icon name="error" className="text-sm text-danger" />
+                                <span>Ràng buộc thời gian nộp duyệt ({Math.round(hoursDiff * 10) / 10} giờ tới):</span>
+                              </div>
+                              <p className="leading-relaxed">
+                                Quy định hệ thống: <strong>Sự kiện phải được nộp duyệt trước thời điểm bắt đầu tối thiểu 72 giờ</strong> để Ban quản trị kịp thời kiểm duyệt và chuẩn bị vận hành. Phiên này diễn ra trong vòng {Math.round(hoursDiff * 10) / 10} giờ tới nên sẽ không đủ điều kiện nộp duyệt. Vui lòng dời ngày bắt đầu cách hiện tại tối thiểu 3 ngày.
+                              </p>
+                            </div>
+                          )
+                        }
+                        if (hoursDiff <= 96 && hoursDiff >= 72) {
                           return (
                             <div className="mb-4 p-4 rounded-xl border border-warning/30 bg-warning/10 text-warning text-xs space-y-1.5">
                               <div className="flex items-center gap-1.5 font-bold">
                                 <Icon name="warning" className="text-sm text-warning" />
-                                <span>Cảnh báo tạo phiên sát giờ ({Math.round(hoursDiff * 10) / 10} giờ tới):</span>
+                                <span>Lưu ý thời gian duyệt sự kiện ({Math.round(hoursDiff * 10) / 10} giờ tới):</span>
                               </div>
                               <p className="leading-relaxed">
-                                Phiên này sẽ bắt đầu trong vòng 48h tới. Khi sự kiện được Admin phê duyệt, hệ thống sẽ tự động bật chế độ <strong>Khóa thời gian (Time-Lock 48h)</strong>. Lúc đó bạn sẽ không thể tự do chỉnh sửa thông tin/suất diễn trừ khi liên hệ Admin trợ giúp.
+                                Phiên này cách thời điểm hiện tại {Math.round(hoursDiff * 10) / 10} giờ (trên mức tối thiểu 72 giờ). Hãy nhanh chóng hoàn thiện hồ sơ và gửi duyệt sớm nhất để không bị quá hạn.
                               </p>
                             </div>
                           )
@@ -1435,26 +1449,74 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
         {seatingType === 'ASSIGNED' && (
           <>
             <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-              <h2 className="mb-2 text-[20px] font-semibold text-content">Cấu hình quy tắc chỗ ngồi</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <h2 className="text-[20px] font-semibold text-content">Quy tắc chỗ ngồi & Giới hạn vé</h2>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary font-semibold border border-tertiary/20">
+                  Áp dụng phiên có sơ đồ ghế
+                </span>
+              </div>
               <p className="mb-4 text-sm text-subtle">
-                Cấu hình quy tắc khi người dùng chọn ghế (áp dụng cho các session có chỗ ngồi).
+                Cấu hình giới hạn số vé mỗi lần mua và các ràng buộc khi khán giả chọn vị trí ghế.
               </p>
+
+              <div className="mb-5 p-4 rounded-xl border border-border-soft/40 bg-panel-soft/50 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <label className="text-sm font-bold text-content block">
+                      Số vé / ghế tối đa 1 người được mua mỗi lần đặt
+                    </label>
+                    <p className="text-xs text-subtle">
+                      Hệ thống sẽ giới hạn số vé/chỗ tối đa mà khách hàng có thể chọn và thanh toán trong một đơn hàng.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      className="h-10 w-24 rounded-lg border border-border-soft/60 bg-surface px-3 text-center text-sm font-bold text-content focus:border-tertiary outline-none shadow-sm"
+                      value={formData.seating_rules?.max_tickets_per_order ?? 10}
+                      onChange={(e) => {
+                        const val = Math.max(1, Math.min(100, Number(e.target.value) || 1))
+                        setFormData((p) => ({
+                          ...p,
+                          seating_rules: {
+                            ...(p.seating_rules || {}),
+                            max_tickets_per_order: val,
+                          },
+                        }))
+                      }}
+                    />
+                    <span className="text-xs font-semibold text-muted">vé/lần</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 {[
                   {
                     key: 'require_adjacent_seats',
                     label: 'Bắt buộc chọn ghế liền kề',
+                    desc: 'Người mua từ 2 vé trở lên phải chọn các ghế liền kề nhau trong cùng một hàng.',
                   },
-                  { key: 'require_same_row', label: 'Bắt buộc cùng một hàng' },
-                  { key: 'disallow_single_seat_left', label: 'Không cho phép để lại ghế lẻ' },
+                  {
+                    key: 'require_same_row',
+                    label: 'Bắt buộc cùng một hàng',
+                    desc: 'Toàn bộ ghế trong đơn hàng phải nằm trên cùng một hàng ghế.',
+                  },
+                  {
+                    key: 'disallow_single_seat_left',
+                    label: 'Không cho phép để lại ghế lẻ',
+                    desc: 'Ngăn chặn khách hàng chọn ghế khiến để lại 1 ghế trống đơn độc ở đầu/cuối hoặc giữa hàng.',
+                  },
                 ].map((rule) => (
                   <label
                     key={rule.key}
-                    className="flex items-center gap-3 rounded-lg border border-border-soft/30 bg-panel-soft/40 px-4 py-3 text-sm text-content hover:border-border-soft/60 transition cursor-pointer"
+                    className="flex items-start gap-3 rounded-lg border border-border-soft/30 bg-panel-soft/40 px-4 py-3 text-sm text-content hover:border-border-soft/60 transition cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-tertiary"
+                      className="mt-0.5 h-4 w-4 accent-tertiary"
                       checked={Boolean(formData.seating_rules?.[rule.key])}
                       onChange={(e) =>
                         setFormData((p) => ({
@@ -1466,7 +1528,10 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                         }))
                       }
                     />
-                    <span className="font-semibold">{rule.label}</span>
+                    <div>
+                      <span className="font-semibold block">{rule.label}</span>
+                      <span className="text-xs text-subtle">{rule.desc}</span>
+                    </div>
                   </label>
                 ))}
               </div>
@@ -1682,20 +1747,54 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
 
         {seatingType === 'GENERAL' && (
           <section className="rounded-xl border border-border-soft/30 bg-surface p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h2 className="text-[20px] font-semibold text-content">Cơ cấu loại vé</h2>
-                <p className="text-sm text-subtle">Thiết lập các mức giá vé và số lượng bán ra.</p>
+                <h2 className="text-[20px] font-semibold text-content">Cơ cấu loại vé & Giới hạn mua</h2>
+                <p className="text-sm text-subtle">Thiết lập các mức giá vé, số lượng bán ra và giới hạn đặt vé.</p>
               </div>
               <button
                 type="button"
                 onClick={addTicketType}
-                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-primary hover:bg-tertiary/10 transition"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-primary hover:bg-tertiary/10 transition self-start sm:self-auto"
               >
                 <Icon name="add" />
                 Thêm loại vé
               </button>
             </div>
+
+            <div className="mb-5 p-4 rounded-xl border border-border-soft/40 bg-panel-soft/50">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <label className="text-sm font-bold text-content block">
+                    Số vé tối đa 1 người được mua mỗi lần đặt
+                  </label>
+                  <p className="text-xs text-subtle">
+                    Áp dụng cho toàn bộ đơn hàng của sự kiện khi khán giả chọn vé phổ thông.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="h-10 w-24 rounded-lg border border-border-soft/60 bg-surface px-3 text-center text-sm font-bold text-content focus:border-tertiary outline-none shadow-sm"
+                    value={formData.seating_rules?.max_tickets_per_order ?? 10}
+                    onChange={(e) => {
+                      const val = Math.max(1, Math.min(100, Number(e.target.value) || 1))
+                      setFormData((p) => ({
+                        ...p,
+                        seating_rules: {
+                          ...(p.seating_rules || {}),
+                          max_tickets_per_order: val,
+                        },
+                      }))
+                    }}
+                  />
+                  <span className="text-xs font-semibold text-muted">vé/lần</span>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-4">
               {sessionTickets.map((tt) => {
                 const key = tt.id || tt.clientKey
@@ -2739,7 +2838,14 @@ export function CreateEventPage() {
       banner_url: event.banner_url || '',
       sessions,
       ticketTypes,
-      seating_rules: event.seating_rules || { require_adjacent_seats: false, require_same_row: false, disallow_single_seat_left: false },
+      seating_rules: {
+        require_adjacent_seats: Boolean(event.seating_rules?.require_adjacent_seats),
+        require_same_row: Boolean(event.seating_rules?.require_same_row),
+        disallow_single_seat_left: Boolean(event.seating_rules?.disallow_single_seat_left),
+        max_tickets_per_order: Number.isInteger(Number(event.seating_rules?.max_tickets_per_order)) && Number(event.seating_rules?.max_tickets_per_order) > 0
+          ? Number(event.seating_rules.max_tickets_per_order)
+          : 10,
+      },
       refund_policy: {
         allow_refunds: Boolean(event.refund_policy?.allow_refunds),
         deadline_days: event.refund_policy?.deadline_days ?? 7,
@@ -3162,6 +3268,26 @@ export function CreateEventPage() {
         setError(validationError)
         toast.error(validationError)
         setCurrentStep(step)
+        return
+      }
+    }
+
+    // Business Rule: Thời điểm nộp duyệt sự kiện phải cách thời điểm bắt đầu sự kiện tối thiểu 72 giờ (Lead Time >= 72h)
+    const validSessionStarts = (formData.sessions || [])
+      .map((s) => new Date(`${s.start_date}T${s.start_time}`).getTime())
+      .filter((time) => !Number.isNaN(time))
+
+    if (validSessionStarts.length > 0) {
+      const earliestStart = Math.min(...validSessionStarts)
+      const leadTimeMs = earliestStart - Date.now()
+      const requiredLeadTimeMs = 72 * 60 * 60 * 1000
+
+      if (leadTimeMs < requiredLeadTimeMs) {
+        const hoursLeft = Math.max(0, Math.round((leadTimeMs / (60 * 60 * 1000)) * 10) / 10)
+        const leadMsg = `Sự kiện phải được nộp duyệt trước thời điểm bắt đầu tối thiểu 72 giờ (hiện tại còn ${hoursLeft} giờ). Vui lòng quay lại Bước 2 để điều chỉnh lịch trình sự kiện.`
+        setError(leadMsg)
+        toast.error(leadMsg)
+        setCurrentStep(2)
         return
       }
     }

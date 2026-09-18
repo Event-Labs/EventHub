@@ -4,6 +4,9 @@ function normalizeRules(raw) {
     require_adjacent_seats: Boolean(rules.require_adjacent_seats),
     require_same_row: Boolean(rules.require_same_row),
     disallow_single_seat_left: Boolean(rules.disallow_single_seat_left),
+    max_tickets_per_order: Number.isInteger(Number(rules.max_tickets_per_order)) && Number(rules.max_tickets_per_order) > 0
+      ? Number(rules.max_tickets_per_order)
+      : 10,
   };
 }
 
