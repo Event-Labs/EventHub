@@ -67,7 +67,7 @@ export function EventCard({
           openDetail()
         }
       }}
-      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-[24px] border border-primary/20 bg-panel shadow-[0_24px_70px_rgba(3,8,24,0.34)] transition duration-500 ease-out hover:-translate-y-1 hover:border-primary/60"
+      className="glass-panel group flex h-full cursor-pointer flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1"
     >
       <div
         className={cn(
@@ -82,7 +82,7 @@ export function EventCard({
         />
         <div className="event-card-gradient absolute inset-0" />
         {showCategoryBadge && (
-          <span className="absolute left-4 top-4 z-20 max-w-[calc(100%-5.75rem)] truncate rounded-full border border-white/20 bg-slate-950/70 px-3 py-1 text-xs font-extrabold uppercase text-white backdrop-blur">
+          <span className="absolute left-4 top-4 z-20 max-w-[calc(100%-5.75rem)] truncate rounded-full border border-white/20 bg-black/60 px-3 py-1 text-xs font-bold uppercase text-primary backdrop-blur-md">
             {item.category}
           </span>
         )}
@@ -97,8 +97,8 @@ export function EventCard({
               onFavoriteToggle(event)
             }}
             className={cn(
-              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-primary hover:text-[#081126] disabled:cursor-not-allowed disabled:opacity-70',
-              item.isFavorited && 'bg-primary text-[#081126]',
+              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/10 bg-black/50 text-white backdrop-blur-md transition-all hover:bg-primary/20 hover:text-primary disabled:cursor-not-allowed disabled:opacity-70',
+              item.isFavorited && 'bg-primary/20 text-primary border-primary/50',
             )}
             aria-label={item.isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           >
@@ -110,11 +110,11 @@ export function EventCard({
       </div>
       <div className="flex flex-1 flex-col space-y-4 p-5">
         <div className="h-[84px]">
-          <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white">
+          <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white transition-colors group-hover:text-primary">
             {item.title}
           </h3>
         </div>
-        <div className="min-h-[132px] space-y-2 text-sm leading-6 text-muted">
+        <div className="min-h-[132px] space-y-2 text-sm leading-6 text-subtle">
           <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">
             <Calendar className="mt-1 size-4 shrink-0 text-primary" />
             <span>
@@ -123,14 +123,14 @@ export function EventCard({
             </span>
           </div>
           <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">
-            <MapPin className="mt-1 size-4 shrink-0 text-primary" />
+            <MapPin className="mt-1 size-4 shrink-0 text-secondary" />
             <span>{item.location}</span>
           </div>
         </div>
-        <div className="mt-auto flex items-end justify-between gap-4 pt-2">
-          <div>
+        <div className="mt-auto flex items-end justify-between gap-4 pt-2 border-t border-border-soft">
+          <div className="pt-2">
             <p className="text-xs text-neutral">Giá từ</p>
-            <p className="font-display text-lg font-bold text-primary">
+            <p className="font-display text-lg font-bold text-primary drop-shadow-md">
               {item.priceLabel}
             </p>
           </div>
@@ -139,7 +139,7 @@ export function EventCard({
               to={detailPath}
               data-card-action
               onClick={(clickEvent) => clickEvent.stopPropagation()}
-              className="shrink-0 rounded-full bg-tertiary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:bg-orange-600"
+              className="admin-primary shrink-0"
             >
               Xem chi tiết
             </Link>

@@ -256,19 +256,17 @@ export function HomePage() {
   const safeActiveSlide = heroEvents.length ? activeSlide % heroEvents.length : 0
 
   return (
-    <div className="overflow-hidden bg-background text-content">
-      <section className="relative min-h-[790px] overflow-hidden bg-[#081126] py-8 sm:py-10">
-        <div className="hero-star-field absolute inset-0 opacity-60" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(179,205,224,0.18),transparent_30%),radial-gradient(circle_at_18%_34%,rgba(43,92,146,0.18),transparent_28%),linear-gradient(180deg,#081126_0%,#0c1446_52%,#081126_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.09),transparent_62%)]" />
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div>
+    <div className="overflow-hidden text-content bg-transparent">
+      <section className="relative h-[100dvh] w-full flex flex-col justify-center overflow-hidden pt-32 pb-4 snap-start shrink-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(6,182,212,0.15),transparent_30%),radial-gradient(circle_at_18%_34%,rgba(217,70,239,0.15),transparent_28%)]" />
+        <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 flex-1 flex flex-col justify-center">
+          <div className="w-full flex-1 flex flex-col justify-center min-h-0">
             {featuredQuery.isLoading ? (
               <StatePanel message="Đang tải sự kiện nổi bật..." />
             ) : featuredQuery.isError ? (
               <StatePanel message="Không thể tải sự kiện nổi bật." tone="error" />
             ) : heroEvents.length ? (
-              <CinematicCarousel
+              <BentoHero
                 activeIndex={safeActiveSlide}
                 events={heroEvents}
                 onSelect={setActiveSlide}
@@ -280,46 +278,30 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="relative -mt-1 bg-[linear-gradient(180deg,#081126_0%,#0a1538_46%,#081126_100%)] pb-28 pt-12">
+      <section className="relative min-h-[100dvh] w-full flex flex-col justify-center pb-12 pt-8 snap-start">
         <ScrollReveal>
         <form
           onSubmit={handleSearch}
-          className="relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+          className="relative z-20 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 mb-8"
         >
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted" />
+              <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-primary" />
               <input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                placeholder="Tìm kiếm sự kiện theo tên, danh mục, địa điểm..."
-                className="w-full rounded-full border border-primary/20 bg-white/8 py-3 pl-11 pr-3 text-content outline-none transition focus:border-primary"
+                placeholder="Tìm kiếm sự kiện, danh mục, địa điểm..."
+                className="w-full rounded-full border border-primary/30 bg-panel-soft/60 py-4 pl-12 pr-4 text-content outline-none backdrop-blur-md transition focus:border-primary focus:bg-panel shadow-[0_0_20px_rgba(6,182,212,0.15)]"
               />
             </div>
-            <button className="rounded-full bg-tertiary px-6 py-3 font-bold text-white shadow-lg shadow-tertiary/20 transition hover:bg-orange-600">
-              Tìm kiếm
+            <button className="admin-primary text-base px-8 py-4">
+              Khám phá
             </button>
           </div>
         </form>
         </ScrollReveal>
 
-        <section className="hidden">
-          <SectionTitle title="Sự kiện nổi bật gần bạn" />
-          <div className="flex gap-5 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {featuredEvents.slice(0, 8).map((event) => (
-              <div key={event.id} className="min-w-[320px] max-w-[320px]">
-                <EventCard
-                  event={event}
-                  compact
-                  onFavoriteToggle={handleFavorite}
-                  favoriteBusy={favoriteMutation.isPending}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <ScrollReveal as="section" className="bg-transparent pt-12">
+        <ScrollReveal as="section" className="bg-transparent pt-4">
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionTitle
               title="Xu hướng tuần này"
@@ -346,9 +328,8 @@ export function HomePage() {
         </ScrollReveal>
       </section>
 
-      <section className="relative -mt-32 bg-[linear-gradient(180deg,rgba(8,17,38,0)_0%,#081126_18%,#081126_72%,#071022_100%)] pb-12 pt-40">
+      <section className="relative -mt-32 bg-transparent pb-12 pt-40">
         <div className="category-light-ribbon" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,rgba(7,16,34,0)_0%,#071022_100%)]" />
         <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
             <SectionTitle title="Khám phá thể loại" />
@@ -403,7 +384,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="hidden bg-[#081126] py-12">
+      <section className="hidden bg-transparent py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SectionTitle title="Sự kiện sắp diễn ra" tight />
@@ -442,148 +423,90 @@ export function HomePage() {
   )
 }
 
-function CinematicCarousel({ activeIndex, events, onSelect }) {
+function BentoHero({ activeIndex, events, onSelect }) {
   const navigate = useNavigate()
   const safeEvents = (events || []).filter((event) => event?.id)
   if (!safeEvents.length) return null
 
-  const visibleEvents = [-3, -2, -1, 0, 1, 2, 3].map((offset) => {
-    const index = ((activeIndex + offset) % safeEvents.length + safeEvents.length) % safeEvents.length
-    return { event: safeEvents[index], offset, index }
-  })
+  const mainEvent = safeEvents[activeIndex]
+  const secondEvent = safeEvents.length > 1 ? safeEvents[(activeIndex + 1) % safeEvents.length] : null
+  const thirdEvent = safeEvents.length > 2 ? safeEvents[(activeIndex + 2) % safeEvents.length] : null
 
-  const spotlightShift = ((activeIndex % safeEvents.length) - Math.floor(safeEvents.length / 2)) * 2
+  if (!mainEvent) return null
 
   return (
-    <div className="relative mx-auto min-h-[700px] max-w-7xl pt-2 [perspective:1500px]">
-      <div className="relative z-20 mx-auto max-w-3xl text-center">
-        <p className="text-xs font-extrabold uppercase tracking-[0.32em] text-primary/85">
-          Sự kiện nổi bật
-        </p>
-        <h1 className="mt-3 font-display text-4xl font-black leading-tight text-white sm:text-4xl">
-          Tìm trải nghiệm tiếp theo của bạn
+    <div className="relative mx-auto max-w-7xl pt-0 pb-4 w-full h-full flex flex-col justify-center min-h-0">
+      <div className="mb-4 lg:mb-8 text-center shrink-0">
+        <h1 className="font-display text-4xl font-black leading-tight text-white md:text-5xl drop-shadow-lg">
+          Khám phá vũ trụ <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Sự Kiện</span>
         </h1>
+        <p className="mt-2 text-base text-subtle">Trải nghiệm những khoảnh khắc đáng nhớ nhất cùng EventHub</p>
       </div>
-      <div
-        className="pointer-events-none absolute left-1/2 top-[130px] z-0 h-[410px] w-[230px] origin-top bg-[linear-gradient(180deg,rgba(179,205,224,0.18),rgba(179,205,224,0.04)_58%,transparent)] opacity-80 transition-transform duration-500 ease-out"
-        style={{ transform: `translateX(calc(-78% + ${spotlightShift}px)) skewX(-10deg) rotate(-8deg)` }}
-      />
-      <div
-        className="pointer-events-none absolute left-1/2 top-[130px] z-0 h-[410px] w-[230px] origin-top bg-[linear-gradient(180deg,rgba(179,205,224,0.16),rgba(43,92,146,0.06)_58%,transparent)] opacity-80 transition-transform duration-500 ease-out"
-        style={{ transform: `translateX(calc(-22% + ${spotlightShift}px)) skewX(10deg) rotate(8deg)` }}
-      />
-      <div className="absolute inset-x-0 top-[205px] z-10 h-[340px] [transform-style:preserve-3d]">
-        {visibleEvents.map(({ event, offset }) => (
-          <HeroCard
-            key={`${event.id}-${offset}`}
-            event={event}
-            active={offset === 0}
-            offset={offset}
-            onClick={() => navigate(eventPath(event))}
-          />
+
+      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 flex-1 min-h-[40vh] lg:min-h-[55vh]`}>
+        {/* Main Event Card */}
+        <div 
+          onClick={() => navigate(eventPath(mainEvent))}
+          className={`glass-panel group relative overflow-hidden cursor-pointer p-0 ${!secondEvent && !thirdEvent ? 'lg:col-span-3 lg:row-span-2' : 'lg:col-span-2 lg:row-span-2'}`}
+        >
+          <img src={eventImage(mainEvent)} alt={mainEvent.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent opacity-90" />
+          <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-inherit pointer-events-none" />
+          
+          <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col justify-end">
+            <span className="w-fit rounded-full border border-primary/50 bg-primary/20 px-3 py-1 text-xs font-bold uppercase text-primary backdrop-blur-md mb-4 shadow-[0_0_15px_rgba(6,182,212,0.5)]">
+              {mainEvent.category?.name || 'Sự kiện nổi bật'}
+            </span>
+            <h2 className="font-display text-3xl font-bold text-white mb-3 line-clamp-2 transition-colors group-hover:text-primary">
+              {mainEvent.title}
+            </h2>
+            <div className="flex items-center gap-6 text-sm text-subtle mb-6">
+              <span className="flex items-center gap-2"><CalendarDays className="size-4 text-secondary"/> {formatDateTime(mainEvent.start_time)}</span>
+              <span className="flex items-center gap-2"><MapPin className="size-4 text-secondary"/> {eventLocation(mainEvent)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold text-white drop-shadow-md">{formatPrice(mainEvent)}</span>
+              <button className="admin-primary" onClick={(e) => { e.stopPropagation(); navigate(eventPath(mainEvent)); }}>Mua vé ngay</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Secondary Events */}
+        {[secondEvent, thirdEvent].map((evt, idx) => evt && (
+          <div 
+            key={evt.id + '-' + idx}
+            onClick={() => navigate(eventPath(evt))}
+            className="glass-panel group relative overflow-hidden cursor-pointer p-0"
+          >
+            <img src={eventImage(evt)} alt={evt.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent opacity-90" />
+            <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-inherit pointer-events-none" />
+            
+            <div className="absolute bottom-0 left-0 right-0 p-6 flex flex-col justify-end h-full">
+              <span className="w-fit rounded-full border border-secondary/50 bg-secondary/20 px-2 py-0.5 text-[10px] font-bold uppercase text-secondary backdrop-blur-md mb-2">
+                {evt.category?.name || 'Sự kiện'}
+              </span>
+              <h3 className="font-display text-lg font-bold text-white mb-2 line-clamp-2 transition-colors group-hover:text-secondary">
+                {evt.title}
+              </h3>
+              <p className="text-xs text-subtle mb-3 line-clamp-1">{eventLocation(evt)}</p>
+              <span className="text-sm font-bold text-primary mt-auto">{formatPrice(evt)}</span>
+            </div>
+          </div>
         ))}
       </div>
-      <div className="stage-platform absolute bottom-8 left-1/2 z-0 h-64 w-[min(1160px,96vw)] -translate-x-1/2 rounded-[50%]" />
-      <div className="absolute bottom-5 left-0 right-0 z-30 flex justify-center gap-2">
-        {safeEvents.map((event, index) => (
+      
+      <div className="mt-8 flex justify-center gap-2">
+        {safeEvents.map((_, index) => (
           <button
-            key={event.id}
-            type="button"
+            key={index}
             onClick={() => onSelect(index)}
-            className={`h-2 rounded-full transition duration-500 ease-out ${index === activeIndex ? 'w-8 bg-primary' : 'w-2 bg-white/25'
-              }`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${index === activeIndex ? 'w-8 bg-primary shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'w-2 bg-white/20 hover:bg-white/40'}`}
             aria-label={`Chuyển đến sự kiện ${index + 1}`}
           />
         ))}
       </div>
     </div>
-  )
-}
-
-function HeroCard({ event, active, offset, onClick }) {
-  const depth = Math.abs(offset)
-  const positions = {
-    '-3': { x: '-760px', y: '94px', z: '-310px', scale: 0.56, rotate: '36deg', opacity: 0.3, blur: '0.8px' },
-    '-2': { x: '-560px', y: '62px', z: '-210px', scale: 0.67, rotate: '26deg', opacity: 0.48, blur: '0.45px' },
-    '-1': { x: '-340px', y: '26px', z: '-92px', scale: 0.8, rotate: '15deg', opacity: 0.74, blur: '0px' },
-    0: { x: '-50%', y: '-14px', z: '90px', scale: 1, rotate: '0deg', opacity: 1, blur: '0px' },
-    1: { x: '150px', y: '26px', z: '-92px', scale: 0.8, rotate: '-15deg', opacity: 0.74, blur: '0px' },
-    2: { x: '350px', y: '62px', z: '-210px', scale: 0.67, rotate: '-26deg', opacity: 0.48, blur: '0.45px' },
-    3: { x: '535px', y: '94px', z: '-310px', scale: 0.56, rotate: '-36deg', opacity: 0.3, blur: '0.8px' },
-  }
-  const position = positions[offset]
-  const hiddenOnMobile = depth > 1 ? 'hidden lg:block' : depth > 0 ? 'hidden sm:block' : ''
-
-  return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(keyEvent) => {
-        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
-          keyEvent.preventDefault()
-          onClick()
-        }
-      }}
-      className={`event-card-stage stage-orbit-card group absolute left-1/2 top-0 w-[min(330px,76vw)] cursor-pointer overflow-hidden rounded-[26px] border bg-panel text-left [transform-style:preserve-3d] ${active
-          ? 'h-[370px] border-primary/70 shadow-[0_34px_110px_rgba(179,205,224,0.28)]'
-          : 'h-[260px] border-primary/20'
-        } ${hiddenOnMobile}`}
-      style={{
-        '--stage-x': position.x,
-        '--stage-y': position.y,
-        '--stage-z': position.z,
-        '--stage-scale': position.scale,
-        '--stage-rotate': position.rotate,
-        '--stage-opacity': position.opacity,
-        '--stage-blur': position.blur,
-        '--stage-border-opacity': active ? 0.95 : 0.46,
-        zIndex: 20 - depth,
-      }}
-    >
-      <div className={active ? 'relative h-48 overflow-hidden' : 'relative h-full overflow-hidden'}>
-        <img
-          src={eventImage(event)}
-          alt={event.title}
-          className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
-        />
-        <div className="event-card-gradient absolute inset-0" />
-      </div>
-      {active && (
-        <div className="flex h-[178px] flex-col justify-center bg-[linear-gradient(180deg,rgba(12,20,70,0.96),rgba(8,17,38,0.98))] p-5">
-          <div>
-            <span className="rounded-full border border-tertiary/50 bg-tertiary/20 px-3 py-1 text-xs font-extrabold uppercase text-white">
-              {event.category?.name || 'Sự kiện'}
-            </span>
-            <h2 className="mt-3 line-clamp-2 font-display text-lg font-extrabold leading-snug text-white">
-              {event.title}
-            </h2>
-            <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-2">
-              <span className="inline-flex items-center gap-2">
-                <CalendarDays className="size-4 text-primary" />
-                {formatDateTime(event.start_time)}
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <MapPin className="size-4 text-primary" />
-                <span className="line-clamp-1">{eventLocation(event)}</span>
-              </span>
-            </div>
-            <p className="mt-2 font-display text-base font-bold text-primary">
-              {formatPrice(event)}
-            </p>
-          </div>
-          <div className="hidden">
-            <Link
-              to={eventPath(event)}
-              className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-bold text-[#081126] transition duration-500 ease-out hover:bg-white"
-              onClick={(clickEvent) => clickEvent.stopPropagation()}
-            >
-              Xem chi tiết
-            </Link>
-          </div>
-        </div>
-      )}
-    </article>
   )
 }
 
