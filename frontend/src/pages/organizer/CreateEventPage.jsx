@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers } from 'lucide-react'
 import { fetchEventCategories } from '@/services/events.js'
 import {
   createOrganizerEvent,
@@ -7,16 +8,18 @@ import {
   fetchOrganizerVenues,
   submitOrganizerEvent,
   updateOrganizerEvent,
+  generateAiEventContent,
 } from '@/services/organizerEvents.js'
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { assignZones, getSeatMap } from '@/services/organizerSeatMaps.js'
 import { SeatMapPreview } from './SeatMapEditor.jsx'
 import { ConfirmModal } from './OrganizerComponents.jsx'
-import { uploadEventBanner, uploadEventThumbnail } from '@/services/uploads.js'
+import { uploadEventBanner, uploadEventThumbnail, uploadPolicyDocument, uploadOrganizerDocument } from '@/services/uploads.js'
 import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { AiEventContentGeneratorModal } from './AiEventContentGeneratorModal.jsx'
 
 const STEP_LABELS = [
   'Thông tin sự kiện',
@@ -43,9 +46,17 @@ const INITIAL_FORM = {
     require_same_row: false,
     disallow_single_seat_left: false,
   },
-  refund_policy: { allow_refunds: false, deadline_days: 7 },
+  refund_policy: {
+    allow_refunds: false,
+    deadline_days: 7,
+    policy_file_url: null,
+    policy_file_name: null,
+    policy_file_size: null,
+    permit_files: [],
+  },
   additional_terms: '',
   require_attendee_info: false,
+  terms_accepted: false,
 }
 
 function Icon({ name, className = '', style = {} }) {
@@ -82,6 +93,225 @@ function splitDateTime(iso) {
 
 function newClientKey() {
   return `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+function formatFileSize(bytes) {
+  if (!bytes || isNaN(bytes)) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
+function checkSessionsOverlap(sessions) {
+  if (!Array.isArray(sessions) || sessions.length <= 1) return null
+  for (let i = 0; i < sessions.length; i++) {
+    const sA = sessions[i]
+    if (!sA.start_date || !sA.start_time || !sA.end_date || !sA.end_time) continue
+    const startA = new Date(`${sA.start_date}T${sA.start_time}`).getTime()
+    const endA = new Date(`${sA.end_date}T${sA.end_time}`).getTime()
+    if (isNaN(startA) || isNaN(endA)) continue
+
+    for (let j = i + 1; j < sessions.length; j++) {
+      const sB = sessions[j]
+      if (!sB.start_date || !sB.start_time || !sB.end_date || !sB.end_time) continue
+      const startB = new Date(`${sB.start_date}T${sB.start_time}`).getTime()
+      const endB = new Date(`${sB.end_date}T${sB.end_time}`).getTime()
+      if (isNaN(startB) || isNaN(endB)) continue
+
+      if (startA < endB && startB < endA) {
+        return {
+          sessionA: sA,
+          sessionB: sB,
+          nameA: sA.session_name?.trim() || `Phiên ${i + 1}`,
+          nameB: sB.session_name?.trim() || `Phiên ${j + 1}`,
+          keyA: sA.id || sA.clientKey,
+          keyB: sB.id || sB.clientKey,
+        }
+      }
+    }
+  }
+  return null
+}
+
+function calculateEventCompleteness(formData) {
+  const titleValid = Boolean(formData.title?.trim())
+  const categoryValid = Boolean(formData.category_id)
+  const shortDescValid = Boolean(formData.short_description?.trim())
+  const descText = (formData.description || '').replace(/<[^>]*>/g, '').trim()
+  const hasDescImg = (formData.description || '').includes('<img')
+  const descValid = Boolean(descText || hasDescImg)
+  const thumbValid = Boolean(formData.thumbnail_url)
+  const bannerValid = Boolean(formData.banner_url)
+
+  const hasSessions = Boolean(formData.sessions && formData.sessions.length > 0)
+  const overlapInfo = hasSessions ? checkSessionsOverlap(formData.sessions) : null
+  const hasDifferentDaySessions = hasSessions && formData.sessions.some(
+    (s) => s.start_date && s.end_date && s.start_date !== s.end_date
+  )
+
+  const sessionsValid = hasSessions && !hasDifferentDaySessions && !overlapInfo && formData.sessions.every((s) => {
+    if (!s.start_date || !s.start_time || !s.end_date || !s.end_time || !s.venue_id) return false
+    if (s.start_date !== s.end_date) return false
+    const start = new Date(`${s.start_date}T${s.start_time}`)
+    const end = new Date(`${s.end_date}T${s.end_time}`)
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return false
+    if (s.checkin_start_date || s.checkin_start_time) {
+      if (!s.checkin_start_date || !s.checkin_start_time) return false
+      if (s.checkin_start_date !== s.start_date) return false
+      const checkin = new Date(`${s.checkin_start_date}T${s.checkin_start_time}`)
+      if (isNaN(checkin.getTime()) || checkin > start) return false
+    }
+    return true
+  })
+
+  const ticketsValid = hasSessions && formData.sessions.every((s) => {
+    const key = s.id || s.clientKey
+    const tickets = (formData.ticketTypes || []).filter((tt) => String(tt.session_key) === String(key))
+    if (!tickets.length) return false
+    return tickets.every((tt) => (
+      Boolean(tt.name?.trim()) &&
+      tt.price !== '' &&
+      tt.price !== null &&
+      tt.price !== undefined &&
+      Number(tt.price) >= 0 &&
+      Boolean(tt.quantity) &&
+      Number(tt.quantity) > 0
+    ))
+  })
+
+  const seatMapValid = hasSessions && formData.sessions.every((s) => {
+    if (s.seating_type === 'ASSIGNED') {
+      return Boolean(s.seat_map_id)
+    }
+    return true
+  })
+
+  const policyFileUrl = formData.refund_policy?.policy_file_url
+  const hasTerms = Boolean(formData.additional_terms?.trim())
+  const policiesValid = Boolean(hasTerms || policyFileUrl)
+
+  const permitFiles = formData.refund_policy?.permit_files || []
+  const permitsValid = Boolean(permitFiles.length > 0)
+
+  const termsAccepted = Boolean(formData.terms_accepted)
+
+  const checklist = [
+    {
+      id: 'title_category',
+      step: 1,
+      label: 'Tên & Danh mục sự kiện',
+      completed: Boolean(titleValid && categoryValid),
+      detail: !titleValid
+        ? 'Chưa nhập tên sự kiện'
+        : !categoryValid
+        ? 'Chưa chọn danh mục'
+        : 'Đã hoàn tất',
+    },
+    {
+      id: 'descriptions',
+      step: 1,
+      label: 'Mô tả ngắn & Chi tiết',
+      completed: Boolean(shortDescValid && descValid),
+      detail: !shortDescValid
+        ? 'Chưa nhập mô tả ngắn'
+        : !descValid
+        ? 'Chưa nhập mô tả chi tiết'
+        : 'Đã hoàn tất',
+    },
+    {
+      id: 'media',
+      step: 1,
+      label: 'Ảnh Thumbnail & Banner',
+      completed: Boolean(thumbValid && bannerValid),
+      detail: !thumbValid && !bannerValid
+        ? 'Chưa tải thumbnail và banner'
+        : !thumbValid
+        ? 'Chưa tải ảnh thumbnail'
+        : !bannerValid
+        ? 'Chưa tải ảnh banner'
+        : 'Đã tải đủ ảnh',
+    },
+    {
+      id: 'sessions',
+      step: 2,
+      label: 'Lịch trình & Địa điểm',
+      completed: sessionsValid,
+      detail: !hasSessions
+        ? 'Cần tạo ít nhất 1 phiên sự kiện'
+        : hasDifferentDaySessions
+        ? 'Có phiên bắt đầu và kết thúc khác ngày (chỉ trong 1 ngày)'
+        : overlapInfo
+        ? `Trùng giờ: "${overlapInfo.nameA}" và "${overlapInfo.nameB}"`
+        : !sessionsValid
+        ? 'Phiên chưa đủ ngày giờ hoặc chưa chọn địa điểm'
+        : `${formData.sessions.length} phiên hợp lệ`,
+    },
+    {
+      id: 'tickets',
+      step: 3,
+      label: 'Hạng vé sự kiện',
+      completed: ticketsValid,
+      detail: !hasSessions
+        ? 'Cần tạo phiên trước khi tạo vé'
+        : !ticketsValid
+        ? 'Mỗi phiên cần ít nhất 1 loại vé hợp lệ (tên, giá >= 0, số lượng > 0)'
+        : 'Đã cấu hình đủ loại vé',
+    },
+    {
+      id: 'seat_map',
+      step: 3,
+      label: 'Sơ đồ ghế (Phiên có ghế)',
+      completed: seatMapValid,
+      detail: !seatMapValid
+        ? 'Có phiên chọn chỗ ngồi nhưng chưa gắn sơ đồ ghế'
+        : 'Sơ đồ ghế hợp lệ',
+    },
+    {
+      id: 'policies',
+      step: 4,
+      label: 'Chính sách & Điều khoản tham dự',
+      completed: policiesValid,
+      detail: !policiesValid
+        ? 'Cần nhập điều khoản tham dự hoặc tải file chính sách'
+        : policyFileUrl
+        ? `Đã đính kèm file: ${formData.refund_policy?.policy_file_name || 'chính sách'}`
+        : 'Đã thiết lập điều khoản tham dự',
+    },
+    {
+      id: 'permits',
+      step: 4,
+      label: 'Giấy phép tổ chức & Giấy tờ liên quan',
+      completed: permitsValid,
+      detail: !permitsValid
+        ? 'Cần tải lên giấy phép tổ chức hoặc giấy tờ liên quan'
+        : `Đã tải lên ${permitFiles.length} tài liệu pháp lý`,
+    },
+    {
+      id: 'review_terms',
+      step: 5,
+      label: 'Cam kết & Xác nhận xuất bản',
+      completed: termsAccepted,
+      detail: !termsAccepted
+        ? 'Cần xác nhận cam kết điều khoản ở Bước 5'
+        : 'Đã cam kết tuân thủ quy định',
+    },
+  ]
+
+  const total = checklist.length
+  const completedCount = checklist.filter((item) => item.completed).length
+  const percent = Math.round((completedCount / total) * 100)
+  const isReady = percent === 100 && checklist.every((item) => item.completed)
+  const missingItems = checklist.filter((item) => !item.completed)
+
+  return {
+    checklist,
+    completedCount,
+    total,
+    percent,
+    isReady,
+    missingItems,
+  }
 }
 
 function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
@@ -137,6 +367,36 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
   )
 }
 
+function SetupProgressWidget({ completeness, className = '' }) {
+  return (
+    <div className={`overflow-hidden rounded-2xl border border-border-soft/30 bg-surface shadow-[0_4px_24px_rgba(0,0,0,0.18)] ${className}`}>
+      <div className="border-b border-border-soft/30 bg-panel-soft/60 px-6 py-4 flex items-center justify-between">
+        <h3 className="text-xs font-extrabold text-content uppercase tracking-wider flex items-center gap-2">
+          <Icon name="monitoring" className="text-tertiary text-base" />
+          Tiến độ thiết lập
+        </h3>
+        <span className={`text-xs font-bold ${completeness?.isReady ? 'text-success' : 'text-tertiary'}`}>
+          {completeness?.percent ?? 0}%
+        </span>
+      </div>
+      <div className="p-6 space-y-3">
+        <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${completeness?.isReady ? 'bg-success' : 'bg-tertiary'}`}
+            style={{ width: `${completeness?.percent ?? 0}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between text-xs text-subtle pt-1">
+          <span>Mục hoàn thành</span>
+          <strong className="text-content font-bold">
+            {completeness?.completedCount ?? 0}/{completeness?.total ?? 0} mục
+          </strong>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Step1EventInfo({
   formData,
   setFormData,
@@ -147,7 +407,10 @@ function Step1EventInfo({
   onBannerUpload,
   uploadingThumb,
   uploadingBanner,
+  completeness,
 }) {
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false)
+
   const addTag = () => {
     const tag = tagInput.trim()
     if (!tag || formData.tags.includes(tag)) return
@@ -159,10 +422,20 @@ function Step1EventInfo({
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-8">
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 hover:border-border-soft/60 transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
-            <Icon name="info" className="text-tertiary" />
-            Thông tin cơ bản
-          </h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[20px] font-semibold flex items-center gap-2 text-content">
+              <Icon name="info" className="text-tertiary" />
+              Thông tin cơ bản
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsAiModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110 active:scale-95"
+            >
+              <Sparkles className="size-4 animate-pulse" />
+              ✨ Tạo nội dung với AI
+            </button>
+          </div>
           <div className="space-y-6">
             <div>
               <label className="block text-[13px] font-medium mb-2 text-subtle">Tên sự kiện*</label>
@@ -310,6 +583,8 @@ function Step1EventInfo({
       </div >
 
       <div className="col-span-12 lg:col-span-4 space-y-6 sticky top-24">
+        <SetupProgressWidget completeness={completeness} />
+
         <div className="bg-surface border border-border-soft/30 rounded-xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
           <div className="relative aspect-video bg-panel-soft">
             {formData.banner_url ? (
@@ -335,32 +610,44 @@ function Step1EventInfo({
               </div>
               <span className="px-2 py-1 bg-panel-soft text-subtle rounded text-xs font-semibold border border-border-soft/30">Bản nháp</span>
             </div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2">
               <Icon name="location_on" className="text-tertiary text-[18px]" />
               <span className="text-sm text-content">{formData.format === 'ONLINE' ? 'Sự kiện trực tuyến' : formData.format === 'HYBRID' ? 'Sự kiện kết hợp' : 'Sự kiện trực tiếp'}</span>
-            </div>
-            <div className="mt-6">
-              <div className="flex justify-between mb-2">
-                <span className="text-[13px] font-medium text-subtle">Tiến độ thiết lập</span>
-                <span className="text-[13px] text-tertiary font-bold">20%</span>
-              </div>
-              <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
-                <div className="w-1/5 h-full bg-tertiary rounded-full" />
-              </div>
             </div>
           </div>
         </div>
       </div>
-    </div >
+
+      <AiEventContentGeneratorModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        categories={categories}
+        initialCategory={categories.find((c) => c.id === formData.category_id)?.name || ''}
+        eventId={formData.id || null}
+        onApply={(generated) => {
+          setFormData((prev) => ({
+            ...prev,
+            title: generated.title || prev.title,
+            short_description: generated.short_description || prev.short_description,
+            description: generated.description || generated.content_html || prev.description,
+            tags: Array.from(new Set([...prev.tags, ...(generated.tags || [])])),
+          }))
+          setIsAiModalOpen(false)
+        }}
+      />
+    </div>
   )
 }
 
-function Step2ScheduleVenue({ formData, setFormData, venues }) {
+
+function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
   const currentDate = new Date()
   const today = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
   const [expandedSessions, setExpandedSessions] = useState(() => {
     return formData.sessions.reduce((acc, s) => ({ ...acc, [s.id || s.clientKey]: true }), {})
   })
+
+  const sessionOverlapInfo = useMemo(() => checkSessionsOverlap(formData.sessions), [formData.sessions])
 
   const toggleSession = (key) => setExpandedSessions((p) => ({ ...p, [key]: !p[key] }))
 
@@ -451,12 +738,36 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
               Thêm phiên
             </button>
           </div>
+
+          {sessionOverlapInfo && (
+            <div className="mb-6 p-4 rounded-xl border border-error/50 bg-error/10 text-error flex items-start gap-3 shadow-sm">
+              <Icon name="warning" className="text-xl shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <div className="font-bold">Trùng lặp thời gian giữa các phiên sự kiện:</div>
+                <p className="mt-1 text-xs leading-relaxed text-error/90">
+                  Phiên <strong>"{sessionOverlapInfo.nameA}"</strong> và phiên <strong>"{sessionOverlapInfo.nameB}"</strong> có thời gian diễn ra trùng nhau. Mỗi phiên phải kết thúc trong cùng một ngày và các phiên không được diễn ra đồng thời. Vui lòng điều chỉnh thời gian để các phiên tách biệt.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-6">
             {formData.sessions.map((session, index) => {
               const key = session.id || session.clientKey
               const isExpanded = expandedSessions[key]
+              const isDifferentDate = Boolean(session.start_date && session.end_date && session.start_date !== session.end_date)
+              const isOverlapped = Boolean(
+                sessionOverlapInfo &&
+                (String(key) === String(sessionOverlapInfo.keyA) || String(key) === String(sessionOverlapInfo.keyB))
+              )
+
               return (
-                <div key={key} className="border border-border-soft/40 rounded-xl relative bg-panel-soft/30 overflow-hidden mb-4 shadow-sm transition-colors">
+                <div
+                  key={key}
+                  className={`border rounded-xl relative overflow-hidden mb-4 shadow-sm transition-all ${
+                    isDifferentDate || isOverlapped ? 'border-error/80 ring-1 ring-error/30 bg-error/5' : 'border-border-soft/40 bg-panel-soft/30'
+                  }`}
+                >
                   <div
                     className="p-5 flex items-center justify-between cursor-pointer hover:bg-surface/70 transition-colors"
                     onClick={() => toggleSession(key)}
@@ -474,16 +785,28 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                         className="font-bold text-content text-[15px] bg-transparent border-b border-transparent focus:border-tertiary focus:outline-none focus:ring-0 px-2 py-1 w-full"
                       />
                     </div>
-                    {formData.sessions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); removeSession(key); }}
-                        className="text-muted hover:text-error transition p-2"
-                        title="Xóa phiên"
-                      >
-                        <Icon name="delete" />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isDifferentDate && (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-error/15 text-error flex items-center gap-1">
+                          <Icon name="error" className="text-xs" /> Khác ngày
+                        </span>
+                      )}
+                      {isOverlapped && (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-error/15 text-error flex items-center gap-1">
+                          <Icon name="schedule" className="text-xs" /> Trùng giờ
+                        </span>
+                      )}
+                      {formData.sessions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeSession(key); }}
+                          className="text-muted hover:text-error transition p-2"
+                          title="Xóa phiên"
+                        >
+                          <Icon name="delete" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {isExpanded && (
@@ -501,7 +824,15 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                                 updateSessionFields(key, { start_date: '', start_time: '' })
                               } else {
                                 const [d, t] = val.split('T')
-                                updateSessionFields(key, { start_date: d || '', start_time: t || '' })
+                                const updates = { start_date: d || '', start_time: t || '' }
+                                if (d) {
+                                  // Rule: Single-day session. Auto-synchronize end_date and checkin_start_date with start_date
+                                  updates.end_date = d
+                                  if (!session.checkin_start_date || session.checkin_start_date === session.start_date) {
+                                    updates.checkin_start_date = d
+                                  }
+                                }
+                                updateSessionFields(key, updates)
                               }
                             }}
                           />
@@ -518,12 +849,41 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                                 updateSessionFields(key, { end_date: '', end_time: '' })
                               } else {
                                 const [d, t] = val.split('T')
-                                updateSessionFields(key, { end_date: d || '', end_time: t || '' })
+                                // Enforce same calendar day if start_date exists
+                                const targetDate = session.start_date || d || ''
+                                updateSessionFields(key, { end_date: targetDate, end_time: t || '' })
                               }
                             }}
                           />
                         </div>
                       </div>
+
+                      {isDifferentDate && (
+                        <div className="mb-4 p-3 rounded-xl border border-error/40 bg-error/10 text-error text-xs flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 font-semibold">
+                            <Icon name="error" className="text-base shrink-0" />
+                            <span>
+                              Ngày bắt đầu (<strong>{session.start_date}</strong>) và ngày kết thúc (<strong>{session.end_date}</strong>) khác nhau. Mỗi phiên phải kết thúc trong cùng ngày.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => updateSessionFields(key, { end_date: session.start_date })}
+                            className="px-3 py-1.5 bg-error text-white font-bold rounded-lg shadow-sm hover:bg-error/90 transition text-xs shrink-0"
+                          >
+                            Đồng bộ ngày kết thúc về {session.start_date}
+                          </button>
+                        </div>
+                      )}
+
+                      {isOverlapped && sessionOverlapInfo && (
+                        <div className="mb-4 p-3 rounded-xl border border-error/40 bg-error/10 text-error text-xs flex items-center gap-2">
+                          <Icon name="warning" className="text-base shrink-0" />
+                          <span>
+                            Phiên này đang bị trùng thời gian với <strong>"{String(key) === String(sessionOverlapInfo.keyA) ? sessionOverlapInfo.nameB : sessionOverlapInfo.nameA}"</strong>. Các phiên không được diễn ra đồng thời.
+                          </span>
+                        </div>
+                      )}
 
                       <div className="mb-4">
                         <label className="text-[13px] text-subtle block mb-2 font-medium">Thời gian check-in (Tùy chọn)</label>
@@ -537,7 +897,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                               updateSessionFields(key, { checkin_start_date: '', checkin_start_time: '' })
                             } else {
                               const [d, t] = val.split('T')
-                              updateSessionFields(key, { checkin_start_date: d || '', checkin_start_time: t || '' })
+                              updateSessionFields(key, { checkin_start_date: session.start_date || d || '', checkin_start_time: t || '' })
                             }
                           }}
                         />
@@ -629,7 +989,9 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
         }
       </div >
 
-      <div className="col-span-12 lg:col-span-4 sticky top-24">
+      <div className="col-span-12 lg:col-span-4 sticky top-24 space-y-6">
+        <SetupProgressWidget completeness={completeness} />
+
         <div className="bg-surface rounded-xl border border-border-soft/30 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
           <div className="bg-tertiary/15 p-6 border-b border-border-soft/30">
             <h3 className="text-[20px] font-semibold text-content mb-4">{formData.title || 'Sự kiện nháp'}</h3>
@@ -644,15 +1006,6 @@ function Step2ScheduleVenue({ formData, setFormData, venues }) {
                   <span>{selectedVenue.name}</span>
                 </div>
               )}
-            </div>
-          </div>
-          <div className="p-6">
-            <div className="flex justify-between mb-2">
-              <span className="text-[13px] font-medium text-subtle">Tiến độ thiết lập</span>
-              <span className="text-xs text-tertiary font-bold">45%</span>
-            </div>
-            <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
-              <div className="w-[45%] h-full bg-tertiary rounded-full" />
             </div>
           </div>
         </div>
@@ -758,7 +1111,7 @@ function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave
   )
 }
 
-function Step3TicketsSeats({ formData, setFormData, venues }) {
+function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
   const [activeTab, setActiveTab] = useState(0)
   const [seatMapOptions, setSeatMapOptions] = useState({})
   const [loadedSeatMap, setLoadedSeatMap] = useState(null)
@@ -1471,6 +1824,8 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
       </div>
 
       <div className="col-span-12 space-y-6 lg:col-span-4 lg:sticky lg:top-20">
+        <SetupProgressWidget completeness={completeness} />
+
         <div className="overflow-hidden rounded-2xl border border-border-soft/30 bg-surface shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
           <div className="border-b border-border-soft/30 bg-panel-soft/60 px-6 py-4">
             <h3 className="text-xs font-extrabold text-content uppercase tracking-wider">Tóm tắt sự kiện</h3>
@@ -1500,19 +1855,140 @@ function Step3TicketsSeats({ formData, setFormData, venues }) {
   )
 }
 
-function Step4PoliciesSettings({ formData, setFormData }) {
+function Step4PoliciesSettings({ formData, setFormData, completeness }) {
   const { refund_policy: rp } = formData
+  const [uploadingPolicy, setUploadingPolicy] = useState(false)
+  const [uploadingPermits, setUploadingPermits] = useState(false)
+  const policyFileInputRef = useRef(null)
+  const permitFileInputRef = useRef(null)
+  const toast = useToast()
+
+  const handlePolicyFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // If file is plain text, read content directly into additional_terms
+    if (file.name.endsWith('.txt') || file.type === 'text/plain') {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const textContent = event.target?.result
+        if (typeof textContent === 'string' && textContent.trim()) {
+          setFormData((p) => ({
+            ...p,
+            additional_terms: p.additional_terms
+              ? `${p.additional_terms}\n\n${textContent.trim()}`
+              : textContent.trim(),
+          }))
+          toast.success('Đã import nội dung chính sách từ file .txt')
+        }
+      }
+      reader.readAsText(file)
+    }
+
+    try {
+      setUploadingPolicy(true)
+      const res = await uploadPolicyDocument(file)
+      setFormData((p) => ({
+        ...p,
+        refund_policy: {
+          ...p.refund_policy,
+          policy_file_url: res.url,
+          policy_file_name: res.file_name || file.name,
+          policy_file_size: res.file_size || file.size,
+        },
+      }))
+      toast.success('Đã tải lên file chính sách sự kiện!')
+    } catch (err) {
+      console.error(err)
+      toast.error(err?.message || 'Không thể tải lên file chính sách.')
+    } finally {
+      setUploadingPolicy(false)
+      if (policyFileInputRef.current) policyFileInputRef.current.value = ''
+    }
+  }
+
+  const handleRemovePolicyFile = () => {
+    setFormData((p) => ({
+      ...p,
+      refund_policy: {
+        ...p.refund_policy,
+        policy_file_url: null,
+        policy_file_name: null,
+        policy_file_size: null,
+      },
+    }))
+    toast.info('Đã xóa file chính sách đính kèm.')
+  }
+
+  const handlePermitFilesChange = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+
+    try {
+      setUploadingPermits(true)
+      const uploadedList = []
+      for (const file of files) {
+        const res = await uploadOrganizerDocument(file)
+        uploadedList.push({
+          id: `permit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: res.file_name || file.name,
+          url: res.url,
+          size: res.file_size || file.size,
+          type: res.mime_type || file.type,
+          uploaded_at: new Date().toISOString(),
+        })
+      }
+
+      setFormData((p) => {
+        const existing = Array.isArray(p.refund_policy?.permit_files) ? p.refund_policy.permit_files : []
+        return {
+          ...p,
+          refund_policy: {
+            ...p.refund_policy,
+            permit_files: [...existing, ...uploadedList],
+          },
+        }
+      })
+      toast.success(`Đã tải lên thành công ${uploadedList.length} tài liệu pháp lý!`)
+    } catch (err) {
+      console.error(err)
+      toast.error(err?.message || 'Không thể tải lên tài liệu pháp lý.')
+    } finally {
+      setUploadingPermits(false)
+      if (permitFileInputRef.current) permitFileInputRef.current.value = ''
+    }
+  }
+
+  const handleRemovePermitFile = (permitId) => {
+    setFormData((p) => {
+      const existing = Array.isArray(p.refund_policy?.permit_files) ? p.refund_policy.permit_files : []
+      return {
+        ...p,
+        refund_policy: {
+          ...p.refund_policy,
+          permit_files: existing.filter((f) => f.id !== permitId),
+        },
+      }
+    })
+    toast.info('Đã xóa tài liệu khỏi danh sách.')
+  }
+
+  const permitFiles = Array.isArray(rp?.permit_files) ? rp.permit_files : []
 
   return (
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-6 pb-8">
+        {/* Section 1: Attendee Info */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
                 <Icon name="contacts" />
               </div>
-              <h3 className="text-[20px] font-semibold text-content">Thông tin người tham dự</h3>
+              <div>
+                <h3 className="text-[20px] font-semibold text-content">Thông tin người tham dự</h3>
+                <p className="text-xs text-subtle mt-0.5">Thu thập thông tin cá nhân cho từng người sở hữu vé</p>
+              </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -1531,77 +2007,250 @@ function Step4PoliciesSettings({ formData, setFormData }) {
             </label>
           </div>
           <p className="mt-4 text-sm text-subtle">
-            Bật tính năng này để yêu cầu người mua cung cấp thông tin (như số điện thoại, ngày sinh, hoặc theo các trường tùy chỉnh) cho <b>TỪNG</b> vé họ mua.
+            Bật tính năng này để yêu cầu người mua cung cấp thông tin (như họ tên, số điện thoại, ngày sinh) cho <b>TỪNG</b> vé họ mua trước khi hoàn tất đăng ký.
           </p>
         </section>
 
-        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
-              <Icon name="gavel" />
-            </div>
-            <h3 className="text-[20px] font-semibold text-content">Điều khoản bổ sung</h3>
-          </div>
-
-          {/* 
-          // TẠM ẨN CHÍNH SÁCH HOÀN TIỀN
-          <div className="flex items-center justify-between mb-6">
+        {/* Section 2: Policies & Terms + Policy File Import */}
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
-                <Icon name="payments" />
+                <Icon name="gavel" />
               </div>
-              <h3 className="text-[20px] font-semibold text-content">Chính sách hoàn tiền</h3>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={Boolean(rp.allow_refunds)}
-                onChange={(e) =>
-                  setFormData((p) => ({
-                    ...p,
-                    refund_policy: { ...p.refund_policy, allow_refunds: e.target.checked },
-                  }))
-                }
-              />
-              <div className="w-11 h-6 bg-border-soft/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary" />
-              <span className="ml-3 text-sm font-medium text-content">Cho phép hoàn tiền</span>
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="text-[13px] text-subtle block mb-1">Hạn chót yêu cầu hoàn tiền</label>
-              <select
-                className="w-full border border-border-soft/40 rounded-lg px-4 py-2 text-sm outline-none bg-panel-soft text-content focus:ring-2 focus:ring-secondary/20"
-                value={rp.deadline_days || 7}
-                onChange={(e) =>
-                  setFormData((p) => ({
-                    ...p,
-                    refund_policy: { ...p.refund_policy, deadline_days: Number(e.target.value) },
-                  }))
-                }
-              >
-                <option value={7}>Trước sự kiện 7 ngày</option>
-                <option value={14}>Trước sự kiện 14 ngày</option>
-                <option value={0}>Không có hạn chót (Bất cứ lúc nào)</option>
-              </select>
+              <div>
+                <h3 className="text-[20px] font-semibold text-content">Chính sách & Điều khoản tham dự</h3>
+                <p className="text-xs text-subtle mt-0.5">Quy định vé, độ tuổi tham gia hoặc điều khoản riêng của ban tổ chức</p>
+              </div>
             </div>
           </div>
-          */}
+
+          {/* Import Policy File Card */}
+          <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Icon name="upload_file" className="text-tertiary text-lg" />
+                <span className="text-xs font-bold text-content uppercase tracking-wider">
+                  Import file chính sách sự kiện
+                </span>
+              </div>
+              <div>
+                <input
+                  type="file"
+                  ref={policyFileInputRef}
+                  accept=".pdf,.docx,.txt"
+                  className="hidden"
+                  onChange={handlePolicyFileChange}
+                />
+                <button
+                  type="button"
+                  disabled={uploadingPolicy}
+                  onClick={() => policyFileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-xs font-semibold text-content hover:bg-panel-soft transition shadow-sm disabled:opacity-50"
+                >
+                  {uploadingPolicy ? (
+                    <>
+                      <div className="size-3.5 border-2 border-tertiary border-t-transparent rounded-full animate-spin" />
+                      <span>Đang tải file...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="attach_file" className="text-[16px] text-tertiary" />
+                      <span>{rp?.policy_file_url ? 'Thay đổi file' : 'Chọn file (.pdf, .docx, .txt)'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {rp?.policy_file_url ? (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border-soft/60 shadow-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                    <Icon name="description" className="text-lg" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-content truncate">
+                      {rp.policy_file_name || 'chinh-sach-su-kien.pdf'}
+                    </p>
+                    <p className="text-[11px] text-muted">
+                      {formatFileSize(rp.policy_file_size)} · <span className="text-success font-medium">Đã đính kèm</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={rp.policy_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded bg-panel-soft hover:bg-panel-soft/80 text-xs font-medium text-tertiary flex items-center gap-1 transition"
+                  >
+                    <Icon name="open_in_new" className="text-[14px]" />
+                    <span>Xem file</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleRemovePolicyFile}
+                    className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
+                    title="Xóa file chính sách"
+                  >
+                    <Icon name="delete" className="text-[18px]" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted leading-relaxed">
+                Bạn có thể tải file chính sách chi tiết (PDF hoặc Word). Nếu chọn file <b>.txt</b>, nội dung văn bản sẽ tự động được điền vào ô điều khoản bên dưới.
+              </p>
+            )}
+          </div>
 
           <div>
-            <label className="text-[13px] text-subtle block mb-2 font-medium">Điều khoản & quy định cho người giữ vé</label>
+            <label className="text-[13px] text-subtle block mb-2 font-medium">
+              Nội dung điều khoản & quy định cho người tham gia
+            </label>
             <textarea
-              className="w-full border border-border-soft/40 rounded-xl px-4 py-3 text-sm h-32 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary"
-              placeholder="Thêm các điều khoản, quy định độ tuổi, hoặc hướng dẫn bổ sung cho người giữ vé..."
+              className="w-full border border-border-soft/40 rounded-xl px-4 py-3 text-sm h-36 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+              placeholder="Nhập hoặc import các điều khoản, quy định độ tuổi, trang phục, hoặc hướng dẫn bổ sung cho người giữ vé..."
               value={formData.additional_terms}
               onChange={(e) => setFormData((p) => ({ ...p, additional_terms: e.target.value }))}
             />
           </div>
         </section>
+
+        {/* Section 3: Event Organization Permits & Legal Documents */}
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
+                <Icon name="verified_user" />
+              </div>
+              <div>
+                <h3 className="text-[20px] font-semibold text-content">Giấy phép tổ chức sự kiện & Giấy tờ liên quan</h3>
+                <p className="text-xs text-subtle mt-0.5">Hồ sơ pháp lý bắt buộc để Ban quản trị phê duyệt sự kiện</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-subtle leading-relaxed">
+            Vui lòng đính kèm các giấy tờ chứng minh sự kiện được phép tổ chức, bao gồm: <b>Giấy phép biểu diễn / tổ chức sự kiện</b> do cơ quan thẩm quyền cấp (Sở Văn hóa, UBND...), <b>hợp đồng thuê địa điểm</b> hoặc các biên bản thỏa thuận liên quan.
+          </p>
+
+          {/* Upload Permit Dropzone */}
+          <div className="p-4 rounded-xl border-2 border-dashed border-border-soft/60 bg-panel-soft/30 hover:bg-panel-soft/60 transition text-center space-y-3">
+            <input
+              type="file"
+              multiple
+              ref={permitFileInputRef}
+              accept=".pdf,.docx,.png,.jpg,.jpeg,.webp"
+              className="hidden"
+              onChange={handlePermitFilesChange}
+            />
+            <div className="flex flex-col items-center justify-center py-2">
+              <div className="size-12 rounded-full bg-tertiary/10 text-tertiary flex items-center justify-center mb-2">
+                <Icon name="note_add" className="text-2xl" />
+              </div>
+              <p className="text-sm font-semibold text-content">
+                Tải lên giấy phép & tài liệu sự kiện
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Hỗ trợ định dạng PDF, Word (DOCX) hoặc hình ảnh (PNG, JPG) · Tối đa 10MB/file
+              </p>
+              <button
+                type="button"
+                disabled={uploadingPermits}
+                onClick={() => permitFileInputRef.current?.click()}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-tertiary text-white text-xs font-bold shadow-md hover:bg-orange-600 transition disabled:opacity-50 cursor-pointer"
+              >
+                {uploadingPermits ? (
+                  <>
+                    <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Đang tải tài liệu lên...</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="upload" className="text-base" />
+                    <span>Chọn file tài liệu</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Uploaded Permits List */}
+          {permitFiles.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-subtle px-1">
+                <span>Tài liệu đã đính kèm ({permitFiles.length})</span>
+                <span className="text-success flex items-center gap-1 font-semibold">
+                  <Icon name="check_circle" className="text-xs" />
+                  Đã tải đủ giấy tờ
+                </span>
+              </div>
+              <div className="space-y-2">
+                {permitFiles.map((file) => (
+                  <div
+                    key={file.id || file.url}
+                    className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/40 shadow-sm hover:border-border-soft transition"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-9 rounded-lg bg-tertiary/10 text-tertiary flex items-center justify-center shrink-0">
+                        <Icon
+                          name={
+                            file.type?.includes('pdf') || file.name?.endsWith('.pdf')
+                              ? 'picture_as_pdf'
+                              : file.type?.includes('image')
+                              ? 'image'
+                              : 'description'
+                          }
+                          className="text-lg"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-content truncate">{file.name}</p>
+                        <p className="text-[11px] text-muted">
+                          {formatFileSize(file.size)} · {file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString('vi-VN') : 'Đã tải lên'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border-soft/50 text-xs font-medium text-tertiary flex items-center gap-1 transition"
+                      >
+                        <Icon name="visibility" className="text-[14px]" />
+                        <span>Xem</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePermitFile(file.id)}
+                        className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
+                        title="Xóa tài liệu"
+                      >
+                        <Icon name="delete" className="text-[18px]" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/20 flex items-start gap-2.5 text-xs text-warning">
+              <Icon name="info" className="text-base shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong>Chưa có giấy phép nào được đính kèm:</strong> Để sự kiện được kiểm duyệt và công khai bán vé, bạn cần cung cấp giấy phép tổ chức sự kiện hoặc hợp đồng địa điểm liên quan.
+              </div>
+            </div>
+          )}
+        </section>
       </div>
 
-      <div className="col-span-12 lg:col-span-4 sticky top-24">
+      {/* Right Column: Sidebar */}
+      <div className="col-span-12 lg:col-span-4 sticky top-24 space-y-6">
+        <SetupProgressWidget completeness={completeness} />
+
         <div className="bg-surface rounded-xl border border-border-soft/30 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.18)]">
           <div className="bg-panel-soft p-4 border-b border-border-soft/30">
             <h3 className="font-bold flex items-center gap-2 text-content">
@@ -1623,24 +2272,34 @@ function Step4PoliciesSettings({ formData, setFormData }) {
             </div>
 
             <div className="flex items-start gap-3">
-              <Icon name={formData.additional_terms?.trim() ? 'check_circle' : 'info'} className={formData.additional_terms?.trim() ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'} />
+              <Icon
+                name={formData.additional_terms?.trim() || rp?.policy_file_url ? 'check_circle' : 'info'}
+                className={formData.additional_terms?.trim() || rp?.policy_file_url ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
+              />
               <div>
-                <p className="text-sm font-bold text-content">Điều khoản bổ sung</p>
+                <p className="text-sm font-bold text-content">Chính sách sự kiện</p>
                 <p className="text-xs text-muted">
-                  {formData.additional_terms?.trim()
-                    ? 'Đã thiết lập điều khoản tham dự'
-                    : 'Chưa nhập điều khoản bổ sung'}
+                  {rp?.policy_file_url
+                    ? `Đã đính kèm file (${rp.policy_file_name || 'file'})`
+                    : formData.additional_terms?.trim()
+                    ? 'Đã nhập điều khoản tham dự'
+                    : 'Chưa nhập hoặc tải file chính sách'}
                 </p>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-border-soft/30">
-              <div className="flex justify-between mb-2">
-                <span className="text-xs font-bold uppercase text-subtle">Tiến độ bản nháp</span>
-                <span className="text-xs font-bold text-tertiary">80%</span>
-              </div>
-              <div className="w-full h-2 bg-panel-soft rounded-full overflow-hidden border border-border-soft/20">
-                <div className="h-full bg-tertiary rounded-full" style={{ width: '80%' }} />
+            <div className="flex items-start gap-3">
+              <Icon
+                name={permitFiles.length > 0 ? 'check_circle' : 'warning'}
+                className={permitFiles.length > 0 ? 'text-success text-lg mt-0.5' : 'text-warning text-lg mt-0.5'}
+              />
+              <div>
+                <p className="text-sm font-bold text-content">Giấy phép tổ chức</p>
+                <p className="text-xs text-muted">
+                  {permitFiles.length > 0
+                    ? `Đã đính kèm ${permitFiles.length} tài liệu pháp lý`
+                    : 'Chưa tải lên giấy phép tổ chức'}
+                </p>
               </div>
             </div>
           </div>
@@ -1650,7 +2309,7 @@ function Step4PoliciesSettings({ formData, setFormData }) {
   )
 }
 
-function Step5ReviewSubmit({ formData, categories, venues }) {
+function Step5ReviewSubmit({ formData, setFormData, categories, venues, completeness, onGoToStep }) {
   const categoryName = categories.find((c) => c.id === formData.category_id)?.name
   const firstSession = formData.sessions[0]
   const venue = venues.find((v) => v.id === firstSession?.venue_id)
@@ -1769,35 +2428,208 @@ function Step5ReviewSubmit({ formData, categories, venues }) {
           </div>
         </section>
 
-        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <div className="flex items-center gap-2 mb-4">
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
+          <div className="flex items-center gap-2 mb-2">
             <Icon name="policy" className="text-tertiary" />
             <h4 className="text-sm font-bold uppercase tracking-wider text-content">Cài đặt & Điều khoản</h4>
           </div>
-          <p className="text-sm text-subtle">
-            {formData.require_attendee_info
-              ? 'Yêu cầu thu thập thông tin người tham dự cho từng vé.'
-              : 'Không bắt buộc nhập thông tin người tham dự.'}
-          </p>
-          {formData.additional_terms && (
-            <p className="text-sm text-subtle mt-2"><strong>Điều khoản bổ sung:</strong> {formData.additional_terms}</p>
+          <div className="p-3 rounded-lg bg-panel-soft border border-border-soft/30 text-xs flex items-center justify-between">
+            <span className="text-subtle font-medium">Thu thập thông tin người tham dự</span>
+            <span className="font-bold text-content">
+              {formData.require_attendee_info
+                ? 'Bắt buộc từng vé'
+                : 'Không bắt buộc'}
+            </span>
+          </div>
+
+          {formData.refund_policy?.policy_file_url && (
+            <div className="p-3 rounded-lg bg-panel-soft border border-border-soft/30 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <Icon name="description" className="text-blue-500 shrink-0" />
+                <span className="text-content font-semibold truncate">
+                  {formData.refund_policy.policy_file_name || 'File chính sách sự kiện'}
+                </span>
+                <span className="text-muted text-[11px]">
+                  ({formatFileSize(formData.refund_policy.policy_file_size)})
+                </span>
+              </div>
+              <a
+                href={formData.refund_policy.policy_file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-tertiary font-bold hover:underline shrink-0 flex items-center gap-1"
+              >
+                <span>Xem file</span>
+                <Icon name="open_in_new" className="text-xs" />
+              </a>
+            </div>
           )}
+
+          {formData.additional_terms && (
+            <div className="p-3 rounded-lg bg-panel-soft border border-border-soft/30 text-xs space-y-1">
+              <span className="font-bold text-content block">Điều khoản bổ sung:</span>
+              <p className="text-subtle whitespace-pre-wrap">{formData.additional_terms}</p>
+            </div>
+          )}
+        </section>
+
+        {/* Legal Permits Review Section */}
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Icon name="verified_user" className="text-tertiary" />
+              <h4 className="text-sm font-bold uppercase tracking-wider text-content">
+                Giấy phép & Hồ sơ pháp lý sự kiện
+              </h4>
+            </div>
+            <span className="text-xs font-bold text-subtle">
+              {formData.refund_policy?.permit_files?.length || 0} tài liệu
+            </span>
+          </div>
+
+          {formData.refund_policy?.permit_files?.length > 0 ? (
+            <div className="space-y-2">
+              {formData.refund_policy.permit_files.map((file) => (
+                <div
+                  key={file.id || file.url}
+                  className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/40 text-xs"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      name={file.type?.includes('pdf') || file.name?.endsWith('.pdf') ? 'picture_as_pdf' : 'description'}
+                      className="text-tertiary shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold text-content truncate">{file.name}</p>
+                      <p className="text-[11px] text-muted">{formatFileSize(file.size)}</p>
+                    </div>
+                  </div>
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded bg-surface border border-border-soft/50 text-tertiary font-bold hover:bg-panel-soft transition flex items-center gap-1 shrink-0"
+                  >
+                    <span>Mở xem</span>
+                    <Icon name="visibility" className="text-xs" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/20 text-xs text-warning flex items-start gap-2">
+              <Icon name="warning" className="text-base shrink-0 mt-0.5" />
+              <span>Chưa có giấy phép tổ chức nào được đính kèm. Vui lòng quay lại Bước 4 để tải lên giấy phép.</span>
+            </div>
+          )}
+        </section>
+
+        {/* Commitment Agreement Section */}
+        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Icon name="verified" className="text-tertiary" />
+            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Cam kết của Ban tổ chức</h4>
+          </div>
+          <label className="flex items-start gap-3.5 p-4 rounded-xl bg-panel-soft/70 border border-border-soft/40 hover:bg-panel-soft cursor-pointer transition">
+            <input
+              type="checkbox"
+              checked={Boolean(formData.terms_accepted)}
+              onChange={(e) => setFormData((p) => ({ ...p, terms_accepted: e.target.checked }))}
+              className="mt-1 size-5 rounded border-border-soft text-tertiary focus:ring-tertiary cursor-pointer shrink-0"
+            />
+            <div className="text-xs text-content leading-relaxed">
+              <strong className="block text-sm mb-1 font-bold text-content">
+                Xác nhận cam kết thông tin và hồ sơ pháp lý sự kiện
+              </strong>
+              Tôi cam đoan toàn bộ thông tin sự kiện, giá vé, lịch trình, chính sách và các giấy phép tổ chức đính kèm là hoàn toàn chính xác, có hiệu lực pháp lý. Tôi chịu hoàn toàn trách nhiệm trước pháp luật và cam kết tuân thủ các quy định hoạt động của EventHub.
+            </div>
+          </label>
         </section>
       </div>
 
-      <aside className="col-span-12 lg:col-span-4">
-        <div className="sticky top-6 bg-surface border border-border-soft/30 border-t-tertiary border-t-4 rounded-xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-          <div className="flex justify-between mb-4">
-            <span className="text-sm font-bold text-content">Độ hoàn thiện 100%</span>
-            <span className="px-2 py-0.5 bg-tertiary/10 rounded text-[11px] font-bold uppercase text-tertiary border border-tertiary/20">Tuyệt vời</span>
+      <aside className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-20">
+        <SetupProgressWidget completeness={completeness} />
+
+        <div className={`bg-surface border border-border-soft/30 ${completeness?.isReady ? 'border-t-success' : 'border-t-warning'} border-t-4 rounded-xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)]`}>
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-xs font-bold uppercase text-subtle">Trạng thái sự kiện</span>
+            <span
+              className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase border ${
+                completeness?.isReady
+                  ? 'bg-success/10 text-success border-success/20'
+                  : (completeness?.percent ?? 0) >= 70
+                  ? 'bg-tertiary/10 text-tertiary border-tertiary/20'
+                  : 'bg-warning/10 text-warning border-warning/20'
+              }`}
+            >
+              {completeness?.isReady
+                ? 'Tuyệt vời'
+                : (completeness?.percent ?? 0) >= 70
+                ? 'Gần hoàn thành'
+                : 'Chưa hoàn thiện'}
+            </span>
           </div>
-          <div className="w-full bg-panel-soft h-2 rounded-full mb-6 overflow-hidden border border-border-soft/20">
-            <div className="bg-tertiary h-full w-full rounded-full" />
-          </div>
-          <div className="p-4 bg-tertiary/5 border border-tertiary/20 rounded-xl">
-            <p className="text-xs text-tertiary text-center font-medium leading-relaxed">
-              Sự kiện của bạn đã sẵn sàng! Ban quản trị sẽ sớm duyệt sự kiện này.
-            </p>
+
+          {completeness?.isReady ? (
+            <div className="p-4 bg-success/10 border border-success/20 rounded-xl mb-6">
+              <div className="flex items-center gap-1.5 text-success font-bold text-xs mb-1">
+                <Icon name="check_circle" className="text-[16px]" />
+                <span>Sự kiện đã sẵn sàng!</span>
+              </div>
+              <p className="text-xs text-muted leading-relaxed">
+                Tất cả thông tin bắt buộc đã được điền đầy đủ. Bạn có thể nhấn &quot;Gửi để duyệt&quot; bên dưới để gửi cho Ban quản trị.
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 bg-warning/10 border border-warning/20 rounded-xl mb-6">
+              <div className="flex items-center gap-1.5 text-warning font-bold text-xs mb-1">
+                <Icon name="info" className="text-[16px]" />
+                <span>Còn {completeness?.missingItems?.length || 0} mục chưa hoàn thiện:</span>
+              </div>
+              <p className="text-xs text-muted leading-relaxed">
+                Vui lòng bổ sung các thông tin còn thiếu trước khi gửi sự kiện để phê duyệt.
+              </p>
+            </div>
+          )}
+
+          <div className="border-t border-border-soft/30 pt-4 space-y-2.5">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs font-bold uppercase text-subtle">Danh sách kiểm tra</span>
+              <span className="text-xs font-semibold text-muted">
+                {completeness?.completedCount ?? 0}/{completeness?.total ?? 0}
+              </span>
+            </div>
+
+            {completeness?.checklist?.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start justify-between gap-2 p-2 rounded-lg bg-panel-soft/30 border border-border-soft/20 text-xs"
+              >
+                <div className="flex items-start gap-2 min-w-0">
+                  <Icon
+                    name={item.completed ? 'check_circle' : 'cancel'}
+                    className={`text-[16px] shrink-0 mt-0.5 ${
+                      item.completed ? 'text-success' : 'text-error'
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <p className={`font-semibold ${item.completed ? 'text-content' : 'text-error'}`}>
+                      {item.label}
+                    </p>
+                    <p className="text-[11px] text-muted truncate">{item.detail}</p>
+                  </div>
+                </div>
+                {!item.completed && onGoToStep && (
+                  <button
+                    type="button"
+                    onClick={() => onGoToStep(item.step)}
+                    className="shrink-0 px-2 py-0.5 rounded bg-tertiary/10 text-tertiary hover:bg-tertiary hover:text-white transition text-[11px] font-bold"
+                  >
+                    Bước {item.step}
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </aside>
@@ -1827,6 +2659,7 @@ export function CreateEventPage() {
   const [subscriptionRequired, setSubscriptionRequired] = useState(false)
 
   const isEditMode = Boolean(routeEventId)
+  const completeness = useMemo(() => calculateEventCompleteness(formData), [formData])
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -1907,9 +2740,17 @@ export function CreateEventPage() {
       sessions,
       ticketTypes,
       seating_rules: event.seating_rules || { require_adjacent_seats: false, require_same_row: false, disallow_single_seat_left: false },
-      refund_policy: event.refund_policy || { allow_refunds: false, deadline_days: 7 },
+      refund_policy: {
+        allow_refunds: Boolean(event.refund_policy?.allow_refunds),
+        deadline_days: event.refund_policy?.deadline_days ?? 7,
+        policy_file_url: event.refund_policy?.policy_file_url || null,
+        policy_file_name: event.refund_policy?.policy_file_name || null,
+        policy_file_size: event.refund_policy?.policy_file_size || null,
+        permit_files: Array.isArray(event.refund_policy?.permit_files) ? event.refund_policy.permit_files : [],
+      },
       additional_terms: event.additional_terms || '',
       require_attendee_info: Boolean(event.require_attendee_info),
+      terms_accepted: Boolean(event.status && event.status !== 'DRAFT'),
     })
   }, [])
 
@@ -1945,51 +2786,96 @@ export function CreateEventPage() {
     }
     if (step === 2) {
       if (!formData.sessions.length) return 'Cần ít nhất 1 phiên sự kiện.'
-      for (const s of formData.sessions) {
+      for (let i = 0; i < formData.sessions.length; i++) {
+        const s = formData.sessions[i]
+        const sName = s.session_name?.trim() || `Phiên ${i + 1}`
         if (!s.start_date || !s.start_time || !s.end_date || !s.end_time) {
-          return 'Mỗi phiên sự kiện cần thời gian bắt đầu và kết thúc đầy đủ.'
+          return `${sName}: Vui lòng nhập đầy đủ thời gian bắt đầu và kết thúc.`
         }
-        if (!s.venue_id) return 'Mỗi phiên sự kiện cần chọn địa điểm.'
+        if (!s.venue_id) return `${sName}: Vui lòng chọn địa điểm tổ chức.`
+
+        if (s.start_date !== s.end_date) {
+          return `${sName}: Ngày bắt đầu (${s.start_date}) và ngày kết thúc (${s.end_date}) khác nhau. Mỗi phiên sự kiện phải bắt đầu và kết thúc trong cùng một ngày.`
+        }
 
         const startTime = new Date(`${s.start_date}T${s.start_time}`)
         const endTime = new Date(`${s.end_date}T${s.end_time}`)
-        const now = new Date()
+
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+          return `${sName}: Thời gian bắt đầu hoặc kết thúc không hợp lệ.`
+        }
 
         if (!s.id && startTime < new Date(Date.now() - 60000)) {
-          return 'Thời gian bắt đầu sự kiện không được trong quá khứ.'
+          return `${sName}: Thời gian bắt đầu sự kiện không được trong quá khứ.`
         }
         if (endTime <= startTime) {
-          return 'Thời gian kết thúc phải diễn ra sau thời gian bắt đầu.'
+          return `${sName}: Thời gian kết thúc phải diễn ra sau thời gian bắt đầu.`
         }
 
         if (s.checkin_start_date || s.checkin_start_time) {
           if (!s.checkin_start_date || !s.checkin_start_time) {
-            return 'Vui lòng nhập đầy đủ cả ngày và giờ check-in.'
+            return `${sName}: Vui lòng nhập đầy đủ cả ngày và giờ check-in.`
+          }
+          if (s.checkin_start_date !== s.start_date) {
+            return `${sName}: Ngày check-in (${s.checkin_start_date}) phải trùng với ngày diễn ra sự kiện (${s.start_date}).`
           }
           const checkinTime = new Date(`${s.checkin_start_date}T${s.checkin_start_time}`)
           if (checkinTime > startTime) {
-            return 'Thời gian check-in phải trước hoặc bằng thời gian bắt đầu sự kiện.'
+            return `${sName}: Thời gian check-in phải trước hoặc bằng thời gian bắt đầu sự kiện.`
+          }
+        }
+      }
+
+      // Check session overlap
+      if (formData.sessions.length > 1) {
+        for (let i = 0; i < formData.sessions.length; i++) {
+          const sA = formData.sessions[i]
+          const startA = new Date(`${sA.start_date}T${sA.start_time}`).getTime()
+          const endA = new Date(`${sA.end_date}T${sA.end_time}`).getTime()
+
+          for (let j = i + 1; j < formData.sessions.length; j++) {
+            const sB = formData.sessions[j]
+            const startB = new Date(`${sB.start_date}T${sB.start_time}`).getTime()
+            const endB = new Date(`${sB.end_date}T${sB.end_time}`).getTime()
+
+            if (startA < endB && startB < endA) {
+              const nameA = sA.session_name?.trim() || `Phiên ${i + 1}`
+              const nameB = sB.session_name?.trim() || `Phiên ${j + 1}`
+              return `Trùng lặp thời gian: "${nameA}" (${sA.start_date} ${sA.start_time}-${sA.end_time}) và "${nameB}" (${sB.start_date} ${sB.start_time}-${sB.end_time}) không được diễn ra đồng thời.`
+            }
           }
         }
       }
     }
     if (step === 3) {
-      for (const s of formData.sessions) {
+      for (let i = 0; i < formData.sessions.length; i++) {
+        const s = formData.sessions[i]
         const key = s.id || s.clientKey
+        const sName = s.session_name?.trim() || `Phiên ${i + 1}`
         const seatingType = s.seating_type || 'GENERAL'
         if (seatingType === 'ASSIGNED') {
           if (!s.seat_map_id) {
-            return `Phiên sự kiện "${s.session_name || 'chưa đặt tên'}" cần chọn sơ đồ ghế.`
+            return `${sName} được thiết lập có chỗ ngồi nhưng chưa chọn sơ đồ ghế.`
           }
         }
-        const tickets = formData.ticketTypes.filter((tt) => tt.session_key === key)
-        if (!tickets.length) return `Phiên sự kiện "${s.session_name || 'chưa đặt tên'}" cần ít nhất 1 loại vé.`
+        const tickets = formData.ticketTypes.filter((tt) => String(tt.session_key) === String(key))
+        if (!tickets.length) return `${sName} cần ít nhất 1 loại vé.`
         for (const tt of tickets) {
-          if (!tt.name?.trim()) return 'Tên loại vé không được để trống.'
-          if (tt.price === '' || tt.price === null || tt.price === undefined) return 'Giá vé không được để trống.'
-          if (Number(tt.price) < 0) return 'Giá vé phải >= 0.'
-          if (!tt.quantity || tt.quantity <= 0) return 'Số lượng vé phải > 0.'
+          if (!tt.name?.trim()) return `${sName}: Tên loại vé không được để trống.`
+          if (tt.price === '' || tt.price === null || tt.price === undefined) return `${sName}: Giá vé không được để trống.`
+          if (Number(tt.price) < 0) return `${sName}: Giá vé phải >= 0.`
+          if (!tt.quantity || Number(tt.quantity) <= 0) return `${sName}: Số lượng vé phải > 0.`
         }
+      }
+    }
+    if (step === 4) {
+      const hasPolicy = Boolean(formData.additional_terms?.trim() || formData.refund_policy?.policy_file_url)
+      if (!hasPolicy) {
+        return 'Vui lòng nhập điều khoản tham dự hoặc tải lên file chính sách sự kiện ở Bước 4.'
+      }
+      const permitFiles = formData.refund_policy?.permit_files || []
+      if (!permitFiles.length) {
+        return 'Vui lòng tải lên ít nhất 1 giấy phép tổ chức hoặc giấy tờ liên quan ở Bước 4.'
       }
     }
     return ''
@@ -2258,6 +3144,17 @@ export function CreateEventPage() {
   }
 
   const handleSubmit = async () => {
+    if (!completeness.isReady) {
+      const firstMissing = completeness.missingItems[0]
+      const msg = `Sự kiện chưa hoàn thiện: ${firstMissing?.detail || firstMissing?.label || 'Vui lòng bổ sung đầy đủ thông tin'}.`
+      setError(msg)
+      toast.error(msg)
+      if (firstMissing?.step) {
+        setCurrentStep(firstMissing.step)
+      }
+      return
+    }
+
     // Validate everything first
     for (let step = 1; step <= 4; step += 1) {
       const validationError = validateStep(step)
@@ -2326,6 +3223,27 @@ export function CreateEventPage() {
     setCurrentStep((s) => Math.max(1, s - 1))
   }
 
+  const handleStepClick = (targetStep) => {
+    if (targetStep === currentStep) return
+    if (targetStep < currentStep) {
+      setError('')
+      setCurrentStep(targetStep)
+      return
+    }
+    // Moving forward: validate each previous step sequentially
+    for (let s = 1; s < targetStep; s++) {
+      const stepError = validateStep(s)
+      if (stepError) {
+        setError(stepError)
+        toast.error(stepError)
+        setCurrentStep(s)
+        return
+      }
+    }
+    setError('')
+    setCurrentStep(targetStep)
+  }
+
   const nextLabel = useMemo(() => {
     if (currentStep === 4) {
       return isEditMode ? 'Tiếp: Xem lại & cập nhật' : 'Tiếp theo: Xem lại & Gửi duyệt'
@@ -2364,12 +3282,7 @@ export function CreateEventPage() {
           <WizardStepper
             currentStep={currentStep}
             maxCompletedStep={maxCompletedStep}
-            onStepClick={(step) => {
-              if (step <= maxCompletedStep) {
-                setError('')
-                setCurrentStep(step)
-              }
-            }}
+            onStepClick={handleStepClick}
           />
         </div>
 
@@ -2417,19 +3330,37 @@ export function CreateEventPage() {
               onBannerUpload={handleBannerUpload}
               uploadingThumb={uploadingThumb}
               uploadingBanner={uploadingBanner}
+              completeness={completeness}
             />
           )}
           {currentStep === 2 && (
-            <Step2ScheduleVenue formData={formData} setFormData={setFormData} venues={venues} />
+            <Step2ScheduleVenue
+              formData={formData}
+              setFormData={setFormData}
+              venues={venues}
+              completeness={completeness}
+            />
           )}
           {currentStep === 3 && (
-            <Step3TicketsSeats formData={formData} setFormData={setFormData} venues={venues} />
+            <Step3TicketsSeats
+              formData={formData}
+              setFormData={setFormData}
+              venues={venues}
+              completeness={completeness}
+            />
           )}
           {currentStep === 4 && (
-            <Step4PoliciesSettings formData={formData} setFormData={setFormData} />
+            <Step4PoliciesSettings formData={formData} setFormData={setFormData} completeness={completeness} />
           )}
           {currentStep === 5 && (
-            <Step5ReviewSubmit formData={formData} categories={categories} venues={venues} />
+            <Step5ReviewSubmit
+              formData={formData}
+              setFormData={setFormData}
+              categories={categories}
+              venues={venues}
+              completeness={completeness}
+              onGoToStep={setCurrentStep}
+            />
           )}
           </fieldset>
 
@@ -2472,8 +3403,8 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || editPermissions?.is_time_locked || !isValidAllSteps()}
-                title={!isValidAllSteps() ? 'Bạn cần nhập đầy đủ và chuẩn xác tất cả các bước' : ''}
+                disabled={loading || editPermissions?.is_time_locked || !completeness.isReady}
+                title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
                 className="flex items-center gap-2 rounded-lg bg-success px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-success/80 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
                 {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
@@ -2482,8 +3413,8 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || editPermissions?.is_time_locked || !isValidAllSteps()}
-                title={!isValidAllSteps() ? 'Bạn cần nhập đầy đủ và chuẩn xác tất cả các bước' : ''}
+                disabled={loading || editPermissions?.is_time_locked || !completeness.isReady}
+                title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
                 className="rounded-lg border border-tertiary/50 px-6 py-2.5 text-sm font-bold text-tertiary hover:bg-tertiary/10 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
                 {loading ? 'Đang xử lý...' : 'Gửi duyệt'}

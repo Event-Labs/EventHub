@@ -8,6 +8,14 @@ const HIDEABLE_STATUSES    = new Set(['PUBLISHED', 'COMPLETED']);
 const UNHIDEABLE_STATUSES  = new Set(['HIDDEN']);
 
 class EventsAdminService {
+  async getEventDetail(eventId) {
+    const event = await eventsAdminRepository.findByIdForAdmin(eventId);
+    if (!event) {
+      throw new AppError('Event not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    return event;
+  }
+
   async reviewEvent(adminId, eventId, payload) {
     // 1. Fetch event (with organizer contact info for notification)
     const event = await eventsAdminRepository.findByIdForAdmin(eventId);
@@ -204,6 +212,89 @@ class EventsAdminService {
       organizerEmail ? { email: organizerEmail } : {},
     );
   }
+
+  async getAiReview(eventId) {
+    const existing = await eventsAdminRepository.getLatestAiReview(eventId);
+    return existing;
+  }
+
+  async runAiReview(eventId) {
+    const event = await eventsAdminRepository.findEventFullDetailForAi(eventId);
+    if (!event) {
+      throw new AppError('Event not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const warnings = [];
+
+    // 1. Missing mandatory fields check
+    if (!event.title || event.title.trim().length < 5) {
+      warnings.push('Tiêu đề sự kiện quá ngắn hoặc chưa có (tối thiểu 5 ký tự).');
+    }
+    if (!event.thumbnail_url) {
+      warnings.push('Sự kiện chưa có ảnh đại diện (Thumbnail).');
+    }
+    if (!event.short_description) {
+      warnings.push('Sự kiện chưa có phần mô tả ngắn tóm tắt.');
+    }
+    if (!event.description || event.description.trim().length < 30) {
+      warnings.push('Nội dung mô tả chi tiết sự kiện quá ngắn (dưới 30 ký tự).');
+    }
+    if (!event.sessions || event.sessions.length === 0) {
+      warnings.push('Sự kiện chưa thiết lập phiên diễn ra / lịch trình (Sessions).');
+    }
+    if (!event.ticket_types || event.ticket_types.length === 0) {
+      warnings.push('Sự kiện chưa có hạng vé nào được mở bán.');
+    }
+
+    // 2. Logic & Time Consistency check
+    if (event.start_time && event.end_time) {
+      const start = new Date(event.start_time).getTime();
+      const end = new Date(event.end_time).getTime();
+      if (end <= start) {
+        warnings.push('Thời gian kết thúc sự kiện phải diễn ra sau thời gian bắt đầu.');
+      }
+      if (start < Date.now() - 24 * 3600 * 1000) {
+        warnings.push('Thời gian bắt đầu sự kiện nằm trong quá khứ.');
+      }
+    }
+
+    (event.ticket_types || []).forEach((t) => {
+      if (Number(t.price) < 0) {
+        warnings.push(`Hạng vé "${t.name}" có mức giá không hợp lệ (< 0đ).`);
+      }
+      if (Number(t.quantity) <= 0) {
+        warnings.push(`Hạng vé "${t.name}" có số lượng phát hành không hợp lệ (<= 0).`);
+      }
+    });
+
+    // 3. Policy & Sensitive Content check
+    const textContent = `${event.title || ''} ${event.short_description || ''} ${event.description || ''}`.toLowerCase();
+    const sensitiveWords = ['lừa đảo', 'cờ bạc', 'bạo lực', 'vũ khí', 'hàng cấm'];
+    let hasPolicyViolation = false;
+    sensitiveWords.forEach((word) => {
+      if (textContent.includes(word)) {
+        hasPolicyViolation = true;
+        warnings.push(`Phát hiện nội dung có nguy cơ vi phạm chính sách / từ khóa cấm: "${word}".`);
+      }
+    });
+
+    // Determine recommendation
+    let recommendation = 'APPROVE';
+    if (hasPolicyViolation) {
+      recommendation = 'REJECT';
+    } else if (warnings.length > 0) {
+      recommendation = 'NEEDS_REVIEW';
+    }
+
+    const saved = await eventsAdminRepository.saveAiReview({
+      eventId,
+      recommendation,
+      warnings,
+    });
+
+    return saved;
+  }
 }
 
 module.exports = new EventsAdminService();
+

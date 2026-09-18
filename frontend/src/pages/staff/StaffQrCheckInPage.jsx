@@ -621,6 +621,18 @@ export function ManualCheckInPage() {
     }
   }
 
+  const handleSelectTicket = (ticket) => {
+    setSelectedTicket(ticket)
+    setCheckInState('idle')
+
+    // The success panel belongs only to the ticket that was just checked in.
+    // Clear it when staff selects another result so the detail card reflects
+    // the newly selected ticket immediately.
+    if (resultTicket?.id !== ticket?.id) {
+      setResultTicket(null)
+    }
+  }
+
   const normalizedResult = normalizeTicket(resultTicket)
   const normalizedSelected = normalizeTicket(selectedTicket)
 
@@ -638,7 +650,7 @@ export function ManualCheckInPage() {
           message={searchMessage}
           results={searchResults}
           selectedTicket={selectedTicket}
-          onSelectTicket={setSelectedTicket}
+          onSelectTicket={handleSelectTicket}
           assignedEvents={assignedEvents}
           eventsState={eventsState}
           eventsMessage={eventsMessage}

@@ -81,8 +81,23 @@ class AuthService {
             return { roles, staffEventIds };
         }
 
+        // Clean up expired or revoked STAFF role from database
+        try {
+            await authRepository.removeRole(user.id, 'STAFF');
+        } catch (err) {
+            logger.warn(`Failed to remove expired STAFF role for user ${user.id}:`, err);
+        }
+
+        let nextRoles = roles.filter((role) => role !== 'STAFF');
+        if (nextRoles.length === 0) {
+            nextRoles = ['CUSTOMER'];
+            try {
+                await authRepository.assignRole(user.id, 'CUSTOMER');
+            } catch (_) {}
+        }
+
         return {
-            roles: roles.filter((role) => role !== 'STAFF'),
+            roles: nextRoles,
             staffEventIds,
         };
     }

@@ -13,7 +13,6 @@ import logoSrc from '@/assets/eventhub-logo.png'
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Tiền mặt' },
   { value: 'bank_transfer', label: 'Chuyển khoản' },
-  { value: 'card', label: 'Thẻ' },
 ]
 
 const PAYMENT_STATUS_LABELS = {
@@ -37,6 +36,10 @@ function formatPrice(value) {
   const number = Number(value || 0)
   if (number === 0) return 'Miễn phí'
   return `${number.toLocaleString('vi-VN')} đ`
+}
+
+function formatAmount(value) {
+  return `${Number(value || 0).toLocaleString('vi-VN')} đ`
 }
 
 function formatDateTime(value) {
@@ -695,6 +698,50 @@ export function StaffDirectBookingPage() {
                     </label>
                   )}
 
+                  {hasInteractiveSeatMap && (
+                    <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-bold text-content">Sơ đồ chọn vé</h3>
+                          <p className="mt-1 text-sm text-subtle">Bấm vào ghế hoặc khu vực đứng để chọn vé cho khách.</p>
+                        </div>
+                        <Badge tone="blue">Đã chọn {selectedSeatIds.length} ghế</Badge>
+                      </div>
+                      {seatsQuery.isLoading && (
+                        <div className="mt-4 flex items-center gap-2 text-sm text-subtle">
+                          <Loader2 className="size-4 animate-spin" />
+                          Đang tải sơ đồ ghế...
+                        </div>
+                      )}
+                      {seatsQuery.isError && (
+                        <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
+                          Không thể tải sơ đồ ghế.
+                        </p>
+                      )}
+                      <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
+                        <SeatMapCanvas
+                          seats={seatsQuery.data?.seats || []}
+                          ticketTypes={currentTicketTypes}
+                          selectedSeatIds={selectedSeatIds}
+                          seatMap={seatsQuery.data?.seat_map}
+                          onSelectStandingArea={(area, index) => {
+                            const ticketType = unseatedTicketTypes.find(
+                              (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
+                            ) || unseatedTicketTypes[index]
+                            if (ticketType) setStandingTicketType(ticketType)
+                          }}
+                          onToggleSeat={(seat) => {
+                            setSelectedSeatIds((current) =>
+                              current.includes(seat)
+                                ? current.filter((item) => item !== seat)
+                                : [...current, seat],
+                            )
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {currentTicketTypes.map((ticketType) => (
                     <div key={ticketType.id} className={`grid gap-3 rounded-lg border p-4 transition md:grid-cols-[minmax(0,1fr)_160px] md:items-center ${
                       selectedItems.some((item) => item.ticketType.id === ticketType.id)
@@ -726,51 +773,6 @@ export function StaffDirectBookingPage() {
                     </div>
                   ))}
 
-                  {hasInteractiveSeatMap && (
-                    <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h3 className="font-bold text-content">Sơ đồ chọn vé</h3>
-                          <p className="mt-1 text-sm text-subtle">Bấm vào ghế hoặc khu vực đứng để chọn vé cho khách.</p>
-                        </div>
-                        <Badge tone="blue">Đã chọn {selectedSeatIds.length} ghế</Badge>
-                      </div>
-                      {seatsQuery.isLoading && (
-                        <div className="mt-4 flex items-center gap-2 text-sm text-subtle">
-                          <Loader2 className="size-4 animate-spin" />
-                          Đang tải sơ đồ ghế...
-                        </div>
-                      )}
-                      {seatsQuery.isError && (
-                        <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-                          Không thể tải sơ đồ ghế.
-                        </p>
-                      )}
-                      {hasInteractiveSeatMap && (
-                        <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
-                          <SeatMapCanvas
-                            seats={seatsQuery.data?.seats || []}
-                            ticketTypes={currentTicketTypes}
-                            selectedSeatIds={selectedSeatIds}
-                            seatMap={seatsQuery.data?.seat_map}
-                            onSelectStandingArea={(area, index) => {
-                              const ticketType = unseatedTicketTypes.find(
-                                (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
-                              ) || unseatedTicketTypes[index]
-                              if (ticketType) setStandingTicketType(ticketType)
-                            }}
-                            onToggleSeat={(seat) => {
-                              setSelectedSeatIds((current) =>
-                                current.includes(seat)
-                                  ? current.filter((item) => item !== seat)
-                                  : [...current, seat],
-                              )
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </StaffPanel>
@@ -1021,8 +1023,8 @@ function BookingReview({
                     />
                   </label>
                   <div className="mt-4 space-y-2 text-sm">
-                    <SummaryLine label="Khách đưa" value={formatPrice(cashReceivedAmount)} />
-                    <SummaryLine label="Tiền thối" value={formatPrice(cashChange)} strong />
+                    <SummaryLine label="Khách đưa" value={formatAmount(cashReceivedAmount)} />
+                    <SummaryLine label="Tiền thối" value={formatAmount(cashChange)} strong />
                   </div>
                   {!cashIsEnough && <p className="mt-3 text-sm font-semibold text-warning">Số tiền khách đưa chưa đủ để thanh toán.</p>}
                 </div>
@@ -1325,6 +1327,10 @@ function PrintInfo({ label, value, wide }) {
 }
 
 function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, onClose }) {
+  const availableQuantity = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
+  const maxPerOrder = Math.max(1, Number(ticketType.max_per_order || 20))
+  const maxSelectableQuantity = Math.min(availableQuantity, maxPerOrder, 20)
+
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
       <div
@@ -1343,6 +1349,10 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
         <p className="mt-4 whitespace-pre-line text-sm leading-6 text-subtle">
           {ticketType.description || 'Khu vực đứng, không có ghế ngồi cố định.'}
         </p>
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-3">
+          <span className="text-sm font-semibold text-subtle">Số lượng vé còn lại</span>
+          <span className="text-base font-extrabold text-success">{availableQuantity} vé</span>
+        </div>
         <div className="mt-5 flex items-center justify-between gap-4">
           <p className="font-bold text-primary">{formatPrice(ticketType.price)} / vé</p>
           <div className="flex items-center justify-end gap-4">
@@ -1355,7 +1365,12 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
               <Minus className="size-4" />
             </button>
             <span className="min-w-8 text-center text-xl font-bold text-content">{quantity}</span>
-            <button type="button" onClick={onIncrease} className="grid size-9 place-items-center rounded-full bg-tertiary text-white">
+            <button
+              type="button"
+              onClick={onIncrease}
+              disabled={quantity >= maxSelectableQuantity}
+              className="grid size-9 place-items-center rounded-full bg-tertiary text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
               <Plus className="size-4" />
             </button>
           </div>
@@ -1411,7 +1426,16 @@ function SeatLegend({ seats }) {
   )
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatMap }) {
+export function SeatMapCanvas({
+  seats = [],
+  ticketTypes = [],
+  selectedSeatIds = [],
+  onToggleSeat,
+  onSelectStandingArea,
+  seatMap,
+  readOnly = false,
+  centered = false,
+}) {
   const viewportRef = useRef(null)
   const zoomSpacerRef = useRef(null)
   const zoomLayerRef = useRef(null)
@@ -1616,7 +1640,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
     const id = seat.session_seat_id
     const selected = selectedSeatIds.includes(id)
     const status = seat.is_disabled ? SEAT_STATUS.BLOCKED : (seat.status || SEAT_STATUS.AVAILABLE)
-    const clickable = isClickable(status, selected)
+    const clickable = !readOnly && isClickable(status, selected)
     const label = getSeatLabel(seat)
     const zoneColor = seat.zone?.color || seat.seat_type?.color
     const w = overrideWidth || seatWidth
@@ -1647,7 +1671,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
         key={id}
         type="button"
         disabled={!clickable}
-        onClick={() => clickable && onToggleSeat(id)}
+        onClick={() => clickable && onToggleSeat?.(id)}
         title={tooltipText}
         style={{ width: w, height: SEAT_HEIGHT, flexShrink: 0, ...style }}
         className={`rounded-md border font-bold transition ${getSeatStatusClass(status, selected)}`}
@@ -1696,7 +1720,14 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
           className="w-full overflow-auto overscroll-contain rounded-lg"
           style={{ maxHeight: 'min(70vh, 680px)', cursor: 'grab', touchAction: 'none' }}
         >
-          <div ref={zoomSpacerRef} style={{ width: xyLayout.width * zoom, height: xyLayout.height * zoom }}>
+          <div
+            ref={zoomSpacerRef}
+            style={{
+              width: xyLayout.width * zoom,
+              height: xyLayout.height * zoom,
+              marginInline: centered ? 'auto' : undefined,
+            }}
+          >
             <div
               ref={zoomLayerRef}
               className="relative origin-top-left rounded-lg border border-border-soft/40 bg-background/40"
@@ -1742,6 +1773,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
             <button
               key={area.id || index}
               type="button"
+              disabled={readOnly}
               title={area.name}
               aria-label={area.name}
               onClick={() => onSelectStandingArea?.(area, index)}
@@ -1817,7 +1849,14 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
         className="w-full overflow-auto overscroll-contain rounded-lg"
         style={{ maxHeight: 'min(70vh, 680px)', cursor: 'grab', touchAction: 'none' }}
       >
-        <div ref={zoomSpacerRef} style={{ width: fallbackWidth * zoom, height: fallbackHeight * zoom }}>
+        <div
+          ref={zoomSpacerRef}
+          style={{
+            width: fallbackWidth * zoom,
+            height: fallbackHeight * zoom,
+            marginInline: centered ? 'auto' : undefined,
+          }}
+        >
           <div
             ref={zoomLayerRef}
             className="origin-top-left rounded-lg border border-border-soft/40 bg-background/40 p-4"

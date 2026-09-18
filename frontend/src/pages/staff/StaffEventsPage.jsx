@@ -230,8 +230,8 @@ export function NoAssignedEventsPage() {
         <p className="mt-3 text-sm leading-6 text-subtle">
           Bạn chưa được phân công vào sự kiện nào. Vui lòng liên hệ ban tổ chức nếu có nhầm lẫn.
         </p>
-        <div className="mt-7 flex justify-center gap-3">
-          <Link to="/staff/qr-check-in" className="admin-primary opacity-60">Quét QR</Link>
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
+          <Link to="/" className="admin-primary">Về trang khách hàng</Link>
           <button className="admin-secondary" onClick={() => window.location.reload()}>Làm mới</button>
         </div>
       </div>

@@ -2,6 +2,7 @@ const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const { normalizeRules, validateSelectedSeats } = require('./seatingRules');
+const logger = require('../../core/logger');
 
 function toNumber(value) {
   if (value === null || value === undefined) return null;
@@ -104,7 +105,7 @@ class EventsService {
       location: query.location,
       startDate: query.start_date,
       endDate: query.end_date,
-      activeAt: query.active_at,
+      activeAt: query.upcoming_only ? new Date() : undefined,
       minPrice: query.min_price,
       maxPrice: query.max_price,
       sortBy: query.sort_by,
