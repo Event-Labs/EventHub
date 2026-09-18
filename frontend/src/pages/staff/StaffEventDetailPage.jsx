@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Armchair, Calendar, Loader2, MapPin, RefreshCw, Users } from 'lucide-react'
+import { Armchair, Calendar, DoorOpen, Layers, Loader2, MapPin, RefreshCw, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
@@ -94,7 +94,27 @@ export function StaffEventDetailPage() {
           <div>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <Badge tone="green">{EVENT_STATUS_LABELS[event.status] || 'Chưa xác định'}</Badge>
-              <Badge tone="blue">Vai trò: {event.staff_role || 'Nhân sự'}</Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="blue">Vai trò: {event.staff_role || 'Nhân sự'}</Badge>
+                {event.gate ? (
+                  <Badge tone="purple">
+                    <span className="flex items-center gap-1">
+                      <DoorOpen className="size-3.5" />
+                      Cổng: {event.gate}
+                    </span>
+                  </Badge>
+                ) : (
+                  <Badge tone="gray">Tất cả cổng</Badge>
+                )}
+                {event.zone && (
+                  <Badge tone="indigo">
+                    <span className="flex items-center gap-1">
+                      <Layers className="size-3.5" />
+                      Khu vực: {event.zone}
+                    </span>
+                  </Badge>
+                )}
+              </div>
             </div>
             <p className="mt-4 flex items-center gap-2 text-sm text-subtle">
               <Calendar className="size-4" />
@@ -206,7 +226,11 @@ export function StaffEventDetailPage() {
                   <Avatar name={staff.full_name || staff.email} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-content">{staff.full_name || staff.email}</p>
-                    <p className="truncate text-xs text-muted">{staff.staff_role || 'Nhân sự'}</p>
+                    <p className="truncate text-xs text-muted">
+                      {staff.staff_role || 'Nhân sự'}
+                      {staff.gate ? ` • Cổng: ${staff.gate}` : ''}
+                      {staff.zone ? ` • KV: ${staff.zone}` : ''}
+                    </p>
                   </div>
                 </div>
               ))}
