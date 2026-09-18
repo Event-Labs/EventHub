@@ -251,10 +251,15 @@ class AuthService {
 
         // Send email
         const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${rawToken}`;
+        const mobileAppUrl = `eventhub://verify-email?token=${rawToken}`;
         await sendEmail({
             email: userData.email,
-            subject: 'Email Verification',
-            message: `Please verify your email by clicking: ${verifyUrl}`,
+            subject: 'Xác thực tài khoản EventHub',
+            message: `Chào mừng bạn đến với EventHub!\n\n` +
+                `1. Kích hoạt trực tiếp trên ứng dụng EventHub Mobile: ${mobileAppUrl}\n` +
+                `2. Hoặc kích hoạt qua trình duyệt Web: ${verifyUrl}\n\n` +
+                `Mã xác thực của bạn (dùng để dán trực tiếp trong ứng dụng): ${rawToken}\n\n` +
+                `Mã có hiệu lực trong vòng 24 giờ.`,
         });
 
         // Return email only because user is not inserted to DB yet (no user.id).
@@ -485,10 +490,16 @@ class AuthService {
         await authRepository.createPasswordResetToken(user.id, tokenHash, expiresAt);
 
         const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${rawToken}`;
+        const mobileResetUrl = `eventhub://reset-password?token=${rawToken}`;
         await sendEmail({
             email: user.email,
-            subject: 'Password Reset Request',
-            message: `Reset your password by clicking: ${resetUrl}`,
+            subject: 'Yêu cầu đặt lại mật khẩu EventHub',
+            message: `Xin chào!\n\n` +
+                `Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản EventHub của bạn.\n\n` +
+                `1. Đặt lại trực tiếp trên ứng dụng EventHub Mobile: ${mobileResetUrl}\n` +
+                `2. Hoặc đặt lại qua trình duyệt Web: ${resetUrl}\n\n` +
+                `Mã đặt lại mật khẩu của bạn (dùng để dán trực tiếp trong ứng dụng): ${rawToken}\n\n` +
+                `Mã có hiệu lực trong vòng 1 giờ. Nếu bạn không gửi yêu cầu này, vui lòng bỏ qua email.`,
         });
     }
 

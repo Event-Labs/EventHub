@@ -76,21 +76,18 @@ export function RolePortalLayout({
   return (
     <div className="flex min-h-screen bg-background text-content">
       <aside
-        className={`fixed bottom-0 left-0 top-24 z-50 flex flex-col items-center gap-3 bg-transparent px-2 pb-4 transition-[width] duration-300 ease-out will-change-[width] ${
-          sidebarExpanded ? 'w-[232px]' : 'w-20'
-        }`}
+        className={`fixed bottom-0 left-0 top-24 z-50 flex flex-col items-center gap-3 bg-transparent px-2 pb-4 transition-[width] duration-300 ease-out will-change-[width] ${sidebarExpanded ? 'w-[232px]' : 'w-20'
+          }`}
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
       >
         <nav
-          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width] duration-300 ease-out will-change-[width] ${
-            sidebarExpanded ? 'w-full' : 'w-12'
-          }`}
+          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width] duration-300 ease-out will-change-[width] ${sidebarExpanded ? 'w-full' : 'w-12'
+            }`}
         >
           <div
-            className={`portal-sidebar-scroll flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden py-3 ${
-              sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
-            }`}
+            className={`portal-sidebar-scroll flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden py-3 ${sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
+              }`}
           >
             {navSections.map((section, sectionIndex) => (
               <SidebarSection
@@ -105,9 +102,8 @@ export function RolePortalLayout({
         </nav>
 
         <div
-          className={`flex shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface py-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width,padding] duration-300 ease-out will-change-[width] ${
-            sidebarExpanded ? 'w-full px-2' : 'w-12 items-center px-1'
-          }`}
+          className={`flex shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface py-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width,padding] duration-300 ease-out will-change-[width] ${sidebarExpanded ? 'w-full px-2' : 'w-12 items-center px-1'
+            }`}
         >
           {bottomItems.map((item) => <SidebarItem key={item.label} item={item} expanded={sidebarExpanded} />)}
           {sidebarExpanded ? (
@@ -204,11 +200,10 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
         title={item.label}
         className={({ isActive }) => {
           const current = active ?? isActive
-          return `grid size-10 place-items-center rounded-2xl transition-all duration-200 ${
-            current
+          return `grid size-10 place-items-center rounded-2xl transition-all duration-200 ${current
               ? 'bg-tertiary/15 text-tertiary shadow-[inset_0_1px_0_rgba(249,115,22,0.14)]'
               : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
-          }`
+            }`
         }}
       >
         {({ isActive }) => {
@@ -226,11 +221,10 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
       title={item.label}
       className={({ isActive }) => {
         const current = active ?? isActive
-        return `group flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold transition-all duration-200 ${
-          current
+        return `group flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold transition-all duration-200 ${current
             ? 'bg-tertiary/15 text-tertiary shadow-[inset_0_1px_0_rgba(249,115,22,0.14)]'
             : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
-        }`
+          }`
       }}
     >
       {({ isActive }) => {
@@ -258,24 +252,24 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
           style={{ filter: 'none' }}
         />
         <div className="min-w-0 flex-1">
-        {searchOpen ? (
-          <div className="flex h-12 w-full max-w-2xl items-center gap-2 rounded-full border border-border-soft/30 bg-surface px-4 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm">
-            <Search className="size-5 shrink-0 text-subtle" />
-            <input autoFocus className="w-full bg-transparent text-base text-content outline-none placeholder:text-subtle" placeholder={'\u0054\u00ecm ki\u1ebfm...'} />
-            <button type="button" onClick={() => setSearchOpen(false)} className="grid size-7 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-content">
-              <X className="size-4" />
+          {searchOpen ? (
+            <div className="flex h-12 w-full max-w-2xl items-center gap-2 rounded-full border border-border-soft/30 bg-surface px-4 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm">
+              <Search className="size-5 shrink-0 text-subtle" />
+              <input autoFocus className="w-full bg-transparent text-base text-content outline-none placeholder:text-subtle" placeholder={'\u0054\u00ecm ki\u1ebfm...'} />
+              <button type="button" onClick={() => setSearchOpen(false)} className="grid size-7 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-content">
+                <X className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="flex h-12 w-full max-w-2xl items-center gap-3 rounded-full border border-border-soft/30 bg-surface px-5 text-base text-subtle shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-tertiary hover:text-content"
+            >
+              <Search className="size-5" />
+              <span>{'\u0054\u00ecm ki\u1ebfm...'}</span>
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="flex h-12 w-full max-w-2xl items-center gap-3 rounded-full border border-border-soft/30 bg-surface px-5 text-base text-subtle shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-tertiary hover:text-content"
-          >
-            <Search className="size-5" />
-            <span>{'\u0054\u00ecm ki\u1ebfm...'}</span>
-          </button>
-        )}
+          )}
         </div>
       </div>
 
@@ -443,9 +437,8 @@ function PortalNotificationBell() {
                   key={notification.id}
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
-                  className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${
-                    notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
-                  }`}
+                  className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
+                    }`}
                 >
                   <div className="flex items-start gap-3">
                     {!notification.is_read && (
