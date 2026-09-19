@@ -266,7 +266,7 @@ export function AppLayout() {
       <header className="fixed top-4 left-0 right-0 z-50 mx-auto w-[96%] max-w-7xl rounded-full border border-border-soft bg-panel/70 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300">
         <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
-            <img src={logoSrc} alt="EventHub" className="h-9 w-auto object-contain mix-blend-screen" />
+            <img src={logoSrc} alt="EventHub" className="h-12 w-auto object-contain mix-blend-screen" />
           </NavLink>
 
           <nav ref={navRef} className="relative hidden items-center justify-center gap-1 md:flex">
@@ -475,7 +475,7 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className="flex-1">
+      <main className={`flex-1 ${pathname === '/' ? '' : 'pt-16'}`}>
         <Outlet />
       </main>
       <footer className="relative border-t border-border-soft bg-panel-soft/30 backdrop-blur-md">

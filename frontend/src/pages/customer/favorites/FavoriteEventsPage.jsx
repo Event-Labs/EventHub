@@ -50,7 +50,7 @@ export function FavoriteEventsPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <SectionHeader
-        title="Sự kiện yêu thích"
+        title="Sự kiện Yêu thích"
         description="Các sự kiện bạn đã lưu để xem lại và đặt vé sau"
       />
 
@@ -81,7 +81,7 @@ export function FavoriteEventsPage() {
 
 function StatePanel({ message }) {
   return (
-    <div className="mb-6 rounded-lg border border-border-soft bg-panel p-6 text-center text-muted">
+    <div className="glass-panel mb-6 rounded-[24px] border-primary/20 p-8 text-center text-slate-400 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)]">
       {message}
     </div>
   )
@@ -89,8 +89,8 @@ function StatePanel({ message }) {
 
 function EmptyText() {
   return (
-    <p className="mb-6 text-sm italic text-muted text-center">
+    <div className="glass-panel mb-6 rounded-[24px] border-white/5 p-12 text-center italic text-slate-500 shadow-inner">
       Không có sự kiện yêu thích nào 
-    </p>
+    </div>
   )
 }

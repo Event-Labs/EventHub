@@ -257,8 +257,8 @@ export function HomePage() {
 
   return (
     <div className="overflow-hidden text-content bg-transparent">
-      <section className="relative h-[100dvh] w-full flex flex-col justify-center overflow-hidden pt-32 pb-4 snap-start shrink-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(6,182,212,0.15),transparent_30%),radial-gradient(circle_at_18%_34%,rgba(217,70,239,0.15),transparent_28%)]" />
+      <section className="relative h-[100dvh] w-full flex flex-col justify-center overflow-hidden pt-24 pb-4 snap-start shrink-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(6,182,212,0.15),transparent_30%),radial-gradient(circle_at_18%_34%,rgba(59,130,246,0.15),transparent_28%)]" />
         <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 flex-1 flex flex-col justify-center">
           <div className="w-full flex-1 flex flex-col justify-center min-h-0">
             {featuredQuery.isLoading ? (
@@ -286,7 +286,7 @@ export function HomePage() {
         >
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-primary" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-5 -translate-y-1/2 text-primary" />
               <input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
@@ -328,7 +328,7 @@ export function HomePage() {
         </ScrollReveal>
       </section>
 
-      <section className="relative -mt-32 bg-transparent pb-12 pt-40">
+      <section className="relative -mt-32 bg-transparent pb-4 pt-40">
         <div className="category-light-ribbon" />
         <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
@@ -356,7 +356,7 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="relative z-10 py-12">
+        <div className="relative z-10 pt-12 pb-4">
           <div className="mx-auto max-w-7xl space-y-12 px-4 sm:px-6 lg:px-8">
             <TimelineEventSection
               title="Sự kiện đang diễn ra"

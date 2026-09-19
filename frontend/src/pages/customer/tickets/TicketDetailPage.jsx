@@ -326,8 +326,8 @@ export function TicketDetailPage() {
         Vé của tôi
       </Link>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,620px)_320px] lg:items-start">
-        <aside className="order-2 space-y-5 lg:order-2 lg:sticky lg:top-24">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,620px)_360px] lg:items-start relative">
+        <aside className="order-2 space-y-6 lg:order-2 lg:sticky lg:top-32">
           <Panel title="Thanh toán" icon={ReceiptText}>
             <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || 'N/A'} />
             <Info label="Phương thức" value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
@@ -347,32 +347,33 @@ export function TicketDetailPage() {
           </Panel>
         </aside>
 
-        <div className="order-1 lg:justify-self-start">
-          <section className="mx-auto max-w-[620px] overflow-hidden rounded-xl border border-white/10 bg-[#101a33] shadow-2xl shadow-slate-950/30 lg:mx-0">
-            <div className="relative min-h-56 overflow-hidden">
+        <div className="order-1 lg:justify-self-start w-full">
+          <section className="glass-panel mx-auto max-w-[620px] overflow-hidden rounded-[32px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] lg:mx-0 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-10 pointer-events-none" />
+            <div className="relative min-h-64 overflow-hidden">
               {ticket.event?.banner_url ? (
-                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-65" />
+                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60 mix-blend-luminosity" />
               ) : (
-                <div className="absolute inset-0 bg-panel-soft" />
+                <div className="absolute inset-0 bg-white/5" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#101a33] via-[#101a33]/60 to-transparent" />
-              <div className="relative flex min-h-56 flex-col justify-end p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold uppercase ${isEntryEligible ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+              <div className="relative flex min-h-64 flex-col justify-end p-8">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase ${isEntryEligible ? 'bg-success/20 text-success shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-success/30' : 'bg-error/20 text-error shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-error/30'}`}>
                     {statusText(ticket)}
                   </span>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase text-slate-200">
+                  <span className="rounded-full bg-white/10 px-4 py-1.5 text-[10px] font-black tracking-widest uppercase text-white border border-white/10 backdrop-blur-md shadow-sm">
                     {ticket.ticket_type?.name}
                   </span>
                 </div>
-                <h1 className="mt-3 font-display text-2xl font-black leading-tight text-white sm:text-3xl">
+                <h1 className="mt-4 font-display text-3xl font-black leading-tight text-white drop-shadow-md sm:text-4xl">
                   {ticket.event?.title}
                 </h1>
               </div>
             </div>
 
-            <div className="space-y-6 p-5">
-              <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-8 p-8">
+              <div className="grid gap-6 sm:grid-cols-2">
                 {collectAttendees && (
                   <>
                     <CompactDetail label="Người tham dự" value={ticket.attendee_name} />
@@ -389,16 +390,16 @@ export function TicketDetailPage() {
                 <CompactDetail label="Địa điểm" value={venueText || 'N/A'} wide />
               </div>
 
-              <div className="relative border-t border-dashed border-white/10 pt-6 before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-[#071022] after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-[#071022]">
+              <div className="relative border-t-2 border-dashed border-white/10 pt-8 before:absolute before:-left-11 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-background after:absolute after:-right-11 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-background">
                 {isEntryEligible ? (
                   <>
-                    <div className="mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
-                      <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-48 rounded-md" />
+                    <div className="mx-auto w-fit rounded-[24px] bg-white p-5 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+                      <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-52 rounded-lg" />
                     </div>
-                    <p className="mt-4 text-center font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
+                    <p className="mt-6 text-center font-mono text-lg font-black tracking-[0.2em] text-white drop-shadow-md">{ticket.ticket_code}</p>
                   </>
                 ) : (
-                  <div className="rounded-lg border border-error/30 bg-error/10 p-5 text-center font-bold text-error">
+                  <div className="rounded-2xl border border-error/30 bg-error/10 p-6 text-center font-bold text-error shadow-inner">
                     {ticket.status === 'REFUND_REQUESTED'
                       ? 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xử lý.'
                       : ticket.status === 'REFUNDED'
@@ -410,32 +411,32 @@ export function TicketDetailPage() {
             </div>
           </section>
 
-          <div className="mx-auto mt-5 max-w-[620px] space-y-3 lg:mx-0">
+          <div className="mx-auto mt-8 max-w-[620px] space-y-4 lg:mx-0">
             <button
               type="button"
               onClick={handleDownload}
               disabled={downloading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-[#111a31] px-5 py-4 text-sm font-extrabold text-white transition hover:bg-[#17213b] disabled:cursor-not-allowed disabled:opacity-60"
+              className="cosmic-btn-primary w-full py-4 text-[15px] flex items-center justify-center gap-3"
             >
-              <Download className="size-4" />
-              {downloading ? 'Đang tạo file...' : 'Tải vé'}
+              <Download className="size-5" />
+              {downloading ? 'Đang tạo file...' : 'Tải vé xuống thiết bị'}
             </button>
             {downloadError && <p className="text-sm text-error">{downloadError}</p>}
             {!isEntryEligible && (
-              <p className="text-sm text-warning">
+              <p className="text-sm font-medium text-warning text-center">
                 Vé không còn hợp lệ để vào cổng. File tải xuống sẽ có watermark trạng thái.
               </p>
             )}
 
             {ticket.status === 'REFUND_REQUESTED' ? (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center">
-                <p className="font-bold text-amber-300">Yêu cầu hoàn vé đang được xử lý (Pending Review)</p>
-                <p className="mt-1 text-xs text-amber-200/80">Nhà tổ chức sự kiện đang xem xét yêu cầu hoàn tiền của bạn.</p>
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center shadow-inner">
+                <p className="font-bold text-amber-300">Yêu cầu hoàn vé đang được xử lý</p>
+                <p className="mt-2 text-sm text-amber-200/80">Nhà tổ chức sự kiện đang xem xét yêu cầu hoàn tiền của bạn.</p>
               </div>
             ) : ticket.status === 'REFUNDED' ? (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-                <p className="font-bold text-emerald-300">Vé này đã được hoàn tiền (Refunded).</p>
-                <p className="mt-1 text-xs text-emerald-200/80">Bạn không thể sử dụng mã QR này để vào cổng.</p>
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-center shadow-inner">
+                <p className="font-bold text-emerald-300">Vé này đã được hoàn tiền</p>
+                <p className="mt-2 text-sm text-emerald-200/80">Bạn không thể sử dụng mã QR này để vào cổng.</p>
               </div>
             ) : canRequestRefund ? (
               <RefundButton ticket={ticket} onRefundSubmitted={() => ticketQuery.refetch()} />
@@ -485,7 +486,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-transparent px-4 py-3.5 text-sm font-bold text-amber-400 transition-all hover:bg-amber-500/10 hover:border-amber-500/50"
       >
         <RotateCcw className="size-4" />
         Yêu cầu hoàn vé (Refund)
@@ -610,12 +611,13 @@ function CompactDetail({ label, value, wide }) {
 
 function Panel({ title, icon: Icon, children }) {
   return (
-    <section className="rounded-lg border border-border-soft bg-panel p-5">
-      <div className="mb-4 flex items-center gap-2 text-primary">
-        <Icon className="size-5" />
-        <h2 className="font-bold uppercase tracking-wide">{title}</h2>
+    <section className="glass-panel relative overflow-hidden rounded-[24px] border-primary/20 bg-slate-950/40 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,_var(--color-primary)_0%,_transparent_50%)] opacity-10" />
+      <div className="mb-6 flex items-center gap-3 text-primary">
+        <Icon className="size-6 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+        <h2 className="font-display text-xl font-black uppercase tracking-widest text-white drop-shadow-sm">{title}</h2>
       </div>
-      <div className="space-y-4">{children}</div>
+      <div className="space-y-5">{children}</div>
     </section>
   )
 }
@@ -634,12 +636,12 @@ function CheckInCountdown({ target }) {
   if (parts?.ended) return <Info label="Check-in lúc" value="Đã mở" />
 
   return (
-    <div className="rounded-lg border border-white/10 bg-[#121b3a] p-4">
+    <div className="rounded-[16px] border border-primary/20 bg-primary/10 p-5 shadow-inner">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-300">Check-in starts in</p>
-        <Clock3 className="size-6 text-slate-500" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-primary drop-shadow-[0_0_5px_rgba(6,182,212,0.5)]">Check-in starts in</p>
+        <Clock3 className="size-5 text-primary opacity-50" />
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-3 text-white">
+      <div className="mt-4 grid grid-cols-3 gap-3 text-white">
         <CountdownUnit label="Days" value={parts.days} />
         <CountdownUnit label="Hours" value={parts.hours} />
         <CountdownUnit label="Min" value={parts.minutes} />

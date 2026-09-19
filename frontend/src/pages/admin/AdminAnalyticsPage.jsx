@@ -53,13 +53,13 @@ function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-tertiary/15', 
     <Panel className="relative overflow-hidden">
       {accentBar && <div className={`absolute inset-x-0 top-0 h-0.5 rounded-t-2xl ${accentBar}`} />}
       <div className="flex items-start gap-4 pt-1">
-        <div className={`grid size-11 shrink-0 place-items-center rounded-xl ${accentBg}`}>
-          <Icon className={`size-5 ${accentColor}`} />
+        <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-white/5 shadow-inner ${accentBg}`}>
+          <Icon className={`size-6 ${accentColor}`} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-          <p className="mt-1 truncate text-xl font-extrabold text-content">{value}</p>
-          {sub && <p className="mt-0.5 text-xs text-muted truncate">{sub}</p>}
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p>
+          <p className="mt-1 truncate text-2xl font-black text-white drop-shadow-sm">{value}</p>
+          {sub && <p className="mt-1 text-[11px] font-semibold text-slate-400 truncate">{sub}</p>}
         </div>
       </div>
     </Panel>
@@ -81,9 +81,9 @@ function DonutChart({ title, data, totalLabel, valueFormatter, bare = false, com
   const content = (
     <>
       {compact ? (
-        <h3 className="mb-3 text-sm font-black text-content">{title}</h3>
+        <h3 className="mb-3 text-sm font-black text-slate-200">{title}</h3>
       ) : (
-        <h2 className="mb-4 font-bold text-content">{title}</h2>
+        <h2 className="mb-4 text-lg font-black text-white drop-shadow-sm">{title}</h2>
       )}
       <div className={chartGridClass}>
         <div className={`relative mx-auto ${chartSize}`}>
@@ -113,19 +113,19 @@ function DonutChart({ title, data, totalLabel, valueFormatter, bare = false, com
           </svg>
           <div className="absolute inset-0 grid place-items-center text-center">
             <div>
-              <p className={`${centerValueClass} max-w-24 truncate font-black text-content`}>{formatValue(total)}</p>
-              <p className="text-[10px] font-bold uppercase text-muted">{totalLabel}</p>
+              <p className={`${centerValueClass} max-w-24 truncate font-black text-white drop-shadow-sm`}>{formatValue(total)}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{totalLabel}</p>
             </div>
           </div>
         </div>
         <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
           {data.map((item) => (
-            <div key={item.label} className={`flex items-center justify-between gap-3 rounded-md border border-border-soft/25 bg-panel-soft/50 ${compact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'}`}>
-              <span className="inline-flex min-w-0 items-center gap-2 font-semibold text-subtle">
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+            <div key={item.label} className={`glass-panel flex items-center justify-between gap-3 rounded-xl border-white/5 bg-slate-900/40 shadow-inner ${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm'}`}>
+              <span className="inline-flex min-w-0 items-center gap-3 font-semibold text-slate-400">
+                <span className="size-2.5 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
                 <span className="truncate">{item.label}</span>
               </span>
-              <span className="shrink-0 font-black text-content">{formatValue(item.value)}</span>
+              <span className="shrink-0 font-black text-white">{formatValue(item.value)}</span>
             </div>
           ))}
         </div>
@@ -139,37 +139,44 @@ function DonutChart({ title, data, totalLabel, valueFormatter, bare = false, com
 
 function ChartTile({ children }) {
   return (
-    <div className="h-full rounded-xl border border-border-soft/30 bg-panel-soft/45 p-4">
+    <div className="glass-panel h-full rounded-[20px] border-white/5 bg-slate-900/40 p-5 shadow-inner">
       {children}
     </div>
   )
 }
 
-function HorizontalValueChart({ title, items, valueKey, labelKey, subLabel, valueFormatter = fmtShort, color = '#ff7112', bare = false }) {
+function HorizontalValueChart({ title, items, valueKey, labelKey, subLabel, valueFormatter = fmtShort, color = '#06b6d4', bare = false }) {
   if (!items?.length) return null
 
-  const maxValue = Math.max(...items.map((item) => Number(item[valueKey] || 0)), 1)
+  const maxVal = Math.max(...items.map((i) => Number(i[valueKey] || 0)))
+
   const content = (
     <>
-      <h2 className="mb-4 font-bold text-content">{title}</h2>
+      <h2 className="mb-5 text-lg font-black text-white drop-shadow-sm">{title}</h2>
       <div className="space-y-4">
-        {items.map((item, index) => {
-          const value = Number(item[valueKey] || 0)
-          const pct = Math.max(3, Math.round((value / maxValue) * 100))
+        {items.map((item, idx) => {
+          const val = Number(item[valueKey] || 0)
+          const pct = maxVal > 0 ? (val / maxVal) * 100 : 0
           return (
-            <div key={item.organizer_id || item.plan_id || item.id || item[labelKey]}>
-              <div className="mb-1.5 flex items-start justify-between gap-3 text-sm">
+            <div key={idx} className="group">
+              <div className="mb-2 flex items-end justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-content">
-                    <span className="mr-2 text-xs text-muted">#{index + 1}</span>
-                    {item[labelKey]}
-                  </p>
-                  {subLabel && <p className="mt-0.5 truncate text-xs text-subtle">{subLabel(item)}</p>}
+                  <p className="truncate text-[15px] font-bold text-slate-200 group-hover:text-primary transition-colors">{item[labelKey]}</p>
+                  {subLabel && (
+                    <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+                      {typeof subLabel === 'function' ? subLabel(item) : item[subLabel]}
+                    </p>
+                  )}
                 </div>
-                <span className="shrink-0 font-black text-content">{valueFormatter(value)}</span>
+                <p className="shrink-0 font-black text-white">{valueFormatter(val)}</p>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-border-soft/25">
-                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+              <div className="h-2 w-full overflow-hidden rounded-full bg-white/5 shadow-inner">
+                <div
+                  className="h-full rounded-full transition-all duration-1000 ease-out relative"
+                  style={{ width: `${pct}%`, backgroundColor: color }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/30" />
+                </div>
               </div>
             </div>
           )
@@ -188,12 +195,12 @@ function CategoryDistributionChart({ items }) {
   const palette = ['#ff7112', '#22c55e', '#38bdf8', '#b3cde0', '#a855f7', '#f59e0b', '#ef4444']
   return (
     <Panel>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="font-bold text-content">Sự kiện theo danh mục</h2>
-          <p className="mt-1 text-xs text-subtle">Tách theo 3 lớp để admin nhìn rõ tổng, published và completed.</p>
+          <h2 className="text-lg font-black text-white drop-shadow-sm">Sự kiện theo danh mục</h2>
+          <p className="mt-1 text-[13px] font-medium text-slate-400">Tách theo 3 lớp để admin nhìn rõ tổng, published và completed.</p>
         </div>
-        <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
+        <span className="glass-panel rounded-full border-white/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400 shadow-inner">
           {items.length} danh mục
         </span>
       </div>
@@ -242,11 +249,11 @@ function CategoryDistributionChart({ items }) {
   )
 }
 
-function CompactMetric({ label, value, tone = 'text-content' }) {
+function CompactMetric({ label, value, tone = 'text-white' }) {
   return (
-    <div className="rounded-md border border-border-soft/30 bg-panel-soft/60 px-3 py-2">
-      <p className="text-[10px] font-bold uppercase text-muted">{label}</p>
-      <p className={`mt-0.5 text-sm font-black ${tone}`}>{value}</p>
+    <div className="glass-panel rounded-xl border-white/5 bg-slate-900/40 px-4 py-3 shadow-inner">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p>
+      <p className={`mt-1 text-lg font-black drop-shadow-sm ${tone === 'text-content' ? 'text-white' : tone}`}>{value}</p>
     </div>
   )
 }
@@ -400,7 +407,7 @@ export function AdminAnalyticsPage() {
 
   return (
     <Page
-      title="Tổng quan nền tảng"
+      title="Tổng quan Nền tảng"
       description="Thống kê toàn hệ thống: người dùng, sự kiện, giao dịch vé và doanh thu gói dịch vụ."
     >
       {/* ── Attention Required ── */}

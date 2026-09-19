@@ -132,7 +132,7 @@ export function OrganizerRefundsPage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Quản lý yêu cầu hoàn vé"
+        title="Quản lý yêu cầu Hoàn vé"
         description="Xem xét và xử lý các yêu cầu hoàn tiền vé từ người mua theo chính sách sự kiện"
       />
 

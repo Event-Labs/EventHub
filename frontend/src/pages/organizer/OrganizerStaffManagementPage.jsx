@@ -153,7 +153,7 @@ export function OrganizerStaffManagementPage() {
 
   return (
     <OrganizerPage
-      title="Quản lý nhân sự"
+      title="Quản lý Nhân sự"
       description="Phân công, mời và quản lý nhân sự cho từng sự kiện."
     >
 

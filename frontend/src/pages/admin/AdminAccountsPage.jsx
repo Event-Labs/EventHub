@@ -167,7 +167,7 @@ export function AdminAccountsPage() {
 
   return (
     <Page
-      title="Quản lý người dùng"
+      title="Quản lý Người dùng"
       description="Quản lý tài khoản, vai trò và tuân thủ bảo mật hệ thống."
     >
       <KpiGrid

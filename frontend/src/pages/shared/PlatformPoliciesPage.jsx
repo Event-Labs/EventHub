@@ -5,6 +5,7 @@ import {
   fetchActivePlatformPolicies,
   fetchOrganizerPlatformPolicies,
 } from '@/services/platformFinance.js'
+import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 
 const policyLabels = {
   TERMS_CUSTOMER: 'Điều khoản sử dụng dành cho Khách hàng',
@@ -126,10 +127,10 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
   return (
     <div className={audience === 'organizer' ? '' : 'mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8'}>
       <div className="mb-6">
-        <h1 className={`mt-1 font-display text-3xl font-extrabold ${audience === 'organizer' ? 'text-[#111827]' : 'text-white'}`}>
-          {selectedPolicyType ? policyLabels[selectedPolicyType] || 'Chính sách' : 'Chính sách đang áp dụng'}
+        <h1 className="mt-1 font-display text-3xl font-black text-white drop-shadow-sm tracking-tight">
+          {renderCosmicTitle(selectedPolicyType ? policyLabels[selectedPolicyType] || 'Chính sách' : 'Chính sách Đang áp dụng')}
         </h1>
-        <p className={`mt-2 max-w-2xl text-sm leading-6 ${audience === 'organizer' ? 'text-[#434655]' : 'text-muted'}`}>
+        <p className="mt-2 max-w-2xl text-[15px] leading-6 text-slate-400">
           Các điều khoản và tài liệu PDF/DOCX chính thức được EventHub công khai
         </p>
       </div>

@@ -1230,24 +1230,24 @@ function BookingShell({ step, cart, children }) {
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background text-content">
-      <div className="border-b border-border-soft bg-[#08111f]">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-7 sm:px-6 lg:px-8">
+      <div className="border-b border-white/5 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
           {labels.map((label, index) => {
             const active = index + 1 === step
             const done = index + 1 < step
             return (
               <div key={label} className="flex flex-col items-center gap-2">
                 <div
-                  className={`grid size-11 place-items-center rounded-full text-sm font-bold transition ${active
-                      ? 'bg-tertiary text-white shadow-lg shadow-tertiary/30'
+                  className={`grid size-11 place-items-center rounded-full text-sm font-bold transition-all duration-300 ${active
+                      ? 'bg-primary text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-110'
                       : done
-                        ? 'bg-tertiary/20 text-tertiary'
-                        : 'bg-panel-soft text-muted'
+                        ? 'bg-primary/20 text-primary border border-primary/30'
+                        : 'bg-white/5 text-slate-500 border border-white/5'
                     }`}
                 >
-                  {done ? <Check className="size-4" /> : index + 1}
+                  {done ? <Check className="size-5" /> : index + 1}
                 </div>
-                <span className="text-sm font-extrabold text-white">{label}</span>
+                <span className={`text-xs sm:text-sm font-bold transition-colors ${active ? 'text-white drop-shadow-md' : done ? 'text-primary' : 'text-slate-500'}`}>{label}</span>
               </div>
             )
           })}
@@ -1255,19 +1255,19 @@ function BookingShell({ step, cart, children }) {
       </div>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {cart?.eventTitle && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 p-4">
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-primary/20 bg-primary/5 p-5 shadow-inner">
             <div>
-              <p className="text-xs font-bold uppercase text-tertiary">{'\u0110\u1eb7t v\u00e9'}</p>
-              <h2 className="font-display text-xl font-bold text-white">{cart.eventTitle}</h2>
+              <p className="text-[10px] font-black uppercase text-primary tracking-widest">{'\u0110\u1eb7t v\u00e9'}</p>
+              <h2 className="font-display text-2xl font-bold text-white drop-shadow-sm">{cart.eventTitle}</h2>
             </div>
             {holdExpiresAt && (
-              <div className="rounded-md bg-background px-4 py-2 font-mono text-lg font-bold text-tertiary">
+              <div className="rounded-xl bg-slate-950/80 px-5 py-2.5 font-mono text-xl font-bold text-primary shadow-inner border border-primary/10">
                 {formatCountdown(remaining)}
               </div>
             )}
           </div>
         )}
-        <div className="mb-4">
+        <div className="mb-6">
           <button
             type="button"
             onClick={goBackStep}
@@ -1293,10 +1293,11 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, onReset, resetDisab
   })
 
   return (
-    <aside className="glass-panel h-fit rounded-lg p-5 lg:sticky lg:top-24">
-      <div className="mb-4 flex items-start justify-between gap-3">
+    <aside className="glass-panel relative overflow-hidden h-fit rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-8 lg:sticky lg:top-32">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-bold text-white">{'Th\u00f4ng tin \u0111\u1eb7t v\u00e9'}</h2>
+          <h2 className="font-display text-2xl font-black text-white drop-shadow-md">{'Th\u00f4ng tin \u0111\u1eb7t v\u00e9'}</h2>
         </div>
         <button
           type="button"
@@ -1354,23 +1355,25 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, onReset, resetDisab
       {promoDiscount(cart) > 0 && (
         <Line label={'T\u1ed5ng thanh to\u00e1n'} value={formatPrice(payableTotal(cart))} large />
       )}
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className="mt-5 flex w-full items-center justify-center rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {cta}
-      </button>
-      <button
-        type="button"
-        onClick={() => setCancelOpen(true)}
-        className="mt-3 w-full rounded-md border border-border-soft py-3 text-sm font-bold text-muted hover:border-error hover:text-error"
-      >
-        {'H\u1ee7y \u0111\u1eb7t v\u00e9'}
-      </button>
-      <p className="mt-3 flex items-center justify-center gap-1 text-xs text-muted">
-        <ShieldCheck className="size-3" /> {'Thanh to\u00e1n qua PayOS c\u1ee7a ban t\u1ed5 ch\u1ee9c'}
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          className="cosmic-btn-primary w-full py-4 text-lg"
+        >
+          {cta}
+        </button>
+        <button
+          type="button"
+          onClick={() => setCancelOpen(true)}
+          className="mt-4 w-full rounded-full border border-white/10 bg-transparent py-3 text-sm font-bold text-slate-400 transition hover:border-error/40 hover:bg-error/10 hover:text-error"
+        >
+          {'H\u1ee7y \u0111\u1eb7t v\u00e9'}
+        </button>
+      </div>
+      <p className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-slate-500">
+        <ShieldCheck className="size-4" /> {'Thanh to\u00e1n an toàn qua PayOS'}
       </p>
 
       {cancelOpen && (
