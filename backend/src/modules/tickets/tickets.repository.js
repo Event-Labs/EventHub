@@ -119,6 +119,9 @@ class TicketsRepository {
         o.status AS order_status,
         o.buyer_name,
         o.buyer_email,
+        o.subtotal AS order_subtotal,
+        o.discount_amount AS order_discount_amount,
+        o.platform_fee AS order_platform_fee,
         o.total_amount,
         o.created_at AS order_created_at
       FROM tickets t
@@ -197,6 +200,9 @@ class TicketsRepository {
         o.order_code,
         o.buyer_name,
         o.buyer_email,
+        o.subtotal AS order_subtotal,
+        o.discount_amount AS order_discount_amount,
+        o.platform_fee AS order_platform_fee,
         o.total_amount,
         o.created_at AS order_created_at,
         p.transaction_code,
