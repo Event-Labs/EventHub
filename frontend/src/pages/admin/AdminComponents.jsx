@@ -177,16 +177,16 @@ export function FilterBar({ labels }) {
 /**
  * Table – dark-themed data table
  */
-export function Table({ headers, rows, compact = false }) {
+export function Table({ headers, rows, compact = false, tableClassName = 'min-w-[760px]' }) {
   return (
     <div className="overflow-x-auto glass-panel rounded-[24px] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-      <table className="w-full min-w-[760px] text-left text-sm">
+      <table className={`w-full text-left text-sm ${tableClassName}`}>
         <thead className="bg-slate-900/40">
           <tr className="border-b border-white/10">
             {headers.map((header) => (
               <th
                 key={header}
-                className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400"
+                className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400 last:w-[120px] last:min-w-[120px]"
               >
                 {header}
               </th>

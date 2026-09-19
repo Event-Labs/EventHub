@@ -74,7 +74,7 @@ export function RolePortalLayout({
   if (!isAllowed) return <Navigate to="/" replace />
 
   return (
-    <div className="flex min-h-screen bg-background text-content">
+    <div className="flex h-screen w-full min-w-0 overflow-hidden bg-background text-content">
       <aside
         className={`fixed bottom-0 left-0 top-[80px] z-50 flex flex-col items-center gap-4 bg-transparent px-3 pb-6 transition-[width] duration-300 ease-out will-change-[width] ${
           sidebarExpanded ? 'w-[240px]' : 'w-20'
@@ -133,10 +133,13 @@ export function RolePortalLayout({
         </div>
       </aside>
 
-      <main
-        className="flex flex-1 flex-col transition-[padding-left] duration-300 ease-out"
-        style={{ paddingLeft: sidebarExpanded ? expandedWidth : collapsedWidth }}
-      >
+      {/* Spacer for fixed sidebar */}
+      <div 
+        className="shrink-0 transition-[width] duration-300 ease-out"
+        style={{ width: sidebarExpanded ? expandedWidth : collapsedWidth }}
+      />
+
+      <main className="flex min-w-0 flex-1 flex-col transition-all duration-300 ease-out">
         <PortalTopBar
           user={user}
           avatar={avatar}
@@ -147,8 +150,8 @@ export function RolePortalLayout({
           theme={theme}
           onToggleTheme={() => setPortalTheme(theme === 'light' ? 'dark' : 'light')}
         />
-        <div className="flex-1 overflow-y-auto pt-20">
-          <div className="mx-auto max-w-[1320px] px-6 py-6 lg:px-8">
+        <div className="flex-1 overflow-y-auto pt-20 w-full min-w-0">
+          <div className="mx-auto w-full max-w-[1320px] px-6 py-6 lg:px-8">
             <Outlet />
           </div>
         </div>
@@ -421,7 +424,7 @@ function PortalNotificationBell() {
       </button>
 
       {notificationOpen && (
-        <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border border-border-soft/40 bg-surface shadow-2xl backdrop-blur-md sm:w-96">
+        <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border border-border-soft/40 bg-slate-950 shadow-2xl sm:w-96">
           <div className="flex items-center justify-between border-b border-border-soft/30 px-4 py-3">
             <div>
               <p className="text-sm font-extrabold text-content">Thông báo</p>

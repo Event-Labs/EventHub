@@ -10,8 +10,7 @@ import {
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Table } from './AdminComponents.jsx'
 
-const primaryActionClass =
-  'inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
+
 
 const emptyForm = {
   name: '',
@@ -161,7 +160,7 @@ export function AdminPlansPage() {
       title="Gói Dịch vụ"
       description="Quản lý quota và quyền tính năng dành cho Organizer"
       action="Thêm gói"
-      actionClassName={primaryActionClass}
+      actionClassName="admin-primary"
       actionIcon={Plus}
       onAction={openCreate}
     >
@@ -299,7 +298,7 @@ export function AdminPlansPage() {
               <button type="button" onClick={() => setModal(null)} className="admin-secondary">
                 Hủy
               </button>
-              <button type="submit" disabled={saveMutation.isPending} className={primaryActionClass}>
+              <button type="submit" disabled={saveMutation.isPending} className="admin-primary">
                 {saveMutation.isPending ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>

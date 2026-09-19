@@ -192,6 +192,29 @@ textarea {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.admin-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.05);
+  padding: 0.6rem 1.5rem;
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: all 300ms ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.admin-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #f87171;
+}
+
 .admin-input,
 .org-input {
   margin-top: 0.5rem;

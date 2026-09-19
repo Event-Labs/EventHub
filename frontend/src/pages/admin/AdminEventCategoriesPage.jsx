@@ -135,7 +135,7 @@ export function AdminEventCategoriesPage() {
       title="Loại Sự kiện"
       description="Quản lý các nhóm phân loại sự kiện trên nền tảng"
       action="Thêm loại"
-      actionClassName="inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0"
+      actionClassName="admin-primary shrink-0"
       actionIcon={Plus}
       onAction={openCreate}
     >
@@ -307,7 +307,7 @@ export function AdminEventCategoriesPage() {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+                className="admin-primary disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSaving ? 'Đang lưu...' : 'Lưu'}
               </button>

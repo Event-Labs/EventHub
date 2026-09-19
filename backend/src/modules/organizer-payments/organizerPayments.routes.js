@@ -10,5 +10,7 @@ router.use(authorize('organizer', 'admin', 'super_admin'));
 router.get('/channel', organizerPaymentsController.getChannel);
 router.post('/channel', organizerPaymentsController.saveChannel);
 router.post('/channel/test', organizerPaymentsController.testConnection);
+router.post('/channel/payout', organizerPaymentsController.savePayoutChannel);
+router.post('/channel/payout/test', organizerPaymentsController.testPayoutConnection);
 
 module.exports = router;

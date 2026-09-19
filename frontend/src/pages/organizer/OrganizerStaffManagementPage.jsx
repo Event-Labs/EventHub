@@ -5,6 +5,9 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  DoorOpen,
+  Edit2,
+  Layers,
   Loader2,
   MailCheck,
   MailX,
@@ -21,12 +24,14 @@ import {
   fetchStaffCandidates,
   inviteStaffToEvent,
   removeStaffFromEvent,
+  updateEventStaff,
 } from '@/services/operations.js'
 import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+const GATE_SUGGESTIONS = ['Cổng A', 'Cổng B', 'Cổng C', 'Cổng VIP', 'Cổng chính', 'Cổng phụ', 'Tất cả cổng']
+const ZONE_SUGGESTIONS = ['Khu VIP', 'Khán đài A', 'Khán đài B', 'Khu đứng GA', 'Tầng 1', 'Tầng 2', 'Khu sân khấu', 'Toàn bộ sự kiện']
 
 function isApprovedOrPublishedEvent(event) {
   if (!event) return false
@@ -55,6 +60,7 @@ export function OrganizerStaffManagementPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [editingStaff, setEditingStaff] = useState(null) // staff object for edit modal
   const [removeConfirm, setRemoveConfirm] = useState(null) // { staffId, staffName }
   const [deleteInviteConfirm, setDeleteInviteConfirm] = useState(null) // { invitationId, email }
 
@@ -154,10 +160,8 @@ export function OrganizerStaffManagementPage() {
   return (
     <OrganizerPage
       title="Quản lý Nhân sự"
-      description="Phân công, mời và quản lý nhân sự cho từng sự kiện."
+      description="Phân công, phân chia cổng và khu vực làm việc cho nhân sự từng sự kiện."
     >
-
-
       {/* ── Toolbar ── */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <label className="flex flex-col gap-1 text-xs font-bold text-subtle">
@@ -190,7 +194,7 @@ export function OrganizerStaffManagementPage() {
       {!loading && selectedEventId && !selectedEventManageable && (
         <OrganizerPanel className="mb-5 border-warning/30 bg-warning/10">
           <p className="text-sm font-semibold text-warning">
-            Sự kiện này đã hết hiệu lực, đang ở bản nháp hoặc chưa được duyệt. Bạn chỉ có thể xem nhân sự, lời mời, thông số và báo cáo; không thể mời hoặc gỡ nhân sự.
+            Sự kiện này đã hết hiệu lực, đang ở bản nháp hoặc chưa được duyệt. Bạn chỉ có thể xem nhân sự, lời mời, thông số và báo cáo; không thể mời hoặc chỉnh sửa phân công.
           </p>
         </OrganizerPanel>
       )}
@@ -257,16 +261,18 @@ export function OrganizerStaffManagementPage() {
             {assignedStaff.length === 0 ? (
               <OrganizerPanel className="py-10 text-center border-dashed">
                 <Users className="mx-auto mb-3 size-10 text-muted" />
-                <p className="text-sm text-subtle">Chưa có staff nào được phân công.</p>
+                <p className="text-sm text-subtle">Chưa có staff nào được phân công cho sự kiện này.</p>
               </OrganizerPanel>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
-                <table className="w-full min-w-[640px] text-left text-sm">
+                <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="border-b border-border-soft/30 bg-panel-soft/30 text-xs uppercase text-muted">
                     <tr>
                       <th className="px-5 py-3 font-bold">Nhân sự</th>
                       <th className="px-5 py-3 font-bold">Email</th>
                       <th className="px-5 py-3 font-bold">Vai trò</th>
+                      <th className="px-5 py-3 font-bold">Cổng</th>
+                      <th className="px-5 py-3 font-bold">Khu vực làm việc</th>
                       <th className="px-5 py-3 font-bold">Ngày phân công</th>
                       <th className="px-5 py-3 font-bold">Hành động</th>
                     </tr>
@@ -284,20 +290,56 @@ export function OrganizerStaffManagementPage() {
                         <td className="px-5 py-3">
                           <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
                         </td>
+                        <td className="px-5 py-3">
+                          {staff.gate ? (
+                            <Badge tone="purple">
+                              <span className="flex items-center gap-1">
+                                <DoorOpen className="size-3" />
+                                {staff.gate}
+                              </span>
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted">Tất cả cổng</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          {staff.zone ? (
+                            <Badge tone="yellow">
+                              <span className="flex items-center gap-1">
+                                <Layers className="size-3" />
+                                {staff.zone}
+                              </span>
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted">Toàn bộ khu vực</span>
+                          )}
+                        </td>
                         <td className="px-5 py-3 text-subtle">
                           {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
                         </td>
                         <td className="px-5 py-3">
-                          <button
-                            className="flex items-center gap-1.5 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/20 disabled:opacity-50 transition-colors"
-                            onClick={() =>
-                              setRemoveConfirm({ staffId: staff.staff_id, staffName: staff.staff_name })
-                            }
-                            disabled={saving || !selectedEventManageable}
-                          >
-                            <Trash2 className="size-3.5" />
-                            Gỡ
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
+                              onClick={() => setEditingStaff(staff)}
+                              disabled={saving || !selectedEventManageable}
+                              title="Chỉnh sửa vai trò, cổng hoặc khu vực"
+                            >
+                              <Edit2 className="size-3.5" />
+                              Sửa
+                            </button>
+                            <button
+                              className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-2.5 py-1.5 text-xs font-bold text-error hover:bg-error/20 disabled:opacity-50 transition-colors"
+                              onClick={() =>
+                                setRemoveConfirm({ staffId: staff.staff_id, staffName: staff.staff_name })
+                              }
+                              disabled={saving || !selectedEventManageable}
+                              title="Gỡ nhân sự"
+                            >
+                              <Trash2 className="size-3.5" />
+                              Gỡ
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -323,12 +365,14 @@ export function OrganizerStaffManagementPage() {
               </OrganizerPanel>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
-                <table className="w-full min-w-[640px] text-left text-sm">
+                <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="border-b border-border-soft/30 bg-panel-soft/30 text-xs uppercase text-muted">
                     <tr>
                       <th className="px-5 py-3 font-bold">Email</th>
                       <th className="px-5 py-3 font-bold">Người nhận</th>
                       <th className="px-5 py-3 font-bold">Vai trò</th>
+                      <th className="px-5 py-3 font-bold">Cổng</th>
+                      <th className="px-5 py-3 font-bold">Khu vực làm việc</th>
                       <th className="px-5 py-3 font-bold">Trạng thái</th>
                       <th className="px-5 py-3 font-bold">Hết hạn</th>
                       <th className="px-5 py-3 font-bold">Hành động</th>
@@ -340,6 +384,30 @@ export function OrganizerStaffManagementPage() {
                         <td className="px-5 py-3 font-semibold text-content">{inv.invited_email}</td>
                         <td className="px-5 py-3 text-subtle">{inv.invited_user_name || '—'}</td>
                         <td className="px-5 py-3 text-content">{inv.staff_role || 'Staff'}</td>
+                        <td className="px-5 py-3">
+                          {inv.gate ? (
+                            <Badge tone="purple">
+                              <span className="flex items-center gap-1">
+                                <DoorOpen className="size-3" />
+                                {inv.gate}
+                              </span>
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted">Tất cả cổng</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          {inv.zone ? (
+                            <Badge tone="yellow">
+                              <span className="flex items-center gap-1">
+                                <Layers className="size-3" />
+                                {inv.zone}
+                              </span>
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted">Toàn bộ khu vực</span>
+                          )}
+                        </td>
                         <td className="px-5 py-3">
                           <InvitationStatusBadge status={inv.status} />
                         </td>
@@ -391,6 +459,20 @@ export function OrganizerStaffManagementPage() {
         />
       )}
 
+      {/* ── Edit Staff Modal ── */}
+      {editingStaff && (
+        <EditStaffModal
+          staff={editingStaff}
+          eventId={selectedEventId}
+          onClose={() => setEditingStaff(null)}
+          onUpdated={() => {
+            toast.success('Đã cập nhật phân công nhân sự thành công.')
+            setEditingStaff(null)
+            loadData()
+          }}
+        />
+      )}
+
       {/* ── Remove confirm dialog ── */}
       {removeConfirm && (
         <ConfirmDialog
@@ -420,6 +502,144 @@ export function OrganizerStaffManagementPage() {
   )
 }
 
+// ─── Edit Staff Modal ─────────────────────────────────────────────────────────
+
+function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
+  const toast = useToast()
+  const [form, setForm] = useState({
+    staff_role: staff.staff_role || 'Check-in',
+    gate: staff.gate || '',
+    zone: staff.zone || '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await updateEventStaff(eventId, staff.staff_id, {
+        staff_role: form.staff_role.trim() || null,
+        gate: form.gate.trim() || null,
+        zone: form.zone.trim() || null,
+      })
+      onUpdated()
+    } catch (err) {
+      const message = getApiMessage(err, 'Không thể cập nhật phân công nhân sự.')
+      toast.error(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4 shrink-0">
+          <div className="flex items-center gap-2 font-extrabold text-content">
+            <Edit2 className="size-5 text-primary" />
+            Chỉnh sửa phân công: {staff.staff_name}
+          </div>
+          <button
+            className="grid size-8 place-items-center rounded-full text-muted hover:bg-panel-soft/60 transition-colors"
+            onClick={onClose}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <form className="min-w-0 px-6 py-5 overflow-y-auto" onSubmit={handleSubmit}>
+          <div className="grid gap-4">
+            {/* Role */}
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+              Vai trò nhân sự
+              <input
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                placeholder="VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
+                value={form.staff_role}
+                onChange={(e) => setForm((f) => ({ ...f, staff_role: e.target.value }))}
+                disabled={saving}
+              />
+            </label>
+
+            {/* Gate */}
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+              Cổng soát vé / check-in phân công
+              <input
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                placeholder="VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)"
+                value={form.gate}
+                onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
+                disabled={saving}
+              />
+            </label>
+
+            {/* Quick gate pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {GATE_SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    form.gate === suggestion
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-primary/40 hover:text-content'
+                  }`}
+                  onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+
+            {/* Zone / Working area */}
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+              Khu vực làm việc trong sự kiện
+              <input
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                placeholder="VD: Khu VIP, Khán đài A, Khu đứng GA, Tầng 1..."
+                value={form.zone}
+                onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
+                disabled={saving}
+              />
+            </label>
+
+            {/* Quick zone pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {ZONE_SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    form.zone === suggestion
+                      ? 'border-amber-500 bg-amber-500/15 text-amber-500'
+                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-amber-500/40 hover:text-content'
+                  }`}
+                  onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button type="button" className="org-btn-secondary" onClick={onClose} disabled={saving}>
+              Hủy
+            </button>
+            <button type="submit" className="org-btn-primary" disabled={saving}>
+              {saving ? (
+                <><Loader2 className="size-4 animate-spin" /> Đang lưu...</>
+              ) : (
+                'Lưu thay đổi'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── Invite Staff Modal ───────────────────────────────────────────────────────
 
 function InviteStaffModal({
@@ -435,7 +655,13 @@ function InviteStaffModal({
   const initialEventId = events.some((event) => event.id === selectedEventId)
     ? selectedEventId
     : events[0]?.id || ''
-  const [form, setForm] = useState({ event_id: initialEventId, email: '', staff_role: 'Check-in' })
+  const [form, setForm] = useState({
+    event_id: initialEventId,
+    email: '',
+    staff_role: 'Check-in',
+    gate: '',
+    zone: '',
+  })
   const [candidateSearch, setCandidateSearch] = useState('')
   const [candidates, setCandidates] = useState([])
   const [saving, setSaving] = useState(false)
@@ -465,7 +691,13 @@ function InviteStaffModal({
     if (!form.event_id || !form.email.trim()) return
     setSaving(true)
     try {
-      const invitation = await inviteStaffToEvent({ event_id: form.event_id, email: form.email.trim(), staff_role: form.staff_role })
+      const invitation = await inviteStaffToEvent({
+        event_id: form.event_id,
+        email: form.email.trim(),
+        staff_role: form.staff_role.trim() || null,
+        gate: form.gate.trim() || null,
+        zone: form.zone.trim() || null,
+      })
       onInvited(invitation)
     } catch (err) {
       const message = getApiMessage(err, 'Không thể gửi lời mời.')
@@ -477,9 +709,9 @@ function InviteStaffModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4 shrink-0">
           <div className="flex items-center gap-2 font-extrabold text-content">
             <UserPlus className="size-5 text-primary" />
             Mời nhân sự
@@ -491,7 +723,7 @@ function InviteStaffModal({
             <X className="size-4" />
           </button>
         </div>
-        <form className="min-w-0 px-6 py-5" onSubmit={handleSubmit}>
+        <form className="min-w-0 px-6 py-5 overflow-y-auto" onSubmit={handleSubmit}>
           {limitReached && (
             <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
               Gói {subscriptionName} đã đạt giới hạn {perEventLimit} staff/sự kiện.
@@ -569,10 +801,70 @@ function InviteStaffModal({
                 disabled={saving}
               />
             </label>
+
+            {/* Gate */}
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+              Cổng check-in / phân công
+              <input
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                placeholder="VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)"
+                value={form.gate}
+                onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
+                disabled={saving}
+              />
+            </label>
+
+            {/* Quick suggestions for gate */}
+            <div className="flex flex-wrap gap-1.5">
+              {GATE_SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    form.gate === suggestion
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-primary/40 hover:text-content'
+                  }`}
+                  onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+
+            {/* Zone */}
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+              Khu vực làm việc trong sự kiện
+              <input
+                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                placeholder="VD: Khu VIP, Khán đài A, Khu đứng GA, Tầng 1..."
+                value={form.zone}
+                onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
+                disabled={saving}
+              />
+            </label>
+
+            {/* Quick suggestions for zone */}
+            <div className="flex flex-wrap gap-1.5">
+              {ZONE_SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    form.zone === suggestion
+                      ? 'border-amber-500 bg-amber-500/15 text-amber-500'
+                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-amber-500/40 hover:text-content'
+                  }`}
+                  onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
 
           <p className="mt-3 text-xs leading-5 text-muted">
-            Customer sẽ nhận thông báo. Sau khi chấp nhận, họ được gán role STAFF cho sự kiện này.
+            Customer sẽ nhận thông báo kèm cổng và khu vực phân công. Sau khi chấp nhận, họ được gán role STAFF cho sự kiện này.
           </p>
 
           <div className="mt-5 flex justify-end gap-3">

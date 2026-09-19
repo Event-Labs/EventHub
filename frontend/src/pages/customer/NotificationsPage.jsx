@@ -66,8 +66,14 @@ function getStaffInvitationDetails(notification, invitationsById) {
   const meta = parseNotificationContent(notification.content)
   const status = invitation?.status || meta.status || 'PENDING'
   const role = invitation?.staff_role || meta.staff_role || 'Staff'
+  const gate = invitation?.gate || meta.gate || null
+  const zone = invitation?.zone || meta.zone || null
   const eventTitle = invitation?.event_title || notification.event?.title || 'sự kiện'
   const organizationName = invitation?.organization_name || 'Ban tổ chức'
+  const locationParts = []
+  if (gate) locationParts.push(`Cổng ${gate}`)
+  if (zone) locationParts.push(`Khu vực ${zone}`)
+  const locationText = locationParts.length ? ` tại ${locationParts.join(' • ')}` : ''
 
   return {
     ...invitation,
@@ -76,7 +82,7 @@ function getStaffInvitationDetails(notification, invitationsById) {
     event_title: eventTitle,
     status,
     title: 'Lời mời làm staff',
-    content: `${organizationName} mời bạn làm staff cho sự kiện "${eventTitle}" với vai trò ${role}.`,
+    content: `${organizationName} mời bạn làm staff cho sự kiện "${eventTitle}" với vai trò ${role}${locationText}.`,
     expires_at: invitation?.expires_at || meta.expires_at || null,
   }
 }
@@ -394,7 +400,7 @@ export function NotificationsPage() {
                         {acceptInvitationMutation.data?.message || 'Bạn đã nhận lời mời thành công.'}
                       </p>
                       <p className="mt-1 text-muted">
-                        Bạn có thể mở cổng nhân sự để xem sự kiện được giao, công việc và công cụ check-in.
+                        Bạn có thể mở cổng nhân sự để xem sự kiện được giao và sử dụng công cụ check-in.
                       </p>
                     </div>
                   )}

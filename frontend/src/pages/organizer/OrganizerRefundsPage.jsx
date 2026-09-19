@@ -41,6 +41,65 @@ function formatCurrency(value) {
   }).format(value)
 }
 
+const VIETQR_BANK_BINS = {
+  vietcombank: '970436',
+  vcb: '970436',
+  vietinbank: '970415',
+  ctg: '970415',
+  bidv: '970418',
+  agribank: '970405',
+  vba: '970405',
+  mbbank: '970422',
+  mb: '970422',
+  'mb bank': '970422',
+  techcombank: '970407',
+  tcb: '970407',
+  acb: '970416',
+  vpbank: '970432',
+  vpb: '970432',
+  tpbank: '970423',
+  tpb: '970423',
+  vib: '970441',
+  sacombank: '970403',
+  stb: '970403',
+  hdbank: '970437',
+  hdb: '970437',
+  shb: '970443',
+  seabank: '970468',
+  ocb: '970448',
+  msb: '970426',
+  lpbank: '970449',
+  lienvietpostbank: '970449',
+  pvcombank: '970412',
+  bacabank: '970409',
+  namabank: '970428',
+  kienlongbank: '970452',
+  bvbank: '970454',
+  vietcapitalbank: '970454',
+  baovietbank: '970438',
+  saigonbank: '970400',
+  vietbank: '970433',
+  ncb: '970419',
+  shinhanbank: '970424',
+  shinhan: '970424',
+  wooribank: '970457',
+  cake: '546034',
+  timo: '963388',
+  viettelmoney: '971005',
+  vnptmoney: '971011',
+}
+
+function resolveBankBin(bankInput) {
+  if (!bankInput) return null
+  const cleaned = String(bankInput).trim().toLowerCase()
+  if (/^\d{6}$/.test(cleaned)) return cleaned
+  if (VIETQR_BANK_BINS[cleaned]) return VIETQR_BANK_BINS[cleaned]
+  for (const [name, bin] of Object.entries(VIETQR_BANK_BINS)) {
+    if (cleaned.includes(name) || name.includes(cleaned)) return bin
+  }
+  return null
+}
+
 const STATUS_FILTERS = [
   { value: 'ALL', label: 'Tất cả' },
   { value: 'PENDING', label: 'Chờ duyệt' },
@@ -273,11 +332,13 @@ export function OrganizerRefundsPage() {
 function ProcessRefundModal({ item, onClose, onSuccess }) {
   const toast = useToast()
   const isPending = item.status === 'PENDING'
-  const isApproved = item.status === 'APPROVED'
-  const isReadOnly = !isPending && !isApproved
+  const isFailed = item.status === 'FAILED'
+  const isReadOnly = !isPending && !isFailed
 
-  const [decision, setDecision] = useState(isApproved ? 'REFUND' : 'APPROVE') // 'APPROVE' | 'REJECT' | 'REFUND'
-  const [rejectReason, setRejectReason] = useState(item.reject_reason || '')
+  const [decision, setDecision] = useState('APPROVE') // 'APPROVE' | 'REJECT'
+  const [refundMethod, setRefundMethod] = useState('PAYOS') // 'PAYOS' | 'MANUAL_BANK_TRANSFER'
+  const [finalAmount, setFinalAmount] = useState(Number(item.refund_amount || 0))
+  const [rejectReason, setRejectReason] = useState('Không đúng chính sách')
   const [organizerNote, setOrganizerNote] = useState(item.organizer_note || '')
   const [transactionRef, setTransactionRef] = useState(item.transaction_ref || '')
   const [proofUrl, setProofUrl] = useState(item.proof_url || '')
@@ -296,23 +357,56 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
   const handleSubmit = (e) => {
     e.preventDefault()
 
-    if (decision === 'REJECT' && !rejectReason.trim()) {
-      toast.error('Vui lòng nhập lý do từ chối!')
+    if (decision === 'REJECT') {
+      if (!rejectReason) {
+        toast.error('Vui lòng chọn lý do từ chối!')
+        return
+      }
+      if (rejectReason === 'Khác' && !organizerNote.trim()) {
+        toast.error('Vui lòng nhập ghi chú khi chọn lý do "Khác"!')
+        return
+      }
+
+      processMutation.mutate({
+        action: 'REJECT',
+        reject_reason: rejectReason,
+        organizer_note: organizerNote.trim() || undefined,
+      })
       return
     }
 
-    const payload = {
-      action: decision,
-      reject_reason: decision === 'REJECT' ? rejectReason : undefined,
-      organizer_note: organizerNote || undefined,
-      transaction_ref: (decision === 'REFUND' || decision === 'APPROVE') ? transactionRef : undefined,
-      proof_url: proofUrl || undefined,
-    }
+    if (decision === 'APPROVE') {
+      if (refundMethod === 'MANUAL_BANK_TRANSFER') {
+        if (!transactionRef.trim()) {
+          toast.error('Vui lòng nhập Mã giao dịch ngân hàng (Transaction Reference ID)!')
+          return
+        }
+        processMutation.mutate({
+          action: 'REFUND',
+          refund_method: 'MANUAL_BANK_TRANSFER',
+          final_refund_amount: Number(finalAmount) || undefined,
+          transaction_ref: transactionRef.trim(),
+          proof_url: proofUrl.trim() || undefined,
+          organizer_note: organizerNote.trim() || undefined,
+        })
+        return
+      }
 
-    processMutation.mutate(payload)
+      // Automated PayOS Gateway
+      processMutation.mutate({
+        action: 'APPROVE',
+        refund_method: 'PAYOS',
+        final_refund_amount: Number(finalAmount) || undefined,
+        organizer_note: organizerNote.trim() || undefined,
+      })
+    }
   }
 
-  const bankInfo = item.bank_info
+  const bankInfo = item.bank_info || (item.bank_name ? {
+    bank_name: item.bank_name,
+    account_number: item.bank_account_number,
+    account_holder: item.bank_account_name,
+  } : null)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
@@ -324,12 +418,13 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
           <X className="size-5" />
         </button>
 
+        {/* Header Section (Report 3 Item 1) */}
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
             <RotateCcw className="size-6" />
           </div>
           <div>
-            <h3 className="text-xl font-black text-white">Chi tiết yêu cầu hoàn tiền</h3>
+            <h3 className="text-xl font-black text-white">Xử lý yêu cầu hoàn tiền</h3>
             <p className="font-mono text-xs text-slate-400">ID: #{item.id}</p>
           </div>
         </div>
@@ -359,9 +454,6 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
           <div className="sm:col-span-2">
             <span className="text-slate-400">Lý do yêu cầu:</span>
             <p className="mt-1 font-semibold text-slate-200">{item.reason}</p>
-            {item.customer_note && (
-              <p className="mt-1 text-slate-400 italic">"Ghi chú: {item.customer_note}"</p>
-            )}
           </div>
 
           {bankInfo && (
@@ -379,110 +471,196 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
         {/* Action Form */}
         {!isReadOnly ? (
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            {/* Action Decision (Report 3 Item 3) */}
             <div>
-              <label className="block text-xs font-bold text-slate-300">Hành động xử lý</label>
-              <div className="mt-2 grid grid-cols-3 gap-3">
+              <label className="block text-xs font-bold text-slate-300">Quyết định xử lý *</label>
+              <div className="mt-2 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setDecision('APPROVE')}
                   className={`flex items-center justify-center gap-2 rounded-lg border p-3 text-xs font-bold transition ${
                     decision === 'APPROVE'
-                      ? 'border-blue-500 bg-blue-500/20 text-blue-300'
-                      : 'border-white/10 bg-[#162038] text-slate-300'
+                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 shadow-md shadow-emerald-500/10'
+                      : 'border-white/10 bg-[#162038] text-slate-300 hover:border-white/20'
                   }`}
                 >
                   <CheckCircle className="size-4" />
-                  Duyệt yêu cầu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDecision('REFUND')}
-                  className={`flex items-center justify-center gap-2 rounded-lg border p-3 text-xs font-bold transition ${
-                    decision === 'REFUND'
-                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                      : 'border-white/10 bg-[#162038] text-slate-300'
-                  }`}
-                >
-                  <CreditCard className="size-4" />
-                  Đã hoàn tiền ngay
+                  Chấp nhận hoàn tiền
                 </button>
                 <button
                   type="button"
                   onClick={() => setDecision('REJECT')}
                   className={`flex items-center justify-center gap-2 rounded-lg border p-3 text-xs font-bold transition ${
                     decision === 'REJECT'
-                      ? 'border-red-500 bg-red-500/20 text-red-300'
-                      : 'border-white/10 bg-[#162038] text-slate-300'
+                      ? 'border-red-500 bg-red-500/20 text-red-300 shadow-md shadow-red-500/10'
+                      : 'border-white/10 bg-[#162038] text-slate-300 hover:border-white/20'
                   }`}
                 >
                   <XCircle className="size-4" />
-                  Từ chối
+                  Từ chối hoàn tiền
                 </button>
               </div>
             </div>
 
-            {decision === 'REJECT' ? (
-              <div>
-                <label className="block text-xs font-bold text-red-300">Lý do từ chối *</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="Nhập lý do từ chối theo chính sách sự kiện..."
-                  className="mt-1 w-full rounded-lg border border-red-500/30 bg-[#1e293b] p-3 text-xs text-white placeholder-slate-500 focus:border-red-400 focus:outline-none"
-                />
-              </div>
-            ) : (
-              <div className="space-y-3">
+            {decision === 'APPROVE' ? (
+              <div className="space-y-4 rounded-xl border border-white/5 bg-[#162038] p-4">
+                {/* Final Refund Amount (Report 3 Item 4) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Mã giao dịch hoàn tiền (Transaction Ref)</label>
+                  <label className="block text-xs font-semibold text-slate-300">Số tiền hoàn (VND) *</label>
                   <input
-                    type="text"
-                    value={transactionRef}
-                    onChange={(e) => setTransactionRef(e.target.value)}
-                    placeholder="VD: FT260910123456 hoặc mã chuyển khoản ngân hàng"
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-primary focus:outline-none"
+                    type="number"
+                    min="1000"
+                    step="1000"
+                    value={finalAmount}
+                    onChange={(e) => setFinalAmount(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-sm font-bold text-emerald-400 focus:border-primary focus:outline-none"
                   />
                 </div>
+
+                {/* Payment Method Indicator (Report 3 Item 7) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Link ảnh bill / bằng chứng chuyển khoản (Proof URL)</label>
-                  <input
-                    type="text"
-                    value={proofUrl}
-                    onChange={(e) => setProofUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-primary focus:outline-none"
-                  />
+                  <label className="block text-xs font-semibold text-slate-300">Phương thức thực hiện hoàn tiền</label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRefundMethod('PAYOS')}
+                      className={`rounded-lg border p-2.5 text-xs font-semibold transition ${
+                        refundMethod === 'PAYOS'
+                          ? 'border-primary bg-primary/20 text-primary'
+                          : 'border-white/10 bg-[#1e293b] text-slate-300'
+                      }`}
+                    >
+                      ⚡ Cổng thanh toán PayOS (Tự động)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefundMethod('MANUAL_BANK_TRANSFER')}
+                      className={`rounded-lg border p-2.5 text-xs font-semibold transition ${
+                        refundMethod === 'MANUAL_BANK_TRANSFER'
+                          ? 'border-amber-500 bg-amber-500/20 text-amber-300'
+                          : 'border-white/10 bg-[#1e293b] text-slate-300'
+                      }`}
+                    >
+                      🏦 Chuyển khoản thủ công
+                    </button>
+                  </div>
+                </div>
+
+                {refundMethod === 'MANUAL_BANK_TRANSFER' ? (
+                  <div className="space-y-3 pt-2 border-t border-white/10">
+                    {bankInfo?.account_number && (
+                      <div className="rounded-xl border border-white/10 bg-[#121c33] p-3 flex flex-col sm:flex-row items-center gap-3">
+                        <div className="bg-white p-2 rounded-lg shrink-0 shadow">
+                          <img
+                            src={`https://img.vietqr.io/image/${resolveBankBin(bankInfo.bank_name) || '970422'}-${bankInfo.account_number}-compact2.png?amount=${finalAmount || 0}&addInfo=${encodeURIComponent(`Hoan tien ${item.ticket?.ticket_code || item.order?.order_code || ''}`)}&accountName=${encodeURIComponent(bankInfo.account_holder || '')}`}
+                            alt="VietQR Chuyển Khoản"
+                            className="size-32 object-contain"
+                          />
+                        </div>
+                        <div className="space-y-1 text-xs text-slate-300 flex-1 w-full">
+                          <p className="font-bold text-amber-300 text-sm">Quét mã VietQR chuyển tiền</p>
+                          <p className="text-[11px] text-slate-400">Mở ứng dụng ngân hàng của bạn quét mã để chuyển trực tiếp đến tài khoản khách hàng:</p>
+                          <div className="pt-1 space-y-0.5 font-medium text-[11px]">
+                            <div>Ngân hàng: <span className="text-white font-bold">{bankInfo.bank_name}</span></div>
+                            <div>Số tài khoản: <span className="font-mono text-amber-300 font-bold">{bankInfo.account_number}</span></div>
+                            <div>Chủ tài khoản: <span className="text-white font-bold">{bankInfo.account_holder || 'N/A'}</span></div>
+                            <div>Số tiền: <span className="text-emerald-400 font-bold">{formatCurrency(finalAmount)}</span></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs font-semibold text-amber-300">
+                        Mã giao dịch chuyển khoản (Transaction Reference ID) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={transactionRef}
+                        onChange={(e) => setTransactionRef(e.target.value)}
+                        placeholder="VD: FT260910123456 hoặc mã giao dịch ngân hàng..."
+                        className="mt-1 w-full rounded-lg border border-amber-500/30 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300">
+                        Link ảnh biên lai chuyển khoản (Proof of Payment URL)
+                      </label>
+                      <input
+                        type="text"
+                        value={proofUrl}
+                        onChange={(e) => setProofUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 text-xs text-primary-soft">
+                    <p className="font-semibold text-primary">Quy trình hoàn tiền tự động qua PayOS (Chi hộ):</p>
+                    <p className="mt-1 text-slate-300 leading-relaxed">
+                      Hệ thống sẽ gọi PayOS Payouts API để chuyển tiền tự động đến tài khoản ngân hàng của khách hàng. Vé sẽ lập tức bị hủy vĩnh viễn và ghế sẽ được mở khóa lại.
+                    </p>
+                    <p className="mt-2 rounded bg-amber-500/10 border border-amber-500/20 p-2 text-[11px] text-amber-200">
+                      💡 <b>Lưu ý:</b> PayOS chỉ nhận tiền vào tài khoản ngân hàng qua VietQR và không hỗ trợ hoàn tiền đảo chiều trực tiếp trên link thanh toán. Tính năng tự động yêu cầu tài khoản PayOS của Ban tổ chức đã kích hoạt dịch vụ <b>Chi hộ (Payout)</b> và có số dư ví chi. Nếu chưa kích hoạt Chi hộ, vui lòng chọn <b>Chuyển khoản thủ công</b> bên cạnh.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                {/* Rejection Reason Dropdown (Report 3 Item 5) */}
+                <div>
+                  <label className="block text-xs font-bold text-red-300">Lý do từ chối *</label>
+                  <select
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-red-500/30 bg-[#1e293b] px-3 py-2 text-xs text-white focus:border-red-400 focus:outline-none"
+                  >
+                    <option value="Không đúng chính sách">Không đúng chính sách</option>
+                    <option value="Vé đã qua sử dụng">Vé đã qua sử dụng</option>
+                    <option value="Lý do không hợp lý">Lý do không hợp lý</option>
+                    <option value="Khác">Khác</option>
+                  </select>
                 </div>
               </div>
             )}
 
+            {/* Organizer Note (Report 3 Item 6) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300">Ghi chú của BTC gửi khách hàng (Tùy chọn)</label>
+              <label className="block text-xs font-semibold text-slate-300">
+                Ghi chú của BTC gửi khách hàng {decision === 'REJECT' && rejectReason === 'Khác' && <span className="text-red-400">*</span>}
+              </label>
               <textarea
                 rows={2}
+                maxLength={500}
+                required={decision === 'REJECT' && rejectReason === 'Khác'}
                 value={organizerNote}
                 onChange={(e) => setOrganizerNote(e.target.value)}
-                placeholder="Ghi chú thêm gửi đến khách hàng..."
+                placeholder={decision === 'REJECT' && rejectReason === 'Khác' ? 'Vui lòng nêu rõ lý do từ chối (bắt buộc)...' : 'Ghi chú thêm gửi đến khách hàng (tối đa 500 ký tự)...'}
                 className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] p-3 text-xs text-white placeholder-slate-500 focus:border-primary focus:outline-none"
               />
             </div>
 
+            {/* Footer Buttons (Report 3 Items 10 & 11) */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
               <button
                 type="button"
                 onClick={onClose}
                 className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-white/10 hover:text-white"
               >
-                Hủy
+                Hủy bỏ
               </button>
               <button
                 type="submit"
                 disabled={processMutation.isPending}
-                className="rounded-lg bg-primary px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-primary-hover disabled:opacity-50"
+                className={`rounded-lg px-5 py-2.5 text-xs font-bold transition disabled:opacity-50 ${
+                  decision === 'APPROVE'
+                    ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                    : 'bg-red-500 text-white hover:bg-red-400'
+                }`}
               >
-                {processMutation.isPending ? 'Đang cập nhật...' : 'Xác nhận xử lý'}
+                {processMutation.isPending ? 'Đang xử lý...' : 'Xác nhận'}
               </button>
             </div>
           </form>
