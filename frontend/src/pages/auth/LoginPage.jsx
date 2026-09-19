@@ -153,10 +153,11 @@ export function LoginPage() {
 
   return (
     <AuthShell>
-      <div className="glass-panel mx-auto w-full max-w-md rounded-lg p-7 shadow-2xl">
+      <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
         <div className="text-center">
           <AuthLogo />
-          <p className="mt-2 text-muted">
+          <p className="mt-3 text-sm font-medium text-slate-300">
             Đăng nhập để tiếp tục đặt vé và quản lý sự kiện
           </p>
         </div>
@@ -217,6 +218,13 @@ export function LoginPage() {
                 onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
               />
               <button
+                type="submit"
+                disabled={loading || otp.length !== 6}
+                className="cosmic-btn-primary w-full"
+              >
+                {loading ? 'Đang xử lý...' : 'Xác thực OTP'}
+              </button>
+              <button
                 type="button"
                 onClick={() => {
                   setOtpStep(null)
@@ -271,7 +279,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || (otpStep && otp.length !== 6)}
-                className="w-full rounded-md bg-tertiary py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+                className="cosmic-btn-primary w-full py-3.5 text-[15px]"
               >
                 {loading ? 'Đang đăng nhập...' : (otpStep ? 'Xác thực OTP' : 'Đăng nhập')}
               </button>
@@ -313,13 +321,14 @@ export function AuthLogo() {
 
 export function AuthShell({ children }) {
   return (
-    <div className="relative flex min-h-[calc(100vh-64px)] items-center justify-center overflow-hidden px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
       <img
         src={heroImage}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover opacity-60 mix-blend-overlay"
       />
-      <div className="absolute inset-0 bg-background/88 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/90 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-20" />
       <div className="relative z-10 w-full">{children}</div>
     </div>
   )
@@ -331,21 +340,21 @@ export function Field({ icon: Icon, trailing: Trailing, label, ...props }) {
 
   return (
     <label className="block space-y-2">
-      <span className="text-sm font-semibold text-muted">{label}</span>
+      <span className="mb-2 inline-block text-sm font-bold text-white">{label}</span>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+        <Icon className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
         <input
           {...props}
           type={isPassword ? (showPassword ? 'text' : 'password') : props.type}
-          className="w-full rounded-md border border-border-soft bg-surface py-3 pl-10 pr-10 text-content outline-none focus:border-primary"
+          className="cosmic-input pl-12 pr-12"
         />
         {isPassword && Trailing && (
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary outline-none"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary outline-none transition-colors"
           >
-            <Trailing className="size-4" />
+            <Trailing className="size-5" />
           </button>
         )}
       </div>

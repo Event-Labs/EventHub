@@ -688,7 +688,7 @@ export function ManualCheckInPage() {
 
   return (
     <StaffPage
-      title="Check-in thủ công"
+      title="Check-in Thủ công"
       description="Chọn sự kiện để tải danh sách vé, sau đó có thể lọc thêm theo thông tin vé hoặc người mua."
     >
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">

@@ -16,9 +16,10 @@ import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWi
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const centerNavItems = [
-  ['Sự kiện', '/events'],
-  ['Vé của tôi', '/my-tickets'],
-  ['Phản hồi', '/feedback'],
+  ['Khám phá sự kiện', '/events', false],
+  ['Sự kiện yêu thích', '/favorites', true],
+  ['Vé của tôi', '/my-tickets', true],
+  ['Phản hồi', '/feedback', true],
 ]
 
 const footerSections = [
@@ -106,6 +107,7 @@ export function AppLayout() {
   const { pathname } = useLocation()
   const navRef = useRef(null)
   const navRefs = useRef({})
+  const userActionsRef = useRef(null)
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, visible: false })
   const activeNavPath = centerNavItems.find(([, to]) => pathname === to || pathname.startsWith(`${to}/`))?.[1]
 
@@ -125,6 +127,17 @@ export function AppLayout() {
       window.removeEventListener('storage', syncAuth)
       window.removeEventListener('eventhub-auth', syncAuth)
     }
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userActionsRef.current && !userActionsRef.current.contains(event.target)) {
+        setOpen(false)
+        setNotificationOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const logout = () => {
@@ -237,12 +250,22 @@ export function AppLayout() {
   const canOpenStaffPortal = hasStaffRole
     && (!staffEventsQuery.isSuccess || (staffEventsQuery.data || []).length > 0)
 
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      document.documentElement.style.setProperty('--mouse-x', `${e.clientX}px`);
+      document.documentElement.style.setProperty('--mouse-y', `${e.clientY}px`);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   return (
-    <div className="flex min-h-screen flex-col bg-background text-content">
-      <header className="sticky top-0 z-50 border-b border-primary/15 bg-[#081126]/95 shadow-xl backdrop-blur">
-        <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col text-content bg-transparent">
+      <div className="pointer-events-none fixed inset-0 z-50 transition-opacity duration-300 mouse-glow-overlay" />
+      <header className="fixed top-4 left-0 right-0 z-50 mx-auto w-[96%] max-w-7xl rounded-full border border-border-soft bg-panel/70 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300">
+        <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
-            <img src={logoSrc} alt="EventHub" className="h-10 w-[176px] object-cover object-center mix-blend-screen" />
+            <img src={logoSrc} alt="EventHub" className="h-12 w-auto object-contain mix-blend-screen" />
           </NavLink>
 
           <nav ref={navRef} className="relative hidden items-center justify-center gap-1 md:flex">
@@ -254,18 +277,19 @@ export function AppLayout() {
                 opacity: navIndicator.visible ? 1 : 0,
               }}
             />
-            {centerNavItems.map(([label, to]) => (
-              <NavLink
-                key={to}
-                to={to}
-                ref={(node) => {
-                  navRefs.current[to] = node
-                }}
-                className={navLinkClass}
-              >
-                {label}
-              </NavLink>
-            ))}
+            {centerNavItems.map(([label, to, requiresAuth]) => {
+              if (requiresAuth && !loggedIn) return null;
+              return (
+                <NavLink
+                  key={label}
+                  to={to}
+                  ref={(el) => (navRefs.current[to] = el)}
+                  className={navLinkClass}
+                >
+                  {label}
+                </NavLink>
+              )
+            })}
           </nav>
 
           {!loggedIn ? (
@@ -284,7 +308,7 @@ export function AppLayout() {
               </NavLink>
             </div>
           ) : (
-            <div className="relative flex items-center gap-3">
+            <div ref={userActionsRef} className="relative flex items-center gap-3">
               {canOpenOrganizerPortal && (
                 <NavLink
                   to="/organizer"
@@ -337,7 +361,7 @@ export function AppLayout() {
                 />
               </button>
               {notificationOpen && (
-                <div className="absolute right-12 top-12 w-[360px] overflow-hidden rounded-lg border border-border-soft bg-panel shadow-2xl">
+                <div className="absolute right-12 top-full mt-4 w-[360px] overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl">
                   <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
                     <div>
                       <p className="font-display text-lg font-bold text-white">Thông báo</p>
@@ -393,61 +417,55 @@ export function AppLayout() {
                 </div>
               )}
               {open && (
-                <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-lg border border-border-soft bg-panel shadow-2xl">
-                  {canOpenOrganizerPortal && (
+                <div className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl">
+                  <div className="py-1">
                     <NavLink
-                      className="block px-4 py-3 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
-                      to="/organizer"
+                      className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
+                      to="/profile"
                       onClick={() => setOpen(false)}
                     >
-                      Quay lại trang tổ chức
+                      Hồ sơ cá nhân
                     </NavLink>
-                  )}
-                  {canOpenStaffPortal && (
-                    <NavLink
-                      className="block px-4 py-3 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
-                      to="/staff"
-                      onClick={() => setOpen(false)}
+                  </div>
+
+                  <div className="border-t border-border-soft py-1">
+                    {canOpenOrganizerPortal && (
+                      <NavLink
+                        className="block px-4 py-2 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
+                        to="/organizer"
+                        onClick={() => setOpen(false)}
+                      >
+                        Quay lại trang tổ chức
+                      </NavLink>
+                    )}
+                    {canOpenStaffPortal && (
+                      <NavLink
+                        className="block px-4 py-2 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
+                        to="/staff"
+                        onClick={() => setOpen(false)}
+                      >
+                        Quay lại trang nhân sự
+                      </NavLink>
+                    )}
+                    {!canOpenOrganizerPortal && (
+                      <NavLink
+                        className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
+                        to="/organizer-request"
+                        onClick={() => setOpen(false)}
+                      >
+                        Đăng ký làm Ban Tổ Chức
+                      </NavLink>
+                    )}
+                  </div>
+
+                  <div className="border-t border-border-soft py-1">
+                    <button
+                      className="block w-full px-4 py-2 text-left text-sm font-semibold text-error hover:bg-error/10"
+                      onClick={logout}
                     >
-                      Quay lại trang nhân sự
-                    </NavLink>
-                  )}
-                  <NavLink
-                    className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
-                    to="/profile"
-                    onClick={() => setOpen(false)}
-                  >
-                    Hồ sơ cá nhân
-                  </NavLink>
-                  <NavLink
-                    className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
-                    to="/my-tickets"
-                    onClick={() => setOpen(false)}
-                  >
-                    Vé của tôi
-                  </NavLink>
-                  <NavLink
-                    className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
-                    to="/favorites"
-                    onClick={() => setOpen(false)}
-                  >
-                    Sự kiện yêu thích
-                  </NavLink>
-                  {!canOpenOrganizerPortal && (
-                    <NavLink
-                      className="block px-4 py-3 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
-                      to="/organizer-request"
-                      onClick={() => setOpen(false)}
-                    >
-                      Đăng kí làm organizer
-                    </NavLink>
-                  )}
-                  <button
-                    className="block w-full px-4 py-3 text-left text-sm font-semibold text-error hover:bg-error/10"
-                    onClick={logout}
-                  >
-                    Đăng xuất
-                  </button>
+                      Đăng xuất
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -455,18 +473,19 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className="flex-1">
+      <main className={`flex-1 ${pathname === '/' ? '' : 'pt-16'}`}>
         <Outlet />
       </main>
-      <footer className="border-t border-primary/15 bg-[#081126]">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
+      <footer className="relative border-t border-border-soft bg-panel-soft/30 backdrop-blur-md">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_70%)] opacity-[0.03]" />
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
-            <img src={logoSrc} alt="EventHub" className="h-12 w-[212px] object-cover object-center mix-blend-screen" />
-            <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
+            <img src={logoSrc} alt="EventHub" className="h-10 w-auto object-contain mix-blend-screen" />
+            <p className="mt-4 max-w-sm text-sm leading-6 text-subtle">
               Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành và soát vé bằng mã QR
               và hỗ trợ ban tổ chức bằng AI.
             </p>
-            <p className="mt-5 text-xs text-neutral">
+            <p className="mt-6 text-xs text-neutral">
               © 2026 EventHub. Bảo lưu mọi quyền.
             </p>
           </div>

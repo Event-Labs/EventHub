@@ -22,8 +22,6 @@ import { uploadPolicyDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, Page, Panel, Row, Table } from './AdminComponents.jsx'
 
-const primaryActionClass =
-  'inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
 
 const PAGE_SIZE = 10
 
@@ -169,12 +167,12 @@ export function AdminFinancePage() {
 
   return (
     <Page
-      title="Chính sách nền tảng"
+      title="Chính sách Nền tảng"
       description="Quản lý chính sách nền tảng, điều khoản và tài liệu PDF đang áp dụng cho hệ thống"
       actions={
         <button
           type="button"
-          className={primaryActionClass}
+          className="admin-primary"
           onClick={openCreatePolicy}
         >
           <Plus className="size-4" />
@@ -499,7 +497,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
           <input type="checkbox" checked={form.is_public} onChange={(event) => setForm({ ...form, is_public: event.target.checked })} className="size-4 accent-primary" />
           Công khai tài liệu
         </label>
-        <button type="submit" disabled={uploadMutation.isPending} className={`${primaryActionClass} lg:justify-self-end`}>
+        <button type="submit" disabled={uploadMutation.isPending} className="admin-primary lg:justify-self-end">
           <Upload className="size-4" /> {uploadMutation.isPending ? 'Đang tải lên...' : 'Tải lên'}
         </button>
       </form>
@@ -636,7 +634,7 @@ function FormActions({ isSaving, onCancel }) {
   return (
     <div className="flex justify-end gap-3 border-t border-border-soft/30 pt-4">
       <button type="button" onClick={onCancel} className="admin-secondary">Hủy</button>
-      <button type="submit" disabled={isSaving} className={primaryActionClass}>{isSaving ? 'Đang lưu...' : 'Lưu'}</button>
+      <button type="submit" disabled={isSaving} className="admin-primary">{isSaving ? 'Đang lưu...' : 'Lưu'}</button>
     </div>
   )
 }

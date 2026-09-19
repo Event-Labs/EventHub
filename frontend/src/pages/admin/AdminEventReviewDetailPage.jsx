@@ -43,11 +43,13 @@ function formatDate(value) {
 function StatusBanner({ recommendation }) {
   if (recommendation === 'APPROVE') {
     return (
-      <div className="mb-4 flex items-start gap-3 rounded-2xl border border-success/30 bg-success/10 p-4">
-        <CheckCircle2 className="mt-0.5 size-5 text-success" />
+      <div className="mb-5 flex items-start gap-4 rounded-[24px] border border-success/20 bg-success/5 p-5 shadow-[inset_0_0_20px_rgba(34,197,94,0.05)] backdrop-blur-sm transition-all hover:bg-success/10">
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-success/20 text-success ring-1 ring-success/30">
+          <CheckCircle2 className="size-5" />
+        </div>
         <div>
-          <h4 className="font-display font-extrabold text-success">Đủ điều kiện phê duyệt</h4>
-          <p className="mt-1 text-sm text-success/80">
+          <h4 className="font-display text-sm font-black text-success drop-shadow-sm">Đủ điều kiện phê duyệt</h4>
+          <p className="mt-1 text-xs font-medium text-success/80">
             Sự kiện không vi phạm chính sách và đầy đủ thông tin cần thiết.
           </p>
         </div>
@@ -57,11 +59,13 @@ function StatusBanner({ recommendation }) {
 
   if (recommendation === 'REJECT') {
     return (
-      <div className="mb-4 flex items-start gap-3 rounded-2xl border border-error/30 bg-error/10 p-4">
-        <Ban className="mt-0.5 size-5 text-error" />
+      <div className="mb-5 flex items-start gap-4 rounded-[24px] border border-error/20 bg-error/5 p-5 shadow-[inset_0_0_20px_rgba(239,68,68,0.05)] backdrop-blur-sm transition-all hover:bg-error/10">
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-error/20 text-error ring-1 ring-error/30">
+          <Ban className="size-5" />
+        </div>
         <div>
-          <h4 className="font-display font-extrabold text-error">Nguy cơ vi phạm cao</h4>
-          <p className="mt-1 text-sm text-error/80">
+          <h4 className="font-display text-sm font-black text-error drop-shadow-sm">Nguy cơ vi phạm cao</h4>
+          <p className="mt-1 text-xs font-medium text-error/80">
             AI phát hiện các vấn đề nghiêm trọng. Đề xuất từ chối hoặc kiểm tra kỹ lưỡng.
           </p>
         </div>
@@ -71,11 +75,13 @@ function StatusBanner({ recommendation }) {
 
   // Default: NEEDS_REVIEW
   return (
-    <div className="mb-4 flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 p-4">
-      <AlertTriangle className="mt-0.5 size-5 text-warning" />
+    <div className="mb-5 flex items-start gap-4 rounded-[24px] border border-warning/20 bg-warning/5 p-5 shadow-[inset_0_0_20px_rgba(245,158,11,0.05)] backdrop-blur-sm transition-all hover:bg-warning/10">
+      <div className="grid size-10 shrink-0 place-items-center rounded-full bg-warning/20 text-warning ring-1 ring-warning/30">
+        <AlertTriangle className="size-5" />
+      </div>
       <div>
-        <h4 className="font-display font-extrabold text-warning">Cần xem xét thủ công</h4>
-        <p className="mt-1 text-sm text-warning/80">
+        <h4 className="font-display text-sm font-black text-warning drop-shadow-sm">Cần xem xét thủ công</h4>
+        <p className="mt-1 text-xs font-medium text-warning/80">
           Sự kiện thiếu một số thông tin hoặc có mâu thuẫn nhỏ.
         </p>
       </div>
@@ -89,22 +95,24 @@ function WarningCard({ warning, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full cursor-pointer items-start gap-3 rounded-xl border p-4 text-left transition hover:bg-panel-soft ${
-        isHigh ? 'border-error/30 bg-error/[0.02]' : 'border-warning/30 bg-warning/[0.02]'
+      className={`group flex w-full cursor-pointer items-start gap-4 rounded-[20px] border p-4 text-left shadow-inner transition-all hover:-translate-y-0.5 ${
+        isHigh 
+          ? 'border-error/20 bg-error/[0.03] hover:bg-error/10 hover:border-error/40' 
+          : 'border-warning/20 bg-warning/[0.03] hover:bg-warning/10 hover:border-warning/40'
       }`}
     >
-      <div className="mt-0.5 grid shrink-0 place-items-center">
+      <div className={`grid size-10 shrink-0 place-items-center rounded-xl transition-colors ${isHigh ? 'bg-error/10 text-error group-hover:bg-error/20' : 'bg-warning/10 text-warning group-hover:bg-warning/20'}`}>
         {isHigh ? (
-          <ShieldAlert className="size-5 text-error" />
+          <ShieldAlert className="size-5" />
         ) : (
-          <AlertTriangle className="size-5 text-warning" />
+          <AlertTriangle className="size-5" />
         )}
       </div>
       <div>
-        <h5 className={`text-sm font-bold ${isHigh ? 'text-error' : 'text-warning'}`}>
+        <h5 className={`text-[13px] font-black tracking-tight drop-shadow-sm ${isHigh ? 'text-error' : 'text-warning'}`}>
           {warning.type || 'Cảnh báo'}
         </h5>
-        <p className="mt-1 text-[13px] leading-relaxed text-subtle">{warning.message}</p>
+        <p className="mt-1 text-xs font-medium leading-relaxed text-slate-300">{warning.message}</p>
       </div>
     </button>
   )
@@ -264,32 +272,32 @@ export function AdminEventReviewDetailPage() {
 
   const isPending = reviewMutation.isPending
   const isPendingReview = event?.status === 'PENDING_REVIEW'
+  const customScrollbar = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
 
-  // -------------------------------------------------------------------------
-  // Main Render
-  // -------------------------------------------------------------------------
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-bg">
+    <div className="flex h-[calc(100vh-130px)] flex-col overflow-hidden bg-slate-950 rounded-[32px] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.3)]">
       {/* Top Header */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-soft px-6 bg-panel">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/admin/events/review')}
-            className="grid size-9 place-items-center rounded-xl transition hover:bg-panel-soft"
-          >
-            <ArrowLeft className="size-5" />
-          </button>
-          <h1 className="font-display text-xl font-extrabold truncate max-w-xl">
-            {event.title}
-          </h1>
-          <Badge tone="blue">{event.status}</Badge>
-        </div>
-      </header>
+      <div className="shrink-0 p-6 pb-2 relative z-20">
+        <header className="flex h-16 items-center justify-between rounded-full border border-white/10 bg-slate-900/60 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/admin/events/review')}
+              className="grid size-10 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white shadow-inner"
+            >
+              <ArrowLeft className="size-5" />
+            </button>
+            <h1 className="font-display text-xl font-black text-white drop-shadow-sm truncate max-w-xl">
+              {event.title}
+            </h1>
+            <Badge tone="blue">{event.status}</Badge>
+          </div>
+        </header>
+      </div>
 
       {/* Main Split Screen */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Column: Event Details */}
-        <div className={`overflow-y-auto p-6 scrollbar-thin ${isPendingReview ? 'w-[60%]' : 'w-full max-w-5xl mx-auto'}`}>
+        <div className={`overflow-y-auto p-6 ${customScrollbar} ${isPendingReview ? 'w-[60%] rounded-bl-[32px]' : 'w-full max-w-5xl mx-auto rounded-b-[32px]'}`}>
           {!isPendingReview && event.review_note && (
             <div className={`mb-6 p-4 rounded-xl border ${event.status === 'REJECTED' ? 'bg-error/10 border-error/20 text-error' : event.status === 'HIDDEN' ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-panel-soft border-border-soft text-content'}`}>
               <h3 className="font-bold mb-1">Ghi chú từ quản trị viên:</h3>
@@ -297,13 +305,15 @@ export function AdminEventReviewDetailPage() {
             </div>
           )}
 
-          <Panel className="mb-6 p-0 overflow-hidden">
+          <div className="mb-8 overflow-hidden rounded-[32px] border border-white/5 bg-white/[0.02] shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl">
             {event.banner_url ? (
-              <img
-                src={event.banner_url}
-                alt="Banner"
-                className="h-64 w-full object-cover"
-              />
+              <div className="p-4 pb-0">
+                <img
+                  src={event.banner_url}
+                  alt="Banner"
+                  className="h-72 w-full rounded-[24px] object-cover shadow-inner"
+                />
+              </div>
             ) : (
               <div className="h-64">
                 <ImagePlaceholder />
@@ -321,36 +331,40 @@ export function AdminEventReviewDetailPage() {
                 </Badge>
               </div>
 
-              <h2 className="mb-2 font-display text-2xl font-extrabold text-content">
-                {event.title}
-              </h2>
-              {event.short_description && (
-                <p className="mb-6 text-base text-subtle">{event.short_description}</p>
-              )}
+                <h2 className="mb-2 font-display text-3xl font-black tracking-tight text-white drop-shadow-md">
+                  {event.title}
+                </h2>
+                {event.short_description && (
+                  <p className="mb-8 text-base font-medium text-slate-400">{event.short_description}</p>
+                )}
 
               <div className="mb-8 grid gap-4 sm:grid-cols-2">
-                <div className="flex items-start gap-3 rounded-xl border border-border-soft/60 p-4">
-                  <Calendar className="mt-0.5 size-5 text-tertiary" />
+                <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04]">
+                  <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
+                    <Calendar className="size-6" />
+                  </div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-subtle">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                       Thời gian
                     </p>
-                    <p className="mt-1 text-sm font-medium">
-                      Bắt đầu: {formatDate(event.start_time)}
+                    <p className="mt-1 text-sm font-bold text-white">
+                      Bắt đầu: <span className="font-semibold text-slate-300">{formatDate(event.start_time)}</span>
                     </p>
-                    <p className="text-sm font-medium">
-                      Kết thúc: {formatDate(event.end_time)}
+                    <p className="text-sm font-bold text-white">
+                      Kết thúc: <span className="font-semibold text-slate-300">{formatDate(event.end_time)}</span>
                     </p>
                   </div>
                 </div>
                 {!isOnline && (
-                  <div className="flex items-start gap-3 rounded-xl border border-border-soft/60 p-4">
-                    <MapPin className="mt-0.5 size-5 text-tertiary" />
+                  <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04]">
+                    <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/20">
+                      <MapPin className="size-6" />
+                    </div>
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-subtle">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                         Địa điểm
                       </p>
-                      <p className="mt-1 text-sm font-medium">
+                      <p className="mt-1 text-sm font-medium text-slate-300">
                         (Cần join bảng venue để hiển thị tên và địa chỉ)
                       </p>
                     </div>
@@ -358,46 +372,48 @@ export function AdminEventReviewDetailPage() {
                 )}
               </div>
 
-              <div className="mb-8">
-                <h3 className="mb-4 font-display text-lg font-extrabold text-content">
+              <div className="mb-10">
+                <h3 className="mb-5 font-display text-lg font-black text-white drop-shadow-sm">
                   Mô tả chi tiết
                 </h3>
                 {event.description ? (
                   <div
-                    className="prose prose-sm max-w-none text-subtle"
+                    className="prose prose-sm prose-invert max-w-none text-slate-300"
                     dangerouslySetInnerHTML={{ __html: event.description }}
                   />
                 ) : (
-                  <p className="text-sm italic text-subtle">Không có mô tả.</p>
+                  <p className="text-sm italic text-slate-500">Không có mô tả.</p>
                 )}
               </div>
 
               {/* Extra Details */}
               <div className="space-y-6">
                 {/* Event Permits Section */}
-                <div className="rounded-2xl border border-border-soft bg-surface p-5 shadow-sm space-y-3">
+                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-display text-sm font-extrabold text-content flex items-center gap-2">
-                      <ShieldCheck className="size-4 text-tertiary" />
+                    <h4 className="font-display text-sm font-black text-white flex items-center gap-3">
+                      <div className="grid size-8 place-items-center rounded-lg bg-tertiary/10 ring-1 ring-tertiary/20">
+                        <ShieldCheck className="size-4 text-tertiary" />
+                      </div>
                       Giấy phép tổ chức sự kiện & Giấy tờ pháp lý
                     </h4>
-                    <span className="text-xs font-bold text-subtle">
+                    <span className="text-xs font-bold text-slate-400">
                       {event.refund_policy?.permit_files?.length || 0} tài liệu
                     </span>
                   </div>
 
                   {event.refund_policy?.permit_files?.length > 0 ? (
-                    <div className="grid gap-2.5 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {event.refund_policy.permit_files.map((file) => (
                         <div
                           key={file.id || file.url}
-                          className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/60 text-xs"
+                          className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 text-xs shadow-inner"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
                             <FileText className="size-4 text-tertiary shrink-0" />
                             <div className="min-w-0">
-                              <p className="font-bold text-content truncate">{file.name}</p>
-                              <p className="text-[11px] text-muted">
+                              <p className="font-bold text-white truncate">{file.name}</p>
+                              <p className="text-[11px] text-slate-400">
                                 {file.size ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : ''}
                               </p>
                             </div>
@@ -406,7 +422,7 @@ export function AdminEventReviewDetailPage() {
                             href={file.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-surface border border-border-soft text-xs font-bold text-tertiary hover:bg-panel-soft transition shrink-0"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-tertiary hover:bg-white/10 transition shrink-0"
                           >
                             <span>Xem file</span>
                             <ExternalLink className="size-3" />
@@ -415,7 +431,7 @@ export function AdminEventReviewDetailPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-warning/10 border border-warning/20 text-xs text-warning">
+                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-warning/10 border border-warning/20 text-[13px] font-medium text-warning shadow-inner">
                       <AlertTriangle className="size-4 shrink-0" />
                       <span>Sự kiện chưa đính kèm giấy phép tổ chức hoặc tài liệu pháp lý liên quan.</span>
                     </div>
@@ -423,17 +439,19 @@ export function AdminEventReviewDetailPage() {
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-border-soft bg-surface p-5 shadow-sm space-y-3">
-                    <h4 className="font-display text-sm font-extrabold text-content flex items-center gap-2">
-                      <FileText className="size-4 text-tertiary" />
+                  <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
+                    <h4 className="font-display text-sm font-black text-white flex items-center gap-3">
+                      <div className="grid size-8 place-items-center rounded-lg bg-blue-500/10 ring-1 ring-blue-500/20">
+                        <FileText className="size-4 text-blue-400" />
+                      </div>
                       Chính sách & Điều khoản tham dự
                     </h4>
 
                     {event.refund_policy?.policy_file_url && (
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/60 text-xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="size-4 text-blue-500 shrink-0" />
-                          <span className="font-bold text-content truncate">
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 text-xs shadow-inner">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText className="size-4 text-blue-400 shrink-0" />
+                          <span className="font-bold text-white truncate">
                             {event.refund_policy.policy_file_name || 'File chính sách sự kiện'}
                           </span>
                         </div>
@@ -441,7 +459,7 @@ export function AdminEventReviewDetailPage() {
                           href={event.refund_policy.policy_file_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-bold text-tertiary hover:underline shrink-0"
+                          className="inline-flex items-center gap-1.5 text-[13px] font-bold text-tertiary hover:underline shrink-0"
                         >
                           <span>Tải về</span>
                           <ExternalLink className="size-3" />
@@ -450,46 +468,64 @@ export function AdminEventReviewDetailPage() {
                     )}
 
                     {event.additional_terms ? (
-                      <div className="p-3 rounded-xl bg-panel-soft border border-border-soft/60 text-xs text-subtle whitespace-pre-wrap max-h-40 overflow-y-auto">
+                      <div className={`p-4 rounded-xl bg-black/20 border border-white/5 text-[13px] font-medium text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto shadow-inner ${customScrollbar}`}>
                         {event.additional_terms}
                       </div>
                     ) : (
-                      <p className="text-xs italic text-muted">Không có điều khoản bổ sung bằng văn bản.</p>
+                      <p className="text-[13px] italic text-slate-500">Không có điều khoản bổ sung bằng văn bản.</p>
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-border-soft bg-surface p-5 shadow-sm space-y-3">
-                    <h4 className="font-display text-sm font-extrabold text-content">
+                  <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
+                    <h4 className="font-display text-sm font-black text-white flex items-center gap-3">
+                       <div className="grid size-8 place-items-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
+                         <Info className="size-4 text-indigo-400" />
+                       </div>
                       Quy định ghế ngồi & Kỹ thuật
                     </h4>
-                    <pre className="rounded-xl border border-border-soft bg-panel-soft p-3 text-xs text-subtle overflow-x-auto whitespace-pre-wrap break-all max-h-40">
-                      {JSON.stringify(event.seating_rules, null, 2)}
-                    </pre>
+                    <div className="rounded-xl bg-black/20 p-4 shadow-inner border border-white/5">
+                      {event.seating_rules && Object.keys(event.seating_rules).length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(event.seating_rules).map(([key, value]) => (
+                            <div key={key} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 border border-white/5">
+                              <span className="text-[11px] font-bold text-slate-400">{key}</span>
+                              <Badge tone={value === true ? 'green' : value === false ? 'red' : 'indigo'}>
+                                {String(value)}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[13px] italic text-slate-500">Không có quy định.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </Panel>
+          </div>
         </div>
 
-        {/* Right Column: AI Assistant & Actions (40%) - ONLY FOR PENDING_REVIEW */}
+        {/* Right Column: AI Assistant & Actions - ONLY FOR PENDING_REVIEW */}
         {isPendingReview && (
-          <div className="flex w-[40%] flex-col border-l border-border-soft bg-panel-soft">
+          <div className="flex w-[360px] lg:w-[400px] shrink-0 flex-col border-l border-white/5 bg-slate-900/40 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] rounded-br-[32px]">
           {/* AI Info Area */}
-          <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-            <div className="mb-6 flex items-center gap-2">
-              <SparklesIcon className="size-5 text-purple-500" />
-              <h2 className="font-display text-lg font-extrabold text-content">
-                AI Assistant Review
+          <div className={`flex-1 overflow-y-auto p-6 ${customScrollbar}`}>
+            <div className="mb-6 flex items-center gap-3">
+              <div className="grid size-9 place-items-center rounded-xl bg-purple-500/10 ring-1 ring-purple-500/20">
+                <SparklesIcon className="size-4 text-purple-400" />
+              </div>
+              <h2 className="font-display text-[15px] font-black text-white drop-shadow-sm tracking-tight uppercase">
+                AI Assistant
               </h2>
             </div>
 
             <StatusBanner recommendation={aiReview.recommendation} />
 
             <div className="mt-8">
-              <h3 className="mb-4 font-display text-sm font-extrabold text-content flex items-center gap-2">
-                <Info className="size-4 text-subtle" />
-                Kết quả kiểm tra ({aiReview.warnings?.length || 0} vấn đề)
+              <h3 className="mb-4 font-display text-[13px] font-black text-white flex items-center gap-2 tracking-wide uppercase">
+                <Info className="size-4 text-slate-400" />
+                Kết quả kiểm tra ({aiReview.warnings?.length || 0})
               </h3>
               
               {aiReview.warnings?.length > 0 ? (
@@ -502,36 +538,36 @@ export function AdminEventReviewDetailPage() {
                     />
                   ))}
                   <p className="mt-2 text-center text-xs text-subtle italic">
-                    Bấm vào một cảnh báo để tự động sao chép vào ghi chú.
+                    Bấm vào cảnh báo để sao chép vào ghi chú.
                   </p>
                 </div>
               ) : (
-                <div className="rounded-xl border border-success/20 bg-success/5 p-8 text-center text-success/80">
-                  <CheckCircle2 className="mx-auto mb-3 size-8 opacity-50" />
-                  <p className="text-sm font-bold">Không phát hiện rủi ro nào.</p>
+                <div className="rounded-[24px] border border-success/20 bg-success/5 p-6 text-center text-success/80 shadow-inner">
+                  <CheckCircle2 className="mx-auto mb-2 size-8 opacity-50 drop-shadow-sm" />
+                  <p className="text-xs font-black tracking-tight drop-shadow-sm">Không phát hiện rủi ro nào.</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Admin Action Form Area */}
-          <div className="shrink-0 border-t border-border-soft bg-panel p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
-            <h3 className="mb-3 font-display text-sm font-extrabold text-content">
+          <div className="shrink-0 border-t border-white/5 bg-slate-900/80 p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] backdrop-blur-xl rounded-br-[32px]">
+            <h3 className="mb-3 font-display text-xs font-black tracking-widest uppercase text-slate-300">
               Quyết định kiểm duyệt
             </h3>
             
             <textarea
               {...register('review_note')}
-              placeholder="Nhập ghi chú hoặc lý do từ chối/yêu cầu sửa (AI có thể điền giúp bạn khi click vào cảnh báo)..."
-              className="mb-4 min-h-[100px] w-full resize-y rounded-xl border border-border-soft bg-bg p-3 text-sm text-content outline-none transition focus:border-tertiary focus:ring-1 focus:ring-tertiary"
+              placeholder="Nhập ghi chú hoặc lý do từ chối/yêu cầu sửa..."
+              className={`mb-4 min-h-[80px] w-full resize-y rounded-[16px] border border-white/10 bg-black/20 p-3.5 text-[13px] font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-tertiary focus:bg-black/40 focus:ring-1 focus:ring-tertiary ${customScrollbar}`}
             />
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 grid-cols-2">
               <button
                 type="button"
                 onClick={() => onSubmitReview('APPROVED')}
                 disabled={isPending}
-                className="flex items-center justify-center rounded-xl bg-success px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-success/90 disabled:opacity-50"
+                className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !shadow-[0_0_20px_rgba(59,130,246,0.3)] !px-0"
               >
                 Phê duyệt
               </button>
@@ -539,7 +575,7 @@ export function AdminEventReviewDetailPage() {
                 type="button"
                 onClick={() => onSubmitReview('REJECTED')}
                 disabled={isPending}
-                className="flex items-center justify-center rounded-xl bg-error px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-error/90 disabled:opacity-50"
+                className="admin-danger w-full disabled:cursor-not-allowed disabled:opacity-50 !bg-error/10 hover:!bg-error/20 !border-error/30 !text-error !px-0"
               >
                 Từ chối
               </button>

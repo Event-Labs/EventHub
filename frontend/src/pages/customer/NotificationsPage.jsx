@@ -247,9 +247,10 @@ export function NotificationsPage() {
         <SummaryCard icon={UserRoundCheck} label="Lời mời staff" value={invitationCount} tone="success" />
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-border-soft/40 bg-surface/85 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
-        <div className="flex flex-col gap-3 border-b border-border-soft/30 bg-panel-soft/35 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="flex gap-1 overflow-x-auto rounded-xl bg-[#07122b]/60 p-1">
+      <section className="glass-panel overflow-hidden rounded-[32px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_50%)] opacity-10 pointer-events-none" />
+        <div className="flex flex-col gap-4 border-b border-white/10 bg-slate-950/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 relative z-10">
+          <div className="glass-panel rounded-full p-1.5 border-white/5 shadow-inner flex gap-1 overflow-x-auto scrollbar-hide">
             {FILTERS.map((filter) => (
               <button
                 key={filter.value}
@@ -259,23 +260,23 @@ export function NotificationsPage() {
                   setPage(1)
                 }}
                 className={cn(
-                  'inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3.5 text-sm font-bold transition',
+                  'inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-4 text-xs font-black tracking-widest uppercase transition-all',
                   activeFilter === filter.value
-                    ? 'bg-primary text-[#071226] shadow-sm'
-                    : 'text-subtle hover:bg-white/5 hover:text-content',
+                    ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent',
                 )}
               >
                 {filter.label}
                 <span className={cn(
-                  'rounded-full px-1.5 py-0.5 text-[10px] leading-none',
-                  activeFilter === filter.value ? 'bg-[#071226]/15' : 'bg-white/5 text-muted',
+                  'rounded-full px-2 py-0.5 text-[10px] leading-none border',
+                  activeFilter === filter.value ? 'bg-primary/30 text-primary border-primary/40' : 'bg-white/5 text-slate-500 border-white/10',
                 )}>
                   {filterCounts[filter.value]}
                 </span>
               </button>
             ))}
           </div>
-          <p className="px-1 text-xs font-semibold text-muted">
+          <p className="px-1 text-xs font-semibold text-slate-400">
             Trang {pagination.page}/{Math.max(1, pagination.total_pages)} · {pagination.total} thông báo
           </p>
         </div>
@@ -308,10 +309,8 @@ export function NotificationsPage() {
             <article
               key={notification.id}
               className={cn(
-                'group relative px-4 py-5 transition-colors sm:px-6',
-                notification.is_read
-                  ? 'bg-transparent hover:bg-panel-soft/25'
-                  : 'bg-primary/[0.07] hover:bg-primary/[0.1]',
+                'group relative px-6 py-6 transition-all duration-300 hover:bg-white/5',
+                !notification.is_read && 'bg-primary/5',
               )}
             >
               {!notification.is_read && <span className="absolute left-0 top-0 h-full w-1 bg-primary" />}
@@ -429,26 +428,26 @@ function Pagination({ page, totalPages, onPageChange }) {
     .filter((item) => item === 1 || item === totalPages || Math.abs(item - page) <= 1)
 
   return (
-    <nav className="flex items-center justify-between gap-3 border-t border-border-soft/30 bg-panel-soft/25 px-4 py-4 sm:px-6" aria-label="Phân trang thông báo">
+    <nav className="flex items-center justify-between gap-4 border-t border-white/10 bg-slate-950/40 px-6 py-5 relative z-10" aria-label="Phân trang thông báo">
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
-        className="h-9 rounded-lg border border-border-soft/40 px-3 text-sm font-bold text-subtle transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+        className="h-10 rounded-full border border-white/10 px-5 text-sm font-bold text-slate-300 transition-all hover:border-primary/50 hover:bg-white/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
       >
         Trước
       </button>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         {pages.map((item, index) => (
-          <div key={item} className="flex items-center gap-1">
-            {index > 0 && item - pages[index - 1] > 1 && <span className="px-1 text-muted">…</span>}
+          <div key={item} className="flex items-center gap-1.5">
+            {index > 0 && item - pages[index - 1] > 1 && <span className="px-1 text-slate-500">…</span>}
             <button
               type="button"
               onClick={() => onPageChange(item)}
               aria-current={item === page ? 'page' : undefined}
               className={cn(
-                'grid size-9 place-items-center rounded-lg text-sm font-extrabold transition',
-                item === page ? 'bg-primary text-[#071226]' : 'text-subtle hover:bg-white/5 hover:text-content',
+                'grid size-10 place-items-center rounded-full text-sm font-extrabold transition-all',
+                item === page ? 'bg-primary text-[#071226] shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'text-slate-300 hover:bg-white/10 hover:text-white',
               )}
             >
               {item}
@@ -460,7 +459,7 @@ function Pagination({ page, totalPages, onPageChange }) {
         type="button"
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages}
-        className="h-9 rounded-lg border border-border-soft/40 px-3 text-sm font-bold text-subtle transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+        className="h-10 rounded-full border border-white/10 px-5 text-sm font-bold text-slate-300 transition-all hover:border-primary/50 hover:bg-white/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
       >
         Sau
       </button>
@@ -470,18 +469,18 @@ function Pagination({ page, totalPages, onPageChange }) {
 
 function SummaryCard({ icon: Icon, label, value, tone }) {
   const tones = {
-    primary: 'border-primary/20 bg-primary/[0.07] text-primary',
-    warning: 'border-warning/20 bg-warning/[0.07] text-warning',
-    success: 'border-success/20 bg-success/[0.07] text-success',
+    primary: 'border-primary/30 bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(6,182,212,0.1)]',
+    warning: 'border-warning/30 bg-warning/10 text-warning shadow-[inset_0_0_20px_rgba(245,158,11,0.1)]',
+    success: 'border-success/30 bg-success/10 text-success shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]',
   }
   return (
-    <div className={cn('flex items-center gap-3 rounded-2xl border p-4', tones[tone])}>
-      <span className="grid size-10 place-items-center rounded-xl bg-current/10">
-        <Icon className="size-5" />
+    <div className={cn('glass-panel flex items-center gap-4 rounded-[24px] p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)]', tones[tone])}>
+      <span className="grid size-12 place-items-center rounded-[16px] bg-current/10 border border-current/20 shadow-inner">
+        <Icon className="size-6 drop-shadow-sm" />
       </span>
       <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
-        <p className="mt-0.5 text-2xl font-black text-content">{value}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{label}</p>
+        <p className="mt-1 text-3xl font-black drop-shadow-md">{value}</p>
       </div>
     </div>
   )

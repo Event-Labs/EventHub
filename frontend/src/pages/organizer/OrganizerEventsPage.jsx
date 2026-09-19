@@ -301,7 +301,7 @@ export function OrganizerEventsPage() {
 
   return (
     <OrganizerPage
-      title="Quản lý sự kiện"
+      title="Quản lý Sự kiện"
       description="Theo dõi, chỉnh sửa và vận hành các sự kiện của ban tổ chức"
       action="Tạo sự kiện"
       actionTo="/organizer/events/create"

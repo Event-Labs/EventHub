@@ -67,19 +67,19 @@ function riskClass(level) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-tertiary/15', accentColor = 'text-primary' }) {
+function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-primary/20', accentColor = 'text-primary' }) {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border border-border-soft/40 bg-surface/80 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm">
-      <div className={`grid size-11 shrink-0 place-items-center rounded-xl ${accentBg}`}>
-        <Icon className={`size-5 ${accentColor}`} />
+    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-white/5 shadow-inner ${accentBg}`}>
+        <Icon className={`size-6 ${accentColor}`} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-        <p className="mt-1 truncate text-xl font-extrabold text-content">{value}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p>
+        <p className="mt-1 truncate text-2xl font-black text-white drop-shadow-sm">{value}</p>
         {sub && (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-            {trend === 'up' && <ArrowUpRight className="size-3 text-success" />}
-            {trend === 'down' && <ArrowDownRight className="size-3 text-error" />}
+          <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-400">
+            {trend === 'up' && <ArrowUpRight className="size-3.5 text-success drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]" />}
+            {trend === 'down' && <ArrowDownRight className="size-3.5 text-error drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
             {sub}
           </p>
         )}
@@ -92,11 +92,11 @@ function InsightList({ title, items = [] }) {
   if (!items.length) return null
 
   return (
-    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-      <p className="text-xs font-bold uppercase text-subtle">{title}</p>
-      <div className="mt-2 space-y-2">
+    <div className="glass-panel rounded-[20px] border-white/5 bg-slate-900/40 p-5 shadow-inner">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{title}</p>
+      <div className="mt-3 space-y-3">
         {items.map((item) => (
-          <p key={item} className="text-sm font-semibold leading-6 text-content">
+          <p key={item} className="text-[14px] font-medium leading-relaxed text-slate-300">
             {item}
           </p>
         ))}

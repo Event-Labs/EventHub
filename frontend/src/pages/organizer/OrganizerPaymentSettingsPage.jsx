@@ -33,7 +33,8 @@ import payosKeysScreenshot from '@/assets/payos-keys.png'
 import { http as api } from '@/services/http.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-
+import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 const STEP_TITLES = [
   'Chọn PayOS',
   'Thông tin ngân hàng',
@@ -397,16 +398,12 @@ export function OrganizerPaymentSettingsPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 text-content">
-      {/* Header */}
-      <div>
-        <p className="text-sm font-bold uppercase tracking-wide text-primary">Payment Setup & Payouts</p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-content">Cài đặt thanh toán & Chi hộ</h1>
-        <p className="mt-2 max-w-3xl text-lg text-subtle">
-          Cấu hình Kênh thu để nhận tiền bán vé và Kênh chi để tự động hoàn tiền vé cho khách hàng qua PayOS.
-        </p>
-      </div>
-
+    <OrganizerPage
+      title="Cài đặt Thanh toán & Chi hộ"
+      description="Cấu hình Kênh thu để nhận tiền bán vé và Kênh chi để tự động hoàn tiền vé cho khách hàng qua PayOS."
+    >
+      <div className="mt-6">
+        <OrganizerPanel>
       {/* Tabs Switcher */}
       <div className="flex flex-wrap items-center gap-3 border-b border-border-soft/30 pb-4">
         <button
@@ -1182,7 +1179,9 @@ export function OrganizerPaymentSettingsPage() {
           </div>
         </div>
       )}
-    </div>
+        </OrganizerPanel>
+      </div>
+    </OrganizerPage>
   )
 }
 

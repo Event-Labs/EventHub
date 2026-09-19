@@ -129,8 +129,8 @@ function formatApiValidationError(apiError) {
 
 function EmptyStatus() {
   return (
-    <div className="rounded-lg border border-border-soft bg-panel p-5">
-      <p className="text-sm text-muted">
+    <div className="glass-panel rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] text-center text-slate-400">
+      <p className="text-sm font-medium">
         Bạn chưa gửi yêu cầu nào. Điền form bên trái để đăng ký trở thành ban tổ chức.
       </p>
     </div>
@@ -157,7 +157,7 @@ function StatusSummary({ requests, onEdit }) {
         <button
           type="button"
           onClick={() => setHistoryOpen(true)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-soft bg-surface px-4 py-3 text-sm font-bold text-content transition hover:border-primary hover:bg-panel"
+          className="w-full py-3.5 text-[13px] font-black uppercase tracking-widest flex items-center justify-center gap-2 text-slate-400 transition-colors hover:text-primary hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]"
         >
           <History className="size-4" />
           Xem lịch sử yêu cầu
@@ -211,21 +211,21 @@ function StatusCard({ request, titlePrefix, onEdit }) {
     PENDING: {
       icon: Clock3,
       tone: 'text-warning',
-      bg: 'bg-warning/10 border-warning/30',
+      bg: 'bg-warning/10 border-warning/30 shadow-[inset_0_0_20px_rgba(245,158,11,0.1)]',
       title: 'Đang chờ duyệt',
       body: 'Admin sẽ xem xét yêu cầu của bạn trong thời gian sớm nhất.',
     },
     APPROVED: {
       icon: CheckCircle2,
       tone: 'text-success',
-      bg: 'bg-success/10 border-success/30',
+      bg: 'bg-success/10 border-success/30 shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]',
       title: 'Đã được duyệt',
       body: 'Đăng xuất và đăng nhập lại để truy cập khu vực Organizer.',
     },
     REJECTED: {
       icon: XCircle,
       tone: 'text-error',
-      bg: 'bg-error/10 border-error/30',
+      bg: 'bg-error/10 border-error/30 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]',
       title: 'Yêu cầu bị từ chối',
       body: request.review_note || 'Bạn có thể gửi lại yêu cầu với thông tin cập nhật.',
     },
@@ -235,7 +235,7 @@ function StatusCard({ request, titlePrefix, onEdit }) {
   const Icon = config.icon
 
   return (
-    <div className={`rounded-lg border p-5 ${config.bg}`}>
+    <div className={`glass-panel rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.1)] ${config.bg}`}>
       <div className="flex items-start gap-3">
         <Icon className={`mt-0.5 size-5 shrink-0 ${config.tone}`} />
         <div>
@@ -281,7 +281,7 @@ function StatusCard({ request, titlePrefix, onEdit }) {
             <button
               type="button"
               onClick={() => onEdit(request)}
-              className="mt-4 inline-flex rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary hover:bg-panel"
+              className="mt-5 inline-flex rounded-full border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
             >
               Chỉnh sửa
             </button>
@@ -638,8 +638,9 @@ export function OrganizerRequestPage() {
         description="Gửi thông tin tổ chức để Admin xét duyệt và cấp quyền Organizer"
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="glass-panel rounded-lg p-6">
+      <div className="grid gap-8 lg:grid-cols-[1fr_380px] relative">
+        <section className="glass-panel rounded-[32px] border-primary/20 p-8 lg:p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-5 pointer-events-none" />
           {editingRequest && (
             <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
               Bạn đang chỉnh sửa yêu cầu đã gửi. Sau khi lưu, yêu cầu sẽ được đưa về trạng thái chờ duyệt.
@@ -705,20 +706,20 @@ export function OrganizerRequestPage() {
                     Ảnh đại diện
                     <RequiredMark />
                   </span>
-                  <div className="mt-2 flex items-center gap-4 rounded-lg border border-border-soft bg-surface p-4">
+                  <div className="mt-3 glass-panel flex items-center gap-5 rounded-[24px] border-white/10 p-5 shadow-inner">
                     {previewUrl ? (
                       <img
                         src={previewUrl}
                         alt="Ảnh đại diện"
-                        className="size-20 rounded-lg object-cover"
+                        className="size-24 rounded-[16px] object-cover shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                       />
                     ) : (
-                      <div className="grid size-20 place-items-center rounded-lg bg-panel">
-                        <UserCircle className="size-10 text-muted" />
+                      <div className="grid size-24 place-items-center rounded-[16px] bg-slate-900/50 shadow-inner">
+                        <UserCircle className="size-12 text-slate-500" />
                       </div>
                     )}
                     <div>
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/10 hover:border-white/20">
                         <Camera className="size-4" />
                         Chọn ảnh
                         <input
@@ -728,7 +729,7 @@ export function OrganizerRequestPage() {
                           onChange={handleAvatarChange}
                         />
                       </label>
-                      <p className="mt-2 text-xs text-subtle">
+                      <p className="mt-3 text-xs text-slate-400 max-w-[200px]">
                         Dùng logo, ảnh nhận diện thương hiệu hoặc ảnh đại diện rõ mặt.
                       </p>
                     </div>
@@ -878,7 +879,7 @@ export function OrganizerRequestPage() {
                     <RequiredMark />
                   </span>
                   <textarea
-                    className="mt-2 min-h-32 w-full rounded-md border border-border-soft bg-surface p-3 outline-none focus:border-primary"
+                    className="cosmic-input min-h-32 w-full mt-2"
                     value={form.organization_description}
                     onChange={handleChange('organization_description')}
                     placeholder={
@@ -924,12 +925,12 @@ export function OrganizerRequestPage() {
 
 
 
-              <div className="flex flex-wrap justify-end gap-3">
+              <div className="flex flex-wrap justify-end gap-4 mt-8">
                 {editingRequest && (
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="rounded-md border border-border-soft px-5 py-3 text-sm font-bold text-content transition hover:border-primary"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 py-3.5 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
                   >
                     Hủy chỉnh sửa
                   </button>
@@ -937,10 +938,10 @@ export function OrganizerRequestPage() {
                 <button
                   type="submit"
                   disabled={requestMutation.isPending || isUploading}
-                  className="inline-flex items-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-orange-400 active:scale-[0.98] disabled:opacity-60"
+                  className="cosmic-btn-primary px-8 py-3.5 text-[15px] flex items-center gap-2"
                 >
                   {(requestMutation.isPending || isUploading) && (
-                    <Loader2 className="size-4 animate-spin" />
+                    <Loader2 className="size-5 animate-spin" />
                   )}
                   {isUploading
                     ? 'Đang tải tài liệu...'
@@ -971,7 +972,7 @@ export function OrganizerRequestPage() {
 
 function FormSection({ title, description, children }) {
   return (
-    <section className="space-y-4 border-t border-border-soft/30 pt-5 first:border-t-0 first:pt-0">
+    <section className="space-y-6 border-t-2 border-dashed border-white/10 pt-8 first:border-t-0 first:pt-0">
       <div>
         <h2 className="font-display text-lg font-extrabold text-content">{title}</h2>
         {description && (
@@ -998,7 +999,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
         onChange={onChange}
         placeholder={placeholder}
         required={required}
-        className="mt-2 h-11 w-full rounded-md border border-border-soft bg-surface px-3 outline-none focus:border-primary"
+        className="cosmic-input w-full mt-2"
       />
     </label>
   )
@@ -1006,14 +1007,14 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
 
 function FileField({ label, file, existingUrl = '', onChange, required = false, imageOnly = false }) {
   return (
-    <label className="flex min-h-64 flex-col justify-between rounded-lg border border-border-soft bg-surface p-4">
+    <label className="glass-panel flex min-h-64 flex-col justify-between rounded-[24px] border-white/10 p-6 shadow-inner">
       <span className="block min-h-12 text-sm font-semibold leading-6 text-muted">
         {label}
         {required && <RequiredMark />}
       </span>
-      <DocumentPreview file={file} existingUrl={existingUrl} />
+      <DocumentPreview file={file} existingUrl={existingUrl} imageOnly={imageOnly} />
       <div>
-        <span className="inline-flex cursor-pointer rounded-md border border-border-soft px-4 py-2 text-sm font-bold text-content transition hover:border-primary">
+        <span className="inline-flex cursor-pointer rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/10 hover:border-white/20">
           Chọn file
           <input
             type="file"
@@ -1036,7 +1037,7 @@ function FileField({ label, file, existingUrl = '', onChange, required = false, 
   )
 }
 
-function DocumentPreview({ file, existingUrl = '' }) {
+function DocumentPreview({ file, existingUrl = '', imageOnly = false }) {
   const [previewUrl, setPreviewUrl] = useState('')
 
   useEffect(() => {
@@ -1058,20 +1059,20 @@ function DocumentPreview({ file, existingUrl = '' }) {
           <img
             src={existingUrl}
             alt="Tài liệu đã tải"
-            className="my-3 h-28 w-full rounded-lg border border-border-soft/60 object-cover"
+            className="my-4 h-32 w-full rounded-2xl border border-white/10 object-cover shadow-[0_0_15px_rgba(255,255,255,0.05)]"
           />
         )
       }
 
       return (
-        <div className="my-3 grid h-28 place-items-center rounded-lg border border-border-soft/60 bg-panel/60 px-3 text-center text-xs font-semibold text-subtle">
+        <div className="my-4 grid h-32 place-items-center rounded-2xl border border-white/10 bg-slate-900/50 px-3 text-center text-xs font-semibold text-slate-400 shadow-inner">
           Đã có tài liệu
         </div>
       )
     }
 
     return (
-      <div className="my-3 grid h-28 place-items-center rounded-lg border border-dashed border-border-soft/60 bg-panel/60 text-xs font-semibold text-subtle">
+      <div className="my-4 grid h-32 place-items-center rounded-2xl border-2 border-dashed border-white/10 bg-slate-900/50 text-xs font-medium text-slate-500 shadow-inner">
         Chưa chọn file
       </div>
     )
@@ -1079,7 +1080,7 @@ function DocumentPreview({ file, existingUrl = '' }) {
 
   if (!previewUrl) {
     return (
-      <div className="my-3 grid h-28 place-items-center rounded-lg border border-border-soft/60 bg-panel/60 px-3 text-center text-xs font-semibold text-subtle">
+      <div className="my-4 grid h-32 place-items-center rounded-2xl border border-white/10 bg-slate-900/50 px-3 text-center text-xs font-semibold text-slate-400 shadow-inner">
         {file.name}
       </div>
     )
@@ -1089,7 +1090,7 @@ function DocumentPreview({ file, existingUrl = '' }) {
     <img
       src={previewUrl}
       alt={file.name}
-      className="my-3 h-28 w-full rounded-lg border border-border-soft/60 object-cover"
+      className="my-4 h-32 w-full rounded-2xl border border-white/10 object-cover shadow-[0_0_15px_rgba(255,255,255,0.05)]"
     />
   )
 }

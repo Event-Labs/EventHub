@@ -9,8 +9,6 @@ import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
 
-const primaryActionClass =
-  'inline-flex items-center justify-center gap-2 rounded-xl bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0'
 
 const statusFilters = [
   { label: 'Tất cả', value: '' },
@@ -182,6 +180,7 @@ export function AdminOrganizerRequestsPage() {
 
       {!requestsQuery.isLoading && !requestsQuery.isError && (
         <Table
+          tableClassName="min-w-[900px]"
           headers={[
             'Tổ chức',
             'Loại',
@@ -189,12 +188,12 @@ export function AdminOrganizerRequestsPage() {
             'Liên hệ',
             'Trạng thái',
             'Ngày tạo/gửi',
-            '',
+            'Thao tác',
           ]}
           rows={requests.map((request) => [
             <div key="org">
-              <p className="font-semibold text-content">{request.organization_name}</p>
-              <p className="line-clamp-1 text-xs text-subtle">
+              <p className="font-semibold text-content max-w-[150px] truncate" title={request.organization_name}>{request.organization_name}</p>
+              <p className="line-clamp-1 text-xs text-subtle max-w-[150px]" title={request.organization_description}>
                 {request.organization_description}
               </p>
             </div>,
@@ -203,10 +202,10 @@ export function AdminOrganizerRequestsPage() {
             </Badge>,
             <div key="user">
               <p className="font-semibold text-content">{request.applicant?.full_name}</p>
-              <p className="text-xs text-subtle">{request.applicant?.email}</p>
+              <p className="text-xs text-subtle max-w-[150px] truncate" title={request.applicant?.email}>{request.applicant?.email}</p>
             </div>,
             <div key="contact" className="text-sm">
-              <p className="text-content font-medium">
+              <p className="text-content font-medium max-w-[200px] truncate" title={request.business_email || request.applicant?.email}>
                 {request.business_email || request.applicant?.email}
               </p>
               <p className="text-subtle text-xs mt-0.5">{request.business_phone}</p>
@@ -323,7 +322,7 @@ export function AdminOrganizerRequestsPage() {
                 <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  className={`${primaryActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                  className="admin-primary disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={
                     reviewMutation.isPending ||
                     (selectedRequest.request_type === 'ORGANIZATION' &&
@@ -337,7 +336,7 @@ export function AdminOrganizerRequestsPage() {
                   </button>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-error/40 px-5 py-3 text-sm font-bold text-error transition duration-200 hover:-translate-y-0.5 hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="admin-danger disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={reviewMutation.isPending}
                   onClick={() => submitReview('REJECTED')}
                   >

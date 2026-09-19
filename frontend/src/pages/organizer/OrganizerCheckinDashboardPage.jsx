@@ -103,7 +103,7 @@ export function OrganizerCheckinDashboardPage() {
 
   return (
     <OrganizerPage
-      title="Theo dõi check-in"
+      title="Theo dõi Check-in"
       description="Theo dõi tình trạng check-in theo thời gian thực cho sự kiện của bạn."
     >
       {/* ── Event selector ── */}
