@@ -155,6 +155,9 @@ function normalizeSeatingRules(raw) {
     require_adjacent_seats: Boolean(raw?.require_adjacent_seats),
     require_same_row: Boolean(raw?.require_same_row),
     disallow_single_seat_left: Boolean(raw?.disallow_single_seat_left),
+    max_tickets_per_order: Number.isInteger(Number(raw?.max_tickets_per_order)) && Number(raw?.max_tickets_per_order) > 0
+      ? Number(raw?.max_tickets_per_order)
+      : 10,
   }
 }
 
@@ -605,8 +608,18 @@ export function BookingSeatsPage() {
       setResettingSelection(false)
     }
   }
+  const maxTicketsAllowed = Number(seatingRules?.max_tickets_per_order) > 0
+    ? Number(seatingRules.max_tickets_per_order)
+    : 10
+
   const toggleSeat = (seatId) => {
-    const nextSeatIds = selectedSeatIds.includes(seatId)
+    const isDeselecting = selectedSeatIds.includes(seatId)
+    if (!isDeselecting && selectedSeatIds.length >= maxTicketsAllowed) {
+      toast.error(`Bạn chỉ được chọn tối đa ${maxTicketsAllowed} ghế trong một lần đặt.`)
+      return
+    }
+
+    const nextSeatIds = isDeselecting
       ? selectedSeatIds.filter((id) => id !== seatId)
       : [...selectedSeatIds, seatId]
 
@@ -629,6 +642,12 @@ export function BookingSeatsPage() {
         color: ticketTypeColor(ticketType, colorByTicketTypeId),
       }
       const items = [...(current?.items || [])]
+      const currentTotalTickets = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+      if (delta > 0 && currentTotalTickets >= maxTicketsAllowed) {
+        toast.error(`Bạn chỉ được mua tối đa ${maxTicketsAllowed} vé trong một lần đặt.`)
+        return current
+      }
+
       const itemIndex = items.findIndex(
         (item) => String(item.ticketType.id) === String(ticketType.id),
       )
@@ -636,7 +655,7 @@ export function BookingSeatsPage() {
         ? items[itemIndex]
         : { ticketType: coloredTicketType, quantity: 0, sessionSeatIds: [], seatLabels: [], session }
       const available = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
-      const perOrder = Math.max(1, Number(ticketType.max_per_order || 20))
+      const perOrder = Math.min(Math.max(1, Number(ticketType.max_per_order || 20)), maxTicketsAllowed)
       const maximum = Math.min(available, perOrder)
       const quantity = clamp(Number(existing.quantity || 0) + delta, 0, maximum)
       const nextItem = { ...existing, ticketType: coloredTicketType, quantity }
@@ -744,9 +763,14 @@ export function BookingSeatsPage() {
             )}
 
             {seatsQuery.data?.seats?.length > 0 && (
-              <p className="mt-4 text-sm text-muted">
-                {'\u0110\u00e3 ch\u1ecdn '}<span className="font-bold text-primary">{selectedSeatIds.length}</span>{' gh\u1ebf.'}
-              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+                <p>
+                  Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế.
+                </p>
+                <span className="text-xs text-subtle">
+                  (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
+                </span>
+              </div>
             )}
 
           </Panel>
