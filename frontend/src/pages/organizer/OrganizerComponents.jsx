@@ -1,6 +1,7 @@
 import { isValidElement, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Sparkles } from 'lucide-react'
+import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 
 /**
  * OrganizerPage – page-level layout wrapper
@@ -12,10 +13,10 @@ export function OrganizerPage({ title, description, action, actionTo, onAction, 
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-extrabold text-content tracking-tight">
-            {title}
+          <h1 className="font-display text-2xl font-black text-white drop-shadow-sm tracking-tight">
+            {renderCosmicTitle(title)}
           </h1>
-          {description && <p className="mt-1.5 text-sm text-subtle">{description}</p>}
+          {description && <p className="mt-1.5 text-[15px] text-slate-400">{description}</p>}
         </div>
         {actionIsElement && action}
         {!actionIsElement && action && actionTo && (
@@ -42,7 +43,7 @@ export function OrganizerPage({ title, description, action, actionTo, onAction, 
 export function OrganizerPanel({ children, className = '' }) {
   return (
     <section
-      className={`rounded-2xl border border-border-soft/40 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.2)] backdrop-blur-sm ${className}`}
+      className={`glass-panel rounded-[24px] border-white/5 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.2)] ${className}`}
     >
       {children}
     </section>
@@ -54,28 +55,28 @@ export function OrganizerPanel({ children, className = '' }) {
  */
 export function OrganizerTable({ headers, rows }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
+    <div className="overflow-x-auto glass-panel rounded-[24px] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
       <table className="w-full min-w-[760px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-border-soft/30">
+        <thead className="bg-slate-900/40">
+          <tr className="border-b border-white/10">
             {headers.map((header) => (
               <th
                 key={header}
-                className="px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-wider text-subtle"
+                className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400"
               >
                 {header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-white/5">
           {rows.map((row, rowIndex) => (
             <tr
               key={rowIndex}
-              className="border-b border-border-soft/20 transition-colors last:border-0 hover:bg-panel-soft/60"
+              className="transition-colors hover:bg-white/[0.02]"
             >
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="px-5 py-3.5 align-middle text-content">
+                <td key={cellIndex} className="px-6 py-4 align-middle text-[14px] text-slate-200">
                   {cell}
                 </td>
               ))}
@@ -92,10 +93,10 @@ export function OrganizerTable({ headers, rows }) {
  */
 export function SearchBar({ placeholder = 'Search...' }) {
   return (
-    <div className="relative flex-1">
-      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+    <div className="glass-panel relative flex h-[44px] flex-1 items-center rounded-full border-white/10 px-4 shadow-inner">
+      <Search className="size-5 shrink-0 text-slate-400" />
       <input
-        className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none placeholder:text-subtle transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+        className="ml-3 w-full bg-transparent text-[15px] font-medium text-white outline-none placeholder:text-slate-500"
         placeholder={placeholder}
       />
     </div>
@@ -107,18 +108,18 @@ export function SearchBar({ placeholder = 'Search...' }) {
  */
 export function Badge({ children, tone = 'blue' }) {
   const tones = {
-    blue: 'bg-tertiary/15 text-tertiary border-tertiary/30',
-    purple: 'bg-ai/15 text-ai border-ai/30',
-    green: 'bg-success/15 text-success border-success/30',
-    red: 'bg-error/15 text-error border-error/30',
-    amber: 'bg-warning/15 text-warning border-warning/30',
-    gray: 'bg-panel-soft text-subtle border-border-soft/30',
-    orange: 'bg-tertiary/15 text-tertiary border-tertiary/30',
+    blue: 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]',
+    purple: 'bg-ai/20 text-ai border-ai/30 shadow-[0_0_10px_rgba(236,72,153,0.15)]',
+    green: 'bg-success/20 text-success border-success/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]',
+    red: 'bg-error/20 text-error border-error/30 shadow-[0_0_10px_rgba(239,68,68,0.15)]',
+    amber: 'bg-warning/20 text-warning border-warning/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]',
+    gray: 'bg-white/10 text-slate-300 border-white/20',
+    orange: 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.15)]',
   }
 
   return (
     <span
-      className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${tones[tone] || tones.gray}`}
+      className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${tones[tone] || tones.gray}`}
     >
       {children}
     </span>
@@ -130,14 +131,14 @@ export function Badge({ children, tone = 'blue' }) {
  */
 export function Insight({ children, title = 'AI Insights' }) {
   return (
-    <section className="rounded-2xl border border-ai/30 bg-ai/[0.07] p-5">
-      <div className="flex gap-3">
-        <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-ai/15">
-          <Sparkles className="size-4 text-ai" />
+    <section className="glass-panel rounded-[24px] border-ai/20 bg-ai/10 p-6 shadow-[inset_0_0_20px_rgba(236,72,153,0.15)]">
+      <div className="flex gap-5">
+        <div className="glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-ai/30 bg-ai/20 shadow-inner">
+          <Sparkles className="size-6 text-ai drop-shadow-[0_0_8px_rgba(236,72,153,0.6)]" />
         </div>
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-wider text-ai">{title}</p>
-          <p className="mt-2 text-sm leading-6 text-subtle">{children}</p>
+          <p className="font-black text-ai text-lg drop-shadow-sm">{title}</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-slate-300 font-medium">{children}</p>
         </div>
       </div>
     </section>

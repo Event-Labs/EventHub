@@ -294,12 +294,9 @@ export function AdminEventReviewPage() {
   const setNote = (eventId, value) =>
     setNotes((prev) => ({ ...prev, [eventId]: value }))
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
   return (
     <Page
-      title="Duyệt sự kiện"
+      title="Duyệt Sự kiện"
       description="Kiểm duyệt và phê duyệt các sự kiện được gửi bởi Organizer."
     >
       {/* Status tab filter */}

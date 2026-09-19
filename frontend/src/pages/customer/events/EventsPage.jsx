@@ -232,7 +232,7 @@ export function EventsPage() {
 
       <section>
         <SectionHeader
-          title="Danh sách sự kiện"
+          title="Danh sách Sự kiện"
           description={pagination ? `${pagination.total} sự kiện phù hợp` : 'Đang tải sự kiện'}
         />
 

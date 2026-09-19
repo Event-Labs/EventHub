@@ -329,7 +329,7 @@ export function OrganizerPromosPage() {
 
   return (
     <OrganizerPage
-      title="Quản lý mã khuyến mãi"
+      title="Quản lý mã Khuyến mãi"
       description="Tạo và theo dõi hiệu quả sử dụng mã khuyến mãi cho sự kiện."
       action={
         <button 

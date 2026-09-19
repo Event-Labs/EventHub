@@ -57,7 +57,7 @@ export function OrganizerFeedbackReportPage() {
 
   return (
     <OrganizerPage
-      title="Báo cáo phản hồi"
+      title="Báo cáo Phản hồi"
       description="Theo dõi đánh giá và nhận xét từ khách tham dự (dữ liệu từ database)"
     >
       <OrganizerPanel className="mb-5">

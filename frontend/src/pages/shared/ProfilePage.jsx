@@ -1,4 +1,5 @@
 import { clearAuthSession, getAuthToken, getStoredUserKey, getUserRoles, updateStoredUser } from '@/lib/auth.js'
+import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
@@ -155,10 +156,10 @@ export function ProfilePage() {
     <div className={`mx-auto px-4 py-10 sm:px-6 lg:px-8 ${isOrganizer ? 'max-w-[1440px]' : 'max-w-6xl'}`}>
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="font-display text-4xl font-extrabold text-content">
-            {isOrganizer ? 'Hồ sơ nhà tổ chức' : 'Hồ sơ cá nhân'}
+          <h1 className="font-display text-4xl font-black text-white drop-shadow-sm tracking-tight">
+            {renderCosmicTitle(isOrganizer ? 'Hồ sơ Nhà tổ chức' : 'Hồ sơ Cá nhân')}
           </h1>
-          <p className="mt-2 text-muted">
+          <p className="mt-2 text-slate-400">
             {isOrganizer
               ? 'Xem lại toàn bộ thông tin đã gửi khi đăng ký làm nhà tổ chức.'
               : 'Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub.'}

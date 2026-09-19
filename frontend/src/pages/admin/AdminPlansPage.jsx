@@ -158,7 +158,7 @@ export function AdminPlansPage() {
 
   return (
     <Page
-      title="Gói dịch vụ"
+      title="Gói Dịch vụ"
       description="Quản lý quota và quyền tính năng dành cho Organizer"
       action="Thêm gói"
       actionClassName={primaryActionClass}

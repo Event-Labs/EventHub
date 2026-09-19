@@ -56,33 +56,35 @@ export function VerifyEmailPage() {
 
     return (
         <AuthShell>
-            <div className="glass-panel mx-auto w-full max-w-lg rounded-lg p-10 shadow-2xl text-center">
+            <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-lg rounded-[24px] border-primary/20 p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] text-center">
+                <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
+                
                 {status === 'verifying' && (
                     <div className="py-10">
                         <Loader2 className="mx-auto size-16 animate-spin text-primary" />
-                        <h2 className="mt-6 text-2xl font-bold text-white">Đang xác thực email...</h2>
-                        <p className="mt-2 text-muted text-lg">Vui lòng đợi trong giây lát.</p>
+                        <h2 className="mt-6 text-2xl font-bold text-white drop-shadow-lg">Đang xác thực email...</h2>
+                        <p className="mt-2 text-slate-300 text-lg">Vui lòng đợi trong giây lát.</p>
                     </div>
                 )}
 
                 {status === 'success' && (
                     <div>
-                        <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success">
+                        <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                             <CheckCircle className="size-10" />
                         </div>
-                        <h1 className="font-display text-3xl font-extrabold text-primary">
+                        <h1 className="font-display text-3xl font-extrabold text-primary drop-shadow-lg">
                             Email xác thực thành công!
                         </h1>
-                        <p className="mt-4 text-muted text-lg">
+                        <p className="mt-4 text-slate-300 text-lg">
                             Tài khoản của bạn đã được kích hoạt. Bạn hiện có thể đăng nhập để sử dụng tất cả tính năng của EventHub.
                         </p>
-                        <p className="mt-6 text-subtle italic">
+                        <p className="mt-6 text-slate-400 italic">
                             Tự động chuyển về trang đăng nhập sau <span className="font-bold text-primary">{countdown}s</span>...
                         </p>
                         <div className="mt-8">
                             <Link
                                 to="/login"
-                                className="inline-block w-full rounded-md bg-primary py-4 font-bold text-slate-950 hover:bg-primary/90 transition-colors"
+                                className="cosmic-btn-primary w-full py-3.5 text-[15px]"
                             >
                                 Về trang Login
                             </Link>
@@ -92,25 +94,25 @@ export function VerifyEmailPage() {
 
                 {status === 'error' && (
                     <div>
-                        <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-error/20 text-error">
+                        <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-error/20 text-error shadow-[0_0_20px_rgba(239,68,68,0.3)]">
                             <XCircle className="size-10" />
                         </div>
-                        <h1 className="font-display text-3xl font-extrabold text-error">
+                        <h1 className="font-display text-3xl font-extrabold text-error drop-shadow-lg">
                             Xác thực thất bại
                         </h1>
-                        <p className="mt-4 text-muted text-lg">
+                        <p className="mt-4 text-slate-300 text-lg">
                             {error}
                         </p>
-                        <div className="mt-8 flex flex-col gap-3">
+                        <div className="mt-8 flex flex-col gap-4">
                             <Link
                                 to="/register"
-                                className="w-full rounded-md bg-surface border border-border-soft py-4 font-bold text-white hover:bg-panel-soft transition-colors"
+                                className="inline-flex w-full items-center justify-center rounded-full border border-border-soft bg-surface py-3.5 font-bold text-white hover:bg-panel-soft transition-colors"
                             >
                                 Đăng ký lại
                             </Link>
                             <Link
                                 to="/login"
-                                className="w-full rounded-md bg-primary py-4 font-bold text-slate-950 hover:bg-primary/90 transition-colors"
+                                className="cosmic-btn-primary w-full py-3.5 text-[15px]"
                             >
                                 Về trang Login
                             </Link>

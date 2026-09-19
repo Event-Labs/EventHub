@@ -169,7 +169,7 @@ export function AdminFinancePage() {
 
   return (
     <Page
-      title="Chính sách nền tảng"
+      title="Chính sách Nền tảng"
       description="Quản lý chính sách nền tảng, điều khoản và tài liệu PDF đang áp dụng cho hệ thống"
       actions={
         <button

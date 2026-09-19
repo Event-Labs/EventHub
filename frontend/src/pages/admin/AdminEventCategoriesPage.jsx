@@ -132,7 +132,7 @@ export function AdminEventCategoriesPage() {
 
   return (
     <Page
-      title="Loại sự kiện"
+      title="Loại Sự kiện"
       description="Quản lý các nhóm phân loại sự kiện trên nền tảng"
       action="Thêm loại"
       actionClassName="inline-flex items-center justify-center gap-2 rounded-md bg-tertiary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-tertiary/25 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl hover:shadow-tertiary/30 active:translate-y-0"

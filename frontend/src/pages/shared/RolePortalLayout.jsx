@@ -76,15 +76,15 @@ export function RolePortalLayout({
   return (
     <div className="flex min-h-screen bg-background text-content">
       <aside
-        className={`fixed bottom-0 left-0 top-24 z-50 flex flex-col items-center gap-3 bg-transparent px-2 pb-4 transition-[width] duration-300 ease-out will-change-[width] ${
-          sidebarExpanded ? 'w-[232px]' : 'w-20'
+        className={`fixed bottom-0 left-0 top-[80px] z-50 flex flex-col items-center gap-4 bg-transparent px-3 pb-6 transition-[width] duration-300 ease-out will-change-[width] ${
+          sidebarExpanded ? 'w-[240px]' : 'w-20'
         }`}
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
       >
         <nav
-          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width] duration-300 ease-out will-change-[width] ${
-            sidebarExpanded ? 'w-full' : 'w-12'
+          className={`glass-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[32px] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-[width] duration-300 ease-out will-change-[width] ${
+            sidebarExpanded ? 'w-full' : 'w-14'
           }`}
         >
           <div
@@ -105,8 +105,8 @@ export function RolePortalLayout({
         </nav>
 
         <div
-          className={`flex shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[2rem] border border-border-soft/30 bg-surface py-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[width,padding] duration-300 ease-out will-change-[width] ${
-            sidebarExpanded ? 'w-full px-2' : 'w-12 items-center px-1'
+          className={`glass-panel flex shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[32px] border-white/10 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-[width,padding] duration-300 ease-out will-change-[width] ${
+            sidebarExpanded ? 'w-full px-2' : 'w-14 items-center px-1'
           }`}
         >
           {bottomItems.map((item) => <SidebarItem key={item.label} item={item} expanded={sidebarExpanded} />)}
@@ -125,9 +125,9 @@ export function RolePortalLayout({
               type="button"
               onClick={logout}
               title={'\u0110\u0103ng xu\u1ea5t'}
-              className="grid size-10 place-items-center rounded-2xl text-subtle transition-all duration-200 hover:bg-panel-soft hover:text-error"
+              className="grid size-12 place-items-center rounded-2xl text-slate-400 transition-all duration-200 hover:bg-white/5 hover:text-error"
             >
-              <LogOut className="size-[18px]" />
+              <LogOut className="size-[20px]" />
             </button>
           )}
         </div>
@@ -180,8 +180,8 @@ function SidebarSection({ section, expanded, showDivider, pathname }) {
 
   return (
     <div className="w-full">
-      {showDivider && <div className="mx-3 my-2 h-px bg-border-soft/30" />}
-      <p className="portal-sidebar-label px-3 pb-1 pt-1 text-[11px] font-extrabold uppercase tracking-wider text-muted/80">
+      {showDivider && <div className="mx-4 my-2 h-px bg-white/10" />}
+      <p className="portal-sidebar-label px-4 pb-2 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
         {section.label}
       </p>
       <div className="space-y-1">
@@ -204,16 +204,16 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
         title={item.label}
         className={({ isActive }) => {
           const current = active ?? isActive
-          return `grid size-10 place-items-center rounded-2xl transition-all duration-200 ${
+          return `grid size-12 place-items-center rounded-[18px] transition-all duration-200 ${
             current
-              ? 'bg-tertiary/15 text-tertiary shadow-[inset_0_1px_0_rgba(249,115,22,0.14)]'
-              : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
+              ? 'bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(6,182,212,0.2)] border border-primary/30'
+              : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
           }`
         }}
       >
         {({ isActive }) => {
           const current = active ?? isActive
-          return Icon ? <Icon className={`size-[18px] ${current ? 'text-tertiary' : 'text-subtle'}`} /> : null
+          return Icon ? <Icon className={`size-[20px] ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-slate-400'}`} /> : null
         }}
       </NavLink>
     )
@@ -226,10 +226,10 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
       title={item.label}
       className={({ isActive }) => {
         const current = active ?? isActive
-        return `group flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold transition-all duration-200 ${
+        return `group flex h-12 w-full items-center gap-3 overflow-hidden rounded-[18px] px-4 text-[14px] font-bold transition-all duration-200 ${
           current
-            ? 'bg-tertiary/15 text-tertiary shadow-[inset_0_1px_0_rgba(249,115,22,0.14)]'
-            : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
+            ? 'bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(6,182,212,0.2)] border border-primary/30'
+            : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
         }`
       }}
     >
@@ -237,9 +237,9 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
         const current = active ?? isActive
         return (
           <>
-            {Icon && <Icon className={`size-[18px] shrink-0 ${current ? 'text-tertiary' : 'text-subtle group-hover:text-tertiary'}`} />}
+            {Icon && <Icon className={`size-[20px] shrink-0 ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-slate-400 group-hover:text-white'}`} />}
             <span className="portal-sidebar-label min-w-0 flex-1">{item.label}</span>
-            {current && <ChevronRight className="size-3.5 shrink-0 text-tertiary" />}
+            {current && <ChevronRight className="size-4 shrink-0 text-primary" />}
           </>
         )
       }}
@@ -249,7 +249,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
 
 function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearchOpen, theme, onToggleTheme }) {
   return (
-    <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b border-border-soft/20 bg-background/90 px-6 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.12)] backdrop-blur-md">
+    <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b border-white/10 bg-slate-950/80 px-8 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl">
       <div className="flex min-w-0 flex-1 items-center gap-5">
         <NavLink to="/" title="Về trang chủ" className="shrink-0 transition opacity-90 hover:opacity-100">
           <img
@@ -259,12 +259,12 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
             style={{ filter: 'none' }}
           />
         </NavLink>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 ml-4">
         {searchOpen ? (
-          <div className="flex h-12 w-full max-w-2xl items-center gap-2 rounded-full border border-border-soft/30 bg-surface px-4 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm">
-            <Search className="size-5 shrink-0 text-subtle" />
-            <input autoFocus className="w-full bg-transparent text-base text-content outline-none placeholder:text-subtle" placeholder={'Tìm kiếm...'} />
-            <button type="button" onClick={() => setSearchOpen(false)} className="grid size-7 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-content">
+          <div className="glass-panel flex h-[44px] w-full max-w-2xl items-center gap-3 rounded-full border-white/10 px-5 shadow-inner">
+            <Search className="size-5 shrink-0 text-primary" />
+            <input autoFocus className="w-full bg-transparent text-[15px] font-medium text-white outline-none placeholder:text-slate-500" placeholder={'Tìm kiếm...'} />
+            <button type="button" onClick={() => setSearchOpen(false)} className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white transition-colors">
               <X className="size-4" />
             </button>
           </div>
@@ -272,7 +272,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex h-12 w-full max-w-2xl items-center gap-3 rounded-full border border-border-soft/30 bg-surface px-5 text-base text-subtle shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-tertiary hover:text-content"
+            className="glass-panel flex h-[44px] w-full max-w-2xl items-center gap-3 rounded-full border-white/10 px-5 text-[15px] text-slate-400 shadow-inner transition-all hover:border-primary/50 hover:text-white"
           >
             <Search className="size-5" />
             <span>{'Tìm kiếm...'}</span>
@@ -284,28 +284,28 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <NavLink
           to="/"
-          className="hidden sm:inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-xs font-bold text-primary transition hover:border-primary hover:bg-primary hover:text-[#081126]"
+          className="hidden sm:inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-5 py-2.5 text-[13px] font-bold text-primary transition-all hover:bg-primary hover:text-slate-950 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]"
           title="Chuyển sang trang khách hàng"
         >
-          <Home className="size-3.5" />
+          <Home className="size-4" />
           <span>Trang khách hàng</span>
         </NavLink>
-        <div className="flex h-12 items-center gap-1 rounded-full border border-border-soft/30 bg-surface px-2 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm">
+        <div className="glass-panel flex h-[44px] items-center gap-1 rounded-full border-white/10 px-2 shadow-inner">
           <TopBarIconButton icon={theme === 'light' ? Sun : Moon} label={theme === 'light' ? 'Chế độ sáng' : 'Chế độ tối'} onClick={onToggleTheme} />
           <PortalNotificationBell />
           <TopBarIconButton icon={Settings} label={'Cài đặt'} />
         </div>
         <NavLink
           to={profileTo}
-          className="flex h-12 items-center gap-2.5 rounded-full border border-border-soft/30 bg-surface px-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-sm transition hover:border-tertiary hover:bg-panel-soft"
+          className="glass-panel flex h-[44px] items-center gap-3 rounded-full border-white/10 pl-2 pr-4 shadow-inner transition-all hover:border-primary/50 hover:bg-white/5"
           title={'\u0048\u1ed3 s\u01a1'}
         >
           {avatar}
           <div className="hidden text-left sm:block">
-            <p className="text-xs font-bold leading-tight text-content">{user?.full_name?.split(' ').slice(-1)[0] || roleLabel}</p>
-            <p className="text-[10px] leading-tight text-muted">{roleLabel}</p>
+            <p className="text-[13px] font-bold leading-tight text-white">{user?.full_name?.split(' ').slice(-1)[0] || roleLabel}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-primary">{roleLabel}</p>
           </div>
-          <ChevronRight className="size-3 text-subtle" />
+          <ChevronRight className="size-4 text-slate-400" />
         </NavLink>
       </div>
     </header>

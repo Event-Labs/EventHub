@@ -453,7 +453,7 @@ export function OrganizerTicketSalesPage() {
 
   return (
     <OrganizerPage
-      title="Phân tích bán vé"
+      title="Phân tích Bán vé"
       description="Theo dõi lượng vé bán theo thời gian, loại vé và tỷ lệ lấp đầy sự kiện."
     >
       {/* ── Filters ── */}

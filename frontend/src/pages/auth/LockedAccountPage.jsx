@@ -66,9 +66,10 @@ export function LockedAccountPage() {
 
   return (
     <AuthShell>
-      <div className="glass-panel mx-auto w-full max-w-lg rounded-xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10">
+      <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-lg rounded-[24px] border-primary/20 p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] text-center">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
         <div className="text-center">
-          <div className="mx-auto mb-6 flex size-24 items-center justify-center rounded-full bg-error/10 ring-8 ring-error/5">
+          <div className="mx-auto mb-6 flex size-24 items-center justify-center rounded-full bg-error/10 ring-8 ring-error/5 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
             <Lock className="size-12 text-error" />
           </div>
           <h1 className="font-display text-3xl font-black text-white">

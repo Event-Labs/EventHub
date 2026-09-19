@@ -55,7 +55,7 @@ export function StaffDashboardPage() {
   const activeTasks = overview?.active_tasks || []
 
   return (
-    <StaffPage title="Tổng quan nhân sự" description="Theo dõi công việc vận hành hôm nay.">
+    <StaffPage title="Tổng quan Nhân sự" description="Theo dõi công việc vận hành hôm nay.">
 
 
       <div className="grid gap-4 md:grid-cols-3">

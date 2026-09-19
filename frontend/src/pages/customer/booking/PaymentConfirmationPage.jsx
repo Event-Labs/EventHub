@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { cancelOrder, fetchOrderStatus } from '@/services/orders.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { cn } from '@/lib/utils.js'
 
 function formatPrice(value) {
   const number = Number(value)
@@ -107,28 +108,30 @@ export function PaymentConfirmationPage() {
 
   if (paid) {
     return (
-      <div className="min-h-[calc(100vh-64px)] bg-background px-4 py-12 text-center sm:px-6 lg:px-8">
-        <section className="mx-auto max-w-2xl">
-          <div className="mx-auto grid size-20 place-items-center rounded-full bg-success/20 text-success">
-            <CheckCircle className="size-10" />
+      <div className="min-h-[calc(100vh-64px)] bg-background px-4 py-16 text-center sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20 pointer-events-none" />
+        <section className="glass-panel mx-auto max-w-2xl rounded-[32px] p-12 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--color-success)_0%,_transparent_60%)] opacity-10 pointer-events-none" />
+          <div className="mx-auto grid size-24 place-items-center rounded-full bg-success/20 text-success shadow-[0_0_30px_rgba(16,185,129,0.3)] border border-success/30">
+            <CheckCircle className="size-12" />
           </div>
-          <h1 className="mt-6 font-display text-4xl font-extrabold text-white">
+          <h1 className="mt-8 font-display text-4xl font-extrabold text-white drop-shadow-md">
             Thanh toán thành công!
           </h1>
-          <p className="mx-auto mt-2 max-w-md text-muted">
-            Đơn <span className="font-semibold text-white">{data.order.order_code}</span> cho{' '}
+          <p className="mx-auto mt-4 max-w-md text-slate-300 text-lg">
+            Đơn <span className="font-semibold text-primary">{data.order.order_code}</span> cho{' '}
             {eventTitle} đã được xác nhận. Vé đã sẵn sàng trong My Tickets.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <div className="mt-10 flex flex-wrap justify-center gap-4">
             <Link
               to="/my-tickets"
-              className="rounded-md bg-primary px-5 py-3 text-sm font-bold text-slate-950"
+              className="cosmic-btn-primary px-8 py-3.5 text-[15px]"
             >
               Vé của tôi
             </Link>
             <Link
               to={`/events/${data.order.event?.slug || data.order.event?.id || ''}`}
-              className="rounded-md border border-border-soft px-5 py-3 text-sm font-bold text-white"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 py-3.5 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
             >
               Quay lại sự kiện
             </Link>
@@ -139,38 +142,40 @@ export function PaymentConfirmationPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
-      <section className="glass-panel rounded-lg p-6">
-        <div className="flex items-center gap-3">
-          <div className="grid size-11 place-items-center rounded-md bg-tertiary/20 text-tertiary">
-            <Clock3 className="size-5" />
+    <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8 relative">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-10 pointer-events-none" />
+      <section className="glass-panel rounded-[24px] p-8 lg:p-10 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10 pointer-events-none" />
+        <div className="flex items-center gap-4">
+          <div className="grid size-14 place-items-center rounded-2xl border border-primary/30 bg-primary/10 text-primary shadow-inner">
+            <Clock3 className="size-6" />
           </div>
           <div>
-            <p className="text-sm font-bold uppercase text-tertiary">PayOS Checkout</p>
-            <h1 className="font-display text-2xl font-bold text-white">{eventTitle}</h1>
+            <p className="text-xs font-black uppercase tracking-widest text-primary">PayOS Checkout</p>
+            <h1 className="font-display text-2xl font-black text-white drop-shadow-sm leading-tight">{eventTitle}</h1>
           </div>
         </div>
 
-        <div className="mt-6 rounded-lg border border-border-soft bg-panel p-5 text-center">
-          <p className="text-sm font-bold uppercase tracking-widest text-muted">
+        <div className="mt-8 rounded-[24px] border border-white/5 bg-white/5 p-8 text-center shadow-inner">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
             Số tiền cần thanh toán
           </p>
-          <p className="mt-2 font-display text-4xl font-extrabold text-white">
+          <p className="mt-3 font-display text-5xl font-black text-white drop-shadow-lg tracking-tight">
             {formatPrice(data.order.total_amount)}
           </p>
 
           {data.payment?.qr_code ? (
-            <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
-              <img src={paymentQrImageSrc(data.payment.qr_code)} alt="QR PayOS" className="size-56" />
+            <div className="mx-auto mt-8 w-fit rounded-2xl bg-white p-5 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+              <img src={paymentQrImageSrc(data.payment.qr_code)} alt="QR PayOS" className="size-60" />
             </div>
           ) : (
-            <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">
+            <div className="mx-auto mt-8 grid size-60 place-items-center rounded-2xl border-2 border-dashed border-white/10 bg-slate-900/50 text-sm font-medium text-slate-400">
               QR sẽ hiển thị sau khi PayOS trả dữ liệu.
             </div>
           )}
 
-          <p className="mx-auto mt-4 max-w-md text-sm text-muted">
-            Quét QR trong app ngân hàng hoặc mở trang PayOS. Frontend chỉ hiển thị trạng thái sau khi backend nhận webhook và xác nhận thanh toán.
+          <p className="mx-auto mt-6 max-w-md text-sm text-slate-400 leading-relaxed">
+            Quét QR trong app ngân hàng hoặc mở trang PayOS. Hệ thống sẽ tự động cập nhật khi thanh toán thành công.
           </p>
 
           {data.payment?.checkout_url && (
@@ -178,53 +183,54 @@ export function PaymentConfirmationPage() {
               href={data.payment.checkout_url}
               target="_blank"
               rel="noreferrer"
-              className="mt-6 inline-flex items-center gap-2 rounded-md bg-tertiary px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-600"
+              className="cosmic-btn-primary mx-auto mt-8 flex w-fit min-w-[280px] items-center justify-center gap-2 py-4"
             >
               Mở trang thanh toán PayOS
-              <ExternalLink className="size-4" />
+              <ExternalLink className="size-5" />
             </a>
           )}
         </div>
       </section>
 
-      <aside className="glass-panel h-fit rounded-lg p-6">
-        <div className="rounded-md bg-ai/15 p-4">
-          <p className="text-sm font-bold text-ai">Thời gian giữ vé</p>
-          <p className="mt-2 font-mono text-3xl font-bold text-white">
+      <aside className="glass-panel h-fit rounded-[24px] p-8 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden lg:sticky lg:top-24">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_var(--color-primary)_0%,_transparent_50%)] opacity-10 pointer-events-none" />
+        <div className="rounded-[16px] border border-primary/30 bg-primary/10 p-6 text-center shadow-inner">
+          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Thời gian giữ vé</p>
+          <p className="mt-3 font-mono text-4xl font-bold text-white drop-shadow-sm">
             {formatCountdown(remainingSeconds)}
           </p>
         </div>
 
-        <div className="mt-5 space-y-3 text-sm">
+        <div className="mt-8 space-y-4 text-sm">
           <Line label="Mã đơn" value={data.order.order_code} />
           <Line label="Trạng thái đơn" value={data.order.status} />
           <Line label="Trạng thái PayOS" value={data.payment?.status || 'PENDING'} />
           <Line label="Tổng tiền" value={formatPrice(data.order.total_amount)} strong />
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-8 space-y-4">
           <button
             type="button"
             onClick={() => statusQuery.refetch()}
             disabled={statusQuery.isFetching}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-border-soft py-3 text-sm font-bold text-white transition hover:border-primary hover:text-primary disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 py-4 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20 disabled:opacity-60"
           >
-            <RefreshCw className="size-4" />
+            <RefreshCw className={cn('size-5', statusQuery.isFetching && 'animate-spin')} />
             {statusQuery.isFetching ? 'Đang kiểm tra...' : 'Kiểm tra trạng thái'}
           </button>
           <button
             type="button"
             onClick={() => cancelMutation.mutate()}
             disabled={cancelMutation.isPending || data.order.status !== 'PENDING'}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-error/40 py-3 text-sm font-bold text-error transition hover:bg-error/10 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-error/30 bg-transparent py-4 font-bold text-error transition-all hover:bg-error/10 hover:border-error/50 disabled:opacity-50"
           >
-            <XCircle className="size-4" />
+            <XCircle className="size-5" />
             Hủy đơn
           </button>
         </div>
 
         {expired && (
-          <p className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
+          <p className="mt-6 rounded-xl border border-error/30 bg-error/10 p-4 text-sm font-medium text-error text-center">
             Giao dịch đã hết thời gian giữ vé hoặc đã bị hủy. Vui lòng đặt vé lại từ đầu.
           </p>
         )}
