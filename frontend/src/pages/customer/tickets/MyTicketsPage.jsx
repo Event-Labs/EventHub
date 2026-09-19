@@ -11,6 +11,7 @@ const FILTERS = [
   { value: 'ALL', label: 'Tất cả' },
   { value: 'VALID', label: 'Hợp lệ' },
   { value: 'USED', label: 'Đã dùng' },
+  { value: 'REFUND_PENDING', label: 'Chờ hoàn tiền' },
   { value: 'REFUNDED', label: 'Đã hoàn' },
   { value: 'EXPIRED', label: 'Hết hạn' },
   { value: 'CANCELLED', label: 'Đã hủy' },
@@ -68,7 +69,6 @@ export function MyTicketsPage() {
   const location = useLocation()
   const [status, setStatus] = useState('ALL')
   const [page, setPage] = useState(1)
-  const [activeTab, setActiveTab] = useState('tickets')
   const isAuthenticated = hasAuthSession()
   const currentUserKey = getStoredUserKey()
 
@@ -87,7 +87,7 @@ export function MyTicketsPage() {
   const refundsQuery = useQuery({
     queryKey: ['my-refunds', currentUserKey],
     queryFn: () => fetchMyRefundRequests(),
-    enabled: isAuthenticated && activeTab === 'refunds',
+    enabled: isAuthenticated,
   })
 
   const tickets = useMemo(() => [...(ticketsQuery.data || [])].sort((a, b) => {
@@ -106,59 +106,31 @@ export function MyTicketsPage() {
           title="Thông tin Vé"
           description="Quản lý vé đã mua, thông tin check-in và các yêu cầu hoàn tiền"
         />
-        <div className="flex items-center gap-2 rounded-full glass-panel border-primary/20 p-1.5 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)]">
-          <button
-            type="button"
-            onClick={() => { setActiveTab('tickets'); setPage(1); }}
-            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${
-              activeTab === 'tickets'
-                ? 'bg-primary text-slate-950 shadow-[0_0_15px_rgba(6,182,212,0.5)]'
-                : 'text-slate-400 hover:text-primary hover:bg-white/5'
-            }`}
-          >
-            <Ticket className="size-4" />
-            Vé của tôi
-          </button>
-          <button
-            type="button"
-            onClick={() => { setActiveTab('refunds'); }}
-            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${
-              activeTab === 'refunds'
-                ? 'bg-primary text-slate-950 shadow-[0_0_15px_rgba(6,182,212,0.5)]'
-                : 'text-slate-400 hover:text-primary hover:bg-white/5'
-            }`}
-          >
-            <RotateCcw className="size-4" />
-            Yêu cầu hoàn tiền
-          </button>
-        </div>
+
       </div>
 
-      {activeTab === 'tickets' ? (
-        <>
-          <div className="mt-6 flex overflow-x-auto rounded-full glass-panel p-1.5 border-white/5 shadow-inner md:w-fit scrollbar-hide">
-            {FILTERS.map((item) => (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => {
-                  setStatus(item.value)
-                  setPage(1)
-                }}
-                className={`min-w-0 rounded-full px-4 py-2 text-[11px] font-bold tracking-wider uppercase transition-all ${
-                  status === item.value
-                    ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+      <div className="mt-6 flex overflow-x-auto rounded-full glass-panel p-1.5 border-white/5 shadow-inner md:w-fit scrollbar-hide">
+        {FILTERS.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => {
+              setStatus(item.value)
+              setPage(1)
+            }}
+            className={`min-w-0 rounded-full px-4 py-2 text-[11px] font-bold tracking-wider uppercase transition-all ${status === item.value
+                ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
+              }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
-          {ticketsQuery.isLoading && (
-            <p className="mt-8 text-sm text-muted">Đang tải vé...</p>
-          )}
+      {ticketsQuery.isLoading && (
+        <p className="mt-8 text-sm text-muted">Đang tải vé...</p>
+      )}
 
       {ticketsQuery.isError && (
         <p className="mt-8 text-sm text-error">Không thể tải danh sách vé.</p>
@@ -193,10 +165,12 @@ export function MyTicketsPage() {
           </button>
         </nav>
       )}
-        </>
-      ) : (
-        <CustomerRefundsSection query={refundsQuery} />
-      )}
+
+      {/* Refunds Section */}
+      <div className="mt-16 mb-6">
+        <h3 className="font-display text-2xl font-black text-white">Yêu cầu hoàn tiền</h3>
+      </div>
+      <CustomerRefundsSection query={refundsQuery} />
     </div>
   )
 }
@@ -210,7 +184,7 @@ function CustomerRefundsSection({ query }) {
     return <p className="mt-8 text-sm text-error">Không thể tải yêu cầu hoàn vé.</p>
   }
 
-  const list = query.data?.data || []
+  const list = query.data || []
 
   if (list.length === 0) {
     return (

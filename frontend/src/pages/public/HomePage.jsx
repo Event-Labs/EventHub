@@ -457,7 +457,7 @@ function BentoHero({ activeIndex, events, onSelect }) {
             <span className="w-fit rounded-full border border-primary/50 bg-primary/20 px-3 py-1 text-xs font-bold uppercase text-primary backdrop-blur-md mb-4 shadow-[0_0_15px_rgba(6,182,212,0.5)]">
               {mainEvent.category?.name || 'Sự kiện nổi bật'}
             </span>
-            <h2 className="font-display text-3xl font-bold text-white mb-3 line-clamp-2 transition-colors group-hover:text-primary">
+            <h2 className="font-display text-3xl font-bold text-white mb-3 line-clamp-2 transition-colors">
               {mainEvent.title}
             </h2>
             <div className="flex items-center gap-6 text-sm text-subtle mb-6">
@@ -486,7 +486,7 @@ function BentoHero({ activeIndex, events, onSelect }) {
               <span className="w-fit rounded-full border border-secondary/50 bg-secondary/20 px-2 py-0.5 text-[10px] font-bold uppercase text-secondary backdrop-blur-md mb-2">
                 {evt.category?.name || 'Sự kiện'}
               </span>
-              <h3 className="font-display text-lg font-bold text-white mb-2 line-clamp-2 transition-colors group-hover:text-secondary">
+              <h3 className="font-display text-lg font-bold text-white mb-2 line-clamp-2 transition-colors">
                 {evt.title}
               </h3>
               <p className="text-xs text-subtle mb-3 line-clamp-1">{eventLocation(evt)}</p>

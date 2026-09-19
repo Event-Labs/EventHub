@@ -48,6 +48,9 @@ function mapEvent(row) {
       require_adjacent_seats: Boolean(seatingRulesRaw.require_adjacent_seats),
       require_same_row: Boolean(seatingRulesRaw.require_same_row),
       disallow_single_seat_left: Boolean(seatingRulesRaw.disallow_single_seat_left),
+      max_tickets_per_order: Number.isInteger(Number(seatingRulesRaw.max_tickets_per_order)) && Number(seatingRulesRaw.max_tickets_per_order) > 0
+        ? Number(seatingRulesRaw.max_tickets_per_order)
+        : 10,
     },
     refund_policy:
       typeof row.refund_policy === 'string'
@@ -73,6 +76,9 @@ function sanitizeEventPayload(payload) {
       require_adjacent_seats: Boolean(input.require_adjacent_seats),
       require_same_row: Boolean(input.require_same_row),
       disallow_single_seat_left: Boolean(input.disallow_single_seat_left),
+      max_tickets_per_order: Number.isInteger(Number(input.max_tickets_per_order)) && Number(input.max_tickets_per_order) > 0
+        ? Math.min(Math.max(1, Number(input.max_tickets_per_order)), 100)
+        : 10,
     };
   }
   if (data.require_attendee_info !== undefined) {
@@ -89,15 +95,56 @@ function cleanOptionalText(value, maxLength) {
   return text.slice(0, maxLength);
 }
 
+function toVietnamDateString(dateInput) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+}
+
 function assertValidSessionTimes(startTime, endTime, validatePast = true) {
   if (!startTime || !endTime) {
     throw new AppError('Thời gian bắt đầu và kết thúc là bắt buộc.', 400, ErrorCodes.INVALID_INPUT);
   }
-  if (new Date(startTime) >= new Date(endTime)) {
+  const startDate = new Date(startTime);
+  const endDate = new Date(endTime);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    throw new AppError('Thời gian bắt đầu hoặc kết thúc không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+  }
+  if (startDate >= endDate) {
     throw new AppError('Thời gian kết thúc phải diễn ra sau thời gian bắt đầu.', 400, ErrorCodes.INVALID_INPUT);
   }
-  if (validatePast && new Date(startTime).getTime() < Date.now() - 60000) {
+  if (toVietnamDateString(startDate) !== toVietnamDateString(endDate)) {
+    throw new AppError('Mỗi phiên sự kiện phải bắt đầu và kết thúc trong cùng một ngày.', 400, ErrorCodes.INVALID_INPUT);
+  }
+  if (validatePast && startDate.getTime() < Date.now() - 60000) {
     throw new AppError('Thời gian bắt đầu sự kiện không được ở trong quá khứ.', 400, ErrorCodes.INVALID_INPUT);
+  }
+}
+
+function assertNoOverlappingSessions(sessions) {
+  if (!Array.isArray(sessions) || sessions.length <= 1) return;
+  for (let i = 0; i < sessions.length; i++) {
+    const sA = sessions[i];
+    const startA = new Date(sA.start_time).getTime();
+    const endA = new Date(sA.end_time).getTime();
+    if (isNaN(startA) || isNaN(endA)) continue;
+
+    for (let j = i + 1; j < sessions.length; j++) {
+      const sB = sessions[j];
+      const startB = new Date(sB.start_time).getTime();
+      const endB = new Date(sB.end_time).getTime();
+      if (isNaN(startB) || isNaN(endB)) continue;
+
+      if (startA < endB && startB < endA) {
+        const nameA = sA.session_name || `Phiên ${i + 1}`;
+        const nameB = sB.session_name || `Phiên ${j + 1}`;
+        throw new AppError(
+          `Phiên "${nameA}" và phiên "${nameB}" bị trùng lặp thời gian. Các phiên sự kiện không được diễn ra đồng thời.`,
+          400,
+          ErrorCodes.INVALID_INPUT
+        );
+      }
+    }
   }
 }
 
@@ -430,6 +477,7 @@ class OrganizerEventsService {
     }
 
     if (Array.isArray(data.sessions)) {
+      assertNoOverlappingSessions(data.sessions);
       const existing = await organizerEventsRepository.findEventById(eventId, organizerId);
       const existingSessions = existing?.sessions || [];
       const existingIds = new Set(existingSessions.map((s) => s.id));
@@ -573,6 +621,27 @@ class OrganizerEventsService {
     }
     if (!fullEvent.ticket_types?.length) {
       throw new AppError('Event must have at least one ticket type before submit', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    // Business Rule: Thời điểm nộp duyệt sự kiện phải cách thời điểm bắt đầu sự kiện tối thiểu 72 giờ (Lead Time >= 72h)
+    const validSessionStarts = (fullEvent.sessions || [])
+      .map((s) => new Date(s.start_time).getTime())
+      .filter((time) => !Number.isNaN(time));
+
+    if (validSessionStarts.length > 0) {
+      const earliestStart = Math.min(...validSessionStarts);
+      const leadTimeMs = earliestStart - Date.now();
+      const requiredLeadTimeMs = 72 * 60 * 60 * 1000;
+
+      if (leadTimeMs < requiredLeadTimeMs) {
+        const hoursLeft = Math.max(0, Math.round((leadTimeMs / (60 * 60 * 1000)) * 10) / 10);
+        throw new AppError(
+          `Sự kiện phải được nộp duyệt trước thời điểm bắt đầu tối thiểu 72 giờ (hiện tại còn ${hoursLeft} giờ). Vui lòng điều chỉnh lịch trình sự kiện để đảm bảo thời gian xét duyệt.`,
+          400,
+          'EVENT_SUBMIT_LEAD_TIME_INSUFFICIENT',
+          { lead_time_hours: hoursLeft, required_hours: 72 }
+        );
+      }
     }
 
     const hasPaidTickets = fullEvent.ticket_types.some((tt) => Number(tt.price) > 0);
