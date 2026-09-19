@@ -1,6 +1,4 @@
 # This Modelfile builds the custom EventHub AI Agent
-# Defaulting to use the base Qwen model if GGUF is not generated yet.
-# Once you have eventhub-qwen3-4b.gguf, change this to FROM ./eventhub-qwen3-4b.gguf
 FROM ./eventhub-qwen3-4b.gguf
 
 # System Prompt for the EventHub Agent
@@ -14,7 +12,15 @@ Quy tắc:
 - Đối với kiểm duyệt sự kiện, tuân thủ chính sách chống lừa đảo, tài chính phi thực tế.
 """
 
-# Parameters to control generation quality
+# Cài đặt cũ (đã comment lại)
+# PARAMETER temperature 0.3
+# PARAMETER top_p 0.9
+# PARAMETER stop "<|im_end|>"
+# PARAMETER stop "<|im_start|>"
+
+# Tối ưu hóa cho phần cứng GPU 4GB VRAM & CPU i5-12450H
+PARAMETER num_ctx 4096
+PARAMETER num_thread 8
 PARAMETER temperature 0.3
 PARAMETER top_p 0.9
 PARAMETER stop "<|im_end|>"

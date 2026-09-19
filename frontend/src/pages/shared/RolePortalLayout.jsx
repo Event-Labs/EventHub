@@ -88,9 +88,8 @@ export function RolePortalLayout({
           }`}
         >
           <div
-            className={`portal-sidebar-scroll flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden py-3 ${
-              sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
-            }`}
+            className={`portal-sidebar-scroll flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden py-3 ${sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
+              }`}
           >
             {navSections.map((section, sectionIndex) => (
               <SidebarSection
@@ -456,9 +455,8 @@ function PortalNotificationBell() {
                   key={notification.id}
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
-                  className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${
-                    notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
-                  }`}
+                  className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
+                    }`}
                 >
                   <div className="flex items-start gap-3">
                     {!notification.is_read && (

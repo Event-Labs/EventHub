@@ -212,9 +212,24 @@ class OrdersRepository {
 
       const totalRequested = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
+      const seatingRules = typeof firstTicket.seating_rules === 'string'
+        ? JSON.parse(firstTicket.seating_rules || '{}')
+        : firstTicket.seating_rules || {};
+      const maxTicketsPerOrder = Number.isInteger(Number(seatingRules.max_tickets_per_order)) && Number(seatingRules.max_tickets_per_order) > 0
+        ? Number(seatingRules.max_tickets_per_order)
+        : null;
+
+      if (maxTicketsPerOrder && totalRequested > maxTicketsPerOrder) {
+        throw new AppError(
+          `Bạn chỉ được mua tối đa ${maxTicketsPerOrder} vé/chỗ trong một lần đặt cho sự kiện này.`,
+          400,
+          ErrorCodes.ORDER_INVALID_ITEMS,
+        );
+      }
+
       const requireAttendeeInfo = Boolean(firstTicket.require_attendee_info);
       if (requireAttendeeInfo && attendees.length !== totalRequested) {
-        throw new AppError('Vui l\u00f2ng nh\u1eadp \u0111\u1ee7 th\u00f4ng tin ng\u01b0\u1eddi tham d\u1ef1 cho t\u1eebng v\u00e9.', 400, ErrorCodes.INVALID_INPUT);
+        throw new AppError('Vui lòng nhập đủ thông tin người tham dự cho từng vé.', 400, ErrorCodes.INVALID_INPUT);
       }
       const attendeeQueues = requireAttendeeInfo ? buildAttendeeQueues(attendees) : new Map();
 
