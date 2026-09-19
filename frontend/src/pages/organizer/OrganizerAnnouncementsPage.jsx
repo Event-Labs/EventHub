@@ -89,7 +89,7 @@ export function OrganizerAnnouncementsPage() {
 
   return (
     <OrganizerPage
-      title="Gửi thông báo"
+      title="Gửi Thông báo"
       description="Gửi cập nhật quan trọng tới người đã mua vé qua web realtime và email."
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">

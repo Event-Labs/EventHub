@@ -1,3 +1,5 @@
+import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+
 export function SectionHeader({ eyebrow, title, description, action }) {
   return (
     <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -7,10 +9,10 @@ export function SectionHeader({ eyebrow, title, description, action }) {
             {eyebrow}
           </p>
         )}
-        <h2 className="font-display text-2xl font-bold text-white md:text-3xl">
-          {title}
+        <h2 className="font-display text-2xl font-black text-white md:text-3xl drop-shadow-sm">
+          {renderCosmicTitle(title)}
         </h2>
-        {description && <p className="mt-2 text-muted">{description}</p>}
+        {description && <p className="mt-2 text-slate-400">{description}</p>}
       </div>
       {action}
     </div>

@@ -790,7 +790,7 @@ export function OrganizerVenuesPage() {
 
   return (
     <OrganizerPage
-      title="Quản lý địa điểm"
+      title="Quản lý Địa điểm"
       description="Tạo và quản lý địa điểm tổ chức sự kiện, kèm sơ đồ ghế."
       action="Thêm địa điểm"
       onAction={openCreate}

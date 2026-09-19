@@ -294,12 +294,9 @@ export function AdminEventReviewPage() {
   const setNote = (eventId, value) =>
     setNotes((prev) => ({ ...prev, [eventId]: value }))
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
   return (
     <Page
-      title="Duyệt sự kiện"
+      title="Duyệt Sự kiện"
       description="Kiểm duyệt và phê duyệt các sự kiện được gửi bởi Organizer."
     >
       {/* Status tab filter */}
@@ -665,7 +662,7 @@ function EventReviewModal({
                 type="button"
                 disabled={isMutating}
                 onClick={() => onReview('APPROVED')}
-                className="inline-flex items-center gap-2 rounded-xl bg-success px-5 py-3 text-sm font-extrabold text-slate-950 shadow transition hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-70"
+                className="admin-primary disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <CheckCircle2 className="size-4" />
                 Phê duyệt
@@ -674,7 +671,7 @@ function EventReviewModal({
                 type="button"
                 disabled={isMutating}
                 onClick={() => onReview('REJECTED')}
-                className="inline-flex items-center gap-2 rounded-xl border border-error/40 px-5 py-3 text-sm font-bold text-error transition hover:-translate-y-0.5 hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-70"
+                className="admin-danger disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <XCircle className="size-4" />
                 Từ chối
@@ -687,7 +684,7 @@ function EventReviewModal({
               type="button"
               disabled={isMutating}
               onClick={onHide}
-              className="inline-flex items-center gap-2 rounded-xl bg-panel-soft border border-border-soft/40 px-5 py-3 text-sm font-bold text-content shadow transition hover:-translate-y-0.5 hover:bg-panel-soft/80 disabled:cursor-not-allowed disabled:opacity-70"
+              className="admin-secondary disabled:cursor-not-allowed disabled:opacity-70"
             >
               <EyeOff className="size-4" />
               Ẩn sự kiện
@@ -699,7 +696,7 @@ function EventReviewModal({
               type="button"
               disabled={isMutating}
               onClick={onUnhide}
-              className="inline-flex items-center gap-2 rounded-xl bg-success px-5 py-3 text-sm font-extrabold text-slate-950 shadow transition hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-70"
+              className="admin-primary disabled:cursor-not-allowed disabled:opacity-70"
             >
               <Eye className="size-4" />
               Bỏ ẩn

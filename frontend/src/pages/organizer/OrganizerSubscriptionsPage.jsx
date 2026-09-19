@@ -55,7 +55,7 @@ export function OrganizerSubscriptionsPage() {
 
   return (
     <OrganizerPage
-      title="Gói dịch vụ"
+      title="Gói Dịch vụ"
       description="Xem các gói Organizer hiện có. Nâng cấp để mở khoá thêm tính năng và tăng giới hạn sử dụng."
     >
       {/* Loading state */}

@@ -45,7 +45,7 @@ export function StaffDashboardPage() {
   const todayEvents = overview?.today_events || []
 
   return (
-    <StaffPage title="Tổng quan nhân sự" description="Theo dõi các sự kiện và ca soát vé hôm nay.">
+    <StaffPage title="Tổng quan Nhân sự" description="Theo dõi các sự kiện và ca soát vé hôm nay.">
       {error && (
         <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
           {error}

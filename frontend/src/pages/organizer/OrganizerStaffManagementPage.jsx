@@ -159,7 +159,7 @@ export function OrganizerStaffManagementPage() {
 
   return (
     <OrganizerPage
-      title="Quản lý nhân sự"
+      title="Quản lý Nhân sự"
       description="Phân công, phân chia cổng và khu vực làm việc cho nhân sự từng sự kiện."
     >
       {/* ── Toolbar ── */}

@@ -191,7 +191,7 @@ export function OrganizerRefundsPage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Quản lý yêu cầu hoàn vé"
+        title="Quản lý yêu cầu Hoàn vé"
         description="Xem xét và xử lý các yêu cầu hoàn tiền vé từ người mua theo chính sách sự kiện"
       />
 
@@ -494,20 +494,20 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-4 backdrop-blur-md"
       onClick={onClose}
     >
       <div
-        className="relative flex flex-col w-full max-w-lg sm:max-w-xl max-h-[90vh] rounded-2xl border border-white/10 bg-[#0f172a] shadow-2xl overflow-hidden"
+        className="relative flex flex-col w-full max-w-lg sm:max-w-xl max-h-[90vh] rounded-[32px] border border-white/10 bg-slate-900/80 shadow-[0_0_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Section */}
-        <div className="flex-none flex items-center justify-between border-b border-white/10 bg-[#131d35] px-5 py-3.5">
-          <h3 className="text-lg font-bold text-white">Xử lý yêu cầu hoàn tiền</h3>
+        <div className="flex-none flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-6 py-4">
+          <h3 className="font-display text-lg font-black text-white drop-shadow-sm tracking-tight">Xử lý yêu cầu hoàn tiền</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
           >
             <X className="size-5" />
           </button>
@@ -516,33 +516,34 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
         {/* Action Form or ReadOnly History */}
         {!isReadOnly ? (
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 overflow-y-auto px-4 py-3.5 sm:px-5 space-y-3.5 text-xs">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-[13px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
               {/* Info Grid */}
-              <div className="grid gap-3 rounded-xl border border-white/5 bg-[#162038] p-3 text-xs sm:grid-cols-2">
+              <div className="grid gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner sm:grid-cols-2">
                 <div>
-                  <span className="text-slate-400">Sự kiện:</span>
-                  <p className="font-bold text-white break-words">{item.event?.title || 'N/A'}</p>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px] block mb-1">Sự kiện:</span>
+                  <p className="font-black text-white text-[15px] break-words drop-shadow-sm">{item.event?.title || 'N/A'}</p>
                 </div>
                 <div>
-                  <span className="text-slate-400">Mã vé / Mã đơn:</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px] block mb-1">Mã vé / Mã đơn:</span>
                   <p className="font-mono font-bold text-amber-400">
                     {item.ticket?.ticket_code ? `${item.ticket.ticket_code}` : `Đơn: ${item.order?.order_code}`}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-400">Khách hàng:</span>
-                  <p className="font-semibold text-white break-words">
-                    {item.customer?.full_name || item.order?.buyer_name} ({item.customer?.email || item.order?.buyer_email})
+                  <span className="text-slate-400 font-medium">Khách hàng:</span>
+                  <p className="font-semibold text-white break-words mt-0.5">
+                    {item.customer?.full_name || item.order?.buyer_name} <br/>
+                    <span className="text-slate-400 font-normal">({item.customer?.email || item.order?.buyer_email})</span>
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-400">Lý do yêu cầu:</span>
-                  <p className="font-semibold text-slate-200 break-words">{item.reason}</p>
+                  <span className="text-slate-400 font-medium">Lý do yêu cầu:</span>
+                  <p className="font-semibold text-white break-words mt-0.5">{item.reason}</p>
                 </div>
 
                 {/* Information Header / Tóm tắt tính toán hoàn tiền */}
-                <div className="sm:col-span-2 rounded-xl border border-white/10 bg-[#111a2e] p-3 space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-white/5 pb-2">
+                <div className="sm:col-span-2 rounded-[16px] border border-white/5 bg-black/20 p-4 space-y-3 shadow-inner">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-white/5 pb-3">
                     <span className="text-slate-400 font-medium">Giá vé đã thanh toán thực tế:</span>
                     <div className="font-bold text-white">
                       {formatCurrency(actualPaid)}
@@ -554,28 +555,28 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-white/5 pb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-white/5 pb-3">
                     <span className="text-slate-400 font-medium shrink-0">Quy định / Chính sách áp dụng:</span>
-                    <div className="inline-flex items-center rounded-md bg-cyan-500/10 px-2 py-0.5 text-xs font-semibold text-cyan-300 border border-cyan-500/20 text-right">
+                    <div className="inline-flex items-center rounded-md bg-cyan-500/10 px-2 py-0.5 text-xs font-semibold text-cyan-300 border border-cyan-500/20 text-right shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                       {policyText}
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pt-0.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pt-1">
                     <span className="font-bold text-slate-300">Số tiền hoàn đề xuất:</span>
-                    <span className="text-base font-black text-emerald-400">
+                    <span className="text-lg font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
                       {formatCurrency(defaultRefundAmount)}
                     </span>
                   </div>
                 </div>
 
                 {bankInfo && (
-                  <div className="sm:col-span-2 rounded-lg border border-white/10 bg-[#1e2a4a] p-2.5">
-                    <p className="font-bold text-amber-300">Thông tin ngân hàng nhận hoàn tiền:</p>
-                    <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-slate-200">
-                      <div><span className="text-slate-400">Ngân hàng:</span> {bankInfo.bank_name || 'N/A'}</div>
-                      <div><span className="text-slate-400">Số TK:</span> <span className="font-mono font-bold">{bankInfo.account_number || 'N/A'}</span></div>
-                      <div><span className="text-slate-400">Chủ TK:</span> {bankInfo.account_holder || 'N/A'}</div>
+                  <div className="sm:col-span-2 rounded-[16px] border border-white/5 bg-black/20 p-4 shadow-inner">
+                    <p className="font-bold text-amber-400 mb-2">Thông tin ngân hàng nhận hoàn tiền:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-slate-200">
+                      <div><span className="text-slate-400">Ngân hàng:</span> <br/><span className="font-medium text-white">{bankInfo.bank_name || 'N/A'}</span></div>
+                      <div><span className="text-slate-400">Số TK:</span> <br/><span className="font-mono font-bold text-white">{bankInfo.account_number || 'N/A'}</span></div>
+                      <div><span className="text-slate-400">Chủ TK:</span> <br/><span className="font-medium text-white">{bankInfo.account_holder || 'N/A'}</span></div>
                     </div>
                   </div>
                 )}
@@ -583,14 +584,14 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
 
               {/* Action Decision */}
               <div>
-                <label className="block text-xs font-bold text-slate-300">Quyết định xử lý *</label>
-                <div className="mt-1.5 grid grid-cols-2 gap-2.5">
+                <label className="block text-[13px] font-bold text-slate-300 mb-2">Quyết định xử lý <span className="text-error">*</span></label>
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setDecision('APPROVE')}
-                    className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-bold transition ${decision === 'APPROVE'
-                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 shadow-md shadow-emerald-500/10'
-                      : 'border-white/10 bg-[#162038] text-slate-300 hover:border-white/20'
+                    className={`flex items-center justify-center gap-2 rounded-[16px] border p-3 text-[13px] font-bold transition-all ${decision === 'APPROVE'
+                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+                      : 'border-white/10 bg-black/20 text-slate-400 hover:bg-white/5 hover:text-white'
                       }`}
                   >
                     <CheckCircle className="size-4" />
@@ -599,9 +600,9 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                   <button
                     type="button"
                     onClick={() => setDecision('REJECT')}
-                    className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-bold transition ${decision === 'REJECT'
-                      ? 'border-red-500 bg-red-500/20 text-red-300 shadow-md shadow-red-500/10'
-                      : 'border-white/10 bg-[#162038] text-slate-300 hover:border-white/20'
+                    className={`flex items-center justify-center gap-2 rounded-[16px] border p-3 text-[13px] font-bold transition-all ${decision === 'REJECT'
+                      ? 'border-rose-500 bg-rose-500/20 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.2)]'
+                      : 'border-white/10 bg-black/20 text-slate-400 hover:bg-white/5 hover:text-white'
                       }`}
                   >
                     <XCircle className="size-4" />
@@ -612,22 +613,20 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
 
               {/* Conditional Fields based on Decision */}
               {decision === 'APPROVE' ? (
-                <div className="space-y-3 rounded-xl border border-white/5 bg-[#162038] p-3">
+                <div className="space-y-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner">
                   {/* Số tiền hoàn (VND) */}
                   <div>
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-semibold text-slate-300">Số tiền hoàn (VND) *</label>
-                    </div>
+                    <label className="block text-[13px] font-bold text-slate-300 mb-2">Số tiền hoàn (VND) <span className="text-error">*</span></label>
                     {refundMethod === 'PAYOS' ? (
                       <div>
                         <input
-                          type="number"
-                          value={defaultRefundAmount}
+                          type="text"
+                          value={formatCurrency(defaultRefundAmount)}
                           disabled
                           readOnly
-                          className="mt-1 w-full rounded-lg border border-white/5 bg-[#121c33]/80 px-3 py-2 text-sm font-bold text-slate-400 cursor-not-allowed select-none"
+                          className="w-full rounded-[16px] border border-white/5 bg-black/40 px-4 py-3 text-[13px] font-black text-slate-500 cursor-not-allowed select-none shadow-inner"
                         />
-                        <p className="mt-1 text-[11px] text-slate-400 italic">
+                        <p className="mt-2 text-[11px] text-slate-400 italic">
                           * Cổng PayOS tự động hoàn đúng số tiền theo đề xuất ({formatCurrency(defaultRefundAmount)}) để đảm bảo đối soát chính xác
                         </p>
                       </div>
@@ -640,22 +639,22 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                           step="1000"
                           value={finalAmount}
                           onChange={(e) => setFinalAmount(e.target.value)}
-                          className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm font-bold text-emerald-400 focus:outline-none transition ${isAmountOverMax || isAmountInvalid
-                            ? 'border-red-500 bg-red-500/10 focus:border-red-500'
-                            : 'border-white/10 bg-[#1e293b] focus:border-primary'
+                          className={`w-full rounded-[16px] border px-4 py-3 text-[13px] font-black text-emerald-400 focus:outline-none transition-all shadow-inner ${isAmountOverMax || isAmountInvalid
+                            ? 'border-rose-500 bg-rose-500/10 focus:border-rose-500 focus:ring-1 focus:ring-rose-500'
+                            : 'border-white/10 bg-black/40 focus:border-emerald-500 focus:bg-black/60 focus:ring-1 focus:ring-emerald-500'
                             }`}
                         />
-                        <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-[11px]">
                           <span className="text-slate-400">
-                            Tối đa: <span className="text-amber-300 font-semibold">{formatCurrency(actualPaid)}</span> (Giá thực tế đã thanh toán)
+                            Tối đa: <span className="text-amber-400 font-bold">{formatCurrency(actualPaid)}</span> (Giá thực tế đã thanh toán)
                           </span>
                           {isAmountOverMax && (
-                            <span className="font-semibold text-red-400">
+                            <span className="font-bold text-rose-400">
                               Không được vượt quá {formatCurrency(actualPaid)}
                             </span>
                           )}
                           {isAmountInvalid && finalAmount !== '' && (
-                            <span className="font-semibold text-red-400">
+                            <span className="font-bold text-rose-400">
                               Số tiền hoàn phải lớn hơn 0 đ
                             </span>
                           )}
@@ -666,14 +665,14 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
 
                   {/* Payment Method Selector */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300">Phương thức thực hiện hoàn tiền</label>
-                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    <label className="block text-[13px] font-bold text-slate-300 mb-2">Phương thức thực hiện hoàn tiền</label>
+                    <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => handleSelectRefundMethod('PAYOS')}
-                        className={`rounded-lg border p-2.5 text-xs font-semibold transition ${refundMethod === 'PAYOS'
-                          ? 'border-primary bg-primary/20 text-primary'
-                          : 'border-white/10 bg-[#1e293b] text-slate-300'
+                        className={`rounded-[16px] border p-3 text-[13px] font-bold transition-all ${refundMethod === 'PAYOS'
+                          ? 'border-primary bg-primary/20 text-primary shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+                          : 'border-white/10 bg-black/20 text-slate-400 hover:bg-white/5 hover:text-white'
                           }`}
                       >
                         Cổng thanh toán PayOS (Tự động)
@@ -681,9 +680,9 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                       <button
                         type="button"
                         onClick={() => handleSelectRefundMethod('MANUAL_BANK_TRANSFER')}
-                        className={`rounded-lg border p-2.5 text-xs font-semibold transition ${refundMethod === 'MANUAL_BANK_TRANSFER'
-                          ? 'border-amber-500 bg-amber-500/20 text-amber-300'
-                          : 'border-white/10 bg-[#1e293b] text-slate-300'
+                        className={`rounded-[16px] border p-3 text-[13px] font-bold transition-all ${refundMethod === 'MANUAL_BANK_TRANSFER'
+                          ? 'border-amber-500 bg-amber-500/20 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                          : 'border-white/10 bg-black/20 text-slate-400 hover:bg-white/5 hover:text-white'
                           }`}
                       >
                         Chuyển khoản thủ công
@@ -692,31 +691,31 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                   </div>
 
                   {refundMethod === 'MANUAL_BANK_TRANSFER' ? (
-                    <div className="space-y-3 pt-2 border-t border-white/10">
+                    <div className="space-y-4 pt-4 border-t border-white/5">
                       {bankInfo?.account_number && (
-                        <div className="rounded-xl border border-white/10 bg-[#121c33] p-3 flex flex-col sm:flex-row items-center gap-3">
-                          <div className="bg-white p-2 rounded-lg shrink-0 shadow">
+                        <div className="rounded-[16px] border border-white/5 bg-black/20 p-4 flex flex-col sm:flex-row items-center gap-4 shadow-inner">
+                          <div className="bg-white p-2 rounded-xl shrink-0 shadow-lg">
                             <img
                               src={`https://img.vietqr.io/image/${resolveBankBin(bankInfo.bank_name) || '970422'}-${bankInfo.account_number}-compact2.png?amount=${finalAmount || 0}&addInfo=${encodeURIComponent(`Hoan tien ${item.ticket?.ticket_code || item.order?.order_code || ''}`)}&accountName=${encodeURIComponent(bankInfo.account_holder || '')}`}
                               alt="VietQR Chuyển Khoản"
                               className="size-28 object-contain"
                             />
                           </div>
-                          <div className="space-y-1 text-xs text-slate-300 flex-1 w-full">
-                            <p className="font-bold text-amber-300 text-sm">Quét mã VietQR chuyển tiền</p>
+                          <div className="space-y-1.5 text-[13px] text-slate-300 flex-1 w-full">
+                            <p className="font-black text-amber-400 text-sm drop-shadow-sm">Quét mã VietQR chuyển tiền</p>
                             <p className="text-[11px] text-slate-400">Mở ứng dụng ngân hàng của bạn quét mã để chuyển trực tiếp đến tài khoản khách hàng:</p>
-                            <div className="pt-1 space-y-0.5 font-medium text-[11px]">
+                            <div className="pt-2 space-y-1 font-medium text-[12px]">
                               <div>Ngân hàng: <span className="text-white font-bold">{bankInfo.bank_name}</span></div>
-                              <div>Số tài khoản: <span className="font-mono text-amber-300 font-bold">{bankInfo.account_number}</span></div>
+                              <div>Số tài khoản: <span className="font-mono text-amber-400 font-bold">{bankInfo.account_number}</span></div>
                               <div>Chủ tài khoản: <span className="text-white font-bold">{bankInfo.account_holder || 'N/A'}</span></div>
-                              <div>Số tiền: <span className="text-emerald-400 font-bold">{formatCurrency(finalAmount)}</span></div>
+                              <div>Số tiền: <span className="text-emerald-400 font-black">{formatCurrency(finalAmount)}</span></div>
                             </div>
                           </div>
                         </div>
                       )}
                       <div>
-                        <label className="block text-xs font-semibold text-amber-300">
-                          Mã giao dịch chuyển khoản (Transaction Reference ID) *
+                        <label className="block text-[13px] font-bold text-amber-400 mb-2">
+                          Mã giao dịch chuyển khoản (Transaction Reference ID) <span className="text-error">*</span>
                         </label>
                         <input
                           type="text"
@@ -724,11 +723,11 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                           value={transactionRef}
                           onChange={(e) => setTransactionRef(e.target.value)}
                           placeholder="VD: FT260910123456 hoặc mã giao dịch ngân hàng..."
-                          className="mt-1 w-full rounded-lg border border-amber-500/30 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                          className="w-full rounded-[16px] border border-amber-500/50 bg-amber-500/5 px-4 py-3 text-[13px] font-medium text-white placeholder-slate-500 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-300">
+                        <label className="block text-[13px] font-bold text-slate-300 mb-2">
                           Link ảnh biên lai chuyển khoản (Proof of Payment URL)
                         </label>
                         <input
@@ -736,20 +735,19 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                           value={proofUrl}
                           onChange={(e) => setProofUrl(e.target.value)}
                           placeholder="https://..."
-                          className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-primary focus:outline-none"
+                          className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white placeholder-slate-500 focus:border-primary focus:bg-black/60 focus:ring-1 focus:ring-primary focus:outline-none transition-all shadow-inner"
                         />
                       </div>
                     </div>
                   ) : (
-                    /* Entire process box removed, plain italic note only */
-                    <p className="text-[11px] italic text-amber-300/90 leading-relaxed">
-                      * Lưu ý: Tính năng tự động yêu cầu tài khoản PayOS của Ban tổ chức đã kích hoạt dịch vụ Chi hộ (Payout) và có số dư ví chi. Nếu chưa kích hoạt Chi hộ, vui lòng chọn Chuyển khoản thủ công
+                    <p className="text-[11px] italic text-amber-400/90 leading-relaxed bg-amber-500/10 border border-amber-500/20 p-3 rounded-[12px]">
+                      * Lưu ý: Tính năng tự động yêu cầu tài khoản PayOS của Ban tổ chức đã kích hoạt dịch vụ Chi hộ (Payout) và có số dư ví chi. Nếu chưa kích hoạt Chi hộ, vui lòng chọn Chuyển khoản thủ công.
                     </p>
                   )}
 
                   {/* Ghi chú của BTC gửi khách hàng khi Chấp nhận */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300">
+                    <label className="block text-[13px] font-bold text-slate-300 mb-2">
                       Ghi chú của BTC gửi khách hàng
                     </label>
                     <textarea
@@ -758,16 +756,15 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                       value={organizerNote}
                       onChange={(e) => setOrganizerNote(e.target.value)}
                       placeholder="Ghi chú thêm gửi đến khách hàng (tùy chọn, tối đa 500 ký tự)..."
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] p-2.5 text-xs text-white placeholder-slate-500 focus:border-primary focus:outline-none resize-y min-h-[52px]"
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 p-4 text-[13px] font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:bg-black/60 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all shadow-inner resize-y min-h-[80px]"
                     />
                   </div>
                 </div>
               ) : (
-                /* Khi chọn Từ chối hoàn tiền: Ẩn Số tiền hoàn và Phương thức hoàn tiền, chỉ hiển thị Lý do từ chối */
-                <div className="space-y-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3.5">
+                <div className="space-y-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner">
                   <div>
-                    <label className="block text-xs font-bold text-red-300">
-                      Lý do từ chối (Bắt buộc gửi cho khách hàng) *
+                    <label className="block text-[13px] font-bold text-rose-400 mb-2">
+                      Lý do từ chối (Bắt buộc gửi cho khách hàng) <span className="text-error">*</span>
                     </label>
                     <textarea
                       rows={3}
@@ -776,46 +773,36 @@ function ProcessRefundModal({ item, onClose, onSuccess }) {
                       value={organizerNote}
                       onChange={(e) => setOrganizerNote(e.target.value)}
                       placeholder="Vui lòng nhập lý do từ chối yêu cầu hoàn tiền (bắt buộc gửi đến khách hàng)..."
-                      className="mt-1.5 w-full rounded-lg border border-red-500/30 bg-[#1e293b] p-2.5 text-xs text-white placeholder-slate-500 focus:border-red-400 focus:outline-none resize-y min-h-[64px]"
+                      className="w-full rounded-[16px] border border-rose-500/50 bg-rose-500/5 p-4 text-[13px] font-medium text-white placeholder-slate-500 focus:bg-rose-500/10 focus:ring-1 focus:ring-rose-500 focus:outline-none transition-all shadow-inner resize-y min-h-[100px]"
                     />
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] text-slate-400">Gợi ý nhanh:</span>
-                      {[
-                        'Không đúng chính sách quy định',
-                        'Vé đã qua sử dụng / hết hạn',
-                        'Lý do hoàn vé không hợp lệ',
-                      ].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setOrganizerNote(preset)}
-                          className="rounded-md border border-white/10 bg-[#162038] px-2 py-0.5 text-[11px] text-slate-300 hover:border-red-400/50 hover:text-white transition"
-                        >
-                          {preset}
-                        </button>
-                      ))}
-                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <span className="text-slate-400">Gợi ý nhanh:</span>
+                    <button type="button" onClick={() => setOrganizerNote('Không đúng chính sách quy định')} className="rounded-full bg-white/5 px-2.5 py-1 text-slate-300 hover:bg-white/10 transition border border-white/10">Không đúng chính sách quy định</button>
+                    <button type="button" onClick={() => setOrganizerNote('Vé đã qua sử dụng / hết hạn')} className="rounded-full bg-white/5 px-2.5 py-1 text-slate-300 hover:bg-white/10 transition border border-white/10">Vé đã qua sử dụng / hết hạn</button>
+                    <button type="button" onClick={() => setOrganizerNote('Lý do hoàn vé không hợp lệ')} className="rounded-full bg-white/5 px-2.5 py-1 text-slate-300 hover:bg-white/10 transition border border-white/10">Lý do hoàn vé không hợp lệ</button>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Sticky Footer Buttons */}
-            <div className="flex-none flex items-center justify-end gap-3 border-t border-white/10 bg-[#131d35] px-5 py-3">
+            <div className="flex-none flex items-center justify-end gap-3 border-t border-white/5 bg-white/[0.02] px-6 py-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-white/10 hover:text-white"
+                className="rounded-full border border-white/10 bg-white/5 px-6 py-2.5 text-[13px] font-bold text-slate-300 hover:bg-white/10 hover:text-white transition backdrop-blur-md"
               >
                 Hủy bỏ
               </button>
               <button
                 type="submit"
                 disabled={processMutation.isPending || (decision === 'APPROVE' && refundMethod === 'MANUAL_BANK_TRANSFER' && (isAmountOverMax || isAmountInvalid))}
-                className={`rounded-lg px-5 py-2.5 text-xs font-bold transition disabled:opacity-50 ${decision === 'APPROVE'
-                  ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
-                  : 'bg-red-500 text-white hover:bg-red-400'
-                  }`}
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-[13px] font-bold shadow-lg transition hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 ${
+                  decision === 'APPROVE'
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)]'
+                    : 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)] hover:shadow-[0_0_25px_rgba(225,29,72,0.5)]'
+                }`}
               >
                 {processMutation.isPending
                   ? 'Đang xử lý...'

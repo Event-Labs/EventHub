@@ -61,23 +61,24 @@ export function ResetPasswordPage() {
     if (success) {
         return (
             <AuthShell>
-                <div className="glass-panel mx-auto w-full max-w-md rounded-lg p-10 shadow-2xl text-center">
-                    <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success">
+                <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] text-center">
+                    <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
+                    <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                         <CheckCircle className="size-10" />
                     </div>
-                    <h1 className="font-display text-3xl font-extrabold text-primary">
+                    <h1 className="font-display text-3xl font-extrabold text-primary drop-shadow-lg">
                         Đặt lại mật khẩu thành công!
                     </h1>
-                    <p className="mt-4 text-muted text-lg">
+                    <p className="mt-4 text-slate-300 text-lg">
                         Mật khẩu của bạn đã được thay đổi. Bây giờ bạn có thể đăng nhập bằng mật khẩu mới.
                     </p>
-                    <p className="mt-6 text-subtle italic">
+                    <p className="mt-6 text-slate-400 italic">
                         Tự động chuyển về trang đăng nhập sau <span className="font-bold text-primary">{countdown}s</span>...
                     </p>
                     <div className="mt-8">
                         <Link
                             to="/login"
-                            className="inline-block w-full rounded-md bg-primary py-4 font-bold text-slate-950 hover:bg-primary/90 transition-colors"
+                            className="cosmic-btn-primary w-full py-3.5 text-[15px]"
                         >
                             Về trang Login
                         </Link>
@@ -89,12 +90,13 @@ export function ResetPasswordPage() {
 
     return (
         <AuthShell>
-            <div className="glass-panel mx-auto w-full max-w-md rounded-lg p-7 shadow-2xl">
+            <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+                <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                 <div className="text-center">
-                    <h1 className="font-display text-3xl font-extrabold text-primary">
+                    <h1 className="font-display text-3xl font-extrabold text-primary drop-shadow-lg">
                         Đặt lại mật khẩu
                     </h1>
-                    <p className="mt-2 text-muted">
+                    <p className="mt-3 text-sm font-medium text-slate-300">
                         Vui lòng nhập mật khẩu mới cho tài khoản của bạn.
                     </p>
                 </div>
@@ -124,7 +126,7 @@ export function ResetPasswordPage() {
                     <button
                         type="submit"
                         disabled={loading || !token}
-                        className="w-full rounded-md bg-primary py-4 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="cosmic-btn-primary w-full py-3.5 text-[15px]"
                     >
                         {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
                     </button>

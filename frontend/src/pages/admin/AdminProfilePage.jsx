@@ -369,7 +369,7 @@ export function AdminProfilePage() {
 
   return (
     <Page
-      title="Hồ sơ cá nhân"
+      title="Hồ sơ Quản trị viên"
       description="Quản lý thông tin tài khoản và bảo mật để bảo vệ tài khoản của bạn."
       actions={
         <div className="flex flex-wrap gap-3">

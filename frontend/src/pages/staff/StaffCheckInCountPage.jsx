@@ -38,7 +38,7 @@ export function StaffCheckInCountPage() {
 
   return (
     <StaffPage
-      title="Thống kê soát vé"
+      title="Thống kê Soát vé"
       description="Dữ liệu thời gian thực của tất cả sự kiện bạn được phân công."
       action={(
         <button className="admin-primary" onClick={() => reportQuery.refetch()} disabled={reportQuery.isFetching}>

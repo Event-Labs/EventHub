@@ -326,8 +326,8 @@ export function TicketDetailPage() {
         Vé của tôi
       </Link>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,620px)_320px] lg:items-start">
-        <aside className="order-2 space-y-5 lg:order-2 lg:sticky lg:top-24">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,620px)_360px] lg:items-start relative">
+        <aside className="order-2 space-y-6 lg:order-2 lg:sticky lg:top-32">
           <Panel title="Thanh toán" icon={ReceiptText}>
             <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || 'N/A'} />
             <Info label="Phương thức" value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
@@ -347,32 +347,33 @@ export function TicketDetailPage() {
           </Panel>
         </aside>
 
-        <div className="order-1 lg:justify-self-start">
-          <section className="mx-auto max-w-[620px] overflow-hidden rounded-xl border border-white/10 bg-[#101a33] shadow-2xl shadow-slate-950/30 lg:mx-0">
-            <div className="relative min-h-56 overflow-hidden">
+        <div className="order-1 lg:justify-self-start w-full">
+          <section className="glass-panel mx-auto max-w-[620px] overflow-hidden rounded-[32px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] lg:mx-0 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-10 pointer-events-none" />
+            <div className="relative min-h-64 overflow-hidden">
               {ticket.event?.banner_url ? (
-                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-65" />
+                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60 mix-blend-luminosity" />
               ) : (
-                <div className="absolute inset-0 bg-panel-soft" />
+                <div className="absolute inset-0 bg-white/5" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#101a33] via-[#101a33]/60 to-transparent" />
-              <div className="relative flex min-h-56 flex-col justify-end p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold uppercase ${isEntryEligible ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+              <div className="relative flex min-h-64 flex-col justify-end p-8">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase ${isEntryEligible ? 'bg-success/20 text-success shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-success/30' : 'bg-error/20 text-error shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-error/30'}`}>
                     {statusText(ticket)}
                   </span>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase text-slate-200">
+                  <span className="rounded-full bg-white/10 px-4 py-1.5 text-[10px] font-black tracking-widest uppercase text-white border border-white/10 backdrop-blur-md shadow-sm">
                     {ticket.ticket_type?.name}
                   </span>
                 </div>
-                <h1 className="mt-3 font-display text-2xl font-black leading-tight text-white sm:text-3xl">
+                <h1 className="mt-4 font-display text-3xl font-black leading-tight text-white drop-shadow-md sm:text-4xl">
                   {ticket.event?.title}
                 </h1>
               </div>
             </div>
 
-            <div className="space-y-6 p-5">
-              <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-8 p-8">
+              <div className="grid gap-6 sm:grid-cols-2">
                 {collectAttendees && (
                   <>
                     <CompactDetail label="Người tham dự" value={ticket.attendee_name} />
@@ -389,47 +390,49 @@ export function TicketDetailPage() {
                 <CompactDetail label="Địa điểm" value={venueText || 'N/A'} wide />
               </div>
 
-              <div className="relative border-t border-dashed border-white/10 pt-6 before:absolute before:-left-8 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-[#071022] after:absolute after:-right-8 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-[#071022]">
+              <div className="relative border-t-2 border-dashed border-white/10 pt-8 before:absolute before:-left-11 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-background after:absolute after:-right-11 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-background">
                 {isEntryEligible ? (
                   <>
-                    <div className="mx-auto w-fit rounded-xl bg-white p-3 shadow-[0_0_38px_rgba(147,197,253,0.35)]">
-                      <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-48 rounded-md" />
+                    <div className="mx-auto w-fit rounded-[24px] bg-white p-5 shadow-[0_0_40px_rgba(255,255,255,0.1)] relative z-10">
+                      <img src={qrImageSrc(ticket)} alt="QR check-in" className="size-52 rounded-lg" />
                     </div>
-                    <p className="mt-4 text-center font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
+                    <p className="mt-6 text-center font-mono text-lg font-black tracking-[0.2em] text-white drop-shadow-md relative z-10">{ticket.ticket_code}</p>
                   </>
                 ) : (
-                  <p className={`py-4 text-center text-sm font-medium italic ${
-                    ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
-                      ? 'text-amber-300'
-                      : ticket.status === 'REFUNDED'
-                      ? 'text-red-400'
-                      : 'text-slate-400'
-                  }`}>
-                    {ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
-                      ? 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xem xét trong vòng 48h'
-                      : ticket.status === 'REFUNDED'
-                      ? 'Vé này đã được hoàn tiền thành công và không còn hiệu lực'
-                      : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in'}
-                  </p>
+                  <div className="py-8 text-center relative z-10">
+                    <p className={`font-black text-sm uppercase tracking-wider drop-shadow-[0_0_10px_currentColor] ${
+                      ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                        ? 'text-amber-400'
+                        : ticket.status === 'REFUNDED'
+                        ? 'text-error'
+                        : 'text-slate-400'
+                    }`}>
+                      {ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                        ? 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xem xét trong vòng 48h'
+                        : ticket.status === 'REFUNDED'
+                        ? 'Vé này đã được hoàn tiền thành công và không còn hiệu lực'
+                        : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in'}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
           </section>
 
-          <div className="mx-auto mt-5 max-w-[620px] space-y-3 lg:mx-0">
+          <div className="mx-auto mt-8 max-w-[620px] space-y-4 lg:mx-0">
             <button
               type="button"
               onClick={handleDownload}
               disabled={downloading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-[#111a31] px-5 py-4 text-sm font-extrabold text-white transition hover:bg-[#17213b] disabled:cursor-not-allowed disabled:opacity-60"
+              className="cosmic-btn-primary w-full py-4 text-[15px] flex items-center justify-center gap-3"
             >
-              <Download className="size-4" />
-              {downloading ? 'Đang tạo file...' : 'Tải vé'}
+              <Download className="size-5" />
+              {downloading ? 'Đang tạo file...' : 'Tải vé xuống thiết bị'}
             </button>
             {downloadError && <p className="text-sm text-error">{downloadError}</p>}
             {!isEntryEligible && (
-              <p className="text-sm text-warning">
-                Vé không còn hợp lệ để vào cổng. File tải xuống sẽ có watermark trạng thái
+              <p className="text-sm font-medium text-warning text-center">
+                Vé không còn hợp lệ để vào cổng. File tải xuống sẽ có watermark trạng thái.
               </p>
             )}
 
@@ -521,7 +524,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-transparent px-4 py-3.5 text-sm font-bold text-amber-400 transition-all hover:bg-amber-500/10 hover:border-amber-500/50"
       >
         <RotateCcw className="size-4" />
         Yêu cầu hoàn tiền vé
@@ -529,20 +532,20 @@ function RefundButton({ ticket, onRefundSubmitted }) {
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-4 backdrop-blur-md"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="relative flex flex-col w-full max-w-lg sm:max-w-xl max-h-[90vh] rounded-2xl border border-white/10 bg-[#0f172a] shadow-2xl overflow-hidden"
+            className="relative flex flex-col w-full max-w-lg sm:max-w-xl max-h-[90vh] rounded-[32px] border border-white/10 bg-slate-900/80 shadow-[0_0_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header Section */}
-            <div className="flex-none flex items-center justify-between border-b border-white/10 bg-[#131d35] px-5 py-3.5">
-              <h3 className="text-lg font-bold text-white">Yêu cầu hoàn tiền vé</h3>
+            <div className="flex-none flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-6 py-4">
+              <h3 className="font-display text-lg font-black text-white drop-shadow-sm tracking-tight">Yêu cầu hoàn tiền vé</h3>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+                className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
               >
                 <X className="size-5" />
               </button>
@@ -550,75 +553,75 @@ function RefundButton({ ticket, onRefundSubmitted }) {
 
             {/* Scrollable Form Body */}
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto px-4 py-3.5 sm:px-5 space-y-3 text-xs">
-                {/* Order & Event Summary (Report 3 Item 3) */}
-                <div className="rounded-xl border border-white/10 bg-[#162038] p-3 text-xs text-slate-300">
-                  <div className="border-b border-white/10 pb-2 mb-2">
-                    <span className="text-slate-400 font-medium">Sự kiện: </span>
-                    <span className="font-bold text-white text-sm break-words whitespace-normal">
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-xs [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
+                {/* Order & Event Summary */}
+                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner text-[13px] text-slate-300">
+                  <div className="border-b border-white/5 pb-3 mb-3">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Sự kiện: </span>
+                    <span className="font-black text-white text-[15px] break-words whitespace-normal block mt-1 drop-shadow-sm">
                       {ticket.event?.title || 'Không có tên sự kiện'}
                     </span>
                   </div>
                   <div className="overflow-x-auto pb-0.5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 min-w-[280px]">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 min-w-[280px]">
                       <div>
-                        <span className="text-slate-400">Đơn hàng: </span>
-                        <span className="font-mono font-semibold text-white break-all">
+                        <span className="text-slate-400 font-medium">Đơn hàng: </span>
+                        <span className="font-mono font-bold text-white break-all">
                           #{ticket.order?.order_code || ticket.order?.id?.slice(0, 8)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400">Mã vé: </span>
-                        <span className="font-mono font-bold text-amber-300">
+                        <span className="text-slate-400 font-medium">Mã vé: </span>
+                        <span className="font-mono font-bold text-amber-400">
                           {ticket.ticket_code}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400">Loại vé: </span>
-                        <span className="font-semibold text-white">
+                        <span className="text-slate-400 font-medium">Loại vé: </span>
+                        <span className="font-bold text-white">
                           {ticket.ticket_type?.name || 'Vé tiêu chuẩn'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400">Giá gốc: </span>
+                        <span className="text-slate-400 font-medium">Giá gốc: </span>
                         <span className="font-bold text-white">
                           {formatCurrency(originalPrice)}
                         </span>
                       </div>
                       {discountAmount > 0 && (
                         <div>
-                          <span className="text-slate-400">Khuyến mãi: </span>
-                          <span className="font-semibold text-emerald-400">
+                          <span className="text-slate-400 font-medium">Khuyến mãi: </span>
+                          <span className="font-bold text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.3)]">
                             -{formatCurrency(discountAmount)}
                           </span>
                         </div>
                       )}
                       <div>
-                        <span className="text-slate-400">Thực tế đã trả: </span>
-                        <span className="font-bold text-amber-300">
+                        <span className="text-slate-400 font-medium">Thực tế đã trả: </span>
+                        <span className="font-bold text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.3)]">
                           {formatCurrency(actualPaid)}
                         </span>
                       </div>
                       {ticket.session?.start_time && (
                         <div className="col-span-1 sm:col-span-2">
-                          <span className="text-slate-400">Thời gian: </span>
-                          <span className="font-medium text-white">
+                          <span className="text-slate-400 font-medium">Thời gian: </span>
+                          <span className="font-bold text-white">
                             {formatDateTime(ticket.session?.start_time)}
                           </span>
                         </div>
                       )}
                       {ticket.seat?.label && (
                         <div className="col-span-1 sm:col-span-2">
-                          <span className="text-slate-400">Chỗ ngồi: </span>
-                          <span className="font-medium text-white">
+                          <span className="text-slate-400 font-medium">Chỗ ngồi: </span>
+                          <span className="font-bold text-white">
                             {ticket.seat.label}
                           </span>
                         </div>
                       )}
                       {(ticket.venue?.name || venueLine(ticket)) && (
                         <div className="col-span-1 sm:col-span-2">
-                          <span className="text-slate-400">Địa điểm: </span>
-                          <span className="font-medium text-white break-words">
+                          <span className="text-slate-400 font-medium">Địa điểm: </span>
+                          <span className="font-bold text-white break-words">
                             {[ticket.venue?.name, venueLine(ticket)].filter(Boolean).join(', ')}
                           </span>
                         </div>
@@ -627,11 +630,11 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                   </div>
                 </div>
 
-                {/* Applicable Refund Policy (Report 3 Item 4) */}
+                {/* Applicable Refund Policy */}
                 {refundPolicy && (
-                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-2.5 text-xs text-blue-200">
-                    <p className="font-semibold text-blue-300">Chính sách hoàn vé của sự kiện:</p>
-                    <p className="mt-1 leading-relaxed text-[11px] sm:text-xs">
+                  <div className="rounded-[16px] border border-blue-500/30 bg-blue-500/10 p-4 text-[13px] text-blue-200 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+                    <p className="font-black text-blue-300">Chính sách hoàn vé của sự kiện:</p>
+                    <p className="mt-1.5 leading-relaxed font-medium">
                       {refundPolicy.allow_refunds === false
                         ? '⚠️ Sự kiện áp dụng chính sách Không hoàn tiền theo quy định của ban tổ chức.'
                         : `Hạn chót gửi yêu cầu: trước sự kiện ít nhất ${refundPolicy.deadline_days || 1} ngày. Phí xử lý hoàn vé: ${refundPolicy.fee_percentage || 0}%.`}
@@ -639,64 +642,66 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                   </div>
                 )}
 
-                {/* Estimated Refund Amount (Report 3 Item 5) */}
-                <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs">
-                  <span className="font-semibold text-emerald-300">Số tiền ước tính được hoàn:</span>
-                  <span className="text-sm font-black text-emerald-400">
+                {/* Estimated Refund Amount */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-[16px] border border-emerald-500/30 bg-emerald-500/10 p-4 text-[13px] shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                  <span className="font-black text-emerald-300">Số tiền ước tính được hoàn:</span>
+                  <span className="text-lg font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
                     {formatCurrency(estimatedRefundAmount)}
                     {cancellationFee > 0 && (
-                      <span className="ml-1 text-[11px] font-normal text-slate-400">
+                      <span className="ml-2 text-[11px] font-bold text-emerald-400/70 drop-shadow-none">
                         (Phí hoàn vé {feePercentage}%: -{formatCurrency(cancellationFee)})
                       </span>
                     )}
                   </span>
                 </div>
 
-                {/* Refund Reason Dropdown (Report 3 Item 6) */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Lý do hoàn vé *</label>
-                  <select
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs sm:text-sm text-white focus:border-amber-400 focus:outline-none"
-                  >
-                    <option value="Trùng lịch cá nhân">Trùng lịch cá nhân</option>
-                    <option value="Sự kiện thay đổi thông tin">Sự kiện thay đổi thông tin</option>
-                    <option value="Mua nhầm vé">Mua nhầm vé</option>
-                    <option value="Lý do sức khỏe">Lý do sức khỏe</option>
-                    <option value="Khác">Khác</option>
-                  </select>
-                </div>
+                {/* Refund Reason Dropdown */}
+                <div className="bg-black/20 p-5 rounded-[24px] border border-white/5 shadow-inner space-y-4">
+                  <div>
+                    <label className="block text-[13px] font-bold text-slate-300 mb-2">Lý do hoàn vé <span className="text-error">*</span></label>
+                    <select
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner cursor-pointer"
+                    >
+                      <option value="Trùng lịch cá nhân">Trùng lịch cá nhân</option>
+                      <option value="Sự kiện thay đổi thông tin">Sự kiện thay đổi thông tin</option>
+                      <option value="Mua nhầm vé">Mua nhầm vé</option>
+                      <option value="Lý do sức khỏe">Lý do sức khỏe</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
 
-                {/* Reason Note / Detail (Report 3 Item 7) */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Ghi chú chi tiết {reason === 'Khác' && <span className="text-error">*</span>}
-                  </label>
-                  <textarea
-                    rows={2}
-                    maxLength={500}
-                    value={customerNote}
-                    required={reason === 'Khác'}
-                    onChange={(e) => setCustomerNote(e.target.value)}
-                    placeholder={reason === 'Khác' ? 'Vui lòng nêu rõ lý do hoàn vé (bắt buộc)...' : 'Thông tin bổ sung (nếu có, tối đa 500 ký tự)...'}
-                    className="w-full rounded-lg border border-white/10 bg-[#1e293b] p-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none resize-y min-h-[56px]"
-                  />
+                  {/* Reason Note / Detail */}
+                  <div>
+                    <label className="block text-[13px] font-bold text-slate-300 mb-2">
+                      Ghi chú chi tiết {reason === 'Khác' && <span className="text-error">*</span>}
+                    </label>
+                    <textarea
+                      rows={2}
+                      maxLength={500}
+                      value={customerNote}
+                      required={reason === 'Khác'}
+                      onChange={(e) => setCustomerNote(e.target.value)}
+                      placeholder={reason === 'Khác' ? 'Vui lòng nêu rõ lý do hoàn vé (bắt buộc)...' : 'Thông tin bổ sung (nếu có, tối đa 500 ký tự)...'}
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 p-4 text-[13px] font-medium text-white placeholder-slate-500 focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner resize-y min-h-[80px]"
+                    />
+                  </div>
                 </div>
 
                 {/* Mandatory Bank Account Info */}
-                <div className="space-y-2 rounded-lg border border-white/5 bg-[#172033] p-2.5">
-                  <p className="text-xs font-semibold text-slate-300">
-                    Tài khoản ngân hàng nhận tiền hoàn <span className="text-amber-400">*</span>
+                <div className="space-y-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner">
+                  <p className="text-[13px] font-bold text-slate-300">
+                    Tài khoản ngân hàng nhận tiền hoàn <span className="text-error">*</span>
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       type="text"
                       required
-                      placeholder="Tên ngân hàng (VD: Vietcombank, MB...) *"
+                      placeholder="Tên ngân hàng (VD: Vietcombank...) *"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white placeholder-slate-500 focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner"
                     />
                     <input
                       type="text"
@@ -704,7 +709,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                       placeholder="Số tài khoản *"
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
-                      className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white placeholder-slate-500 focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner"
                     />
                   </div>
                   <input
@@ -713,24 +718,24 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                     placeholder="Tên chủ tài khoản (viết hoa không dấu) *"
                     value={accountHolder}
                     onChange={(e) => setAccountHolder(e.target.value)}
-                    className="w-full rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                    className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white placeholder-slate-500 focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner"
                   />
                 </div>
               </div>
 
-              {/* Footer Section Buttons (Report 3 Items 9 & 10) */}
-              <div className="flex-none flex items-center justify-end gap-3 border-t border-white/10 bg-[#131d35] px-5 py-3">
+              {/* Footer Section Buttons */}
+              <div className="flex-none flex items-center justify-end gap-3 border-t border-white/5 bg-white/[0.02] px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-400 hover:bg-white/10 hover:text-white transition"
+                  className="rounded-full border border-white/10 bg-white/5 px-6 py-2.5 text-[13px] font-bold text-slate-300 hover:bg-white/10 hover:text-white transition backdrop-blur-md"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={refundMutation.isPending}
-                  className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-400 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/50 bg-gradient-to-r from-amber-600 to-amber-500 px-6 py-2.5 text-[13px] font-bold text-white shadow-[0_0_20px_rgba(245,158,11,0.4)] transition hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(245,158,11,0.6)] disabled:opacity-50 disabled:hover:translate-y-0"
                 >
                   {refundMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
                 </button>
@@ -754,12 +759,13 @@ function CompactDetail({ label, value, wide }) {
 
 function Panel({ title, icon: Icon, children }) {
   return (
-    <section className="rounded-lg border border-border-soft bg-panel p-5">
-      <div className="mb-4 flex items-center gap-2 text-primary">
-        <Icon className="size-5" />
-        <h2 className="font-bold uppercase tracking-wide">{title}</h2>
+    <section className="glass-panel relative overflow-hidden rounded-[24px] border-primary/20 bg-slate-950/40 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,_var(--color-primary)_0%,_transparent_50%)] opacity-10" />
+      <div className="mb-6 flex items-center gap-3 text-primary">
+        <Icon className="size-6 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+        <h2 className="font-display text-xl font-black uppercase tracking-widest text-white drop-shadow-sm">{title}</h2>
       </div>
-      <div className="space-y-4">{children}</div>
+      <div className="space-y-5">{children}</div>
     </section>
   )
 }
@@ -778,12 +784,12 @@ function CheckInCountdown({ target }) {
   if (parts?.ended) return <Info label="Check-in lúc" value="Đã mở" />
 
   return (
-    <div className="rounded-lg border border-white/10 bg-[#121b3a] p-4">
+    <div className="rounded-[16px] border border-primary/20 bg-primary/10 p-5 shadow-inner">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-300">Check-in starts in</p>
-        <Clock3 className="size-6 text-slate-500" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-primary drop-shadow-[0_0_5px_rgba(6,182,212,0.5)]">Check-in starts in</p>
+        <Clock3 className="size-5 text-primary opacity-50" />
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-3 text-white">
+      <div className="mt-4 grid grid-cols-3 gap-3 text-white">
         <CountdownUnit label="Days" value={parts.days} />
         <CountdownUnit label="Hours" value={parts.hours} />
         <CountdownUnit label="Min" value={parts.minutes} />
