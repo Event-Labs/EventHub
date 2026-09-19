@@ -465,10 +465,31 @@ function RefundButton({ ticket, onRefundSubmitted }) {
   })
 
   const refundPolicy = ticket.event?.refund_policy
-  const originalPrice = Number(ticket.order_item?.final_price || ticket.order_item?.unit_price || ticket.ticket_type?.price || 0)
+  const originalPrice = Number(ticket.ticket_type?.price || ticket.order_item?.unit_price || ticket.order_item?.final_price || 0)
+  const subtotal = Number(ticket.order?.subtotal || 0)
+  const orderDiscount = Number(ticket.order?.discount_amount || 0)
+  const orderTotal = Number(ticket.order?.total_amount || 0)
+
+  // Tiền thực tế đã thanh toán sau khi trừ khuyến mãi:
+  let actualPaid = Number(ticket.order_item?.actual_price || 0)
+  if (!actualPaid) {
+    if (subtotal > 0 && orderDiscount > 0) {
+      const ticketDiscount = Math.round((originalPrice / subtotal) * orderDiscount)
+      actualPaid = Math.max(0, originalPrice - ticketDiscount)
+    } else if (orderTotal > 0 && orderTotal < originalPrice) {
+      actualPaid = orderTotal
+    } else {
+      actualPaid = originalPrice
+    }
+    if (orderTotal > 0 && actualPaid > orderTotal) {
+      actualPaid = orderTotal
+    }
+  }
+
+  const discountAmount = Math.max(0, originalPrice - actualPaid)
   const feePercentage = Math.min(100, Math.max(0, Number(refundPolicy?.fee_percentage || 0)))
-  const cancellationFee = Math.round((originalPrice * feePercentage) / 100)
-  const estimatedRefundAmount = Math.max(0, originalPrice - cancellationFee)
+  const cancellationFee = Math.round((actualPaid * feePercentage) / 100)
+  const estimatedRefundAmount = Math.max(0, actualPaid - cancellationFee)
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -477,12 +498,21 @@ function RefundButton({ ticket, onRefundSubmitted }) {
       return
     }
 
+    if (!bankName.trim() || !accountNumber.trim() || !accountHolder.trim()) {
+      toast.error('Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng nhận tiền hoàn (Tên ngân hàng, Số tài khoản, Tên chủ tài khoản)!')
+      return
+    }
+
     refundMutation.mutate({
       ticket_id: ticket.id,
       order_id: ticket.order?.id,
       reason,
       customer_note: customerNote,
-      bank_info: bankName ? { bank_name: bankName, account_number: accountNumber, account_holder: accountHolder } : undefined,
+      bank_info: {
+        bank_name: bankName.trim(),
+        account_number: accountNumber.trim(),
+        account_holder: accountHolder.trim().toUpperCase(),
+      },
     })
   }
 
@@ -508,10 +538,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
           >
             {/* Header Section */}
             <div className="flex-none flex items-center justify-between border-b border-white/10 bg-[#131d35] px-5 py-3.5">
-              <div className="flex items-center gap-2.5 text-amber-400">
-                <RotateCcw className="size-5" />
-                <h3 className="text-lg font-bold text-white">Yêu cầu hoàn tiền vé</h3>
-              </div>
+              <h3 className="text-lg font-bold text-white">Yêu cầu hoàn tiền vé</h3>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
@@ -556,6 +583,20 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                         <span className="text-slate-400">Giá gốc: </span>
                         <span className="font-bold text-white">
                           {formatCurrency(originalPrice)}
+                        </span>
+                      </div>
+                      {discountAmount > 0 && (
+                        <div>
+                          <span className="text-slate-400">Khuyến mãi: </span>
+                          <span className="font-semibold text-emerald-400">
+                            -{formatCurrency(discountAmount)}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-slate-400">Thực tế đã trả: </span>
+                        <span className="font-bold text-amber-300">
+                          {formatCurrency(actualPaid)}
                         </span>
                       </div>
                       {ticket.session?.start_time && (
@@ -605,7 +646,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                     {formatCurrency(estimatedRefundAmount)}
                     {cancellationFee > 0 && (
                       <span className="ml-1 text-[11px] font-normal text-slate-400">
-                        (Phí hoàn vé: {formatCurrency(cancellationFee)})
+                        (Phí hoàn vé {feePercentage}%: -{formatCurrency(cancellationFee)})
                       </span>
                     )}
                   </span>
@@ -643,27 +684,24 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                   />
                 </div>
 
-                {/* Bank Account Info Warning (Report 3 Item 8) */}
-                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-xs text-amber-200">
-                  <p className="font-semibold text-amber-300">Lưu ý phương thức nhận tiền:</p>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/90">
-                    Tiền sẽ được hoàn về tài khoản / phương thức thanh toán ban đầu (hoặc tài khoản ngân hàng bên dưới nếu thanh toán chuyển khoản).
-                  </p>
-                </div>
-
+                {/* Mandatory Bank Account Info */}
                 <div className="space-y-2 rounded-lg border border-white/5 bg-[#172033] p-2.5">
-                  <p className="text-xs font-semibold text-slate-300">Tài khoản ngân hàng nhận tiền hoàn (tùy chọn):</p>
+                  <p className="text-xs font-semibold text-slate-300">
+                    Tài khoản ngân hàng nhận tiền hoàn <span className="text-amber-400">*</span>
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input
                       type="text"
-                      placeholder="Tên ngân hàng (VD: Vietcombank, MB...)"
+                      required
+                      placeholder="Tên ngân hàng (VD: Vietcombank, MB...) *"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
                     />
                     <input
                       type="text"
-                      placeholder="Số tài khoản"
+                      required
+                      placeholder="Số tài khoản *"
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
                       className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
@@ -671,7 +709,8 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                   </div>
                   <input
                     type="text"
-                    placeholder="Tên chủ tài khoản (viết hoa không dấu)"
+                    required
+                    placeholder="Tên chủ tài khoản (viết hoa không dấu) *"
                     value={accountHolder}
                     onChange={(e) => setAccountHolder(e.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
