@@ -26,12 +26,17 @@ const REFUND_SELECT = `
   e.title AS event_title,
   e.banner_url AS event_banner_url,
   e.start_time AS event_start_time,
+  e.end_time AS event_end_time,
   e.refund_policy AS event_refund_policy,
   o.order_code,
   o.total_amount AS order_total_amount,
   o.status AS order_status,
   t.ticket_code,
   t.status AS ticket_status,
+  t.checked_in_at,
+  COALESCE(t.session_seat_id, oi.session_seat_id) AS session_seat_id,
+  es.start_time AS session_start_time,
+  es.end_time AS session_end_time,
   tt.name AS ticket_type_name,
   u_cust.full_name AS customer_name,
   u_cust.email AS customer_email,
@@ -44,14 +49,17 @@ const REFUND_JOINS = `
   JOIN events e ON e.id = rr.event_id
   JOIN orders o ON o.id = rr.order_id
   LEFT JOIN tickets t ON t.id = rr.ticket_id
-  LEFT JOIN ticket_types tt ON tt.id = t.ticket_type_id
+  LEFT JOIN order_items oi ON oi.id = t.order_item_id
+  LEFT JOIN ticket_types tt ON tt.id = COALESCE(t.ticket_type_id, oi.ticket_type_id)
+  LEFT JOIN event_sessions es ON es.id = COALESCE(t.event_session_id, tt.event_session_id)
   JOIN users u_cust ON u_cust.id = rr.customer_id
   LEFT JOIN users u_proc ON u_proc.id = rr.processed_by_id
 `;
 
 class RefundsRepository {
-  async findOrderAndTicketForRefund(orderId, ticketId, customerId) {
-    const { rows } = await db.query(
+  async findOrderAndTicketForRefund(orderId, ticketId, customerId, client = db, forUpdate = false) {
+    const lockClause = forUpdate ? 'FOR UPDATE OF t, o' : '';
+    const { rows } = await client.query(
       `
       SELECT
         o.id AS order_id,
@@ -65,10 +73,14 @@ class RefundsRepository {
         t.ticket_code,
         t.status AS ticket_status,
         t.checked_in_at,
+        COALESCE(t.session_seat_id, oi.session_seat_id) AS session_seat_id,
         e.id AS event_id,
         e.title AS event_title,
         e.start_time AS event_start_time,
+        e.end_time AS event_end_time,
         e.refund_policy AS event_refund_policy,
+        es.start_time AS session_start_time,
+        es.end_time AS session_end_time,
         tt.name AS ticket_type_name,
         oi.unit_price AS ticket_unit_price,
         oi.final_price AS ticket_final_price
@@ -79,9 +91,10 @@ class RefundsRepository {
       JOIN event_sessions es ON es.id = tt.event_session_id
       JOIN events e ON e.id = es.event_id
       JOIN organizers org ON org.id = e.organizer_id
-      WHERE o.user_id = $1
+      WHERE (o.user_id = $1 OR t.id = $3)
         AND ($2::uuid IS NULL OR o.id = $2)
         AND ($3::uuid IS NULL OR t.id = $3)
+      ${lockClause}
       LIMIT 1
       `,
       [customerId, orderId || null, ticketId || null],
@@ -89,14 +102,14 @@ class RefundsRepository {
     return rows[0] || null;
   }
 
-  async findExistingActiveRefund(orderId, ticketId = null) {
-    const { rows } = await db.query(
+  async findExistingActiveRefund(orderId, ticketId = null, client = db) {
+    const { rows } = await client.query(
       `
       SELECT *
       FROM refund_requests
       WHERE ($1::uuid IS NULL OR order_id = $1)
         AND ($2::uuid IS NULL OR ticket_id = $2)
-        AND status IN ('PENDING', 'APPROVED', 'REFUNDED')
+        AND status IN ('PENDING', 'APPROVED', 'PROCESSING', 'REFUNDED')
       LIMIT 1
       `,
       [orderId || null, ticketId || null],
@@ -133,7 +146,7 @@ class RefundsRepository {
         data.organizer_id,
         data.refund_amount,
         data.reason,
-        data.refund_method || 'MANUAL_BANK_TRANSFER',
+        data.refund_method || 'PAYOS',
         data.bank_name || null,
         data.bank_account_number || null,
         data.bank_account_name || null,
@@ -152,6 +165,115 @@ class RefundsRepository {
       LIMIT 1
       `,
       [id],
+    );
+    return rows[0] || null;
+  }
+
+  async findByIdForUpdate(id, client) {
+    const { rows } = await client.query(
+      `
+      SELECT ${REFUND_SELECT}
+      ${REFUND_JOINS}
+      WHERE rr.id = $1
+      FOR UPDATE OF rr
+      LIMIT 1
+      `,
+      [id],
+    );
+    return rows[0] || null;
+  }
+
+  async findPaymentOrderWithChannel(orderId, client = db) {
+    const { rows } = await client.query(
+      `
+      SELECT
+        po.*,
+        COALESCE(org_ch.client_id, opc.client_id) AS client_id,
+        COALESCE(org_ch.api_key_encrypted, opc.api_key_encrypted) AS api_key_encrypted,
+        COALESCE(org_ch.checksum_key_encrypted, opc.checksum_key_encrypted) AS checksum_key_encrypted,
+        COALESCE(org_ch.payout_client_id, opc.payout_client_id) AS payout_client_id,
+        COALESCE(org_ch.payout_api_key_encrypted, opc.payout_api_key_encrypted) AS payout_api_key_encrypted,
+        COALESCE(org_ch.payout_checksum_key_encrypted, opc.payout_checksum_key_encrypted) AS payout_checksum_key_encrypted,
+        COALESCE(org_ch.payout_status, opc.payout_status) AS payout_status,
+        COALESCE(org_ch.bank_name, opc.bank_name) AS channel_bank_name,
+        COALESCE(org_ch.bank_account_number, opc.bank_account_number) AS channel_account_number,
+        COALESCE(org_ch.bank_account_holder, opc.bank_account_holder) AS channel_account_holder
+      FROM payment_orders po
+      LEFT JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
+      LEFT JOIN orders o ON o.id = po.order_id
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      LEFT JOIN event_sessions es ON es.id = tt.event_session_id
+      LEFT JOIN events e ON e.id = es.event_id
+      LEFT JOIN organizer_payment_channels org_ch ON (
+        org_ch.organizer_id = e.organizer_id 
+        OR org_ch.organizer_id = po.organizer_id
+        OR org_ch.organizer_id IN (SELECT id FROM organizers WHERE user_id = po.organizer_id)
+      )
+      WHERE po.order_id = $1
+      ORDER BY
+        CASE WHEN po.provider = 'PAYOS' AND po.status = 'PAID' THEN 0 ELSE 1 END,
+        po.paid_at DESC NULLS LAST,
+        po.created_at DESC
+      LIMIT 1
+      `,
+      [orderId],
+    );
+    return rows[0] || null;
+  }
+
+  async lockTicketForRefund(ticketId, client = db) {
+    const { rows } = await client.query(
+      `
+      UPDATE tickets
+      SET status = 'REFUND_PENDING'
+      WHERE id = $1 AND status = 'VALID'
+      RETURNING *
+      `,
+      [ticketId],
+    );
+    return rows[0] || null;
+  }
+
+  async unlockTicketFromRefund(ticketId, client = db) {
+    const { rows } = await client.query(
+      `
+      UPDATE tickets
+      SET status = 'VALID'
+      WHERE id = $1 AND status = 'REFUND_PENDING'
+      RETURNING *
+      `,
+      [ticketId],
+    );
+    return rows[0] || null;
+  }
+
+  async invalidateTicketForRefund(ticketId, client = db) {
+    const { rows } = await client.query(
+      `
+      UPDATE tickets
+      SET status = 'REFUNDED'
+      WHERE id = $1
+      RETURNING *
+      `,
+      [ticketId],
+    );
+    return rows[0] || null;
+  }
+
+  async releaseSessionSeat(sessionSeatId, client = db) {
+    if (!sessionSeatId) return null;
+    const { rows } = await client.query(
+      `
+      UPDATE session_seats
+      SET status = 'AVAILABLE',
+          held_by = NULL,
+          held_until = NULL,
+          order_id = NULL
+      WHERE id = $1
+      RETURNING *
+      `,
+      [sessionSeatId],
     );
     return rows[0] || null;
   }
@@ -217,7 +339,19 @@ class RefundsRepository {
     if (filters.keyword) {
       params.push(`%${filters.keyword}%`);
       const idx = params.length;
-      where.push(`(o.order_code ILIKE $${idx} OR t.ticket_code ILIKE $${idx} OR u_cust.full_name ILIKE $${idx} OR u_cust.email ILIKE $${idx})`);
+      where.push(
+        `(o.order_code ILIKE $${idx} OR t.ticket_code ILIKE $${idx} OR u_cust.full_name ILIKE $${idx} OR u_cust.email ILIKE $${idx} OR u_cust.phone ILIKE $${idx})`,
+      );
+    }
+
+    if (filters.startDate) {
+      params.push(filters.startDate);
+      where.push(`rr.requested_at >= $${params.length}::timestamptz`);
+    }
+
+    if (filters.endDate) {
+      params.push(filters.endDate);
+      where.push(`rr.requested_at <= $${params.length}::timestamptz`);
     }
 
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
@@ -245,6 +379,7 @@ class RefundsRepository {
     };
 
     if (updates.status !== undefined) addSet('status', updates.status);
+    if (updates.refund_amount !== undefined) addSet('refund_amount', updates.refund_amount);
     if (updates.organizer_note !== undefined) addSet('organizer_note', updates.organizer_note);
     if (updates.organizer_proof_url !== undefined) addSet('organizer_proof_url', updates.organizer_proof_url);
     if (updates.organizer_transaction_ref !== undefined) addSet('organizer_transaction_ref', updates.organizer_transaction_ref);
@@ -264,34 +399,20 @@ class RefundsRepository {
       values,
     );
 
-    return this.findById(id);
+    return this.findById(id, client);
   }
 
-  async setTicketAndOrderStatus(orderId, ticketId, ticketStatus, orderStatus, client = db) {
-    if (ticketId && ticketStatus) {
-      await client.query(
-        `UPDATE tickets SET status = $1 WHERE id = $2`,
-        [ticketStatus, ticketId],
-      );
-    } else if (orderId && ticketStatus) {
-      await client.query(
-        `
-        UPDATE tickets t
-        SET status = $1
-        FROM order_items oi
-        WHERE oi.id = t.order_item_id
-          AND oi.order_id = $2
-        `,
-        [ticketStatus, orderId],
-      );
-    }
-
-    if (orderId && orderStatus) {
-      await client.query(
-        `UPDATE orders SET status = $1, updated_at = now() WHERE id = $2`,
-        [orderStatus, orderId],
-      );
-    }
+  async countActiveOrderTickets(orderId, client = db) {
+    const { rows } = await client.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM tickets t
+      JOIN order_items oi ON oi.id = t.order_item_id
+      WHERE oi.order_id = $1 AND t.status IN ('VALID', 'USED')
+      `,
+      [orderId],
+    );
+    return Number(rows[0]?.count || 0);
   }
 }
 
