@@ -10,6 +10,9 @@ import {
   Info,
   Ban,
   ShieldAlert,
+  FileText,
+  ExternalLink,
+  ShieldCheck,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -370,22 +373,99 @@ export function AdminEventReviewDetailPage() {
               </div>
 
               {/* Extra Details */}
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div>
-                  <h4 className="mb-3 font-display text-sm font-extrabold text-content">
-                    Quy định ghế ngồi
-                  </h4>
-                  <pre className="rounded-xl border border-border-soft bg-panel-soft p-3 text-xs text-subtle overflow-x-auto whitespace-pre-wrap break-all">
-                    {JSON.stringify(event.seating_rules, null, 2)}
-                  </pre>
+              <div className="space-y-6">
+                {/* Event Permits Section */}
+                <div className="rounded-2xl border border-border-soft bg-surface p-5 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-display text-sm font-extrabold text-content flex items-center gap-2">
+                      <ShieldCheck className="size-4 text-tertiary" />
+                      Giấy phép tổ chức sự kiện & Giấy tờ pháp lý
+                    </h4>
+                    <span className="text-xs font-bold text-subtle">
+                      {event.refund_policy?.permit_files?.length || 0} tài liệu
+                    </span>
+                  </div>
+
+                  {event.refund_policy?.permit_files?.length > 0 ? (
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      {event.refund_policy.permit_files.map((file) => (
+                        <div
+                          key={file.id || file.url}
+                          className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/60 text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <FileText className="size-4 text-tertiary shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-bold text-content truncate">{file.name}</p>
+                              <p className="text-[11px] text-muted">
+                                {file.size ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <a
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-surface border border-border-soft text-xs font-bold text-tertiary hover:bg-panel-soft transition shrink-0"
+                          >
+                            <span>Xem file</span>
+                            <ExternalLink className="size-3" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-warning/10 border border-warning/20 text-xs text-warning">
+                      <AlertTriangle className="size-4 shrink-0" />
+                      <span>Sự kiện chưa đính kèm giấy phép tổ chức hoặc tài liệu pháp lý liên quan.</span>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <h4 className="mb-3 font-display text-sm font-extrabold text-content">
-                    Chính sách hoàn tiền
-                  </h4>
-                  <pre className="rounded-xl border border-border-soft bg-panel-soft p-3 text-xs text-subtle overflow-x-auto whitespace-pre-wrap break-all">
-                    {JSON.stringify(event.refund_policy, null, 2)}
-                  </pre>
+
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-border-soft bg-surface p-5 shadow-sm space-y-3">
+                    <h4 className="font-display text-sm font-extrabold text-content flex items-center gap-2">
+                      <FileText className="size-4 text-tertiary" />
+                      Chính sách & Điều khoản tham dự
+                    </h4>
+
+                    {event.refund_policy?.policy_file_url && (
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/60 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="size-4 text-blue-500 shrink-0" />
+                          <span className="font-bold text-content truncate">
+                            {event.refund_policy.policy_file_name || 'File chính sách sự kiện'}
+                          </span>
+                        </div>
+                        <a
+                          href={event.refund_policy.policy_file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-bold text-tertiary hover:underline shrink-0"
+                        >
+                          <span>Tải về</span>
+                          <ExternalLink className="size-3" />
+                        </a>
+                      </div>
+                    )}
+
+                    {event.additional_terms ? (
+                      <div className="p-3 rounded-xl bg-panel-soft border border-border-soft/60 text-xs text-subtle whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        {event.additional_terms}
+                      </div>
+                    ) : (
+                      <p className="text-xs italic text-muted">Không có điều khoản bổ sung bằng văn bản.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-border-soft bg-surface p-5 shadow-sm space-y-3">
+                    <h4 className="font-display text-sm font-extrabold text-content">
+                      Quy định ghế ngồi & Kỹ thuật
+                    </h4>
+                    <pre className="rounded-xl border border-border-soft bg-panel-soft p-3 text-xs text-subtle overflow-x-auto whitespace-pre-wrap break-all max-h-40">
+                      {JSON.stringify(event.seating_rules, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               </div>
             </div>

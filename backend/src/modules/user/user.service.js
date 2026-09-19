@@ -59,6 +59,9 @@ class UserService {
         const { password_hash, deleted_at, ...profile } = user;
         const rawRoles = await authRepository.findUserRoles(userId);
         const effective = await authService.resolveEffectiveRoles(user, rawRoles);
+        if (profile.role === 'STAFF' && !effective.roles.includes('STAFF')) {
+            profile.role = effective.roles[0] || 'CUSTOMER';
+        }
         
         // hasPassword is true if the user has a real password hash (not null, empty, or '*')
         const hasPassword = !!(password_hash && password_hash !== '*');
@@ -111,6 +114,9 @@ class UserService {
         const { password_hash, deleted_at, ...profile } = updatedUser;
         const rawRoles = await authRepository.findUserRoles(userId);
         const effective = await authService.resolveEffectiveRoles(updatedUser, rawRoles);
+        if (profile.role === 'STAFF' && !effective.roles.includes('STAFF')) {
+            profile.role = effective.roles[0] || 'CUSTOMER';
+        }
         const hasPassword = !!(password_hash && password_hash !== '*');
         
         return { ...profile, roles: effective.roles, hasPassword };
