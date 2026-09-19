@@ -73,6 +73,44 @@ class OrganizerPaymentsRepository {
     );
     return rows[0];
   }
+
+  async updatePayoutChannel(organizerId, data) {
+    const {
+      payout_client_id,
+      payout_api_key_encrypted,
+      payout_checksum_key_encrypted,
+      payout_status,
+    } = data;
+    const { rows } = await pool.query(
+      `UPDATE organizer_payment_channels
+       SET payout_client_id = $1,
+           payout_api_key_encrypted = COALESCE($2, payout_api_key_encrypted),
+           payout_checksum_key_encrypted = COALESCE($3, payout_checksum_key_encrypted),
+           payout_status = $4,
+           updated_at = NOW()
+       WHERE organizer_id = $5
+       RETURNING *`,
+      [
+        payout_client_id,
+        payout_api_key_encrypted,
+        payout_checksum_key_encrypted,
+        payout_status || 'PENDING',
+        organizerId,
+      ]
+    );
+    return rows[0] || null;
+  }
+
+  async updatePayoutStatus(organizerId, status) {
+    const { rows } = await pool.query(
+      `UPDATE organizer_payment_channels 
+       SET payout_status = $1, updated_at = NOW() 
+       WHERE organizer_id = $2 
+       RETURNING *`,
+      [status, organizerId]
+    );
+    return rows[0] || null;
+  }
 }
 
 module.exports = new OrganizerPaymentsRepository();

@@ -88,8 +88,29 @@ async function getPaymentLinkInformation({ channel, providerOrderCode }) {
   return json.data || {};
 }
 
+async function cancelPaymentLink({ channel, providerOrderCode, cancellationReason }) {
+  const response = await fetch(`${PAYOS_BASE_URL}/v2/payment-requests/${providerOrderCode}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-client-id': channel.client_id,
+      'x-api-key': channel.api_key_encrypted,
+    },
+    body: JSON.stringify({ cancellationReason: cancellationReason || 'Order cancelled' }),
+  });
+
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json.code !== '00') {
+    const message = json.desc || json.message || 'Unable to cancel PayOS payment link';
+    throw new Error(message);
+  }
+
+  return json.data || {};
+}
+
 module.exports = {
   createPaymentLink,
   getPaymentLinkInformation,
+  cancelPaymentLink,
   verifyWebhookData,
 };
