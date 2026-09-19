@@ -1,6 +1,6 @@
 import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, MapPin, Ticket, RotateCcw, AlertCircle, Hourglass, CheckCircle, XCircle } from 'lucide-react'
+import { CalendarDays, CheckCircle2, CheckCircle, ChevronLeft, ChevronRight, Clock3, MapPin, Ticket, RotateCcw, Hourglass, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
@@ -38,41 +38,37 @@ function statusMeta(ticket) {
   if (ticket.status === 'USED') {
     return { label: 'Đã dùng', className: 'bg-slate-500/15 text-slate-200' }
   }
-
-  if (ticket.status === 'REFUNDED') {
-    return { label: 'Đã hoàn tiền', className: 'bg-amber-500/15 text-amber-300' }
-  }
-
-  if (ticket.status === 'CANCELLED') {
-    return { label: 'Đã hủy', className: 'bg-error/15 text-error' }
-  }
-
   if (ticket.status === 'EXPIRED') {
-    return { label: 'Hết hạn', className: 'bg-error/15 text-error' }
+    return { label: 'Hết hạn', className: 'bg-rose-500/15 text-rose-300' }
   }
-
-  if (ticket.checked_in_at) {
-    return { label: 'Đã check-in', className: 'bg-warning/15 text-warning' }
+  if (ticket.status === 'CANCELLED') {
+    return { label: 'Đã hủy', className: 'bg-slate-500/15 text-slate-300' }
   }
-
-  return { label: 'Hợp lệ', className: 'bg-success/15 text-success' }
+  if (ticket.status === 'REFUNDED') {
+    return { label: 'Đã hoàn', className: 'bg-emerald-500/15 text-emerald-300' }
+  }
+  if (ticket.status === 'REFUND_PENDING') {
+    return { label: 'Chờ hoàn tiền', className: 'bg-amber-500/15 text-amber-300' }
+  }
+  return { label: 'Hợp lệ', className: 'bg-emerald-500/15 text-emerald-300' }
 }
 
 function venueLine(ticket) {
-  return [
-    ticket.venue?.address_line,
+  const parts = [
+    ticket.venue?.address,
     ticket.venue?.ward,
     ticket.venue?.district,
-    ticket.venue?.city,
-  ].filter(Boolean).join(', ')
+    ticket.venue?.province,
+  ].filter(Boolean)
+  return parts.join(', ')
 }
 
 export function MyTicketsPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [activeTab, setActiveTab] = useState('tickets') // 'tickets' | 'refunds'
   const [status, setStatus] = useState('ALL')
   const [page, setPage] = useState(1)
+  const [activeTab, setActiveTab] = useState('tickets')
   const isAuthenticated = hasAuthSession()
   const currentUserKey = getStoredUserKey()
 
@@ -85,11 +81,11 @@ export function MyTicketsPage() {
   const ticketsQuery = useQuery({
     queryKey: ['my-tickets', status, currentUserKey],
     queryFn: () => fetchMyTickets(status),
-    enabled: isAuthenticated && activeTab === 'tickets',
+    enabled: isAuthenticated,
   })
 
   const refundsQuery = useQuery({
-    queryKey: ['my-refund-requests', currentUserKey],
+    queryKey: ['my-refunds', currentUserKey],
     queryFn: () => fetchMyRefundRequests(),
     enabled: isAuthenticated && activeTab === 'refunds',
   })
@@ -149,7 +145,7 @@ export function MyTicketsPage() {
                   setStatus(item.value)
                   setPage(1)
                 }}
-                className={`min-w-0 rounded-full px-5 py-2.5 text-xs font-black tracking-widest uppercase transition-all ${
+                className={`min-w-0 rounded-full px-4 py-2 text-[11px] font-bold tracking-wider uppercase transition-all ${
                   status === item.value
                     ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
                     : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
@@ -164,39 +160,39 @@ export function MyTicketsPage() {
             <p className="mt-8 text-sm text-muted">Đang tải vé...</p>
           )}
 
-          {ticketsQuery.isError && (
-            <p className="mt-8 text-sm text-error">Không thể tải danh sách vé.</p>
-          )}
+      {ticketsQuery.isError && (
+        <p className="mt-8 text-sm text-error">Không thể tải danh sách vé.</p>
+      )}
 
-          {!ticketsQuery.isLoading && !ticketsQuery.isError && tickets.length === 0 && (
-            <div className="grid min-h-[360px] place-items-center">
-              <p className="text-center text-sm italic text-muted">
-                hiện chưa có vé nào......
-              </p>
-            </div>
-          )}
+      {!ticketsQuery.isLoading && !ticketsQuery.isError && tickets.length === 0 && (
+        <div className="grid min-h-[360px] place-items-center">
+          <p className="text-center text-sm italic text-muted">
+            hiện chưa có vé nào......
+          </p>
+        </div>
+      )}
 
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
-            {paginatedTickets.map((ticket) => (
-              <TicketCard key={ticket.id} ticket={ticket} />
-            ))}
-          </div>
+      <div className="mt-8 grid gap-5 md:grid-cols-2">
+        {paginatedTickets.map((ticket) => (
+          <TicketCard key={ticket.id} ticket={ticket} />
+        ))}
+      </div>
 
-          {!ticketsQuery.isLoading && !ticketsQuery.isError && totalPages > 1 && (
-            <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Phân trang vé của tôi">
-              <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="grid size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang trước">
-                <ChevronLeft className="size-5" />
-              </button>
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} className={`size-10 rounded-full text-sm font-bold transition ${page === pageNumber ? 'bg-primary text-slate-950' : 'border border-white/10 bg-[#151d34] text-white hover:border-primary hover:text-primary'}`} aria-current={page === pageNumber ? 'page' : undefined} aria-label={`Trang ${pageNumber}`}>
-                  {pageNumber}
-                </button>
-              ))}
-              <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={page === totalPages} className="grid size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang sau">
-                <ChevronRight className="size-5" />
-              </button>
-            </nav>
-          )}
+      {!ticketsQuery.isLoading && !ticketsQuery.isError && totalPages > 1 && (
+        <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Phân trang vé của tôi">
+          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="grid size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang trước">
+            <ChevronLeft className="size-5" />
+          </button>
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+            <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} className={`size-10 rounded-full text-sm font-bold transition ${page === pageNumber ? 'bg-primary text-slate-950' : 'border border-white/10 bg-[#151d34] text-white hover:border-primary hover:text-primary'}`} aria-current={page === pageNumber ? 'page' : undefined} aria-label={`Trang ${pageNumber}`}>
+              {pageNumber}
+            </button>
+          ))}
+          <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={page === totalPages} className="grid size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label="Trang sau">
+            <ChevronRight className="size-5" />
+          </button>
+        </nav>
+      )}
         </>
       ) : (
         <CustomerRefundsSection query={refundsQuery} />

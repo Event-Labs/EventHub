@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Calendar, ChartNoAxesCombined, CircleDollarSign, ClipboardCheck, FileText, Home, LayoutDashboard, MapPin, MessageSquareText, Percent, RotateCcw, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
+import { Bell, Calendar, ChartNoAxesCombined, CircleDollarSign, FileText, Home, LayoutDashboard, MapPin, MessageSquareText, Percent, RotateCcw, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
 import { getStoredUser, getStoredUserKey, getUserRoles } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -51,7 +51,6 @@ const navSections = [
     children: [
       { label: 'Địa điểm', to: '/organizer/venues', icon: MapPin },
       { label: 'Quản lý nhân sự', to: '/organizer/staff-management', icon: UserCog },
-      { label: 'Công việc nhân sự', to: '/organizer/staff-tasks', icon: ClipboardCheck },
     ],
   },
   {

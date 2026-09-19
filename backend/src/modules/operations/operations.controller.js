@@ -2,11 +2,9 @@ const ApiResponse = require('../../core/response/ApiResponse');
 const operationsService = require('./operations.service');
 const {
   inviteStaffSchema,
+  updateStaffAssignmentSchema,
   invitationIdParamSchema,
   removeStaffSchema,
-  createTaskSchema,
-  taskIdParamSchema,
-  updateTaskStatusSchema,
   eventIdQuerySchema,
 } = require('./operations.validation');
 
@@ -39,6 +37,23 @@ class OperationsController {
     }
   };
 
+  updateStaffAssignment = async (req, res, next) => {
+    try {
+      const params = removeStaffSchema.parse(req.params);
+      const payload = updateStaffAssignmentSchema.parse(req.body);
+      const data = await operationsService.updateStaffAssignment(req.user.sub, {
+        eventId: params.eventId,
+        staffId: params.staffId,
+        staffRole: payload.staff_role,
+        gate: payload.gate,
+        zone: payload.zone,
+      });
+      res.status(200).json(ApiResponse.success(data, 'Staff assignment updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   removeStaff = async (req, res, next) => {
     try {
       const params = removeStaffSchema.parse(req.params);
@@ -54,26 +69,6 @@ class OperationsController {
       const params = invitationIdParamSchema.parse(req.params);
       const data = await operationsService.deleteStaffInvitation(req.user.sub, params.invitationId);
       res.status(200).json(ApiResponse.success(data, 'Staff invitation deleted successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  createTask = async (req, res, next) => {
-    try {
-      const payload = createTaskSchema.parse(req.body);
-      const data = await operationsService.createTask(req.user.sub, payload);
-      res.status(201).json(ApiResponse.success(data, 'Staff task created successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  organizerTasks = async (req, res, next) => {
-    try {
-      const query = eventIdQuerySchema.parse(req.query);
-      const data = await operationsService.listOrganizerTasks(req.user.sub, query.event_id || null);
-      res.status(200).json(ApiResponse.success(data, 'Staff tasks fetched successfully'));
     } catch (error) {
       next(error);
     }
@@ -102,27 +97,6 @@ class OperationsController {
       const query = eventIdQuerySchema.parse(req.query);
       const data = await operationsService.getStaffCheckInReport(req.user.sub, query.event_id || null);
       res.status(200).json(ApiResponse.success(data, 'Staff check-in report fetched successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  staffTasks = async (req, res, next) => {
-    try {
-      const query = eventIdQuerySchema.parse(req.query);
-      const data = await operationsService.listStaffTasks(req.user.sub, query.event_id || null);
-      res.status(200).json(ApiResponse.success(data, 'Assigned tasks fetched successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  updateStaffTaskStatus = async (req, res, next) => {
-    try {
-      const params = taskIdParamSchema.parse(req.params);
-      const payload = updateTaskStatusSchema.parse(req.body);
-      const data = await operationsService.updateStaffTaskStatus(req.user.sub, params.taskId, payload.status);
-      res.status(200).json(ApiResponse.success(data, 'Staff task status updated successfully'));
     } catch (error) {
       next(error);
     }

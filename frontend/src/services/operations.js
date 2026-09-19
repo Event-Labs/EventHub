@@ -15,6 +15,11 @@ export async function inviteStaffToEvent(payload) {
   return response.data.data
 }
 
+export async function updateEventStaff(eventId, staffId, payload) {
+  const response = await http.patch(`/operations/organizer/events/${eventId}/staff/${staffId}`, payload)
+  return response.data.data
+}
+
 export async function deleteStaffInvitation(invitationId) {
   const response = await http.delete(`/operations/organizer/staff-invitations/${invitationId}`)
   return response.data.data
@@ -22,16 +27,6 @@ export async function deleteStaffInvitation(invitationId) {
 
 export async function removeStaffFromEvent(eventId, staffId) {
   const response = await http.delete(`/operations/organizer/events/${eventId}/staff/${staffId}`)
-  return response.data.data
-}
-
-export async function createStaffTask(payload) {
-  const response = await http.post('/operations/organizer/tasks', payload)
-  return response.data.data
-}
-
-export async function fetchOrganizerStaffTasks(params = {}) {
-  const response = await http.get('/operations/organizer/tasks', { params })
   return response.data.data
 }
 
@@ -49,16 +44,6 @@ export async function fetchStaffCheckInReport(eventId) {
   const response = await http.get('/operations/staff/check-in-report', {
     params: eventId ? { event_id: eventId } : undefined,
   })
-  return response.data.data
-}
-
-export async function fetchAssignedStaffTasks(params = {}) {
-  const response = await http.get('/operations/staff/tasks', { params })
-  return response.data.data
-}
-
-export async function updateAssignedStaffTaskStatus(taskId, status) {
-  const response = await http.patch(`/operations/staff/tasks/${taskId}/status`, { status })
   return response.data.data
 }
 

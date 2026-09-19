@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar, Clock3, MapPin } from 'lucide-react'
+import { Calendar, Clock3, DoorOpen, Layers, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel, StaffSearch } from './StaffComponents.jsx'
@@ -59,7 +59,7 @@ export function StaffEventsPage({ empty = false }) {
     if (!normalized) return events
     return events.filter((event) => {
       const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(' ')
-      return `${event.title} ${venue} ${event.staff_role || ''}`.toLowerCase().includes(normalized)
+      return `${event.title} ${venue} ${event.staff_role || ''} ${event.gate || ''} ${event.zone || ''}`.toLowerCase().includes(normalized)
     })
   }, [events, keyword])
 
@@ -70,7 +70,7 @@ export function StaffEventsPage({ empty = false }) {
       {error && <div className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">{error}</div>}
       <div className="mb-5 grid gap-3 md:grid-cols-[1fr_auto]">
         <div onChange={(event) => setKeyword(event.target.value)}>
-          <StaffSearch placeholder="Tìm theo tên sự kiện, địa điểm..." />
+          <StaffSearch placeholder="Tìm theo tên sự kiện, địa điểm, cổng, khu vực..." />
         </div>
         <select className="h-10 rounded-md border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary">
           <option>Tất cả vai trò</option>
@@ -126,7 +126,29 @@ function AssignedEventCard({ event, currentTime }) {
           <MapPin className="mt-0.5 size-4 shrink-0" />
           <span className="break-words">{venue || 'Chưa cập nhật địa điểm'}</span>
         </p>
-        <p className="mt-3 break-words text-sm font-semibold text-subtle">Vai trò: {staffRoleLabel(event.staff_role)}</p>
+        
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge tone="blue">Vai trò: {staffRoleLabel(event.staff_role)}</Badge>
+          {event.gate ? (
+            <Badge tone="purple">
+              <span className="flex items-center gap-1">
+                <DoorOpen className="size-3" />
+                {event.gate}
+              </span>
+            </Badge>
+          ) : (
+            <Badge tone="gray">Tất cả cổng</Badge>
+          )}
+          {event.zone && (
+            <Badge tone="yellow">
+              <span className="flex items-center gap-1">
+                <Layers className="size-3" />
+                {event.zone}
+              </span>
+            </Badge>
+          )}
+        </div>
+
         <CheckInAvailability
           checkinStartTime={event.checkin_start_time || event.start_time}
           currentTime={currentTime}

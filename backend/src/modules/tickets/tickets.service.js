@@ -244,7 +244,9 @@ function assertCheckInOpen(ticket) {
 
 function invalidTicketMessage(status) {
   if (status === 'USED') return 'Vé này đã được sử dụng.';
-  if (status === 'CANCELLED') return 'Vé đã bị hủy, hoàn tiền hoặc không còn hợp lệ.';
+  if (status === 'CANCELLED') return 'Vé đã bị hủy hoặc không còn hợp lệ.';
+  if (status === 'REFUND_PENDING') return 'Vé đang trong quá trình xử lý hoàn tiền, không thể check-in.';
+  if (status === 'REFUNDED') return 'Vé đã được hoàn tiền, không còn hợp lệ để check-in.';
   return 'Vé không hợp lệ để check-in.';
 }
 
@@ -371,7 +373,7 @@ function buildDownloadSvg(ticket) {
 
 class TicketsService {
   async getMyTickets(userId, filters = {}) {
-    const allowedStatuses = ['VALID', 'USED', 'CANCELLED', 'EXPIRED'];
+    const allowedStatuses = ['VALID', 'USED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'REFUND_PENDING'];
     const status = filters.status?.toUpperCase();
 
     if (status && !allowedStatuses.includes(status)) {

@@ -19,7 +19,7 @@ const centerNavItems = [
   ['Khám phá sự kiện', '/events', false],
   ['Sự kiện yêu thích', '/favorites', true],
   ['Vé của tôi', '/my-tickets', true],
-  ['Phản hồi', '/feedback', false],
+  ['Phản hồi', '/feedback', true],
 ]
 
 const footerSections = [
@@ -362,7 +362,7 @@ export function AppLayout() {
                 />
               </button>
               {notificationOpen && (
-                <div className="absolute right-12 top-full mt-4 w-[360px] overflow-hidden rounded-2xl border border-border-soft bg-panel/90 backdrop-blur-xl shadow-2xl">
+                <div className="absolute right-12 top-full mt-4 w-[360px] overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl">
                   <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
                     <div>
                       <p className="font-display text-lg font-bold text-white">Thông báo</p>
@@ -419,7 +419,7 @@ export function AppLayout() {
                 </div>
               )}
               {open && (
-                <div className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-border-soft bg-panel/90 backdrop-blur-xl shadow-2xl">
+                <div className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl">
                   <div className="py-1">
                     <NavLink
                       className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
