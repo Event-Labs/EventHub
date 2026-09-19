@@ -201,18 +201,39 @@ class RefundRuleEngine {
     }
 
     // 8. Calculate net refundable amount (BR-75)
+    // Công thức: Số tiền hoàn = Tiền thực tế đã trả - Phí hủy vé/phí nền tảng (nếu có)
     let originalPrice = 0;
+    let actualPaid = 0;
+
     if (ticket) {
-      originalPrice = Number(ticket.final_price || ticket.unit_price || 0);
+      originalPrice = Number(ticket.unit_price || ticket.final_price || 0);
+      const subtotal = Number(order.subtotal || order.order_subtotal || 0);
+      const discountAmount = Number(order.discount_amount || order.order_discount_amount || 0);
+      const totalAmount = Number(order.total_amount || order.order_total_amount || 0);
+
+      if (subtotal > 0 && discountAmount > 0) {
+        // Phân bổ giảm giá khuyến mãi tương ứng cho vé này
+        const ticketDiscount = Math.round((originalPrice / subtotal) * discountAmount);
+        actualPaid = Math.max(0, originalPrice - ticketDiscount);
+      } else if (totalAmount > 0 && totalAmount < originalPrice) {
+        actualPaid = totalAmount;
+      } else {
+        actualPaid = originalPrice;
+      }
+
+      if (totalAmount > 0 && actualPaid > totalAmount) {
+        actualPaid = totalAmount;
+      }
     } else {
-      originalPrice = Number(order.total_amount || 0);
+      originalPrice = Number(order.subtotal || order.total_amount || 0);
+      actualPaid = Number(order.total_amount || 0);
     }
 
     const feePercentage = Math.min(100, Math.max(0, Number(policy.fee_percentage || 0)));
-    const cancellationFee = Math.round((originalPrice * feePercentage) / 100);
-    const refundableAmount = Math.max(0, originalPrice - cancellationFee);
+    const cancellationFee = Math.round((actualPaid * feePercentage) / 100);
+    const refundableAmount = Math.max(0, actualPaid - cancellationFee);
 
-    if (refundableAmount <= 0 && originalPrice > 0) {
+    if (refundableAmount <= 0 && actualPaid > 0) {
       return {
         eligible: false,
         reason: 'Số tiền hoàn lại sau khi trừ phí hoàn vé phải lớn hơn 0.',
@@ -226,6 +247,7 @@ class RefundRuleEngine {
       reason: null,
       errorCode: null,
       originalPrice,
+      actualPaid,
       refundableAmount,
       cancellationFee,
       feePercentage,
