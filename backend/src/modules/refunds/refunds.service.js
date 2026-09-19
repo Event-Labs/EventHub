@@ -79,6 +79,9 @@ class RefundsService {
           user_id: data.customer_id,
           status: data.order_status,
           total_amount: data.order_total_amount,
+          subtotal: data.order_subtotal,
+          discount_amount: data.order_discount_amount,
+          platform_fee: data.order_platform_fee,
         },
         event: {
           id: data.event_id,
@@ -489,6 +492,8 @@ class RefundsService {
       order: {
         id: row.order_id,
         order_code: row.order_code,
+        subtotal: Number(row.order_subtotal || 0),
+        discount_amount: Number(row.order_discount_amount || 0),
         total_amount: Number(row.order_total_amount || 0),
         status: row.order_status,
       },
@@ -497,9 +502,12 @@ class RefundsService {
             id: row.ticket_id,
             ticket_code: row.ticket_code,
             status: row.ticket_status,
+            unit_price: Number(row.ticket_unit_price || row.ticket_type_price || 0),
+            final_price: row.ticket_final_price != null ? Number(row.ticket_final_price) : null,
             checked_in_at: row.checked_in_at,
             ticket_type: {
               name: row.ticket_type_name,
+              price: Number(row.ticket_type_price || 0),
             },
           }
         : null,

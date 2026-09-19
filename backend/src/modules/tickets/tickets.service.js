@@ -72,13 +72,35 @@ function buildTicketPayload(row) {
       name: row.ticket_type_name,
       price: Number(row.ticket_type_price),
     },
-    order_item: {
-      id: row.order_item_id,
-      quantity: row.order_item_quantity ? Number(row.order_item_quantity) : undefined,
-      unit_price: row.order_item_unit_price ? Number(row.order_item_unit_price) : undefined,
-      final_price: row.order_item_final_price ? Number(row.order_item_final_price) : undefined,
-      session_seat_id: row.order_item_session_seat_id,
-    },
+    order_item: (() => {
+      const unitPrice = Number(row.order_item_unit_price || row.ticket_type_price || 0);
+      const subtotal = Number(row.order_subtotal || 0);
+      const orderDiscount = Number(row.order_discount_amount || 0);
+      const totalAmount = Number(row.total_amount || 0);
+      let ticketDiscount = 0;
+      let actualPaidPrice = unitPrice;
+
+      if (subtotal > 0 && orderDiscount > 0) {
+        ticketDiscount = Math.round((unitPrice / subtotal) * orderDiscount);
+        actualPaidPrice = Math.max(0, unitPrice - ticketDiscount);
+      } else if (totalAmount > 0 && totalAmount < unitPrice) {
+        actualPaidPrice = totalAmount;
+        ticketDiscount = Math.max(0, unitPrice - actualPaidPrice);
+      }
+      if (totalAmount > 0 && actualPaidPrice > totalAmount) {
+        actualPaidPrice = totalAmount;
+      }
+
+      return {
+        id: row.order_item_id,
+        quantity: row.order_item_quantity ? Number(row.order_item_quantity) : undefined,
+        unit_price: row.order_item_unit_price ? Number(row.order_item_unit_price) : undefined,
+        final_price: row.order_item_final_price ? Number(row.order_item_final_price) : undefined,
+        actual_price: actualPaidPrice,
+        discount_amount: ticketDiscount,
+        session_seat_id: row.order_item_session_seat_id,
+      };
+    })(),
     seat: buildSeat(row),
     order: {
       id: row.order_id,
@@ -86,6 +108,9 @@ function buildTicketPayload(row) {
       status: row.order_status,
       buyer_name: row.buyer_name,
       buyer_email: row.buyer_email,
+      subtotal: row.order_subtotal !== undefined && row.order_subtotal !== null ? Number(row.order_subtotal) : undefined,
+      discount_amount: row.order_discount_amount !== undefined && row.order_discount_amount !== null ? Number(row.order_discount_amount) : 0,
+      platform_fee: row.order_platform_fee !== undefined && row.order_platform_fee !== null ? Number(row.order_platform_fee) : 0,
       total_amount: row.total_amount ? Number(row.total_amount) : undefined,
       created_at: row.order_created_at,
     },
