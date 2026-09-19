@@ -398,13 +398,19 @@ export function TicketDetailPage() {
                     <p className="mt-4 text-center font-mono text-sm font-black tracking-wide text-white">{ticket.ticket_code}</p>
                   </>
                 ) : (
-                  <div className="rounded-lg border border-error/30 bg-error/10 p-5 text-center font-bold text-error">
-                    {ticket.status === 'REFUND_REQUESTED'
-                      ? 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xử lý.'
+                  <p className={`py-4 text-center text-sm font-medium italic ${
+                    ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                      ? 'text-amber-300'
                       : ticket.status === 'REFUNDED'
-                      ? 'Vé này đã được hoàn tiền thành công.'
-                      : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in.'}
-                  </div>
+                      ? 'text-red-400'
+                      : 'text-slate-400'
+                  }`}>
+                    {ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                      ? 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xem xét trong vòng 48h'
+                      : ticket.status === 'REFUNDED'
+                      ? 'Vé này đã được hoàn tiền thành công và không còn hiệu lực'
+                      : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in'}
+                  </p>
                 )}
               </div>
             </div>
@@ -423,21 +429,11 @@ export function TicketDetailPage() {
             {downloadError && <p className="text-sm text-error">{downloadError}</p>}
             {!isEntryEligible && (
               <p className="text-sm text-warning">
-                Vé không còn hợp lệ để vào cổng. File tải xuống sẽ có watermark trạng thái.
+                Vé không còn hợp lệ để vào cổng. File tải xuống sẽ có watermark trạng thái
               </p>
             )}
 
-            {ticket.status === 'REFUND_REQUESTED' ? (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center">
-                <p className="font-bold text-amber-300">Yêu cầu hoàn vé đang được xử lý (Pending Review)</p>
-                <p className="mt-1 text-xs text-amber-200/80">Nhà tổ chức sự kiện đang xem xét yêu cầu hoàn tiền của bạn.</p>
-              </div>
-            ) : ticket.status === 'REFUNDED' ? (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-                <p className="font-bold text-emerald-300">Vé này đã được hoàn tiền (Refunded).</p>
-                <p className="mt-1 text-xs text-emerald-200/80">Bạn không thể sử dụng mã QR này để vào cổng.</p>
-              </div>
-            ) : canRequestRefund ? (
+            {canRequestRefund ? (
               <RefundButton ticket={ticket} onRefundSubmitted={() => ticketQuery.refetch()} />
             ) : null}
           </div>
@@ -450,7 +446,7 @@ export function TicketDetailPage() {
 function RefundButton({ ticket, onRefundSubmitted }) {
   const [isOpen, setIsOpen] = useState(false)
   const toast = useToast()
-  const [reason, setReason] = useState('Khách hàng đổi lịch / không thể tham dự')
+  const [reason, setReason] = useState('Trùng lịch cá nhân')
   const [customerNote, setCustomerNote] = useState('')
   const [bankName, setBankName] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
@@ -459,7 +455,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
   const refundMutation = useMutation({
     mutationFn: (payload) => submitRefundRequest(payload),
     onSuccess: (data) => {
-      toast.success(data?.message || 'Gửi yêu cầu hoàn vé thành công!')
+      toast.success(data?.message || 'Gửi yêu cầu hoàn tiền thành công. Ban tổ chức sẽ xem xét trong vòng 48h.')
       setIsOpen(false)
       onRefundSubmitted?.()
     },
@@ -468,17 +464,27 @@ function RefundButton({ ticket, onRefundSubmitted }) {
     },
   })
 
+  const refundPolicy = ticket.event?.refund_policy
+  const originalPrice = Number(ticket.order_item?.final_price || ticket.order_item?.unit_price || ticket.ticket_type?.price || 0)
+  const feePercentage = Math.min(100, Math.max(0, Number(refundPolicy?.fee_percentage || 0)))
+  const cancellationFee = Math.round((originalPrice * feePercentage) / 100)
+  const estimatedRefundAmount = Math.max(0, originalPrice - cancellationFee)
+
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (reason === 'Khác' && !customerNote.trim()) {
+      toast.error('Vui lòng nhập ghi chú chi tiết khi chọn lý do "Khác"!')
+      return
+    }
+
     refundMutation.mutate({
       ticket_id: ticket.id,
+      order_id: ticket.order?.id,
       reason,
       customer_note: customerNote,
       bank_info: bankName ? { bank_name: bankName, account_number: accountNumber, account_holder: accountHolder } : undefined,
     })
   }
-
-  const refundPolicy = ticket.event?.refund_policy
 
   return (
     <>
@@ -488,107 +494,206 @@ function RefundButton({ ticket, onRefundSubmitted }) {
         className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20"
       >
         <RotateCcw className="size-4" />
-        Yêu cầu hoàn vé (Refund)
+        Yêu cầu hoàn tiền vé
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0f172a] p-6 shadow-2xl">
-            <button
-              onClick={() => setIsOpen(false)}
-              className="absolute right-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"
-            >
-              <X className="size-5" />
-            </button>
-
-            <div className="flex items-center gap-3 text-amber-400">
-              <RotateCcw className="size-6" />
-              <h3 className="text-xl font-bold text-white">Yêu cầu hoàn tiền vé</h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className="relative flex flex-col w-full max-w-lg sm:max-w-xl max-h-[90vh] rounded-2xl border border-white/10 bg-[#0f172a] shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Section */}
+            <div className="flex-none flex items-center justify-between border-b border-white/10 bg-[#131d35] px-5 py-3.5">
+              <div className="flex items-center gap-2.5 text-amber-400">
+                <RotateCcw className="size-5" />
+                <h3 className="text-lg font-bold text-white">Yêu cầu hoàn tiền vé</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+              >
+                <X className="size-5" />
+              </button>
             </div>
 
-            <p className="mt-2 text-xs text-slate-400">
-              Vé: <span className="font-mono font-bold text-white">{ticket.ticket_code}</span> ({ticket.ticket_type?.name})
-            </p>
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto px-4 py-3.5 sm:px-5 space-y-3 text-xs">
+                {/* Order & Event Summary (Report 3 Item 3) */}
+                <div className="rounded-xl border border-white/10 bg-[#162038] p-3 text-xs text-slate-300">
+                  <div className="border-b border-white/10 pb-2 mb-2">
+                    <span className="text-slate-400 font-medium">Sự kiện: </span>
+                    <span className="font-bold text-white text-sm break-words whitespace-normal">
+                      {ticket.event?.title || 'Không có tên sự kiện'}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto pb-0.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 min-w-[280px]">
+                      <div>
+                        <span className="text-slate-400">Đơn hàng: </span>
+                        <span className="font-mono font-semibold text-white break-all">
+                          #{ticket.order?.order_code || ticket.order?.id?.slice(0, 8)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Mã vé: </span>
+                        <span className="font-mono font-bold text-amber-300">
+                          {ticket.ticket_code}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Loại vé: </span>
+                        <span className="font-semibold text-white">
+                          {ticket.ticket_type?.name || 'Vé tiêu chuẩn'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Giá gốc: </span>
+                        <span className="font-bold text-white">
+                          {formatCurrency(originalPrice)}
+                        </span>
+                      </div>
+                      {ticket.session?.start_time && (
+                        <div className="col-span-1 sm:col-span-2">
+                          <span className="text-slate-400">Thời gian: </span>
+                          <span className="font-medium text-white">
+                            {formatDateTime(ticket.session?.start_time)}
+                          </span>
+                        </div>
+                      )}
+                      {ticket.seat?.label && (
+                        <div className="col-span-1 sm:col-span-2">
+                          <span className="text-slate-400">Chỗ ngồi: </span>
+                          <span className="font-medium text-white">
+                            {ticket.seat.label}
+                          </span>
+                        </div>
+                      )}
+                      {(ticket.venue?.name || venueLine(ticket)) && (
+                        <div className="col-span-1 sm:col-span-2">
+                          <span className="text-slate-400">Địa điểm: </span>
+                          <span className="font-medium text-white break-words">
+                            {[ticket.venue?.name, venueLine(ticket)].filter(Boolean).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-            {refundPolicy && (
-              <div className="mt-3 rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-xs text-blue-200">
-                <p className="font-semibold text-blue-300">Chính sách hoàn vé của sự kiện:</p>
-                <p className="mt-1">
-                  {refundPolicy.allow_refunds === false
-                    ? '⚠️ Sự kiện không hỗ trợ hoàn vé theo quy định của ban tổ chức.'
-                    : `Hạn chót hoàn vé: trước sự kiện ${refundPolicy.deadline_days || 1} ngày. Phí xử lý: ${refundPolicy.fee_percentage || 0}%.`}
-                </p>
-              </div>
-            )}
+                {/* Applicable Refund Policy (Report 3 Item 4) */}
+                {refundPolicy && (
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-2.5 text-xs text-blue-200">
+                    <p className="font-semibold text-blue-300">Chính sách hoàn vé của sự kiện:</p>
+                    <p className="mt-1 leading-relaxed text-[11px] sm:text-xs">
+                      {refundPolicy.allow_refunds === false
+                        ? '⚠️ Sự kiện áp dụng chính sách Không hoàn tiền theo quy định của ban tổ chức.'
+                        : `Hạn chót gửi yêu cầu: trước sự kiện ít nhất ${refundPolicy.deadline_days || 1} ngày. Phí xử lý hoàn vé: ${refundPolicy.fee_percentage || 0}%.`}
+                    </p>
+                  </div>
+                )}
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300">Lý do hoàn vé</label>
-                <select
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:border-amber-400 focus:outline-none"
-                >
-                  <option value="Khách hàng đổi lịch / không thể tham dự">Khách hàng đổi lịch / không thể tham dự</option>
-                  <option value="Mua nhầm số lượng hoặc loại vé">Mua nhầm số lượng hoặc loại vé</option>
-                  <option value="Sự kiện thay đổi thời gian / địa điểm">Sự kiện thay đổi thời gian / địa điểm</option>
-                  <option value="Lý do sức khỏe / cá nhân khẩn cấp">Lý do sức khỏe / cá nhân khẩn cấp</option>
-                  <option value="Lý do khác">Lý do khác</option>
-                </select>
-              </div>
+                {/* Estimated Refund Amount (Report 3 Item 5) */}
+                <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs">
+                  <span className="font-semibold text-emerald-300">Số tiền ước tính được hoàn:</span>
+                  <span className="text-sm font-black text-emerald-400">
+                    {formatCurrency(estimatedRefundAmount)}
+                    {cancellationFee > 0 && (
+                      <span className="ml-1 text-[11px] font-normal text-slate-400">
+                        (Phí hoàn vé: {formatCurrency(cancellationFee)})
+                      </span>
+                    )}
+                  </span>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300">Ghi chú chi tiết (nếu có)</label>
-                <textarea
-                  rows={2}
-                  value={customerNote}
-                  onChange={(e) => setCustomerNote(e.target.value)}
-                  placeholder="Mô tả cụ thể hơn để BTC xem xét..."
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-[#1e293b] p-3 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
-                />
-              </div>
+                {/* Refund Reason Dropdown (Report 3 Item 6) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Lý do hoàn vé *</label>
+                  <select
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-[#1e293b] px-3 py-2 text-xs sm:text-sm text-white focus:border-amber-400 focus:outline-none"
+                  >
+                    <option value="Trùng lịch cá nhân">Trùng lịch cá nhân</option>
+                    <option value="Sự kiện thay đổi thông tin">Sự kiện thay đổi thông tin</option>
+                    <option value="Mua nhầm vé">Mua nhầm vé</option>
+                    <option value="Lý do sức khỏe">Lý do sức khỏe</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </div>
 
-              <div className="space-y-2 rounded-lg border border-white/5 bg-[#172033] p-3">
-                <p className="text-xs font-semibold text-slate-300">Thông tin nhận tiền hoàn (Nếu hoàn qua chuyển khoản):</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Tên ngân hàng (VD: Vietcombank, MB...)"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Số tài khoản"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500"
+                {/* Reason Note / Detail (Report 3 Item 7) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Ghi chú chi tiết {reason === 'Khác' && <span className="text-error">*</span>}
+                  </label>
+                  <textarea
+                    rows={2}
+                    maxLength={500}
+                    value={customerNote}
+                    required={reason === 'Khác'}
+                    onChange={(e) => setCustomerNote(e.target.value)}
+                    placeholder={reason === 'Khác' ? 'Vui lòng nêu rõ lý do hoàn vé (bắt buộc)...' : 'Thông tin bổ sung (nếu có, tối đa 500 ký tự)...'}
+                    className="w-full rounded-lg border border-white/10 bg-[#1e293b] p-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none resize-y min-h-[56px]"
                   />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Tên chủ tài khoản (viết hoa không dấu)"
-                  value={accountHolder}
-                  onChange={(e) => setAccountHolder(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500"
-                />
+
+                {/* Bank Account Info Warning (Report 3 Item 8) */}
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-xs text-amber-200">
+                  <p className="font-semibold text-amber-300">Lưu ý phương thức nhận tiền:</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/90">
+                    Tiền sẽ được hoàn về tài khoản / phương thức thanh toán ban đầu (hoặc tài khoản ngân hàng bên dưới nếu thanh toán chuyển khoản).
+                  </p>
+                </div>
+
+                <div className="space-y-2 rounded-lg border border-white/5 bg-[#172033] p-2.5">
+                  <p className="text-xs font-semibold text-slate-300">Tài khoản ngân hàng nhận tiền hoàn (tùy chọn):</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Tên ngân hàng (VD: Vietcombank, MB...)"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Số tài khoản"
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      className="rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Tên chủ tài khoản (viết hoa không dấu)"
+                    value={accountHolder}
+                    onChange={(e) => setAccountHolder(e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-[#1e293b] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              {/* Footer Section Buttons (Report 3 Items 9 & 10) */}
+              <div className="flex-none flex items-center justify-end gap-3 border-t border-white/10 bg-[#131d35] px-5 py-3">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-400 hover:bg-white/10 hover:text-white"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-400 hover:bg-white/10 hover:text-white transition"
                 >
-                  Đóng
+                  Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={refundMutation.isPending}
                   className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-400 disabled:opacity-50"
                 >
-                  {refundMutation.isPending ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu hoàn tiền'}
+                  {refundMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
                 </button>
               </div>
             </form>

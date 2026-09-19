@@ -1,25 +1,30 @@
 const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const logger = require('../../core/logger');
 const refundsRepository = require('./refunds.repository');
+const refundRuleEngine = require('./refundRuleEngine');
+const payosRefundService = require('./payosRefund.service');
+const notificationsService = require('../notifications/notifications.service');
 
 class RefundsService {
+  /**
+   * Customer submits a refund request for a ticket or order.
+   * Performs validation via RefundRuleEngine, locks ticket atomically in REFUND_PENDING,
+   * updates order status to REFUND_REQUESTED, creates the refund_requests row, and notifies organizer.
+   */
   async submitRefundRequest(customerId, payload) {
     let {
       order_id,
       ticket_id,
       reason,
       customer_note,
-      refund_method,
+      refund_method = 'PAYOS',
       bank_name,
       bank_account_number,
       bank_account_name,
       bank_info,
     } = payload;
-
-    if (customer_note) {
-      reason = `${reason} (Ghi chú: ${customer_note})`;
-    }
 
     if (bank_info) {
       bank_name = bank_name || bank_info.bank_name;
@@ -27,65 +32,95 @@ class RefundsService {
       bank_account_name = bank_account_name || bank_info.account_holder;
     }
 
-    const data = await refundsRepository.findOrderAndTicketForRefund(order_id, ticket_id, customerId);
-    if (!data) {
-      throw new AppError('Đơn hàng hoặc vé không tồn tại hoặc không thuộc về bạn', 404, ErrorCodes.RESOURCE_NOT_FOUND);
-    }
-
-    order_id = data.order_id;
-    ticket_id = data.ticket_id || ticket_id || null;
-
-    if (!['PAID', 'REFUND_REQUESTED'].includes(data.order_status)) {
-      throw new AppError('Chỉ có thể yêu cầu hoàn tiền cho đơn hàng đã thanh toán thành công', 400, ErrorCodes.INVALID_INPUT);
-    }
-
-    if (ticket_id) {
-      if (data.ticket_status !== 'VALID') {
-        throw new AppError(`Vé này đang ở trạng thái "${data.ticket_status}" và không thể hoàn`, 400, ErrorCodes.INVALID_INPUT);
-      }
-      if (data.checked_in_at) {
-        throw new AppError('Vé đã được check-in sử dụng tại sự kiện, không thể hoàn', 400, ErrorCodes.INVALID_INPUT);
-      }
-    }
-
-    const rawPolicy = data.event_refund_policy;
-    const refundPolicy = typeof rawPolicy === 'string' ? JSON.parse(rawPolicy) : (rawPolicy || {});
-
-    if (refundPolicy.allow_refunds === false) {
-      throw new AppError('Sự kiện này không áp dụng chính sách hoàn vé theo quy định của nhà tổ chức', 400, ErrorCodes.INVALID_INPUT);
-    }
-
-    const deadlineDays = Number(refundPolicy.deadline_days || 0);
-    if (data.event_start_time && deadlineDays > 0) {
-      const startTime = new Date(data.event_start_time).getTime();
-      const now = Date.now();
-      const diffDays = (startTime - now) / (1000 * 60 * 60 * 24);
-
-      if (diffDays < deadlineDays) {
-        throw new AppError(
-          `Đã quá thời hạn yêu cầu hoàn vé. Chính sách yêu cầu gửi trước ít nhất ${deadlineDays} ngày trước khi sự kiện diễn ra`,
-          400,
-          ErrorCodes.INVALID_INPUT,
-        );
-      }
-    }
-
-    const existing = await refundsRepository.findExistingActiveRefund(order_id, ticket_id);
-    if (existing) {
-      throw new AppError('Vé hoặc đơn hàng này đã có yêu cầu hoàn tiền đang được xử lý hoặc đã hoàn tất', 400, ErrorCodes.INVALID_INPUT);
-    }
-
-    let refundAmount = 0;
-    if (ticket_id) {
-      refundAmount = Number(data.ticket_final_price || data.ticket_unit_price || 0);
-    } else {
-      refundAmount = Number(data.order_total_amount || 0);
-    }
-
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
 
+      // 1. Fetch order and ticket with row-level lock
+      const data = await refundsRepository.findOrderAndTicketForRefund(
+        order_id,
+        ticket_id,
+        customerId,
+        client,
+        true,
+      );
+
+      if (!data) {
+        throw new AppError(
+          'Đơn hàng hoặc vé không tồn tại hoặc không thuộc về bạn.',
+          404,
+          ErrorCodes.RESOURCE_NOT_FOUND,
+        );
+      }
+
+      order_id = data.order_id;
+      ticket_id = data.ticket_id || ticket_id || null;
+
+      // 2. Check existing active refund
+      const existing = await refundsRepository.findExistingActiveRefund(order_id, ticket_id, client);
+
+      // 3. Evaluate eligibility and calculate net refund amount via Rule Engine
+      const validation = refundRuleEngine.evaluateEligibility({
+        ticket: ticket_id
+          ? {
+              id: ticket_id,
+              customer_id: data.customer_id,
+              status: data.ticket_status,
+              checked_in_at: data.checked_in_at,
+              session_seat_id: data.session_seat_id,
+              session_start_time: data.session_start_time,
+              session_end_time: data.session_end_time,
+              final_price: data.ticket_final_price,
+              unit_price: data.ticket_unit_price,
+            }
+          : null,
+        order: {
+          id: order_id,
+          user_id: data.customer_id,
+          status: data.order_status,
+          total_amount: data.order_total_amount,
+        },
+        event: {
+          id: data.event_id,
+          start_time: data.event_start_time,
+          end_time: data.event_end_time,
+          refund_policy: data.event_refund_policy,
+        },
+        activeRefund: existing,
+        customerId,
+        reason,
+        customerNote: customer_note,
+      });
+
+      if (!validation.eligible) {
+        throw new AppError(
+          validation.reason || 'Yêu cầu hoàn tiền không hợp lệ theo chính sách của sự kiện.',
+          400,
+          validation.errorCode || ErrorCodes.INVALID_INPUT,
+        );
+      }
+
+      const fullReason = customer_note ? `${reason} (Ghi chú: ${customer_note})` : reason;
+
+      // 4. Temporarily lock the ticket to REFUND_PENDING
+      if (ticket_id) {
+        const lockedTicket = await refundsRepository.lockTicketForRefund(ticket_id, client);
+        if (!lockedTicket) {
+          throw new AppError(
+            'Vé không ở trạng thái hợp lệ để khóa hoàn tiền (có thể đã được xử lý hoặc thay đổi trạng thái).',
+            409,
+            ErrorCodes.CONFLICT,
+          );
+        }
+      }
+
+      // 5. Update order status to REFUND_REQUESTED
+      await client.query(
+        `UPDATE orders SET status = 'REFUND_REQUESTED', updated_at = now() WHERE id = $1`,
+        [order_id],
+      );
+
+      // 6. Create refund_requests record with PENDING status
       const created = await refundsRepository.create(
         {
           order_id,
@@ -93,8 +128,8 @@ class RefundsService {
           event_id: data.event_id,
           customer_id: customerId,
           organizer_id: data.organizer_id,
-          refund_amount: refundAmount,
-          reason,
+          refund_amount: validation.refundableAmount,
+          reason: fullReason,
           refund_method,
           bank_name,
           bank_account_number,
@@ -103,13 +138,28 @@ class RefundsService {
         client,
       );
 
-      await client.query(
-        `UPDATE orders SET status = 'REFUND_REQUESTED', updated_at = now() WHERE id = $1`,
-        [order_id],
-      );
-
       await client.query('COMMIT');
-      return created;
+
+      // 7. Asynchronous Notification to Organizer
+      try {
+        if (data.organizer_id) {
+          notificationsService
+            .createAndDispatch({
+              userId: data.organizer_id,
+              eventId: data.event_id,
+              title: 'Yêu cầu hoàn tiền vé mới',
+              content: `Có yêu cầu hoàn vé mới cho sự kiện "${data.event_title}". Mã vé: ${data.ticket_code || 'N/A'}, số tiền: ${validation.refundableAmount.toLocaleString('vi-VN')} VND.`,
+              type: 'PAYMENT',
+            })
+            .catch((err) =>
+              logger.warn(`[NOTIFY_ORGANIZER_REFUND_FAIL] ${err.message}`),
+            );
+        }
+      } catch (notifyErr) {
+        logger.warn(`[NOTIFY_ORGANIZER_FAIL] ${notifyErr.message}`);
+      }
+
+      return this.mapRefund(created);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -126,7 +176,7 @@ class RefundsService {
   async getRefundDetail(refundId, userId, userRole) {
     const refund = await refundsRepository.findById(refundId);
     if (!refund) {
-      throw new AppError('Không tìm thấy yêu cầu hoàn tiền', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      throw new AppError('Không tìm thấy yêu cầu hoàn tiền.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (userRole === 'ADMIN' || userRole === 'admin') {
@@ -135,14 +185,14 @@ class RefundsService {
 
     if (userRole === 'CUSTOMER' || userRole === 'user') {
       if (refund.customer_id !== userId) {
-        throw new AppError('Bạn không có quyền xem yêu cầu hoàn tiền này', 403, ErrorCodes.FORBIDDEN);
+        throw new AppError('Bạn không có quyền xem yêu cầu hoàn tiền này.', 403, ErrorCodes.AUTH_FORBIDDEN);
       }
     } else if (userRole === 'ORGANIZER' || userRole === 'organizer') {
       const isOwner =
         refund.organizer_id === userId ||
         (refund.event_id && (await refundsRepository.isEventOwnedByUser(refund.event_id, userId)));
       if (!isOwner) {
-        throw new AppError('Yêu cầu hoàn tiền không thuộc sự kiện của bạn', 403, ErrorCodes.FORBIDDEN);
+        throw new AppError('Yêu cầu hoàn tiền không thuộc sự kiện của bạn.', 403, ErrorCodes.AUTH_FORBIDDEN);
       }
     }
 
@@ -154,32 +204,54 @@ class RefundsService {
     return list.map(this.mapRefund);
   }
 
-  async processRefundByOrganizer(organizerUserId, refundId, payload, reviewerId, userRole = 'ORGANIZER') {
-    const refund = await refundsRepository.findById(refundId);
-    if (!refund) {
-      throw new AppError('Không tìm thấy yêu cầu hoàn tiền', 404, ErrorCodes.RESOURCE_NOT_FOUND);
-    }
-
-    if (userRole !== 'ADMIN' && userRole !== 'admin') {
-      const isOwner =
-        refund.organizer_id === organizerUserId ||
-        (refund.event_id && (await refundsRepository.isEventOwnedByUser(refund.event_id, organizerUserId)));
-      if (!isOwner) {
-        throw new AppError('Yêu cầu hoàn tiền không thuộc sự kiện của bạn', 403, ErrorCodes.FORBIDDEN);
-      }
-    }
-
-    if (refund.status === 'REFUNDED') {
-      throw new AppError('Yêu cầu hoàn tiền này đã được hoàn tất trước đó', 400, ErrorCodes.INVALID_INPUT);
-    }
-
-    const { action, proof_url, transaction_ref } = payload;
-    const note = payload.organizer_note || payload.reject_reason || payload.note;
+  /**
+   * Organizer approves or rejects a refund request.
+   * If REJECT: reverts ticket from REFUND_PENDING to VALID, restores order to PAID if no other pending refunds.
+   * If APPROVE: calls PayOSRefundService (or handles manual bank transfer confirmation),
+   * invalidates ticket to REFUNDED, releases seat, and records transaction details.
+   */
+  async processRefundByOrganizer(
+    organizerUserId,
+    refundId,
+    payload,
+    reviewerId,
+    userRole = 'ORGANIZER',
+    options = {},
+  ) {
     const client = await db.getClient();
-
     try {
       await client.query('BEGIN');
 
+      const refund = await refundsRepository.findByIdForUpdate(refundId, client);
+      if (!refund) {
+        throw new AppError('Không tìm thấy yêu cầu hoàn tiền.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      }
+
+      // Check ownership
+      if (userRole !== 'ADMIN' && userRole !== 'admin') {
+        const isOwner =
+          refund.organizer_id === organizerUserId ||
+          (refund.event_id && (await refundsRepository.isEventOwnedByUser(refund.event_id, organizerUserId)));
+        if (!isOwner) {
+          throw new AppError('Yêu cầu hoàn tiền không thuộc sự kiện của bạn.', 403, ErrorCodes.AUTH_FORBIDDEN);
+        }
+      }
+
+      // Concurrency & idempotency check (Report 3: 3.7.12 & Abnormal Cases)
+      if (refund.status !== 'PENDING' && refund.status !== 'FAILED') {
+        throw new AppError(
+          'Yêu cầu này đã được xử lý bởi người dùng khác hoặc đã hoàn tất.',
+          409,
+          ErrorCodes.REFUND_ALREADY_PROCESSED,
+        );
+      }
+
+      const { action, proof_url, transaction_ref, refund_method } = payload;
+      const note = payload.organizer_note || payload.reject_reason || payload.note;
+
+      // ─────────────────────────────────────────────────────────────
+      // Case 1: Organizer REJECTS Request
+      // ─────────────────────────────────────────────────────────────
       if (action === 'REJECT') {
         const updated = await refundsRepository.updateStatus(
           refundId,
@@ -192,9 +264,14 @@ class RefundsService {
           client,
         );
 
-        // Check if other active pending refund requests exist on this order
+        // Unlock ticket: REFUND_PENDING -> VALID
+        if (refund.ticket_id) {
+          await refundsRepository.unlockTicketFromRefund(refund.ticket_id, client);
+        }
+
+        // Restore order status to PAID if no other pending refund requests exist
         const otherPending = await client.query(
-          `SELECT 1 FROM refund_requests WHERE order_id = $1 AND id != $2 AND status IN ('PENDING', 'APPROVED') LIMIT 1`,
+          `SELECT 1 FROM refund_requests WHERE order_id = $1 AND id != $2 AND status IN ('PENDING', 'APPROVED', 'PROCESSING') LIMIT 1`,
           [refund.order_id, refundId],
         );
         if (otherPending.rows.length === 0) {
@@ -205,35 +282,135 @@ class RefundsService {
         }
 
         await client.query('COMMIT');
+
+        // Notify customer
+        try {
+          notificationsService
+            .createAndDispatch(
+              {
+                userId: refund.customer_id,
+                eventId: refund.event_id,
+                title: 'Yêu cầu hoàn tiền vé đã bị từ chối',
+                content: `Yêu cầu hoàn tiền cho vé ${refund.ticket_code || 'đơn hàng ' + refund.order_code} đã bị từ chối. Lý do: ${note || 'Không đủ điều kiện theo chính sách'}.`,
+                type: 'PAYMENT',
+              },
+              { email: refund.customer_email },
+            )
+            .catch((err) => logger.warn(`[NOTIFY_REFUND_REJECT_FAIL] ${err.message}`));
+        } catch (e) {
+          // ignore
+        }
+
         return this.mapRefund(updated);
       }
 
-      if (action === 'APPROVE') {
-        const updated = await refundsRepository.updateStatus(
-          refundId,
-          {
-            status: 'APPROVED',
-            organizer_note: note || 'Yêu cầu hoàn tiền đã được phê duyệt.',
-            organizer_proof_url: proof_url || null,
-            organizer_transaction_ref: transaction_ref || null,
-            processed_by_id: reviewerId,
-            reviewed_at: new Date(),
-          },
-          client,
-        );
+      // ─────────────────────────────────────────────────────────────
+      // Case 2: Organizer APPROVES Request (Automated PayOS or Manual)
+      // ─────────────────────────────────────────────────────────────
+      if (action === 'APPROVE' || action === 'REFUND' || action === 'CONFIRM_REFUNDED') {
+        const isManual = action === 'REFUND' || action === 'CONFIRM_REFUNDED' || refund_method === 'MANUAL_BANK_TRANSFER' || Boolean(proof_url || transaction_ref);
 
-        await client.query('COMMIT');
-        return this.mapRefund(updated);
-      }
+        let finalTransactionRef = transaction_ref || null;
+        let finalProofUrl = proof_url || null;
+        let finalNote = note;
 
-      if (action === 'REFUND' || action === 'CONFIRM_REFUNDED') {
+        if (!isManual) {
+          // Automated Gateway API via PayOS
+          const paymentOrder = await refundsRepository.findPaymentOrderWithChannel(refund.order_id, client);
+
+          // Query latest channel configuration from organizer_payment_channels to ensure any recent updates to Kênh chi keys are included
+          let effectiveChannel = paymentOrder;
+          try {
+            const latestChannelRes = await client.query(
+              `SELECT * FROM organizer_payment_channels 
+               WHERE organizer_id = (SELECT organizer_id FROM events WHERE id = $1)
+                  OR organizer_id = $2
+                  OR organizer_id IN (SELECT id FROM organizers WHERE user_id = $2)
+               ORDER BY updated_at DESC LIMIT 1`,
+              [refund.event_id, refund.organizer_id]
+            );
+            const latest = latestChannelRes.rows[0];
+            if (latest) {
+              effectiveChannel = {
+                ...paymentOrder,
+                client_id: latest.client_id || paymentOrder?.client_id,
+                api_key_encrypted: latest.api_key_encrypted || paymentOrder?.api_key_encrypted,
+                checksum_key_encrypted: latest.checksum_key_encrypted || paymentOrder?.checksum_key_encrypted,
+                payout_client_id: latest.payout_client_id ?? paymentOrder?.payout_client_id,
+                payout_api_key_encrypted: latest.payout_api_key_encrypted ?? paymentOrder?.payout_api_key_encrypted,
+                payout_checksum_key_encrypted: latest.payout_checksum_key_encrypted ?? paymentOrder?.payout_checksum_key_encrypted,
+                payout_status: latest.payout_status ?? paymentOrder?.payout_status,
+              };
+            }
+          } catch (channelLookupErr) {
+            // Fallback gracefully to paymentOrder
+          }
+
+          const payosResult = await payosRefundService.processRefund({
+            refundRequest: refund,
+            paymentOrder,
+            channel: effectiveChannel,
+            amount: payload.final_refund_amount || refund.refund_amount,
+            options,
+          });
+
+          if (!payosResult.success) {
+            // PayOS gateway returned failure or timed out:
+            // Keep ticket locked in REFUND_PENDING, record error note and mark FAILED for retry/manual transfer
+            await refundsRepository.updateStatus(
+              refundId,
+              {
+                status: 'FAILED',
+                organizer_note: `Giao dịch hoàn tiền qua Cổng thanh toán thất bại: ${payosResult.error}. Vui lòng kiểm tra lại tài khoản hoặc chuyển thủ công.`,
+                processed_by_id: reviewerId,
+                reviewed_at: new Date(),
+              },
+              client,
+            );
+
+            await client.query('COMMIT');
+
+            throw new AppError(
+              `Giao dịch hoàn tiền qua Cổng thanh toán thất bại: ${payosResult.error}. Vui lòng kiểm tra lại tài khoản hoặc chuyển thủ công.`,
+              400,
+              payosResult.errorCode || 'GATEWAY_ERROR',
+            );
+          }
+
+          finalTransactionRef = payosResult.transactionId;
+          finalNote = finalNote || `Đã hoàn tiền tự động qua PayOS (Mã GD: ${finalTransactionRef})`;
+        } else {
+          finalNote = finalNote || `Đã hoàn tiền thủ công qua chuyển khoản ngân hàng (Mã GD: ${finalTransactionRef || 'N/A'})`;
+        }
+
+        // Permanently invalidate the ticket: REFUND_PENDING -> REFUNDED
+        if (refund.ticket_id) {
+          await refundsRepository.invalidateTicketForRefund(refund.ticket_id, client);
+
+          // Release seat quota if seated event
+          if (refund.session_seat_id) {
+            await refundsRepository.releaseSessionSeat(refund.session_seat_id, client);
+          }
+        }
+
+        // Check if all tickets for this order are now refunded/cancelled
+        const remainingActive = await refundsRepository.countActiveOrderTickets(refund.order_id, client);
+        if (remainingActive === 0) {
+          await client.query(
+            `UPDATE orders SET status = 'REFUNDED', updated_at = now() WHERE id = $1`,
+            [refund.order_id],
+          );
+        }
+
+        // Update refund request status to REFUNDED
         const updated = await refundsRepository.updateStatus(
           refundId,
           {
             status: 'REFUNDED',
-            organizer_note: note || 'Đã hoàn tiền thành công.',
-            organizer_proof_url: proof_url || null,
-            organizer_transaction_ref: transaction_ref || null,
+            refund_amount: payload.final_refund_amount || refund.refund_amount,
+            organizer_note: finalNote,
+            organizer_proof_url: finalProofUrl,
+            organizer_transaction_ref: finalTransactionRef,
             processed_by_id: reviewerId,
             reviewed_at: refund.reviewed_at || new Date(),
             refunded_at: new Date(),
@@ -241,20 +418,30 @@ class RefundsService {
           client,
         );
 
-        // Update ticket & order status
-        await refundsRepository.setTicketAndOrderStatus(
-          refund.order_id,
-          refund.ticket_id,
-          'REFUNDED',
-          'REFUNDED',
-          client,
-        );
-
         await client.query('COMMIT');
+
+        // Notify customer of successful refund
+        try {
+          notificationsService
+            .createAndDispatch(
+              {
+                userId: refund.customer_id,
+                eventId: refund.event_id,
+                title: 'Hoàn tiền vé thành công',
+                content: `Yêu cầu hoàn tiền vé ${refund.ticket_code || 'đơn ' + refund.order_code} đã hoàn tất. Số tiền: ${Number(updated.refund_amount).toLocaleString('vi-VN')} VND.`,
+                type: 'PAYMENT',
+              },
+              { email: refund.customer_email },
+            )
+            .catch((err) => logger.warn(`[NOTIFY_REFUND_SUCCESS_FAIL] ${err.message}`));
+        } catch (e) {
+          // ignore
+        }
+
         return this.mapRefund(updated);
       }
 
-      throw new AppError('Hành động xử lý không hợp lệ', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Hành động xử lý không hợp lệ (APPROVE, REJECT, REFUND).', 400, ErrorCodes.INVALID_INPUT);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -293,7 +480,11 @@ class RefundsService {
         title: row.event_title,
         banner_url: row.event_banner_url,
         start_time: row.event_start_time,
-        refund_policy: row.event_refund_policy,
+        end_time: row.event_end_time,
+        refund_policy:
+          typeof row.event_refund_policy === 'string'
+            ? JSON.parse(row.event_refund_policy)
+            : row.event_refund_policy || {},
       },
       order: {
         id: row.order_id,
@@ -306,6 +497,7 @@ class RefundsService {
             id: row.ticket_id,
             ticket_code: row.ticket_code,
             status: row.ticket_status,
+            checked_in_at: row.checked_in_at,
             ticket_type: {
               name: row.ticket_type_name,
             },

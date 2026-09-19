@@ -1,3 +1,11 @@
+const dns = require('dns');
+// Enforce IPv4-first DNS resolution for outbound HTTP/HTTPS requests (e.g. PayOS IP Whitelist)
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (e) {
+  // Ignore on Node versions that do not support it
+}
+
 const env = require('./config/env'); // Validates env on load
 const app = require('./app');
 const logger = require('./core/logger');
