@@ -1099,19 +1099,14 @@ export function BookingReviewPage() {
           </Panel>
           {hasPolicy && (
             <Panel>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-xl font-bold text-white flex items-center gap-2">
-                    <ShieldCheck className="size-5 text-primary" />
-                    Điều khoản &amp; Chính sách sự kiện
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    Vui lòng đọc kỹ và xác nhận đồng ý với điều khoản và chính sách hoàn tiền trước khi chuyển sang thanh toán.
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
-                  Bắt buộc
-                </span>
+              <div>
+                <h2 className="font-display text-xl font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="size-5 text-primary" />
+                  Điều khoản &amp; Chính sách sự kiện
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Vui lòng đọc kỹ và xác nhận đồng ý với điều khoản và chính sách hoàn tiền trước khi chuyển sang thanh toán.
+                </p>
               </div>
 
               <div className="mt-5 space-y-4">
