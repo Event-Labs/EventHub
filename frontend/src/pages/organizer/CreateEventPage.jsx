@@ -2683,7 +2683,114 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
           </p>
         </section>
 
-        {/* Section 3: Structured Refund Policy */}
+        {/* Section 3: Policies & Terms + Policy File Import */}
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
+                <Icon name="gavel" />
+              </div>
+              <div>
+                <h3 className="text-[20px] font-semibold text-content">Chính sách & Điều khoản tham dự</h3>
+                <p className="text-xs text-subtle mt-0.5">Quy định vé, độ tuổi tham gia hoặc điều khoản riêng của ban tổ chức</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Import Policy File Card */}
+          <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Icon name="upload_file" className="text-tertiary text-lg" />
+                <span className="text-xs font-bold text-content uppercase tracking-wider">
+                  Import file chính sách sự kiện
+                </span>
+              </div>
+              <div>
+                <input
+                  type="file"
+                  ref={policyFileInputRef}
+                  accept=".pdf,.docx,.txt"
+                  className="hidden"
+                  onChange={handlePolicyFileChange}
+                />
+                <button
+                  type="button"
+                  disabled={uploadingPolicy}
+                  onClick={() => policyFileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-xs font-semibold text-content hover:bg-panel-soft transition shadow-sm disabled:opacity-50"
+                >
+                  {uploadingPolicy ? (
+                    <>
+                      <div className="size-3.5 border-2 border-tertiary border-t-transparent rounded-full animate-spin" />
+                      <span>Đang tải file...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="attach_file" className="text-[16px] text-tertiary" />
+                      <span>{rp?.policy_file_url ? 'Thay đổi file' : 'Chọn file (.pdf, .docx, .txt)'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {rp?.policy_file_url ? (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border-soft/60 shadow-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                    <Icon name="description" className="text-lg" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-content truncate">
+                      {rp.policy_file_name || 'chinh-sach-su-kien.pdf'}
+                    </p>
+                    <p className="text-[11px] text-muted">
+                      {formatFileSize(rp.policy_file_size)} · <span className="text-success font-medium">Đã đính kèm</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={rp.policy_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded bg-panel-soft hover:bg-panel-soft/80 text-xs font-medium text-tertiary flex items-center gap-1 transition"
+                  >
+                    <Icon name="open_in_new" className="text-[14px]" />
+                    <span>Xem file</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleRemovePolicyFile}
+                    className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
+                    title="Xóa file chính sách"
+                  >
+                    <Icon name="delete" className="text-[18px]" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted leading-relaxed">
+                Bạn có thể tải file chính sách chi tiết (PDF hoặc Word). Nếu chọn file <b>.txt</b>, nội dung văn bản sẽ tự động được điền vào ô điều khoản bên dưới.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-[13px] text-subtle block mb-2 font-medium">
+              Nội dung điều khoản & quy định cho người tham gia
+            </label>
+            <textarea
+              className="w-full border border-border-soft/40 rounded-xl px-4 py-3 text-sm h-36 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+              placeholder="Nhập hoặc import các điều khoản, quy định độ tuổi, trang phục, hoặc hướng dẫn bổ sung cho người giữ vé..."
+              value={formData.additional_terms}
+              onChange={(e) => setFormData((p) => ({ ...p, additional_terms: e.target.value }))}
+            />
+          </div>
+        </section>
+
+        {/* Section 4: Structured Refund Policy */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2832,113 +2939,6 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
             </div>
           )}
         </section>
-
-        {/* Section 4: Policies & Terms + Policy File Import */}
-        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
-                <Icon name="gavel" />
-              </div>
-              <div>
-                <h3 className="text-[20px] font-semibold text-content">Chính sách & Điều khoản tham dự</h3>
-                <p className="text-xs text-subtle mt-0.5">Quy định vé, độ tuổi tham gia hoặc điều khoản riêng của ban tổ chức</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Import Policy File Card */}
-          <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Icon name="upload_file" className="text-tertiary text-lg" />
-                <span className="text-xs font-bold text-content uppercase tracking-wider">
-                  Import file chính sách sự kiện
-                </span>
-              </div>
-              <div>
-                <input
-                  type="file"
-                  ref={policyFileInputRef}
-                  accept=".pdf,.docx,.txt"
-                  className="hidden"
-                  onChange={handlePolicyFileChange}
-                />
-                <button
-                  type="button"
-                  disabled={uploadingPolicy}
-                  onClick={() => policyFileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-xs font-semibold text-content hover:bg-panel-soft transition shadow-sm disabled:opacity-50"
-                >
-                  {uploadingPolicy ? (
-                    <>
-                      <div className="size-3.5 border-2 border-tertiary border-t-transparent rounded-full animate-spin" />
-                      <span>Đang tải file...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="attach_file" className="text-[16px] text-tertiary" />
-                      <span>{rp?.policy_file_url ? 'Thay đổi file' : 'Chọn file (.pdf, .docx, .txt)'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {rp?.policy_file_url ? (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border-soft/60 shadow-sm">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-9 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-                    <Icon name="description" className="text-lg" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-content truncate">
-                      {rp.policy_file_name || 'chinh-sach-su-kien.pdf'}
-                    </p>
-                    <p className="text-[11px] text-muted">
-                      {formatFileSize(rp.policy_file_size)} · <span className="text-success font-medium">Đã đính kèm</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <a
-                    href={rp.policy_file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2.5 py-1 rounded bg-panel-soft hover:bg-panel-soft/80 text-xs font-medium text-tertiary flex items-center gap-1 transition"
-                  >
-                    <Icon name="open_in_new" className="text-[14px]" />
-                    <span>Xem file</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={handleRemovePolicyFile}
-                    className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
-                    title="Xóa file chính sách"
-                  >
-                    <Icon name="delete" className="text-[18px]" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-muted leading-relaxed">
-                Bạn có thể tải file chính sách chi tiết (PDF hoặc Word). Nếu chọn file <b>.txt</b>, nội dung văn bản sẽ tự động được điền vào ô điều khoản bên dưới.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="text-[13px] text-subtle block mb-2 font-medium">
-              Nội dung điều khoản & quy định cho người tham gia
-            </label>
-            <textarea
-              className="w-full border border-border-soft/40 rounded-xl px-4 py-3 text-sm h-36 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
-              placeholder="Nhập hoặc import các điều khoản, quy định độ tuổi, trang phục, hoặc hướng dẫn bổ sung cho người giữ vé..."
-              value={formData.additional_terms}
-              onChange={(e) => setFormData((p) => ({ ...p, additional_terms: e.target.value }))}
-            />
-          </div>
-        </section>
       </div>
 
       {/* Right Column: Sidebar */}
@@ -2982,21 +2982,6 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
 
             <div className="flex items-start gap-3">
               <Icon
-                name={allowRefund ? 'check_circle' : 'info'}
-                className={allowRefund ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
-              />
-              <div>
-                <p className="text-sm font-bold text-content">Chính sách hoàn vé</p>
-                <p className="text-xs text-muted">
-                  {allowRefund
-                    ? `Cho phép hoàn vé (${refundRules.length} mốc)`
-                    : 'Không hỗ trợ hoàn vé'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Icon
                 name={formData.additional_terms?.trim() || rp?.policy_file_url ? 'check_circle' : 'info'}
                 className={formData.additional_terms?.trim() || rp?.policy_file_url ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
               />
@@ -3008,6 +2993,21 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                     : formData.additional_terms?.trim()
                     ? 'Đã nhập điều khoản tham dự'
                     : 'Chưa nhập hoặc tải file chính sách'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Icon
+                name={allowRefund ? 'check_circle' : 'info'}
+                className={allowRefund ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
+              />
+              <div>
+                <p className="text-sm font-bold text-content">Chính sách hoàn vé</p>
+                <p className="text-xs text-muted">
+                  {allowRefund
+                    ? `Cho phép hoàn vé (${refundRules.length} mốc)`
+                    : 'Không hỗ trợ hoàn vé'}
                 </p>
               </div>
             </div>
@@ -3321,29 +3321,6 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             </span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-subtle font-medium">Chính sách hoàn vé</span>
-              <span className={`font-bold px-2.5 py-0.5 rounded-full bg-surface border border-border-soft/40 ${formData.refund_policy?.allow_refund ? 'text-emerald-400' : 'text-muted'}`}>
-                {formData.refund_policy?.allow_refund ? 'Hỗ trợ hoàn vé' : 'Không hỗ trợ hoàn vé'}
-              </span>
-            </div>
-            {formData.refund_policy?.allow_refund && (
-              <div className="pt-2 border-t border-border-soft/30 space-y-1 text-subtle">
-                {generateRefundPolicyLines(formData.refund_policy).map((line, idx) => (
-                  <div key={idx} className="leading-relaxed">
-                    {line}
-                  </div>
-                ))}
-                {formData.refund_policy?.refund_notes && (
-                  <div className="pt-1.5 text-muted italic">
-                    Ghi chú: {formData.refund_policy.refund_notes}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {formData.refund_policy?.policy_file_url && (
             <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -3375,6 +3352,29 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
               <p className="text-subtle whitespace-pre-wrap leading-relaxed">{formData.additional_terms}</p>
             </div>
           )}
+
+          <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-subtle font-medium">Chính sách hoàn vé</span>
+              <span className={`font-bold px-2.5 py-0.5 rounded-full bg-surface border border-border-soft/40 ${formData.refund_policy?.allow_refund ? 'text-emerald-400' : 'text-muted'}`}>
+                {formData.refund_policy?.allow_refund ? 'Hỗ trợ hoàn vé' : 'Không hỗ trợ hoàn vé'}
+              </span>
+            </div>
+            {formData.refund_policy?.allow_refund && (
+              <div className="pt-2 border-t border-border-soft/30 space-y-1 text-subtle">
+                {generateRefundPolicyLines(formData.refund_policy).map((line, idx) => (
+                  <div key={idx} className="leading-relaxed">
+                    {line}
+                  </div>
+                ))}
+                {formData.refund_policy?.refund_notes && (
+                  <div className="pt-1.5 text-muted italic">
+                    Ghi chú: {formData.refund_policy.refund_notes}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Cam kết của Ban tổ chức */}
