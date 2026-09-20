@@ -272,6 +272,15 @@ function calculateEventCompleteness(formData) {
         : 'Sơ đồ ghế hợp lệ',
     },
     {
+      id: 'permits',
+      step: 4,
+      label: 'Giấy phép tổ chức & Giấy tờ liên quan',
+      completed: permitsValid,
+      detail: !permitsValid
+        ? 'Cần tải lên giấy phép tổ chức hoặc giấy tờ liên quan'
+        : `Đã tải lên ${permitFiles.length} tài liệu pháp lý`,
+    },
+    {
       id: 'policies',
       step: 4,
       label: 'Chính sách & Điều khoản tham dự',
@@ -281,15 +290,6 @@ function calculateEventCompleteness(formData) {
         : policyFileUrl
         ? `Đã đính kèm file: ${formData.refund_policy?.policy_file_name || 'chính sách'}`
         : 'Đã thiết lập điều khoản tham dự',
-    },
-    {
-      id: 'permits',
-      step: 4,
-      label: 'Giấy phép tổ chức & Giấy tờ liên quan',
-      completed: permitsValid,
-      detail: !permitsValid
-        ? 'Cần tải lên giấy phép tổ chức hoặc giấy tờ liên quan'
-        : `Đã tải lên ${permitFiles.length} tài liệu pháp lý`,
     },
     {
       id: 'review_terms',
@@ -2522,7 +2522,135 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
   return (
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-6 pb-8">
-        {/* Section 1: Attendee Info */}
+        {/* Section 1: Event Organization Permits & Legal Documents */}
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
+                <Icon name="verified_user" />
+              </div>
+              <div>
+                <h3 className="text-[20px] font-semibold text-content">Giấy phép tổ chức sự kiện & Giấy tờ liên quan</h3>
+                <p className="text-xs text-subtle mt-0.5">Hồ sơ pháp lý bắt buộc để Ban quản trị phê duyệt sự kiện</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-subtle leading-relaxed">
+            Vui lòng đính kèm các giấy tờ chứng minh sự kiện được phép tổ chức, bao gồm: <b>Giấy phép biểu diễn / tổ chức sự kiện</b> do cơ quan thẩm quyền cấp (Sở Văn hóa, UBND...), <b>hợp đồng thuê địa điểm</b> hoặc các biên bản thỏa thuận liên quan.
+          </p>
+
+          {/* Upload Permit Dropzone */}
+          <div className="p-4 rounded-xl border-2 border-dashed border-border-soft/60 bg-panel-soft/30 hover:bg-panel-soft/60 transition text-center space-y-3">
+            <input
+              type="file"
+              multiple
+              ref={permitFileInputRef}
+              accept=".pdf,.docx,.png,.jpg,.jpeg,.webp"
+              className="hidden"
+              onChange={handlePermitFilesChange}
+            />
+            <div className="flex flex-col items-center justify-center py-2">
+              <div className="size-12 rounded-full bg-tertiary/10 text-tertiary flex items-center justify-center mb-2">
+                <Icon name="note_add" className="text-2xl" />
+              </div>
+              <p className="text-sm font-semibold text-content">
+                Tải lên giấy phép & tài liệu sự kiện
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Hỗ trợ định dạng PDF, Word (DOCX) hoặc hình ảnh (PNG, JPG) · Tối đa 10MB/file
+              </p>
+              <button
+                type="button"
+                disabled={uploadingPermits}
+                onClick={() => permitFileInputRef.current?.click()}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-tertiary text-white text-xs font-bold shadow-md hover:bg-orange-600 transition disabled:opacity-50 cursor-pointer"
+              >
+                {uploadingPermits ? (
+                  <>
+                    <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Đang tải tài liệu lên...</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="upload" className="text-base" />
+                    <span>Chọn file tài liệu</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Uploaded Permits List */}
+          {permitFiles.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-subtle px-1">
+                <span>Tài liệu đã đính kèm ({permitFiles.length})</span>
+                <span className="text-success flex items-center gap-1 font-semibold">
+                  <Icon name="check_circle" className="text-xs" />
+                  Đã tải đủ giấy tờ
+                </span>
+              </div>
+              <div className="space-y-2">
+                {permitFiles.map((file) => (
+                  <div
+                    key={file.id || file.url}
+                    className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/40 shadow-sm hover:border-border-soft transition"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-9 rounded-lg bg-tertiary/10 text-tertiary flex items-center justify-center shrink-0">
+                        <Icon
+                          name={
+                            file.type?.includes('pdf') || file.name?.endsWith('.pdf')
+                              ? 'picture_as_pdf'
+                              : file.type?.includes('image')
+                              ? 'image'
+                              : 'description'
+                          }
+                          className="text-lg"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-content truncate">{file.name}</p>
+                        <p className="text-[11px] text-muted">
+                          {formatFileSize(file.size)} · {file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString('vi-VN') : 'Đã tải lên'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border-soft/50 text-xs font-medium text-tertiary flex items-center gap-1 transition"
+                      >
+                        <Icon name="visibility" className="text-[14px]" />
+                        <span>Xem</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePermitFile(file.id)}
+                        className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
+                        title="Xóa tài liệu"
+                      >
+                        <Icon name="delete" className="text-[18px]" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/20 flex items-start gap-2.5 text-xs text-warning">
+              <Icon name="info" className="text-base shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong>Chưa có giấy phép nào được đính kèm:</strong> Để sự kiện được kiểm duyệt và công khai bán vé, bạn cần cung cấp giấy phép tổ chức sự kiện hoặc hợp đồng địa điểm liên quan.
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Section 2: Attendee Info */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2555,7 +2683,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
           </p>
         </section>
 
-        {/* Section 2: Structured Refund Policy */}
+        {/* Section 3: Structured Refund Policy */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2705,134 +2833,6 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
           )}
         </section>
 
-        {/* Section 3: Event Organization Permits & Legal Documents */}
-        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
-                <Icon name="verified_user" />
-              </div>
-              <div>
-                <h3 className="text-[20px] font-semibold text-content">Giấy phép tổ chức sự kiện & Giấy tờ liên quan</h3>
-                <p className="text-xs text-subtle mt-0.5">Hồ sơ pháp lý bắt buộc để Ban quản trị phê duyệt sự kiện</p>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-xs text-subtle leading-relaxed">
-            Vui lòng đính kèm các giấy tờ chứng minh sự kiện được phép tổ chức, bao gồm: <b>Giấy phép biểu diễn / tổ chức sự kiện</b> do cơ quan thẩm quyền cấp (Sở Văn hóa, UBND...), <b>hợp đồng thuê địa điểm</b> hoặc các biên bản thỏa thuận liên quan.
-          </p>
-
-          {/* Upload Permit Dropzone */}
-          <div className="p-4 rounded-xl border-2 border-dashed border-border-soft/60 bg-panel-soft/30 hover:bg-panel-soft/60 transition text-center space-y-3">
-            <input
-              type="file"
-              multiple
-              ref={permitFileInputRef}
-              accept=".pdf,.docx,.png,.jpg,.jpeg,.webp"
-              className="hidden"
-              onChange={handlePermitFilesChange}
-            />
-            <div className="flex flex-col items-center justify-center py-2">
-              <div className="size-12 rounded-full bg-tertiary/10 text-tertiary flex items-center justify-center mb-2">
-                <Icon name="note_add" className="text-2xl" />
-              </div>
-              <p className="text-sm font-semibold text-content">
-                Tải lên giấy phép & tài liệu sự kiện
-              </p>
-              <p className="text-xs text-muted mt-1">
-                Hỗ trợ định dạng PDF, Word (DOCX) hoặc hình ảnh (PNG, JPG) · Tối đa 10MB/file
-              </p>
-              <button
-                type="button"
-                disabled={uploadingPermits}
-                onClick={() => permitFileInputRef.current?.click()}
-                className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-tertiary text-white text-xs font-bold shadow-md hover:bg-orange-600 transition disabled:opacity-50 cursor-pointer"
-              >
-                {uploadingPermits ? (
-                  <>
-                    <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Đang tải tài liệu lên...</span>
-                  </>
-                ) : (
-                  <>
-                    <Icon name="upload" className="text-base" />
-                    <span>Chọn file tài liệu</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Uploaded Permits List */}
-          {permitFiles.length > 0 ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-subtle px-1">
-                <span>Tài liệu đã đính kèm ({permitFiles.length})</span>
-                <span className="text-success flex items-center gap-1 font-semibold">
-                  <Icon name="check_circle" className="text-xs" />
-                  Đã tải đủ giấy tờ
-                </span>
-              </div>
-              <div className="space-y-2">
-                {permitFiles.map((file) => (
-                  <div
-                    key={file.id || file.url}
-                    className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/40 shadow-sm hover:border-border-soft transition"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="size-9 rounded-lg bg-tertiary/10 text-tertiary flex items-center justify-center shrink-0">
-                        <Icon
-                          name={
-                            file.type?.includes('pdf') || file.name?.endsWith('.pdf')
-                              ? 'picture_as_pdf'
-                              : file.type?.includes('image')
-                              ? 'image'
-                              : 'description'
-                          }
-                          className="text-lg"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-content truncate">{file.name}</p>
-                        <p className="text-[11px] text-muted">
-                          {formatFileSize(file.size)} · {file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString('vi-VN') : 'Đã tải lên'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border-soft/50 text-xs font-medium text-tertiary flex items-center gap-1 transition"
-                      >
-                        <Icon name="visibility" className="text-[14px]" />
-                        <span>Xem</span>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePermitFile(file.id)}
-                        className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
-                        title="Xóa tài liệu"
-                      >
-                        <Icon name="delete" className="text-[18px]" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/20 flex items-start gap-2.5 text-xs text-warning">
-              <Icon name="info" className="text-base shrink-0 mt-0.5" />
-              <div className="leading-relaxed">
-                <strong>Chưa có giấy phép nào được đính kèm:</strong> Để sự kiện được kiểm duyệt và công khai bán vé, bạn cần cung cấp giấy phép tổ chức sự kiện hoặc hợp đồng địa điểm liên quan.
-              </div>
-            </div>
-          )}
-        </section>
-
         {/* Section 4: Policies & Terms + Policy File Import */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
           <div className="flex items-center justify-between">
@@ -2954,6 +2954,21 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
           </div>
           <div className="p-6 space-y-4">
             <div className="flex items-start gap-3">
+              <Icon
+                name={permitFiles.length > 0 ? 'check_circle' : 'warning'}
+                className={permitFiles.length > 0 ? 'text-success text-lg mt-0.5' : 'text-warning text-lg mt-0.5'}
+              />
+              <div>
+                <p className="text-sm font-bold text-content">Giấy phép tổ chức</p>
+                <p className="text-xs text-muted">
+                  {permitFiles.length > 0
+                    ? `Đã đính kèm ${permitFiles.length} tài liệu pháp lý`
+                    : 'Chưa tải lên giấy phép tổ chức'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
               <Icon name="check_circle" className="text-success text-lg mt-0.5" />
               <div>
                 <p className="text-sm font-bold text-content">Thông tin người tham dự</p>
@@ -2976,21 +2991,6 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                   {allowRefund
                     ? `Cho phép hoàn vé (${refundRules.length} mốc)`
                     : 'Không hỗ trợ hoàn vé'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Icon
-                name={permitFiles.length > 0 ? 'check_circle' : 'warning'}
-                className={permitFiles.length > 0 ? 'text-success text-lg mt-0.5' : 'text-warning text-lg mt-0.5'}
-              />
-              <div>
-                <p className="text-sm font-bold text-content">Giấy phép tổ chức</p>
-                <p className="text-xs text-muted">
-                  {permitFiles.length > 0
-                    ? `Đã đính kèm ${permitFiles.length} tài liệu pháp lý`
-                    : 'Chưa tải lên giấy phép tổ chức'}
                 </p>
               </div>
             </div>
