@@ -1100,8 +1100,7 @@ export function BookingReviewPage() {
           {hasPolicy && (
             <Panel>
               <div>
-                <h2 className="font-display text-xl font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="size-5 text-primary" />
+                <h2 className="font-display text-xl font-bold text-white">
                   Điều khoản &amp; Chính sách sự kiện
                 </h2>
                 <p className="mt-1 text-sm text-muted">
