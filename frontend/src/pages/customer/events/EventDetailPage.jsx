@@ -6,6 +6,7 @@ import {
   ChevronUp,
   Heart,
   MapPin,
+  RefreshCw,
   ShieldCheck,
   UserCircle,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -462,6 +464,69 @@ export function EventDetailPage() {
               ) : (
                 <StatePanel message="Địa điểm đang được cập nhật." compact />
               )}
+            </div>
+          </section>
+
+          {/* Chính sách hoàn vé */}
+          <section>
+            <h2 className="mb-6 font-display text-2xl font-black text-white drop-shadow-md">
+              Chính sách hoàn vé
+            </h2>
+            <div className="glass-panel relative overflow-hidden rounded-[24px] border border-white/10 p-6 md:p-8">
+              <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
+              <div className="flex items-start gap-4">
+                <div
+                  className={cn(
+                    'flex size-11 shrink-0 items-center justify-center rounded-xl border',
+                    event.refund_policy?.allow_refund
+                      ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
+                      : 'border-slate-700 bg-slate-800/80 text-slate-400',
+                  )}
+                >
+                  <RefreshCw className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border',
+                        event.refund_policy?.allow_refund
+                          ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
+                          : 'border-slate-600 bg-slate-700/50 text-slate-300',
+                      )}
+                    >
+                      {event.refund_policy?.allow_refund
+                        ? 'Hỗ trợ hoàn vé có điều kiện'
+                        : 'Không hỗ trợ hoàn vé'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-slate-300">
+                    {generateRefundPolicyLines(event.refund_policy).map((line, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5">
+                        <span
+                          className={cn(
+                            'mt-1.5 size-1.5 shrink-0 rounded-full',
+                            event.refund_policy?.allow_refund ? 'bg-cyan-400' : 'bg-slate-500',
+                          )}
+                        />
+                        <span className="leading-relaxed">{line}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {event.refund_policy?.allow_refund && event.refund_policy?.refund_notes && (
+                    <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-slate-400">
+                      <span className="font-semibold text-slate-300">Lưu ý từ BTC: </span>
+                      <span className="whitespace-pre-line">{event.refund_policy.refund_notes}</span>
+                    </div>
+                  )}
+
+                  <p className="pt-1 text-xs italic text-slate-400">
+                    * Yêu cầu hoàn vé được tính toán theo mốc thời gian so với giờ bắt đầu sự kiện. Khách hàng thực hiện gửi yêu cầu tại chi tiết vé đã mua.
+                  </p>
+                </div>
+              </div>
             </div>
           </section>
         </section>

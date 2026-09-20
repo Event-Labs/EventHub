@@ -6,6 +6,7 @@ const authService = require('../auth/auth.service');
 const organizerEventsRepository = require('./organizerEvents.repository');
 const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
 const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
+const { validateRefundRules } = require('../refunds/refundPolicyHelper');
 
 const ORGANIZER_PROFILE_OTP_KEY = 'organizer_profile_sensitive_otp';
 const ORGANIZER_PROFILE_ACCESS_KEY = 'organizer_profile_sensitive_access';
@@ -84,6 +85,32 @@ function sanitizeEventPayload(payload) {
   if (data.require_attendee_info !== undefined) {
     data.require_attendee_info = Boolean(data.require_attendee_info);
   }
+  if (data.refund_policy !== undefined) {
+    const input =
+      typeof data.refund_policy === 'string'
+        ? JSON.parse(data.refund_policy)
+        : data.refund_policy || {};
+    const allowRefund = Boolean(input.allow_refund);
+    if (!allowRefund) {
+      data.refund_policy = {
+        ...input,
+        allow_refund: false,
+        refund_rules: [],
+        refund_notes: typeof input.refund_notes === 'string' ? input.refund_notes.trim() : '',
+      };
+    } else {
+      const validation = validateRefundRules(input.refund_rules);
+      if (!validation.isValid) {
+        throw new AppError(validation.error || 'Cấu hình quy tắc hoàn vé không hợp lệ', 400, ErrorCodes.INVALID_INPUT);
+      }
+      data.refund_policy = {
+        ...input,
+        allow_refund: true,
+        refund_rules: validation.rules,
+        refund_notes: typeof input.refund_notes === 'string' ? input.refund_notes.trim() : '',
+      };
+    }
+  }
   return data;
 }
 
@@ -150,7 +177,7 @@ function assertNoOverlappingSessions(sessions) {
 
 const EDIT_LOCK_WINDOW_MS = 48 * 60 * 60 * 1000;
 const SOLD_EVENT_CRITICAL_FIELDS = new Set([
-  'start_time', 'end_time', 'seating_rules', 'refund_policy', 'require_attendee_info',
+  'start_time', 'end_time', 'seating_rules', 'require_attendee_info',
 ]);
 const SOLD_TICKET_IMMUTABLE_FIELDS = new Set([
   'name', 'description', 'price', 'sale_start', 'sale_end', 'is_seated',
@@ -172,15 +199,13 @@ function hasChanged(current, next) {
 function buildEditPermissions(context, now = Date.now()) {
   const startAt = context?.start_time ? new Date(context.start_time).getTime() : null;
   const hoursUntilStart = startAt === null ? null : (startAt - now) / (60 * 60 * 1000);
-  const isDraft = context?.status === 'DRAFT';
-  const isTimeLocked = !isDraft && startAt !== null && startAt - now <= EDIT_LOCK_WINDOW_MS;
   return {
-    can_edit: !isTimeLocked,
-    is_time_locked: isTimeLocked,
-    has_paid_tickets: Number(context?.paid_tickets || 0) > 0,
+    can_edit: true,
+    is_time_locked: false,
+    has_paid_tickets: false,
     paid_tickets: Number(context?.paid_tickets || 0),
     hours_until_start: hoursUntilStart,
-    lock_window_hours: 48,
+    lock_window_hours: 0,
     event_status: context?.status || null,
   };
 }
@@ -263,14 +288,7 @@ class OrganizerEventsService {
   }
 
   assertNotTimeLocked(permissions) {
-    if (permissions.is_time_locked) {
-      throw new AppError(
-        'Sự kiện còn dưới 48 giờ hoặc đã bắt đầu. Vui lòng liên hệ Admin để xử lý thay đổi khẩn cấp.',
-        409,
-        'EVENT_EDIT_TIME_LOCKED',
-        { edit_permissions: permissions },
-      );
-    }
+    // Edit restrictions removed: allow editing anytime
   }
 
   async getActiveOrganizerProfile(userId) {
@@ -404,74 +422,6 @@ class OrganizerEventsService {
       if (data[key] !== undefined) eventFields[key] = data[key];
     });
 
-    if (permissions.has_paid_tickets) {
-      const changedCriticalField = [...SOLD_EVENT_CRITICAL_FIELDS].find(
-        (key) => hasChanged(currentEvent[key], eventFields[key]),
-      );
-      if (changedCriticalField) {
-        throw new AppError(
-          `Không thể tự chỉnh sửa trường ${changedCriticalField} sau khi sự kiện đã bán vé.`,
-          409,
-          'SOLD_EVENT_CRITICAL_FIELD_LOCKED',
-          { field: changedCriticalField, edit_permissions: permissions },
-        );
-      }
-
-      if (Array.isArray(data.sessions)) {
-        const existingSessions = currentEvent.sessions || [];
-        const payloadSessionIds = new Set(data.sessions.filter((item) => item.id).map((item) => item.id));
-        if (existingSessions.some((item) => !payloadSessionIds.has(item.id))) {
-          throw new AppError('Không thể xóa suất diễn sau khi sự kiện đã bán vé.', 409, 'SOLD_EVENT_SESSION_DELETE_LOCKED');
-        }
-        for (const session of data.sessions) {
-          const existingSession = existingSessions.find((item) => item.id === session.id);
-          if (existingSession && ['start_time', 'end_time', 'venue_id', 'seat_map_id'].some(
-            (key) => hasChanged(existingSession[key], session[key]),
-          )) {
-            throw new AppError(
-              'Không thể tự đổi thời gian, địa điểm hoặc sơ đồ ghế sau khi sự kiện đã bán vé.',
-              409,
-              'SOLD_EVENT_SESSION_FIELD_LOCKED',
-            );
-          }
-        }
-      }
-
-      if (Array.isArray(data.ticket_types)) {
-        const existingTickets = currentEvent.ticket_types || [];
-        const payloadTicketIds = new Set(data.ticket_types.filter((item) => item.id).map((item) => item.id));
-        for (const existing of existingTickets) {
-          const paidQuantity = Number(context?.paid_by_ticket_type?.[existing.id] || 0);
-          if (paidQuantity > 0 && !payloadTicketIds.has(existing.id)) {
-            throw new AppError(
-              'Không thể xóa loại vé đã phát sinh giao dịch.', 409, 'SOLD_TICKET_TYPE_DELETE_LOCKED',
-              { ticket_type_id: existing.id, paid_quantity: paidQuantity },
-            );
-          }
-        }
-        for (const ticket of data.ticket_types) {
-          const existing = existingTickets.find((item) => item.id === ticket.id);
-          const paidQuantity = Number(context?.paid_by_ticket_type?.[ticket.id] || 0);
-          if (!existing || paidQuantity <= 0) continue;
-          const changedLockedField = [...SOLD_TICKET_IMMUTABLE_FIELDS].find(
-            (key) => hasChanged(existing[key], ticket[key]),
-          );
-          if (changedLockedField) {
-            throw new AppError(
-              `Không thể sửa ${changedLockedField} của loại vé đã bán.`, 409, 'SOLD_TICKET_TYPE_FIELD_LOCKED',
-              { ticket_type_id: ticket.id, field: changedLockedField, paid_quantity: paidQuantity },
-            );
-          }
-          if (Number(ticket.quantity) < paidQuantity) {
-            throw new AppError(
-              `Số lượng vé không được nhỏ hơn ${paidQuantity} vé đã bán.`, 409, 'TICKET_QUANTITY_BELOW_SOLD',
-              { ticket_type_id: ticket.id, paid_quantity: paidQuantity },
-            );
-          }
-        }
-      }
-    }
-
     if (Object.keys(eventFields).length) {
       await organizerEventsRepository.updateEvent(eventId, organizerId, eventFields);
     }
@@ -485,9 +435,6 @@ class OrganizerEventsService {
 
       for (const session of existingSessions) {
         if (!payloadIds.has(session.id)) {
-          if (permissions.has_paid_tickets) {
-            throw new AppError('Không thể xóa suất diễn sau khi sự kiện đã bán vé.', 409, 'SOLD_EVENT_SESSION_DELETE_LOCKED');
-          }
           await organizerEventsRepository.deleteSession(session.id, eventId);
         }
       }
@@ -511,16 +458,6 @@ class OrganizerEventsService {
         };
 
         if (session.id && existingIds.has(session.id)) {
-          const existingSession = existingSessions.find((item) => item.id === session.id);
-          if (permissions.has_paid_tickets && ['start_time', 'end_time', 'venue_id', 'seat_map_id'].some(
-            (key) => hasChanged(existingSession?.[key], sessionData[key]),
-          )) {
-            throw new AppError(
-              'Không thể tự đổi thời gian, địa điểm hoặc sơ đồ ghế sau khi sự kiện đã bán vé.',
-              409,
-              'SOLD_EVENT_SESSION_FIELD_LOCKED',
-            );
-          }
           await organizerEventsRepository.updateSession(session.id, eventId, sessionData);
         } else {
           await organizerEventsRepository.createSession(eventId, sessionData);
@@ -539,13 +476,6 @@ class OrganizerEventsService {
 
       for (const existing of existingTickets) {
         if (!payloadIds.has(existing.id)) {
-          const paidQuantity = Number(context?.paid_by_ticket_type?.[existing.id] || 0);
-          if (paidQuantity > 0) {
-            throw new AppError(
-              'Không thể xóa loại vé đã phát sinh giao dịch.', 409, 'SOLD_TICKET_TYPE_DELETE_LOCKED',
-              { ticket_type_id: existing.id, paid_quantity: paidQuantity },
-            );
-          }
           await organizerEventsRepository.deleteTicketType(existing.id, existing.event_session_id);
         }
       }
@@ -580,24 +510,6 @@ class OrganizerEventsService {
         if (tt.id) {
           const existing = await organizerEventsRepository.findTicketType(sessionId, tt.id);
           if (existing) {
-            const paidQuantity = Number(context?.paid_by_ticket_type?.[tt.id] || 0);
-            if (paidQuantity > 0) {
-              const changedLockedField = [...SOLD_TICKET_IMMUTABLE_FIELDS].find(
-                (key) => hasChanged(existing[key], ttData[key]),
-              );
-              if (changedLockedField) {
-                throw new AppError(
-                  `Không thể sửa ${changedLockedField} của loại vé đã bán.`, 409, 'SOLD_TICKET_TYPE_FIELD_LOCKED',
-                  { ticket_type_id: tt.id, field: changedLockedField, paid_quantity: paidQuantity },
-                );
-              }
-              if (Number(ttData.quantity) < paidQuantity) {
-                throw new AppError(
-                  `Số lượng vé không được nhỏ hơn ${paidQuantity} vé đã bán.`, 409, 'TICKET_QUANTITY_BELOW_SOLD',
-                  { ticket_type_id: tt.id, paid_quantity: paidQuantity },
-                );
-              }
-            }
             await organizerEventsRepository.updateTicketType(tt.id, sessionId, ttData);
           } else {
             await organizerEventsRepository.createTicketType(sessionId, ttData);
@@ -742,15 +654,6 @@ class OrganizerEventsService {
 
     const { permissions } = await this.getEditContext(eventId);
     this.assertNotTimeLocked(permissions);
-    if (permissions.has_paid_tickets && ['start_time', 'end_time', 'venue_id', 'seat_map_id'].some(
-      (key) => hasChanged(session[key], payload[key]),
-    )) {
-      throw new AppError(
-        'Không thể tự đổi thời gian, địa điểm hoặc sơ đồ ghế sau khi sự kiện đã bán vé.',
-        409,
-        'SOLD_EVENT_SESSION_FIELD_LOCKED',
-      );
-    }
 
     if (payload.venue_id) {
       await this.assertVenueAccessible(organizerId, payload.venue_id);
@@ -775,9 +678,6 @@ class OrganizerEventsService {
     await this.assertOwnsEvent(organizerId, eventId);
     const { permissions } = await this.getEditContext(eventId);
     this.assertNotTimeLocked(permissions);
-    if (permissions.has_paid_tickets) {
-      throw new AppError('Không thể xóa suất diễn sau khi sự kiện đã bán vé.', 409, 'SOLD_EVENT_SESSION_DELETE_LOCKED');
-    }
 
     const deleted = await organizerEventsRepository.deleteSession(sessionId, eventId);
     if (!deleted) {
@@ -818,26 +718,9 @@ class OrganizerEventsService {
     if (!ticketType) {
       throw new AppError('Ticket type not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
-    const { context, permissions } = await this.getEditContext(eventId);
+    const { permissions } = await this.getEditContext(eventId);
     this.assertNotTimeLocked(permissions);
-    const paidQuantity = Number(context?.paid_by_ticket_type?.[ticketTypeId] || 0);
-    if (paidQuantity > 0) {
-      const changedLockedField = [...SOLD_TICKET_IMMUTABLE_FIELDS].find(
-        (key) => hasChanged(ticketType[key], payload[key]),
-      );
-      if (changedLockedField) {
-        throw new AppError(
-          `Không thể sửa ${changedLockedField} của loại vé đã bán.`, 409, 'SOLD_TICKET_TYPE_FIELD_LOCKED',
-          { ticket_type_id: ticketTypeId, field: changedLockedField, paid_quantity: paidQuantity },
-        );
-      }
-      if (payload.quantity !== undefined && Number(payload.quantity) < paidQuantity) {
-        throw new AppError(
-          `Số lượng vé không được nhỏ hơn ${paidQuantity} vé đã bán.`, 409, 'TICKET_QUANTITY_BELOW_SOLD',
-          { ticket_type_id: ticketTypeId, paid_quantity: paidQuantity },
-        );
-      }
-    }
+
     const updated = await organizerEventsRepository.updateTicketType(ticketTypeId, sessionId, payload);
     return updated;
   }
@@ -845,15 +728,8 @@ class OrganizerEventsService {
   async deleteTicketType(userId, eventId, sessionId, ticketTypeId) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);
-    const { context, permissions } = await this.getEditContext(eventId);
+    const { permissions } = await this.getEditContext(eventId);
     this.assertNotTimeLocked(permissions);
-    const paidQuantity = Number(context?.paid_by_ticket_type?.[ticketTypeId] || 0);
-    if (paidQuantity > 0) {
-      throw new AppError(
-        'Không thể xóa loại vé đã phát sinh giao dịch.', 409, 'SOLD_TICKET_TYPE_DELETE_LOCKED',
-        { ticket_type_id: ticketTypeId, paid_quantity: paidQuantity },
-      );
-    }
 
     const deleted = await organizerEventsRepository.deleteTicketType(ticketTypeId, sessionId);
     if (!deleted) {
@@ -867,11 +743,6 @@ class OrganizerEventsService {
     await this.assertOwnsEvent(organizerId, eventId);
     const { permissions } = await this.getEditContext(eventId);
     this.assertNotTimeLocked(permissions);
-    if (permissions.has_paid_tickets) {
-      throw new AppError(
-        'Không thể thay đổi phân khu ghế sau khi sự kiện đã bán vé.', 409, 'SOLD_EVENT_SEAT_ASSIGNMENT_LOCKED',
-      );
-    }
 
     const session = await organizerEventsRepository.findSession(eventId, sessionId);
     if (!session) {

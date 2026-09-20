@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(protect);
 
 router.post('/', refundsController.submitRefundRequest);
+router.get('/preview', refundsController.previewRefund);
 router.get('/my-requests', refundsController.getMyRefundRequests);
 router.get('/:id', refundsController.getRefundDetail);
 
