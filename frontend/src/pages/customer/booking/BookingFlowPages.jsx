@@ -1205,15 +1205,8 @@ export function BookingReviewPage() {
                 )}
 
                 {/* 4. Checkbox bắt buộc */}
-                <div
-                  ref={termsSectionRef}
-                  className={`rounded-xl border p-4 transition-all duration-200 ${
-                    termsError
-                      ? 'border-error bg-error/10 ring-2 ring-error/40 shadow-[0_0_15px_rgba(239,68,68,0.15)]'
-                      : 'border-white/10 bg-surface/40 hover:border-white/20'
-                  }`}
-                >
-                  <label className="flex cursor-pointer items-start gap-3">
+                <div ref={termsSectionRef} className="pt-2">
+                  <label className="flex cursor-pointer items-start gap-3 py-1">
                     <input
                       type="checkbox"
                       checked={termsAccepted}
@@ -1228,7 +1221,7 @@ export function BookingReviewPage() {
                         termsAccepted
                           ? 'border-primary bg-primary text-slate-950'
                           : termsError
-                          ? 'border-error bg-error/20'
+                          ? 'border-error bg-error/20 ring-2 ring-error/40'
                           : 'border-slate-400 hover:border-white'
                       }`}
                     >
