@@ -2956,11 +2956,11 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
             <div className="flex items-start gap-3">
               <Icon
                 name={permitFiles.length > 0 ? 'check_circle' : 'warning'}
-                className={permitFiles.length > 0 ? 'text-success text-lg mt-0.5' : 'text-warning text-lg mt-0.5'}
+                className={permitFiles.length > 0 ? 'text-success text-lg mt-0.5 shrink-0' : 'text-warning text-lg mt-0.5 shrink-0'}
               />
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-content">Giấy phép tổ chức</p>
-                <p className="text-xs text-muted">
+                <p className="text-xs text-muted leading-relaxed break-words">
                   {permitFiles.length > 0
                     ? `Đã đính kèm ${permitFiles.length} tài liệu pháp lý`
                     : 'Chưa tải lên giấy phép tổ chức'}
@@ -2969,10 +2969,10 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
             </div>
 
             <div className="flex items-start gap-3">
-              <Icon name="check_circle" className="text-success text-lg mt-0.5" />
-              <div>
+              <Icon name="check_circle" className="text-success text-lg mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-content">Thông tin người tham dự</p>
-                <p className="text-xs text-muted">
+                <p className="text-xs text-muted leading-relaxed break-words">
                   {formData.require_attendee_info
                     ? 'Yêu cầu nhập thông tin từng vé'
                     : 'Không bắt buộc nhập thông tin'}
@@ -2983,28 +2983,35 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
             <div className="flex items-start gap-3">
               <Icon
                 name={formData.additional_terms?.trim() || rp?.policy_file_url ? 'check_circle' : 'info'}
-                className={formData.additional_terms?.trim() || rp?.policy_file_url ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
+                className={formData.additional_terms?.trim() || rp?.policy_file_url ? 'text-success text-lg mt-0.5 shrink-0' : 'text-muted text-lg mt-0.5 shrink-0'}
               />
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-content">Chính sách sự kiện</p>
-                <p className="text-xs text-muted">
-                  {rp?.policy_file_url
-                    ? `Đã đính kèm file (${rp.policy_file_name || 'file'})`
-                    : formData.additional_terms?.trim()
-                    ? 'Đã nhập điều khoản tham dự'
-                    : 'Chưa nhập hoặc tải file chính sách'}
-                </p>
+                {rp?.policy_file_url ? (
+                  <p className="text-xs text-muted leading-relaxed break-words">
+                    Đã đính kèm file:
+                    <span className="block mt-0.5 text-[11px] font-medium text-subtle break-all [overflow-wrap:anywhere] leading-snug">
+                      ({rp.policy_file_name || 'file'})
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted leading-relaxed break-words">
+                    {formData.additional_terms?.trim()
+                      ? 'Đã nhập điều khoản tham dự'
+                      : 'Chưa nhập hoặc tải file chính sách'}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="flex items-start gap-3">
               <Icon
                 name={allowRefund ? 'check_circle' : 'info'}
-                className={allowRefund ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
+                className={allowRefund ? 'text-success text-lg mt-0.5 shrink-0' : 'text-muted text-lg mt-0.5 shrink-0'}
               />
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-content">Chính sách hoàn vé</p>
-                <p className="text-xs text-muted">
+                <p className="text-xs text-muted leading-relaxed break-words">
                   {allowRefund
                     ? `Cho phép hoàn vé (${refundRules.length} mốc)`
                     : 'Không hỗ trợ hoàn vé'}
