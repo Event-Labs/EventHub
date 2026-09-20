@@ -203,6 +203,7 @@ class EventsRepository {
         e.additional_terms,
         e.seating_rules,
         e.require_attendee_info,
+        e.refund_policy,
         json_build_object(
           'id', organizer.id,
           'full_name', COALESCE(organizer.organization_name, organizer_user.full_name),
