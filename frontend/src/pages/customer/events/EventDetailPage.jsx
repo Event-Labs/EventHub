@@ -4,8 +4,11 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
+  FileText,
   Heart,
   MapPin,
+  RefreshCw,
   ShieldCheck,
   UserCircle,
 } from 'lucide-react'
@@ -16,6 +19,7 @@ import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -208,6 +212,10 @@ export function EventDetailPage() {
           availableTicketTypes: selectedSessionTickets,
           seatingRules: event.seating_rules || {},
           additionalTerms: event.additional_terms || '',
+          refundPolicy: event.refund_policy || null,
+          policyFileUrl: event.refund_policy?.policy_file_url || null,
+          policyFileName: event.refund_policy?.policy_file_name || null,
+          policyFileSize: event.refund_policy?.policy_file_size || null,
           requireAttendeeInfo: Boolean(event.require_attendee_info),
           items: [],
         },
@@ -464,6 +472,103 @@ export function EventDetailPage() {
               )}
             </div>
           </section>
+
+          {/* Chính sách hoàn vé */}
+          <section>
+            <h2 className="mb-6 font-display text-2xl font-black text-white drop-shadow-md">
+              Chính sách hoàn vé
+            </h2>
+            <div className="glass-panel relative overflow-hidden rounded-[24px] border border-white/10 p-6 md:p-8">
+              <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
+              <div className="flex items-start gap-4">
+                <div
+                  className={cn(
+                    'flex size-11 shrink-0 items-center justify-center rounded-xl border',
+                    event.refund_policy?.allow_refund
+                      ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
+                      : 'border-slate-700 bg-slate-800/80 text-slate-400',
+                  )}
+                >
+                  <RefreshCw className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border',
+                        event.refund_policy?.allow_refund
+                          ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
+                          : 'border-slate-600 bg-slate-700/50 text-slate-300',
+                      )}
+                    >
+                      {event.refund_policy?.allow_refund
+                        ? 'Hỗ trợ hoàn vé có điều kiện'
+                        : 'Không hỗ trợ hoàn vé'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-slate-300">
+                    {generateRefundPolicyLines(event.refund_policy).map((line, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5">
+                        <span
+                          className={cn(
+                            'mt-1.5 size-1.5 shrink-0 rounded-full',
+                            event.refund_policy?.allow_refund ? 'bg-cyan-400' : 'bg-slate-500',
+                          )}
+                        />
+                        <span className="leading-relaxed">{line}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {event.refund_policy?.allow_refund && event.refund_policy?.refund_notes && (
+                    <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-slate-400">
+                      <span className="font-semibold text-slate-300">Lưu ý từ BTC: </span>
+                      <span className="whitespace-pre-line">{event.refund_policy.refund_notes}</span>
+                    </div>
+                  )}
+
+                  {event.refund_policy?.policy_file_url && (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="size-4 text-cyan-400 shrink-0" />
+                        <span className="font-medium text-slate-200 truncate">
+                          {event.refund_policy.policy_file_name || 'Tài liệu chính sách sự kiện'}
+                        </span>
+                      </div>
+                      <a
+                        href={event.refund_policy.policy_file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition"
+                      >
+                        <span>Xem file</span>
+                        <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                  )}
+
+                  <p className="pt-1 text-xs italic text-slate-400">
+                    * Yêu cầu hoàn vé được tính toán theo mốc thời gian so với giờ bắt đầu sự kiện. Khách hàng thực hiện gửi yêu cầu tại chi tiết vé đã mua.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Chính sách & Điều khoản tham dự */}
+          {event.additional_terms && (
+            <section>
+              <h2 className="mb-6 font-display text-2xl font-black text-white drop-shadow-md">
+                Chính sách &amp; Điều khoản tham dự
+              </h2>
+              <div className="glass-panel relative overflow-hidden rounded-[24px] border border-white/10 p-6 md:p-8">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+                  {event.additional_terms}
+                </div>
+              </div>
+            </section>
+          )}
         </section>
 
         <aside className="glass-panel min-w-0 h-fit rounded-[24px] p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
