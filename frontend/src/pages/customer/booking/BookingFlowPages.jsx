@@ -489,13 +489,13 @@ export function BookingSeatsPage() {
           })
       })
     const standingAreas = seatsQuery.data?.seat_map?.config?.standingAreas || []
-    ; (ticketTypes || []).forEach((ticketType) => {
-      if (ticketType.is_seated !== false) return
-      const area = standingAreas.find(
-        (item) => item.name?.trim().toLowerCase() === ticketType.name?.trim().toLowerCase(),
-      )
-      if (area?.color) colors.set(String(ticketType.id), area.color)
-    })
+      ; (ticketTypes || []).forEach((ticketType) => {
+        if (ticketType.is_seated !== false) return
+        const area = standingAreas.find(
+          (item) => item.name?.trim().toLowerCase() === ticketType.name?.trim().toLowerCase(),
+        )
+        if (area?.color) colors.set(String(ticketType.id), area.color)
+      })
     return colors
   }, [seatData, seatsQuery.data?.seat_map?.config?.standingAreas, ticketTypes])
   const buildDisplayItems = (seatIds) => {
@@ -1103,9 +1103,6 @@ export function BookingReviewPage() {
                 <h2 className="font-display text-xl font-bold text-white">
                   Điều khoản &amp; Chính sách sự kiện
                 </h2>
-                <p className="mt-1 text-sm text-muted">
-                  Vui lòng đọc kỹ và xác nhận đồng ý với điều khoản và chính sách hoàn tiền trước khi chuyển sang thanh toán.
-                </p>
               </div>
 
               <div className="mt-5 space-y-4">
@@ -1167,11 +1164,10 @@ export function BookingReviewPage() {
                         </p>
                       </div>
                       <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
-                          hasRefundPolicy
-                            ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
-                            : 'border-slate-600 bg-slate-700/50 text-slate-300'
-                        }`}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${hasRefundPolicy
+                          ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                          : 'border-slate-600 bg-slate-700/50 text-slate-300'
+                          }`}
                       >
                         {hasRefundPolicy ? 'Hỗ trợ hoàn vé có điều kiện' : 'Không hỗ trợ hoàn hủy vé'}
                       </span>
@@ -1181,9 +1177,8 @@ export function BookingReviewPage() {
                       {generateRefundPolicyLines(effectiveRefundPolicy).map((line, idx) => (
                         <div key={idx} className="flex items-start gap-2">
                           <span
-                            className={`mt-1.5 size-1.5 shrink-0 rounded-full ${
-                              hasRefundPolicy ? 'bg-cyan-400' : 'bg-slate-500'
-                            }`}
+                            className={`mt-1.5 size-1.5 shrink-0 rounded-full ${hasRefundPolicy ? 'bg-cyan-400' : 'bg-slate-500'
+                              }`}
                           />
                           <span className="leading-relaxed">{line}</span>
                         </div>
@@ -1211,29 +1206,27 @@ export function BookingReviewPage() {
                       className="peer sr-only"
                     />
                     <span
-                      className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded border-2 transition ${
-                        termsAccepted
-                          ? 'border-primary bg-primary text-slate-950'
-                          : termsError
+                      className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded border-2 transition ${termsAccepted
+                        ? 'border-primary bg-primary text-slate-950'
+                        : termsError
                           ? 'border-error bg-error/20 ring-2 ring-error/40'
                           : 'border-slate-400 hover:border-white'
-                      }`}
+                        }`}
                     >
                       <Check
-                        className={`size-3.5 stroke-[3] transition ${
-                          termsAccepted ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
-                        }`}
+                        className={`size-3.5 stroke-[3] transition ${termsAccepted ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
+                          }`}
                       />
                     </span>
                     <div className="min-w-0 flex-1">
                       <span className="text-sm font-semibold leading-6 text-white select-none">
-                        Tôi đã đọc và đồng ý với điều khoản tham dự và chính sách hoàn tiền của sự kiện này.
+                        Tôi đã đọc và đồng ý với điều khoản tham dự và chính sách hoàn tiền của sự kiện này
                         <span className="ml-1 text-error font-bold">*</span>
                       </span>
                       {termsError && (
                         <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-error animate-pulse">
                           <AlertTriangle className="size-4 shrink-0" />
-                          <span>Vui lòng tích chọn xác nhận đồng ý trước khi chuyển sang bước thanh toán.</span>
+                          <span>Vui lòng tích chọn xác nhận đồng ý trước khi chuyển sang bước thanh toán</span>
                         </p>
                       )}
                     </div>
@@ -1466,10 +1459,10 @@ function BookingShell({ step, cart, children }) {
               <div key={label} className="flex flex-col items-center gap-2">
                 <div
                   className={`grid size-11 place-items-center rounded-full text-sm font-bold transition-all duration-300 ${active
-                      ? 'bg-primary text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-110'
-                      : done
-                        ? 'bg-primary/20 text-primary border border-primary/30'
-                        : 'bg-white/5 text-slate-500 border border-white/5'
+                    ? 'bg-primary text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-110'
+                    : done
+                      ? 'bg-primary/20 text-primary border border-primary/30'
+                      : 'bg-white/5 text-slate-500 border border-white/5'
                     }`}
                 >
                   {done ? <Check className="size-5" /> : index + 1}
@@ -1619,7 +1612,7 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, onReset, resetDisab
         <ResetSelectionModal
           onStay={() => setResetOpen(false)}
           onReset={() => {
-            Promise.resolve(onReset()).then(() => setResetOpen(false)).catch(() => {})
+            Promise.resolve(onReset()).then(() => setResetOpen(false)).catch(() => { })
           }}
         />
       )}
@@ -1884,11 +1877,10 @@ function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
   const availability = ticketAvailability(ticketType)
 
   return (
-    <div className={`rounded-lg border p-4 transition ${
-      quantity > 0
-        ? 'border-tertiary/70 bg-tertiary/10 shadow-[0_0_0_1px_rgba(249,115,22,0.08)]'
-        : 'border-border-soft bg-surface/40 hover:border-primary/40'
-    }`}>
+    <div className={`rounded-lg border p-4 transition ${quantity > 0
+      ? 'border-tertiary/70 bg-tertiary/10 shadow-[0_0_0_1px_rgba(249,115,22,0.08)]'
+      : 'border-border-soft bg-surface/40 hover:border-primary/40'
+      }`}>
       <div className={'flex items-start justify-between gap-4'}>
         <div>
           <p className={'font-bold text-white'}>{ticketType.name}</p>
@@ -1933,10 +1925,10 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
         title={title}
         style={{ width: SEAT_WIDTH, height: SEAT_HEIGHT, ...style }}
         className={`rounded-md border text-[10px] font-bold transition ${String(invalidSeatId) === String(seat.session_seat_id) ? 'ring-2 ring-error/70 ' : ''}${selected
-            ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
-            : disabled
-              ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
-              : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
+          ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
+          : disabled
+            ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
+            : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
           }`}
       >
         <span className="block truncate px-0.5 leading-4">{seat.row_label || seat.label}</span>
