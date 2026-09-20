@@ -20,6 +20,7 @@ import RichTextEditor from '@/components/RichTextEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { AiEventContentGeneratorModal } from './AiEventContentGeneratorModal.jsx'
+import { validateRefundRules, generateRefundPolicyLines, generateRefundPolicyText } from '@/utils/refundPolicy.js'
 
 const STEP_LABELS = [
   'Thông tin sự kiện',
@@ -48,7 +49,13 @@ const INITIAL_FORM = {
     max_tickets_per_order: 10,
   },
   refund_policy: {
+    allow_refund: false,
     allow_refunds: false,
+    refund_rules: [
+      { days_before: 7, refund_rate: 100 },
+      { days_before: 3, refund_rate: 50 },
+    ],
+    refund_notes: '',
     deadline_days: 7,
     policy_file_url: null,
     policy_file_name: null,
@@ -190,7 +197,8 @@ function calculateEventCompleteness(formData) {
 
   const policyFileUrl = formData.refund_policy?.policy_file_url
   const hasTerms = Boolean(formData.additional_terms?.trim())
-  const policiesValid = Boolean(hasTerms || policyFileUrl)
+  const refundRulesValid = !formData.refund_policy?.allow_refund || Boolean(validateRefundRules(formData.refund_policy?.refund_rules).valid)
+  const policiesValid = Boolean(hasTerms || policyFileUrl) && refundRulesValid
 
   const permitFiles = formData.refund_policy?.permit_files || []
   const permitsValid = Boolean(permitFiles.length > 0)
@@ -1954,13 +1962,121 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
   )
 }
 
-function Step4PoliciesSettings({ formData, setFormData, completeness }) {
+function Step4PoliciesSettings({ formData, setFormData, completeness, editPermissions }) {
   const { refund_policy: rp } = formData
   const [uploadingPolicy, setUploadingPolicy] = useState(false)
   const [uploadingPermits, setUploadingPermits] = useState(false)
   const policyFileInputRef = useRef(null)
   const permitFileInputRef = useRef(null)
   const toast = useToast()
+
+  const allowRefund = Boolean(rp?.allow_refund ?? rp?.allow_refunds)
+  const refundRules = Array.isArray(rp?.refund_rules) ? rp.refund_rules : []
+  const refundNotes = rp?.refund_notes || ''
+
+  const handleToggleRefund = (checked) => {
+    setFormData((p) => {
+      const currentRp = p.refund_policy || {}
+      const defaultRules = [
+        { days_before: 7, refund_rate: 100 },
+        { days_before: 3, refund_rate: 50 },
+      ]
+      return {
+        ...p,
+        refund_policy: {
+          ...currentRp,
+          allow_refund: checked,
+          allow_refunds: checked,
+          refund_rules: checked
+            ? (currentRp.refund_rules && currentRp.refund_rules.length > 0 ? currentRp.refund_rules : defaultRules)
+            : [],
+        },
+      }
+    })
+  }
+
+  const handleRuleChange = (index, field, value) => {
+    setFormData((p) => {
+      const currentRp = p.refund_policy || {}
+      const rules = [...(currentRp.refund_rules || [])]
+      rules[index] = {
+        ...rules[index],
+        [field]: value === '' ? '' : Math.max(0, Number(value)),
+      }
+      return {
+        ...p,
+        refund_policy: {
+          ...currentRp,
+          refund_rules: rules,
+        },
+      }
+    })
+  }
+
+  const handleAddRule = () => {
+    if (refundRules.length >= 4) {
+      toast.warning('Tối đa chỉ cho phép 4 mốc hoàn tiền.')
+      return
+    }
+    setFormData((p) => {
+      const currentRp = p.refund_policy || {}
+      const rules = [...(currentRp.refund_rules || [])]
+      const lastRule = rules[rules.length - 1]
+      const nextDays = lastRule ? Math.max(1, Number(lastRule.days_before) - 2) : 1
+      const nextRate = lastRule ? Math.max(0, Number(lastRule.refund_rate) - 25) : 25
+      rules.push({ days_before: nextDays, refund_rate: nextRate })
+      return {
+        ...p,
+        refund_policy: {
+          ...currentRp,
+          refund_rules: rules,
+        },
+      }
+    })
+  }
+
+  const handleRemoveRule = (index) => {
+    if (refundRules.length <= 1) {
+      toast.warning('Cần giữ lại ít nhất 1 mốc hoàn vé khi bật chính sách hoàn tiền.')
+      return
+    }
+    setFormData((p) => {
+      const currentRp = p.refund_policy || {}
+      const rules = [...(currentRp.refund_rules || [])]
+      rules.splice(index, 1)
+      return {
+        ...p,
+        refund_policy: {
+          ...currentRp,
+          refund_rules: rules,
+        },
+      }
+    })
+  }
+
+  const handleNotesChange = (e) => {
+    const val = e.target.value.slice(0, 500)
+    setFormData((p) => ({
+      ...p,
+      refund_policy: {
+        ...p.refund_policy,
+        refund_notes: val,
+      },
+    }))
+  }
+
+  const rulesValidation = useMemo(() => {
+    if (!allowRefund) return { valid: true }
+    return validateRefundRules(refundRules)
+  }, [allowRefund, refundRules])
+
+  const previewLines = useMemo(() => {
+    return generateRefundPolicyLines({
+      allow_refund: allowRefund,
+      refund_rules: refundRules,
+      refund_notes: refundNotes,
+    })
+  }, [allowRefund, refundRules, refundNotes])
 
   const handlePolicyFileChange = async (e) => {
     const file = e.target.files?.[0]
@@ -2110,7 +2226,157 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
           </p>
         </section>
 
-        {/* Section 2: Policies & Terms + Policy File Import */}
+        {/* Section 2: Structured Refund Policy */}
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
+                <Icon name="history" />
+              </div>
+              <div>
+                <h3 className="text-[20px] font-semibold text-content">Chính sách hoàn vé</h3>
+                <p className="text-xs text-subtle mt-0.5">
+                  Cấu hình các mốc thời gian và tỷ lệ hoàn tiền khi người mua yêu cầu hủy vé
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                aria-label="Chính sách hoàn vé"
+                className="sr-only peer"
+                checked={allowRefund}
+                onChange={(e) => handleToggleRefund(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-border-soft/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary" />
+            </label>
+          </div>
+
+          {!allowRefund ? (
+            <div className="p-4 rounded-xl bg-panel-soft/50 border border-border-soft/30 flex items-start gap-3 text-xs text-subtle">
+              <Icon name="info" className="text-muted text-base shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                Khách hàng sẽ <strong>không thể yêu cầu hoàn vé</strong> sau khi thanh toán thành công. Mọi vé đã mua được xem là vé không hoàn hủy trong mọi trường hợp.
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 pt-2">
+              <div className="pb-1 border-b border-border-soft/30">
+                <div className="text-xs font-semibold text-content uppercase tracking-wider">
+                  Cấu hình các mốc hoàn tiền (từ 1 đến 4 mốc)
+                </div>
+              </div>
+
+              {/* Rules List */}
+              <div className="space-y-3">
+                {refundRules.map((rule, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl bg-panel-soft border border-border-soft/40"
+                  >
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="px-2 py-0.5 rounded bg-tertiary/10 text-tertiary text-xs font-bold">
+                        Mốc {idx + 1}
+                      </span>
+                      <span className="text-xs text-subtle font-medium">Hủy trước sự kiện ít nhất:</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="365"
+                        value={rule.days_before}
+                        onChange={(e) => handleRuleChange(idx, 'days_before', e.target.value)}
+                        className="w-20 px-2.5 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-sm font-semibold text-content text-center outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+                      />
+                      <span className="text-xs text-subtle font-medium">ngày</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:ml-auto">
+                      <span className="text-xs text-subtle font-medium">Hoàn lại:</span>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={rule.refund_rate}
+                          onChange={(e) => handleRuleChange(idx, 'refund_rate', e.target.value)}
+                          className="w-20 px-2.5 py-1.5 pr-6 rounded-lg border border-border-soft/60 bg-surface text-sm font-semibold text-emerald-400 text-center outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+                        />
+                        <span className="absolute right-2 top-1.5 text-xs text-muted font-bold">%</span>
+                      </div>
+                      <span className="text-xs text-subtle font-medium">giá vé</span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRule(idx)}
+                        disabled={refundRules.length <= 1}
+                        className="p-1.5 rounded-lg text-subtle hover:text-error hover:bg-error/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-subtle transition ml-1"
+                        title={refundRules.length <= 1 ? 'Cần ít nhất 1 mốc' : 'Xóa mốc'}
+                      >
+                        <Icon name="delete" className="text-base" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {refundRules.length < 4 && (
+                <button
+                  type="button"
+                  onClick={handleAddRule}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border-soft/60 hover:border-tertiary/60 text-xs font-semibold text-tertiary hover:bg-tertiary/5 transition"
+                >
+                  <Icon name="add" className="text-base" />
+                  <span>Thêm mốc hoàn vé ({refundRules.length}/4)</span>
+                </button>
+              )}
+
+              {/* Validation alert if rules are invalid */}
+              {!rulesValidation.valid && (
+                <div className="p-3 rounded-xl bg-error/10 border border-error/20 flex items-start gap-2 text-xs text-error">
+                  <Icon name="error_outline" className="text-base shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">{rulesValidation.error}</div>
+                </div>
+              )}
+
+              {/* Live Preview Box */}
+              <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-content uppercase tracking-wider">
+                  <Icon name="visibility" className="text-tertiary text-sm" />
+                  <span>Xem trước quy định hiển thị cho khách hàng</span>
+                </div>
+                <div className="p-3 rounded-lg bg-surface border border-border-soft/40 text-xs text-subtle space-y-1.5">
+                  {previewLines.map((line, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="text-tertiary mt-0.5">•</span>
+                      <span className="leading-relaxed">{line.replace(/^•\s*/, '')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Optional Refund Notes */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-subtle font-medium">
+                    Ghi chú / Điều kiện bổ sung (tùy chọn)
+                  </label>
+                  <span className="text-[11px] text-muted">{refundNotes.length}/500</span>
+                </div>
+                <textarea
+                  className="w-full border border-border-soft/40 rounded-xl px-3.5 py-2.5 text-xs h-20 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+                  placeholder="Ví dụ: Vé tặng, vé giảm giá đặc biệt không áp dụng hoàn tiền; tiền hoàn sẽ được xử lý trong vòng 3-5 ngày làm việc..."
+                  value={refundNotes}
+                  onChange={handleNotesChange}
+                />
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Section 3: Policies & Terms + Policy File Import */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2217,7 +2483,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
           </div>
         </section>
 
-        {/* Section 3: Event Organization Permits & Legal Documents */}
+        {/* Section 4: Event Organization Permits & Legal Documents */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2366,6 +2632,21 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
                   {formData.require_attendee_info
                     ? 'Yêu cầu nhập thông tin từng vé'
                     : 'Không bắt buộc nhập thông tin'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Icon
+                name={allowRefund ? 'check_circle' : 'info'}
+                className={allowRefund ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
+              />
+              <div>
+                <p className="text-sm font-bold text-content">Chính sách hoàn vé</p>
+                <p className="text-xs text-muted">
+                  {allowRefund
+                    ? `Cho phép hoàn vé (${refundRules.length} mốc)`
+                    : 'Không hỗ trợ hoàn vé'}
                 </p>
               </div>
             </div>
@@ -2539,6 +2820,24 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                 ? 'Bắt buộc từng vé'
                 : 'Không bắt buộc'}
             </span>
+          </div>
+
+          <div className="p-3 rounded-lg bg-panel-soft border border-border-soft/30 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-subtle font-medium">Chính sách hoàn vé</span>
+              <span className={`font-bold ${formData.refund_policy?.allow_refund ? 'text-emerald-400' : 'text-muted'}`}>
+                {formData.refund_policy?.allow_refund ? 'Hỗ trợ hoàn vé' : 'Không hỗ trợ hoàn vé'}
+              </span>
+            </div>
+            {formData.refund_policy?.allow_refund && (
+              <div className="pt-2 border-t border-border-soft/30 space-y-1 text-subtle">
+                {generateRefundPolicyLines(formData.refund_policy).map((line, idx) => (
+                  <div key={idx} className="leading-relaxed">
+                    {line}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {formData.refund_policy?.policy_file_url && (
@@ -2847,7 +3146,15 @@ export function CreateEventPage() {
           : 10,
       },
       refund_policy: {
-        allow_refunds: Boolean(event.refund_policy?.allow_refunds),
+        allow_refund: Boolean(event.refund_policy?.allow_refund ?? event.refund_policy?.allow_refunds),
+        allow_refunds: Boolean(event.refund_policy?.allow_refund ?? event.refund_policy?.allow_refunds),
+        refund_rules: Array.isArray(event.refund_policy?.refund_rules) && event.refund_policy.refund_rules.length > 0
+          ? event.refund_policy.refund_rules
+          : [
+              { days_before: 7, refund_rate: 100 },
+              { days_before: 3, refund_rate: 50 },
+            ],
+        refund_notes: event.refund_policy?.refund_notes || '',
         deadline_days: event.refund_policy?.deadline_days ?? 7,
         policy_file_url: event.refund_policy?.policy_file_url || null,
         policy_file_name: event.refund_policy?.policy_file_name || null,
@@ -2975,6 +3282,12 @@ export function CreateEventPage() {
       }
     }
     if (step === 4) {
+      if (formData.refund_policy?.allow_refund) {
+        const validation = validateRefundRules(formData.refund_policy.refund_rules)
+        if (!validation.valid) {
+          return validation.error || 'Quy tắc hoàn vé không hợp lệ.'
+        }
+      }
       const hasPolicy = Boolean(formData.additional_terms?.trim() || formData.refund_policy?.policy_file_url)
       if (!hasPolicy) {
         return 'Vui lòng nhập điều khoản tham dự hoặc tải lên file chính sách sự kiện ở Bước 4.'
@@ -3443,9 +3756,8 @@ export function CreateEventPage() {
               </button>
             </div>
           )}
-          <fieldset disabled={Boolean(editPermissions?.is_time_locked)} className={editPermissions?.is_time_locked ? 'opacity-60' : ''}>
+          <fieldset>
           {currentStep === 1 && (
-            /* Locked events are read-only; backend enforces the same rule. */
             <Step1EventInfo
               formData={formData}
               setFormData={setFormData}
@@ -3476,7 +3788,12 @@ export function CreateEventPage() {
             />
           )}
           {currentStep === 4 && (
-            <Step4PoliciesSettings formData={formData} setFormData={setFormData} completeness={completeness} />
+            <Step4PoliciesSettings
+              formData={formData}
+              setFormData={setFormData}
+              completeness={completeness}
+              editPermissions={editPermissions}
+            />
           )}
           {currentStep === 5 && (
             <Step5ReviewSubmit
@@ -3506,7 +3823,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleBack}
-                disabled={loading || editPermissions?.is_time_locked}
+                disabled={loading}
                 className="px-6 py-2.5 rounded-lg border border-border-soft/40 text-sm font-medium hover:bg-panel-soft transition flex items-center gap-2 text-content disabled:opacity-50"
               >
                 <Icon name="arrow_back" className="text-[18px]" />
@@ -3517,7 +3834,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={loading || editPermissions?.is_time_locked}
+                disabled={loading}
                 className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
               >
                 {loading ? 'Đang lưu...' : (currentStep === 4 ? 'Tiếp theo' : nextLabel)}
@@ -3529,7 +3846,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || editPermissions?.is_time_locked || !completeness.isReady}
+                disabled={loading || !completeness.isReady}
                 title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
                 className="flex items-center gap-2 rounded-lg bg-success px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-success/80 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
@@ -3539,7 +3856,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || editPermissions?.is_time_locked || !completeness.isReady}
+                disabled={loading || !completeness.isReady}
                 title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
                 className="rounded-lg border border-tertiary/50 px-6 py-2.5 text-sm font-bold text-tertiary hover:bg-tertiary/10 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
@@ -3551,7 +3868,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={handleUpdateEvent}
-                disabled={loading || editPermissions?.is_time_locked || !isValidAllSteps()}
+                disabled={loading || !isValidAllSteps()}
                 title={!isValidAllSteps() ? 'Thông tin sự kiện còn thiếu hoặc không hợp lệ' : ''}
                 className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >

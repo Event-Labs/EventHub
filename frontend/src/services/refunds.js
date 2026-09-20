@@ -11,6 +11,16 @@ export async function fetchMyRefundRequests(params = {}) {
   return response.data.data
 }
 
+export async function fetchRefundPreview(ticketId, orderId) {
+  const response = await http.get('/refunds/preview', {
+    params: {
+      ticket_id: ticketId || undefined,
+      order_id: orderId || undefined,
+    },
+  })
+  return response.data.data
+}
+
 export async function fetchRefundDetail(id) {
   const response = await http.get(`/refunds/${id}`)
   return response.data.data
@@ -22,7 +32,18 @@ export async function fetchOrganizerRefundRequests(params = {}) {
   return response.data.data
 }
 
+export async function fetchOrganizerRefundDetail(id) {
+  const response = await http.get(`/organizer/refunds/${id}`)
+  return response.data.data
+}
+
 export async function processOrganizerRefund(id, payload) {
   const response = await http.patch(`/organizer/refunds/${id}/process`, payload)
   return response.data.data
 }
+
+export async function fetchOrganizerPaymentChannel() {
+  const response = await http.get('/organizer/payments/channel')
+  return response.data.data
+}
+

@@ -44,6 +44,7 @@ import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
 import { OrganizerEventDetailPage } from '@/pages/organizer/OrganizerEventDetailPage.jsx'
 import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
 import { OrganizerRefundsPage } from '@/pages/organizer/OrganizerRefundsPage.jsx'
+import { OrganizerRefundDetailPage } from '@/pages/organizer/OrganizerRefundDetailPage.jsx'
 import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
 import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
 import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'
@@ -179,6 +180,10 @@ export const router = createBrowserRouter([
       {
         path: 'refunds',
         element: <OrganizerRefundsPage />,
+      },
+      {
+        path: 'refunds/:refundId',
+        element: <OrganizerRefundDetailPage />,
       },
       {
         path: 'staff-management',

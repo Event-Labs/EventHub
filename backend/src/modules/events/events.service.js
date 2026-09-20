@@ -56,6 +56,7 @@ function mapDetail(row) {
     additional_terms: row.additional_terms || null,
     seating_rules: normalizeRules(row.seating_rules),
     require_attendee_info: Boolean(row.require_attendee_info),
+    refund_policy: row.refund_policy || null,
     organizer: row.organizer,
     sessions: row.sessions || [],
     venues: Array.from(

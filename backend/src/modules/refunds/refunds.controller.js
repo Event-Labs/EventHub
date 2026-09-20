@@ -58,6 +58,17 @@ class RefundsController {
       next(error);
     }
   };
+
+  previewRefund = async (req, res, next) => {
+    try {
+      const ticketId = req.query.ticket_id || null;
+      const orderId = req.query.order_id || null;
+      const data = await refundsService.previewRefund(req.user.sub, ticketId, orderId);
+      res.status(200).json(ApiResponse.success(data, 'Thông tin xem trước hoàn tiền'));
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 module.exports = new RefundsController();
