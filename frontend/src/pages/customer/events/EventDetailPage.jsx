@@ -4,6 +4,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
+  FileText,
   Heart,
   MapPin,
   RefreshCw,
@@ -210,6 +212,10 @@ export function EventDetailPage() {
           availableTicketTypes: selectedSessionTickets,
           seatingRules: event.seating_rules || {},
           additionalTerms: event.additional_terms || '',
+          refundPolicy: event.refund_policy || null,
+          policyFileUrl: event.refund_policy?.policy_file_url || null,
+          policyFileName: event.refund_policy?.policy_file_name || null,
+          policyFileSize: event.refund_policy?.policy_file_size || null,
           requireAttendeeInfo: Boolean(event.require_attendee_info),
           items: [],
         },
@@ -522,6 +528,26 @@ export function EventDetailPage() {
                     </div>
                   )}
 
+                  {event.refund_policy?.policy_file_url && (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="size-4 text-cyan-400 shrink-0" />
+                        <span className="font-medium text-slate-200 truncate">
+                          {event.refund_policy.policy_file_name || 'Tài liệu chính sách sự kiện'}
+                        </span>
+                      </div>
+                      <a
+                        href={event.refund_policy.policy_file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition"
+                      >
+                        <span>Xem file</span>
+                        <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                  )}
+
                   <p className="pt-1 text-xs italic text-slate-400">
                     * Yêu cầu hoàn vé được tính toán theo mốc thời gian so với giờ bắt đầu sự kiện. Khách hàng thực hiện gửi yêu cầu tại chi tiết vé đã mua.
                   </p>
@@ -529,6 +555,20 @@ export function EventDetailPage() {
               </div>
             </div>
           </section>
+
+          {/* Chính sách & Điều khoản tham dự */}
+          {event.additional_terms && (
+            <section>
+              <h2 className="mb-6 font-display text-2xl font-black text-white drop-shadow-md">
+                Chính sách &amp; Điều khoản tham dự
+              </h2>
+              <div className="glass-panel relative overflow-hidden rounded-[24px] border border-white/10 p-6 md:p-8">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+                  {event.additional_terms}
+                </div>
+              </div>
+            </section>
+          )}
         </section>
 
         <aside className="glass-panel min-w-0 h-fit rounded-[24px] p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">

@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Check,
   ExternalLink,
+  FileText,
   Minus,
   Plus,
   RefreshCw,
@@ -16,16 +17,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
-import { checkTicketAvailability, fetchSessionSeats, holdSeats, releaseSeatHolds } from '@/services/events.js'
+import { checkTicketAvailability, fetchEventDetail, fetchSessionSeats, holdSeats, releaseSeatHolds } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import promotionService from '@/services/promotions.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
 
 function formatPrice(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return '0 \u0111'
   return `${number.toLocaleString('vi-VN')} \u0111`
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes)
+  if (!size || isNaN(size)) return ''
+  const kb = size / 1024
+  if (kb < 1024) return `${kb.toFixed(1)} KB`
+  return `${(kb / 1024).toFixed(1)} MB`
 }
 
 function ticketAvailability(ticketType) {
@@ -935,17 +945,73 @@ export function BookingReviewPage() {
   const [selectedPromo, setSelectedPromo] = useState(cart?.promo || null)
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
-  const eventTerms = String(cart?.additionalTerms || cart?.additional_terms || '').trim()
-  const [termsAccepted, setTermsAccepted] = useState(() => !eventTerms || Boolean(cart?.eventTermsAccepted))
 
+  const termsSectionRef = useRef(null)
+  const [termsError, setTermsError] = useState(false)
+
+  const { data: eventDetail } = useQuery({
+    queryKey: ['booking-review-event-detail', cart?.eventId],
+    queryFn: () => fetchEventDetail(cart.eventId),
+    enabled: Boolean(cart?.eventId),
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const effectiveTerms = String(
+    cart?.additionalTerms ||
+    cart?.additional_terms ||
+    eventDetail?.additional_terms ||
+    ''
+  ).trim()
+
+  const effectiveRefundPolicy =
+    cart?.refundPolicy ||
+    cart?.refund_policy ||
+    eventDetail?.refund_policy ||
+    null
+
+  const policyFileUrl =
+    cart?.policyFileUrl ||
+    cart?.refundPolicy?.policy_file_url ||
+    effectiveRefundPolicy?.policy_file_url ||
+    null
+
+  const policyFileName =
+    cart?.policyFileName ||
+    cart?.refundPolicy?.policy_file_name ||
+    effectiveRefundPolicy?.policy_file_name ||
+    'Tài liệu chính sách sự kiện'
+
+  const policyFileSize =
+    cart?.policyFileSize ||
+    cart?.refundPolicy?.policy_file_size ||
+    effectiveRefundPolicy?.policy_file_size ||
+    null
+
+  const hasTerms = Boolean(effectiveTerms)
+  const hasPolicyFile = Boolean(policyFileUrl)
+  const hasRefundPolicy = Boolean(
+    effectiveRefundPolicy &&
+    (effectiveRefundPolicy.allow_refund ?? effectiveRefundPolicy.allow_refunds)
+  )
+
+  const hasPolicy = Boolean(
+    hasTerms ||
+    hasPolicyFile ||
+    hasRefundPolicy ||
+    effectiveRefundPolicy?.refund_notes?.trim()
+  )
+
+  const [termsAccepted, setTermsAccepted] = useState(() => Boolean(cart?.eventTermsAccepted))
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
   const collectAttendees = requiresAttendeeInfo(cart)
 
   const continueFlow = async () => {
-    if (eventTerms && !termsAccepted) {
-      toast.warning('Vui lòng đồng ý với điều khoản của sự kiện trước khi thanh toán.')
+    if (hasPolicy && !termsAccepted) {
+      setTermsError(true)
+      toast.warning('Vui lòng đọc và tick chọn xác nhận đồng ý với điều khoản tham dự và chính sách hoàn tiền của sự kiện trước khi tiếp tục.')
+      termsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
 
@@ -953,7 +1019,12 @@ export function BookingReviewPage() {
       ...cart,
       promoCode,
       promo: selectedPromo,
-      eventTermsAccepted: eventTerms ? termsAccepted : false,
+      eventTermsAccepted: hasPolicy ? termsAccepted : true,
+      additionalTerms: effectiveTerms,
+      refundPolicy: effectiveRefundPolicy,
+      policyFileUrl,
+      policyFileName,
+      policyFileSize,
     }
     setCheckingAvailability(true)
     try {
@@ -979,24 +1050,24 @@ export function BookingReviewPage() {
     <BookingShell step={3} cart={cart}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
-          <PageTitle title={'Ki\u1ec3m tra v\u00e9'} subtitle={collectAttendees ? 'Vui l\u00f2ng ki\u1ec3m tra k\u1ef9 v\u00e9, ng\u01b0\u1eddi tham gia, th\u1eddi gian v\u00e0 \u0111\u1ecba \u0111i\u1ec3m' : 'Vui l\u00f2ng ki\u1ec3m tra k\u1ef9 v\u00e9, ng\u01b0\u1eddi mua, th\u1eddi gian v\u00e0 \u0111\u1ecba \u0111i\u1ec3m'} />
+          <PageTitle title={'Kiểm tra vé'} subtitle={collectAttendees ? 'Vui lòng kiểm tra kỹ vé, người tham gia, thời gian và địa điểm' : 'Vui lòng kiểm tra kỹ vé, người mua, thời gian và địa điểm'} />
           <Panel>
-            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Th\u00f4ng tin s\u1ef1 ki\u1ec7n'}</h2>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Thông tin sự kiện'}</h2>
             <div className="grid gap-3 text-sm text-muted md:grid-cols-2">
-              <InfoLine label={'S\u1ef1 ki\u1ec7n'} value={cart.eventTitle} />
-              <InfoLine label={'Th\u1eddi gian'} value={`${formatDateTime(cart.eventStartTime)} - ${formatDateTime(cart.eventEndTime)}`} />
-              <InfoLine label={'\u0110\u1ecba \u0111i\u1ec3m'} value={cart.venueSummary || '\u0110ang c\u1eadp nh\u1eadt'} wide />
+              <InfoLine label={'Sự kiện'} value={cart.eventTitle} />
+              <InfoLine label={'Thời gian'} value={`${formatDateTime(cart.eventStartTime)} - ${formatDateTime(cart.eventEndTime)}`} />
+              <InfoLine label={'Địa điểm'} value={cart.venueSummary || 'Đang cập nhật'} wide />
             </div>
           </Panel>
           <Panel>
-            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Th\u00f4ng tin v\u00e9'}</h2>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Thông tin vé'}</h2>
             <div className="space-y-3">
               {cart.items.map((item) => (
                 <div key={item.ticketType.id} className="rounded-md bg-panel-soft p-4">
                   <div className="flex justify-between gap-4">
                     <div>
                       <p className="font-bold text-white">{item.ticketType.name}</p>
-                      <p className="mt-1 text-sm text-muted">{'S\u1ed1 l\u01b0\u1ee3ng'}: {item.quantity}</p>
+                      <p className="mt-1 text-sm text-muted">{'Số lượng'}: {item.quantity}</p>
                     </div>
                     <p className="font-bold text-primary">
                       {formatPrice(Number(item.ticketType.price || 0) * item.quantity)}
@@ -1007,48 +1078,181 @@ export function BookingReviewPage() {
             </div>
           </Panel>
           <Panel>
-            <h2 className="mb-4 font-display text-xl font-bold text-white">{collectAttendees ? 'Ng\u01b0\u1eddi tham gia' : 'Ng\u01b0\u1eddi mua'}</h2>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">{collectAttendees ? 'Người tham gia' : 'Người mua'}</h2>
             {collectAttendees ? (
               <div className="grid gap-3 md:grid-cols-2">
                 {expandAttendeeSlots(cart).map((slot, index) => (
                   <div key={slot.id} className="rounded-md border border-border-soft bg-surface p-3">
-                    <p className="text-xs font-bold uppercase text-primary">{'V\u00e9'} {index + 1}</p>
-                    <p className="mt-1 font-semibold text-white">{cart.attendees?.[slot.id]?.name || 'Ch\u01b0a nh\u1eadp'}</p>
-                    <p className="text-sm text-muted">{cart.attendees?.[slot.id]?.email || 'Ch\u01b0a nh\u1eadp'}</p>
+                    <p className="text-xs font-bold uppercase text-primary">{'Vé'} {index + 1}</p>
+                    <p className="mt-1 font-semibold text-white">{cart.attendees?.[slot.id]?.name || 'Chưa nhập'}</p>
+                    <p className="text-sm text-muted">{cart.attendees?.[slot.id]?.email || 'Chưa nhập'}</p>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="rounded-md border border-border-soft bg-surface p-3">
-                <p className="mt-1 font-semibold text-white">{cart.buyer?.name || 'Ch\u01b0a nh\u1eadp'}</p>
-                <p className="text-sm text-muted">{cart.buyer?.email || 'Ch\u01b0a nh\u1eadp'}</p>
-                <p className="text-sm text-muted">{cart.buyer?.phone || 'Ch\u01b0a nh\u1eadp'}</p>
+                <p className="mt-1 font-semibold text-white">{cart.buyer?.name || 'Chưa nhập'}</p>
+                <p className="text-sm text-muted">{cart.buyer?.email || 'Chưa nhập'}</p>
+                <p className="text-sm text-muted">{cart.buyer?.phone || 'Chưa nhập'}</p>
               </div>
             )}
           </Panel>
-          {eventTerms && (
+          {hasPolicy && (
             <Panel>
-              <h2 className="font-display text-xl font-bold text-white">Điều khoản của sự kiện</h2>
-              <p className="mt-1 text-sm text-muted">
-                Vui lòng đọc và xác nhận trước khi chuyển sang thanh toán.
-              </p>
-              <div className="mt-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md border border-border-soft bg-surface p-4 text-sm leading-6 text-slate-200">
-                {eventTerms}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-xl font-bold text-white flex items-center gap-2">
+                    <ShieldCheck className="size-5 text-primary" />
+                    Điều khoản &amp; Chính sách sự kiện
+                  </h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Vui lòng đọc kỹ và xác nhận đồng ý với điều khoản và chính sách hoàn tiền trước khi chuyển sang thanh toán.
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+                  Bắt buộc
+                </span>
               </div>
-              <label className="mt-4 flex cursor-pointer items-start gap-3 py-1">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(event) => setTermsAccepted(event.target.checked)}
-                  className="peer sr-only"
-                />
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2 border-slate-400 transition peer-checked:border-tertiary">
-                  <span className={`size-2.5 rounded-full bg-tertiary transition ${termsAccepted ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} />
-                </span>
-                <span className="text-sm font-semibold leading-6 text-white">
-                  Tôi đã đọc và đồng ý với điều khoản, quy định của sự kiện này.
-                </span>
-              </label>
+
+              <div className="mt-5 space-y-4">
+                {/* 1. File chính sách đính kèm từ Organizer nếu có */}
+                {policyFileUrl && (
+                  <div className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/40 bg-primary/15 text-primary shadow-sm">
+                          <FileText className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                            Tài liệu chính sách sự kiện
+                          </p>
+                          <p className="text-sm font-semibold text-white truncate max-w-[260px] sm:max-w-md" title={policyFileName}>
+                            {policyFileName}
+                          </p>
+                          {policyFileSize && (
+                            <p className="text-xs text-muted">
+                              Dung lượng: {formatFileSize(policyFileSize)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <a
+                        href={policyFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/50 bg-primary/15 px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/25 transition shadow-sm"
+                      >
+                        <span>Xem tài liệu</span>
+                        <ExternalLink className="size-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Điều khoản tham dự do Organizer ghi nếu có */}
+                {hasTerms && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                      Chính sách &amp; Quy định tham dự:
+                    </p>
+                    <div className="max-h-52 overflow-y-auto whitespace-pre-wrap rounded-xl border border-border-soft bg-surface/90 p-4 text-sm leading-6 text-slate-200 shadow-inner">
+                      {effectiveTerms}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Chính sách hoàn vé nếu có */}
+                {effectiveRefundPolicy && (
+                  <div className="rounded-xl border border-border-soft bg-surface/60 p-4 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="size-4 text-cyan-400" />
+                        <p className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+                          Chính sách hoàn vé
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
+                          hasRefundPolicy
+                            ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                            : 'border-slate-600 bg-slate-700/50 text-slate-300'
+                        }`}
+                      >
+                        {hasRefundPolicy ? 'Hỗ trợ hoàn vé có điều kiện' : 'Không hỗ trợ hoàn hủy vé'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs sm:text-sm text-slate-300">
+                      {generateRefundPolicyLines(effectiveRefundPolicy).map((line, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <span
+                            className={`mt-1.5 size-1.5 shrink-0 rounded-full ${
+                              hasRefundPolicy ? 'bg-cyan-400' : 'bg-slate-500'
+                            }`}
+                          />
+                          <span className="leading-relaxed">{line}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {effectiveRefundPolicy.refund_notes && (
+                      <p className="pt-1 text-xs italic text-slate-400">
+                        * Lưu ý từ BTC: {effectiveRefundPolicy.refund_notes}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 4. Checkbox bắt buộc */}
+                <div
+                  ref={termsSectionRef}
+                  className={`rounded-xl border p-4 transition-all duration-200 ${
+                    termsError
+                      ? 'border-error bg-error/10 ring-2 ring-error/40 shadow-[0_0_15px_rgba(239,68,68,0.15)]'
+                      : 'border-white/10 bg-surface/40 hover:border-white/20'
+                  }`}
+                >
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(event) => {
+                        setTermsAccepted(event.target.checked)
+                        if (event.target.checked) setTermsError(false)
+                      }}
+                      className="peer sr-only"
+                    />
+                    <span
+                      className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded border-2 transition ${
+                        termsAccepted
+                          ? 'border-primary bg-primary text-slate-950'
+                          : termsError
+                          ? 'border-error bg-error/20'
+                          : 'border-slate-400 hover:border-white'
+                      }`}
+                    >
+                      <Check
+                        className={`size-3.5 stroke-[3] transition ${
+                          termsAccepted ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
+                        }`}
+                      />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-semibold leading-6 text-white select-none">
+                        Tôi đã đọc và đồng ý với điều khoản tham dự và chính sách hoàn tiền của sự kiện này.
+                        <span className="ml-1 text-error font-bold">*</span>
+                      </span>
+                      {termsError && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-error animate-pulse">
+                          <AlertTriangle className="size-4 shrink-0" />
+                          <span>Vui lòng tích chọn xác nhận đồng ý trước khi chuyển sang bước thanh toán.</span>
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
             </Panel>
           )}
           <PromoPanel
@@ -1156,6 +1360,18 @@ export function BookingPaymentPage() {
 
   useEffect(() => {
     if (!cart?.items?.length || orderId || checkoutMutation.isPending || checkoutStartedRef.current) return
+    const hasPolicy = Boolean(
+      cart?.additionalTerms ||
+      cart?.additional_terms ||
+      cart?.policyFileUrl ||
+      cart?.refundPolicy?.policy_file_url ||
+      (cart?.refundPolicy && (cart?.refundPolicy.allow_refund ?? cart?.refundPolicy.allow_refunds))
+    )
+    if (hasPolicy && !cart.eventTermsAccepted) {
+      toast.warning('Vui lòng kiểm tra và đồng ý với điều khoản, chính sách hoàn tiền của sự kiện trước khi thanh toán.')
+      navigate('/booking/review', { replace: true, state: { cart } })
+      return
+    }
     checkoutStartedRef.current = true
     checkoutMutation.mutate({
       event_id: cart.eventId,
