@@ -2439,114 +2439,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
           </p>
         </section>
 
-        {/* Section 2: Policies & Terms + Policy File Import */}
-        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
-                <Icon name="gavel" />
-              </div>
-              <div>
-                <h3 className="text-[20px] font-semibold text-content">Chính sách & Điều khoản tham dự</h3>
-                <p className="text-xs text-subtle mt-0.5">Quy định vé, độ tuổi tham gia hoặc điều khoản riêng của ban tổ chức</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Import Policy File Card */}
-          <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Icon name="upload_file" className="text-tertiary text-lg" />
-                <span className="text-xs font-bold text-content uppercase tracking-wider">
-                  Import file chính sách sự kiện
-                </span>
-              </div>
-              <div>
-                <input
-                  type="file"
-                  ref={policyFileInputRef}
-                  accept=".pdf,.docx,.txt"
-                  className="hidden"
-                  onChange={handlePolicyFileChange}
-                />
-                <button
-                  type="button"
-                  disabled={uploadingPolicy}
-                  onClick={() => policyFileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-xs font-semibold text-content hover:bg-panel-soft transition shadow-sm disabled:opacity-50"
-                >
-                  {uploadingPolicy ? (
-                    <>
-                      <div className="size-3.5 border-2 border-tertiary border-t-transparent rounded-full animate-spin" />
-                      <span>Đang tải file...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="attach_file" className="text-[16px] text-tertiary" />
-                      <span>{rp?.policy_file_url ? 'Thay đổi file' : 'Chọn file (.pdf, .docx, .txt)'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {rp?.policy_file_url ? (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border-soft/60 shadow-sm">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-9 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-                    <Icon name="description" className="text-lg" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-content truncate">
-                      {rp.policy_file_name || 'chinh-sach-su-kien.pdf'}
-                    </p>
-                    <p className="text-[11px] text-muted">
-                      {formatFileSize(rp.policy_file_size)} · <span className="text-success font-medium">Đã đính kèm</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <a
-                    href={rp.policy_file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2.5 py-1 rounded bg-panel-soft hover:bg-panel-soft/80 text-xs font-medium text-tertiary flex items-center gap-1 transition"
-                  >
-                    <Icon name="open_in_new" className="text-[14px]" />
-                    <span>Xem file</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={handleRemovePolicyFile}
-                    className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
-                    title="Xóa file chính sách"
-                  >
-                    <Icon name="delete" className="text-[18px]" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-muted leading-relaxed">
-                Bạn có thể tải file chính sách chi tiết (PDF hoặc Word). Nếu chọn file <b>.txt</b>, nội dung văn bản sẽ tự động được điền vào ô điều khoản bên dưới.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="text-[13px] text-subtle block mb-2 font-medium">
-              Nội dung điều khoản & quy định cho người tham gia
-            </label>
-            <textarea
-              className="w-full border border-border-soft/40 rounded-xl px-4 py-3 text-sm h-36 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
-              placeholder="Nhập hoặc import các điều khoản, quy định độ tuổi, trang phục, hoặc hướng dẫn bổ sung cho người giữ vé..."
-              value={formData.additional_terms}
-              onChange={(e) => setFormData((p) => ({ ...p, additional_terms: e.target.value }))}
-            />
-          </div>
-        </section>
-
-        {/* Section 3: Event Organization Permits & Legal Documents */}
+        {/* Section 2: Event Organization Permits & Legal Documents */}
         <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2673,6 +2566,113 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
             </div>
           )}
         </section>
+
+        {/* Section 3: Policies & Terms + Policy File Import */}
+        <section className="bg-surface rounded-xl border border-border-soft/30 p-6 hover:shadow-md transition-shadow shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
+                <Icon name="gavel" />
+              </div>
+              <div>
+                <h3 className="text-[20px] font-semibold text-content">Chính sách & Điều khoản tham dự</h3>
+                <p className="text-xs text-subtle mt-0.5">Quy định vé, độ tuổi tham gia hoặc điều khoản riêng của ban tổ chức</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Import Policy File Card */}
+          <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Icon name="upload_file" className="text-tertiary text-lg" />
+                <span className="text-xs font-bold text-content uppercase tracking-wider">
+                  Import file chính sách sự kiện
+                </span>
+              </div>
+              <div>
+                <input
+                  type="file"
+                  ref={policyFileInputRef}
+                  accept=".pdf,.docx,.txt"
+                  className="hidden"
+                  onChange={handlePolicyFileChange}
+                />
+                <button
+                  type="button"
+                  disabled={uploadingPolicy}
+                  onClick={() => policyFileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-xs font-semibold text-content hover:bg-panel-soft transition shadow-sm disabled:opacity-50"
+                >
+                  {uploadingPolicy ? (
+                    <>
+                      <div className="size-3.5 border-2 border-tertiary border-t-transparent rounded-full animate-spin" />
+                      <span>Đang tải file...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="attach_file" className="text-[16px] text-tertiary" />
+                      <span>{rp?.policy_file_url ? 'Thay đổi file' : 'Chọn file (.pdf, .docx, .txt)'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {rp?.policy_file_url ? (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border-soft/60 shadow-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                    <Icon name="description" className="text-lg" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-content truncate">
+                      {rp.policy_file_name || 'chinh-sach-su-kien.pdf'}
+                    </p>
+                    <p className="text-[11px] text-muted">
+                      {formatFileSize(rp.policy_file_size)} · <span className="text-success font-medium">Đã đính kèm</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={rp.policy_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded bg-panel-soft hover:bg-panel-soft/80 text-xs font-medium text-tertiary flex items-center gap-1 transition"
+                  >
+                    <Icon name="open_in_new" className="text-[14px]" />
+                    <span>Xem file</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleRemovePolicyFile}
+                    className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
+                    title="Xóa file chính sách"
+                  >
+                    <Icon name="delete" className="text-[18px]" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted leading-relaxed">
+                Bạn có thể tải file chính sách chi tiết (PDF hoặc Word). Nếu chọn file <b>.txt</b>, nội dung văn bản sẽ tự động được điền vào ô điều khoản bên dưới.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-[13px] text-subtle block mb-2 font-medium">
+              Nội dung điều khoản & quy định cho người tham gia
+            </label>
+            <textarea
+              className="w-full border border-border-soft/40 rounded-xl px-4 py-3 text-sm h-36 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+              placeholder="Nhập hoặc import các điều khoản, quy định độ tuổi, trang phục, hoặc hướng dẫn bổ sung cho người giữ vé..."
+              value={formData.additional_terms}
+              onChange={(e) => setFormData((p) => ({ ...p, additional_terms: e.target.value }))}
+            />
+          </div>
+        </section>
       </div>
 
       {/* Right Column: Sidebar */}
@@ -2701,6 +2701,21 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
 
             <div className="flex items-start gap-3">
               <Icon
+                name={permitFiles.length > 0 ? 'check_circle' : 'warning'}
+                className={permitFiles.length > 0 ? 'text-success text-lg mt-0.5' : 'text-warning text-lg mt-0.5'}
+              />
+              <div>
+                <p className="text-sm font-bold text-content">Giấy phép tổ chức</p>
+                <p className="text-xs text-muted">
+                  {permitFiles.length > 0
+                    ? `Đã đính kèm ${permitFiles.length} tài liệu pháp lý`
+                    : 'Chưa tải lên giấy phép tổ chức'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Icon
                 name={formData.additional_terms?.trim() || rp?.policy_file_url ? 'check_circle' : 'info'}
                 className={formData.additional_terms?.trim() || rp?.policy_file_url ? 'text-success text-lg mt-0.5' : 'text-muted text-lg mt-0.5'}
               />
@@ -2715,21 +2730,6 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
                 </p>
               </div>
             </div>
-
-            <div className="flex items-start gap-3">
-              <Icon
-                name={permitFiles.length > 0 ? 'check_circle' : 'warning'}
-                className={permitFiles.length > 0 ? 'text-success text-lg mt-0.5' : 'text-warning text-lg mt-0.5'}
-              />
-              <div>
-                <p className="text-sm font-bold text-content">Giấy phép tổ chức</p>
-                <p className="text-xs text-muted">
-                  {permitFiles.length > 0
-                    ? `Đã đính kèm ${permitFiles.length} tài liệu pháp lý`
-                    : 'Chưa tải lên giấy phép tổ chức'}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -2740,14 +2740,22 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
 function Step5ReviewSubmit({ formData, setFormData, categories, venues, completeness, onGoToStep }) {
   const categoryName = categories.find((c) => c.id === formData.category_id)?.name
   const firstSession = formData.sessions[0]
-  const venue = venues.find((v) => v.id === firstSession?.venue_id)
+  const defaultVenue = venues.find((v) => v.id === firstSession?.venue_id)
 
   const groupedTickets = []
   formData.ticketTypes.forEach((tt) => {
     const key = `${tt.name}_${tt.price}_${tt.is_seated}`
     let group = groupedTickets.find((g) => g.key === key)
     if (!group) {
-      group = { key, name: tt.name, price: tt.price, is_seated: tt.is_seated, totalQty: 0, sessions: [] }
+      group = {
+        key,
+        name: tt.name,
+        price: tt.price,
+        is_seated: tt.is_seated,
+        description: tt.description,
+        totalQty: 0,
+        sessions: [],
+      }
       groupedTickets.push(group)
     }
     group.totalQty += Number(tt.quantity || 0)
@@ -2757,37 +2765,54 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
       group.sessions.push({
         name: session.session_name || `Phiên ${formData.sessions.indexOf(session) + 1}`,
         qty: tt.quantity,
-        timeMs: ms
+        timeMs: ms,
       })
     }
   })
 
   // Sort sessions inside each group chronologically
-  groupedTickets.forEach(group => {
+  groupedTickets.forEach((group) => {
     group.sessions.sort((a, b) => a.timeMs - b.timeMs)
   })
+
+  const totalEventRevenue = formData.ticketTypes.reduce(
+    (acc, t) => acc + Number(t.price || 0) * Number(t.quantity || 0),
+    0,
+  )
+  const totalEventTickets = formData.ticketTypes.reduce(
+    (acc, t) => acc + Number(t.quantity || 0),
+    0,
+  )
 
   return (
     <div className="grid grid-cols-12 gap-6">
       <div className="col-span-12 lg:col-span-8 space-y-6 pb-8">
-        <section className="bg-surface border border-border-soft/30 rounded-xl overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <div className="h-[280px] relative bg-panel-soft">
+        {/* Banner & Header Thông tin sự kiện (Đã xóa hình thức offline/online) */}
+        <section className="bg-surface border border-border-soft/30 rounded-2xl overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+          <div className="h-[260px] sm:h-[280px] relative bg-panel-soft">
             {formData.banner_url && (
               <img src={formData.banner_url} alt="" className="w-full h-full object-cover" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-6 left-6 flex items-end gap-5">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
+            <div className="absolute bottom-6 left-6 right-6 flex items-end gap-4 sm:gap-5">
               {formData.thumbnail_url && (
-                <div className="w-28 h-28 bg-surface p-1 rounded-xl border-2 border-tertiary shadow-2xl z-10 shrink-0">
-                  <img src={formData.thumbnail_url} alt="" className="w-full h-full object-cover rounded-[8px]" />
+                <div className="size-24 sm:size-28 bg-surface p-1 rounded-2xl border-2 border-tertiary shadow-2xl z-10 shrink-0">
+                  <img src={formData.thumbnail_url} alt="" className="w-full h-full object-cover rounded-xl" />
                 </div>
               )}
-              <div className="mb-2 text-white pb-1">
-                <h3 className="text-[26px] leading-[32px] font-extrabold shadow-sm">{formData.title || 'Chưa nhập tên sự kiện'}</h3>
-                <div className="flex gap-2 mt-3 flex-wrap">
+              <div className="mb-1 text-white pb-1 min-w-0 flex-1">
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight truncate drop-shadow-md">
+                  {formData.title || 'Chưa nhập tên sự kiện'}
+                </h3>
+                <div className="flex gap-2 mt-2.5 flex-wrap items-center">
+                  {categoryName && (
+                    <span className="bg-tertiary px-3 py-1 rounded-full text-xs font-extrabold text-white shadow-sm">
+                      {categoryName}
+                    </span>
+                  )}
                   {formData.tags.map((tag) => (
-                    <span key={tag} className="bg-tertiary/15 backdrop-blur-md px-2 py-0.5 rounded text-[11px] font-bold uppercase border border-white/20">
-                      {tag}
+                    <span key={tag} className="bg-white/20 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white/95 border border-white/25">
+                      #{tag}
                     </span>
                   ))}
                 </div>
@@ -2795,56 +2820,148 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             </div>
           </div>
           <div className="p-6">
-            <p className="text-sm text-subtle">{formData.short_description}</p>
-            <p className="text-xs text-muted mt-2">{categoryName} · {formData.format}</p>
+            <h5 className="text-xs font-bold uppercase tracking-wider text-muted mb-1">Mô tả tóm tắt sự kiện</h5>
+            <p className="text-sm text-subtle leading-relaxed">{formData.short_description || 'Chưa có mô tả tóm tắt.'}</p>
           </div>
         </section>
 
-        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <div className="flex items-center gap-2 mb-4">
-            <Icon name="calendar_today" className="text-tertiary" />
-            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Lịch trình & Địa điểm</h4>
+        {/* Lịch trình & Địa điểm (Cải thiện giao diện hiển thị chi tiết, ĐÃ XÓA ô hiển thị public) */}
+        <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-border-soft/30">
+            <div className="flex items-center gap-2">
+              <Icon name="calendar_today" className="text-tertiary text-xl" />
+              <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Lịch trình & Địa điểm tổ chức</h4>
+            </div>
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-tertiary/10 text-tertiary border border-tertiary/20">
+              {formData.sessions.length} phiên sự kiện
+            </span>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[120px_minmax(0,1fr)_140px] sm:gap-3">
-            <div>
-              <label className="block text-xs text-muted mb-1 uppercase">Phiên</label>
-              <p className="font-semibold text-content">{formData.sessions.length} phiên</p>
-            </div>
-            <div className="min-w-0">
-              <label className="block text-xs text-muted mb-1 uppercase">Địa điểm</label>
-              <p className="whitespace-nowrap font-semibold text-content" title={venue?.name}>{venue?.name || '—'}</p>
-            </div>
-            <div className="sm:justify-self-end sm:text-left">
-              <label className="block text-xs text-muted mb-1 uppercase">Hiển thị</label>
-              <p className="font-semibold text-content">{formData.visibility}</p>
-            </div>
+
+          <div className="space-y-3">
+            {formData.sessions.map((session, idx) => {
+              const sVenue = venues.find((v) => v.id === session.venue_id) || defaultVenue
+              const dateFormatted = session.start_date
+                ? session.start_date.split('-').reverse().join('/')
+                : 'Chưa chọn ngày'
+
+              return (
+                <div
+                  key={session.id || session.clientKey || idx}
+                  className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 hover:border-border-soft/70 transition space-y-2.5"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-lg bg-tertiary/15 text-tertiary text-xs font-black flex items-center justify-center shrink-0 border border-tertiary/20">
+                        #{idx + 1}
+                      </span>
+                      <h5 className="font-bold text-sm text-content">
+                        {session.session_name || `Phiên ${idx + 1}`}
+                      </h5>
+                    </div>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border self-start sm:self-auto ${
+                      session.seating_type === 'ASSIGNED'
+                        ? 'bg-primary/10 text-primary border-primary/20'
+                        : 'bg-panel-soft text-subtle border-border-soft/50'
+                    }`}>
+                      {session.seating_type === 'ASSIGNED' ? 'Sơ đồ ghế chỉ định' : 'Vé phổ thông (Tự do)'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1 border-t border-border-soft/20">
+                    <div className="flex items-center gap-2 text-content">
+                      <Icon name="event" className="text-sm text-tertiary shrink-0" />
+                      <span>
+                        Ngày: <strong className="text-content font-bold">{dateFormatted}</strong>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-content">
+                      <Icon name="schedule" className="text-sm text-tertiary shrink-0" />
+                      <span>
+                        Giờ diễn ra: <strong className="text-content font-bold">{session.start_time || '--:--'} - {session.end_time || '--:--'}</strong>
+                      </span>
+                    </div>
+
+                    {session.checkin_start_time && (
+                      <div className="flex items-center gap-2 text-subtle">
+                        <Icon name="how_to_reg" className="text-sm text-success shrink-0" />
+                        <span>Mở check-in từ: <strong className="text-content font-semibold">{session.checkin_start_time}</strong></span>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2 text-content sm:col-span-2 pt-0.5">
+                      <Icon name="location_on" className="text-sm text-tertiary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-content">{sVenue?.name || 'Chưa chọn địa điểm'}</span>
+                        {sVenue?.address && <span className="text-muted block text-[11px] mt-0.5">{sVenue.address}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </section>
 
-        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <div className="flex items-center gap-2 mb-4">
-            <Icon name="confirmation_number" className="text-tertiary" />
-            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Vé & Chỗ ngồi</h4>
+        {/* Cơ cấu vé & Chỗ ngồi */}
+        <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-border-soft/30">
+            <div className="flex items-center gap-2">
+              <Icon name="confirmation_number" className="text-tertiary text-xl" />
+              <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Cơ cấu vé & Bảng giá</h4>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-subtle font-medium">Tổng: <strong className="text-content">{totalEventTickets.toLocaleString('vi-VN')} vé</strong></span>
+              <span className="text-border-soft/60">|</span>
+              <span className="text-subtle font-medium">Dự thu: <strong className="text-tertiary font-bold">{totalEventRevenue.toLocaleString('vi-VN')} VND</strong></span>
+            </div>
           </div>
-          <div className="space-y-4">
+
+          <div className="space-y-3">
             {groupedTickets.map((group, index) => {
+              const isFree = Number(group.price) === 0
               const TICKET_COLORS = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500', 'bg-teal-500', 'bg-indigo-500']
               const colorClass = TICKET_COLORS[index % TICKET_COLORS.length]
 
               return (
-                <div key={group.key} className="flex flex-col p-4 bg-panel-soft rounded-xl border border-border-soft/40 shadow-sm relative overflow-hidden">
-                  <div className={`absolute left-0 top-0 bottom-0 w-1 opacity-80 ${colorClass}`} />
-                  <div className="flex justify-between items-start pl-1">
-                    <div>
-                      <p className="font-bold text-sm text-content mb-1">{group.name}</p>
-                      <p className="text-xs text-subtle font-medium">Tổng số lượng: {group.totalQty} vé · {group.is_seated ? 'Có chỗ ngồi' : 'Không chỗ ngồi'}</p>
+                <div key={group.key} className="flex flex-col p-4 bg-panel-soft/60 rounded-xl border border-border-soft/40 shadow-sm relative overflow-hidden space-y-2">
+                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 opacity-90 ${colorClass}`} />
+                  <div className="flex justify-between items-start pl-2">
+                    <div className="min-w-0 flex-1 pr-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-sm text-content">{group.name}</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          group.is_seated ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-tertiary/10 text-tertiary border border-tertiary/20'
+                        }`}>
+                          {group.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-subtle font-medium mt-1">
+                        Tổng phát hành: <strong className="text-content">{Number(group.totalQty).toLocaleString('vi-VN')} vé</strong>
+                      </p>
+                      {group.description && (
+                        <p className="text-[11px] text-muted mt-1 leading-relaxed italic">
+                          Quyền lợi: {group.description}
+                        </p>
+                      )}
                     </div>
-                    <p className="font-bold text-sm text-tertiary mt-0.5">{Number(group.price).toLocaleString('vi-VN')} đ</p>
+                    <div className="text-right shrink-0">
+                      {isFree ? (
+                        <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-success/15 text-success border border-success/30">
+                          Miễn phí
+                        </span>
+                      ) : (
+                        <span className="text-sm font-black text-tertiary">
+                          {Number(group.price).toLocaleString('vi-VN')} VND
+                        </span>
+                      )}
+                    </div>
                   </div>
+
                   {formData.sessions.length > 1 && group.sessions.length > 0 && (
-                    <div className="mt-4 pl-1 pt-3 border-t border-border-soft/30 flex flex-wrap gap-2">
+                    <div className="mt-2 pl-2 pt-2 border-t border-border-soft/25 flex flex-wrap gap-1.5">
                       {group.sessions.map((s, idx) => (
-                        <span key={idx} className="text-[11px] bg-background/50 border border-border-soft/30 px-2 py-1 rounded-md text-subtle font-medium">
+                        <span key={idx} className="text-[11px] bg-surface/80 border border-border-soft/40 px-2 py-0.5 rounded-md text-subtle font-medium">
                           {s.name}: <strong className="text-content">{s.qty} vé</strong>
                         </span>
                       ))}
@@ -2856,57 +2973,12 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
           </div>
         </section>
 
-        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Icon name="policy" className="text-tertiary" />
-            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Cài đặt & Điều khoản</h4>
-          </div>
-          <div className="p-3 rounded-lg bg-panel-soft border border-border-soft/30 text-xs flex items-center justify-between">
-            <span className="text-subtle font-medium">Thu thập thông tin người tham dự</span>
-            <span className="font-bold text-content">
-              {formData.require_attendee_info
-                ? 'Bắt buộc từng vé'
-                : 'Không bắt buộc'}
-            </span>
-          </div>
-
-          {formData.refund_policy?.policy_file_url && (
-            <div className="p-3 rounded-lg bg-panel-soft border border-border-soft/30 text-xs flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <Icon name="description" className="text-blue-500 shrink-0" />
-                <span className="text-content font-semibold truncate">
-                  {formData.refund_policy.policy_file_name || 'File chính sách sự kiện'}
-                </span>
-                <span className="text-muted text-[11px]">
-                  ({formatFileSize(formData.refund_policy.policy_file_size)})
-                </span>
-              </div>
-              <a
-                href={formData.refund_policy.policy_file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-tertiary font-bold hover:underline shrink-0 flex items-center gap-1"
-              >
-                <span>Xem file</span>
-                <Icon name="open_in_new" className="text-xs" />
-              </a>
-            </div>
-          )}
-
-          {formData.additional_terms && (
-            <div className="p-3 rounded-lg bg-panel-soft border border-border-soft/30 text-xs space-y-1">
-              <span className="font-bold text-content block">Điều khoản bổ sung:</span>
-              <p className="text-subtle whitespace-pre-wrap">{formData.additional_terms}</p>
-            </div>
-          )}
-        </section>
-
-        {/* Legal Permits Review Section */}
-        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
-          <div className="flex items-center justify-between">
+        {/* Giấy phép & Hồ sơ pháp lý sự kiện (Đưa lên trước Chính sách theo đúng thứ tự) */}
+        <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-border-soft/30">
             <div className="flex items-center gap-2">
-              <Icon name="verified_user" className="text-tertiary" />
-              <h4 className="text-sm font-bold uppercase tracking-wider text-content">
+              <Icon name="verified_user" className="text-tertiary text-xl" />
+              <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">
                 Giấy phép & Hồ sơ pháp lý sự kiện
               </h4>
             </div>
@@ -2920,13 +2992,15 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
               {formData.refund_policy.permit_files.map((file) => (
                 <div
                   key={file.id || file.url}
-                  className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/40 text-xs"
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/40 text-xs hover:border-border-soft/70 transition"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon
-                      name={file.type?.includes('pdf') || file.name?.endsWith('.pdf') ? 'picture_as_pdf' : 'description'}
-                      className="text-tertiary shrink-0"
-                    />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-8 rounded-lg bg-tertiary/10 text-tertiary flex items-center justify-center shrink-0">
+                      <Icon
+                        name={file.type?.includes('pdf') || file.name?.endsWith('.pdf') ? 'picture_as_pdf' : 'description'}
+                        className="text-base"
+                      />
+                    </div>
                     <div className="min-w-0">
                       <p className="font-bold text-content truncate">{file.name}</p>
                       <p className="text-[11px] text-muted">{formatFileSize(file.size)}</p>
@@ -2936,10 +3010,10 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     href={file.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-2.5 py-1 rounded bg-surface border border-border-soft/50 text-tertiary font-bold hover:bg-panel-soft transition flex items-center gap-1 shrink-0"
+                    className="px-3 py-1 rounded-lg bg-surface border border-border-soft/60 text-tertiary font-bold hover:bg-panel-soft transition flex items-center gap-1.5 shrink-0"
                   >
                     <span>Mở xem</span>
-                    <Icon name="visibility" className="text-xs" />
+                    <Icon name="open_in_new" className="text-xs" />
                   </a>
                 </div>
               ))}
@@ -2947,16 +3021,63 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
           ) : (
             <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/20 text-xs text-warning flex items-start gap-2">
               <Icon name="warning" className="text-base shrink-0 mt-0.5" />
-              <span>Chưa có giấy phép tổ chức nào được đính kèm. Vui lòng quay lại Bước 4 để tải lên giấy phép.</span>
+              <span>Chưa có giấy phép tổ chức nào được đính kèm. Vui lòng quay lại Bước 4 để tải lên giấy phép hợp lệ.</span>
             </div>
           )}
         </section>
 
-        {/* Commitment Agreement Section */}
-        <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-3">
+        {/* Cài đặt & Điều khoản tham dự */}
+        <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-border-soft/30">
+            <Icon name="policy" className="text-tertiary text-xl" />
+            <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Chính sách & Điều khoản tham dự</h4>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs flex items-center justify-between">
+            <span className="text-subtle font-medium">Thu thập thông tin người tham dự</span>
+            <span className="font-bold text-content px-2.5 py-0.5 rounded-full bg-surface border border-border-soft/40">
+              {formData.require_attendee_info ? 'Bắt buộc từng vé' : 'Không bắt buộc'}
+            </span>
+          </div>
+
+          {formData.refund_policy?.policy_file_url && (
+            <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Icon name="description" className="text-blue-500 shrink-0 text-lg" />
+                <div className="min-w-0">
+                  <span className="text-content font-bold truncate block">
+                    {formData.refund_policy.policy_file_name || 'File chính sách sự kiện'}
+                  </span>
+                  <span className="text-muted text-[11px]">
+                    {formatFileSize(formData.refund_policy.policy_file_size)}
+                  </span>
+                </div>
+              </div>
+              <a
+                href={formData.refund_policy.policy_file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-tertiary font-bold hover:underline shrink-0 flex items-center gap-1 bg-surface px-3 py-1 rounded-lg border border-border-soft/50"
+              >
+                <span>Xem file</span>
+                <Icon name="open_in_new" className="text-xs" />
+              </a>
+            </div>
+          )}
+
+          {formData.additional_terms && (
+            <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs space-y-1.5">
+              <span className="font-bold text-content block uppercase text-[11px] text-muted">Điều khoản bổ sung:</span>
+              <p className="text-subtle whitespace-pre-wrap leading-relaxed">{formData.additional_terms}</p>
+            </div>
+          )}
+        </section>
+
+        {/* Cam kết của Ban tổ chức */}
+        <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-3">
           <div className="flex items-center gap-2 mb-1">
-            <Icon name="verified" className="text-tertiary" />
-            <h4 className="text-sm font-bold uppercase tracking-wider text-content">Cam kết của Ban tổ chức</h4>
+            <Icon name="verified" className="text-tertiary text-xl" />
+            <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Cam kết của Ban tổ chức</h4>
           </div>
           <label className="flex items-start gap-3.5 p-4 rounded-xl bg-panel-soft/70 border border-border-soft/40 hover:bg-panel-soft cursor-pointer transition">
             <input
