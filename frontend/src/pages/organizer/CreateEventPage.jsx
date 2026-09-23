@@ -20,6 +20,7 @@ import RichTextEditor from '@/components/RichTextEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { AiEventContentGeneratorModal } from './AiEventContentGeneratorModal.jsx'
+import { AiDocumentExtractorModal } from './AiDocumentExtractorModal.jsx'
 
 const STEP_LABELS = [
   'Thông tin sự kiện',
@@ -203,8 +204,8 @@ function calculateEventCompleteness(formData) {
       detail: !titleValid
         ? 'Chưa nhập tên sự kiện'
         : !categoryValid
-        ? 'Chưa chọn danh mục'
-        : 'Đã hoàn tất',
+          ? 'Chưa chọn danh mục'
+          : 'Đã hoàn tất',
     },
     {
       id: 'descriptions',
@@ -214,8 +215,8 @@ function calculateEventCompleteness(formData) {
       detail: !shortDescValid
         ? 'Chưa nhập mô tả ngắn'
         : !descValid
-        ? 'Chưa nhập mô tả chi tiết'
-        : 'Đã hoàn tất',
+          ? 'Chưa nhập mô tả chi tiết'
+          : 'Đã hoàn tất',
     },
     {
       id: 'media',
@@ -225,10 +226,10 @@ function calculateEventCompleteness(formData) {
       detail: !thumbValid && !bannerValid
         ? 'Chưa tải thumbnail và banner'
         : !thumbValid
-        ? 'Chưa tải ảnh thumbnail'
-        : !bannerValid
-        ? 'Chưa tải ảnh banner'
-        : 'Đã tải đủ ảnh',
+          ? 'Chưa tải ảnh thumbnail'
+          : !bannerValid
+            ? 'Chưa tải ảnh banner'
+            : 'Đã tải đủ ảnh',
     },
     {
       id: 'sessions',
@@ -238,10 +239,10 @@ function calculateEventCompleteness(formData) {
       detail: !hasSessions
         ? 'Cần tạo ít nhất 1 phiên sự kiện'
         : overlapInfo
-        ? `Trùng giờ: "${overlapInfo.nameA}" và "${overlapInfo.nameB}"`
-        : !sessionsValid
-        ? 'Phiên chưa đủ ngày giờ hoặc chưa chọn địa điểm'
-        : `${formData.sessions.length} phiên hợp lệ`,
+          ? `Trùng giờ: "${overlapInfo.nameA}" và "${overlapInfo.nameB}"`
+          : !sessionsValid
+            ? 'Phiên chưa đủ ngày giờ hoặc chưa chọn địa điểm'
+            : `${formData.sessions.length} phiên hợp lệ`,
     },
     {
       id: 'tickets',
@@ -251,8 +252,8 @@ function calculateEventCompleteness(formData) {
       detail: !hasSessions
         ? 'Cần tạo phiên trước khi tạo vé'
         : !ticketsValid
-        ? 'Mỗi phiên cần ít nhất 1 loại vé hợp lệ (tên, giá >= 0, số lượng > 0)'
-        : 'Đã cấu hình đủ loại vé',
+          ? 'Mỗi phiên cần ít nhất 1 loại vé hợp lệ (tên, giá >= 0, số lượng > 0)'
+          : 'Đã cấu hình đủ loại vé',
     },
     {
       id: 'seat_map',
@@ -271,8 +272,8 @@ function calculateEventCompleteness(formData) {
       detail: !policiesValid
         ? 'Cần nhập điều khoản tham dự hoặc tải file chính sách'
         : policyFileUrl
-        ? `Đã đính kèm file: ${formData.refund_policy?.policy_file_name || 'chính sách'}`
-        : 'Đã thiết lập điều khoản tham dự',
+          ? `Đã đính kèm file: ${formData.refund_policy?.policy_file_name || 'chính sách'}`
+          : 'Đã thiết lập điều khoản tham dự',
     },
     {
       id: 'permits',
@@ -770,9 +771,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
               return (
                 <div
                   key={key}
-                  className={`border rounded-xl relative overflow-hidden mb-4 shadow-sm transition-all ${
-                    isOverlapped ? 'border-error/80 ring-1 ring-error/30 bg-error/5' : 'border-border-soft/40 bg-panel-soft/30'
-                  }`}
+                  className={`border rounded-xl relative overflow-hidden mb-4 shadow-sm transition-all ${isOverlapped ? 'border-error/80 ring-1 ring-error/30 bg-error/5' : 'border-border-soft/40 bg-panel-soft/30'
+                    }`}
                 >
                   <div
                     className="p-5 flex items-center justify-between cursor-pointer hover:bg-surface/70 transition-colors"
@@ -1966,18 +1966,16 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                 return (
                   <div
                     key={key}
-                    className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm ${
-                      isCollapsed
-                        ? 'border-border-soft/50 bg-surface hover:border-tertiary/50 hover:shadow-md'
-                        : 'border-tertiary/50 bg-surface ring-1 ring-tertiary/20 shadow-md'
-                    }`}
+                    className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm ${isCollapsed
+                      ? 'border-border-soft/50 bg-surface hover:border-tertiary/50 hover:shadow-md'
+                      : 'border-tertiary/50 bg-surface ring-1 ring-tertiary/20 shadow-md'
+                      }`}
                   >
                     {/* Header của vé (Bấm để thu gọn/mở rộng) */}
                     <div
                       onClick={() => toggleTicketCollapse(key)}
-                      className={`p-4 flex items-center justify-between cursor-pointer select-none transition-colors ${
-                        isCollapsed ? 'hover:bg-panel-soft/60' : 'bg-panel-soft/70 border-b border-border-soft/40'
-                      }`}
+                      className={`p-4 flex items-center justify-between cursor-pointer select-none transition-colors ${isCollapsed ? 'hover:bg-panel-soft/60' : 'bg-panel-soft/70 border-b border-border-soft/40'
+                        }`}
                     >
                       {/* Left: Thứ tự + Tên vé + Badges tóm tắt */}
                       <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
@@ -2044,9 +2042,8 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                         >
                           <Icon
                             name="expand_more"
-                            className={`text-[22px] transition-transform duration-200 ${
-                              isCollapsed ? '' : 'rotate-180 text-tertiary'
-                            }`}
+                            className={`text-[22px] transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180 text-tertiary'
+                              }`}
                           />
                         </span>
                       </div>
@@ -2521,8 +2518,8 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
                             file.type?.includes('pdf') || file.name?.endsWith('.pdf')
                               ? 'picture_as_pdf'
                               : file.type?.includes('image')
-                              ? 'image'
-                              : 'description'
+                                ? 'image'
+                                : 'description'
                           }
                           className="text-lg"
                         />
@@ -2725,8 +2722,8 @@ function Step4PoliciesSettings({ formData, setFormData, completeness }) {
                   {rp?.policy_file_url
                     ? `Đã đính kèm file (${rp.policy_file_name || 'file'})`
                     : formData.additional_terms?.trim()
-                    ? 'Đã nhập điều khoản tham dự'
-                    : 'Chưa nhập hoặc tải file chính sách'}
+                      ? 'Đã nhập điều khoản tham dự'
+                      : 'Chưa nhập hoặc tải file chính sách'}
                 </p>
               </div>
             </div>
@@ -2858,11 +2855,10 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                         {session.session_name || `Phiên ${idx + 1}`}
                       </h5>
                     </div>
-                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border self-start sm:self-auto ${
-                      session.seating_type === 'ASSIGNED'
-                        ? 'bg-primary/10 text-primary border-primary/20'
-                        : 'bg-panel-soft text-subtle border-border-soft/50'
-                    }`}>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border self-start sm:self-auto ${session.seating_type === 'ASSIGNED'
+                      ? 'bg-primary/10 text-primary border-primary/20'
+                      : 'bg-panel-soft text-subtle border-border-soft/50'
+                      }`}>
                       {session.seating_type === 'ASSIGNED' ? 'Sơ đồ ghế chỉ định' : 'Vé phổ thông (Tự do)'}
                     </span>
                   </div>
@@ -2930,9 +2926,8 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     <div className="min-w-0 flex-1 pr-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm text-content">{group.name}</p>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          group.is_seated ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-tertiary/10 text-tertiary border border-tertiary/20'
-                        }`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${group.is_seated ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-tertiary/10 text-tertiary border border-tertiary/20'
+                          }`}>
                           {group.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
                         </span>
                       </div>
@@ -3103,19 +3098,18 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
           <div className="flex justify-between items-center mb-4">
             <span className="text-xs font-bold uppercase text-subtle">Trạng thái sự kiện</span>
             <span
-              className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase border ${
-                completeness?.isReady
-                  ? 'bg-success/10 text-success border-success/20'
-                  : (completeness?.percent ?? 0) >= 70
+              className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase border ${completeness?.isReady
+                ? 'bg-success/10 text-success border-success/20'
+                : (completeness?.percent ?? 0) >= 70
                   ? 'bg-tertiary/10 text-tertiary border-tertiary/20'
                   : 'bg-warning/10 text-warning border-warning/20'
-              }`}
+                }`}
             >
               {completeness?.isReady
                 ? 'Tuyệt vời'
                 : (completeness?.percent ?? 0) >= 70
-                ? 'Gần hoàn thành'
-                : 'Chưa hoàn thiện'}
+                  ? 'Gần hoàn thành'
+                  : 'Chưa hoàn thiện'}
             </span>
           </div>
 
@@ -3157,9 +3151,8 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                 <div className="flex items-start gap-2 min-w-0">
                   <Icon
                     name={item.completed ? 'check_circle' : 'cancel'}
-                    className={`text-[16px] shrink-0 mt-0.5 ${
-                      item.completed ? 'text-success' : 'text-error'
-                    }`}
+                    className={`text-[16px] shrink-0 mt-0.5 ${item.completed ? 'text-success' : 'text-error'
+                      }`}
                   />
                   <div className="min-w-0">
                     <p className={`font-semibold ${item.completed ? 'text-content' : 'text-error'}`}>
@@ -3206,6 +3199,8 @@ export function CreateEventPage() {
   const [editPermissions, setEditPermissions] = useState(null)
   const [paymentSetupRequired, setPaymentSetupRequired] = useState(false)
   const [subscriptionRequired, setSubscriptionRequired] = useState(false)
+  const [isAiDocModalOpen, setIsAiDocModalOpen] = useState(false)
+  const [aiDraftBanner, setAiDraftBanner] = useState(false)
 
   const isEditMode = Boolean(routeEventId)
   const completeness = useMemo(() => calculateEventCompleteness(formData), [formData])
@@ -3329,6 +3324,77 @@ export function CreateEventPage() {
       })
       .finally(() => setInitialLoading(false))
   }, [routeEventId, populateFromEvent, toast])
+
+  const handleApplyAiDraft = (aiData) => {
+    if (!aiData) return
+
+    // Find best matching venue from organizer's venues
+    let defaultVenueId = venues[0]?.id || ''
+    if (venues && venues.length > 0) {
+      const vName = (aiData.venue_name || '').toLowerCase()
+      const vCity = (aiData.province || '').toLowerCase()
+      const matched = venues.find(
+        (v) =>
+          (vName && v.name?.toLowerCase().includes(vName)) ||
+          (vCity && (v.city || '').toLowerCase().includes(vCity))
+      )
+      if (matched) {
+        defaultVenueId = matched.id
+      }
+    }
+
+    const sKey = newClientKey()
+    const extractedSession = aiData.sessions?.[0] || {}
+    const sessionDate = extractedSession.start_date || ''
+
+    const mappedSession = {
+      clientKey: sKey,
+      session_name: extractedSession.session_name || 'Phiên sự kiện',
+      start_date: sessionDate,
+      start_time: extractedSession.start_time || '09:00',
+      end_date: sessionDate,
+      end_time: extractedSession.end_time || '17:00',
+      venue_id: defaultVenueId,
+      seat_map_id: null,
+      seating_type: 'GENERAL',
+      zone_assignments: [],
+      checkin_start_date: sessionDate,
+      checkin_start_time: extractedSession.start_time || '09:00',
+    }
+
+    const rawTickets = Array.isArray(aiData.ticket_types) ? aiData.ticket_types : []
+    const mappedTicketTypes = rawTickets.map((tt) => ({
+      clientKey: newClientKey(),
+      session_key: sKey,
+      name: tt.name || 'Vé Tiêu Chuẩn',
+      description: tt.description || '',
+      price: tt.price !== null && tt.price !== undefined ? Number(tt.price) : 0,
+      quantity: tt.quantity_total ? Number(tt.quantity_total) : 100,
+      is_seated: false,
+      zone_id: null,
+    }))
+
+    setFormData((prev) => ({
+      ...prev,
+      title: aiData.title || prev.title,
+      category_id: aiData.category_id || prev.category_id,
+      short_description: (aiData.short_description || prev.short_description || '').slice(0, 150),
+      description: aiData.description || prev.description,
+      additional_terms: aiData.additional_terms || prev.additional_terms,
+      tags: Array.isArray(aiData.tags) && aiData.tags.length > 0 ? aiData.tags : prev.tags,
+      sessions: [mappedSession],
+      ticketTypes: mappedTicketTypes.length > 0 ? mappedTicketTypes : prev.ticketTypes,
+      refund_policy: {
+        ...prev.refund_policy,
+        allow_refunds: Boolean(aiData.refund_policy?.allow_refunds),
+        deadline_days: Number(aiData.refund_policy?.deadline_days) || 7,
+      },
+    }))
+
+    setAiDraftBanner(true)
+    setCurrentStep(1)
+    toast.success('Đã áp dụng dữ liệu AI vào bản nháp! Hãy kiểm tra từng bước.')
+  }
 
   const validateStep = (step) => {
     if (step === 1) {
@@ -3944,7 +4010,7 @@ export function CreateEventPage() {
 
   return (
     <div className="pb-20 max-w-6xl mx-auto">
-      <div className="mb-6 flex justify-between items-end">
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="font-display text-3xl font-extrabold text-content">
             {isEditMode ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện'}
@@ -3955,6 +4021,16 @@ export function CreateEventPage() {
               : 'Thiết lập sự kiện của bạn trong 5 bước đơn giản.'}
           </p>
         </div>
+        {!isEditMode && (
+          <button
+            type="button"
+            onClick={() => setIsAiDocModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110 active:scale-95 cursor-pointer"
+          >
+            <Sparkles className="size-4 animate-pulse" />
+            <span>✨ Tự động tạo bằng AI (Tài liệu / Kế hoạch)</span>
+          </button>
+        )}
       </div>
 
       <div className="bg-surface rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.06)] border border-border-soft/40 overflow-hidden flex flex-col min-h-[600px]">
@@ -3969,6 +4045,27 @@ export function CreateEventPage() {
 
         {/* Main Content Area */}
         <div className="flex-1 p-6 lg:p-10 bg-background/30">
+
+          {aiDraftBanner && (
+            <div className="mb-6 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10 flex items-start justify-between gap-3 text-sm text-indigo-200 animate-in fade-in">
+              <div className="flex items-start gap-3">
+                <Sparkles className="size-5 text-indigo-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-white">Bản nháp đã được AI điền tự động từ tài liệu!</p>
+                  <p className="text-xs text-indigo-300 mt-0.5">
+                    Vui lòng rà soát lại thông tin qua các bước, tải lên ảnh poster/banner, giấy phép tổ chức và tùy chỉnh theo ý muốn trước khi nộp duyệt.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiDraftBanner(false)}
+                className="text-indigo-400 hover:text-white p-1 rounded-lg"
+              >
+                <Icon name="close" className="text-sm" />
+              </button>
+            </div>
+          )}
 
           {paymentSetupRequired && (
             <div className="mb-4 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
@@ -3999,50 +4096,50 @@ export function CreateEventPage() {
             </div>
           )}
           <fieldset disabled={Boolean(editPermissions?.is_time_locked)} className={editPermissions?.is_time_locked ? 'opacity-60' : ''}>
-          {currentStep === 1 && (
-            /* Locked events are read-only; backend enforces the same rule. */
-            <Step1EventInfo
-              formData={formData}
-              setFormData={setFormData}
-              categories={categories}
-              tagInput={tagInput}
-              setTagInput={setTagInput}
-              onThumbnailUpload={handleThumbnailUpload}
-              onBannerUpload={handleBannerUpload}
-              uploadingThumb={uploadingThumb}
-              uploadingBanner={uploadingBanner}
-              completeness={completeness}
-            />
-          )}
-          {currentStep === 2 && (
-            <Step2ScheduleVenue
-              formData={formData}
-              setFormData={setFormData}
-              venues={venues}
-              completeness={completeness}
-            />
-          )}
-          {currentStep === 3 && (
-            <Step3TicketsSeats
-              formData={formData}
-              setFormData={setFormData}
-              venues={venues}
-              completeness={completeness}
-            />
-          )}
-          {currentStep === 4 && (
-            <Step4PoliciesSettings formData={formData} setFormData={setFormData} completeness={completeness} />
-          )}
-          {currentStep === 5 && (
-            <Step5ReviewSubmit
-              formData={formData}
-              setFormData={setFormData}
-              categories={categories}
-              venues={venues}
-              completeness={completeness}
-              onGoToStep={setCurrentStep}
-            />
-          )}
+            {currentStep === 1 && (
+              /* Locked events are read-only; backend enforces the same rule. */
+              <Step1EventInfo
+                formData={formData}
+                setFormData={setFormData}
+                categories={categories}
+                tagInput={tagInput}
+                setTagInput={setTagInput}
+                onThumbnailUpload={handleThumbnailUpload}
+                onBannerUpload={handleBannerUpload}
+                uploadingThumb={uploadingThumb}
+                uploadingBanner={uploadingBanner}
+                completeness={completeness}
+              />
+            )}
+            {currentStep === 2 && (
+              <Step2ScheduleVenue
+                formData={formData}
+                setFormData={setFormData}
+                venues={venues}
+                completeness={completeness}
+              />
+            )}
+            {currentStep === 3 && (
+              <Step3TicketsSeats
+                formData={formData}
+                setFormData={setFormData}
+                venues={venues}
+                completeness={completeness}
+              />
+            )}
+            {currentStep === 4 && (
+              <Step4PoliciesSettings formData={formData} setFormData={setFormData} completeness={completeness} />
+            )}
+            {currentStep === 5 && (
+              <Step5ReviewSubmit
+                formData={formData}
+                setFormData={setFormData}
+                categories={categories}
+                venues={venues}
+                completeness={completeness}
+                onGoToStep={setCurrentStep}
+              />
+            )}
           </fieldset>
 
         </div>
@@ -4127,6 +4224,12 @@ export function CreateEventPage() {
           </div>
         </footer>
       </div>
+
+      <AiDocumentExtractorModal
+        isOpen={isAiDocModalOpen}
+        onClose={() => setIsAiDocModalOpen(false)}
+        onApply={handleApplyAiDraft}
+      />
     </div>
   )
 }
