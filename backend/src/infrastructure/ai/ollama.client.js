@@ -14,8 +14,8 @@
 const logger = require('../../core/logger');
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || 'qwen3:4b';
-const OLLAMA_TIMEOUT  = Number(process.env.OLLAMA_TIMEOUT_MS || 60000);
+const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || 'qwen3-event-extractor-2';
+const OLLAMA_TIMEOUT  = Number(process.env.OLLAMA_TIMEOUT_MS || 180000);
 
 /**
  * Base fetch wrapper with timeout.
@@ -69,10 +69,11 @@ async function generate(prompt, options = {}) {
     model,
     prompt: finalPrompt,
     stream: false,
+    ...(options.format ? { format: options.format } : {}),
     options: {
       temperature: options.temperature ?? 0.3,
       top_p:       options.top_p       ?? 0.9,
-      num_predict: options.max_tokens  ?? 1024,
+      num_predict: options.max_tokens  ?? 2048,
     },
   };
 

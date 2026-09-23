@@ -212,3 +212,24 @@ export async function generateAiFinancialSummary(eventId, payload) {
   const response = await http.post(`/organizer/events/${eventId}/ai/financial-summary`, payload)
   return response.data.data
 }
+
+export async function extractEventFromDocument({ file, note = '', rawText = '' }) {
+  const formData = new FormData()
+  if (file) {
+    formData.append('file', file)
+  }
+  if (rawText) {
+    formData.append('raw_text', rawText)
+  }
+  if (note) {
+    formData.append('note', note)
+  }
+
+  const response = await http.post('/organizer/events/ai-extract-event', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 60000,
+  })
+  return response.data.data
+}
