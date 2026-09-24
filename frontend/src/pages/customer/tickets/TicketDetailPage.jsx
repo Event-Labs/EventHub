@@ -1,4 +1,4 @@
-import { isAuthenticated as hasAuthSession } from '@/lib/auth.js'
+import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -11,10 +11,10 @@ import {
   AlertCircle,
   HelpCircle,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { fetchTicketDetail } from '@/services/tickets.js'
-import { submitRefundRequest, fetchRefundPreview } from '@/services/refunds.js'
+import { submitRefundRequest, fetchRefundPreview, fetchMyRefundRequests } from '@/services/refunds.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { VIETNAMESE_BANKS, getBankDisplayName } from '@/constants/banks.js'
 
@@ -263,6 +263,8 @@ export function TicketDetailPage() {
   const isAuthenticated = hasAuthSession()
   const [downloadError, setDownloadError] = useState('')
   const [downloading, setDownloading] = useState(false)
+  const [refundDetailOpen, setRefundDetailOpen] = useState(false)
+  const currentUserKey = getStoredUserKey()
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -275,6 +277,24 @@ export function TicketDetailPage() {
     queryFn: () => fetchTicketDetail(ticketId),
     enabled: isAuthenticated && Boolean(ticketId),
   })
+
+  const refundsQuery = useQuery({
+    queryKey: ['my-refunds', currentUserKey],
+    queryFn: () => fetchMyRefundRequests(),
+    enabled: isAuthenticated,
+  })
+
+  const ticket = ticketQuery.data
+
+  const refundRequest = useMemo(() => {
+    if (!refundsQuery.data || !ticket?.id) return null
+    return (refundsQuery.data || []).find(
+      (item) =>
+        item.ticket_id === ticket.id ||
+        item.ticket?.id === ticket.id ||
+        (item.order_id === ticket.order?.id && (!item.ticket_id || item.ticket_id === ticket.id))
+    )
+  }, [refundsQuery.data, ticket?.id, ticket?.order?.id])
 
   async function handleDownload() {
     if (!ticketQuery.data || downloading) return
@@ -311,7 +331,6 @@ export function TicketDetailPage() {
     )
   }
 
-  const ticket = ticketQuery.data
   const venue = venueLine(ticket)
   const seat = ticket.seat?.label || 'Không có ghế cố định'
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
@@ -322,9 +341,19 @@ export function TicketDetailPage() {
   const isRefundAllowedByPolicy = Boolean(activeRefundPolicy.allow_refund ?? activeRefundPolicy.allow_refunds)
   const canRequestRefund = isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
 
+  const hasRefundInfo = Boolean(
+    refundRequest ||
+    ticket.status === 'REFUND_PENDING' ||
+    ticket.status === 'REFUNDED' ||
+    ticket.status === 'REFUND_REQUESTED'
+  )
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link to="/my-tickets" className="inline-flex items-center gap-2 text-sm font-bold text-primary">
+      <Link
+        to="/my-tickets"
+        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-primary backdrop-blur-md transition hover:bg-primary/10 hover:border-primary/40 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+      >
         <ArrowLeft className="size-4" />
         Vé của tôi
       </Link>
@@ -355,17 +384,27 @@ export function TicketDetailPage() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-10 pointer-events-none" />
             <div className="relative min-h-64 overflow-hidden">
               {ticket.event?.banner_url ? (
-                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60 mix-blend-luminosity" />
+                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-85" />
               ) : (
                 <div className="absolute inset-0 bg-white/5" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
               <div className="relative flex min-h-64 flex-col justify-end p-8">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase ${isEntryEligible ? 'bg-success/20 text-success shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-success/30' : 'bg-error/20 text-error shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-error/30'}`}>
+                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase backdrop-blur-md ${
+                    ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                      ? 'bg-amber-500/25 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-500/40'
+                      : ticket.status === 'REFUNDED'
+                      ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-emerald-500/30'
+                      : ticket.status === 'EXPIRED' || ticket.status === 'CANCELLED' || ticket.status === 'USED'
+                      ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                      : isEntryEligible
+                      ? 'bg-emerald-500/25 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)] border border-emerald-500/40'
+                      : 'bg-red-500/20 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-red-500/30'
+                  }`}>
                     {statusText(ticket)}
                   </span>
-                  <span className="rounded-full bg-white/10 px-4 py-1.5 text-[10px] font-black tracking-widest uppercase text-white border border-white/10 backdrop-blur-md shadow-sm">
+                  <span className="rounded-full bg-black/40 px-4 py-1.5 text-[10px] font-black tracking-widest uppercase text-white border border-white/20 backdrop-blur-md shadow-sm">
                     {ticket.ticket_type?.name}
                   </span>
                 </div>
@@ -379,7 +418,7 @@ export function TicketDetailPage() {
               <div className="grid gap-6 sm:grid-cols-2">
                 {collectAttendees && (
                   <>
-                    <CompactDetail label="Người tham dự" value={ticket.attendee_name} />
+                    <CompactDetail label="Họ tên người tham dự" value={ticket.attendee_name} />
                     <CompactDetail label="Email người tham dự" value={ticket.attendee_email} />
                   </>
                 )}
@@ -407,7 +446,7 @@ export function TicketDetailPage() {
                       ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
                         ? 'text-amber-400'
                         : ticket.status === 'REFUNDED'
-                        ? 'text-error'
+                        ? 'text-emerald-400'
                         : 'text-slate-400'
                     }`}>
                       {ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
@@ -416,6 +455,19 @@ export function TicketDetailPage() {
                         ? 'Vé này đã được hoàn tiền thành công và không còn hiệu lực'
                         : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in'}
                     </p>
+
+                    {hasRefundInfo && (
+                      <div className="mt-4 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setRefundDetailOpen(true)}
+                          className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/15 px-5 py-2 text-xs font-bold text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)] backdrop-blur-md transition-all hover:bg-amber-500/25 hover:border-amber-500/60 cursor-pointer"
+                        >
+                          <RotateCcw className="size-3.5" />
+                          Xem chi tiết hoàn tiền
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -439,8 +491,16 @@ export function TicketDetailPage() {
               </p>
             )}
 
+
+
             {canRequestRefund ? (
-              <RefundButton ticket={ticket} onRefundSubmitted={() => ticketQuery.refetch()} />
+              <RefundButton
+                ticket={ticket}
+                onRefundSubmitted={() => {
+                  ticketQuery.refetch()
+                  refundsQuery.refetch()
+                }}
+              />
             ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
                 Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.
@@ -449,6 +509,13 @@ export function TicketDetailPage() {
           </div>
         </div>
       </div>
+
+      <RefundDetailModal
+        isOpen={refundDetailOpen}
+        onClose={() => setRefundDetailOpen(false)}
+        ticket={ticket}
+        refundRequest={refundRequest}
+      />
     </div>
   )
 }
@@ -890,6 +957,200 @@ function Info({ label, value }) {
     <div>
       <p className="text-xs font-bold uppercase tracking-wide text-muted">{label}</p>
       <p className="mt-1 break-words font-semibold text-white">{value}</p>
+    </div>
+  )
+}
+
+function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
+  if (!isOpen || !ticket) return null
+
+  const status = refundRequest?.status || (ticket.status === 'REFUNDED' ? 'REFUNDED' : 'PENDING')
+
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'PENDING':
+        return (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-3.5 py-1 text-xs font-bold text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+            <Clock3 className="size-3.5" /> Đang chờ duyệt
+          </span>
+        )
+      case 'APPROVED':
+        return (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/40 bg-blue-500/15 px-3.5 py-1 text-xs font-bold text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+            <CheckCircle2 className="size-3.5" /> Đã duyệt (Chờ hoàn tiền)
+          </span>
+        )
+      case 'REFUNDED':
+        return (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-1 text-xs font-bold text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+            <CheckCircle2 className="size-3.5" /> Đã hoàn tiền thành công
+          </span>
+        )
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-3.5 py-1 text-xs font-bold text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+            <X className="size-3.5" /> Từ chối hoàn tiền
+          </span>
+        )
+      default:
+        return (
+          <span className="rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-bold text-slate-300">
+            {status}
+          </span>
+        )
+    }
+  }
+
+  const refundAmount = refundRequest?.refund_amount ?? (ticket.order_item?.actual_price || ticket.order_item?.final_price || ticket.ticket_type?.price || 0)
+
+  return (
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6"
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+    >
+      <div
+        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 w-full max-w-lg max-h-[88vh] flex flex-col rounded-[24px] border border-white/10 bg-[#0f172a] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Fixed Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-slate-900/90 backdrop-blur-md shrink-0">
+          <h3 className="text-base font-bold text-white tracking-wide">Chi tiết hoàn tiền vé</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
+            title="Đóng"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Status & Amount highlight banner */}
+          <div className="flex items-center justify-between gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái hoàn tiền</p>
+              <div className="mt-1.5">{getStatusBadge()}</div>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Số tiền hoàn</p>
+              <p className="mt-1 text-xl font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+                {formatCurrency(refundAmount)}
+              </p>
+            </div>
+          </div>
+
+          {/* Details list */}
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.02] p-5 space-y-3.5 text-xs">
+            {refundRequest?.id && (
+              <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium">Mã yêu cầu:</span>
+                <span className="font-mono font-bold text-primary">REQ #{refundRequest.id.slice(0, 8)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
+              <span className="text-slate-400 font-medium">Sự kiện:</span>
+              <span className="font-bold text-white text-right max-w-[65%] line-clamp-2">
+                {ticket.event?.title}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+              <span className="text-slate-400 font-medium">Mã vé:</span>
+              <span className="font-mono font-bold text-primary">{ticket.ticket_code}</span>
+            </div>
+
+            <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+              <span className="text-slate-400 font-medium">Mã đơn hàng:</span>
+              <span className="font-mono font-bold text-white">
+                #{ticket.order?.order_code || ticket.order?.id?.slice(0, 8)}
+              </span>
+            </div>
+
+            {refundRequest?.created_at && (
+              <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium">Ngày giờ gửi yêu cầu:</span>
+                <span className="font-semibold text-slate-200">
+                  {formatDateTime(refundRequest.created_at || refundRequest.requested_at)}
+                </span>
+              </div>
+            )}
+
+            {refundRequest?.refunded_at && (
+              <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium">Ngày giờ hoàn tiền:</span>
+                <span className="font-bold text-emerald-400">
+                  {formatDateTime(refundRequest.refunded_at)}
+                </span>
+              </div>
+            )}
+
+            {refundRequest?.reviewed_at && !refundRequest?.refunded_at && (
+              <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium">Ngày giờ xét duyệt:</span>
+                <span className="font-semibold text-slate-200">
+                  {formatDateTime(refundRequest.reviewed_at)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
+              <span className="text-slate-400 font-medium shrink-0">Lý do hoàn tiền:</span>
+              <span className="font-semibold text-white text-right break-words">
+                {refundRequest?.reason || 'Theo chính sách hoàn vé sự kiện'}
+              </span>
+            </div>
+
+            {refundRequest?.refund_method && (
+              <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium">Phương thức hoàn:</span>
+                <span className="font-semibold text-slate-200">
+                  {refundRequest.refund_method === 'PAYOS' ? 'Tự động qua cổng PayOS' : 'Chuyển khoản ngân hàng'}
+                </span>
+              </div>
+            )}
+
+            {refundRequest?.bank_name && (
+              <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium shrink-0">Tài khoản nhận:</span>
+                <span className="font-semibold text-slate-200 text-right">
+                  {refundRequest.bank_name} - {refundRequest.bank_account_number} ({refundRequest.bank_account_name})
+                </span>
+              </div>
+            )}
+
+            {refundRequest?.transaction_ref && (
+              <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium">Mã GD hoàn tiền:</span>
+                <span className="font-mono font-bold text-emerald-400">{refundRequest.transaction_ref}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Organizer Reject Reason */}
+          {refundRequest?.reject_reason && (
+            <div className="rounded-[18px] border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">
+              <p className="font-bold flex items-center gap-1.5 text-red-300">
+                <AlertCircle className="size-4" /> Lý do từ chối từ Ban tổ chức:
+              </p>
+              <p className="mt-1.5 leading-relaxed text-red-100/90">{refundRequest.reject_reason}</p>
+            </div>
+          )}
+
+          {/* Organizer Note */}
+          {refundRequest?.organizer_note && (
+            <div className="rounded-[18px] border border-blue-500/30 bg-blue-500/10 p-4 text-xs text-blue-200">
+              <p className="font-bold flex items-center gap-1.5 text-blue-300">
+                <HelpCircle className="size-4" /> Ghi chú từ Ban tổ chức:
+              </p>
+              <p className="mt-1.5 leading-relaxed text-blue-100/90">{refundRequest.organizer_note}</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

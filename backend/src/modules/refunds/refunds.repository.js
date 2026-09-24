@@ -65,6 +65,10 @@ const REFUND_JOINS = `
 `;
 
 class RefundsRepository {
+  async findOrderAndTicketForRefund(orderId, ticketId, customerId, client = db, forUpdate = false) {
+    return this.getRefundContext(customerId, orderId, ticketId, client, forUpdate);
+  }
+
   async getRefundContext(customerId, orderId, ticketId = null, client = db, forUpdate = false) {
     const lockClause = forUpdate ? 'FOR UPDATE OF o' : '';
     const { rows } = await client.query(
