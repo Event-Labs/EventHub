@@ -84,7 +84,8 @@ export function ActiveHoldFloatingBar() {
           <button
             type="button"
             onClick={handleResume}
-            className="cosmic-btn-primary flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold"
+            className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all hover:brightness-110 hover:shadow-[0_0_16px_rgba(201,154,71,0.5)] active:scale-95 cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
           >
             <span>Tiếp tục đặt vé</span>
             <ArrowRight className="size-3.5" />
