@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  Clock,
   ExternalLink,
   FileText,
   Minus,
@@ -23,6 +24,14 @@ import promotionService from '@/services/promotions.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
+import {
+  clearBookingDraft,
+  formatCountdown,
+  hasActiveSeatHold,
+  readBookingDraft,
+  saveBookingDraft,
+  secondsLeft,
+} from '@/utils/bookingDraft.js'
 
 function formatPrice(value) {
   const number = Number(value)
@@ -48,22 +57,17 @@ function ticketAvailability(ticketType) {
 }
 
 function formatDateTime(value) {
-  if (!value) return 'Ch\u01b0a c\u1eadp nh\u1eadt'
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
-}
-
-function secondsLeft(expiredAt) {
-  if (!expiredAt) return 0
-  return Math.max(0, Math.floor((new Date(expiredAt).getTime() - Date.now()) / 1000))
-}
-
-function formatCountdown(seconds) {
-  const minutes = Math.floor(seconds / 60)
-  const rest = seconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+  if (!value) return 'Chưa cập nhật'
+  try {
+    const d = new Date(value)
+    if (isNaN(d.getTime())) return 'Chưa cập nhật'
+    return new Intl.DateTimeFormat('vi-VN', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(d)
+  } catch {
+    return 'Chưa cập nhật'
+  }
 }
 
 function paymentQrImageSrc(qrCode) {
@@ -352,44 +356,41 @@ function normalizeCart(cart) {
   return cart || null
 }
 
-const BOOKING_DRAFT_KEY = 'eventhub-booking-draft'
-
-function readBookingDraft() {
-  if (typeof window === 'undefined') return null
-  try {
-    return normalizeCart(JSON.parse(window.sessionStorage.getItem(BOOKING_DRAFT_KEY) || 'null'))
-  } catch {
-    return null
-  }
-}
-
-function saveBookingDraft(cart) {
-  if (typeof window === 'undefined' || !cart) return
-  window.sessionStorage.setItem(BOOKING_DRAFT_KEY, JSON.stringify(cart))
-}
-
-function clearBookingDraft() {
-  if (typeof window === 'undefined') return
-  window.sessionStorage.removeItem(BOOKING_DRAFT_KEY)
-}
-
-function hasActiveSeatHold(cart) {
-  return Boolean(
-    (cart?.holdExpiresAt || cart?.hold_expires_at) &&
-    secondsLeft(cart.holdExpiresAt || cart.hold_expires_at) > 0 &&
-    (cart.selectedSeatIds?.length || cart.items?.some((item) => item.sessionSeatIds?.length)),
-  )
-}
-
 function initialCartFromLocation(location) {
   const locationCart = normalizeCart(location.state?.cart)
   const draftCart = readBookingDraft()
-  const restoredCart = locationCart || draftCart
-  const cart = location.pathname === '/booking/seats' && hasActiveSeatHold(restoredCart)
-    ? { ...restoredCart, selectedSeatIds: [], items: [] }
-    : restoredCart
-  if (cart) saveBookingDraft(cart)
-  return cart
+  let restoredCart = null
+
+  if (locationCart) {
+    restoredCart = (draftCart && String(draftCart.eventId) === String(locationCart.eventId))
+      ? { ...draftCart, ...locationCart }
+      : locationCart
+  } else {
+    restoredCart = draftCart
+  }
+
+  if (restoredCart) {
+    const expiresAt =
+      restoredCart.holdExpiresAt ||
+      restoredCart.hold_expires_at ||
+      draftCart?.holdExpiresAt ||
+      draftCart?.hold_expires_at
+    if (expiresAt) {
+      if (secondsLeft(expiresAt) <= 0) {
+        restoredCart.holdExpiresAt = null
+        restoredCart.hold_expires_at = null
+        restoredCart.selectedSeatIds = []
+        restoredCart.items = []
+        clearBookingDraft()
+      } else {
+        restoredCart.holdExpiresAt = expiresAt
+        restoredCart.hold_expires_at = expiresAt
+        saveBookingDraft(restoredCart)
+      }
+    }
+  }
+
+  return restoredCart
 }
 const TICKET_COLOR_PALETTE = [
   '#38bdf8',
@@ -443,6 +444,28 @@ export function BookingSeatsPage() {
   const [invalidSeatId, setInvalidSeatId] = useState(null)
   const [standingTicketType, setStandingTicketType] = useState(null)
   const [resettingSelection, setResettingSelection] = useState(false)
+
+  useEffect(() => {
+    if (location.state?.cart) {
+      const nextCart = location.state.cart
+      setCart(nextCart)
+      setSelectedSeatIds(nextCart.selectedSeatIds || [])
+    }
+  }, [location.state])
+
+  useEffect(() => {
+    if (cart?.holdExpiresAt && secondsLeft(cart.holdExpiresAt) <= 0) {
+      setCart((prev) => ({
+        ...prev,
+        selectedSeatIds: [],
+        items: [],
+        holdExpiresAt: null,
+        hold_expires_at: null,
+      }))
+      setSelectedSeatIds([])
+      clearBookingDraft()
+    }
+  }, [cart?.holdExpiresAt])
 
   const seatsQuery = useQuery({
     queryKey: ['session-seats', session?.id],
@@ -500,7 +523,13 @@ export function BookingSeatsPage() {
   }, [seatData, seatsQuery.data?.seat_map?.config?.standingAreas, ticketTypes])
   const buildDisplayItems = (seatIds) => {
     if (!seatData.length) return []
-    const seatsById = new Map(seatData.map((seat) => [seat.session_seat_id, seat]))
+    const seatsById = new Map(
+      seatData.flatMap((seat) => [
+        [seatId(seat), seat],
+        [seat.session_seat_id, seat],
+        [seat.id, seat],
+      ].filter(([k]) => Boolean(k)))
+    )
     const groups = {}
     seatIds.forEach((seatId) => {
       const seat = seatsById.get(seatId)
@@ -568,12 +597,11 @@ export function BookingSeatsPage() {
     setCheckingAvailability(true)
     try {
       const hold = await holdSeats(availabilityPayloadFromCart(nextCart))
-      const hasSelectedSeats = nextCart.items.some((item) => item.sessionSeatIds?.length > 0)
+      const holdExpiresAt = hold.hold_expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString()
       const heldCart = {
         ...nextCart,
-        holdExpiresAt: hold.hold_expires_at || (hasSelectedSeats
-          ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
-          : null),
+        holdExpiresAt,
+        hold_expires_at: holdExpiresAt,
       }
       saveBookingDraft(heldCart)
       navigate('/booking/attendees', { state: { cart: heldCart } })
@@ -685,14 +713,8 @@ export function BookingSeatsPage() {
 
   return (
     <BookingShell step={1} cart={displayCart}>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
-          <PageTitle
-            title={hasSeatMap ? 'Ch\u1ecdn gh\u1ebf' : 'Ch\u1ecdn v\u00e9'}
-            subtitle={hasSeatMap
-              ? 'Ch\u1ecdn gh\u1ebf tr\u1ef1c ti\u1ebfp tr\u00ean s\u01a1 \u0111\u1ed3 s\u00e2n kh\u1ea5u'
-              : 'Ch\u1ecdn lo\u1ea1i v\u00e9 v\u00e0 s\u1ed1 l\u01b0\u1ee3ng mong mu\u1ed1n'}
-          />
           <Panel unstyled={!hasSeatMap && unseatedTicketTypes.length > 0}>
             {seatsQuery.isLoading ? (
               <p className="text-muted">{'\u0110ang t\u1ea3i s\u01a1 \u0111\u1ed3 gh\u1ebf...'}</p>
@@ -775,7 +797,7 @@ export function BookingSeatsPage() {
             {seatsQuery.data?.seats?.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
                 <p>
-                  Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế.
+                  Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
                 </p>
                 <span className="text-xs text-subtle">
                   (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
@@ -789,7 +811,7 @@ export function BookingSeatsPage() {
           cart={displayCart}
           setCart={setCart}
           colorByTicketTypeId={colorByTicketTypeId}
-          cta={'Ti\u1ebfp t\u1ee5c'}
+          cta={'Tiếp tục'}
           onClick={continueFlow}
           disabled={checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
           onReset={resetSelection}
@@ -816,25 +838,58 @@ export function BookingAttendeesPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
+
+  const { data: eventDetail } = useQuery({
+    queryKey: ['booking-attendees-event-detail', cart?.eventId],
+    queryFn: () => fetchEventDetail(cart.eventId),
+    enabled: Boolean(cart?.eventId),
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const collectAttendees = Boolean(
+    cart?.requireAttendeeInfo ??
+    cart?.require_attendee_info ??
+    eventDetail?.require_attendee_info
+  )
+
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
-  const collectAttendees = requiresAttendeeInfo(cart)
   const [attendees, setAttendees] = useState(cart?.attendees || {})
   const [buyer, setBuyer] = useState(cart?.buyer || { name: '', email: '', phone: '' })
-
 
   useEffect(() => {
     if (!buyer.email) {
       getProfile()
         .then((profile) => {
-          setBuyer({
-            name: profile.full_name || '',
-            email: profile.email || '',
-            phone: profile.phone || '',
-          })
+          setBuyer((prev) => ({
+            name: prev.name || profile.full_name || '',
+            email: prev.email || profile.email || '',
+            phone: prev.phone || profile.phone || '',
+          }))
         })
         .catch(() => { })
     }
   }, [buyer.email])
+
+  useEffect(() => {
+    if (!cart?.items?.length) return
+    const holdExpiresAt =
+      cart.holdExpiresAt ||
+      cart.hold_expires_at ||
+      readBookingDraft()?.holdExpiresAt ||
+      new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    const updatedCart = {
+      ...cart,
+      holdExpiresAt,
+      hold_expires_at: holdExpiresAt,
+      buyer,
+      attendees,
+      requireAttendeeInfo: collectAttendees,
+    }
+    if (!cart.holdExpiresAt) {
+      setCart(updatedCart)
+    }
+    saveBookingDraft(updatedCart)
+  }, [buyer, attendees, collectAttendees, cart])
 
   if (!cart?.items?.length) return <NavigateBackToEvents />
 
@@ -860,12 +915,12 @@ export function BookingAttendeesPage() {
     }
 
     if (!cleanBuyer.name || !cleanBuyer.email || !cleanBuyer.phone) {
-      showFormError('Vui l\u00f2ng nh\u1eadp \u0111\u1ea7y \u0111\u1ee7 th\u00f4ng tin ng\u01b0\u1eddi mua.')
+      showFormError('Vui lòng nhập đầy đủ thông tin người mua.')
       return
     }
 
     if (!isEmail(cleanBuyer.email)) {
-      showFormError('Email ng\u01b0\u1eddi mua kh\u00f4ng h\u1ee3p l\u1ec7.')
+      showFormError('Email người mua không hợp lệ.')
       return
     }
 
@@ -882,42 +937,69 @@ export function BookingAttendeesPage() {
       })
 
       if (invalidSlotIndex >= 0) {
-        showFormError(`Vui l\u00f2ng nh\u1eadp \u0111\u1ea7y \u0111\u1ee7 h\u1ecd t\u00ean v\u00e0 email h\u1ee3p l\u1ec7 cho v\u00e9 ${invalidSlotIndex + 1}.`)
+        showFormError(`Vui lòng nhập đầy đủ họ tên và email hợp lệ cho vé ${invalidSlotIndex + 1}.`)
         return
       }
     }
-    const nextCart = { ...cart, attendees: cleanAttendees, buyer: cleanBuyer }
+    const nextCart = { ...cart, attendees: cleanAttendees, buyer: cleanBuyer, requireAttendeeInfo: collectAttendees }
     saveBookingDraft(nextCart)
     navigate('/booking/review', { state: { cart: nextCart } })
   }
 
   return (
     <BookingShell step={2} cart={cart}>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="space-y-5">
-          <PageTitle
-            title={collectAttendees ? 'Th\u00f4ng tin ng\u01b0\u1eddi tham gia' : 'Th\u00f4ng tin ng\u01b0\u1eddi mua'}
-            subtitle={collectAttendees ? 'Th\u00f4ng tin n\u00e0y s\u1ebd \u0111\u01b0\u1ee3c d\u00f9ng khi xu\u1ea5t v\u00e9 sau thanh to\u00e1n' : 'V\u00e9 s\u1ebd ghi nh\u1eadn theo th\u00f4ng tin ng\u01b0\u1eddi mua'}
-          />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
+        <section className="space-y-3 sm:space-y-3.5">
           <Panel>
-            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Ng\u01b0\u1eddi mua'}</h2>
+            <div className="mb-4">
+              <h2 className="font-display text-xl font-bold text-white">Người mua</h2>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label={'H\u1ecd v\u00e0 t\u00ean'} value={buyer.name} onChange={(value) => setBuyer((current) => ({ ...current, name: value }))} />
-              <Input label="Email" type="email" value={buyer.email} onChange={(value) => setBuyer((current) => ({ ...current, email: value }))} />
-              <Input label={'S\u1ed1 \u0111i\u1ec7n tho\u1ea1i'} value={buyer.phone} onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))} />
+              <Input
+                label="Họ và tên"
+                value={buyer.name}
+                onChange={(value) => setBuyer((current) => ({ ...current, name: value }))}
+                placeholder="Nguyễn Văn A"
+                required
+              />
+              <Input
+                label="Email nhận vé"
+                type="email"
+                value={buyer.email}
+                onChange={(value) => setBuyer((current) => ({ ...current, email: value }))}
+                placeholder="email@example.com"
+                required
+              />
+              <div className="md:col-span-2">
+                <Input
+                  label="Số điện thoại liên hệ"
+                  value={buyer.phone}
+                  onChange={(value) => setBuyer((current) => ({ ...current, phone: value }))}
+                  placeholder="0912345678"
+                  required
+                />
+              </div>
             </div>
           </Panel>
+
           {collectAttendees && attendeeSlots.map((slot, index) => (
             <Panel key={slot.id}>
-              <h3 className="mb-4 font-bold text-white">
-                {'V\u00e9'} {index + 1} <span className="text-sm text-muted">({slot.ticketName})</span>
-              </h3>
+              <div className="mb-4 flex items-center justify-between gap-2 flex-wrap border-b border-white/10 pb-3">
+                <h3 className="font-display text-base sm:text-lg font-bold text-white">
+                  Thông tin người tham dự {index + 1}
+                </h3>
+                <span className="rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+                  {slot.ticketName}
+                  {slot.sessionSeatId && (slot.seatLabel ? ` - Ghế ${slot.seatLabel}` : ' - Ghế đã chọn')}
+                </span>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <Input
-                  label={'H\u1ecd v\u00e0 t\u00ean'}
+                  label="Họ và tên"
                   value={attendees[slot.id]?.name ?? ''}
                   onChange={(value) => updateAttendee(slot.id, 'name', value)}
-                  placeholder={'Nh\u1eadp t\u00ean ng\u01b0\u1eddi tham gia'}
+                  placeholder="Nhập tên người tham gia"
+                  required
                 />
                 <Input
                   label="Email"
@@ -925,12 +1007,19 @@ export function BookingAttendeesPage() {
                   value={attendees[slot.id]?.email ?? ''}
                   onChange={(value) => updateAttendee(slot.id, 'email', value)}
                   placeholder="email@example.com"
+                  required
                 />
               </div>
             </Panel>
           ))}
         </section>
-        <OrderCard cart={cart} setCart={setCart} cta={'Ki\u1ec3m tra \u0111\u01a1n'} onClick={continueFlow} hideUnselectedTickets />
+        <OrderCard
+          cart={cart}
+          setCart={setCart}
+          cta={'Tiếp tục kiểm tra đơn'}
+          onClick={continueFlow}
+          hideUnselectedTickets
+        />
       </div>
     </BookingShell>
   )
@@ -943,8 +1032,53 @@ export function BookingReviewPage() {
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const [promoCode, setPromoCode] = useState(cart?.promoCode || '')
   const [selectedPromo, setSelectedPromo] = useState(cart?.promo || null)
+  const [promoInput, setPromoInput] = useState(cart?.promoCode || '')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+
+  const promosQuery = useQuery({
+    queryKey: ['available-event-promos', cart?.eventId],
+    queryFn: async () => {
+      const response = await promotionService.getAvailableEventPromos(cart.eventId)
+      return response.data?.data || []
+    },
+    enabled: Boolean(cart?.eventId),
+  })
+
+  const availablePromos = promosQuery.data || []
+
+  const handleApplyPromo = (rawCode) => {
+    const code = (rawCode ?? promoInput).trim().toUpperCase()
+    if (!code) {
+      toast.error('Vui lòng nhập mã khuyến mãi.')
+      return
+    }
+    const found = availablePromos.find((p) => String(p.code).toUpperCase() === code)
+    const subtotal = cartTotal(cart)
+
+    if (found) {
+      if (!isPromoUsable(found, subtotal)) {
+        toast.error(`Đơn hàng cần tối thiểu ${formatPrice(found.min_order_value || 0)} để áp dụng mã này.`)
+        return
+      }
+      setPromoCode(found.code)
+      setSelectedPromo(found)
+      setPromoInput(found.code)
+      toast.success(`Đã áp dụng mã giảm giá ${found.code}!`)
+    } else {
+      setPromoCode(code)
+      setSelectedPromo(null)
+      setPromoInput(code)
+      toast.info(`Đã lưu mã khuyến mãi: ${code}. Hệ thống sẽ đối soát khi thanh toán.`)
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setPromoCode('')
+    setSelectedPromo(null)
+    setPromoInput('')
+    toast.info('Đã hủy áp dụng mã khuyến mãi.')
+  }
 
   const termsSectionRef = useRef(null)
   const [termsError, setTermsError] = useState(false)
@@ -1048,9 +1182,8 @@ export function BookingReviewPage() {
 
   return (
     <BookingShell step={3} cart={cart}>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
-          <PageTitle title={'Kiểm tra vé'} subtitle={collectAttendees ? 'Vui lòng kiểm tra kỹ vé, người tham gia, thời gian và địa điểm' : 'Vui lòng kiểm tra kỹ vé, người mua, thời gian và địa điểm'} />
           <Panel>
             <h2 className="mb-4 font-display text-xl font-bold text-white">{'Thông tin sự kiện'}</h2>
             <div className="grid gap-3 text-sm text-muted md:grid-cols-2">
@@ -1077,6 +1210,7 @@ export function BookingReviewPage() {
               ))}
             </div>
           </Panel>
+
           <Panel>
             <h2 className="mb-4 font-display text-xl font-bold text-white">{collectAttendees ? 'Người tham gia' : 'Người mua'}</h2>
             {collectAttendees ? (
@@ -1235,18 +1369,23 @@ export function BookingReviewPage() {
               </div>
             </Panel>
           )}
-          <PromoPanel
-            promoCode={promoCode}
-            onOpenVoucher={() => setVoucherOpen(true)}
-          />
         </section>
         <OrderCard
           cart={{ ...cart, promoCode, promo: selectedPromo }}
           setCart={setCart}
-          cta={'X\u00e1c nh\u1eadn v\u00e0 thanh to\u00e1n'}
+          cta={'Xác nhận và thanh toán'}
           onClick={continueFlow}
           disabled={checkingAvailability}
           hideUnselectedTickets
+          promoProps={{
+            promoCode,
+            selectedPromo,
+            promoInput,
+            setPromoInput,
+            onApply: handleApplyPromo,
+            onRemove: handleRemovePromo,
+            onOpenVoucher: () => setVoucherOpen(true),
+          }}
         />
       </div>
       {voucherOpen && (
@@ -1255,6 +1394,7 @@ export function BookingReviewPage() {
           setPromoCode={setPromoCode}
           selectedPromo={selectedPromo}
           setSelectedPromo={setSelectedPromo}
+          setPromoInput={setPromoInput}
           cart={cart}
           onClose={() => setVoucherOpen(false)}
         />
@@ -1295,7 +1435,10 @@ export function BookingPaymentPage() {
     if (!orderId) return
     try {
       await cancelOrder(orderId)
+      clearBookingDraft()
       toast.success('Đã hủy đặt vé.')
+      const returnPath = cart?.eventSlug ? `/events/${cart.eventSlug}` : cart?.eventId ? `/events/${cart.eventId}` : '/events'
+      navigate(returnPath, { replace: true })
     } catch (err) {
       toast.error(getApiMessage(err, 'Không thể hủy đặt vé. Vui lòng thử lại.'))
       throw err
@@ -1373,9 +1516,8 @@ export function BookingPaymentPage() {
 
   return (
     <BookingShell step={4} cart={cart}>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
-          <PageTitle title={'Thanh to\u00e1n'} subtitle={'Qu\u00e9t QR ho\u1eb7c m\u1edf PayOS \u0111\u1ec3 ho\u00e0n t\u1ea5t giao d\u1ecbch.'} />
           <Panel>
             {checkoutMutation.isPending && <p className="text-muted">{'\u0110ang gi\u1eef v\u00e9 v\u00e0 t\u1ea1o thanh to\u00e1n PayOS...'}</p>}
             {payment && (
@@ -1396,7 +1538,7 @@ export function BookingPaymentPage() {
                     href={payment.checkout_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-bold text-slate-950"
+                    className="mt-6 inline-flex items-center justify-center gap-2 btn-gold-primary px-6 py-3 text-sm font-bold shadow-lg"
                   >
                     {'M\u1edf trang PayOS'}
                     <ExternalLink className="size-4" />
@@ -1414,33 +1556,92 @@ export function BookingPaymentPage() {
             )}
           </Panel>
         </section>
-        <OrderCard cart={cart} setCart={setCart} cta={'\u0110ang ch\u1edd thanh to\u00e1n'} disabled onCancel={handleCancelOrder} />
+        <OrderCard
+          cart={cart}
+          setCart={setCart}
+          cta={'Đang chờ thanh toán'}
+          disabled
+          onCancel={handleCancelOrder}
+          hideUnselectedTickets
+        />
       </div>
     </BookingShell>
   )
 }
 
 function BookingShell({ step, cart, children }) {
-  const labels = ['Gh\u1ebf', 'Th\u00f4ng tin', 'Ki\u1ec3m tra', 'Thanh to\u00e1n']
+  const labels = ['Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
+  const stepPaths = {
+    1: '/booking/seats',
+    2: '/booking/attendees',
+    3: '/booking/review',
+    4: '/booking/payment',
+  }
   const navigate = useNavigate()
+  const toast = useToast()
   const [tick, setTick] = useState(0)
-  const holdExpiresAt = cart?.holdExpiresAt || cart?.hold_expires_at
-  const remaining = secondsLeft(holdExpiresAt) + tick * 0
+  const expiredHandledRef = useRef(false)
+  const draft = readBookingDraft()
+  const holdExpiresAtRaw =
+    cart?.holdExpiresAt ||
+    cart?.hold_expires_at ||
+    draft?.holdExpiresAt ||
+    draft?.hold_expires_at
+  const holdExpiresAt =
+    holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) > 0
+      ? holdExpiresAtRaw
+      : step >= 2 && !holdExpiresAtRaw
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : holdExpiresAtRaw
+  const remaining = secondsLeft(holdExpiresAt)
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000)
     return () => window.clearInterval(timer)
   }, [])
 
+  useEffect(() => {
+    if (!holdExpiresAt) {
+      expiredHandledRef.current = false
+      return
+    }
+
+    const isExpired = secondsLeft(holdExpiresAt) <= 0
+    if (!isExpired) {
+      expiredHandledRef.current = false
+      return
+    }
+
+    // Đảm bảo chỉ thông báo đúng 1 lần khi hết hạn và quay lại bước chọn ghế
+    if (expiredHandledRef.current) return
+    expiredHandledRef.current = true
+
+    clearBookingDraft()
+    toast.warning('Thời gian giữ vé (15 phút) đã hết. Bạn vui lòng chọn lại ghế/vé.')
+    navigate('/booking/seats', {
+      replace: true,
+      state: {
+        cart: {
+          ...cart,
+          selectedSeatIds: [],
+          items: [],
+          holdExpiresAt: null,
+          hold_expires_at: null,
+        },
+      },
+    })
+  }, [holdExpiresAt, tick, navigate, toast, cart])
+
   const goBackStep = () => {
     const previousPathByStep = {
+      1: cart?.eventSlug ? `/events/${cart.eventSlug}` : cart?.eventId ? `/events/${cart.eventId}` : '/events',
       2: '/booking/seats',
       3: '/booking/attendees',
       4: '/booking/review',
     }
     const previousPath = previousPathByStep[step]
 
-    if (previousPath && cart) {
+    if (previousPath) {
       navigate(previousPath, { state: { cart } })
       return
     }
@@ -1448,148 +1649,284 @@ function BookingShell({ step, cart, children }) {
     window.history.back()
   }
 
+  const stepBackLabel = {
+    1: 'Quay lại chi tiết sự kiện',
+    2: 'Quay về bước 1: Chọn ghế / vé',
+    3: 'Quay về bước 2: Thông tin',
+    4: 'Quay về bước 3: Kiểm tra đơn',
+  }[step] || 'Quay về bước trước'
+
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-background text-content">
-      <div className="border-b border-white/5 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-          {labels.map((label, index) => {
-            const active = index + 1 === step
-            const done = index + 1 < step
-            return (
-              <div key={label} className="flex flex-col items-center gap-2">
-                <div
-                  className={`grid size-11 place-items-center rounded-full text-sm font-bold transition-all duration-300 ${active
-                    ? 'bg-primary text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-110'
-                    : done
-                      ? 'bg-primary/20 text-primary border border-primary/30'
-                      : 'bg-white/5 text-slate-500 border border-white/5'
-                    }`}
+    <div className="min-h-[calc(100vh-64px)] bg-transparent text-content pt-20 sm:pt-24">
+      <div className="bg-transparent">
+        <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 lg:px-8">
+          <div className="relative flex items-center justify-between">
+            {/* Đường line nối 4 bước */}
+            <div className="absolute top-[22px] left-8 sm:left-10 right-8 sm:right-10 -translate-y-1/2 h-[2px] bg-white/10 z-0 pointer-events-none">
+              <div
+                className="h-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-[0_0_8px_rgba(201,154,71,0.6)] transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.max(0, ((step - 1) / (labels.length - 1)) * 100))}%` }}
+              />
+            </div>
+
+            {labels.map((label, index) => {
+              const stepNum = index + 1
+              const active = stepNum === step
+              const done = stepNum < step
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={!done}
+                  onClick={() => {
+                    if (done && stepPaths[stepNum]) {
+                      navigate(stepPaths[stepNum], { state: { cart } })
+                    }
+                  }}
+                  className={`relative z-10 w-16 sm:w-20 flex flex-col items-center gap-2 transition ${done ? 'cursor-pointer group' : 'cursor-default'}`}
                 >
-                  {done ? <Check className="size-5" /> : index + 1}
-                </div>
-                <span className={`text-xs sm:text-sm font-bold transition-colors ${active ? 'text-white drop-shadow-md' : done ? 'text-primary' : 'text-slate-500'}`}>{label}</span>
-              </div>
-            )
-          })}
+                  <div
+                    className={`grid size-11 place-items-center rounded-full text-sm font-bold transition-all duration-300 ${active
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-slate-950 shadow-[0_0_20px_rgba(201,154,71,0.5)] scale-110'
+                      : done
+                        ? 'bg-[#0b132b] text-[#E6C17A] border border-[#E6C17A]/40 group-hover:scale-105 group-hover:bg-[#C99A47]/20 group-hover:border-[#E6C17A]'
+                        : 'bg-[#0b132b] text-slate-500 border border-white/10'
+                      }`}
+                  >
+                    {done ? <Check className="size-5 text-[#E6C17A]" /> : stepNum}
+                  </div>
+                  <span
+                    className={`text-xs sm:text-sm font-bold transition-colors whitespace-nowrap ${active
+                      ? 'text-white drop-shadow-md'
+                      : done
+                        ? 'text-[#E6C17A] group-hover:underline'
+                        : 'text-slate-500'
+                      }`}
+                  >
+                    {label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {cart?.eventTitle && (
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-primary/20 bg-primary/5 p-5 shadow-inner">
-            <div>
-              <p className="text-[10px] font-black uppercase text-primary tracking-widest">{'\u0110\u1eb7t v\u00e9'}</p>
-              <h2 className="font-display text-2xl font-bold text-white drop-shadow-sm">{cart.eventTitle}</h2>
-            </div>
-            {holdExpiresAt && (
-              <div className="rounded-xl bg-slate-950/80 px-5 py-2.5 font-mono text-xl font-bold text-primary shadow-inner border border-primary/10">
-                {formatCountdown(remaining)}
-              </div>
-            )}
-          </div>
-        )}
         <div className="mb-6">
           <button
             type="button"
             onClick={goBackStep}
-            className="flex w-fit items-center gap-2 text-sm font-bold text-muted transition hover:text-primary"
+            className="inline-flex items-center gap-2.5 rounded-xl border border-white/10 bg-slate-900/70 px-4 py-2 text-sm font-bold text-slate-300 shadow-md backdrop-blur-md transition hover:border-primary/40 hover:bg-slate-800 hover:text-primary"
           >
-            <ArrowLeft className="size-4" />
-            {'Quay v\u1ec1 b\u01b0\u1edbc tr\u01b0\u1edbc'}
+            <ArrowLeft className="size-4 text-primary" />
+            <span>{stepBackLabel}</span>
           </button>
         </div>
+        {cart?.eventTitle && (
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-primary/25 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md">
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                Sự kiện đang đặt vé
+              </span>
+              <h2 className="mt-1 font-display text-xl sm:text-2xl font-black text-white drop-shadow-sm truncate">
+                {cart.eventTitle}
+              </h2>
+            </div>
+            {holdExpiresAt && secondsLeft(holdExpiresAt) > 0 && (
+              <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto rounded-xl border border-white/20 bg-white/5 px-3.5 py-1.5 font-mono text-lg sm:text-xl font-black text-white shadow-[0_0_12px_rgba(255,255,255,0.1)]">
+                <Clock className="size-4 sm:size-5 text-white animate-pulse shrink-0" />
+                <span className="text-white">{formatCountdown(remaining)}</span>
+              </div>
+            )}
+          </div>
+        )}
         {children}
       </div>
     </div>
   )
 }
 
-function OrderCard({ cart, cta, onClick, disabled, onCancel, onReset, resetDisabled = false, colorByTicketTypeId, hideUnselectedTickets = false }) {
+function OrderCard({
+  cart,
+  cta,
+  onClick,
+  disabled,
+  onCancel,
+  onReset,
+  resetDisabled = false,
+  colorByTicketTypeId,
+  hideUnselectedTickets = false,
+  promoProps,
+}) {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
+
+  const selectedItems = (cart?.items || []).filter((item) => Number(item?.quantity || 0) > 0)
   const visibleTicketTypes = (cart?.availableTicketTypes || []).filter((ticketType) => {
     if (!hideUnselectedTickets) return true
-    const item = (cart?.items || []).find((i) => String(i.ticketType.id) === String(ticketType.id))
+    const item = selectedItems.find((i) => String(i.ticketType?.id) === String(ticketType.id))
     return Number(item?.quantity || 0) > 0
   })
 
+  const itemsToRender = (hideUnselectedTickets || visibleTicketTypes.length === 0) && selectedItems.length > 0
+    ? selectedItems.map((item) => ({
+      id: item.ticketType?.id || item.sessionSeatIds?.[0] || String(Math.random()),
+      name: item.ticketType?.name || 'Vé',
+      price: Number(item.ticketType?.price || 0),
+      qty: Number(item.quantity || 0),
+      color: ticketTypeColor(item.ticketType, colorByTicketTypeId),
+      seatLabels: item.seatLabels || [],
+      ticketType: item.ticketType,
+    }))
+    : visibleTicketTypes.map((ticketType) => {
+      const item = selectedItems.find((i) => String(i.ticketType?.id) === String(ticketType.id))
+      const qty = Number(item?.quantity || 0)
+      return {
+        id: ticketType.id,
+        name: ticketType.name,
+        price: Number(ticketType.price || 0),
+        qty,
+        color: ticketTypeColor(ticketType, colorByTicketTypeId),
+        seatLabels: item?.seatLabels || [],
+        ticketType,
+      }
+    })
+
   return (
-    <aside className="glass-panel relative overflow-hidden h-fit rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-8 lg:sticky lg:top-32">
+    <aside className="glass-panel relative overflow-hidden h-fit rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-6 sm:p-7 lg:sticky lg:top-32">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-black text-white drop-shadow-md">{'Th\u00f4ng tin \u0111\u1eb7t v\u00e9'}</h2>
-        </div>
+      <div className="mb-5 flex items-center justify-between gap-2 flex-nowrap">
+        <h2 className="font-display text-lg sm:text-xl font-black text-white whitespace-nowrap">{'Thông tin đặt vé'}</h2>
         <button
           type="button"
           onClick={() => onReset ? setResetOpen(true) : setCancelOpen(true)}
           disabled={Boolean(onReset) && resetDisabled}
-          className="text-sm font-bold text-primary hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="text-xs sm:text-sm font-bold text-[#E6C17A] hover:text-[#F3D8A5] transition whitespace-nowrap shrink-0 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           {'Chọn lại vé'}
         </button>
       </div>
       <div className="space-y-3 border-y border-border-soft py-4">
-        {visibleTicketTypes.map((ticketType) => {
-          const item = (cart?.items || []).find((i) => String(i.ticketType.id) === String(ticketType.id))
-          const qty = item?.quantity || 0
+        {itemsToRender.map((ticket) => {
+          const qty = ticket.qty
 
           return (
-            <div key={ticketType.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
+            <div key={ticket.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
               <div className="flex min-w-0 items-start gap-2">
                 <span
                   className="mt-1 size-3 shrink-0 rounded-sm border border-white/20"
-                  style={{ backgroundColor: ticketTypeColor(ticketType, colorByTicketTypeId) }}
+                  style={{ backgroundColor: ticket.color }}
                 />
                 <div className="min-w-0">
-                  <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticketType.name}</p>
+                  <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticket.name}</p>
                   {qty > 0 ? (
-                    <p className="text-primary">
-                      {formatPrice(ticketType.price)} {'\u00d7'} {String(qty).padStart(2, '0')}
+                    <p className="text-white font-medium text-xs sm:text-sm">
+                      {formatPrice(ticket.price)} {'\u00d7'} {String(qty).padStart(2, '0')}
                     </p>
                   ) : (
-                    <p className="text-slate-500">{formatPrice(ticketType.price)} / {'v\u00e9'}</p>
+                    <p className="text-slate-500">{formatPrice(ticket.price)} / {'vé'}</p>
                   )}
-                  {item?.seatLabels?.length > 0 && (
+                  {ticket.seatLabels?.length > 0 && (
                     <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
-                      {'Gh\u1ebf'}: <span className="ml-1 truncate">{item.seatLabels.join(', ')}</span>
+                      {'Ghế'}: <span className="ml-1 truncate">{ticket.seatLabels.join(', ')}</span>
                     </p>
                   )}
                 </div>
               </div>
-              <p className={qty > 0 ? 'font-bold text-primary' : 'font-bold text-slate-500'}>
-                {qty > 0 ? formatPrice(Number(ticketType.price || 0) * qty) : '-'}
+              <p className={qty > 0 ? 'font-bold text-white' : 'font-bold text-slate-500'}>
+                {qty > 0 ? formatPrice(ticket.price * qty) : '-'}
               </p>
             </div>
           )
         })}
+        {itemsToRender.length === 0 && (
+          <p className="py-2 text-center text-xs text-muted">{'Chưa có vé nào được chọn'}</p>
+        )}
       </div>
-      {cart?.promoCode && (
-        <div className="mt-4 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
-          {'M\u00e3 khuy\u1ebfn m\u00e3i'}: {cart.promoCode}
+
+      {promoProps ? (
+        <div className="mt-4 space-y-2.5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
+              <Tag className="size-4 text-primary" /> Mã ưu đãi
+            </span>
+            {promoProps.onOpenVoucher && (
+              <button
+                type="button"
+                onClick={promoProps.onOpenVoucher}
+                className="text-xs sm:text-sm font-bold text-white hover:text-slate-200 transition cursor-pointer"
+              >
+                Chọn voucher
+              </button>
+            )}
+          </div>
+          {promoProps.promoCode ? (
+            <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 p-2.5 text-xs">
+              <div className="min-w-0">
+                <span className="font-mono font-bold text-primary">{promoProps.promoCode}</span>
+              </div>
+              <button
+                type="button"
+                onClick={promoProps.onRemove}
+                className="text-xs font-semibold text-rose-400 hover:text-rose-300 ml-2 shrink-0 cursor-pointer"
+              >
+                Hủy
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={promoProps.promoInput || ''}
+                onChange={(e) => promoProps.setPromoInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    promoProps.onApply(promoProps.promoInput)
+                  }
+                }}
+                placeholder="Nhập mã..."
+                className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 font-mono text-xs text-white uppercase outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                onClick={() => promoProps.onApply(promoProps.promoInput)}
+                disabled={!promoProps.promoInput?.trim()}
+                className="rounded-lg bg-primary/20 px-3 text-xs font-bold text-primary hover:bg-primary/30 border border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              >
+                Áp dụng
+              </button>
+            </div>
+          )}
         </div>
-      )}
-      <Line label={`T\u1ed5ng c\u1ed9ng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} v\u00e9`} value={formatPrice(cartTotal(cart))} large />
+      ) : cart?.promoCode ? (
+        <div className="mt-4 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+          {'Mã khuyến mãi'}: {cart.promoCode}
+        </div>
+      ) : null}
+
+      <Line label={`Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart))} large />
       {promoDiscount(cart) > 0 && (
-        <Line label={'Gi\u1ea3m gi\u00e1'} value={`-${formatPrice(promoDiscount(cart))}`} tone="discount" />
+        <Line label={'Giảm giá'} value={`-${formatPrice(promoDiscount(cart))}`} tone="discount" />
       )}
       {promoDiscount(cart) > 0 && (
-        <Line label={'T\u1ed5ng thanh to\u00e1n'} value={formatPrice(payableTotal(cart))} large />
+        <Line label={'Tổng thanh toán'} value={formatPrice(payableTotal(cart))} large />
       )}
-      <div className="mt-8">
+      <div className="mt-8 space-y-3">
         <button
           type="button"
           onClick={onClick}
           disabled={disabled}
-          className="cosmic-btn-primary w-full py-4 text-lg"
+          className="btn-gold-primary w-full py-3.5 sm:py-4 text-base sm:text-lg tracking-wide select-none cursor-pointer"
         >
           {cta}
         </button>
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
-          className="mt-4 w-full rounded-full border border-white/10 bg-transparent py-3 text-sm font-bold text-slate-400 transition hover:border-error/40 hover:bg-error/10 hover:text-error"
+          className="w-full rounded-full border border-white/10 bg-transparent py-2.5 text-xs font-bold text-slate-400 transition hover:border-error/40 hover:bg-error/10 hover:text-error"
         >
-          {'H\u1ee7y \u0111\u1eb7t v\u00e9'}
+          {'Hủy đặt vé'}
         </button>
       </div>
       <p className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-slate-500">
@@ -1620,123 +1957,236 @@ function OrderCard({ cart, cta, onClick, disabled, onCancel, onReset, resetDisab
   )
 }
 
-function PromoPanel({ promoCode, onOpenVoucher }) {
+function PromoSection({
+  promoCode,
+  selectedPromo,
+  promoInput,
+  setPromoInput,
+  onApply,
+  onRemove,
+  onOpenVoucher,
+  cart,
+  availableCount = 0,
+}) {
+  const discountAmount = promoDiscount({ ...cart, promo: selectedPromo, promoCode })
+
   return (
-    <section className="rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="font-display text-xl font-bold text-white">{'M\u00e3 khuy\u1ebfn m\u00e3i'}</h2>
-        <button type="button" onClick={onOpenVoucher} className="text-sm font-bold text-primary">
-          {'Ch\u1ecdn voucher'}
+    <Panel>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
+            <Tag className="size-4" />
+          </div>
+          <div>
+            <h2 className="font-display text-xl font-bold text-white">Mã khuyến mãi &amp; Giảm giá</h2>
+            <p className="text-xs text-muted">Nhập mã ưu đãi hoặc chọn voucher từ Ban tổ chức</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onOpenVoucher}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/20 transition shadow-sm"
+        >
+          <Ticket className="size-3.5" />
+          <span>Danh sách voucher {availableCount > 0 ? `(${availableCount})` : ''}</span>
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onOpenVoucher}
-        className="mt-4 inline-flex items-center gap-2 rounded-full border border-border-soft px-4 py-2 text-muted hover:border-primary hover:text-primary"
-      >
-        <Tag className="size-4" />
-        {promoCode || 'Th\u00eam khuy\u1ebfn m\u00e3i'}
-      </button>
-    </section>
+
+      {promoCode || selectedPromo ? (
+        <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-xl bg-primary text-slate-950 font-bold shadow-md shadow-primary/20">
+                <Check className="size-5 stroke-[3]" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="rounded-md bg-primary/20 px-2.5 py-1 font-mono text-xs font-bold text-primary border border-primary/30">
+                    {promoCode}
+                  </span>
+                  {selectedPromo && (
+                    <span className="text-sm font-semibold text-white">
+                      {formatPromoTitle(selectedPromo)}
+                    </span>
+                  )}
+                </div>
+                {discountAmount > 0 ? (
+                  <p className="mt-1 text-sm font-bold text-emerald-400">
+                    Được giảm: -{formatPrice(discountAmount)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Mã đã được lưu và sẽ đối soát khi thanh toán
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition"
+            >
+              Hủy áp dụng
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={promoInput}
+              onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onApply(promoInput)
+                }
+              }}
+              placeholder="Nhập mã voucher (VD: BLUE50)..."
+              className="h-11 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 font-mono text-sm text-white placeholder:text-slate-500 uppercase tracking-wider outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/40"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => onApply(promoInput)}
+            disabled={!promoInput.trim()}
+            className="cosmic-btn-primary px-6 py-2.5 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          >
+            Áp dụng
+          </button>
+        </div>
+      )}
+    </Panel>
   )
 }
 
 function formatDateOnly(value) {
-  if (!value) return 'Ch\u01b0a c\u1eadp nh\u1eadt'
+  if (!value) return 'Chưa cập nhật'
   return new Intl.DateTimeFormat('vi-VN').format(new Date(value))
 }
 
 function formatPromoTitle(promo) {
   if (promo.discount_type === 'PERCENTAGE') {
     const cap = promo.max_discount !== null && promo.max_discount !== undefined
-      ? `, t\u1ed1i \u0111a ${formatPrice(promo.max_discount)}`
+      ? `, tối đa ${formatPrice(promo.max_discount)}`
       : ''
-    return `Gi\u1ea3m ${Number(promo.discount_value || 0)}%${cap}`
+    return `Giảm ${Number(promo.discount_value || 0)}%${cap}`
   }
-  return `Gi\u1ea3m ${formatPrice(promo.discount_value || 0)}`
+  return `Giảm ${formatPrice(promo.discount_value || 0)}`
 }
 
 function isPromoUsable(promo, subtotal) {
   return subtotal >= Number(promo.min_order_value || 0)
 }
 
-function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, cart, onClose }) {
-  const [draft, setDraft] = useState(promoCode || '')
+function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, setPromoInput, cart, onClose }) {
   const subtotal = cartTotal(cart)
   const promosQuery = useQuery({
     queryKey: ['available-event-promos', cart?.eventId],
     queryFn: async () => {
       const response = await promotionService.getAvailableEventPromos(cart.eventId)
-      return response.data.data || []
+      return response.data?.data || []
     },
     enabled: Boolean(cart?.eventId),
   })
   const organizerPromos = promosQuery.data || []
-  const promoByCode = useMemo(
-    () => new Map(organizerPromos.map((promo) => [String(promo.code).toUpperCase(), promo])),
-    [organizerPromos],
-  )
-  const draftPromo = promoByCode.get(draft.trim().toUpperCase()) || null
 
-  const applyDraft = () => {
-    const nextCode = draft.trim()
-    setPromoCode(nextCode)
-    setSelectedPromo(draftPromo)
+  const [tempSelected, setTempSelected] = useState(() => selectedPromo || null)
+
+  useEffect(() => {
+    if (selectedPromo) {
+      setTempSelected(selectedPromo)
+    } else if (promoCode && organizerPromos.length > 0) {
+      const matched = organizerPromos.find((p) => String(p.code).toUpperCase() === String(promoCode).toUpperCase())
+      if (matched) setTempSelected(matched)
+    }
+  }, [selectedPromo, promoCode, organizerPromos])
+
+  const toggleSelectPromo = (promo) => {
+    if (!isPromoUsable(promo, subtotal)) return
+    if (tempSelected?.id === promo.id || String(tempSelected?.code).toUpperCase() === String(promo.code).toUpperCase()) {
+      setTempSelected(null)
+    } else {
+      setTempSelected(promo)
+    }
   }
 
-  const choosePromo = (promo) => {
-    if (!isPromoUsable(promo, subtotal)) return
-    setDraft(promo.code)
-    setPromoCode(promo.code)
-    setSelectedPromo(promo)
+  const handleApply = () => {
+    if (tempSelected) {
+      setPromoCode(tempSelected.code)
+      setSelectedPromo(tempSelected)
+      setPromoInput?.(tempSelected.code)
+    } else {
+      setPromoCode('')
+      setSelectedPromo(null)
+      setPromoInput?.('')
+    }
+    onClose()
   }
 
   return (
     <ModalFrame>
-      <div className="flex items-center justify-between border-b border-border-soft/50 pb-5">
+      <div className="flex items-center justify-between border-b border-white/10 pb-4">
         <div>
-          <h2 className="mt-1 font-display text-2xl font-extrabold text-content">{'Ch\u1ecdn voucher'}</h2>
+          <h2 className="font-display text-xl font-extrabold text-white">Chọn voucher sự kiện</h2>
+          <p className="mt-0.5 text-xs text-slate-400">Chọn mã ưu đãi từ Ban tổ chức</p>
         </div>
-        <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full text-muted transition hover:bg-panel-soft hover:text-content" aria-label="Close">
+        <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white cursor-pointer" aria-label="Close">
           <X className="size-5" />
         </button>
       </div>
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-lg border border-border-soft bg-background/60 px-4 transition focus-within:border-primary">
-          <Ticket className="size-5 text-primary" />
-          <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={'Nh\u1eadp m\u00e3 voucher'} className="w-full bg-transparent text-content outline-none placeholder:text-muted" />
-        </div>
-        <button type="button" onClick={applyDraft} className="rounded-lg bg-tertiary px-6 py-3 font-bold text-white transition hover:bg-orange-600">{'\u00c1p d\u1ee5ng'}</button>
-      </div>
 
-      <h3 className="mt-6 font-display text-lg font-bold text-content">{'Voucher t\u1eeb Ban t\u1ed5 ch\u1ee9c'}</h3>
-      <div className="mt-4 space-y-3">
-        {promosQuery.isLoading && <p className="rounded-lg border border-border-soft bg-panel py-8 text-center font-semibold text-muted">{'\u0110ang t\u1ea3i voucher...'}</p>}
-        {!promosQuery.isLoading && organizerPromos.length === 0 && <p className="rounded-lg border border-dashed border-border-soft bg-panel/60 py-8 text-center font-semibold text-muted">{'Ch\u01b0a c\u00f3 voucher n\u00e0o'}</p>}
+      <h3 className="mt-5 font-display text-base font-bold text-white">Voucher khả dụng</h3>
+      <div className="mt-3 space-y-3 max-h-[45vh] overflow-y-auto pr-1">
+        {promosQuery.isLoading && (
+          <p className="rounded-xl border border-white/10 bg-slate-950/40 py-8 text-center text-sm font-semibold text-slate-400">Đang tải voucher...</p>
+        )}
+        {!promosQuery.isLoading && organizerPromos.length === 0 && (
+          <p className="rounded-xl border border-dashed border-white/10 bg-slate-950/40 py-8 text-center text-sm font-semibold text-slate-400">Sự kiện này chưa có mã giảm giá công khai</p>
+        )}
         {organizerPromos.map((promo) => {
-          const checked = selectedPromo?.id === promo.id || draft.trim().toUpperCase() === String(promo.code).toUpperCase()
+          const checked = tempSelected?.id === promo.id || (tempSelected?.code && String(tempSelected.code).toUpperCase() === String(promo.code).toUpperCase())
           const usable = isPromoUsable(promo, subtotal)
           return (
-            <button key={promo.id} type="button" disabled={!usable} onClick={() => choosePromo(promo)} className={`flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition ${checked ? 'border-primary bg-primary/10 shadow-lg shadow-primary/5' : 'border-border-soft bg-panel'} ${usable ? 'hover:border-primary/70 hover:bg-panel-soft' : 'cursor-not-allowed opacity-50'}`}>
+            <button
+              key={promo.id}
+              type="button"
+              disabled={!usable}
+              onClick={() => toggleSelectPromo(promo)}
+              className={`flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition ${checked
+                ? 'border-[#E6C17A] bg-[#C99A47]/15 shadow-lg shadow-[#C99A47]/10'
+                : 'border-white/10 bg-slate-950/50'
+                } ${usable ? 'hover:border-[#E6C17A]/70 hover:bg-slate-800 cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+            >
               <div>
-                <p className="font-bold text-content">{formatPromoTitle(promo)}</p>
-                <p className="mt-1 text-sm text-muted">{'M\u00e3'}: <span className="font-mono font-semibold text-primary">{promo.code}</span></p>
-                <p className="mt-1 text-sm text-muted">{'\u0110\u01a1n t\u1ed1i thi\u1ec3u'} {formatPrice(promo.min_order_value || 0)}</p>
-                {promo.discount_type === 'PERCENTAGE' && promo.max_discount !== null && promo.max_discount !== undefined && <p className="mt-1 text-sm text-muted">{'Gi\u1ea3m t\u1ed1i \u0111a'} {formatPrice(promo.max_discount)}</p>}
-                <p className="mt-2 text-sm text-primary">HSD: {formatDateOnly(promo.end_time)}</p>
-                {!usable && <p className="mt-2 text-xs font-bold text-error">{'\u0110\u01a1n h\u00e0ng ch\u01b0a \u0111\u1ee7 \u0111i\u1ec1u ki\u1ec7n \u00e1p d\u1ee5ng'}</p>}
+                <p className="font-bold text-white">{formatPromoTitle(promo)}</p>
+                <p className="mt-1 text-xs text-slate-300">
+                  Mã: <span className="font-mono font-bold text-[#E6C17A]">{promo.code}</span>
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">Đơn tối thiểu: {formatPrice(promo.min_order_value || 0)}</p>
+                {promo.discount_type === 'PERCENTAGE' && promo.max_discount !== null && promo.max_discount !== undefined && (
+                  <p className="mt-0.5 text-xs text-slate-400">Giảm tối đa: {formatPrice(promo.max_discount)}</p>
+                )}
+                <p className="mt-1 text-xs text-[#E6C17A]">HSD: {formatDateOnly(promo.end_time)}</p>
+                {!usable && <p className="mt-1.5 text-xs font-bold text-rose-400">Đơn hàng chưa đủ điều kiện áp dụng</p>}
               </div>
-              <span className={`grid size-7 shrink-0 place-items-center rounded-full border-2 ${checked ? 'border-primary' : 'border-border-soft'}`}>
-                {checked && <Check className="size-4 text-primary" />}
+              <span className={`grid size-7 shrink-0 place-items-center rounded-full border-2 ${checked ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-slate-950' : 'border-white/20'}`}>
+                {checked && <Check className="size-4 stroke-[3]" />}
               </span>
             </button>
           )
         })}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 border-t border-border-soft/50 pt-5 sm:grid-cols-2">
-        <button type="button" onClick={onClose} className="rounded-lg border border-border-soft py-3 font-bold text-muted transition hover:border-content/40 hover:text-content">{'H\u1ee7y b\u1ecf'}</button>
-        <button type="button" onClick={() => { applyDraft(); onClose() }} className="rounded-lg bg-tertiary py-3 font-bold text-white transition hover:bg-orange-600">Xong</button>
+      <div className="mt-5 flex justify-end border-t border-white/10 pt-4">
+        <button
+          type="button"
+          onClick={handleApply}
+          className="btn-gold-primary px-7 py-2.5 text-sm font-bold shadow-lg cursor-pointer"
+        >
+          Áp dụng
+        </button>
       </div>
     </ModalFrame>
   )
@@ -1745,21 +2195,21 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
 function CancelBookingModal({ onStay, onCancel }) {
   return createPortal(
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
-      <section role="alertdialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 text-content shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+      <section role="alertdialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
         <div className="flex items-start gap-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-error/15"><AlertTriangle className="size-5 text-error" /></span>
           <div>
             <h2 id="cancel-booking-title" className="font-display text-xl font-extrabold">{'H\u1ee7y \u0111\u01a1n h\u00e0ng?'}</h2>
-            <p className="mt-1 text-sm text-muted">{'B\u1ea1n c\u00f3 ch\u1eafc ch\u1eafn mu\u1ed1n ti\u1ebfp t\u1ee5c?'}</p>
+            <p className="mt-1 text-sm text-slate-400">{'B\u1ea1n c\u00f3 ch\u1eafc ch\u1eafn mu\u1ed1n ti\u1ebfp t\u1ee5c?'}</p>
           </div>
         </div>
-        <ul className="mt-5 space-y-2 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-muted">
+        <ul className="mt-5 space-y-2 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-slate-300">
           <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'B\u1ea1n s\u1ebd m\u1ea5t v\u1ecb tr\u00ed m\u00ecnh \u0111\u00e3 l\u1ef1a ch\u1ecdn.'}</span></li>
           <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'\u0110\u01a1n h\u00e0ng \u0111ang thanh to\u00e1n c\u00f3 th\u1ec3 b\u1ecb h\u1ee7y.'}</span></li>
         </ul>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onStay} className="rounded-lg border border-border-soft px-5 py-3 font-bold text-muted transition hover:border-content/40 hover:text-content">{'\u1ede l\u1ea1i'}</button>
-          <button type="button" onClick={onCancel} className="rounded-lg bg-error px-5 py-3 font-bold text-white transition hover:bg-error/90">{'H\u1ee7y \u0111\u01a1n'}</button>
+          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">{'Ở lại'}</button>
+          <button type="button" onClick={onCancel} className="rounded-xl bg-error px-5 py-2.5 font-bold text-white transition hover:bg-error/90">{'Hủy đơn'}</button>
         </div>
       </section>
     </div>,
@@ -1770,20 +2220,20 @@ function CancelBookingModal({ onStay, onCancel }) {
 function ResetSelectionModal({ onStay, onReset }) {
   return createPortal(
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
-      <section role="alertdialog" aria-modal="true" aria-labelledby="reset-selection-title" className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 text-content shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+      <section role="alertdialog" aria-modal="true" aria-labelledby="reset-selection-title" className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
         <div className="flex items-start gap-4">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-tertiary/15"><RefreshCw className="size-5 text-tertiary" /></span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/15"><RefreshCw className="size-5 text-primary" /></span>
           <div>
             <h2 id="reset-selection-title" className="font-display text-xl font-extrabold">Bạn muốn chọn lại vé?</h2>
-            <p className="mt-1 text-sm text-muted">Các vé bạn đang chọn sẽ được xóa để bạn chọn lại từ đầu.</p>
+            <p className="mt-1 text-sm text-slate-400">Các vé bạn đang chọn sẽ được xóa để bạn chọn lại từ đầu.</p>
           </div>
         </div>
-        <p className="mt-5 rounded-xl border border-tertiary/20 bg-tertiary/5 p-4 text-sm text-muted">
+        <p className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-slate-300">
           Ghế và số lượng vé đã chọn sẽ được xóa. Bạn vẫn ở trang này và có thể chọn vé mới ngay.
         </p>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onStay} className="rounded-lg border border-border-soft px-5 py-3 font-bold text-muted transition hover:border-content/40 hover:text-content">Giữ vé đã chọn</button>
-          <button type="button" onClick={onReset} className="rounded-lg bg-tertiary px-5 py-3 font-bold text-white transition hover:bg-orange-600">Chọn lại từ đầu</button>
+          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">Giữ vé đã chọn</button>
+          <button type="button" onClick={onReset} className="cosmic-btn-primary px-5 py-2.5 font-bold">Chọn lại từ đầu</button>
         </div>
       </section>
     </div>,
@@ -1792,17 +2242,17 @@ function ResetSelectionModal({ onStay, onReset }) {
 }
 function ModalFrame({ children }) {
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-2xl border border-border-soft/50 bg-surface p-6 text-content shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
+      <section role="dialog" aria-modal="true" className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-2xl border border-white/10 bg-slate-900 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
         {children}
       </section>
     </div>
   )
 }
 
-function Panel({ children, unstyled = false }) {
+function Panel({ children, unstyled = false, className = '' }) {
   return (
-    <section className={unstyled ? '' : 'rounded-lg border border-border-soft bg-panel p-5 shadow-lg shadow-slate-950/10'}>
+    <section className={unstyled ? className : `rounded-2xl border border-white/10 bg-slate-900/70 p-6 shadow-xl backdrop-blur-md transition ${className}`}>
       {children}
     </section>
   )
@@ -1811,22 +2261,25 @@ function Panel({ children, unstyled = false }) {
 function PageTitle({ title, subtitle }) {
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-white">{title}</h1>
-      <p className="mt-2 text-muted">{subtitle}</p>
+      <h1 className="font-display text-3xl font-bold text-white tracking-tight">{title}</h1>
+      {subtitle && <p className="mt-2 text-sm text-slate-400">{subtitle}</p>}
     </div>
   )
 }
 
-function Input({ label, value, onChange, type = 'text', placeholder }) {
+function Input({ label, value, onChange, type = 'text', placeholder, required = false }) {
   return (
     <label className="block">
-      <span className="text-sm font-semibold text-muted">{label}</span>
+      <div className="mb-2 flex items-center">
+        <span className="text-sm font-semibold text-slate-200">{label}</span>
+        {required && <span className="ml-1 text-sm font-bold text-red-500">*</span>}
+      </div>
       <input
         type={type}
-        value={value}
+        value={value ?? ''}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-2 h-11 w-full rounded-md border border-border-soft bg-surface px-3 outline-none focus:border-primary"
+        className="h-11 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 text-white placeholder:text-slate-500 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/40"
       />
     </label>
   )
@@ -2058,10 +2511,11 @@ function InfoLine({ label, value, wide }) {
 }
 
 function Line({ label, value, large, tone }) {
+  const isDiscount = tone === 'discount'
   return (
-    <div className={`mt-4 flex justify-between gap-4 ${large ? 'font-display text-xl font-bold' : 'text-sm'}`}>
-      <span className="text-muted">{label}</span>
-      <span className={tone === 'discount' ? 'font-semibold text-primary' : large ? 'text-primary' : 'font-semibold text-white'}>{value}</span>
+    <div className={`mt-4 flex justify-between gap-4 ${large ? 'font-display text-xl font-bold' : isDiscount ? 'text-base font-medium' : 'text-sm'}`}>
+      <span className={large || isDiscount ? 'text-white' : 'text-muted'}>{label}</span>
+      <span className={isDiscount ? 'font-semibold text-white' : large ? 'text-primary' : 'font-semibold text-white'}>{value}</span>
     </div>
   )
 }

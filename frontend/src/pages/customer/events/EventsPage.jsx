@@ -174,12 +174,14 @@ export function EventsPage() {
                 type="date"
                 value={draft.start_date}
                 onChange={(value) => setDraft({ ...draft, start_date: value })}
+                placeholder="dd/mm/yyyy"
                 aria-label="Từ ngày"
               />
               <Input
                 type="date"
                 value={draft.end_date}
                 onChange={(value) => setDraft({ ...draft, end_date: value })}
+                placeholder="dd/mm/yyyy"
                 aria-label="Đến ngày"
               />
             </div>
@@ -214,14 +216,18 @@ export function EventsPage() {
             </select>
           </label>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <button className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-md bg-primary px-5 font-bold text-slate-950 transition hover:bg-sky-300">
+            <button
+              className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-full px-5 font-bold transition-all hover:brightness-110 hover:shadow-[0_0_20px_rgba(201,154,71,0.5)] active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+            >
               <Filter className="size-4" />
               Tìm sự kiện
             </button>
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex h-12 min-w-32 items-center justify-center gap-2 rounded-md border border-primary/40 px-4 font-bold text-primary transition hover:bg-primary/10"
+              className="inline-flex h-12 min-w-32 items-center justify-center gap-2 rounded-full border border-[#C99A47]/60 px-4 font-bold backdrop-blur-md transition-all hover:bg-[#C99A47]/15 hover:border-[#C99A47] hover:shadow-[0_0_14px_rgba(201,154,71,0.35)] active:scale-95"
+              style={{ color: '#E6C17A' }}
             >
               <RotateCcw className="size-4" />
               Xóa bộ lọc

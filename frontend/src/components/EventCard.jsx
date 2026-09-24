@@ -82,7 +82,7 @@ export function EventCard({
         />
         <div className="event-card-gradient absolute inset-0" />
         {showCategoryBadge && (
-          <span className="absolute left-4 top-4 z-20 max-w-[calc(100%-5.75rem)] truncate rounded-full border border-white/20 bg-black/60 px-3 py-1 text-xs font-bold uppercase text-primary backdrop-blur-md">
+          <span className="absolute left-4 top-4 z-20 max-w-[calc(100%-5.75rem)] truncate rounded-full border border-[#C99A47]/70 bg-black/60 px-3 py-1 text-xs font-bold uppercase backdrop-blur-md shadow-[0_0_12px_rgba(201,154,71,0.5)]" style={{ color: '#E6C17A' }}>
             {item.category}
           </span>
         )}
@@ -97,13 +97,18 @@ export function EventCard({
               onFavoriteToggle(event)
             }}
             className={cn(
-              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/10 bg-black/50 text-white backdrop-blur-md transition-all hover:bg-primary/20 hover:text-primary disabled:cursor-not-allowed disabled:opacity-70',
-              item.isFavorited && 'bg-primary/20 text-primary border-primary/50',
+              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/15 bg-black/50 backdrop-blur-md transition-all hover:border-[#C99A47]/60 hover:bg-[#C99A47]/15 hover:text-[#E6C17A] disabled:cursor-not-allowed disabled:opacity-70',
+              item.isFavorited
+                ? 'border-[#C99A47]/60 bg-[#C99A47]/20 text-[#E6C17A] shadow-[0_0_14px_rgba(201,154,71,0.4)]'
+                : 'text-white/70',
             )}
             aria-label={item.isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           >
             <Heart
-              className={cn('size-5', item.isFavorited && 'fill-current')}
+              className={cn(
+                'size-5 transition-all',
+                item.isFavorited && 'fill-current drop-shadow-[0_0_6px_rgba(230,193,122,0.6)]',
+              )}
             />
           </button>
         )}
@@ -123,7 +128,7 @@ export function EventCard({
             </span>
           </div>
           <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-2">
-            <MapPin className="mt-1 size-4 shrink-0 text-secondary" />
+            <MapPin className="mt-1 size-4 shrink-0 text-primary" />
             <span>{item.location}</span>
           </div>
         </div>
@@ -139,7 +144,8 @@ export function EventCard({
               to={detailPath}
               data-card-action
               onClick={(clickEvent) => clickEvent.stopPropagation()}
-              className="admin-primary shrink-0"
+              className="shrink-0 inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-bold transition-all hover:brightness-110 hover:shadow-[0_0_20px_rgba(201,154,71,0.6)] active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
               Xem chi tiết
             </Link>

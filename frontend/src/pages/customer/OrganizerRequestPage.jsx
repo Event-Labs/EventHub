@@ -938,7 +938,8 @@ export function OrganizerRequestPage() {
                 <button
                   type="submit"
                   disabled={requestMutation.isPending || isUploading}
-                  className="cosmic-btn-primary px-8 py-3.5 text-[15px] flex items-center gap-2"
+                  className="btn-gold-primary px-8 py-3.5 text-[15px] flex items-center gap-2 font-bold cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 >
                   {(requestMutation.isPending || isUploading) && (
                     <Loader2 className="size-5 animate-spin" />

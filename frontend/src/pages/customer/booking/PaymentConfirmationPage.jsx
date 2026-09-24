@@ -108,7 +108,7 @@ export function PaymentConfirmationPage() {
 
   if (paid) {
     return (
-      <div className="min-h-[calc(100vh-64px)] bg-background px-4 py-16 text-center sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="min-h-[calc(100vh-64px)] bg-transparent px-4 py-16 text-center sm:px-6 lg:px-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20 pointer-events-none" />
         <section className="glass-panel mx-auto max-w-2xl rounded-[32px] p-12 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--color-success)_0%,_transparent_60%)] opacity-10 pointer-events-none" />

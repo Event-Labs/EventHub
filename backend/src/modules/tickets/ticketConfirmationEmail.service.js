@@ -21,10 +21,11 @@ function logoUrl() {
   return `${String(env.CLIENT_URL || '').replace(/\/$/, '')}/images/LogoEH.png`;
 }
 
-function ticketCard(ticket, order) {
+function ticketCard(ticket, order, options = {}) {
   const venue = [ticket.venue_name, ticket.address_line, ticket.ward, ticket.district, ticket.city].filter(Boolean).join(', ');
   const holderName = ticket.attendee_name || order.buyer_name;
   const holderLabel = ticket.attendee_name ? 'Ng&#432;&#7901;i tham d&#7921;' : 'Ng&#432;&#7901;i mua v&#233;';
+  const showOrderCode = !options.isAttendee;
   return `<div style="margin:20px 0;overflow:hidden;border:1px solid #24304b;border-radius:18px;background:#101a33;color:#fff">
     <div style="padding:16px 20px;border-bottom:1px solid #293652;background:#0f172a">
       <table width="100%" cellspacing="0" cellpadding="0"><tr>
@@ -41,7 +42,7 @@ function ticketCard(ticket, order) {
           <table width="100%" cellspacing="0" cellpadding="6" style="font-size:14px;color:#fff">
             <tr><td style="color:#94a3b8">${holderLabel}</td><td><b>${escapeHtml(holderName)}</b></td></tr>
             <tr><td style="color:#94a3b8">Th&#7901;i gian</td><td><b>${escapeHtml(date(ticket.session_start_time))}</b></td></tr>
-            <tr><td style="color:#94a3b8">&#272;&#417;n h&#224;ng</td><td><b>${escapeHtml(order.order_code)}</b></td></tr>
+            ${showOrderCode ? `<tr><td style="color:#94a3b8">&#272;&#417;n h&#224;ng</td><td><b>${escapeHtml(order.order_code)}</b></td></tr>` : ''}
             <tr><td style="color:#94a3b8">Phi&#234;n</td><td><b>${escapeHtml(ticket.session_name || order.event_title)}</b></td></tr>
             ${ticket.seat_label ? `<tr><td style="color:#94a3b8">Gh&#7871; ng&#7891;i</td><td><b>${escapeHtml(ticket.seat_label)}</b></td></tr>` : ''}
             <tr><td style="color:#94a3b8">&#272;&#7883;a &#273;i&#7875;m</td><td><b>${escapeHtml(venue || 'N/A')}</b></td></tr>
@@ -75,6 +76,23 @@ function buildHtml(order, tickets, delivery = {}) {
   <p style="font-size:13px;color:#64748b">Khong chia se ma QR. Moi ve chi check-in mot lan.</p></div></div></body></html>`;
 }
 
+function buildAttendeeHtml(order, tickets, attendeeName) {
+  const image = order.banner_url || order.thumbnail_url;
+  return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial;color:#334155">
+  <div style="max-width:720px;margin:auto;padding:24px"><div style="background:#0f172a;color:white;padding:24px;border-radius:18px 18px 0 0">
+    <small style="color:#38bdf8">EVENTHUB</small><h1 style="margin:8px 0;font-size:24px;color:#fff">V&#233; tham d&#7921; s&#7921; ki&#7879;n</h1><p style="margin:0;color:#94a3b8;font-size:14px">V&#233; &#273;i&#7879;n t&#7917; c&#7911;a b&#7841;n &#273;&#227; s&#7861;n s&#224;ng. H&#227;y gi&#7919; email n&#224;y &#273;&#7875; check-in.</p></div>
+  ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(order.event_title)}" style="width:100%;max-height:300px;object-fit:cover" />` : ''}
+  <div style="background:white;padding:24px"><h2 style="margin-top:0;color:#0f172a">${escapeHtml(order.event_title)}</h2><p style="color:#334155;font-size:15px;line-height:1.5">Xin chao <b>${escapeHtml(attendeeName || 'b\u1ea1n')}</b>, d&#432;&#7899;i &#273;&#226;y l&#224; v&#233; tham d&#7921; s&#7921; ki&#7879;n c&#7911;a b&#7841;n:</p>
+  <h2>Ve cua ban (${tickets.length})</h2>${tickets.map((ticket) => ticketCard(ticket, order, { isAttendee: true })).join('')}
+  <div style="margin-top:20px;padding:14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;font-size:13px;color:#64748b">
+    <p style="margin:0 0 6px"><b>L&#432;u &#253; quan tr&#7885;ng:</b></p>
+    <ul style="margin:0;padding-left:18px">
+      <li>Khong chia se ma QR. Moi ve chi check-in mot lan.</li>
+      <li>Vui l&#242;ng xu&#7845;t tr&#236;nh m&#227; QR tr&#234;n v&#233; khi &#273;&#7871;n tham d&#7921; s&#7921; ki&#7879;n &#273;&#7875; check-in nhanh ch&#243;ng.</li>
+    </ul>
+  </div></div></div></body></html>`;
+}
+
 function localizeVietnameseHtml(html) {
   const replacements = [
     ['Xin chao', 'Xin ch\u00e0o'],
@@ -90,6 +108,60 @@ function localizeVietnameseHtml(html) {
     ['Khong chia se ma QR. Moi ve chi check-in mot lan.', 'Kh\u00f4ng chia s\u1ebb m\u00e3 QR. M\u1ed7i v\u00e9 ch\u1ec9 \u0111\u01b0\u1ee3c check-in m\u1ed9t l\u1ea7n.'],
   ];
   return replacements.reduce((result, [source, target]) => result.replaceAll(source, target), html);
+}
+
+async function sendAttendeeTickets(order, tickets) {
+  if (!tickets?.length) return [];
+
+  const attendeeGroups = new Map();
+  for (const ticket of tickets) {
+    const rawEmail = String(ticket.attendee_email || '').trim().toLowerCase();
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) continue;
+
+    // Không gửi trùng cho người mua nếu email người tham dự trùng với email người mua
+    if (order?.buyer_email && rawEmail === String(order.buyer_email).trim().toLowerCase()) {
+      continue;
+    }
+
+    if (!attendeeGroups.has(rawEmail)) {
+      attendeeGroups.set(rawEmail, {
+        email: rawEmail,
+        attendeeName: ticket.attendee_name || '',
+        tickets: [],
+      });
+    }
+    const group = attendeeGroups.get(rawEmail);
+    group.tickets.push(ticket);
+    if (!group.attendeeName && ticket.attendee_name) {
+      group.attendeeName = ticket.attendee_name;
+    }
+  }
+
+  if (attendeeGroups.size === 0) return [];
+
+  logger.info(`[ATTENDEE_EMAIL] sending e-tickets to ${attendeeGroups.size} attendee(s) for orderId=${order.id}`);
+
+  const results = await Promise.allSettled(
+    Array.from(attendeeGroups.values()).map(async ({ email, attendeeName, tickets: attendeeTickets }) => {
+      return emailService.sendEmail({
+        email,
+        subject: `Vé tham dự sự kiện - ${order.event_title}`,
+        message: `Xin chào ${attendeeName || 'bạn'}, bạn đã có vé tham dự sự kiện "${order.event_title}". Vui lòng lưu email này để quét mã QR check-in tại sự kiện.`,
+        html: localizeVietnameseHtml(buildAttendeeHtml(order, attendeeTickets, attendeeName)),
+      });
+    })
+  );
+
+  results.forEach((res, idx) => {
+    const targetEmail = Array.from(attendeeGroups.keys())[idx];
+    if (res.status === 'rejected') {
+      logger.error(`[ATTENDEE_EMAIL] failed to send to ${maskEmail(targetEmail)}:`, res.reason);
+    } else {
+      logger.info(`[ATTENDEE_EMAIL] successfully sent to ${maskEmail(targetEmail)}`);
+    }
+  });
+
+  return results;
 }
 
 async function sendOrderConfirmation(order, tickets) {
@@ -120,6 +192,13 @@ async function sendOrderConfirmation(order, tickets) {
     });
   }));
 
+  // Gửi email vé điện tử độc lập cho từng người tham dự (chỉ có vé, không có thông tin đơn hàng)
+  try {
+    await sendAttendeeTickets(order, tickets);
+  } catch (attendeeEmailError) {
+    logger.error(`[ATTENDEE_EMAIL] error processing attendee emails for orderId=${order.id}:`, attendeeEmailError);
+  }
+
   const failedParts = [];
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
@@ -138,4 +217,4 @@ async function sendOrderConfirmation(order, tickets) {
   return true;
 }
 
-module.exports = { sendOrderConfirmation };
+module.exports = { sendOrderConfirmation, sendAttendeeTickets };
