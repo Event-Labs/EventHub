@@ -13,6 +13,8 @@ import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenti
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
+import { ActiveHoldFloatingBar } from '@/components/ActiveHoldFloatingBar.jsx'
+import { CosmicStarryBackground } from '@/components/CosmicStarryBackground.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const centerNavItems = [
@@ -260,12 +262,17 @@ export function AppLayout() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col text-content bg-transparent">
+    <div className="flex min-h-screen flex-col text-content bg-transparent relative">
+      <CosmicStarryBackground />
       <div className="pointer-events-none fixed inset-0 z-50 transition-opacity duration-300 mouse-glow-overlay" />
       <header className="fixed top-4 left-0 right-0 z-50 mx-auto w-[96%] max-w-7xl rounded-full border border-border-soft bg-panel/70 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300">
         <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
-            <img src={logoSrc} alt="EventHub" className="h-12 w-auto object-contain mix-blend-screen" />
+            <img
+              src={logoSrc}
+              alt="EventHub"
+              className="h-12 sm:h-13 w-auto object-contain mix-blend-screen transition-opacity hover:opacity-80"
+            />
           </NavLink>
 
           <nav ref={navRef} className="relative hidden items-center justify-center gap-1 md:flex">
@@ -473,14 +480,18 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className={`flex-1 ${pathname === '/' ? '' : 'pt-16'}`}>
+      <main className={`flex-1 ${pathname === '/' || /^\/events\/[^/]+$/.test(pathname) ? '' : 'pt-16'}`}>
         <Outlet />
       </main>
       <footer className="relative border-t border-border-soft bg-panel-soft/30 backdrop-blur-md">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_70%)] opacity-[0.03]" />
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
-            <img src={logoSrc} alt="EventHub" className="h-10 w-auto object-contain mix-blend-screen" />
+            <img
+              src={logoSrc}
+              alt="EventHub"
+              className="h-14 sm:h-16 w-auto object-contain mix-blend-screen"
+            />
             <p className="mt-4 max-w-sm text-sm leading-6 text-subtle">
               Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành và soát vé bằng mã QR
               và hỗ trợ ban tổ chức bằng AI.
@@ -507,6 +518,7 @@ export function AppLayout() {
           </div>
         </div>
       </footer>
+      <ActiveHoldFloatingBar />
       <CustomerAiAssistantWidget enabled={true} />
     </div>
   )
