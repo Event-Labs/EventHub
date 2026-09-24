@@ -433,8 +433,19 @@ export function BookingSeatsPage() {
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
   const seatMapViewportRef = useRef(null)
   const session = cart?.selectedSession || cart?.items?.[0]?.session
-  const ticketTypes = (cart?.availableTicketTypes || []).filter((ticketType) =>
-    session ? String(ticketType.event_session_id) === String(session.id) : true,
+
+  const { data: eventDetail } = useQuery({
+    queryKey: ['booking-seats-event-detail', cart?.eventId],
+    queryFn: () => fetchEventDetail(cart.eventId),
+    enabled: Boolean(cart?.eventId && (!cart?.availableTicketTypes || cart?.availableTicketTypes.length === 0)),
+  })
+
+  const allAvailableTickets = (cart?.availableTicketTypes && cart.availableTicketTypes.length > 0)
+    ? cart.availableTicketTypes
+    : (eventDetail?.ticket_types || [])
+
+  const ticketTypes = allAvailableTickets.filter((ticketType) =>
+    session ? (!ticketType.event_session_id || String(ticketType.event_session_id) === String(session.id)) : true,
   )
   const [selectedSeatIds, setSelectedSeatIds] = useState(
     cart?.selectedSeatIds || cart?.items?.flatMap((item) => item.sessionSeatIds || []) || [],
@@ -473,11 +484,14 @@ export function BookingSeatsPage() {
     enabled: Boolean(session),
   })
 
+  const seatData = seatsQuery.data?.seats || []
+  const hasSeatMap = Boolean(seatData.length > 0)
+
   useEffect(() => {
-    if (seatsQuery.isError) {
+    if (seatsQuery.isError && hasSeatMap) {
       toast.error(getApiMessage(seatsQuery.error, 'Không thể tải sơ đồ ghế. Vui lòng thử lại.'))
     }
-  }, [seatsQuery.error, seatsQuery.isError, toast])
+  }, [seatsQuery.error, seatsQuery.isError, hasSeatMap, toast])
 
   const fitSeatMapToViewport = useCallback(() => {
     if (!seatMapViewportRef.current) return
@@ -494,7 +508,6 @@ export function BookingSeatsPage() {
     fitSeatMapToViewport()
   }, [fitSeatMapToViewport, seatsQuery.data?.seats?.length])
 
-  const seatData = seatsQuery.data?.seats || []
   const seatingRules = cart?.seatingRules || cart?.seating_rules || {}
   const colorByTicketTypeId = useMemo(() => {
     const colors = new Map()
@@ -521,6 +534,11 @@ export function BookingSeatsPage() {
       })
     return colors
   }, [seatData, seatsQuery.data?.seat_map?.config?.standingAreas, ticketTypes])
+
+  const selectableTicketTypes = hasSeatMap
+    ? ticketTypes.filter((ticketType) => ticketType.is_seated === false)
+    : ticketTypes
+
   const buildDisplayItems = (seatIds) => {
     if (!seatData.length) return []
     const seatsById = new Map(
@@ -564,22 +582,32 @@ export function BookingSeatsPage() {
     }))
   }
 
-  const seatedItems = buildDisplayItems(selectedSeatIds)
+  const seatedItems = hasSeatMap ? buildDisplayItems(selectedSeatIds) : []
   const unseatedItems = (cart?.items || []).filter(
-    (item) => item.ticketType?.is_seated === false && Number(item.quantity || 0) > 0,
+    (item) => (!hasSeatMap || item.ticketType?.is_seated === false) && Number(item.quantity || 0) > 0,
   )
   const displayItems = [...seatedItems, ...unseatedItems]
-  const displayTicketTypes = (cart?.availableTicketTypes || []).map((ticketType) => ({
+  const displayTicketTypes = selectableTicketTypes.map((ticketType) => ({
     ...ticketType,
     color: ticketTypeColor(ticketType, colorByTicketTypeId),
   }))
-  const seatRuleIssue = useMemo(() => validateSeatSelection({
-    rules: seatingRules,
-    selectedSeatIds,
-    seats: seatData,
-  })[0] || '', [seatData, seatingRules, selectedSeatIds])
+  const seatRuleIssue = useMemo(() => {
+    if (!hasSeatMap) return ''
+    return validateSeatSelection({
+      rules: seatingRules,
+      selectedSeatIds,
+      seats: seatData,
+    })[0] || ''
+  }, [hasSeatMap, seatData, seatingRules, selectedSeatIds])
 
-  const displayCart = cart ? { ...cart, selectedSession: session, selectedSeatIds, availableTicketTypes: displayTicketTypes, items: displayItems } : cart
+  const displayCart = cart ? {
+    ...cart,
+    selectedSession: session,
+    selectedSeatIds: hasSeatMap ? selectedSeatIds : [],
+    availableTicketTypes: displayTicketTypes,
+    items: displayItems,
+    hasSeatMap,
+  } : cart
 
   useEffect(() => {
     if (!displayCart || !session) return
@@ -600,14 +628,17 @@ export function BookingSeatsPage() {
       const holdExpiresAt = hold.hold_expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString()
       const heldCart = {
         ...nextCart,
+        hasSeatMap,
         holdExpiresAt,
         hold_expires_at: holdExpiresAt,
       }
       saveBookingDraft(heldCart)
       navigate('/booking/attendees', { state: { cart: heldCart } })
     } catch (err) {
-      toast.error(getApiMessage(err, 'Không thể giữ ghế bạn đã chọn. Vui lòng thử lại.'))
-      seatsQuery.refetch()
+      toast.error(getApiMessage(err, hasSeatMap ? 'Không thể giữ ghế bạn đã chọn. Vui lòng thử lại.' : 'Không thể giữ vé bạn đã chọn. Vui lòng thử lại.'))
+      if (hasSeatMap) {
+        seatsQuery.refetch()
+      }
     } finally {
       setCheckingAvailability(false)
     }
@@ -616,7 +647,7 @@ export function BookingSeatsPage() {
   const resetSelection = async () => {
     setResettingSelection(true)
     try {
-      if (hasActiveSeatHold(displayCart)) {
+      if (hasActiveSeatHold(displayCart) && displayCart.selectedSeatIds?.length > 0) {
         await releaseSeatHolds({
           event_id: displayCart.eventId,
           session_seat_ids: displayCart.items.flatMap((item) => item.sessionSeatIds || []),
@@ -632,12 +663,15 @@ export function BookingSeatsPage() {
         hold_expires_at: null,
         promo: null,
         promoCode: '',
+        hasSeatMap,
       }
       setSelectedSeatIds([])
       setStandingTicketType(null)
       setCart(resetCart)
       saveBookingDraft(resetCart)
-      await seatsQuery.refetch()
+      if (hasSeatMap) {
+        await seatsQuery.refetch()
+      }
       toast.success('Đã xóa các vé đã chọn. Bạn có thể chọn lại ngay bây giờ.')
     } catch (err) {
       toast.error(getApiMessage(err, 'Chưa thể xóa các vé đã chọn. Vui lòng thử lại.'))
@@ -677,6 +711,7 @@ export function BookingSeatsPage() {
     setCart((current) => {
       const coloredTicketType = {
         ...ticketType,
+        is_seated: hasSeatMap ? Boolean(ticketType.is_seated) : false,
         color: ticketTypeColor(ticketType, colorByTicketTypeId),
       }
       const items = [...(current?.items || [])]
@@ -694,7 +729,7 @@ export function BookingSeatsPage() {
         : { ticketType: coloredTicketType, quantity: 0, sessionSeatIds: [], seatLabels: [], session }
       const available = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
       const perOrder = Math.min(Math.max(1, Number(ticketType.max_per_order || 20)), maxTicketsAllowed)
-      const maximum = Math.min(available, perOrder)
+      const maximum = available > 0 ? Math.min(available, perOrder) : perOrder
       const quantity = clamp(Number(existing.quantity || 0) + delta, 0, maximum)
       const nextItem = { ...existing, ticketType: coloredTicketType, quantity }
 
@@ -703,109 +738,101 @@ export function BookingSeatsPage() {
 
       return {
         ...current,
+        hasSeatMap,
         items: items.filter((item) => Number(item.quantity || 0) > 0),
       }
     })
   }
 
-  const unseatedTicketTypes = ticketTypes.filter((ticketType) => ticketType.is_seated === false)
-  const hasSeatMap = seatData.length > 0
-
   return (
     <BookingShell step={1} cart={displayCart}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
-          <Panel unstyled={!hasSeatMap && unseatedTicketTypes.length > 0}>
-            {seatsQuery.isLoading ? (
-              <p className="text-muted">{'\u0110ang t\u1ea3i s\u01a1 \u0111\u1ed3 gh\u1ebf...'}</p>
-            ) : seatsQuery.data?.seats?.length ? (
-              <>
-                <div className="mb-5 flex flex-wrap justify-center gap-4 text-xs text-muted">
-                  <Legend color="bg-primary" label={'\u0110ang ch\u1ecdn'} />
-                  <Legend color="bg-panel-soft" label={'C\u00f2n tr\u1ed1ng'} />
-                  <Legend color="bg-slate-700" label={'\u0110\u00e3 gi\u1eef/b\u00e1n'} />
-                </div>
-                <div className="flex items-start gap-3 rounded-lg bg-surface/60 p-4">
-                  <div ref={seatMapViewportRef} className="min-w-0 flex-1 overflow-auto">
-                    <SeatMapCanvas
-                      seats={seatsQuery.data?.seats || []}
-                      ticketTypes={ticketTypes}
-                      selectedSeatIds={selectedSeatIds}
-                      onToggleSeat={toggleSeat}
-                      seatZoom={seatZoom}
-                      colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
-                      seatMap={seatsQuery.data?.seat_map}
-                      invalidSeatId={invalidSeatId}
-                      onSelectStandingArea={(area, index) => {
-                        const ticketType = unseatedTicketTypes.find(
-                          (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
-                        ) || unseatedTicketTypes[index]
-                        if (ticketType) setStandingTicketType(ticketType)
-                      }}
-                    />
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.5, 1.6))}
-                      className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
-                      disabled={seatZoom >= 1.6}
-                      title={'Ph\u00f3ng to'}
-                    >
-                      <Plus className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={fitSeatMapToViewport}
-                      className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
-                      title={'V\u1eeba khung'}
-                    >
-                      <RefreshCw className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.5, 1.6))}
-                      className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
-                      disabled={seatZoom <= 0.5}
-                      title={'Thu nh\u1ecf'}
-                    >
-                      <Minus className="size-4" />
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : unseatedTicketTypes.length === 0 ? (
-              <p className="text-muted text-center font-medium">{'S\u1ef1 ki\u1ec7n n\u00e0y hi\u1ec7n kh\u00f4ng c\u00f3 s\u01a1 \u0111\u1ed3 ch\u1ed7 ng\u1ed3i'}</p>
-            ) : null}
-
-            {!hasSeatMap && unseatedTicketTypes.length > 0 && (
-              <div className={'space-y-3'}>
-                {unseatedTicketTypes.map((ticketType) => (
-                  <UnseatedTicketRow
-                    key={ticketType.id}
-                    ticketType={ticketType}
-                    quantity={Number((cart?.items || []).find(
-                      (item) => String(item.ticketType.id) === String(ticketType.id),
-                    )?.quantity || 0)}
-                    onDecrease={() => updateUnseatedQuantity(ticketType, -1)}
-                    onIncrease={() => updateUnseatedQuantity(ticketType, 1)}
-                  />
-                ))}
+          {!hasSeatMap ? (
+            seatsQuery.isLoading ? (
+              <div className="glass-panel rounded-[24px] border border-primary/20 bg-slate-900/60 p-12 text-center shadow-xl backdrop-blur-md">
+                <div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <p className="text-muted font-medium">Đang tải danh sách vé...</p>
               </div>
-            )}
-
-            {seatsQuery.data?.seats?.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
-                <p>
-                  Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
-                </p>
-                <span className="text-xs text-subtle">
-                  (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
-                </span>
-              </div>
-            )}
-
-          </Panel>
+            ) : (
+              <UnseatedTicketSelection
+                ticketTypes={selectableTicketTypes}
+                cart={displayCart}
+                maxTicketsAllowed={maxTicketsAllowed}
+                onUpdateQuantity={updateUnseatedQuantity}
+              />
+            )
+          ) : (
+            <Panel>
+              {seatsQuery.isLoading ? (
+                <p className="text-muted">{'Đang tải sơ đồ ghế...'}</p>
+              ) : seatsQuery.data?.seats?.length ? (
+                <>
+                  <div className="mb-5 flex flex-wrap justify-center gap-4 text-xs text-muted">
+                    <Legend color="bg-primary" label={'Đang chọn'} />
+                    <Legend color="bg-panel-soft" label={'Còn trống'} />
+                    <Legend color="bg-slate-700" label={'Đã giữ/bán'} />
+                  </div>
+                  <div className="flex items-start gap-3 rounded-lg bg-surface/60 p-4">
+                    <div ref={seatMapViewportRef} className="min-w-0 flex-1 overflow-auto">
+                      <SeatMapCanvas
+                        seats={seatsQuery.data?.seats || []}
+                        ticketTypes={ticketTypes}
+                        selectedSeatIds={selectedSeatIds}
+                        onToggleSeat={toggleSeat}
+                        seatZoom={seatZoom}
+                        colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
+                        seatMap={seatsQuery.data?.seat_map}
+                        invalidSeatId={invalidSeatId}
+                        onSelectStandingArea={(area, index) => {
+                          const ticketType = selectableTicketTypes.find(
+                            (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
+                          ) || selectableTicketTypes[index]
+                          if (ticketType) setStandingTicketType(ticketType)
+                        }}
+                      />
+                    </div>
+                    <div className="flex shrink-0 flex-col gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.5, 1.6))}
+                        className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                        disabled={seatZoom >= 1.6}
+                        title={'Phóng to'}
+                      >
+                        <Plus className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={fitSeatMapToViewport}
+                        className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
+                        title={'Vừa khung'}
+                      >
+                        <RefreshCw className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.5, 1.6))}
+                        className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                        disabled={seatZoom <= 0.5}
+                        title={'Thu nhỏ'}
+                      >
+                        <Minus className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+                    <p>
+                      Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
+                    </p>
+                    <span className="text-xs text-subtle">
+                      (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
+                    </span>
+                  </div>
+                </>
+              ) : null}
+            </Panel>
+          )}
         </section>
         <OrderCard
           cart={displayCart}
@@ -1570,7 +1597,8 @@ export function BookingPaymentPage() {
 }
 
 function BookingShell({ step, cart, children }) {
-  const labels = ['Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
+  const isUnseated = cart?.hasSeatMap === false
+  const labels = [isUnseated ? 'Chọn vé' : 'Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
   const stepPaths = {
     1: '/booking/seats',
     2: '/booking/attendees',
@@ -1612,7 +1640,6 @@ function BookingShell({ step, cart, children }) {
       return
     }
 
-    // Đảm bảo chỉ thông báo đúng 1 lần khi hết hạn và quay lại bước chọn ghế
     if (expiredHandledRef.current) return
     expiredHandledRef.current = true
 
@@ -1651,7 +1678,7 @@ function BookingShell({ step, cart, children }) {
 
   const stepBackLabel = {
     1: 'Quay lại chi tiết sự kiện',
-    2: 'Quay về bước 1: Chọn ghế / vé',
+    2: isUnseated ? 'Quay về bước 1: Chọn vé' : 'Quay về bước 1: Chọn ghế',
     3: 'Quay về bước 2: Thông tin',
     4: 'Quay về bước 3: Kiểm tra đơn',
   }[step] || 'Quay về bước trước'
@@ -1716,7 +1743,7 @@ function BookingShell({ step, cart, children }) {
           <button
             type="button"
             onClick={goBackStep}
-            className="inline-flex items-center gap-2.5 rounded-xl border border-white/10 bg-slate-900/70 px-4 py-2 text-sm font-bold text-slate-300 shadow-md backdrop-blur-md transition hover:border-primary/40 hover:bg-slate-800 hover:text-primary"
+            className="inline-flex items-center gap-2.5 px-4 py-2 text-sm font-bold text-slate-300 backdrop-blur-md transition hover:border-primary/40 hover:text-primary"
           >
             <ArrowLeft className="size-4 text-primary" />
             <span>{stepBackLabel}</span>
@@ -2316,12 +2343,113 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
   )
 }
 
-function QuantityStepper({ quantity, onDecrease, onIncrease, className = '' }) {
+function QuantityStepper({ quantity, onDecrease, onIncrease, disabledIncrease = false, className = '' }) {
   return (
-    <div className={`flex items-center justify-end gap-4 ${className}`}>
-      <button type={'button'} onClick={onDecrease} disabled={quantity <= 0} className={'grid size-9 place-items-center rounded-full border border-border-soft text-white disabled:opacity-40'}><Minus className={'size-4'} /></button>
-      <span className={'min-w-8 text-center text-xl font-bold text-white'}>{quantity}</span>
-      <button type={'button'} onClick={onIncrease} className={'grid size-9 place-items-center rounded-full bg-tertiary text-white'}><Plus className={'size-4'} /></button>
+    <div className={`flex items-center gap-3 ${className}`}>
+      <button
+        type="button"
+        onClick={onDecrease}
+        disabled={quantity <= 0}
+        className="size-8 sm:size-9 rounded-full bg-white text-slate-800 font-bold flex items-center justify-center transition-all hover:bg-slate-200 active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer shadow-sm"
+        aria-label="Giảm số lượng"
+      >
+        <Minus className="size-4 text-slate-700 stroke-[2.5]" />
+      </button>
+      <span className="min-w-6 text-center font-bold text-white text-base sm:text-lg tabular-nums select-none">
+        {quantity}
+      </span>
+      <button
+        type="button"
+        onClick={onIncrease}
+        disabled={disabledIncrease}
+        className="size-8 sm:size-9 rounded-full bg-white text-primary font-bold flex items-center justify-center transition-all hover:bg-cyan-50 active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer shadow-sm"
+        aria-label="Tăng số lượng"
+      >
+        <Plus className="size-4 text-primary stroke-[2.5]" />
+      </button>
+    </div>
+  )
+}
+
+function UnseatedTicketSelection({
+  ticketTypes,
+  cart,
+  maxTicketsAllowed,
+  onUpdateQuantity,
+}) {
+  const currentTotalTickets = (cart?.items || []).reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0,
+  )
+
+  return (
+    <div className="glass-panel rounded-[24px] border border-primary/20 bg-slate-900/70 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] backdrop-blur-md">
+      <div className="text-center pb-5 border-b border-white/10 mb-2">
+        <h2 className="font-display text-lg sm:text-xl font-bold text-[#E6C17A] tracking-wider uppercase drop-shadow-[0_0_10px_rgba(201,154,71,0.4)]">
+          Chọn vé
+        </h2>
+      </div>
+
+      {ticketTypes.length === 0 ? (
+        <div className="py-12 text-center text-muted">
+          Hiện chưa có loại vé nào khả dụng cho suất diễn này.
+        </div>
+      ) : (
+        <div className="divide-y divide-dashed divide-white/15">
+          {ticketTypes.map((ticketType) => {
+            const item = (cart?.items || []).find(
+              (i) => String(i.ticketType?.id) === String(ticketType.id),
+            )
+            const quantity = Number(item?.quantity || 0)
+            const availability = ticketAvailability(ticketType)
+            const isSoldOut = availability.total > 0 && availability.available <= 0
+            const perOrder = Math.min(Math.max(1, Number(ticketType.max_per_order || 20)), maxTicketsAllowed)
+            const maxLimit = availability.available > 0 ? Math.min(availability.available, perOrder) : perOrder
+            const isMaxReached = quantity >= maxLimit || currentTotalTickets >= maxTicketsAllowed
+
+            return (
+              <div
+                key={ticketType.id}
+                className="py-5 sm:py-6 flex items-center justify-between gap-4 transition-colors"
+              >
+                <div className="min-w-0 flex-1 pr-3">
+                  <h3 className="font-display text-sm sm:text-base font-bold text-white uppercase tracking-wide truncate">
+                    {ticketType.name}
+                  </h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-2.5">
+                    <span className="font-bold text-primary text-sm sm:text-base">
+                      {formatPrice(ticketType.price)}
+                    </span>
+                    {isSoldOut ? (
+                      <span className="inline-flex items-center rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
+                        Hết vé
+                      </span>
+                    ) : availability.available > 0 && availability.total > 0 ? (
+                      <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-300 shadow-[0_0_6px_rgba(6,182,212,0.15)]">
+                        Còn {availability.available} vé
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <QuantityStepper
+                  quantity={quantity}
+                  onDecrease={() => onUpdateQuantity(ticketType, -1)}
+                  onIncrease={() => onUpdateQuantity(ticketType, 1)}
+                  disabledIncrease={isSoldOut || isMaxReached}
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-xs text-subtle">
+        <p>
+          Đã chọn: <span className="font-bold text-primary">{currentTotalTickets}</span>/{maxTicketsAllowed} vé
+        </p>
+        <span>(Tối đa {maxTicketsAllowed} vé mỗi lần đặt)</span>
+      </div>
     </div>
   )
 }
@@ -2344,7 +2472,7 @@ function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
         </div>
         <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)}</p>
       </div>
-      <QuantityStepper className={'mt-4'} quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
+      <QuantityStepper className={'mt-4 justify-end'} quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
     </div>
   )
 }
