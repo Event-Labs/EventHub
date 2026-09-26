@@ -1941,7 +1941,7 @@ class OrdersRepository {
     const order = rows[0];
     if (!order) return null;
     const ticketResult = await db.query(
-      `SELECT t.id, t.ticket_code, t.qr_code, t.attendee_name, t.event_id, t.event_session_id,
+      `SELECT t.id, t.ticket_code, t.qr_code, t.attendee_name, t.attendee_email, t.event_id, t.event_session_id,
         tt.name AS ticket_type_name, es.session_name, es.start_time AS session_start_time,
         v.name AS venue_name, v.address_line, v.ward, v.district, v.city,
         CONCAT_WS('', s.row_label, s.seat_number) AS seat_label
