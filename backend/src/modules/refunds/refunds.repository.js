@@ -8,6 +8,8 @@ const REFUND_SELECT = `
   rr.customer_id,
   rr.organizer_id,
   rr.refund_amount,
+  rr.refund_rate,
+  rr.policy_snapshot,
   rr.reason,
   rr.status,
   rr.refund_method,
@@ -36,6 +38,7 @@ const REFUND_SELECT = `
   t.ticket_code,
   t.status AS ticket_status,
   t.checked_in_at,
+  t.refund_policy_snapshot AS ticket_refund_policy_snapshot,
   COALESCE(t.session_seat_id, oi.session_seat_id) AS session_seat_id,
   es.start_time AS session_start_time,
   es.end_time AS session_end_time,
@@ -62,8 +65,8 @@ const REFUND_JOINS = `
 `;
 
 class RefundsRepository {
-  async findOrderAndTicketForRefund(orderId, ticketId, customerId, client = db, forUpdate = false) {
-    const lockClause = forUpdate ? 'FOR UPDATE OF t, o' : '';
+  async getRefundContext(customerId, orderId, ticketId = null, client = db, forUpdate = false) {
+    const lockClause = forUpdate ? 'FOR UPDATE OF o' : '';
     const { rows } = await client.query(
       `
       SELECT
@@ -80,6 +83,7 @@ class RefundsRepository {
         t.ticket_code,
         t.status AS ticket_status,
         t.checked_in_at,
+        t.refund_policy_snapshot AS ticket_refund_policy_snapshot,
         COALESCE(t.session_seat_id, oi.session_seat_id) AS session_seat_id,
         e.id AS event_id,
         e.title AS event_title,
@@ -134,6 +138,8 @@ class RefundsRepository {
         customer_id,
         organizer_id,
         refund_amount,
+        refund_rate,
+        policy_snapshot,
         reason,
         status,
         refund_method,
@@ -142,7 +148,7 @@ class RefundsRepository {
         bank_account_name,
         requested_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9, $10, $11, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'PENDING', $10, $11, $12, $13, now())
       RETURNING id
       `,
       [
@@ -152,6 +158,8 @@ class RefundsRepository {
         data.customer_id,
         data.organizer_id,
         data.refund_amount,
+        data.refund_rate !== undefined ? data.refund_rate : null,
+        data.policy_snapshot ? JSON.stringify(data.policy_snapshot) : null,
         data.reason,
         data.refund_method || 'PAYOS',
         data.bank_name || null,

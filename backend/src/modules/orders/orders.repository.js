@@ -831,6 +831,7 @@ class OrdersRepository {
           e.status AS event_status,
           e.visibility,
           e.approval_status,
+          e.refund_policy AS event_refund_policy,
           e.deleted_at,
           v.name AS venue_name,
           v.address_line,
@@ -1028,13 +1029,14 @@ class OrdersRepository {
             code,
             buyer.name,
             buyer.email || null,
+            ticketType.event_refund_policy ? JSON.stringify(ticketType.event_refund_policy) : null,
           ]);
         }
 
         if (ticketsToInsert.length > 0) {
           const placeholders = ticketsToInsert.map((_, idx) => {
-            const o = idx * 9;
-            return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}::varchar(100), $${o + 7}::text, $${o + 8}, $${o + 9}, 'VALID')`;
+            const o = idx * 10;
+            return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}::varchar(100), $${o + 7}::text, $${o + 8}, $${o + 9}, $${o + 10}::jsonb, 'VALID')`;
           }).join(', ');
           await client.query(
             `
@@ -1048,6 +1050,7 @@ class OrdersRepository {
               qr_code,
               attendee_name,
               attendee_email,
+              refund_policy_snapshot,
               status
             )
             VALUES ${placeholders}
@@ -1504,10 +1507,12 @@ class OrdersRepository {
           oi.*,
           tt.event_session_id,
           es.event_id,
+          e.refund_policy AS event_refund_policy,
           t.id AS existing_ticket_id
         FROM order_items oi
         JOIN ticket_types tt ON tt.id = oi.ticket_type_id
         JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
         LEFT JOIN tickets t ON t.order_item_id = oi.id
         WHERE oi.order_id = $1
         ORDER BY oi.id
@@ -1532,14 +1537,15 @@ class OrdersRepository {
             code,
             order.buyer_name,
             order.buyer_email,
+            item.event_refund_policy ? JSON.stringify(item.event_refund_policy) : null,
           ]);
         }
       }
 
       if (ticketsToInsert.length > 0) {
         const placeholders = ticketsToInsert.map((_, idx) => {
-          const o = idx * 9;
-          return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}::varchar(100), $${o + 7}::text, $${o + 8}, $${o + 9}, 'VALID')`;
+          const o = idx * 10;
+          return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}::varchar(100), $${o + 7}::text, $${o + 8}, $${o + 9}, $${o + 10}::jsonb, 'VALID')`;
         }).join(', ');
         await client.query(
           `
@@ -1553,6 +1559,7 @@ class OrdersRepository {
             qr_code,
             attendee_name,
             attendee_email,
+            refund_policy_snapshot,
             status
           )
           VALUES ${placeholders}
@@ -1833,6 +1840,7 @@ class OrdersRepository {
           oi.*,
           tt.event_session_id,
           es.event_id,
+          e.refund_policy AS event_refund_policy,
           e.require_attendee_info,
           t.id AS existing_ticket_id
         FROM order_items oi
@@ -1865,6 +1873,7 @@ class OrdersRepository {
             code,
             attendee?.name || null,
             attendee?.email || null,
+            item.event_refund_policy ? JSON.stringify(item.event_refund_policy) : null,
           ]);
         }
       }
@@ -1872,8 +1881,8 @@ class OrdersRepository {
       let issuedTickets = [];
       if (ticketsToInsert.length > 0) {
         const placeholders = ticketsToInsert.map((_, idx) => {
-          const o = idx * 9;
-          return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}, $${o + 7}, $${o + 8}, $${o + 9}, 'VALID')`;
+          const o = idx * 10;
+          return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}, $${o + 7}, $${o + 8}, $${o + 9}, $${o + 10}::jsonb, 'VALID')`;
         }).join(', ');
         const ticketResult = await client.query(
           `
@@ -1887,6 +1896,7 @@ class OrdersRepository {
             qr_code,
             attendee_name,
             attendee_email,
+            refund_policy_snapshot,
             status
           )
           VALUES ${placeholders}

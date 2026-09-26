@@ -72,6 +72,7 @@ class RefundsService {
               session_end_time: data.session_end_time,
               final_price: data.ticket_final_price,
               unit_price: data.ticket_unit_price,
+              refund_policy_snapshot: data.ticket_refund_policy_snapshot,
             }
           : null,
         order: {
@@ -93,6 +94,7 @@ class RefundsService {
         customerId,
         reason,
         customerNote: customer_note,
+        validateReason: true,
       });
 
       if (!validation.eligible) {
@@ -132,6 +134,8 @@ class RefundsService {
           customer_id: customerId,
           organizer_id: data.organizer_id,
           refund_amount: validation.refundableAmount,
+          refund_rate: validation.refundRate,
+          policy_snapshot: validation.policy,
           reason: fullReason,
           refund_method,
           bank_name,
@@ -523,6 +527,75 @@ class RefundsService {
             full_name: row.processed_by_name,
           }
         : null,
+    };
+  }
+
+  /**
+   * Preview refund eligibility & amount calculation for a customer ticket/order
+   */
+  async previewRefund(customerId, ticketId, orderId = null) {
+    const data = await refundsRepository.getRefundContext(customerId, orderId, ticketId);
+    if (!data) {
+      throw new AppError(
+        'Đơn hàng hoặc vé không tồn tại hoặc không thuộc về bạn.',
+        404,
+        ErrorCodes.RESOURCE_NOT_FOUND,
+      );
+    }
+
+    const existing = await refundsRepository.findExistingActiveRefund(
+      data.order_id,
+      data.ticket_id || ticketId,
+    );
+
+    const validation = refundRuleEngine.evaluateEligibility({
+      ticket: data.ticket_id
+        ? {
+            id: data.ticket_id,
+            customer_id: data.customer_id,
+            status: data.ticket_status,
+            checked_in_at: data.checked_in_at,
+            session_seat_id: data.session_seat_id,
+            session_start_time: data.session_start_time,
+            session_end_time: data.session_end_time,
+            final_price: data.ticket_final_price,
+            unit_price: data.ticket_unit_price,
+            refund_policy_snapshot: data.ticket_refund_policy_snapshot,
+          }
+        : null,
+      order: {
+        id: data.order_id,
+        user_id: data.customer_id,
+        status: data.order_status,
+        total_amount: data.order_total_amount,
+        subtotal: data.order_subtotal,
+        discount_amount: data.order_discount_amount,
+        platform_fee: data.order_platform_fee,
+      },
+      event: {
+        id: data.event_id,
+        start_time: data.event_start_time,
+        end_time: data.event_end_time,
+        refund_policy: data.event_refund_policy,
+      },
+      activeRefund: existing,
+      customerId,
+      validateReason: false,
+    });
+
+    return {
+      eligible: validation.eligible,
+      days_before_event: validation.daysBeforeEvent ?? null,
+      refund_rate: validation.refundRate ?? 0,
+      paid_amount: validation.actualPaid ?? 0,
+      refund_amount: validation.refundableAmount ?? 0,
+      reason: validation.reason ?? null,
+      error_code: validation.errorCode ?? null,
+      policy_text: validation.policyText,
+      refund_notes: validation.policy?.refund_notes || null,
+      rule_matched: validation.ruleMatched || null,
+      ticket_code: data.ticket_code || null,
+      event_title: data.event_title || null,
     };
   }
 }
