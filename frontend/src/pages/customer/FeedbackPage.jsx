@@ -195,11 +195,12 @@ export function FeedbackPage() {
                 />
               </label>
 
-              <div className="pt-2">
+              <div className="flex justify-end pt-2">
                 <button
                   type="submit"
                   disabled={submitMutation.isPending}
-                  className="admin-primary flex w-full items-center justify-center rounded-full px-8 py-4 text-base font-bold shadow-[0_0_20px_rgba(6,182,212,0.2)] disabled:opacity-60 sm:w-auto sm:min-w-48"
+                  className="flex items-center justify-center rounded-full px-8 py-4 text-base font-bold transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed min-w-48"
+                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 >
                   {submitMutation.isPending ? 'Đang gửi...' : 'Gửi phản hồi'}
                 </button>

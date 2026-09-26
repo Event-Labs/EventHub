@@ -39,9 +39,14 @@ const categoryIcons = [
 
 function formatDateTime(value) {
   if (!value) return 'Sắp cập nhật'
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-  }).format(new Date(value))
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value))
+  } catch {
+    return 'Sắp cập nhật'
+  }
 }
 
 function formatPrice(event) {
@@ -60,13 +65,18 @@ function eventImage(event) {
   return event.banner_url || event.thumbnail_url || event.image
 }
 
+function eventThumbnail(event) {
+  return event.thumbnail_url || event.thumbnail || event.poster_url || event.banner_url || event.image || ''
+}
+
 function eventPath(event) {
   return `/events/${event.slug || event.id}`
 }
 
 function eventLocation(event) {
-  return event.venue?.summary || event.location || 'Địa điểm cập nhật sau'
+  return event.location_name || event.location || event.venue_name || 'Đang cập nhật địa điểm'
 }
+
 
 function getEventTimeState(event, now = Date.now()) {
   const start = event.start_time ? new Date(event.start_time).getTime() : null
@@ -124,7 +134,6 @@ function uniqueEvents(...groups) {
 export function HomePage() {
   const toast = useToast()
   const [keyword, setKeyword] = useState('')
-  const [activeSlide, setActiveSlide] = useState(0)
   const [timelineNow, setTimelineNow] = useState(() => Date.now())
   const navigate = useNavigate()
   const location = useLocation()
@@ -222,13 +231,6 @@ export function HomePage() {
     }
   }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
 
-  useEffect(() => {
-    if (heroEvents.length < 2) return undefined
-    const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % heroEvents.length)
-    }, 3600)
-    return () => window.clearInterval(timer)
-  }, [heroEvents.length])
 
   const handleSearch = (event) => {
     event.preventDefault()
@@ -253,52 +255,94 @@ export function HomePage() {
     favoriteMutation.mutate(event)
   }
 
-  const safeActiveSlide = heroEvents.length ? activeSlide % heroEvents.length : 0
-
   return (
-    <div className="overflow-hidden text-content bg-transparent">
-      <section className="relative h-[100dvh] w-full flex flex-col justify-center overflow-hidden pt-24 pb-4 snap-start shrink-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(6,182,212,0.15),transparent_30%),radial-gradient(circle_at_18%_34%,rgba(59,130,246,0.15),transparent_28%)]" />
-        <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 flex-1 flex flex-col justify-center">
-          <div className="w-full flex-1 flex flex-col justify-center min-h-0">
-            {featuredQuery.isLoading ? (
-              <StatePanel message="Đang tải sự kiện nổi bật..." />
-            ) : featuredQuery.isError ? (
-              <StatePanel message="Không thể tải sự kiện nổi bật." tone="error" />
-            ) : heroEvents.length ? (
-              <BentoHero
-                activeIndex={safeActiveSlide}
+    <div className="overflow-hidden text-content bg-transparent relative">
+      <section className="relative min-h-[100dvh] w-full flex flex-col justify-start items-center overflow-hidden pt-24 sm:pt-28 pb-12 snap-start shrink-0 bg-transparent">
+        <SeamlessVideoBackground />
+
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            background: `
+              radial-gradient(140% 60% at 50% 40%, rgba(6,10,18,0.25) 0%, rgba(6,10,18,0.08) 50%, transparent 100%)
+            `,
+            WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 88%)',
+            maskImage: 'linear-gradient(to bottom, black 40%, transparent 88%)',
+          }}
+        />
+
+        <div
+          className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(6,182,212,0.14),transparent_60%),radial-gradient(ellipse_60%_40%_at_50%_40%,rgba(59,130,246,0.10),transparent_70%)]"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 88%)',
+            maskImage: 'linear-gradient(to bottom, black 40%, transparent 88%)',
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(180deg,rgba(25,127,255,0)_38%,rgba(25,127,255,0.03)_54%,rgba(25,127,255,0.04)_68%,rgba(25,127,255,0)_88%)]"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 88%)',
+            maskImage: 'linear-gradient(to bottom, black 40%, transparent 88%)',
+          }}
+        />
+
+        <div className="relative z-30 mx-auto w-full max-w-5xl px-4 sm:px-6 flex flex-col items-center text-center">
+          <h1 className="font-['Plus_Jakarta_Sans',var(--font-display)] font-extrabold text-3xl sm:text-5xl lg:text-6xl text-white tracking-tight leading-[1.12] drop-shadow-[0_0_34px_rgba(6,182,212,0.25)]">
+            Khám phá vũ trụ
+            <span className="block mt-1 text-transparent bg-clip-text bg-gradient-to-r from-primary via-cyan-200 to-blue-400">
+              Sự kiện đỉnh cao
+            </span>
+          </h1>
+
+          <p className="mt-4 max-w-2xl text-sm sm:text-base font-normal text-slate-300 leading-relaxed">
+            Hệ sinh thái đặt vé trực tuyến, quản lý vận hành & soát vé QR thông minh hàng đầu
+          </p>
+        </div>
+
+        {/* 3D True Perspective Carousel Ring Section with generous breathing room */}
+        <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center mt-8 sm:mt-12 lg:mt-14 mb-4 sm:mb-6">
+          {featuredQuery.isLoading ? (
+            <StatePanel message="Đang tải sự kiện nổi bật..." />
+          ) : featuredQuery.isError ? (
+            <StatePanel message="Không thể tải sự kiện nổi bật." tone="error" />
+          ) : heroEvents.length ? (
+            <div className="w-full flex flex-col items-center">
+              <VertexCarouselRing
                 events={heroEvents}
-                onSelect={setActiveSlide}
+                onSelectEvent={(evt) => navigate(eventPath(evt))}
               />
-            ) : (
-              <StatePanel message="Chưa có sự kiện nổi bật." />
-            )}
-          </div>
+            </div>
+          ) : (
+            <StatePanel message="Chưa có sự kiện nổi bật." />
+          )}
         </div>
       </section>
 
-      <section className="relative min-h-[100dvh] w-full flex flex-col justify-center pb-12 pt-8 snap-start">
+      <section id="explore-section" className="relative w-full flex flex-col justify-start pt-2 sm:pt-4 pb-12 -mt-16 sm:-mt-20 lg:-mt-24">
         <ScrollReveal>
-        <form
-          onSubmit={handleSearch}
-          className="relative z-20 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 mb-8"
-        >
-          <div className="flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-5 -translate-y-1/2 text-primary" />
-              <input
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                placeholder="Tìm kiếm sự kiện, danh mục, địa điểm..."
-                className="w-full rounded-full border border-primary/30 bg-panel-soft/60 py-4 pl-12 pr-4 text-content outline-none backdrop-blur-md transition focus:border-primary focus:bg-panel shadow-[0_0_20px_rgba(6,182,212,0.15)]"
-              />
+          <form
+            onSubmit={handleSearch}
+            className="relative z-20 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 mb-8"
+          >
+            <div className="flex flex-col gap-3 md:flex-row">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-5 -translate-y-1/2 text-cyan-400" />
+                <input
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  placeholder="Tìm kiếm sự kiện, danh mục, địa điểm..."
+                  className="w-full rounded-full border border-cyan-500/25 bg-slate-900/60 py-4 pl-12 pr-4 text-content outline-none backdrop-blur-xl transition duration-300 focus:border-cyan-400 focus:bg-slate-900/90 shadow-[0_0_20px_rgba(6,182,212,0.12)] focus:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded-full px-8 py-4 text-base font-bold transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 cursor-pointer"
+                style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+              >
+                <span>Tìm kiếm</span>
+              </button>
             </div>
-            <button className="admin-primary text-base px-8 py-4">
-              Khám phá
-            </button>
-          </div>
-        </form>
+          </form>
         </ScrollReveal>
 
         <ScrollReveal as="section" className="bg-transparent pt-4">
@@ -339,17 +383,18 @@ export function HomePage() {
               const Icon = categoryIcons[index % categoryIcons.length]
               return (
                 <ScrollReveal key={category.id} className="h-full" delay={index * 70}>
-                <button
-                  type="button"
-                  onClick={() => handleCategorySearch(category.slug)}
-                  className="glass-panel group flex h-full min-h-[196px] w-full flex-col items-center justify-center rounded-[24px] p-5 text-center transition duration-500 ease-out hover:border-primary/60 hover:bg-primary/10 sm:min-h-[208px] lg:min-h-[196px]"
-                >
-                  <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/10 text-primary transition group-hover:scale-110">
-                    <Icon className="size-6" />
-                  </span>
-                  <span className="mt-4 block font-bold text-white">{category.name}</span>
-                  <span className="mt-1 block text-xs text-muted">{category.event_count || 0} sự kiện</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCategorySearch(category.slug)}
+                    className="group relative flex h-full min-h-[196px] w-full flex-col items-center justify-center rounded-[24px] p-5 text-center bg-slate-950/60 border border-white/10 backdrop-blur-xl transition-all duration-400 ease-out hover:border-cyan-400/50 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(6,182,212,0.25)] sm:min-h-[208px] lg:min-h-[196px] cursor-pointer"
+                  >
+                    <div className="vertex-card-edge absolute inset-0 pointer-events-none rounded-[24px]" />
+                    <span className="mx-auto grid size-14 place-items-center rounded-full bg-cyan-500/10 text-cyan-400 transition-all duration-400 group-hover:scale-110 group-hover:bg-cyan-500/20 group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+                      <Icon className="size-6" />
+                    </span>
+                    <span className="mt-4 block font-bold text-white group-hover:text-cyan-300 transition-colors">{category.name}</span>
+                    <span className="mt-1 block text-xs text-slate-400">{category.event_count || 0} sự kiện</span>
+                  </button>
                 </ScrollReveal>
               )
             })}
@@ -394,8 +439,8 @@ export function HomePage() {
                   key={label}
                   to="/events"
                   className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${index === 0
-                      ? 'bg-primary text-[#081126]'
-                      : 'bg-panel-soft text-subtle hover:text-primary'
+                    ? 'bg-primary text-[#081126]'
+                    : 'bg-panel-soft text-subtle hover:text-primary'
                     }`}
                 >
                   {label}
@@ -423,92 +468,207 @@ export function HomePage() {
   )
 }
 
-function BentoHero({ activeIndex, events, onSelect }) {
-  const navigate = useNavigate()
-  const safeEvents = (events || []).filter((event) => event?.id)
-  if (!safeEvents.length) return null
+function SeamlessVideoBackground() {
+  const v1Ref = useRef(null)
+  const v2Ref = useRef(null)
+  const [activeVid, setActiveVid] = useState(1)
+  const videoSrc = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260912_104303_0c6d60b2-9353-408e-9449-585108a22fb5.mp4'
+  const posterSrc = 'https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/130837c4-0244-4f37-9c61-8d801d93fd29.jpg'
 
-  const mainEvent = safeEvents[activeIndex]
-  const secondEvent = safeEvents.length > 1 ? safeEvents[(activeIndex + 1) % safeEvents.length] : null
-  const thirdEvent = safeEvents.length > 2 ? safeEvents[(activeIndex + 2) % safeEvents.length] : null
+  useEffect(() => {
+    const v1 = v1Ref.current
+    const v2 = v2Ref.current
+    if (!v1 || !v2) return
 
-  if (!mainEvent) return null
+    v1.play().catch(() => { })
+
+    let switched = false
+    const interval = setInterval(() => {
+      if (activeVid === 1) {
+        if (v1.currentTime >= 8.2 && !switched) {
+          switched = true
+          v2.currentTime = 0
+          v2.play().then(() => {
+            setActiveVid(2)
+            setTimeout(() => {
+              v1.pause()
+              v1.currentTime = 0
+              switched = false
+            }, 1800)
+          }).catch(() => { })
+        }
+      } else {
+        if (v2.currentTime >= 8.2 && !switched) {
+          switched = true
+          v1.currentTime = 0
+          v1.play().then(() => {
+            setActiveVid(1)
+            setTimeout(() => {
+              v2.pause()
+              v2.currentTime = 0
+              switched = false
+            }, 1800)
+          }).catch(() => { })
+        }
+      }
+    }, 150)
+
+    return () => clearInterval(interval)
+  }, [activeVid])
 
   return (
-    <div className="relative mx-auto max-w-7xl pt-0 pb-4 w-full h-full flex flex-col justify-center min-h-0">
-      <div className="mb-4 lg:mb-8 text-center shrink-0">
-        <h1 className="font-display text-4xl font-black leading-tight text-white md:text-5xl drop-shadow-lg">
-          Khám phá vũ trụ <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Sự Kiện</span>
-        </h1>
-        <p className="mt-2 text-base text-subtle">Trải nghiệm những khoảnh khắc đáng nhớ nhất cùng EventHub</p>
-      </div>
+    <div
+      className="pointer-events-none absolute inset-0 overflow-hidden select-none z-0"
+      style={{
+        WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 85%)',
+        maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 85%)',
+      }}
+    >
+      <video
+        ref={v1Ref}
+        className={`absolute inset-0 h-full w-full object-cover object-center mix-blend-screen transition-opacity duration-1500 ease-in-out ${activeVid === 1 ? 'opacity-70' : 'opacity-0'
+          }`}
+        muted
+        playsInline
+        preload="auto"
+        poster={posterSrc}
+        src={videoSrc}
+      />
+      <video
+        ref={v2Ref}
+        className={`absolute inset-0 h-full w-full object-cover object-center mix-blend-screen transition-opacity duration-1500 ease-in-out ${activeVid === 2 ? 'opacity-70' : 'opacity-0'
+          }`}
+        muted
+        playsInline
+        preload="auto"
+        src={videoSrc}
+      />
+    </div>
+  )
+}
 
-      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 flex-1 min-h-[40vh] lg:min-h-[55vh]`}>
-        {/* Main Event Card */}
-        <div 
-          onClick={() => navigate(eventPath(mainEvent))}
-          className={`glass-panel group relative overflow-hidden cursor-pointer p-0 ${!secondEvent && !thirdEvent ? 'lg:col-span-3 lg:row-span-2' : 'lg:col-span-2 lg:row-span-2'}`}
-        >
-          <img src={eventImage(mainEvent)} alt={mainEvent.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent opacity-90" />
-          <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-inherit pointer-events-none" />
-          
-          <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col justify-end">
-            <span className="w-fit rounded-full border border-primary/50 bg-primary/20 px-3 py-1 text-xs font-bold uppercase text-primary backdrop-blur-md mb-4 shadow-[0_0_15px_rgba(6,182,212,0.5)]">
-              {mainEvent.category?.name || 'Sự kiện nổi bật'}
-            </span>
-            <h2 className="font-display text-3xl font-bold text-white mb-3 line-clamp-2 transition-colors">
-              {mainEvent.title}
-            </h2>
-            <div className="flex items-center gap-6 text-sm text-subtle mb-6">
-              <span className="flex items-center gap-2"><CalendarDays className="size-4 text-secondary"/> {formatDateTime(mainEvent.start_time)}</span>
-              <span className="flex items-center gap-2"><MapPin className="size-4 text-secondary"/> {eventLocation(mainEvent)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-white drop-shadow-md">{formatPrice(mainEvent)}</span>
-              <button className="admin-primary" onClick={(e) => { e.stopPropagation(); navigate(eventPath(mainEvent)); }}>Mua vé ngay</button>
-            </div>
-          </div>
-        </div>
+function VertexCarouselRing({ events, onSelectEvent }) {
+  const containerRef = useRef(null)
+  const [isHovered, setIsHovered] = useState(false)
+  const phaseRef = useRef(-2)
+  const lastTimeRef = useRef(performance.now())
 
-        {/* Secondary Events */}
-        {[secondEvent, thirdEvent].map((evt, idx) => evt && (
-          <div 
-            key={evt.id + '-' + idx}
-            onClick={() => navigate(eventPath(evt))}
-            className="glass-panel group relative overflow-hidden cursor-pointer p-0"
+  const totalCards = 24
+  const step = 360 / totalCards
+  const R = 980
+  const cullAngle = 50
+
+  useEffect(() => {
+    let animId
+    const tick = (now) => {
+      const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1)
+      lastTimeRef.current = now
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      if (!isHovered && !prefersReducedMotion) {
+        phaseRef.current -= 1.6 * dt
+      }
+
+      if (containerRef.current) {
+        const cardElements = containerRef.current.children
+        for (let i = 0; i < cardElements.length; i++) {
+          const el = cardElements[i]
+          let a = ((i * step + phaseRef.current) % 360 + 540) % 360 - 180
+
+          const r = (a * Math.PI) / 180
+          const c = Math.cos(r)
+          const x = R * Math.sin(r)
+          const z = R * (1 - c)
+          const rotY = -a
+          const brightness = Math.max(0.5, Math.min(1.0, 1.0 - Math.abs(a) / 85))
+
+          el.style.transform = `translate3d(${x}px, 0, ${z}px) rotateY(${rotY}deg)`
+          el.style.filter = `brightness(${brightness.toFixed(3)})`
+          el.style.zIndex = ''
+          el.style.opacity = ''
+
+          if (Math.abs(a) > cullAngle) {
+            el.style.visibility = 'hidden'
+          } else {
+            el.style.visibility = 'visible'
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(tick)
+    }
+
+    animId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animId)
+  }, [isHovered, step])
+
+  if (!events || !events.length) return null
+
+  const displayCards = Array.from({ length: totalCards }, (_, i) => events[i % events.length])
+
+  return (
+    <div
+      className="relative w-full h-[360px] sm:h-[390px] lg:h-[420px] overflow-visible"
+      style={{
+        perspective: '1000px',
+        perspectiveOrigin: '50% 50%',
+        transformStyle: 'preserve-3d',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div
+        ref={containerRef}
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        style={{ transformStyle: 'preserve-3d' }}
+      >
+        {displayCards.map((event, idx) => (
+          <div
+            key={idx}
+            onClick={() => onSelectEvent(event)}
+            className="absolute w-[225px] h-[335px] rounded-[16px] overflow-hidden bg-slate-900 shadow-[0_24px_46px_rgba(0,0,0,0.7),0_3px_8px_rgba(0,0,0,0.5)] cursor-pointer pointer-events-auto transition-shadow duration-300 hover:shadow-[0_0_35px_rgba(6,182,212,0.75)] group will-change-transform"
+            style={{
+              backfaceVisibility: 'hidden',
+              margin: '-167px 0 0 -112px',
+              visibility: 'hidden',
+            }}
           >
-            <img src={eventImage(evt)} alt={evt.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent opacity-90" />
-            <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-inherit pointer-events-none" />
-            
-            <div className="absolute bottom-0 left-0 right-0 p-6 flex flex-col justify-end h-full">
-              <span className="w-fit rounded-full border border-secondary/50 bg-secondary/20 px-2 py-0.5 text-[10px] font-bold uppercase text-secondary backdrop-blur-md mb-2">
-                {evt.category?.name || 'Sự kiện'}
-              </span>
-              <h3 className="font-display text-lg font-bold text-white mb-2 line-clamp-2 transition-colors">
-                {evt.title}
-              </h3>
-              <p className="text-xs text-subtle mb-3 line-clamp-1">{eventLocation(evt)}</p>
-              <span className="text-sm font-bold text-primary mt-auto">{formatPrice(evt)}</span>
+            <img
+              src={eventThumbnail(event)}
+              alt={event.title}
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              onError={(e) => {
+                if (event.banner_url && e.target.src !== event.banner_url) {
+                  e.target.src = event.banner_url
+                } else {
+                  e.target.style.display = 'none'
+                }
+              }}
+            />
+            {/* Dark gradient overlay behind text, leaving top thumbnail crisp & clear */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 via-42% to-transparent opacity-95 pointer-events-none" />
+            {/* Edge reflection */}
+            <div className="vertex-card-edge absolute inset-0 pointer-events-none rounded-[16px]" />
+
+            {/* Content overlay */}
+            <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end space-y-1.5 z-10">
+              <h4 className="font-['Plus_Jakarta_Sans',var(--font-display)] text-sm sm:text-[15px] font-bold text-white line-clamp-2 leading-snug drop-shadow-md group-hover:text-primary transition-colors">
+                {event.title}
+              </h4>
+              <div className="pt-0.5">
+                <p className="text-[11px] sm:text-xs text-cyan-300 font-semibold truncate flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5 shrink-0 text-primary" />
+                  <span>{formatDateTime(event.start_time)}</span>
+                </p>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
-      
-      <div className="mt-8 flex justify-center gap-2">
-        {safeEvents.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => onSelect(index)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${index === activeIndex ? 'w-8 bg-primary shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'w-2 bg-white/20 hover:bg-white/40'}`}
-            aria-label={`Chuyển đến sự kiện ${index + 1}`}
-          />
         ))}
       </div>
     </div>
   )
 }
+
 
 function ScrollReveal({ as: Component = 'div', children, className = '', delay = 0 }) {
   const ref = useRef(null)
@@ -537,9 +697,8 @@ function ScrollReveal({ as: Component = 'div', children, className = '', delay =
   return (
     <Component
       ref={ref}
-      className={`${className} transform-gpu transition-all duration-700 ease-out ${
-        visible ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-8 opacity-0 blur-sm'
-      }`}
+      className={`${className} transform-gpu transition-all duration-700 ease-out ${visible ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-8 opacity-0 blur-sm'
+        }`}
       style={{ transitionDelay: visible ? `${delay}ms` : '0ms' }}
     >
       {children}
@@ -654,8 +813,8 @@ function SectionTitle({ title, description, action, tight = false }) {
 function StatePanel({ message, tone = 'default' }) {
   return (
     <div className={`rounded-[24px] border p-8 text-center ${tone === 'error'
-        ? 'border-error/40 bg-error/10 text-error'
-        : 'border-border-soft bg-panel text-muted'
+      ? 'border-error/40 bg-error/10 text-error'
+      : 'border-border-soft bg-panel text-muted'
       }`}>
       <CalendarDays className="mx-auto mb-3 size-6 text-primary" />
       {message}

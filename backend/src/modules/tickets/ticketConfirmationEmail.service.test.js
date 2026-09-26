@@ -66,4 +66,47 @@ describe('ticketConfirmationEmail', () => {
     await expect(ticketConfirmationEmail.sendOrderConfirmation(createOrder(), createTickets(7))).resolves.toBe(false);
     expect(mockSendEmail).toHaveBeenCalledTimes(2);
   });
+
+  it('sends separate e-ticket emails to attendees without order info', async () => {
+    const order = createOrder();
+    const tickets = [
+      {
+        id: 't-1',
+        ticket_code: 'TC-1',
+        qr_code: 'QR-1',
+        attendee_name: 'Nguyen Van B',
+        attendee_email: 'attendee_b@example.com',
+        ticket_type_name: 'VIP',
+      },
+      {
+        id: 't-2',
+        ticket_code: 'TC-2',
+        qr_code: 'QR-2',
+        attendee_name: 'Tran Thi C',
+        attendee_email: 'buyer@example.com', // same as buyer
+        ticket_type_name: 'Standard',
+      },
+    ];
+
+    await expect(ticketConfirmationEmail.sendOrderConfirmation(order, tickets)).resolves.toBe(true);
+
+    // Call 1: to buyer with order info
+    // Call 2: to attendee_b without order info
+    expect(mockSendEmail).toHaveBeenCalledTimes(2);
+
+    const buyerCall = mockSendEmail.mock.calls.find(([call]) => call.email === 'buyer@example.com');
+    const attendeeCall = mockSendEmail.mock.calls.find(([call]) => call.email === 'attendee_b@example.com');
+
+    expect(buyerCall).toBeDefined();
+    expect(buyerCall[0].html).toContain(order.order_code);
+    expect(buyerCall[0].html).toContain('Tổng thanh toán');
+
+    expect(attendeeCall).toBeDefined();
+    expect(attendeeCall[0].subject).toContain('Vé tham dự sự kiện');
+    expect(attendeeCall[0].html).toContain('TC-1');
+    expect(attendeeCall[0].html).toContain('Nguyen Van B');
+    expect(attendeeCall[0].html).not.toContain(order.order_code);
+    expect(attendeeCall[0].html).not.toContain('Tổng thanh toán');
+    expect(attendeeCall[0].html).not.toContain('Thanh to&#225;n th&#224;nh c&#244;ng');
+  });
 });
