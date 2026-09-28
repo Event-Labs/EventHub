@@ -16,6 +16,9 @@ import {
   FileCheck,
   Check,
   AlertCircle,
+  ShieldAlert,
+  Image as ImageIcon,
+  FileText,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -743,6 +746,92 @@ function formatMoney(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }
 
+function parseAiReviewData(aiData) {
+  if (!aiData) return null
+
+  const rec = typeof aiData.recommendation === 'string' ? aiData.recommendation : 'APPROVE'
+  let rawWarnings = aiData.warnings
+  if (typeof rawWarnings === 'string') {
+    try {
+      rawWarnings = JSON.parse(rawWarnings)
+    } catch {
+      // keep as string
+    }
+  }
+
+  if (rawWarnings && typeof rawWarnings === 'object' && !Array.isArray(rawWarnings)) {
+    const rawCrit = Array.isArray(rawWarnings.critical_violations) ? rawWarnings.critical_violations : []
+    const rawWarn = Array.isArray(rawWarnings.warnings) ? rawWarnings.warnings : []
+    const rawComp = Array.isArray(rawWarnings.compliant_checks) ? rawWarnings.compliant_checks : []
+    const rawSugg = Array.isArray(rawWarnings.suggestions) ? rawWarnings.suggestions : []
+
+    return {
+      recommendation: rec,
+      summary: typeof rawWarnings.summary === 'string' ? rawWarnings.summary : typeof aiData.summary === 'string' ? aiData.summary : '',
+      risk_score: Number(rawWarnings.risk_score ?? aiData.risk_score ?? (rec === 'REJECT' ? 85 : rec === 'NEEDS_REVIEW' ? 40 : 5)),
+      quality_score: Number(rawWarnings.quality_score ?? aiData.quality_score ?? 85),
+      critical_violations: rawCrit.map(v => typeof v === 'string' ? { policy_code: 'VI PHẠM', issue: v } : {
+        policy_code: typeof v?.policy_code === 'string' ? v.policy_code : 'CHÍNH SÁCH',
+        issue: typeof v?.issue === 'string' ? v.issue : typeof v?.message === 'string' ? v.message : JSON.stringify(v || {}),
+        highlighted_text: typeof v?.highlighted_text === 'string' ? v.highlighted_text : null,
+      }),
+      warnings: rawWarn.map(w => typeof w === 'string' ? { policy_code: 'LƯU Ý', issue: w } : {
+        policy_code: typeof w?.policy_code === 'string' ? w.policy_code : 'LƯU Ý',
+        issue: typeof w?.issue === 'string' ? w.issue : typeof w?.message === 'string' ? w.message : JSON.stringify(w || {}),
+        highlighted_text: typeof w?.highlighted_text === 'string' ? w.highlighted_text : null,
+      }),
+      compliant_checks: rawComp.map(c => typeof c === 'string' ? c : c?.title || c?.issue || c?.message || JSON.stringify(c || {})),
+      suggestions: rawSugg.map(s => typeof s === 'string' ? s : s?.text || s?.issue || s?.message || JSON.stringify(s || {})),
+      content_review: rawWarnings.content_review || aiData.content_review || null,
+      image_review: rawWarnings.image_review || aiData.image_review || null,
+      vision_analysis: rawWarnings.vision_analysis || aiData.vision_analysis || null,
+    }
+  }
+
+  const criticalViolations = []
+  const yellowWarnings = []
+  const compliantChecks = []
+  const suggestions = []
+
+  if (Array.isArray(rawWarnings)) {
+    rawWarnings.forEach(w => {
+      if (typeof w === 'string') {
+        if (w.includes('[HIGH]')) {
+          criticalViolations.push({ policy_code: 'VI PHẠM', issue: w.replace('[HIGH]', '').trim() })
+        } else if (w.startsWith('💡') || w.includes('[Gợi ý]')) {
+          suggestions.push(w.replace('💡', '').replace('[Gợi ý]', '').trim())
+        } else if (w.startsWith('✅') || w.includes('[HỢP LỆ]')) {
+          compliantChecks.push(w.replace('✅', '').replace('[HỢP LỆ]', '').trim())
+        } else {
+          yellowWarnings.push({ policy_code: 'LƯU Ý', issue: w.replace('[MEDIUM]', '').trim() })
+        }
+      } else if (w && typeof w === 'object') {
+        const item = {
+          policy_code: typeof w?.policy_code === 'string' ? w.policy_code : (w.severity === 'HIGH' ? 'VI PHẠM' : 'LƯU Ý'),
+          issue: typeof w?.issue === 'string' ? w.issue : typeof w?.message === 'string' ? w.message : JSON.stringify(w),
+          highlighted_text: typeof w?.highlighted_text === 'string' ? w.highlighted_text : null,
+        }
+        if (w.severity === 'HIGH') criticalViolations.push(item)
+        else yellowWarnings.push(item)
+      }
+    })
+  }
+
+  return {
+    recommendation: rec,
+    summary: typeof aiData.summary === 'string' ? aiData.summary : '',
+    risk_score: Number(aiData.risk_score ?? (rec === 'REJECT' ? 85 : rec === 'NEEDS_REVIEW' ? 40 : 5)),
+    quality_score: Number(aiData.quality_score ?? 85),
+    critical_violations: criticalViolations,
+    warnings: yellowWarnings,
+    compliant_checks: compliantChecks.length > 0 ? compliantChecks : (rec === 'APPROVE' ? ['Sự kiện không vi phạm chính sách', 'Thông tin rõ ràng'] : []),
+    suggestions: suggestions,
+    content_review: aiData.content_review || null,
+    image_review: aiData.image_review || null,
+    vision_analysis: aiData.vision_analysis || null,
+  }
+}
+
 function AiReviewAssistantCard({ event, onApplyFeedback }) {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -752,10 +841,6 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     queryKey: ['admin-ai-review', eventId],
     queryFn: () => fetchAdminAiReview(eventId),
     retry: false,
-    initialData: () => {
-      const cached = localStorage.getItem(`eh_ai_review_${eventId}`)
-      return cached ? JSON.parse(cached) : null
-    },
   })
 
   const runMutation = useMutation({
@@ -769,8 +854,8 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     },
   })
 
-  const reviewData = reviewQuery.data
-  const warnings = Array.isArray(reviewData?.warnings) ? reviewData.warnings : []
+  const rawAiReview = reviewQuery.data || (event?.ai_recommendation ? { recommendation: event.ai_recommendation, warnings: event.ai_warnings } : null)
+  const aiData = parseAiReviewData(rawAiReview)
 
   const getRecBadge = (rec) => {
     switch (rec) {
@@ -798,6 +883,56 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     }
   }
 
+  const getImageSourceLabel = (src) => {
+    if (src === 'MAIN_POSTER') return 'Ảnh đại diện chính (Poster)'
+    if (src === 'COVER_BANNER') return 'Ảnh bìa (Cover Banner)'
+    if (src?.startsWith('PERMIT')) return 'Tài liệu giấy phép'
+    if (src?.startsWith('DESCRIPTION_IMAGE')) return `Ảnh trong mô tả (${src.replace('DESCRIPTION_IMAGE_', '#')})`
+    return src || 'Hình ảnh'
+  }
+
+  const getImageStatusBadge = (st) => {
+    if (st === 'VIOLATION') return <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30">Vi phạm nội dung</span>
+    if (st === 'WARNING') return <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 border border-amber-500/30">Cần lưu ý / Tải lỗi</span>
+    if (st === 'MISSING') return <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30">Chưa tải ảnh</span>
+    return <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/30">Đạt chuẩn (AI Vision xác nhận)</span>
+  }
+
+  const handleApplySingle = (text) => {
+    onApplyFeedback?.(text)
+    toast.success('Đã thêm vào ghi chú kiểm duyệt!')
+  }
+
+  const handleApplyAll = () => {
+    if (!aiData) return
+    const lines = []
+    if (aiData.critical_violations?.length > 0) {
+      lines.push('=== VI PHẠM CHÍNH SÁCH ===')
+      aiData.critical_violations.forEach(v => lines.push(`- [VI PHẠM] ${v.issue}${v.highlighted_text ? ` (Trích: "${v.highlighted_text}")` : ''}`))
+    }
+    if (aiData.warnings?.length > 0) {
+      lines.push('=== LƯU Ý & CẢNH BÁO ===')
+      aiData.warnings.forEach(w => lines.push(`- [LƯU Ý] ${w.issue}${w.highlighted_text ? ` (Trích: "${w.highlighted_text}")` : ''}`))
+    }
+    const imageIssues = (aiData.image_review?.items || []).filter(i => i.status === 'VIOLATION' || i.status === 'WARNING')
+    if (imageIssues.length > 0) {
+      lines.push('=== VẤN ĐỀ HÌNH ẢNH ===')
+      imageIssues.forEach(img => {
+        lines.push(`- [${getImageSourceLabel(img.source)}]: ${img.issues?.join(', ') || img.suggestion || 'Không đạt chuẩn'}`)
+      })
+    }
+    if (lines.length === 0) {
+      toast.info('Không có lỗi nào để sao chép.')
+      return
+    }
+    onApplyFeedback?.(lines.join('\n'))
+    toast.success('Đã sao chép tất cả vấn đề vào ô Ghi chú Admin!')
+  }
+
+  const imageItems = Array.isArray(aiData?.image_review?.items) ? aiData.image_review.items : []
+  const visionItems = Array.isArray(aiData?.vision_analysis) ? aiData.vision_analysis : []
+  const hasImages = imageItems.length > 0 || visionItems.length > 0
+
   return (
     <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-b from-[#131b36] to-[#0d142b] p-5 shadow-xl shadow-indigo-950/30">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
@@ -806,9 +941,14 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
             <Bot className="size-5" />
           </div>
           <div>
-            <h4 className="font-extrabold text-white text-base">Trợ lý AI Hỗ trợ Duyệt Sự kiện</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="font-extrabold text-white text-base">Trợ lý AI Hỗ trợ Duyệt Sự kiện</h4>
+              <span className="rounded bg-indigo-500/30 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">
+                eventhub-qwen3
+              </span>
+            </div>
             <p className="text-xs text-slate-400">
-              Phân tích tự động nội dung, thời gian, cơ cấu vé và phát hiện các rủi ro vi phạm
+              Kiểm duyệt nội dung, ảnh qua AI Vision, cơ cấu vé & đối chiếu 4 bộ chính sách
             </p>
           </div>
         </div>
@@ -820,13 +960,37 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
         >
           <RefreshCw className={`size-3.5 ${runMutation.isPending ? 'animate-spin' : ''}`} />
-          {runMutation.isPending ? 'Đang phân tích...' : reviewData ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
+          {runMutation.isPending ? 'Đang phân tích...' : aiData ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
         </button>
       </div>
 
+      {/* Active AI Scanning Progress State */}
+      {runMutation.isPending && (
+        <div className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-4 shadow-[0_0_25px_rgba(99,102,241,0.15)] backdrop-blur-md animate-pulse">
+          <div className="flex items-start gap-3">
+            <RefreshCw className="size-5 animate-spin text-indigo-400 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h5 className="text-xs font-bold text-indigo-300">
+                AI đang quét và phân tích đa tầng sự kiện...
+              </h5>
+              <div className="mt-1.5 space-y-1 text-[11px] text-indigo-200/90">
+                <p className="flex items-center gap-1.5">
+                  <span className="inline-block size-1.5 rounded-full bg-cyan-400 animate-ping" />
+                  <span><strong>Giai đoạn 1:</strong> AI Vision quét sâu từng hình ảnh (Poster, Banner, ảnh mô tả) để kiểm tra vi phạm nội dung...</span>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <span className="inline-block size-1.5 rounded-full bg-purple-400 animate-ping" />
+                  <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả tiếng Việt & đối chiếu 4 bộ chính sách EventHub...</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {reviewQuery.isLoading ? (
         <div className="py-6 text-center text-xs text-slate-400">Đang tải phân tích AI...</div>
-      ) : !reviewData ? (
+      ) : !aiData && !runMutation.isPending ? (
         <div className="py-6 text-center">
           <p className="text-xs text-slate-400">Chưa có kết quả phân tích AI cho sự kiện này.</p>
           <button
@@ -836,60 +1000,170 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
             className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-4 py-2 text-xs font-bold text-indigo-300 transition hover:bg-indigo-600/50"
           >
             <Sparkles className="size-3.5" />
-            Nhấn để AI phân tích ngay
+            Bắt đầu phân tích AI ngay
           </button>
         </div>
-      ) : (
+      ) : aiData && (
         <div className="mt-4 space-y-4 text-xs">
           {/* Recommendation Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/5 p-3">
-            <div>{getRecBadge(reviewData.recommendation)}</div>
-            <div className="text-slate-400 text-[11px]">
-              Thời gian phân tích: {reviewData.created_at ? new Date(reviewData.created_at).toLocaleString('vi-VN') : 'Vừa xong'}
+            <div>{getRecBadge(aiData.recommendation)}</div>
+            <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+              <span>Chất lượng: <strong className="text-emerald-400">{aiData.quality_score}/100</strong></span>
+              <span>Rủi ro: <strong className={aiData.risk_score > 50 ? 'text-rose-400' : 'text-emerald-400'}>{aiData.risk_score}/100</strong></span>
             </div>
           </div>
 
-          {/* Warnings List */}
-          <div className="rounded-xl border border-white/5 bg-[#172142] p-4">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="font-bold text-slate-200">Các vấn đề phát hiện ({warnings.length})</span>
-              {warnings.length === 0 && (
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                  <Check className="size-3.5" /> Không có cảnh báo bất thường
-                </span>
-              )}
+          {/* AI Summary */}
+          {aiData.summary && (
+            <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3 text-[11px] text-slate-300 leading-relaxed">
+              <span className="font-bold text-indigo-300 mr-1.5">Tóm tắt đánh giá:</span>
+              {aiData.summary}
+            </div>
+          )}
+
+          {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & VISION AUDIT (QUAN TRỌNG NHẤT) */}
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-cyan-300">
+                <ImageIcon className="size-3.5 text-cyan-400" />
+                Kiểm duyệt Hình ảnh qua AI Vision ({imageItems.length || visionItems.length} ảnh)
+              </span>
+              <span className="text-[10px] text-cyan-300/70 italic">
+                * Chỉ ảnh AI quét không vi phạm mới được xếp Đạt chuẩn
+              </span>
             </div>
 
-            <div className="mt-3 space-y-2">
-              {warnings.length > 0 ? (
-                warnings.map((w, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-amber-300 text-xs bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5">
-                    <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
-                    <span className="leading-relaxed">{w}</span>
+            {hasImages ? (
+              <div className="space-y-2">
+                {imageItems.length > 0 ? (
+                  imageItems.map((img, idx) => (
+                    <div key={idx} className="rounded-lg border border-white/5 bg-black/40 p-2.5 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-white">{getImageSourceLabel(img.source)}</span>
+                        {getImageStatusBadge(img.status)}
+                      </div>
+                      {img.analysis && (
+                        <p className="text-[11px] text-slate-300 leading-relaxed">{img.analysis}</p>
+                      )}
+                      {Array.isArray(img.issues) && img.issues.length > 0 && (
+                        <div className="space-y-1 pt-0.5">
+                          {img.issues.map((iss, i) => (
+                            <div key={i} className="flex items-start gap-1 text-[11px] text-rose-300">
+                              <AlertCircle className="size-3 shrink-0 text-rose-400 mt-0.5" />
+                              <span>{iss}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {img.suggestion && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplySingle(`[Gợi ý ảnh ${getImageSourceLabel(img.source)}] ${img.suggestion}`)}
+                          className="flex w-full items-center justify-between rounded border border-purple-500/20 bg-purple-500/10 px-2 py-1 text-left text-[10px] text-purple-200 hover:bg-purple-500/20"
+                        >
+                          <span>💡 Gợi ý: {img.suggestion}</span>
+                          <span className="font-bold text-purple-400">+ Thêm</span>
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  visionItems.map((img, idx) => (
+                    <div key={idx} className="rounded-lg border border-white/5 bg-black/40 p-2.5 space-y-1">
+                      <span className="font-bold text-white text-[11px]">{getImageSourceLabel(img.source)}</span>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">{img.description}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-400 italic">Sự kiện chưa tải lên hình ảnh nào.</p>
+            )}
+          </div>
+
+          {/* 🔴 CRITICAL VIOLATIONS */}
+          {aiData.critical_violations && aiData.critical_violations.length > 0 && (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 space-y-2">
+              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-rose-400">
+                <ShieldAlert className="size-3.5" />
+                Vi phạm chính sách nghiêm trọng ({aiData.critical_violations.length})
+              </span>
+              <div className="space-y-1.5">
+                {aiData.critical_violations.map((v, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleApplySingle(`[VI PHẠM] ${v.issue}${v.highlighted_text ? ` (Trích đoạn: "${v.highlighted_text}")` : ''}`)}
+                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-left text-[11px] text-rose-200 hover:bg-rose-500/20 transition"
+                  >
+                    <div>
+                      <span className="font-bold text-rose-300">[{v.policy_code || 'VI PHẠM'}]: </span>
+                      <span>{v.issue}</span>
+                      {v.highlighted_text && <p className="mt-0.5 text-[10px] text-rose-300/80 italic">"{v.highlighted_text}"</p>}
+                    </div>
+                    <span className="ml-2 shrink-0 text-[10px] font-bold text-rose-400/80 hover:text-rose-300">+ Thêm</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 🟡 WARNINGS */}
+          {aiData.warnings && aiData.warnings.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 space-y-2">
+              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-400">
+                <AlertTriangle className="size-3.5" />
+                Cảnh báo & Cần lưu ý ({aiData.warnings.length})
+              </span>
+              <div className="space-y-1.5">
+                {aiData.warnings.map((w, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleApplySingle(`[LƯU Ý] ${w.issue}${w.highlighted_text ? ` (Trích đoạn: "${w.highlighted_text}")` : ''}`)}
+                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-left text-[11px] text-amber-200 hover:bg-amber-500/20 transition"
+                  >
+                    <div>
+                      <span className="font-bold text-amber-300">[{w.policy_code || 'LƯU Ý'}]: </span>
+                      <span>{w.issue}</span>
+                      {w.highlighted_text && <p className="mt-0.5 text-[10px] text-amber-300/80 italic">"{w.highlighted_text}"</p>}
+                    </div>
+                    <span className="ml-2 shrink-0 text-[10px] font-bold text-amber-400/80 hover:text-amber-300">+ Thêm</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 🟢 COMPLIANT CHECKS */}
+          {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3 space-y-2">
+              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-400">
+                <CheckCircle2 className="size-3.5" />
+                Tiêu chí đạt chuẩn ({aiData.compliant_checks.length})
+              </span>
+              <div className="space-y-1">
+                {aiData.compliant_checks.map((c, idx) => (
+                  <div key={idx} className="flex items-start gap-1.5 text-[11px] text-emerald-300">
+                    <Check className="size-3 shrink-0 text-emerald-400 mt-0.5" />
+                    <span>{c}</span>
                   </div>
-                ))
-              ) : (
-                <p className="text-emerald-400 text-xs py-1">
-                  Sự kiện có đầy đủ thông tin, thời gian và cơ cấu vé hợp lý, không phát hiện vi phạm chính sách.
-                </p>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Copy feedback button */}
-          {warnings.length > 0 && (
+          {/* Action buttons: Copy all issues */}
+          {((aiData.critical_violations?.length || 0) + (aiData.warnings?.length || 0) > 0) && (
             <div className="flex justify-end pt-1">
               <button
                 type="button"
-                onClick={() => {
-                  const feedbackText = warnings.map((w) => `- ${w}`).join('\n')
-                  onApplyFeedback?.(feedbackText)
-                  toast.success('Đã sao chép danh sách cảnh báo vào ô Ghi chú Admin!')
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-indigo-300 hover:bg-white/15"
+                onClick={handleApplyAll}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-3 py-1.5 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-600/50 transition"
               >
                 <FileCheck className="size-3.5" />
-                Sao chép cảnh báo vào ô Ghi chú Admin
+                Sao chép tất cả vấn đề vào ô Ghi chú Admin
               </button>
             </div>
           )}

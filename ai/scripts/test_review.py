@@ -6,27 +6,44 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 REVIEW_SYSTEM_PROMPT = """Bạn là Chuyên gia Kiểm duyệt & Đánh giá Sự kiện tự động của nền tảng EventHub.
-Nhiệm vụ của bạn là phân tích chi tiết thông tin sự kiện do Ban tổ chức gửi lên để:
-1. Phát hiện các hành vi gian lận, lừa đảo tài chính (Ponzi, crypto x100, đa cấp biến tướng), cờ bạc, nội dung độc hại (18+, bạo lực, vi phạm thuần phong mỹ tục).
-2. Kiểm tra tính đầy đủ, logic của thông tin (thời gian, địa điểm cụ thể, giá vé, chính sách hoàn tiền).
-3. Đánh giá chất lượng bài viết và đưa ra gợi ý hoàn thiện.
+Nhiệm vụ của bạn là đối chiếu thông tin sự kiện do Nhà tổ chức (Organizer) gửi lên với 4 bộ chính sách cốt lõi của EventHub:
 
+1. ĐIỀU KHOẢN NHÀ TỔ CHỨC (TERMS_ORGANIZER):
+   - Thông tin phải chính xác, minh bạch, không gây hiểu lầm.
+   - Nghiêm cấm lừa đảo tài chính (Ponzi, crypto x100, cam kết lợi nhuận), cờ bạc, nội dung độc hại (18+, vi phạm pháp luật).
+   - Nghiêm cấm thu thập thông tin cá nhân khách hàng ngoài mục đích sự kiện hoặc lôi kéo giao dịch lậu.
+
+2. CHÍNH SÁCH THANH TOÁN (PAYMENT_POLICY):
+   - Mọi giao dịch vé phải qua hệ thống EventHub (chuyển khoản, QR, cổng thanh toán hoặc vé tại chỗ chính thức).
+   - Nghiêm cấm yêu cầu người mua chuyển khoản cọc cá nhân, giao dịch qua tài khoản ngoài luồng không qua EventHub.
+
+3. CHÍNH SÁCH HOÀN TIỀN (REFUND_POLICY):
+   - Sự kiện bị hoãn, hủy hoặc thay đổi nghiêm trọng địa điểm/thời gian/nội dung thì Nhà tổ chức phải chịu trách nhiệm hoàn tiền cho khách.
+   - Nghiêm cấm tuyên bố: "Nếu sự kiện bị hủy vẫn không hoàn tiền" (Vi phạm nghiêm trọng chính sách nền tảng).
+   - Nếu có chính sách hoàn tiền riêng, phải ghi rõ thời hạn và điều kiện.
+
+4. CHÍNH SÁCH VÉ (TICKET_POLICY):
+   - Phải nêu rõ tên loại vé, giá vé, số lượng, quyền lợi và điều kiện tham dự.
+   - Địa điểm tổ chức phải cụ thể (số nhà, tên tòa nhà/hội trường, quận/thành phố). Không chấp nhận "địa điểm bí mật nhắn sau".
+   - Thời gian diễn ra phải logic (có giờ bắt đầu, giờ kết thúc, không nằm trong quá khứ).
+
+QUY TẮC ĐÁNH GIÁ VÀ XUẤT KẾT QUẢ:
 Bạn PHẢI LUÔN LUÔN trả về định dạng JSON thuần túy theo schema sau:
 {
   "decision": "APPROVE" | "REJECT" | "NEEDS_REVIEW",
-  "risk_score": <số nguyên từ 0 đến 100>,
-  "quality_score": <số nguyên từ 0 đến 100>,
-  "summary": "<Tóm tắt nhận định tổng quan bằng tiếng Việt>",
-  "flags": [
+  "risk_score": <0 đến 100, điểm rủi ro>,
+  "quality_score": <0 đến 100, điểm chất lượng & độ đầy đủ>,
+  "summary": "<Tóm tắt đánh giá ngắn gọn bằng tiếng Việt>",
+  "policy_violations": [
     {
-      "category": "FRAUD_RISK" | "INAPPROPRIATE_CONTENT" | "MISSING_INFO" | "POLICY_VIOLATION" | "TIMING_LOGIC",
+      "policy_code": "TERMS_ORGANIZER" | "REFUND_POLICY" | "PAYMENT_POLICY" | "TICKET_POLICY" | "PRIVACY_POLICY",
       "severity": "LOW" | "MEDIUM" | "HIGH",
-      "issue": "<Mô tả lỗi vi phạm cụ thể>",
-      "highlighted_text": "<Trích dẫn đoạn văn vi phạm từ bài viết>"
+      "issue": "<Mô tả lỗi vi phạm điều khoản nào>",
+      "highlighted_text": "<Đoạn văn trích dẫn từ sự kiện>"
     }
   ],
   "suggestions": [
-    "<Lời khuyên giúp Ban tổ chức chỉnh sửa/cải thiện sự kiện>"
+    "<Lời khuyên cụ thể giúp Nhà tổ chức chỉnh sửa đúng chính sách EventHub>"
   ]
 }"""
 
@@ -70,57 +87,75 @@ def print_review_result(result):
     risk_score = result.get("risk_score", 0)
     quality_score = result.get("quality_score", 0)
     summary = result.get("summary", "")
-    flags = result.get("flags", [])
+    violations = result.get("policy_violations", []) or result.get("flags", [])
     suggestions = result.get("suggestions", [])
     
-    print("\n" + "="*60)
+    print("\n" + "="*65)
     if decision == "APPROVE":
-        print(f"🟢 KẾT LUẬN: ĐƯỢC PHÉP DUYỆT (APPROVE)")
+        print("🟢 KẾT LUẬN: ĐƯỢC PHÉP DUYỆT (APPROVE)")
     elif decision == "REJECT":
-        print(f"🔴 KẾT LUẬN: TỪ CHỐI DUYỆT (REJECT)")
+        print("🔴 KẾT LUẬN: TỪ CHỐI DUYỆT (REJECT)")
     else:
-        print(f"🟡 KẾT LUẬN: CẦN XEM XÉT THÊM (NEEDS_REVIEW)")
-    print(f"📊 Điểm Rủi Ro (Risk Score): {risk_score}/100 | Điểm Chất Lượng (Quality): {quality_score}/100")
+        print("🟡 KẾT LUẬN: CẦN XEM XÉT THÊM (NEEDS_REVIEW)")
+    print(f"📊 Điểm Rủi Ro: {risk_score}/100 | Điểm Chất Lượng Bài Viết: {quality_score}/100")
     print(f"📝 Tóm tắt: {summary}")
     
-    if flags:
-        print("\n⚠️ CÁC CẢNH BÁO / VI PHẠM:")
-        for idx, f in enumerate(flags, 1):
-            print(f"  {idx}. [{f.get('severity', 'INFO')}] {f.get('category')}: {f.get('issue')}")
-            if f.get('highlighted_text'):
-                print(f"     ➜ Đoạn vi phạm: \"{f.get('highlighted_text')}\"")
+    if violations:
+        print("\n⚠️ CÁC ĐIỀU KHOẢN CHÍNH SÁCH VI PHẠM / CẦN LƯU Ý:")
+        for idx, v in enumerate(violations, 1):
+            policy = v.get('policy_code', v.get('category', 'POLICY'))
+            sev = v.get('severity', 'INFO')
+            print(f"  {idx}. [{sev}] [{policy}]: {v.get('issue')}")
+            if v.get('highlighted_text'):
+                print(f"     ➜ Trích đoạn: \"{v.get('highlighted_text')}\"")
                 
     if suggestions:
-        print("\n💡 GỢI Ý HOÀN THIỆN:")
+        print("\n💡 GỢI Ý ĐIỀU CHỈNH ĐỂ ĐÚNG CHÍNH SÁCH:")
         for idx, s in enumerate(suggestions, 1):
             print(f"  {idx}. {s}")
-    print("="*60 + "\n")
+    print("="*65 + "\n")
 
 def main():
-    print("=== CÔNG CỤ TEST KIỂM DUYỆT SỰ KIỆN AI (EVENTHUB AI REVIEW) ===")
-    print("1. Test Sự kiện Lừa đảo Tài chính (Crypto x100)")
-    print("2. Test Sự kiện Hợp lệ (Workshop Công nghệ)")
-    print("3. Test Sự kiện Thiếu địa chỉ & Giấu thông tin")
-    print("4. Nhập sự kiện tùy ý để test")
+    print("=== CÔNG CỤ TEST AI REVIEW DỰA TRÊN CHÍNH SÁCH EVENTHUB ===")
+    print("1. Test Vi phạm PAYMENT_POLICY (Kêu gọi chuyển khoản cá nhân ngoài luồng)")
+    print("2. Test Vi phạm REFUND_POLICY (Tuyên bố hủy sự kiện không hoàn tiền)")
+    print("3. Test Vi phạm TICKET_POLICY (Giấu địa chỉ bí mật, thiếu thông tin)")
+    print("4. Test Vi phạm TERMS_ORGANIZER (Lừa đảo tài chính x100, Ponzi)")
+    print("5. Test Sự kiện Hợp Lệ 100% (Hội thảo Cloud & DevOps)")
+    print("6. Tự nhập sự kiện bất kỳ để test")
     
-    choice = input("\nChọn chế độ test (1/2/3/4): ").strip()
+    choice = input("\nChọn kịch bản test (1-6): ").strip()
     
     if choice == "1":
-        event = """Tên sự kiện: ĐẦU TƯ TIỀN ẢO TƯƠNG LAI - X100 TÀI SẢN 2026
-Mô tả: Tham gia hội thảo kín để nhận bot tự động giao dịch. Cam kết lợi nhuận 30%/tháng, bao lỗ 100%. Nạp 10 triệu nhận ngay 100 triệu sau 3 tháng.
-Địa điểm: Khách sạn bí mật
+        event = """Tên sự kiện: Hội Thảo Đầu Tư Bất Động Sản Dòng Tiền 2026
+Mô tả: Chia sẻ cơ hội đầu tư sinh lời. Để tránh phí sàn, quý khách không mua vé trên web mà vui lòng chuyển khoản trực tiếp vào STK cá nhân: 1903xxx Techcombank để nhận vé qua Zalo.
+Địa điểm: Khách sạn Mường Thanh, Hà Nội
+Thời gian: 2026-10-30 từ 09:00 - 16:00
 Giá vé: 500.000 VNĐ"""
     elif choice == "2":
-        event = """Tên sự kiện: Hội Thảo Trí Tuệ Nhân Tạo & Cloud Vietnam 2026
-Mô tả: Sự kiện quy tụ 500 kỹ sư công nghệ chia sẻ về GenAI và tối ưu hệ thống Microservices. Vé bao gồm tea-break, tài liệu hội thảo và quà tặng lưu niệm.
-Địa điểm: Trung tâm Hội nghị Quốc gia, 57 Phạm Hùng, Hà Nội
-Thời gian: 2026-11-20 từ 08:30 đến 17:00
-Giá vé: 300.000 VNĐ"""
+        event = """Tên sự kiện: Đêm Nhạc Underground EDM Festival
+Mô tả: Đại tiệc âm nhạc điện tử ngoài trời. Lưu ý quan trọng: Vé đã mua không đổi trả. Trong trường hợp ban tổ chức hủy show vì mưa bão hoặc lý do kỹ thuật, chúng tôi sẽ không hoàn tiền dưới bất kỳ lý do nào.
+Địa điểm: Công viên Bến Bạch Đằng, Quận 1, TP.HCM
+Thời gian: 2026-11-15 từ 18:00 - 23:30
+Giá vé: 450.000 VNĐ"""
     elif choice == "3":
-        event = """Tên sự kiện: Workshop Làm Gốm Thủ Công Cuối Tuần
-Mô tả: Học làm đồ gốm trang trí mang về. Giá vé 250k/người.
-Địa điểm: Khu vực Quận 1 (sẽ gửi định vị sau khi mua vé)
-Giá vé: 250.000 VNĐ"""
+        event = """Tên sự kiện: Talkshow Xây Dựng Thương Hiệu Cá Nhân
+Mô tả: Tự tin giao tiếp và xây dựng hình ảnh cá nhân. Vé 200k.
+Địa điểm: Khu vực Ba Đình (địa chỉ cụ thể sẽ gửi tin nhắn 2 tiếng trước giờ diễn)
+Thời gian: 2026-10-10
+Giá vé: 200.000 VNĐ"""
+    elif choice == "4":
+        event = """Tên sự kiện: ĐẦU TƯ TIỀN ẢO TƯƠNG LAI - X100 TÀI SẢN 2026
+Mô tả: Tham gia hội thảo kín nhận bot tự động giao dịch. Cam kết lợi nhuận 30%/tháng, bao lỗ 100%. Nạp 10 triệu nhận ngay 100 triệu sau 3 tháng.
+Địa điểm: Khách sạn 5 sao Hà Nội
+Thời gian: 2026-10-15
+Giá vé: 500.000 VNĐ"""
+    elif choice == "5":
+        event = """Tên sự kiện: Hội Thảo Công Nghệ Cloud & DevOps Summit Vietnam 2026
+Mô tả: Sự kiện quy tụ 500 kỹ sư chia sẻ về Kubernetes và Microservices. Vé bao gồm tài liệu, tea-break và chứng nhận tham dự. Check-in tự động bằng mã QR trên app EventHub. Hoàn tiền 100% nếu sự kiện bị hoãn/hủy theo chính sách chung của EventHub hoặc gửi yêu cầu trước 7 ngày.
+Địa điểm: Trung tâm Hội nghị Quốc gia, 57 Phạm Hùng, Nam Từ Liêm, Hà Nội
+Thời gian: 2026-11-20 từ 08:00 đến 17:30
+Giá vé: 300.000 VNĐ"""
     else:
         print("\nNhập thông tin sự kiện của bạn:")
         title = input("Tên sự kiện: ")
@@ -129,7 +164,7 @@ Giá vé: 250.000 VNĐ"""
         price = input("Giá vé: ")
         event = f"Tên sự kiện: {title}\nMô tả: {desc}\nĐịa điểm: {location}\nGiá vé: {price}"
         
-    print("\n🔄 Đang gửi tới AI phân tích...")
+    print("\n🔄 Đang đối chiếu chính sách EventHub và phân tích...")
     res = review_event(event)
     print_review_result(res)
 
