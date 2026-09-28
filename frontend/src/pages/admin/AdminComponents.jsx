@@ -27,7 +27,7 @@ export function Page({
     <>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-black text-white drop-shadow-sm tracking-tight">
+          <h1 className="font-display text-3xl font-black tracking-tight">
             {renderCosmicTitle(title)}
           </h1>
           {description && (
@@ -38,7 +38,7 @@ export function Page({
         {!actions && action && (
           <button
             type="button"
-            className={actionClassName || 'cosmic-btn-primary flex items-center gap-2 px-5 py-2.5 text-sm'}
+            className={actionClassName || 'admin-primary flex items-center gap-2 px-5 py-2.5 text-sm'}
             onClick={onAction}
           >
             <ActionIcon className="size-4" /> {action}
@@ -69,11 +69,10 @@ export function AttentionSection({ items }) {
         {items.map(([label, count, severity]) => (
           <div
             key={label}
-            className={`glass-panel flex items-center justify-between rounded-[20px] px-5 py-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
-              severity === 'critical'
+            className={`glass-panel flex items-center justify-between rounded-[20px] px-5 py-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${severity === 'critical'
                 ? 'border-error/20 bg-error/10 shadow-[inset_0_0_15px_rgba(239,68,68,0.15)] hover:border-error/40'
                 : 'border-warning/20 bg-warning/10 shadow-[inset_0_0_15px_rgba(245,158,11,0.15)] hover:border-warning/40'
-            }`}
+              }`}
           >
             <span className="text-sm font-bold uppercase tracking-wider text-slate-300">{label}</span>
             <span
@@ -103,11 +102,10 @@ export function KpiGrid({ items }) {
           <p className="text-3xl font-black text-white drop-shadow-sm">{value}</p>
           {change && (
             <span
-              className={`self-start rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
-                change.toLowerCase().includes('urgent')
+              className={`self-start rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${change.toLowerCase().includes('urgent')
                   ? 'border-error/30 bg-error/20 text-error shadow-[0_0_10px_rgba(239,68,68,0.2)]'
                   : 'border-success/30 bg-success/20 text-success shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-              }`}
+                }`}
             >
               {change}
             </span>
@@ -179,38 +177,40 @@ export function FilterBar({ labels }) {
  */
 export function Table({ headers, rows, compact = false, tableClassName = 'min-w-[760px]' }) {
   return (
-    <div className="overflow-x-auto glass-panel rounded-[24px] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-      <table className={`w-full text-left text-sm ${tableClassName}`}>
-        <thead className="bg-slate-900/40">
-          <tr className="border-b border-white/10">
-            {headers.map((header) => (
-              <th
-                key={header}
-                className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400 last:w-[120px] last:min-w-[120px]"
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
-          {rows.map((row, index) => (
-            <tr
-              key={index}
-              className="transition-colors hover:bg-white/[0.02]"
-            >
-              {row.map((cell, cellIndex) => (
-                <td
-                  key={cellIndex}
-                  className={`px-6 ${compact ? 'py-3' : 'py-4'} align-middle text-[14px] text-slate-200`}
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+      <div className="overflow-x-auto">
+        <table className={`w-full text-left text-xs ${tableClassName}`}>
+          <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <tr>
+              {headers.map((header) => (
+                <th
+                  key={header}
+                  className="px-4 py-3 font-bold last:w-[120px] last:min-w-[120px]"
                 >
-                  {cell}
-                </td>
+                  {header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+            {rows.map((row, index) => (
+              <tr
+                key={index}
+                className="transition-colors hover:bg-white/[0.02]"
+              >
+                {row.map((cell, cellIndex) => (
+                  <td
+                    key={cellIndex}
+                    className={`px-4 ${compact ? 'py-2.5' : 'py-3.5'} align-middle text-slate-200`}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -265,49 +265,14 @@ export function ImagePlaceholder({ label, className = 'h-12 w-20' }) {
   )
 }
 
-/**
- * Badge
- */
-export function Badge({ children, tone = 'blue', className = '' }) {
-  const tones = {
-    blue: 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]',
-    purple: 'bg-ai/20 text-ai border-ai/30 shadow-[0_0_10px_rgba(236,72,153,0.15)]',
-    green: 'bg-success/20 text-success border-success/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]',
-    red: 'bg-error/20 text-error border-error/30 shadow-[0_0_10px_rgba(239,68,68,0.15)]',
-    amber: 'bg-warning/20 text-warning border-warning/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]',
-    gray: 'bg-white/10 text-slate-300 border-white/20',
-    orange: 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.15)]',
-  }
-
-  return (
-    <span
-      className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${tones[tone] || tones.gray} ${className}`}
-    >
-      {children}
-    </span>
-  )
-}
+export { Badge, StatusBadge, resolveStatusConfig } from '@/components/StatusBadge.jsx'
+export { TableActionButton } from '@/components/TableActionButton.jsx'
 
 /**
- * Status
+ * Status – Unified status badge for Admin portal
  */
-export function Status({ value }) {
-  const normalized = String(value).toUpperCase()
-  const configs = {
-    LOCKED: { color: 'text-error', dot: 'bg-error', label: 'Đã khóa' },
-    SUSPENDED: { color: 'text-error', dot: 'bg-error', label: 'Tạm ngưng' },
-    PENDING: { color: 'text-warning', dot: 'bg-warning', label: 'Chờ xử lý' },
-    ACTIVE: { color: 'text-success', dot: 'bg-success', label: 'Hoạt động' },
-  }
-
-  const config = configs[normalized] || { color: 'text-subtle', dot: 'bg-subtle', label: normalized }
-
-  return (
-    <span className={`inline-flex items-center gap-2 text-sm font-bold ${config.color}`}>
-      <span className={`size-2 rounded-full ${config.dot}`} />
-      {config.label}
-    </span>
-  )
+export function Status({ value, className = '' }) {
+  return <StatusBadge status={value} className={className} />
 }
 
 /**

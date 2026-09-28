@@ -308,7 +308,8 @@ export function AppLayout() {
                 Đăng nhập
               </NavLink>
               <NavLink
-                className="rounded-full bg-primary px-4 py-2 text-sm font-bold text-[#081126] hover:bg-white"
+                className="btn-gold-primary rounded-full px-4 py-2 text-sm font-bold transition-all hover:brightness-110 active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 to="/register"
               >
                 Đăng ký
