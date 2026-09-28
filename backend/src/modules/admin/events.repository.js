@@ -9,6 +9,7 @@ class EventsAdminRepository {
         e.title,
         e.short_description,
         e.description,
+        e.thumbnail_url,
         e.banner_url,
         e.category_id,
         e.format,
@@ -16,6 +17,7 @@ class EventsAdminRepository {
         e.end_time,
         e.seating_rules,
         e.refund_policy,
+        COALESCE(e.refund_policy->'permit_files', '[]'::jsonb) AS permits,
         e.organizer_id,
         e.status,
         e.approval_status,
@@ -23,6 +25,8 @@ class EventsAdminRepository {
         o.user_id AS organizer_user_id,
         COALESCE(u.email, '') AS organizer_email,
         COALESCE(u.full_name, o.organization_name, '') AS organizer_name,
+        COALESCE(session_summary.items, '[]'::json) AS sessions,
+        COALESCE(ticket_summary.items, '[]'::json) AS ticket_types,
         CASE
           WHEN e.ai_recommendation IS NOT NULL THEN
             json_build_object(
@@ -34,6 +38,33 @@ class EventsAdminRepository {
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users u ON u.id = o.user_id
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', sess.id,
+            'session_name', sess.session_name,
+            'start_time', sess.start_time,
+            'end_time', sess.end_time
+          )
+          ORDER BY sess.start_time ASC
+        ) AS items
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+      ) session_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', tt.id,
+            'name', tt.name,
+            'price', tt.price,
+            'quantity', tt.quantity
+          )
+          ORDER BY tt.price ASC
+        ) AS items
+        FROM event_sessions sess
+        JOIN ticket_types tt ON tt.event_session_id = sess.id
+        WHERE sess.event_id = e.id
+      ) ticket_summary ON true
       WHERE e.id = $1
         AND e.deleted_at IS NULL
       LIMIT 1
@@ -174,6 +205,8 @@ class EventsAdminRepository {
         e.end_time,
         e.status,
         e.approval_status,
+        e.refund_policy,
+        COALESCE(e.refund_policy->'permit_files', '[]'::jsonb) AS permits,
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types
       FROM events e
@@ -215,4 +248,3 @@ class EventsAdminRepository {
 }
 
 module.exports = new EventsAdminRepository();
-
