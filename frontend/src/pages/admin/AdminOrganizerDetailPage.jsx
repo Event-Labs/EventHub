@@ -8,7 +8,7 @@ import {
 } from '@/services/adminOrganizers.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, Page, Panel, Status, Table, UserCell } from './AdminComponents.jsx'
+import { Badge, Page, Panel, Status, StatusBadge, Table, UserCell } from './AdminComponents.jsx'
 import { ConfirmSuspendOrganizerModal } from './ConfirmSuspendOrganizerModal.jsx'
 
 const EVENT_STATUS_LABEL = {
@@ -204,9 +204,7 @@ export function AdminOrganizerDetailPage() {
               <span key="time" className="text-subtle">{formatDate(event.start_time)} - {formatDate(event.end_time)}</span>,
               <span key="orders" className="font-bold text-content">{event.paid_orders || 0}</span>,
               <span key="revenue" className="font-bold text-success">{formatCurrency(event.gross_revenue)}</span>,
-              <Badge key="status" tone={event.status === 'PUBLISHED' ? 'green' : 'gray'}>
-                {EVENT_STATUS_LABEL[event.status] || event.status}
-              </Badge>,
+              <StatusBadge key="status" status={event.status} />,
             ])}
           />
         )}

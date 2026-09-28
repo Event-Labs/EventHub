@@ -26,7 +26,7 @@ import {
   removeStaffFromEvent,
   updateEventStaff,
 } from '@/services/operations.js'
-import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel, TableActionButton } from './OrganizerComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
@@ -163,26 +163,26 @@ export function OrganizerStaffManagementPage() {
       description="Phân công, phân chia cổng và khu vực làm việc cho nhân sự từng sự kiện."
     >
       {/* ── Toolbar ── */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <label className="flex flex-col gap-1 text-xs font-bold text-subtle">
-          Sự kiện
-          <div className="relative">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+          <div className="relative w-full sm:w-[420px]">
             <select
-              className="h-10 w-64 appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-8 text-sm font-semibold text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+              className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
               disabled={loading}
             >
               {(data?.events || []).filter(isApprovedOrPublishedEvent).map((ev) => (
-                <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
+                <option key={ev.id} value={ev.id} className="bg-slate-900 text-white">{ev.title}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           </div>
-        </label>
+        </div>
 
         <button
-          className="org-btn-primary self-end disabled:opacity-50 disabled:cursor-not-allowed"
+          className="org-btn-primary self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setShowInviteModal(true)}
           disabled={loading || !subscriptionActive || limitReached || !selectedEventId || !selectedEventManageable}
         >
@@ -264,87 +264,85 @@ export function OrganizerStaffManagementPage() {
                 <p className="text-sm text-subtle">Chưa có staff nào được phân công cho sự kiện này.</p>
               </OrganizerPanel>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="border-b border-border-soft/30 bg-panel-soft/30 text-xs uppercase text-muted">
-                    <tr>
-                      <th className="px-5 py-3 font-bold">Nhân sự</th>
-                      <th className="px-5 py-3 font-bold">Email</th>
-                      <th className="px-5 py-3 font-bold">Vai trò</th>
-                      <th className="px-5 py-3 font-bold">Cổng</th>
-                      <th className="px-5 py-3 font-bold">Khu vực làm việc</th>
-                      <th className="px-5 py-3 font-bold">Ngày phân công</th>
-                      <th className="px-5 py-3 font-bold">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assignedStaff.map((staff) => (
-                      <tr key={staff.id} className="border-t border-border-soft/20 hover:bg-panel-soft/60 transition-colors">
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            <AvatarInitials name={staff.staff_name || 'Staff'} className="size-9" />
-                            <span className="font-bold text-content">{staff.staff_name}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-subtle">{staff.staff_email}</td>
-                        <td className="px-5 py-3">
-                          <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
-                        </td>
-                        <td className="px-5 py-3">
-                          {staff.gate ? (
-                            <Badge tone="purple">
-                              <span className="flex items-center gap-1">
-                                <DoorOpen className="size-3" />
-                                {staff.gate}
-                              </span>
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted">Tất cả cổng</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          {staff.zone ? (
-                            <Badge tone="yellow">
-                              <span className="flex items-center gap-1">
-                                <Layers className="size-3" />
-                                {staff.zone}
-                              </span>
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted">Toàn bộ khu vực</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3 text-subtle">
-                          {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              className="flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
-                              onClick={() => setEditingStaff(staff)}
-                              disabled={saving || !selectedEventManageable}
-                              title="Chỉnh sửa vai trò, cổng hoặc khu vực"
-                            >
-                              <Edit2 className="size-3.5" />
-                              Sửa
-                            </button>
-                            <button
-                              className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-2.5 py-1.5 text-xs font-bold text-error hover:bg-error/20 disabled:opacity-50 transition-colors"
-                              onClick={() =>
-                                setRemoveConfirm({ staffId: staff.staff_id, staffName: staff.staff_name })
-                              }
-                              disabled={saving || !selectedEventManageable}
-                              title="Gỡ nhân sự"
-                            >
-                              <Trash2 className="size-3.5" />
-                              Gỡ
-                            </button>
-                          </div>
-                        </td>
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-xs">
+                    <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3 font-bold">Nhân sự</th>
+                        <th className="px-4 py-3 font-bold">Email</th>
+                        <th className="px-4 py-3 font-bold">Vai trò</th>
+                        <th className="px-4 py-3 font-bold">Cổng</th>
+                        <th className="px-4 py-3 font-bold">Khu vực làm việc</th>
+                        <th className="px-4 py-3 font-bold">Ngày phân công</th>
+                        <th className="px-4 py-3 font-bold text-right">Hành động</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                      {assignedStaff.map((staff) => (
+                        <tr key={staff.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <AvatarInitials name={staff.staff_name || 'Staff'} className="size-9" />
+                              <span className="font-bold text-content">{staff.staff_name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5 text-subtle">{staff.staff_email}</td>
+                          <td className="px-4 py-3.5">
+                            <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {staff.gate ? (
+                              <Badge tone="purple">
+                                <span className="flex items-center gap-1">
+                                  <DoorOpen className="size-3" />
+                                  {staff.gate}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Tất cả cổng</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {staff.zone ? (
+                              <Badge tone="yellow">
+                                <span className="flex items-center gap-1">
+                                  <Layers className="size-3" />
+                                  {staff.zone}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Toàn bộ khu vực</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-subtle">
+                            {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <TableActionButton
+                                icon={Edit2}
+                                tone="primary"
+                                onClick={() => setEditingStaff(staff)}
+                                disabled={saving || !selectedEventManageable}
+                                title="Chỉnh sửa vai trò, cổng hoặc khu vực"
+                              />
+                              <TableActionButton
+                                icon={Trash2}
+                                tone="danger"
+                                onClick={() =>
+                                  setRemoveConfirm({ staffId: staff.staff_id, staffName: staff.staff_name })
+                                }
+                                disabled={saving || !selectedEventManageable}
+                                title="Gỡ nhân sự"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </section>
@@ -364,74 +362,77 @@ export function OrganizerStaffManagementPage() {
                 <p className="text-sm text-subtle">Chưa có lời mời nào.</p>
               </OrganizerPanel>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="border-b border-border-soft/30 bg-panel-soft/30 text-xs uppercase text-muted">
-                    <tr>
-                      <th className="px-5 py-3 font-bold">Email</th>
-                      <th className="px-5 py-3 font-bold">Người nhận</th>
-                      <th className="px-5 py-3 font-bold">Vai trò</th>
-                      <th className="px-5 py-3 font-bold">Cổng</th>
-                      <th className="px-5 py-3 font-bold">Khu vực làm việc</th>
-                      <th className="px-5 py-3 font-bold">Trạng thái</th>
-                      <th className="px-5 py-3 font-bold">Hết hạn</th>
-                      <th className="px-5 py-3 font-bold">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invitations.map((inv) => (
-                      <tr key={inv.id} className="border-t border-border-soft/20 hover:bg-panel-soft/60 transition-colors">
-                        <td className="px-5 py-3 font-semibold text-content">{inv.invited_email}</td>
-                        <td className="px-5 py-3 text-subtle">{inv.invited_user_name || '—'}</td>
-                        <td className="px-5 py-3 text-content">{inv.staff_role || 'Staff'}</td>
-                        <td className="px-5 py-3">
-                          {inv.gate ? (
-                            <Badge tone="purple">
-                              <span className="flex items-center gap-1">
-                                <DoorOpen className="size-3" />
-                                {inv.gate}
-                              </span>
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted">Tất cả cổng</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          {inv.zone ? (
-                            <Badge tone="yellow">
-                              <span className="flex items-center gap-1">
-                                <Layers className="size-3" />
-                                {inv.zone}
-                              </span>
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted">Toàn bộ khu vực</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          <InvitationStatusBadge status={inv.status} />
-                        </td>
-                        <td className="px-5 py-3 text-muted">
-                          {inv.expires_at
-                            ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
-                            : '—'}
-                        </td>
-                        <td className="px-5 py-3">
-                          <button
-                            className="flex items-center gap-1.5 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/20 disabled:opacity-50 transition-colors"
-                            onClick={() =>
-                              setDeleteInviteConfirm({ invitationId: inv.id, email: inv.invited_email })
-                            }
-                            disabled={saving || !selectedEventManageable}
-                          >
-                            <Trash2 className="size-3.5" />
-                            Xóa
-                          </button>
-                        </td>
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-xs">
+                    <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3 font-bold">Email</th>
+                        <th className="px-4 py-3 font-bold">Người nhận</th>
+                        <th className="px-4 py-3 font-bold">Vai trò</th>
+                        <th className="px-4 py-3 font-bold">Cổng</th>
+                        <th className="px-4 py-3 font-bold">Khu vực làm việc</th>
+                        <th className="px-4 py-3 font-bold">Trạng thái</th>
+                        <th className="px-4 py-3 font-bold">Hết hạn</th>
+                        <th className="px-4 py-3 font-bold text-right">Hành động</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                      {invitations.map((inv) => (
+                        <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3.5 font-semibold text-content">{inv.invited_email}</td>
+                          <td className="px-4 py-3.5 text-subtle">{inv.invited_user_name || '—'}</td>
+                          <td className="px-4 py-3.5 text-content">{inv.staff_role || 'Staff'}</td>
+                          <td className="px-4 py-3.5">
+                            {inv.gate ? (
+                              <Badge tone="purple">
+                                <span className="flex items-center gap-1">
+                                  <DoorOpen className="size-3" />
+                                  {inv.gate}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Tất cả cổng</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {inv.zone ? (
+                              <Badge tone="yellow">
+                                <span className="flex items-center gap-1">
+                                  <Layers className="size-3" />
+                                  {inv.zone}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Toàn bộ khu vực</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <InvitationStatusBadge status={inv.status} />
+                          </td>
+                          <td className="px-4 py-3.5 text-muted">
+                            {inv.expires_at
+                              ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex items-center justify-end">
+                              <TableActionButton
+                                icon={Trash2}
+                                tone="danger"
+                                onClick={() =>
+                                  setDeleteInviteConfirm({ invitationId: inv.id, email: inv.invited_email })
+                                }
+                                disabled={saving || !selectedEventManageable}
+                                title="Xóa lời mời"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </section>
@@ -939,7 +940,7 @@ function QuotaCard({ label, value, sub, warn }) {
 
 function InvitationStatusBadge({ status }) {
   const map = {
-    PENDING: { tone: 'blue', label: 'Đang chờ', icon: Clock },
+    PENDING: { tone: 'amber', label: 'Đang chờ', icon: Clock },
     ACCEPTED: { tone: 'green', label: 'Đã chấp nhận', icon: CheckCircle2 },
     DECLINED: { tone: 'red', label: 'Đã từ chối', icon: MailX },
   }

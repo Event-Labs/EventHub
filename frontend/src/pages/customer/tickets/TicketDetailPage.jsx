@@ -352,7 +352,7 @@ export function TicketDetailPage() {
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <Link
         to="/my-tickets"
-        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-primary backdrop-blur-md transition hover:bg-primary/10 hover:border-primary/40 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary backdrop-blur-md transition"
       >
         <ArrowLeft className="size-4" />
         Vé của tôi
@@ -391,17 +391,16 @@ export function TicketDetailPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
               <div className="relative flex min-h-64 flex-col justify-end p-8">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase backdrop-blur-md ${
-                    ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
-                      ? 'bg-amber-500/25 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-500/40'
-                      : ticket.status === 'REFUNDED'
+                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase backdrop-blur-md ${ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                    ? 'bg-amber-500/25 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-500/40'
+                    : ticket.status === 'REFUNDED'
                       ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-emerald-500/30'
                       : ticket.status === 'EXPIRED' || ticket.status === 'CANCELLED' || ticket.status === 'USED'
-                      ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
-                      : isEntryEligible
-                      ? 'bg-emerald-500/25 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)] border border-emerald-500/40'
-                      : 'bg-red-500/20 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-red-500/30'
-                  }`}>
+                        ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                        : isEntryEligible
+                          ? 'bg-emerald-500/25 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)] border border-emerald-500/40'
+                          : 'bg-red-500/20 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-red-500/30'
+                    }`}>
                     {statusText(ticket)}
                   </span>
                   <span className="rounded-full bg-black/40 px-4 py-1.5 text-[10px] font-black tracking-widest uppercase text-white border border-white/20 backdrop-blur-md shadow-sm">
@@ -442,18 +441,17 @@ export function TicketDetailPage() {
                   </>
                 ) : (
                   <div className="py-8 text-center relative z-10">
-                    <p className={`font-black text-sm uppercase tracking-wider drop-shadow-[0_0_10px_currentColor] ${
-                      ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
-                        ? 'text-amber-400'
-                        : ticket.status === 'REFUNDED'
+                    <p className={`font-black text-sm uppercase tracking-wider drop-shadow-[0_0_10px_currentColor] ${ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                      ? 'text-amber-400'
+                      : ticket.status === 'REFUNDED'
                         ? 'text-emerald-400'
                         : 'text-slate-400'
-                    }`}>
+                      }`}>
                       {ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
                         ? 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xem xét trong vòng 48h'
                         : ticket.status === 'REFUNDED'
-                        ? 'Vé này đã được hoàn tiền thành công và không còn hiệu lực'
-                        : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in'}
+                          ? 'Vé này đã được hoàn tiền thành công và không còn hiệu lực'
+                          : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in'}
                     </p>
 
                     {hasRefundInfo && (
@@ -461,7 +459,7 @@ export function TicketDetailPage() {
                         <button
                           type="button"
                           onClick={() => setRefundDetailOpen(true)}
-                          className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/15 px-5 py-2 text-xs font-bold text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)] backdrop-blur-md transition-all hover:bg-amber-500/25 hover:border-amber-500/60 cursor-pointer"
+                          className="inline-flex items-center gap-2 rounded-full border border-[#C99A47]/40 bg-[#C99A47]/15 px-5 py-2 text-xs font-bold text-[#E6C17A] shadow-[0_0_15px_rgba(201,154,71,0.25)] backdrop-blur-md transition-all hover:bg-[#C99A47]/25 hover:border-[#E6C17A]/60 cursor-pointer"
                         >
                           <RotateCcw className="size-3.5" />
                           Xem chi tiết hoàn tiền
@@ -626,7 +624,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-transparent px-4 py-3.5 text-sm font-bold text-amber-400 transition-all hover:bg-amber-500/10 hover:border-amber-500/50"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#C99A47]/40 bg-transparent px-4 py-3.5 text-sm font-bold text-[#E6C17A] transition-all hover:bg-[#C99A47]/10 hover:border-[#E6C17A]/60 hover:shadow-[0_0_15px_rgba(201,154,71,0.2)]"
       >
         <RotateCcw className="size-4" />
         Yêu cầu hoàn tiền vé
@@ -646,7 +644,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
             {/* Header */}
             <div className="flex-none flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-6 py-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                   <RotateCcw className="size-5" />
                 </div>
                 <div>
@@ -710,7 +708,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                       )}
                       <div>
                         <span className="text-slate-400 font-medium">Thực tế đã trả: </span>
-                        <span className="font-bold text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.3)]">
+                        <span className="font-bold text-[#E6C17A] drop-shadow-[0_0_5px_rgba(201,154,71,0.3)]">
                           {formatCurrency(previewData?.paid_amount ?? actualPaid)}
                         </span>
                       </div>
@@ -797,13 +795,13 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                     <select
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner cursor-pointer"
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] transition-all shadow-inner cursor-pointer hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
                     >
-                      <option value="Trùng lịch cá nhân">Trùng lịch cá nhân</option>
-                      <option value="Sự kiện thay đổi thông tin">Sự kiện thay đổi thông tin</option>
-                      <option value="Mua nhầm vé">Mua nhầm vé</option>
-                      <option value="Lý do sức khỏe">Lý do sức khỏe</option>
-                      <option value="Khác">Khác</option>
+                      <option value="Trùng lịch cá nhân" className="bg-[#0f172a] text-[#F5EBDD]">Trùng lịch cá nhân</option>
+                      <option value="Sự kiện thay đổi thông tin" className="bg-[#0f172a] text-[#F5EBDD]">Sự kiện thay đổi thông tin</option>
+                      <option value="Mua nhầm vé" className="bg-[#0f172a] text-[#F5EBDD]">Mua nhầm vé</option>
+                      <option value="Lý do sức khỏe" className="bg-[#0f172a] text-[#F5EBDD]">Lý do sức khỏe</option>
+                      <option value="Khác" className="bg-[#0f172a] text-[#F5EBDD]">Khác</option>
                     </select>
                   </div>
 
@@ -819,7 +817,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                       required={reason === 'Khác'}
                       onChange={(e) => setCustomerNote(e.target.value)}
                       placeholder={reason === 'Khác' ? 'Vui lòng nêu rõ lý do hoàn vé (bắt buộc)...' : 'Thông tin bổ sung (nếu có, tối đa 500 ký tự)...'}
-                      className="w-full rounded-[16px] border border-white/10 bg-black/40 p-4 text-[13px] font-medium text-white placeholder-slate-500 focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner resize-y min-h-[80px]"
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 p-4 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 transition-all shadow-inner resize-y min-h-[80px] hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -834,7 +832,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                       required
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white focus:border-amber-400 focus:bg-[#0f172a] focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner cursor-pointer"
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] transition-all shadow-inner cursor-pointer hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-[#0f172a] focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
                     >
                       <option value="" disabled className="bg-[#0f172a] text-slate-400">
                         -- Chọn ngân hàng * --
@@ -842,7 +840,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                       {VIETNAMESE_BANKS.map((b) => {
                         const display = getBankDisplayName(b)
                         return (
-                          <option key={b.code} value={display} className="bg-[#0f172a] text-white">
+                          <option key={b.code} value={display} className="bg-[#0f172a] text-[#F5EBDD]">
                             {display}
                           </option>
                         )
@@ -854,7 +852,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                       placeholder="Số tài khoản *"
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
-                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white placeholder-slate-500 focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner"
+                      className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
                     />
                   </div>
                   <input
@@ -863,7 +861,7 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                     placeholder="Tên chủ tài khoản (viết hoa không dấu) *"
                     value={accountHolder}
                     onChange={(e) => setAccountHolder(e.target.value)}
-                    className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-white placeholder-slate-500 focus:border-amber-400 focus:bg-black/60 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-all shadow-inner"
+                    className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
                   />
                 </div>
               </div>
@@ -880,7 +878,8 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                 <button
                   type="submit"
                   disabled={refundMutation.isPending || previewLoading || (previewData && !previewData.eligible)}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/50 bg-gradient-to-r from-amber-600 to-amber-500 px-6 py-2.5 text-[13px] font-bold text-white shadow-[0_0_20px_rgba(245,158,11,0.4)] transition hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(245,158,11,0.6)] disabled:opacity-50 disabled:hover:translate-y-0"
+                  className="btn-gold-primary px-7 py-2.5 text-[13px] font-bold cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 >
                   {refundMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
                 </button>

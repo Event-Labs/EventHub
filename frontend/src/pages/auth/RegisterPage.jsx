@@ -1,4 +1,4 @@
-import { Lock, Mail, Phone, User } from 'lucide-react'
+import { Eye, Lock, Mail, Phone, User } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
@@ -102,7 +102,8 @@ export function RegisterPage() {
                     <div className="mt-8">
                         <Link
                             to="/login"
-                            className="inline-block w-full rounded-md bg-primary py-4 font-bold text-slate-950 hover:bg-primary/90 transition-colors"
+                            className="btn-gold-primary inline-flex w-full items-center justify-center py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer"
+                            style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                         >
                             Quay lại đăng nhập
                         </Link>
@@ -117,12 +118,11 @@ export function RegisterPage() {
             <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-xl rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                 <div className="text-center">
-                    <AuthLogo />
-                    <h1 className="mt-3 font-display text-3xl font-extrabold text-primary">
+                    <h1 className="font-display text-3xl font-extrabold text-white">
                         Tạo tài khoản
                     </h1>
-                    <p className="mt-2 text-muted">
-                        Tài khoản khách hàng để mua vé, lưu yêu thích và theo dõi đơn.
+                    <p className="mt-3 text-sm font-medium text-slate-300">
+                        Tài khoản khách hàng để mua vé, lưu yêu thích và theo dõi đơn
                     </p>
                 </div>
                 <div className="mt-6 flex w-full justify-center overflow-hidden rounded-sm">
@@ -180,6 +180,7 @@ export function RegisterPage() {
                                 label="Mật khẩu"
                                 placeholder="••••••••"
                                 type="password"
+                                trailing={Eye}
                                 required
                                 value={form.password}
                                 onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -191,6 +192,7 @@ export function RegisterPage() {
                             label="Xác nhận mật khẩu"
                             placeholder="••••••••"
                             type="password"
+                            trailing={Eye}
                             required
                             value={form.confirmPassword}
                             onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
@@ -202,14 +204,15 @@ export function RegisterPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="cosmic-btn-primary w-full py-3.5 text-[15px]"
+                        className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                     >
                         {loading ? 'Đang xử lý...' : 'Đăng ký'}
                     </button>
                 </form>
-                <p className="mt-6 text-center">
+                <p className="mt-6 text-center text-muted">
                     Đã có tài khoản?{' '}
-                    <Link to="/login" className="font-bold text-primary hover:underline">
+                    <Link to="/login" className="ml-1 font-bold text-primary hover:text-white transition-colors">
                         Đăng nhập
                     </Link>
                 </p>

@@ -337,7 +337,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
                   key={d.value}
                   type="button"
                   onClick={() => setDuration(d.value)}
-                  className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${duration === d.value ? 'bg-tertiary text-white shadow-sm' : 'bg-panel-soft border border-border-soft/30 text-subtle hover:border-tertiary hover:text-tertiary'}`}
+                  className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${duration === d.value ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30' : 'bg-panel-soft border border-border-soft/30 text-subtle hover:border-[#C99A47]/50 hover:text-[#E6C17A]'}`}
                 >
                   {d.label}
                 </button>

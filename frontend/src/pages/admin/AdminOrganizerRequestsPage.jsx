@@ -7,7 +7,7 @@ import {
 } from '@/services/organizerRequests.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
+import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 
 const statusFilters = [
@@ -25,8 +25,8 @@ const requestTypeFilters = [
 
 function statusTone(status) {
   if (status === 'APPROVED') return 'green'
-  if (status === 'REJECTED') return 'purple'
-  return 'blue'
+  if (status === 'REJECTED') return 'red'
+  return 'amber'
 }
 
 function statusLabel(status) {
@@ -219,22 +219,18 @@ export function AdminOrganizerRequestsPage() {
                 </p>
               )}
             </div>,
-            <Badge key="status" tone={statusTone(request.status)}>
-              {statusLabel(request.status)}
-            </Badge>,
+            <StatusBadge key="status" status={request.status} />,
             <span key="date" className="text-subtle font-medium">
               {new Date(request.created_at).toLocaleDateString('vi-VN')}
             </span>,
-            <button
+            <TableActionButton
               key="action"
-              type="button"
-              className="grid size-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-tertiary hover:text-tertiary"
-              onClick={() => openReview(request)}
+              icon={Eye}
+              tone="default"
               title="Xem chi tiết"
               aria-label={`Xem chi tiết yêu cầu ${request.organization_name}`}
-            >
-              <Eye className="size-4" />
-            </button>,
+              onClick={() => openReview(request)}
+            />,
           ])}
         />
       )}
@@ -406,8 +402,8 @@ function FilterGroup({ label, filters, value, onChange }) {
             onClick={() => onChange(filter.value)}
             className={`inline-flex min-w-24 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
               value === filter.value
-                ? 'bg-tertiary text-white shadow-tertiary/20 hover:bg-orange-600'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
             }`}
           >
             {filter.label}
