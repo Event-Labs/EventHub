@@ -229,7 +229,7 @@ export async function extractEventFromDocument({ file, note = '', rawText = '' }
     headers: {
       'Content-Type': 'multipart/form-data',
     },
-    timeout: 60000,
+    timeout: 300000,
   })
   return response.data.data
 }

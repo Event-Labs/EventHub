@@ -7,6 +7,8 @@ const organizerEventsRepository = require('./organizerEvents.repository');
 const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
 const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 const { validateRefundRules } = require('../refunds/refundPolicyHelper');
+const logger = require('../../core/logger');
+const ollamaClient = require('../../infrastructure/ai/ollama.client');
 
 const ORGANIZER_PROFILE_OTP_KEY = 'organizer_profile_sensitive_otp';
 const ORGANIZER_PROFILE_ACCESS_KEY = 'organizer_profile_sensitive_access';
@@ -802,15 +804,69 @@ class OrganizerEventsService {
       : 'dành cho tất cả khách tham dự quan tâm';
     const highlightText = key_highlights?.trim() ? ` Điểm nhấn: ${key_highlights.trim()}.` : '';
 
-    const suggested_titles = [
-      `${cleanTopic}: Khám Phá & Đột Phá 2026`,
-      `Hội Tụ Đam Mê - ${cleanTopic}`,
-      `Đại Hội ${cleanTopic} & Trải Nghiệm Đỉnh Cao`,
-    ];
+    let generatedContent = null;
 
-    const short_description = `Chào mừng bạn đến với ${cleanTopic} ${audienceText}.${highlightText}`.slice(0, 160);
+    try {
+      const prompt = `Bạn là Trợ lý AI chuyên sáng tạo nội dung sự kiện chuyên nghiệp cho nền tảng EventHub.
+Hãy tạo nội dung sự kiện hấp dẫn dựa trên các thông tin sau:
+- Chủ đề / Ý tưởng: "${cleanTopic}"
+- Danh mục: "${category_name || 'Sự kiện văn hóa / giải trí'}"
+- Đối tượng khán giả mục tiêu: "${target_audience || 'Khách tham gia quan tâm'}"
+- Điểm nhấn đặc sắc: "${key_highlights || 'Hoạt động trải nghiệm độc đáo'}"
+- Phong cách ngôn từ (Tone): "${tone || 'Chuyên nghiệp'}"
 
-    const content_html = `<p><strong>Chào mừng bạn đến với sự kiện ${cleanTopic}!</strong></p>
+QUY TẮC BẮT BUỘC:
+1. "suggested_titles": Mảng gồm 3 tiêu đề sáng tạo, hấp dẫn, không trùng lặp, viết hoa chữ cái đầu.
+2. "short_description": Câu tóm tắt thật lôi cuốn, súc tích DƯỚI 140 KÝ TỰ (tối đa 150 ký tự).
+3. "content_html": Nội dung mô tả chi tiết chuẩn HTML (sử dụng <h3>, <p>, <strong>, <ul>, <li>). Bao gồm: Giới thiệu sự kiện, Lịch trình & Hoạt động nổi bật, Lưu ý tham dự.
+4. "tags": Mảng từ 3-5 từ khóa liên quan.
+5. Xuất ra DUY NHẤT một khối JSON hợp lệ theo cấu trúc mẫu:
+{
+  "suggested_titles": ["Tiêu đề 1", "Tiêu đề 2", "Tiêu đề 3"],
+  "selected_title": "Tiêu đề 1",
+  "short_description": "Tóm tắt dưới 140 ký tự",
+  "content_html": "<p>...</p>",
+  "tags": ["Tag1", "Tag2"]
+}`;
+
+      const raw = await Promise.race([
+        ollamaClient.generate(prompt, {
+          model: process.env.OLLAMA_EXTRACTION_MODEL || 'qwen3-eventhub-Q4_K_M.gguf',
+          format: 'json',
+          think: false,
+          temperature: 0.3,
+          max_tokens: 2000,
+          num_ctx: 4096,
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('AI generation timeout')), 120000)
+        ),
+      ]);
+
+      const parsed = ollamaClient.extractJSON(raw);
+      if (parsed && Array.isArray(parsed.suggested_titles) && parsed.suggested_titles.length > 0) {
+        generatedContent = {
+          suggested_titles: parsed.suggested_titles.slice(0, 5),
+          selected_title: parsed.selected_title || parsed.suggested_titles[0],
+          short_description: (parsed.short_description || '').slice(0, 150),
+          content_html: parsed.content_html || '',
+          tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6) : ['EventHub', cleanTopic],
+        };
+      }
+    } catch (aiErr) {
+      logger.warn(`[OrganizerEventsService] Gọi AI tạo nội dung thất bại: ${aiErr.message}. Sử dụng bộ sinh dự phòng.`);
+    }
+
+    if (!generatedContent) {
+      const suggested_titles = [
+        `${cleanTopic}: Khám Phá & Đột Phá 2026`,
+        `Hội Tụ Đam Mê - ${cleanTopic}`,
+        `Đại Hội ${cleanTopic} & Trải Nghiệm Đỉnh Cao`,
+      ];
+
+      const short_description = `Chào mừng bạn đến với ${cleanTopic} ${audienceText}.${highlightText}`.slice(0, 150);
+
+      const content_html = `<p><strong>Chào mừng bạn đến với sự kiện ${cleanTopic}!</strong></p>
 <p>Sự kiện mang đến không gian trải nghiệm đẳng cấp ${audienceText}. Đây là cơ hội tuyệt vời để giao lưu, học hỏi và kết nối những giá trị mới.</p>
 <br/>
 <p><strong>🌟 Hoạt động và Điểm nhấn nổi bật:</strong></p>
@@ -826,18 +882,19 @@ class OrganizerEventsService {
   <li>Tuân thủ quy định và hướng dẫn của Ban tổ chức trong suốt thời gian diễn ra sự kiện.</li>
 </ul>`;
 
-    const words = cleanTopic.split(/\s+/).filter((w) => w.length > 2);
-    const tags = Array.from(
-      new Set([category_name || 'Sự kiện', 'EventHub', '2026', ...words.slice(0, 3)]),
-    ).filter(Boolean);
+      const words = cleanTopic.split(/\s+/).filter((w) => w.length > 2);
+      const tags = Array.from(
+        new Set([category_name || 'Sự kiện', 'EventHub', '2026', ...words.slice(0, 3)]),
+      ).filter(Boolean);
 
-    const generatedContent = {
-      suggested_titles,
-      selected_title: suggested_titles[0],
-      short_description,
-      content_html,
-      tags,
-    };
+      generatedContent = {
+        suggested_titles,
+        selected_title: suggested_titles[0],
+        short_description,
+        content_html,
+        tags,
+      };
+    }
 
     const promptData = {
       topic: cleanTopic,

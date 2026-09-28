@@ -137,7 +137,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply }) {
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-white">Tạo sự kiện bằng AI từ File tài liệu</h3>
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <Cpu className="w-3 h-3" /> Qwen 2.5:3b
+                  <Cpu className="w-3 h-3" /> Qwen3 EventHub (Q4_K_M)
                 </span>
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
@@ -167,7 +167,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply }) {
               </div>
 
               <h4 className="text-base font-semibold text-white mb-2">
-                Đang xử lý tài liệu với Qwen 3 Extractor
+                Đang xử lý tài liệu với Qwen3 EventHub AI
               </h4>
               <p className="text-xs text-neutral-400 max-w-sm mb-6">
                 Hệ thống đang phân tích văn bản theo thời gian thực và bóc tách các trường dữ liệu cần thiết.
@@ -186,7 +186,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply }) {
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${processStep > 2 ? 'bg-emerald-500 text-black' : processStep === 2 ? 'bg-indigo-600 text-white animate-pulse' : 'bg-neutral-800 text-neutral-400'}`}>
                     {processStep > 2 ? '✓' : '2'}
                   </div>
-                  <span>Mô hình chuyên trách qwen3-event-extractor-2 phân tích & trích xuất cấu trúc</span>
+                  <span>Mô hình Qwen3 EventHub AI đang phân tích văn bản & bóc tách cấu trúc (khoảng 30 - 60 giây)...</span>
                 </div>
 
                 <div className={`flex items-center gap-3 text-xs transition-colors ${processStep >= 3 ? 'text-white' : 'text-neutral-500'}`}>
@@ -230,6 +230,13 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply }) {
                   <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">Tên sự kiện</span>
                   <p className="text-base font-bold text-white mt-0.5">{extractedResult.data.title}</p>
                 </div>
+
+                {extractedResult.data.short_description && (
+                  <div className="pt-2 border-t border-neutral-800/80">
+                    <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">Mô tả ngắn ({extractedResult.data.short_description.length} ký tự)</span>
+                    <p className="text-xs text-neutral-300 mt-0.5 leading-relaxed">{extractedResult.data.short_description}</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-neutral-800/80">
                   <div className="flex items-start gap-2">
@@ -395,7 +402,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply }) {
               <div className="p-3 bg-neutral-950/40 rounded-xl border border-neutral-800/60 flex items-start gap-2.5 text-[11px] text-neutral-400">
                 <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
                 <span>
-                  <strong>Bảo mật & Chuẩn xác:</strong> Mô hình AI chuyên biệt <strong>qwen3-event-extractor-2</strong> xử lý nội bộ, bóc tách chính xác theo tài liệu và <strong>không tự động gửi duyệt sự kiện</strong>.
+                  <strong>Bảo mật & Chuẩn xác:</strong> Mô hình AI <strong>qwen3-eventhub-Q4_K_M.gguf</strong> xử lý nội bộ hoàn toàn trên máy chủ, bóc tách chính xác theo tài liệu và <strong>không tự động gửi duyệt sự kiện</strong>.
                 </span>
               </div>
             </div>
