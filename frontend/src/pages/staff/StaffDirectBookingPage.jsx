@@ -825,7 +825,7 @@ export function StaffDirectBookingPage() {
                 type="button"
                 onClick={() => setIsReviewing(true)}
                 disabled={!canReview}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-3.5 text-sm font-black text-[#0D1B2A] shadow-lg shadow-[#C99A47]/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <CircleCheck className="size-4" />
                 Xác nhận và xem lại vé
@@ -1048,7 +1048,7 @@ function BookingReview({
                 type="button"
                 onClick={onConfirm}
                 disabled={!canSubmit || createMutation.isPending}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-4 text-base font-black text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-4 text-base font-black text-[#0D1B2A] shadow-lg shadow-[#C99A47]/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {createMutation.isPending ? <Loader2 className="size-5 animate-spin" /> : <Ticket className="size-5" />}
                 {confirmLabel}
@@ -1141,7 +1141,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               type="button"
               onClick={() => window.print()}
               disabled={!canPrint}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-extrabold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-sm font-extrabold text-[#0D1B2A] shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Printer className="size-4" />
               In vé
@@ -1203,7 +1203,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
                   href={result.payment.checkout_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-extrabold text-slate-950"
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-3 text-sm font-extrabold text-[#0D1B2A] shadow-sm hover:brightness-110"
                 >
                   <ExternalLink className="size-4" />
                   Mở trang PayOS
@@ -1378,7 +1378,7 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
         <button
           type="button"
           onClick={onClose}
-          className="mt-6 w-full rounded-md bg-tertiary py-3 font-bold text-white shadow-lg shadow-tertiary/30 transition hover:-translate-y-0.5 hover:bg-orange-500"
+          className="mt-6 w-full rounded-md bg-gradient-to-r from-[#C99A47] to-[#E6C17A] py-3 font-bold text-[#0D1B2A] shadow-lg shadow-[#C99A47]/30 transition hover:-translate-y-0.5 hover:brightness-110"
         >
           Xong
         </button>

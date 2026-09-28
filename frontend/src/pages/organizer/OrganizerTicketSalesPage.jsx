@@ -457,7 +457,7 @@ export function OrganizerTicketSalesPage() {
       description="Theo dõi lượng vé bán theo thời gian, loại vé và tỷ lệ lấp đầy sự kiện."
     >
       {/* ── Filters ── */}
-      <OrganizerPanel className="mb-6">
+      <div className="mb-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-4 sm:flex-row">
             <label className="flex-1">
@@ -500,13 +500,12 @@ export function OrganizerTicketSalesPage() {
             type="button"
             onClick={loadAnalytics}
             disabled={loading}
-            className="admin-secondary inline-flex h-10 items-center gap-2 self-end disabled:opacity-50"
+            className="org-btn-secondary inline-flex h-10 items-center gap-2 self-end disabled:opacity-50"
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
           </button>
         </div>
-      </OrganizerPanel>
+      </div>
 
 
 
@@ -617,55 +616,57 @@ export function OrganizerTicketSalesPage() {
                   <Ticket className="size-5 text-primary" />
                   <h2 className="font-bold text-content">Bán hàng theo loại vé</h2>
                 </div>
-                <div className="max-h-[420px] overflow-auto pr-1">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-surface">
-                      <tr className="border-b border-border-soft/30 text-xs uppercase text-subtle">
-                        <th className="pb-3 text-left font-bold">Loại vé</th>
-                        <th className="pb-3 text-right font-bold">Sức chứa</th>
-                        <th className="pb-3 text-right font-bold">Đã bán</th>
-                        <th className="pb-3 text-right font-bold">Doanh thu</th>
-                        <th className="pb-3 text-right font-bold">Lấp đầy</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {byTicketType.map((tt) => (
-                        <tr key={tt.ticket_type_id} className="border-b border-border-soft/20 last:border-0 hover:bg-panel-soft/50">
-                          <td className="py-3">
-                            <p className="font-semibold text-content">{tt.ticket_type_name}</p>
-                            <p className="text-xs text-subtle">{fmtCurrency(tt.unit_price)}/vé</p>
-                          </td>
-                          <td className="py-3 text-right text-subtle">
-                            {Number(tt.capacity).toLocaleString('vi-VN')}
-                          </td>
-                          <td className="py-3 text-right font-semibold text-content">
-                            {Number(tt.sold_quantity).toLocaleString('vi-VN')}
-                          </td>
-                          <td className="py-3 text-right font-semibold text-success">
-                            {fmtShort(tt.revenue)}
-                          </td>
-                          <td className="py-3 text-right">
-                            <OccupancyBadge rate={tt.occupancy_rate} />
-                          </td>
+                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                  <div className="max-h-[420px] overflow-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-bold">Loại vé</th>
+                          <th className="px-4 py-3 text-right font-bold">Sức chứa</th>
+                          <th className="px-4 py-3 text-right font-bold">Đã bán</th>
+                          <th className="px-4 py-3 text-right font-bold">Doanh thu</th>
+                          <th className="px-4 py-3 text-right font-bold">Lấp đầy</th>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 border-border-soft/40 bg-panel-soft/50">
-                        <td className="py-3 font-bold text-content">Tổng cộng</td>
-                        <td className="py-3 text-right font-bold text-subtle">
-                          {byTicketType.reduce((s, tt) => s + Number(tt.capacity), 0).toLocaleString('vi-VN')}
-                        </td>
-                        <td className="py-3 text-right font-bold text-content">
-                          {Number(overall.total_tickets_sold).toLocaleString('vi-VN')}
-                        </td>
-                        <td className="py-3 text-right font-bold text-success">
-                          {fmtCurrency(overall.total_revenue)}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                        {byTicketType.map((tt) => (
+                          <tr key={tt.ticket_type_id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-4 py-3.5">
+                              <p className="font-semibold text-content">{tt.ticket_type_name}</p>
+                              <p className="text-xs text-subtle">{fmtCurrency(tt.unit_price)}/vé</p>
+                            </td>
+                            <td className="px-4 py-3.5 text-right text-subtle">
+                              {Number(tt.capacity).toLocaleString('vi-VN')}
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-semibold text-content">
+                              {Number(tt.sold_quantity).toLocaleString('vi-VN')}
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-semibold text-success">
+                              {fmtShort(tt.revenue)}
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <OccupancyBadge rate={tt.occupancy_rate} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t border-white/10 bg-[#172242]/70">
+                          <td className="px-4 py-3 font-bold text-white">Tổng cộng</td>
+                          <td className="px-4 py-3 text-right font-bold text-subtle">
+                            {byTicketType.reduce((s, tt) => s + Number(tt.capacity), 0).toLocaleString('vi-VN')}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-content">
+                            {Number(overall.total_tickets_sold).toLocaleString('vi-VN')}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-success">
+                            {fmtCurrency(overall.total_revenue)}
+                          </td>
+                          <td className="px-4 py-3" />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
               </OrganizerPanel>
             )}

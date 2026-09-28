@@ -180,7 +180,7 @@ export function OrganizerSubscriptionsPage() {
             <button
               onClick={handlePayment}
               disabled={isProcessing}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-tertiary px-4 py-3 text-sm font-extrabold text-white transition duration-200 hover:brightness-95 disabled:opacity-60"
+              className="org-btn-primary flex w-full items-center justify-center gap-2 py-3 text-sm font-extrabold disabled:opacity-60"
             >
               {isProcessing && <Loader2 className="size-4 animate-spin" />}
               {isProcessing
@@ -300,8 +300,8 @@ function PlanCard({ plan, highlighted, isCurrentPlan, onSubscribe }) {
           className={`block w-full rounded-xl py-2.5 text-center text-xs font-extrabold transition duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${isCurrentPlan
               ? 'bg-success text-white'
               : highlighted
-                ? 'bg-tertiary text-white hover:bg-orange-600'
-                : 'border border-border-soft/40 text-content hover:border-tertiary hover:text-tertiary hover:bg-panel-soft'
+                ? 'org-btn-primary py-2.5'
+                : 'border border-border-soft/40 text-content hover:border-[#C99A47] hover:text-[#E6C17A] hover:bg-panel-soft'
             }`}
         >
           {isCurrentPlan ? 'Đang sử dụng' : plan.price === 0 ? 'Kích hoạt' : 'Chọn gói này'}
