@@ -4,9 +4,9 @@ const ollamaClient = require('../../infrastructure/ai/ollama.client');
 const eventCategoriesRepository = require('../admin/eventCategories.repository');
 const logger = require('../../core/logger');
 
-const PRIMARY_MODEL = process.env.OLLAMA_EXTRACTION_MODEL || process.env.OLLAMA_MODEL || 'qwen3-event-extractor-2';
-const FALLBACK_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'eventhub-qwen3';
-const TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 180000);
+const PRIMARY_MODEL = process.env.OLLAMA_EXTRACTION_MODEL || 'qwen3-eventhub-Q4_K_M.gguf';
+const FALLBACK_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'qwen3-eventhub-Q4_K_M.gguf';
+const TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 const MIN_WEEKS_DAYS = 21; // Tối thiểu 3 tuần
 
 class AiDocumentParserService {
@@ -95,64 +95,90 @@ class AiDocumentParserService {
       .map((c) => `- ID "${c.id}": "${c.name}"`)
       .join('\n');
 
-    // Rút gọn văn bản nếu quá dài (tối đa 6000 ký tự)
-    const truncatedText = text.slice(0, 6000);
+    // Dọn dẹp khoảng trắng dư thừa nhưng BẢO TOÀN NGUYÊN VẸN NỘI DUNG (hỗ trợ tài liệu lớn tới 15.000 ký tự)
+    const cleanedText = text
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
+    const truncatedText = cleanedText.slice(0, 15000);
+    logger.info(`[AiDocumentParser] Tiếp nhận ${text.length} ký tự tài liệu (gửi đầy đủ ${truncatedText.length} ký tự tới AI ${PRIMARY_MODEL} để trích xuất).`);
 
-    const prompt = `Bạn là Trợ lý AI chuyên trách bóc tách tài liệu sự kiện của nền tảng EventHub (Model: ${PRIMARY_MODEL}).
-Nhiệm vụ của bạn: Đọc kỹ tài liệu sự kiện đính kèm bên dưới và trích xuất TOÀN BỘ thông tin thành một JSON duy nhất theo đúng cấu trúc yêu cầu.
+    // 1.1 Phân tích bóc tách các mục định sẵn trong tài liệu (nếu có nhãn TIÊU ĐỀ, MÔ TẢ, v.v.)
+    const detectedSections = this._extractDocumentSections(cleanedText);
 
-=== DANH SÁCH DANH MỤC HỢP LỆ (BẮT BUỘC CHỌN 1 ID PHÙ HỢP NHẤT) ===
-${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống category_id'}
+    // Tối ưu hóa tốc độ theo Giải pháp 1 (Hybrid Extraction):
+    // 1. Regex bóc tách và lưu trữ 100% Ground Truth nguyên văn các trường văn bản dài (title, short_desc, description, additional_terms) trong 0.0001s.
+    // 2. Khi gửi sang Ollama, chỉ gửi phần thông tin cô đọng (ngày giờ, địa điểm, hạng vé) để AI chỉ tập trung trích xuất metadata.
+    // 3. Ra lệnh AI để rỗng các trường văn bản dài đã có để AI chỉ phải sinh ~100 tokens, giúp giảm thời gian từ 50s xuống ~10s.
+    const hasStructuredDesc = Boolean(detectedSections.description);
+    const hasStructuredShortDesc = Boolean(detectedSections.short_description);
+    const hasStructuredTerms = Boolean(detectedSections.additional_terms);
 
-=== QUY TẮC TRÍCH XUẤT CỰC KỲ QUAN TRỌNG ===
-1. "title": Tên chính thức của sự kiện, viết hoa chữ cái đầu hoặc theo phong cách poster/tài liệu, KHÔNG chứa các tiền tố như "TIÊU ĐỀ:".
-2. "short_description": BẮT BUỘC DƯỚI 140 KÝ TỰ (TUYỆT ĐỐI KHÔNG ĐƯỢC QUÁ 150 KÝ TỰ). Viết một câu tóm tắt thật lôi cuốn, súc tích về điểm nổi bật nhất của sự kiện.
-3. "description": Viết mô tả chi tiết, đầy đủ và chuyên nghiệp bằng HTML (sử dụng <h3>, <p>, <strong>, <ul>, <li>). BẮT BUỘC PHẢI BAO GỒM ĐỦ CÁC MỤC SAU nếu tài liệu có đề cập:
-   - <h3>Giới thiệu sự kiện</h3>: Mục đích, ý nghĩa, bối cảnh, sự tham gia của các nghệ sĩ/khách mời/diễn giả đặc biệt.
-   - <h3>Lịch trình & Hoạt động nổi bật</h3>: Các tiết mục, khung giờ biểu diễn, trò chơi tương tác, trải nghiệm độc quyền.
-   - <h3>Thông tin vé & Quyền lợi</h3>: Chi tiết quyền lợi của từng hạng vé (nếu có).
-   - <h3>Lưu ý & Quy định tham gia</h3>: Quy định độ tuổi, thời gian check-in, tư trang cấm mang theo.
-4. "additional_terms": Trích xuất riêng các điều khoản, quy định hủy vé/đổi trả/VAT vào trường này (văn bản thuần).
-5. Ngày sự kiện (start_date) định dạng YYYY-MM-DD. Giờ bắt đầu (start_time) và kết thúc (end_time) định dạng HH:mm.
-6. "ticket_types": Mảng các loại vé. "price" là số nguyên (VNĐ), "quantity_total" là số lượng vé.
-7. Chỉ trả về DUY NHẤT 1 khối JSON hợp lệ, KHÔNG thêm bất kỳ lời giải thích nào ngoài JSON.
+    let textForAi = truncatedText;
+    if (hasStructuredDesc && detectedSections.description.length > 500) {
+      const descMainInfo = detectedSections.description.split(/(?:English Below|Terms and Conditions:)/i)[0];
+      textForAi = [
+        detectedSections.title ? `TIÊU ĐỀ: ${detectedSections.title}` : '',
+        `THÔNG TIN SỰ KIỆN CHÍNH (THỜI GIAN, ĐỊA ĐIỂM, NỘI DUNG):\n${descMainInfo.slice(0, 1000)}`,
+        detectedSections.additional_terms ? `CHÍNH SÁCH VÉ TÓM TẮT:\n${detectedSections.additional_terms.slice(0, 300)}` : '',
+      ].filter(Boolean).join('\n\n');
+    }
 
+    const prompt = `Bạn là Trợ lý AI chuyên trách bóc tách tài liệu sự kiện của nền tảng EventHub.
+NHIỆM VỤ: Đọc kỹ tài liệu kế hoạch sự kiện dưới đây và trích xuất các thuộc tính cấu trúc thành một JSON duy nhất theo đúng cấu trúc yêu cầu.
+
+=== NỘI DUNG TÀI LIỆU CẦN TRÍCH XUẤT ===
+"""
+${textForAi}
+"""
 ${userNote ? `Lưu ý thêm từ Ban tổ chức: "${userNote}"` : ''}
 
-=== TÀI LIỆU CẦN TRÍCH XUẤT ===
-${truncatedText}
+=== DANH SÁCH DANH MỤC HỆ THỐNG (BẮT BUỘC CHỌN 1 ID PHÙ HỢP NHẤT) ===
+${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống category_id'}
+
+=== QUY TẮC BẮT BUỘC (TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT DỮ LIỆU) ===
+1. CHỈ TRÍCH XUẤT THÔNG TIN CÓ THẬT TRONG TÀI LIỆU.
+2. TUYỆT ĐỐI KHÔNG tự sáng tác thêm các tiêu đề hoặc quy định cấm đoán generic nếu tài liệu không đề cập.
+3. CÁC TRƯỜNG DỮ LIỆU CẦN XUẤT:
+   - "title": Tên chính thức của sự kiện.
+   - "category_id": ID phù hợp nhất lấy từ danh mục hệ thống ở trên.
+   - "short_description": ${hasStructuredShortDesc ? 'Để chuỗi rỗng "" (hệ thống đã lưu trữ sẵn 100% nguyên văn từ tài liệu).' : 'Tóm tắt 1 - 2 câu mở đầu (tối đa 300 ký tự).'}
+   - "description": ${hasStructuredDesc ? 'Để chuỗi rỗng "" (hệ thống đã lưu trữ sẵn 100% nguyên văn từ tài liệu để tối ưu tốc độ).' : 'Nội dung chi tiết của sự kiện theo HTML (<p>, <ul>, <li>).'}
+   - "venue_name", "address_line", "province": Địa chỉ tổ chức được ghi trong tài liệu (để chuỗi rỗng "" nếu không có).
+   - "session":
+     * "start_date": Ngày diễn ra sự kiện theo định dạng YYYY-MM-DD.
+     * "start_time": Giờ bắt đầu theo định dạng HH:mm.
+     * "end_time": Giờ kết thúc theo định dạng HH:mm.
+   - "ticket_types": Mảng chứa ĐẦY ĐỦ các hạng vé với tên và giá tiền VNĐ chính xác [{ "name": string, "price": number, "quantity_total": number, "description": string }]. Nếu tài liệu không nói về vé, hãy để [].
+   - "refund_policy": { "allow_refunds": boolean, "deadline_days": number } (nếu ghi vé không hoàn trả hoặc non-refundable thì allow_refunds là false).
+   - "additional_terms": ${hasStructuredTerms ? 'Để chuỗi rỗng "" (hệ thống đã lưu trữ sẵn 100% nguyên văn).' : 'Các điều khoản riêng nếu có.'}
+   - "tags": Mảng các từ khóa liên quan đến sự kiện.
+4. Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc mẫu, không giải thích thêm:
 
 === CẤU TRÚC JSON MẪU BẮT BUỘC ===
 {
-  "title": "Tên sự kiện chính xác",
-  "category_id": "ID danh mục từ danh sách",
-  "short_description": "Tóm tắt súc tích, hấp dẫn dưới 140 ký tự",
-  "description": "<h3>Giới thiệu sự kiện</h3><p>...</p><h3>Lịch trình & Hoạt động nổi bật</h3><ul><li>...</li></ul><h3>Lưu ý tham dự</h3><p>...</p>",
-  "additional_terms": "Quy định hoàn vé, đổi trả hoặc điều khoản riêng (nếu có)",
-  "tags": ["tag1", "tag2"],
-  "venue_name": "Tên địa điểm / Sân vận động / Khách sạn (nếu có)",
-  "address_line": "Số nhà, tên đường (nếu có)",
+  "title": "",
+  "category_id": "",
+  "short_description": "",
+  "description": "",
+  "venue_name": "",
+  "address_line": "",
   "ward": "",
   "district": "",
-  "province": "Tỉnh/Thành phố",
+  "province": "",
   "session": {
-    "start_date": "YYYY-MM-DD",
-    "start_time": "HH:mm",
-    "end_time": "HH:mm"
+    "start_date": "",
+    "start_time": "",
+    "end_time": ""
   },
-  "ticket_types": [
-    {
-      "name": "Tên hạng vé",
-      "price": 100000,
-      "quantity_total": 100,
-      "description": "Mô tả quyền lợi vé"
-    }
-  ],
+  "ticket_types": [],
   "refund_policy": {
     "allow_refunds": false,
     "deadline_days": 7
   },
-  "missing_fields": []
+  "additional_terms": "",
+  "tags": ["EventHub", "Sự kiện"]
 }`;
 
     let parsedData = null;
@@ -160,15 +186,17 @@ ${truncatedText}
     let warnings = [];
 
     // Helper: Gọi Ollama kèm timeout
+    const maxTokens = (hasStructuredDesc && hasStructuredShortDesc) ? 350 : 2048;
     const callOllamaModel = async (modelName) => {
-      logger.info(`[AiDocumentParser] Đang gọi Ollama model: ${modelName} (Timeout: ${TIMEOUT_MS}ms)`);
+      logger.info(`[AiDocumentParser] Đang gọi Ollama model: ${modelName} (Timeout: ${TIMEOUT_MS}ms, maxTokens: ${maxTokens})`);
       const raw = await Promise.race([
         ollamaClient.generate(prompt, {
           model: modelName,
           format: 'json',
           think: false,
           temperature: 0.1,
-          max_tokens: 2500,
+          max_tokens: maxTokens,
+          num_ctx: 4096,
         }),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`Ollama extraction timeout sau ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
@@ -177,7 +205,7 @@ ${truncatedText}
       return ollamaClient.extractJSON(raw);
     };
 
-    // 2. Thử gọi mô hình mới PRIMARY_MODEL (qwen3-event-extractor-2)
+    // 2. Gọi mô hình PRIMARY_MODEL
     try {
       parsedData = await callOllamaModel(PRIMARY_MODEL);
       if (parsedData && parsedData.title) {
@@ -187,7 +215,7 @@ ${truncatedText}
       }
     } catch (err) {
       logger.warn(`[AiDocumentParser] Model ${PRIMARY_MODEL} không khả dụng (${err.message})`);
-      // Thử fallback sang FALLBACK_MODEL nếu model mới chưa được tạo trong Ollama
+      // Thử fallback sang FALLBACK_MODEL nếu cấu hình khác PRIMARY_MODEL
       if (FALLBACK_MODEL && FALLBACK_MODEL !== PRIMARY_MODEL) {
         try {
           logger.info(`[AiDocumentParser] Thử chuyển sang mô hình dự phòng: ${FALLBACK_MODEL}`);
@@ -209,11 +237,11 @@ ${truncatedText}
     if (!parsedData) {
       usedModel = 'heuristic-regex-extractor';
       warnings.push(`AI Engine tạm thời không phản hồi. Hệ thống đã kích hoạt bộ trích xuất dự phòng.`);
-      parsedData = this._heuristicExtraction(text, categories);
+      parsedData = this._heuristicExtraction(text, categories, detectedSections);
     }
 
     // 4. Chuẩn hóa và làm sạch dữ liệu (Data Sanitization & Business Rules)
-    const sanitized = this._sanitizeAndValidate(parsedData, categories, warnings);
+    const sanitized = this._sanitizeAndValidate(parsedData, categories, warnings, text, detectedSections);
 
     return {
       success: true,
@@ -224,18 +252,69 @@ ${truncatedText}
   }
 
   /**
+   * Bóc tách các phần cấu trúc rõ ràng trong tài liệu (Ground Truth Extraction)
+   * Giúp bảo toàn 100% nguyên văn mô tả, tiêu đề, tóm tắt khi tài liệu đã có cấu trúc.
+   * @param {string} text
+   * @returns {object} { title, short_description, description, additional_terms }
+   */
+  _extractDocumentSections(text) {
+    if (!text || typeof text !== 'string') return {};
+    const norm = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    const headerDefs = [
+      { key: 'title', regex: /^[ \t]*(?:TIÊU\s*ĐỀ|TÊN\s*SỰ\s*KIỆN|TITLE)\s*[:：\-–]?\s*([^\n]*)$/im },
+      { key: 'short_description', regex: /^[ \t]*(?:MÔ\s*TẢ\s*NGẮN|TÓM\s*TẮT|SHORT\s*DESCRIPTION)\s*[:：\-–]?\s*([^\n]*)$/im },
+      { key: 'description', regex: /^[ \t]*(?:MÔ\s*TẢ(?!\s*NGẮN)|THÔNG\s*TIN\s*SỰ\s*KIỆN|THÔNG\s*TIN\s*CHI\s*TIẾT|NỘI\s*DUNG\s*SỰ\s*KIỆN|NỘI\s*DUNG|DESCRIPTION)\s*[:：\-–]?\s*([^\n]*)$/im },
+      { key: 'additional_terms', regex: /^[ \t]*(?:ĐIỀU\s*KHOẢN\s*&\s*QUY\s*ĐỊNH(?:\s*DÀNH\s*CHO\s*NGƯỜI\s*GIỮ\s*VÉ)?|ĐIỀU\s*KHOẢN\s*VÀ\s*QUY\s*ĐỊNH(?:\s*DÀNH\s*CHO\s*NGƯỜI\s*GIỮ\s*VÉ)?|QUY\s*ĐỊNH\s*DÀNH\s*CHO\s*NGƯỜI\s*GIỮ\s*VÉ|CHÍNH\s*SÁCH\s*&\s*ĐIỀU\s*KHOẢN|ADDITIONAL\s*TERMS|TERMS\s*&\s*CONDITIONS)\s*[:：\-–]?\s*([^\n]*)$/im },
+    ];
+
+    const foundHeaders = [];
+    for (const def of headerDefs) {
+      const match = def.regex.exec(norm);
+      if (match) {
+        foundHeaders.push({
+          key: def.key,
+          index: match.index,
+          headerFullLength: match[0].length,
+          inlineValue: match[1] ? match[1].trim() : '',
+        });
+      }
+    }
+
+    foundHeaders.sort((a, b) => a.index - b.index);
+
+    const sections = {};
+    for (let i = 0; i < foundHeaders.length; i++) {
+      const current = foundHeaders[i];
+      const startIndex = current.index + current.headerFullLength;
+      const next = foundHeaders[i + 1];
+      const endIndex = next ? next.index : norm.length;
+      let block = norm.slice(startIndex, endIndex).trim();
+
+      if (current.inlineValue) {
+        block = current.inlineValue + (block ? '\n' + block : '');
+      }
+      sections[current.key] = block;
+    }
+
+    return sections;
+  }
+
+  /**
    * Bộ lọc quy tắc dự phòng khi Ollama offline
    */
-  _heuristicExtraction(text, categories = []) {
+  _heuristicExtraction(text, categories = [], sections = {}) {
     const rawLines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
     
     // Loại bỏ tiền tố nhãn nếu có
     const cleanLine = (line) =>
       line.replace(/^(TIÊU ĐỀ|TÊN SỰ KIỆN|TITLE|MÔ TẢ NGẮN|MÔ TẢ|DESCRIPTION)\s*[:：\-–]\s*/i, '').trim();
 
-    const title = rawLines[0] ? cleanLine(rawLines[0]).slice(0, 150) : 'Sự kiện mới từ tài liệu';
+    const title = sections.title
+      ? sections.title
+      : (rawLines[0] ? cleanLine(rawLines[0]).slice(0, 150) : 'Sự kiện mới từ tài liệu');
 
-    // Tìm ngày (dd/mm/yyyy hoặc yyyy-mm-dd)
+    // Tìm ngày (dd/mm/yyyy hoặc yyyy-mm-dd hoặc dd.mm.yyyy)
     let foundDate = null;
     const dateMatch = text.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/);
     if (dateMatch) {
@@ -292,15 +371,20 @@ ${truncatedText}
       }
     }
 
-    const shortDesc = (cleanLine(rawLines.slice(1, 3).join(' ')).slice(0, 140) || title).slice(0, 150);
-    const bodyHtml = rawLines.map((l) => `<p>${cleanLine(l)}</p>`).join('');
+    const shortDesc = sections.short_description
+      ? sections.short_description.slice(0, 500)
+      : (cleanLine(rawLines.slice(1, 3).join(' ')).slice(0, 500) || title).slice(0, 500);
+
+    const descriptionHtml = sections.description
+      ? this._formatDocumentToHtml(sections.description)
+      : this._formatDocumentToHtml(text, title, shortDesc);
 
     return {
       title,
       category_id: matchedCategory,
       short_description: shortDesc,
-      description: bodyHtml,
-      additional_terms: '',
+      description: descriptionHtml,
+      additional_terms: sections.additional_terms || '',
       tags: ['Sự kiện', 'EventHub'],
       venue_name: '',
       address_line: '',
@@ -314,7 +398,7 @@ ${truncatedText}
       },
       ticket_types: ticketTypes,
       refund_policy: {
-        allow_refunds: false,
+        allow_refunds: !/không\s*hoàn\s*(?:vé|tiền)|không\s*được\s*hoàn\s*trả|non-refundable/i.test(text),
         deadline_days: 7,
       },
       missing_fields: ['venue_name', 'address_line'],
@@ -322,9 +406,230 @@ ${truncatedText}
   }
 
   /**
+   * Phát hiện và loại bỏ các tiêu đề hoặc quy định giả mạo do AI tự ý bịa đặt
+   * @param {string} html
+   * @param {string} originalText
+   * @returns {string}
+   */
+  _stripHallucinatedBoilerplate(html, originalText = '') {
+    if (!html || typeof html !== 'string') return '';
+    const normOriginal = (originalText || '').toLowerCase();
+
+    // Các tiêu đề giả mạo mà AI thường tự sinh
+    const fakeHeadings = [
+      /<h3>\s*(?:Giới thiệu sự kiện|Lịch trình\s*&\s*Hoạt động nổi bật|Thông tin vé\s*&\s*Quyền lợi|Lưu ý tham gia|Lưu ý tham dự)\s*<\/h3>/gi,
+      /<p><strong>\s*(?:Giới thiệu sự kiện|Lịch trình\s*&\s*Hoạt động nổi bật|Thông tin vé\s*&\s*Quyền lợi|Lưu ý tham gia|Lưu ý tham dự)\s*<\/strong><\/p>/gi,
+    ];
+
+    let cleaned = html;
+    for (const fh of fakeHeadings) {
+      cleaned = cleaned.replace(fh, (match) => {
+        const textOnly = match.replace(/<[^>]*>/g, '').trim().toLowerCase();
+        return normOriginal.includes(textOnly) ? match : '';
+      });
+    }
+
+    // Các cụm từ quy tắc bịa đặt phổ biến
+    const fakeRuleKeywords = [
+      'có mặt trước 15 phút',
+      'đồ ăn, đồ uống',
+      'đồ ăn thức uống',
+      'thiết bị điện tử có thể gây xao nhãng',
+      'xao nhãng sự kiện',
+      'vật dụng có thể gây nguy hiểm',
+      'làm việc, học tập hoặc làm việc khác trong khu vực',
+      'mất mát, trộm cắp hoặc gây rối',
+    ];
+
+    cleaned = cleaned.replace(/<(li|p)>([\s\S]*?)<\/\1>/gi, (match, tag, content) => {
+      const lowerContent = content.toLowerCase();
+      for (const kw of fakeRuleKeywords) {
+        if (lowerContent.includes(kw) && !normOriginal.includes(kw)) {
+          return '';
+        }
+      }
+      return match;
+    });
+
+    cleaned = cleaned.replace(/<(ul|ol)>\s*<\/\1>/gi, '');
+    return cleaned.trim();
+  }
+
+  /**
+   * Làm sạch phần Thông tin sự kiện: Loại bỏ tiêu đề hoặc mô tả ngắn bị lặp lại ở đầu
+   * @param {string} desc
+   * @param {string} title
+   * @param {string} shortDesc
+   * @returns {string}
+   */
+  _cleanEventDescription(desc, title, shortDesc) {
+    let cleaned = String(desc || '').trim();
+
+    // 1. Chỉ loại bỏ thẻ nếu thẻ đó chỉ chứa đúng tiêu đề sự kiện (không xoá đoạn văn mô tả)
+    if (title) {
+      const rawCleanTitle = title.replace(/^(TIÊU ĐỀ|TÊN SỰ KIỆN|KẾ HOẠCH TỔ CHỨC SỰ KIỆN:?)\s*/i, '').trim().toLowerCase();
+      const firstTagMatch = cleaned.match(/^<(h[1-6]|p)>([\s\S]*?)<\/\1>/i);
+      if (firstTagMatch) {
+        const tagText = firstTagMatch[2].replace(/<[^>]*>/g, '').trim().toLowerCase();
+        const isHeaderTag = /^h[1-2]$/i.test(firstTagMatch[1]);
+        const isTitleOnly = tagText === rawCleanTitle || tagText.startsWith('tiêu đề:') || tagText.startsWith('tên sự kiện:');
+        if (isHeaderTag || (isTitleOnly && tagText.length < rawCleanTitle.length + 20)) {
+          cleaned = cleaned.slice(firstTagMatch[0].length).trim();
+        }
+      }
+    }
+
+    // 2. Chỉ loại bỏ nếu đoạn đầu tiên trùng hệt mô tả ngắn
+    if (shortDesc && shortDesc.length > 20) {
+      const rawShortDesc = shortDesc.trim().toLowerCase();
+      const firstTagMatch = cleaned.match(/^<(h[1-6]|p)>([\s\S]*?)<\/\1>/i);
+      if (firstTagMatch) {
+        const tagText = firstTagMatch[2].replace(/<[^>]*>/g, '').trim().toLowerCase();
+        if (tagText === rawShortDesc || (rawShortDesc.startsWith(tagText) && tagText.length > 30)) {
+          cleaned = cleaned.slice(firstTagMatch[0].length).trim();
+        }
+      }
+    }
+
+    return cleaned;
+  }
+
+  /**
+   * Chuyển đổi văn bản tài liệu thô thành định dạng HTML ngữ nghĩa chuẩn (dự phòng)
+   * Tự động nhận diện danh sách, tiêu đề con, giữ nguyên vẹn 100% nội dung và emoji.
+   * @param {string} text
+   * @param {string} title
+   * @param {string} shortDesc
+   * @returns {string} HTML
+   */
+  _formatDocumentToHtml(text, title = '', shortDesc = '') {
+    if (!text || typeof text !== 'string') return '';
+    const rawLines = text.split('\n');
+    const htmlParts = [];
+    let inList = false;
+    let listType = 'ul';
+    let currentParagraphLines = [];
+
+    const normTitle = title ? title.replace(/^(TIÊU ĐỀ|TÊN SỰ KIỆN|KẾ HOẠCH TỔ CHỨC SỰ KIỆN:?)\s*/i, '').trim().toLowerCase() : '';
+    const normShort = shortDesc ? shortDesc.trim().toLowerCase() : '';
+
+    const flushParagraph = () => {
+      if (currentParagraphLines.length > 0) {
+        const pText = currentParagraphLines.join('<br>');
+        htmlParts.push(`<p>${pText}</p>`);
+        currentParagraphLines = [];
+      }
+    };
+
+    const closeList = () => {
+      if (inList) {
+        htmlParts.push(`</${listType}>`);
+        inList = false;
+      }
+    };
+
+    for (let rawLine of rawLines) {
+      const line = rawLine.trim();
+
+      if (!line) {
+        flushParagraph();
+        closeList();
+        continue;
+      }
+
+      const lower = line.toLowerCase();
+
+      // Bỏ qua dòng tiêu đề sự kiện ở đầu nếu đứng riêng lẻ một dòng
+      if (htmlParts.length === 0 && currentParagraphLines.length === 0) {
+        if (/^(?:TIÊU\s*ĐỀ|TÊN\s*SỰ\s*KIỆN|TITLE)\s*[:：\-–]?\s*$/i.test(line)) {
+          continue;
+        }
+        if (normTitle && (lower === normTitle || lower === `tiêu đề: ${normTitle}` || lower === `tên sự kiện: ${normTitle}`)) {
+          continue;
+        }
+      }
+
+      // Bỏ qua dòng mô tả ngắn nếu lặp lại nguyên văn ở đầu
+      if (htmlParts.length < 2 && currentParagraphLines.length === 0) {
+        if (/^(?:MÔ\s*TẢ\s*NGẮN|TÓM\s*TẮT)\s*[:：\-–]?\s*$/i.test(line)) {
+          continue;
+        }
+        if (normShort && lower === normShort) {
+          continue;
+        }
+      }
+
+      // Bỏ qua dòng nhãn "MÔ TẢ:" ở đầu phần thân
+      if (/^(?:MÔ\s*TẢ(?!\s*NGẮN)|THÔNG\s*TIN\s*SỰ\s*KIỆN|THÔNG\s*TIN\s*CHI\s*TIẾT|NỘI\s*DUNG\s*SỰ\s*KIỆN|NỘI\s*DUNG|DESCRIPTION)\s*[:：\-–]?\s*$/i.test(line)) {
+        continue;
+      }
+
+      // Danh sách gạch đầu dòng (-, *, •, +)
+      const bulletMatch = line.match(/^[\-\*\•\+]\s+(.+)$/);
+      if (bulletMatch) {
+        flushParagraph();
+        if (!inList || listType !== 'ul') {
+          closeList();
+          htmlParts.push('<ul>');
+          inList = true;
+          listType = 'ul';
+        }
+        htmlParts.push(`<li>${bulletMatch[1].trim()}</li>`);
+        continue;
+      }
+
+      // Mục đánh số "1. ", "2. ", "1) ", "1.\t"
+      const numMatch = line.match(/^(\d+)[\.\)]\s+(.+)$/);
+      if (numMatch) {
+        flushParagraph();
+        if (!inList || listType !== 'ol') {
+          closeList();
+          htmlParts.push('<ol>');
+          inList = true;
+          listType = 'ol';
+        }
+        htmlParts.push(`<li>${numMatch[2].trim()}</li>`);
+        continue;
+      }
+
+      closeList();
+
+      // Tiêu đề chương / phần con trong tài liệu
+      const isHeader =
+        /^#{1,4}\s+/.test(line) ||
+        /^[I|V|X]+\.\s+/i.test(line) ||
+        /^(?:English Below|Điều khoản và điều kiện:|Terms and Conditions:|Lưu ý:|Quy định:)$/i.test(line) ||
+        (line.endsWith(':') && line.length < 80);
+
+      if (isHeader) {
+        flushParagraph();
+        const headerText = line.replace(/^#{1,4}\s+/, '').trim();
+        htmlParts.push(`<p><strong>${headerText}</strong></p>`);
+        continue;
+      }
+
+      // Ghép hoặc tách paragraph dựa trên dấu kết thúc câu và độ dài
+      if (currentParagraphLines.length > 0) {
+        const lastLine = currentParagraphLines[currentParagraphLines.length - 1];
+        const lastEndsClause = /[,;]$/.test(lastLine);
+        if (!lastEndsClause && (/[\.!\?❤️🤙🏻🦊🍅]$/u.test(lastLine) || line.length > 60)) {
+          flushParagraph();
+        }
+      }
+
+      currentParagraphLines.push(line);
+    }
+
+    flushParagraph();
+    closeList();
+
+    return htmlParts.join('\n');
+  }
+
+  /**
    * Chuẩn hóa và áp dụng quy tắc nghiệp vụ EventHub
    */
-  _sanitizeAndValidate(raw, categories = [], warnings = []) {
+  _sanitizeAndValidate(raw, categories = [], warnings = [], originalText = '', sections = {}) {
     const data = { ...raw };
 
     const cleanPrefix = (str) =>
@@ -332,8 +637,12 @@ ${truncatedText}
         .replace(/^(TIÊU ĐỀ|TÊN SỰ KIỆN|TITLE|MÔ TẢ NGẮN|MÔ TẢ|DESCRIPTION)\s*[:：\-–]\s*/i, '')
         .trim();
 
-    // 1. Tiêu đề
-    data.title = cleanPrefix(data.title).slice(0, 200) || 'Sự kiện mới từ tài liệu';
+    // 1. Tiêu đề (ưu tiên Ground Truth từ sections)
+    if (sections && sections.title) {
+      data.title = cleanPrefix(sections.title).slice(0, 200);
+    } else {
+      data.title = cleanPrefix(data.title).slice(0, 200) || 'Sự kiện mới từ tài liệu';
+    }
 
     // 2. Danh mục
     const validCat = categories.find((c) => c.id === data.category_id);
@@ -342,10 +651,40 @@ ${truncatedText}
       warnings.push('Danh mục chưa xác định rõ trong tài liệu, đã đặt mặc định.');
     }
 
-    // 3. Tóm tắt & Mô tả
-    data.short_description = cleanPrefix(data.short_description).slice(0, 150);
-    data.description = String(data.description || '').trim() || `<p>${data.short_description}</p>`;
-    data.additional_terms = String(data.additional_terms || '').trim();
+    // 3. Tóm tắt & Mô tả đầy đủ (Thông tin sự kiện)
+    if (sections && sections.short_description) {
+      data.short_description = cleanPrefix(sections.short_description).slice(0, 500);
+    } else {
+      data.short_description = cleanPrefix(data.short_description).slice(0, 500);
+    }
+
+    // Xử lý description:
+    let finalDesc = '';
+    if (sections && sections.description) {
+      // Nếu tài liệu có phần "MÔ TẢ:", TUYỆT ĐỐI dùng 100% nội dung gốc của phần này, không cho phép AI tự ý tóm tắt hay cắt ngắn!
+      finalDesc = this._formatDocumentToHtml(sections.description);
+    } else {
+      // Nếu tài liệu tự do không có nhãn "MÔ TẢ:", lọc sạch các quy tắc và tiêu đề bịa đặt/hallucination của AI
+      finalDesc = String(data.description || '').trim();
+      if (finalDesc) {
+        finalDesc = this._stripHallucinatedBoilerplate(finalDesc, originalText);
+        finalDesc = this._cleanEventDescription(finalDesc, data.title, data.short_description);
+      }
+      // Nếu AI tóm tắt quá ngắn so với văn bản gốc hoặc trống, giữ nguyên vẹn nội dung từ tài liệu gốc
+      if (!finalDesc || finalDesc.length < 50 || (originalText.length > 500 && finalDesc.replace(/<[^>]*>/g, '').length < originalText.length * 0.25)) {
+        if (originalText && originalText.trim()) {
+          finalDesc = this._formatDocumentToHtml(originalText, data.title, data.short_description);
+        }
+      }
+    }
+
+    data.description = finalDesc || `<p>${data.short_description}</p>`;
+
+    if (sections && sections.additional_terms) {
+      data.additional_terms = sections.additional_terms.trim();
+    } else {
+      data.additional_terms = String(data.additional_terms || '').trim();
+    }
 
     // 4. Địa điểm
     data.venue_name = String(data.venue_name || '').trim();
@@ -353,6 +692,45 @@ ${truncatedText}
     data.ward = String(data.ward || '').trim();
     data.district = String(data.district || '').trim();
     data.province = String(data.province || '').trim();
+
+    // Chuẩn hóa tên tỉnh thành về chuẩn hành chính Việt Nam
+    const normProv = (data.province || '').toLowerCase();
+    if (
+      normProv.includes('hồ chí minh') ||
+      normProv.includes('ho chi minh') ||
+      normProv.includes('tp.hcm') ||
+      normProv.includes('tphcm') ||
+      normProv.includes('sài gòn')
+    ) {
+      data.province = 'Thành phố Hồ Chí Minh';
+    } else if (normProv.includes('hà nội') || normProv.includes('ha noi')) {
+      data.province = 'Thành phố Hà Nội';
+    } else if (normProv.includes('đà nẵng') || normProv.includes('da nang')) {
+      data.province = 'Thành phố Đà Nẵng';
+    } else if (normProv.includes('cần thơ') || normProv.includes('can tho')) {
+      data.province = 'Thành phố Cần Thơ';
+    } else if (normProv.includes('hải phòng') || normProv.includes('hai phong')) {
+      data.province = 'Thành phố Hải Phòng';
+    } else if (!data.province && (originalText || data.title)) {
+      const normText = `${data.title} ${originalText}`.toLowerCase();
+      if (
+        normText.includes('hồ chí minh') ||
+        normText.includes('ho chi minh') ||
+        normText.includes('tp.hcm') ||
+        normText.includes('tphcm') ||
+        normText.includes('sài gòn')
+      ) {
+        data.province = 'Thành phố Hồ Chí Minh';
+      } else if (normText.includes('hà nội') || normText.includes('ha noi')) {
+        data.province = 'Thành phố Hà Nội';
+      } else if (normText.includes('đà nẵng') || normText.includes('da nang')) {
+        data.province = 'Thành phố Đà Nẵng';
+      } else if (normText.includes('cần thơ') || normText.includes('can tho')) {
+        data.province = 'Thành phố Cần Thơ';
+      } else if (normText.includes('hải phòng') || normText.includes('hai phong')) {
+        data.province = 'Thành phố Hải Phòng';
+      }
+    }
 
     // 5. Phiên sự kiện & Kiểm tra quy tắc 3 tuần
     const minValidDate = this.getSuggestedMinDate();
@@ -418,8 +796,9 @@ ${truncatedText}
     data.ticket_types = validTickets;
 
     // 7. Chính sách hoàn tiền
+    const isNonRefundableInText = /không\s*hoàn\s*(?:vé|tiền)|không\s*được\s*hoàn\s*trả|không\s*hoàn\s*trả|non-refundable/i.test(originalText || '');
     data.refund_policy = {
-      allow_refunds: Boolean(data.refund_policy?.allow_refunds),
+      allow_refunds: isNonRefundableInText ? false : Boolean(data.refund_policy?.allow_refunds),
       deadline_days: Number(data.refund_policy?.deadline_days) || 7,
     };
 

@@ -514,13 +514,13 @@ function Step1EventInfo({
             <div>
               <div className="flex justify-between mb-2">
                 <label className="text-[13px] font-medium text-subtle">Mô tả ngắn*</label>
-                <span className="text-xs text-muted">{formData.short_description.length} / 150</span>
+                <span className="text-xs text-muted">{formData.short_description.length} / 500</span>
               </div>
               <textarea
                 className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none resize-none placeholder:text-muted"
                 placeholder="Tóm tắt ngắn gọn về sự kiện của bạn..."
-                rows={2}
-                maxLength={150}
+                rows={3}
+                maxLength={500}
                 value={formData.short_description}
                 onChange={(e) => setFormData((p) => ({ ...p, short_description: e.target.value }))}
               />
@@ -3697,7 +3697,7 @@ export function CreateEventPage() {
       ...prev,
       title: aiData.title || prev.title,
       category_id: aiData.category_id || prev.category_id,
-      short_description: (aiData.short_description || prev.short_description || '').slice(0, 150),
+      short_description: (aiData.short_description || prev.short_description || '').slice(0, 500),
       description: aiData.description || prev.description,
       additional_terms: aiData.additional_terms || prev.additional_terms,
       tags: Array.isArray(aiData.tags) && aiData.tags.length > 0 ? aiData.tags : prev.tags,
