@@ -208,8 +208,8 @@ function Shortcut({ to, icon: Icon, label, primary }) {
       to={to}
       className={`rounded-2xl border p-5 text-center font-bold transition-all hover:scale-[1.02] ${
         primary
-          ? 'border-primary/40 bg-tertiary text-white shadow-[0_4px_20px_rgba(43,92,146,0.3)]'
-          : 'border-border-soft/40 bg-surface/80 text-content hover:border-tertiary hover:bg-panel-soft'
+          ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-[0_4px_20px_rgba(201,154,71,0.35)]'
+          : 'border-border-soft/40 bg-surface/80 text-content hover:border-[#C99A47]/40 hover:bg-panel-soft'
       }`}
     >
       <Icon className="mx-auto mb-2.5 size-6" />

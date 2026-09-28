@@ -36,6 +36,8 @@ import {
 import { uploadOrganizerDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { VIETNAMESE_BANKS } from '@/constants/banks.js'
+import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+import { StatusBadge } from '@/components/StatusBadge.jsx'
 
 function formatDateTime(value) {
   if (!value) return 'N/A'
@@ -70,56 +72,7 @@ function resolveBankBin(bankInput) {
 }
 
 function getStatusBadge(status) {
-  switch (status) {
-    case 'PENDING':
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
-          <Clock className="size-3.5" />
-          Chờ xử lý
-        </span>
-      )
-    case 'APPROVED':
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-300">
-          <CheckCircle2 className="size-3.5" />
-          Đã duyệt chi
-        </span>
-      )
-    case 'PROCESSING':
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-300 animate-pulse">
-          <RefreshCw className="size-3.5 animate-spin" />
-          Đang xử lý PayOS
-        </span>
-      )
-    case 'REFUNDED':
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
-          <CheckCircle className="size-3.5" />
-          Đã hoàn tiền
-        </span>
-      )
-    case 'REJECTED':
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-300">
-          <XCircle className="size-3.5" />
-          Đã từ chối
-        </span>
-      )
-    case 'FAILED':
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300">
-          <AlertCircle className="size-3.5" />
-          Hoàn tiền thất bại
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-1 text-xs font-semibold text-slate-300">
-          {status || 'N/A'}
-        </span>
-      )
-  }
+  return <StatusBadge status={status} />
 }
 
 export function OrganizerRefundDetailPage() {
@@ -396,8 +349,8 @@ export function OrganizerRefundDetailPage() {
             Quản lý hoàn tiền
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Xử lý yêu cầu hoàn tiền
+            <h1 className="font-display text-3xl font-black tracking-tight">
+              {renderCosmicTitle('Xử lý yêu cầu hoàn tiền')}
             </h1>
             <span className="font-mono text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 rounded-lg">
               #RF-{item.id.slice(0, 8).toUpperCase()}
@@ -699,7 +652,7 @@ export function OrganizerRefundDetailPage() {
                             <button
                               type="button"
                               onClick={() => navigate('/organizer/settings/payment')}
-                              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-black text-slate-950 shadow-lg shadow-primary/20 hover:bg-primary/90 transition"
+                              className="org-btn-primary px-5 py-2.5 text-xs shadow-lg transition"
                             >
                               <ExternalLink className="size-4" />
                               Đến Cài đặt thanh toán để thiết lập ngay
@@ -755,7 +708,7 @@ export function OrganizerRefundDetailPage() {
                               type="button"
                               disabled={processMutation.isPending}
                               onClick={handlePayOSSubmit}
-                              className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 text-xs font-black text-slate-950 shadow-lg shadow-primary/20 hover:bg-primary/90 transition disabled:opacity-50"
+                              className="org-btn-primary px-6 py-3 text-xs shadow-lg transition disabled:opacity-50"
                             >
                               {processMutation.isPending ? (
                                 <>

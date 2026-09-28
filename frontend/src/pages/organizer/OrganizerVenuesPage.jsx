@@ -416,7 +416,7 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
               Hủy
             </button>
             <button type="submit" disabled={saving} className="org-btn-primary">
-              {saving ? 'Đang lưu...' : 'Lưu'}
+              {saving ? 'Đang lưu...' : editVenue ? 'Lưu thay đổi' : 'Tạo địa điểm'}
             </button>
           </div>
         </form>
@@ -637,7 +637,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
                 onClose()
                 onEdit(venue)
               }}
-              className="org-btn-secondary text-xs"
+              className="org-btn-primary text-xs"
             >
               <Pencil className="size-3.5" />
               Chỉnh sửa
@@ -645,7 +645,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
             <button
               type="button"
               onClick={onClose}
-              className="org-btn-primary text-xs"
+              className="org-btn-secondary text-xs"
             >
               Đóng
             </button>
@@ -792,7 +792,7 @@ export function OrganizerVenuesPage() {
     <OrganizerPage
       title="Quản lý Địa điểm"
       description="Tạo và quản lý địa điểm tổ chức sự kiện, kèm sơ đồ ghế."
-      action="Thêm địa điểm"
+      action="Tạo địa điểm"
       onAction={openCreate}
     >
       <div className="mb-5">
@@ -814,8 +814,12 @@ export function OrganizerVenuesPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       ) : !filtered.length ? (
-        <div className="rounded-xl border border-dashed border-border-soft/30 py-16 text-center text-sm text-muted">
-          Chưa có địa điểm nào. Nhấn &quot;Thêm địa điểm&quot; để bắt đầu.
+        <div className="rounded-xl border border-dashed border-border-soft/30 py-16 text-center text-sm text-muted flex flex-col items-center justify-center gap-4">
+          <p>Chưa có địa điểm nào. Nhấn &quot;Tạo địa điểm&quot; để bắt đầu.</p>
+          <button type="button" onClick={openCreate} className="org-btn-primary">
+            <Building2 className="size-4" />
+            Tạo địa điểm
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   CheckCircle2,
+  ChevronDown,
   Clock,
   Loader2,
   RefreshCw,
@@ -107,37 +108,38 @@ export function OrganizerCheckinDashboardPage() {
       description="Theo dõi tình trạng check-in theo thời gian thực cho sự kiện của bạn."
     >
       {/* ── Event selector ── */}
-      <OrganizerPanel className="mb-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          {eventsLoading ? (
-            <div className="flex items-center gap-2 text-sm text-subtle">
-              <Loader2 className="size-4 animate-spin" /> Đang tải sự kiện...
-            </div>
-          ) : events.length === 0 ? (
-            <p className="text-sm text-subtle">Chưa có sự kiện đã xuất bản nào.</p>
-          ) : (
-            <label className="flex-1">
-              <span className="block text-sm font-semibold text-subtle">Chọn sự kiện</span>
+      <div className="mb-6">
+        {eventsLoading ? (
+          <div className="flex items-center gap-2 text-sm text-subtle">
+            <Loader2 className="size-4 animate-spin" /> Đang tải sự kiện...
+          </div>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-subtle">Chưa có sự kiện đã xuất bản nào.</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+            <div className="relative w-full sm:w-[420px]">
               <select
-                className="org-input mt-2"
+                className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(e.target.value)}
               >
                 {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>{ev.title}</option>
+                  <option key={ev.id} value={ev.id} className="bg-slate-900 text-white">
+                    {ev.title}
+                  </option>
                 ))}
               </select>
-            </label>
-          )}
-          <div className="flex items-end gap-3">
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            </div>
             <button
               type="button"
               onClick={loadStats}
               disabled={loading || !selectedEventId}
-              className="admin-secondary inline-flex h-10 items-center gap-2 disabled:opacity-50"
+              className="org-btn-secondary inline-flex h-10 items-center gap-2 disabled:opacity-50"
+              title="Làm mới thống kê"
             >
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-              Làm mới
             </button>
             {lastRefresh && (
               <p className="text-xs text-subtle">
@@ -145,8 +147,8 @@ export function OrganizerCheckinDashboardPage() {
               </p>
             )}
           </div>
-        </div>
-      </OrganizerPanel>
+        )}
+      </div>
 
       {error && (
         <div className="mb-5 rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
@@ -257,38 +259,39 @@ export function OrganizerCheckinDashboardPage() {
             {byTicketType.length > 0 && (
               <OrganizerPanel>
                 <h2 className="mb-4 font-bold text-content">Check-in theo loại vé</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border-soft/30 text-xs uppercase text-subtle">
-                        <th className="pb-3 text-left font-bold">Loại vé</th>
-                        <th className="pb-3 text-right font-bold">Tổng</th>
-                        <th className="pb-3 text-right font-bold">Đã CK</th>
-                        <th className="pb-3 text-right font-bold">Tỷ lệ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {byTicketType.map((tt) => (
-                        <tr key={tt.ticket_type_id} className="border-b border-border-soft/20 last:border-0 hover:bg-panel-soft/50">
-                          <td className="py-3">
-                            <p className="font-semibold text-content">{tt.ticket_type_name}</p>
-                            <p className="text-xs text-subtle">{fmtCurrency(tt.price)}</p>
-                          </td>
-                          <td className="py-3 text-right text-subtle">{tt.total_tickets}</td>
-                          <td className="py-3 text-right font-semibold text-success">{tt.checked_in}</td>
-                          <td className="py-3 text-right">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold border ${
-                              tt.checkin_rate >= 80 ? 'bg-success/15 text-success border-success/30' :
-                              tt.checkin_rate >= 50 ? 'bg-tertiary/15 text-tertiary border-tertiary/30' :
-                              'bg-warning/15 text-warning border-warning/30'
-                            }`}>
-                              {tt.checkin_rate}%
-                            </span>
-                          </td>
+                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-bold">Loại vé</th>
+                          <th className="px-4 py-3 text-right font-bold">Tổng</th>
+                          <th className="px-4 py-3 text-right font-bold">Đã CK</th>
+                          <th className="px-4 py-3 text-right font-bold">Tỷ lệ</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                        {byTicketType.map((tt) => (
+                          <tr key={tt.ticket_type_id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-4 py-3.5">
+                              <p className="font-semibold text-content">{tt.ticket_type_name}</p>
+                              <p className="text-xs text-subtle">{fmtCurrency(tt.price)}</p>
+                            </td>
+                            <td className="px-4 py-3.5 text-right text-subtle">{tt.total_tickets}</td>
+                            <td className="px-4 py-3.5 text-right font-semibold text-success">{tt.checked_in}</td>
+                            <td className="px-4 py-3.5 text-right">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold border ${tt.checkin_rate >= 80 ? 'bg-success/15 text-success border-success/30' :
+                                  tt.checkin_rate >= 50 ? 'bg-tertiary/15 text-tertiary border-tertiary/30' :
+                                    'bg-warning/15 text-warning border-warning/30'
+                                }`}>
+                                {tt.checkin_rate}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </OrganizerPanel>
             )}
@@ -301,39 +304,41 @@ export function OrganizerCheckinDashboardPage() {
                 <ScanLine className="size-5 text-tertiary" />
                 <h2 className="font-bold text-content">Check-in gần nhất (20 lần)</h2>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[600px] text-sm">
-                  <thead>
-                    <tr className="border-b border-border-soft/30 text-xs uppercase text-subtle">
-                      <th className="pb-3 text-left font-bold">Người tham dự</th>
-                      <th className="pb-3 text-left font-bold">Loại vé</th>
-                      <th className="pb-3 text-left font-bold">Phiên</th>
-                      <th className="pb-3 text-left font-bold">Thời gian</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentCheckins.map((c, i) => (
-                      <tr key={`${c.ticket_code}-${i}`} className="border-b border-border-soft/20 last:border-0 hover:bg-panel-soft/50">
-                        <td className="py-3">
-                          <p className="font-semibold text-content">{c.attendee_name || '—'}</p>
-                          <p className="text-xs text-subtle">{c.attendee_email}</p>
-                        </td>
-                        <td className="py-3">
-                          <Badge tone="blue">{c.ticket_type_name}</Badge>
-                        </td>
-                        <td className="py-3 text-subtle">
-                          {c.session_name || '—'}
-                        </td>
-                        <td className="py-3">
-                          <span className="flex items-center gap-1 text-xs text-subtle">
-                            <Clock className="size-3" />
-                            {fmtDateTime(c.checked_in_at)}
-                          </span>
-                        </td>
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px] text-xs">
+                    <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-bold">Người tham dự</th>
+                        <th className="px-4 py-3 text-left font-bold">Loại vé</th>
+                        <th className="px-4 py-3 text-left font-bold">Phiên</th>
+                        <th className="px-4 py-3 text-left font-bold">Thời gian</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                      {recentCheckins.map((c, i) => (
+                        <tr key={`${c.ticket_code}-${i}`} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3.5">
+                            <p className="font-semibold text-content">{c.attendee_name || '—'}</p>
+                            <p className="text-xs text-subtle">{c.attendee_email}</p>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <Badge tone="blue">{c.ticket_type_name}</Badge>
+                          </td>
+                          <td className="px-4 py-3.5 text-subtle">
+                            {c.session_name || '—'}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="flex items-center gap-1 text-xs text-subtle">
+                              <Clock className="size-3" />
+                              {fmtDateTime(c.checked_in_at)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </OrganizerPanel>
           )}

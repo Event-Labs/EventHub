@@ -9,7 +9,7 @@ export function SectionHeader({ eyebrow, title, description, action }) {
             {eyebrow}
           </p>
         )}
-        <h2 className="font-display text-2xl font-black text-white md:text-3xl drop-shadow-sm">
+        <h2 className="font-display text-3xl font-black tracking-tight">
           {renderCosmicTitle(title)}
         </h2>
         {description && <p className="mt-2 text-slate-400">{description}</p>}

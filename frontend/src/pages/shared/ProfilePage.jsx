@@ -2,7 +2,7 @@ import { clearAuthSession, getAuthToken, getStoredUserKey, getUserRoles, updateS
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   AlertCircle,
   BriefcaseBusiness,
@@ -13,11 +13,13 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   Clock,
   Eye,
   EyeOff,
   FileCheck2,
   FileText,
+  Heart,
   History,
   IdCard,
   ImageIcon,
@@ -53,6 +55,7 @@ import {
 } from '@/services/organizerEvents.js'
 import { submitOrganizerProfileUpdateRequest } from '@/services/organizerRequests.js'
 import { fetchMyTickets } from '@/services/tickets.js'
+import { fetchFavoriteEvents } from '@/services/events.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { getApiMessage } from '@/lib/messages.js'
@@ -95,6 +98,13 @@ export function ProfilePage() {
   const customerTicketsQuery = useQuery({
     queryKey: ['my-tickets', 'profile-summary', currentUserKey],
     queryFn: () => fetchMyTickets('ALL'),
+    enabled: Boolean(user && !isOrganizer),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  })
+  const customerFavoritesQuery = useQuery({
+    queryKey: ['favorite-events'],
+    queryFn: fetchFavoriteEvents,
     enabled: Boolean(user && !isOrganizer),
     retry: false,
     staleTime: 5 * 60 * 1000,
@@ -170,7 +180,8 @@ export function ProfilePage() {
             {mode !== 'edit' && (
               <button
                 onClick={() => setMode('edit')}
-                className="inline-flex items-center gap-2 rounded-md border border-sky-300/40 bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-3 font-bold text-white shadow-lg shadow-sky-900/20 transition-all hover:-translate-y-0.5 hover:from-sky-400 hover:to-indigo-500"
+                className="btn-gold-primary inline-flex items-center gap-2 rounded-full px-6 py-3 font-bold cursor-pointer"
+                style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
                 <Pencil className="size-4" />
                 Chỉnh sửa hồ sơ
@@ -178,10 +189,10 @@ export function ProfilePage() {
             )}
             <button
               onClick={() => setMode('password')}
-              className={`inline-flex items-center gap-2 rounded-md border px-5 py-3 font-bold transition-all ${
+              className={`inline-flex items-center gap-2 rounded-full border px-6 py-3 font-bold transition-all ${
                 mode === 'password'
-                  ? 'border-primary bg-primary text-white shadow-md shadow-primary/20'
-                  : 'border-border-soft bg-surface/40 text-content hover:border-primary/50 hover:bg-panel-soft hover:text-primary'
+                  ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
+                  : 'border-white/15 bg-white/5 text-slate-200 hover:border-[#E6C17A]/60 hover:text-[#E6C17A]'
               }`}
             >
               <Lock className="inline size-4" />
@@ -191,44 +202,45 @@ export function ProfilePage() {
         )}
       </div>
 
-      {isOrganizer && (
-        <OrganizerProfileView
-          user={user}
-          organizer={organizerQuery.data}
-          isLoading={organizerQuery.isLoading}
-          error={organizerQuery.error}
-          onRetry={() => queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })}
-          onSensitiveAccessGranted={setSensitiveAccess}
-        />
-      )}
-      {!isOrganizer && (
+      {isOrganizer ? (
+        mode === 'edit' ? (
+          organizerQuery.isLoading ? (
+            <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
+              <Loader2 className="size-8 animate-spin text-primary" />
+              <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
+            </div>
+          ) : (
+            <ProfileEdit
+              user={user}
+              organizer={organizerQuery.data}
+              isOrganizer={isOrganizer}
+              onDone={() => {
+                setMode('view')
+                queryClient.invalidateQueries({ queryKey: ['profile'] })
+                queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })
+              }}
+            />
+          )
+        ) : (
+          <OrganizerProfileView
+            user={user}
+            organizer={organizerQuery.data}
+            isLoading={organizerQuery.isLoading}
+            error={organizerQuery.error}
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })}
+            onSensitiveAccessGranted={setSensitiveAccess}
+          />
+        )
+      ) : (
         <ProfileView
           user={user}
           tickets={customerTicketsQuery.data || []}
           ticketsLoading={customerTicketsQuery.isLoading}
-          onEdit={() => setMode('edit')}
+          favorites={customerFavoritesQuery.data || []}
+          favoritesLoading={customerFavoritesQuery.isLoading}
           onChangePassword={() => setMode('password')}
         />
       )}
-      <Modal open={mode === 'edit'} title="Chỉnh sửa hồ sơ" onClose={() => setMode('view')} maxWidth="max-w-5xl">
-        {isOrganizer && organizerQuery.isLoading ? (
-          <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
-          </div>
-        ) : (
-          <ProfileEdit
-            user={user}
-            organizer={organizerQuery.data}
-            isOrganizer={isOrganizer}
-            onDone={() => {
-              setMode('view')
-              queryClient.invalidateQueries({ queryKey: ['profile'] })
-              queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })
-            }}
-          />
-        )}
-      </Modal>
 
       <Modal open={mode === 'password'} title="Đổi mật khẩu" onClose={() => setMode('view')} maxWidth="max-w-2xl">
         <ChangePassword user={user} onDone={() => setMode('view')} />
@@ -1014,7 +1026,26 @@ function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, locked = fa
   )
 }
 
-function ProfileView({ user, tickets = [], ticketsLoading = false, onEdit, onChangePassword }) {
+function getInitialFormData(user) {
+  return {
+    full_name: user?.full_name || '',
+    phone: user?.phone || '',
+    dob: user?.dob ? String(user.dob).split('T')[0] : '',
+    city: user?.city || '',
+    address: user?.address || '',
+  }
+}
+
+function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [], favoritesLoading = false, onChangePassword }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState(() => getInitialFormData(user))
+  const [errors, setErrors] = useState({})
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState(null)
+  const [previewAvatar, setPreviewAvatar] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const toast = useToast()
+  const queryClient = useQueryClient()
+
   const ticketList = Array.isArray(tickets) ? tickets : []
   const eventIds = new Set(
     ticketList
@@ -1022,160 +1053,409 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, onEdit, onCha
       .filter(Boolean)
       .map(String),
   )
-  const displayName = valueOrEmpty(user.full_name)
-  const joinedDate = formatDate(user.created_at || user.createdAt)
-  const roleText = roleLabel(user.roles)
-  const accountActive = user.status ? String(user.status).toUpperCase() !== 'LOCKED' : true
-  const accountStatusLabel = accountActive ? 'Hoạt động' : 'Bị khóa'
-  const accountStatusTone = accountActive ? 'text-success' : 'text-error'
+  const displayName = valueOrEmpty(isEditing ? (formData.full_name || user?.full_name) : (user?.full_name || user?.email))
+  const joinedDate = formatDate(user?.created_at || user?.createdAt)
+  const roleText = roleLabel(user?.roles || user?.role)
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG).')
+        return
+      }
+      setSelectedAvatarFile(file)
+      setPreviewAvatar(URL.createObjectURL(file))
+    }
+  }
+
+  const handleStartEdit = () => {
+    setFormData(getInitialFormData(user))
+    setSelectedAvatarFile(null)
+    setPreviewAvatar(null)
+    setErrors({})
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setFormData(getInitialFormData(user))
+    setSelectedAvatarFile(null)
+    setPreviewAvatar(null)
+    setErrors({})
+    setIsEditing(false)
+  }
+
+  const handleSaveEdit = async (e) => {
+    e?.preventDefault()
+    const newErrors = {}
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = 'Vui lòng nhập họ và tên.'
+    }
+    if (formData.phone.trim()) {
+      const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
+      if (!phoneRegex.test(formData.phone)) {
+        newErrors.phone = 'Số điện thoại không đúng định dạng Việt Nam.'
+      }
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      let finalAvatarUrl = user?.avatar_url
+      if (selectedAvatarFile) {
+        const uploadRes = await uploadAvatar(selectedAvatarFile)
+        finalAvatarUrl = uploadRes.secure_url
+      }
+
+      const userPayload = {
+        full_name: formData.full_name.trim(),
+        phone: formData.phone.trim() || null,
+        dob: formData.dob || null,
+        city: formData.city.trim() || null,
+        address: formData.address.trim() || null,
+        avatar_url: finalAvatarUrl,
+      }
+
+      const updatedUser = await updateProfile(userPayload)
+      updateStoredUser(updatedUser)
+      await queryClient.invalidateQueries({ queryKey: ['profile'] })
+      toast.success('Cập nhật hồ sơ thành công.')
+      setIsEditing(false)
+      setSelectedAvatarFile(null)
+      setPreviewAvatar(null)
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể cập nhật hồ sơ.'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
-    <div className="space-y-5">
-      <section className="customer-profile-hero relative overflow-hidden rounded-lg border p-6 text-content sm:p-8">
-        <div className="customer-profile-hero-bg absolute inset-0" />
-        <div className="customer-profile-hero-wave absolute inset-0" />
-        <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-6">
+      {/* Header Profile Section - Exactly as in user reference image */}
+      <section className="customer-profile-hero relative overflow-hidden rounded-2xl border border-sky-400/20 p-6 shadow-2xl sm:p-8">
+        <div className="customer-profile-hero-bg absolute inset-0 pointer-events-none" />
+        <div className="customer-profile-hero-wave absolute inset-0 pointer-events-none" />
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-            <div className="relative mx-auto size-36 shrink-0 sm:mx-0 sm:size-40">
+            <div className="relative mx-auto size-32 shrink-0 sm:mx-0 sm:size-36">
               <ProfileAvatar
-                sources={user.avatar_url}
-                name={user.full_name || user.email || 'Khách hàng'}
+                sources={previewAvatar || user?.avatar_url}
+                name={formData.full_name || user?.full_name || user?.email || 'Khách hàng'}
                 alt="Ảnh đại diện khách hàng"
-                className="size-full ring-4 ring-sky-300/25"
-                fallbackClassName="bg-gradient-to-br from-fuchsia-600 to-purple-700 text-6xl text-white ring-sky-300/25"
+                className="size-full ring-4 ring-sky-400/30 shadow-2xl"
+                fallbackClassName="bg-gradient-to-br from-fuchsia-600 to-purple-700 text-5xl text-white ring-4 ring-sky-400/30"
                 fallback="KH"
               />
+              {isEditing && (
+                <label
+                  className="absolute bottom-0 right-0 grid size-10 cursor-pointer place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-lg transition-transform hover:scale-110 active:scale-95"
+                  title="Thay đổi ảnh đại diện"
+                >
+                  <Camera className="size-5" />
+                  <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                </label>
+              )}
             </div>
             <div className="min-w-0 text-center sm:text-left">
-              <h2 className="customer-profile-title break-words font-display text-3xl font-extrabold sm:text-4xl">
+              <h2 className="break-words font-display text-3xl font-extrabold text-white sm:text-4xl drop-shadow-sm">
                 {displayName}
               </h2>
-              <span className="customer-role-badge mt-3 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-bold ring-1">
-                <UserCircle className="size-4" />
-                {roleText}
-              </span>
-              <div className="customer-profile-meta mt-4 space-y-2 text-sm font-medium">
-                <div className="flex items-center justify-center gap-3 sm:justify-start">
-                  <Calendar className="size-4" />
-                  <span>Tham gia ngày {joinedDate}</span>
-                </div>
+              <div className="mt-2.5 flex items-center justify-center sm:justify-start">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-500/15 px-3.5 py-1 text-xs font-semibold text-sky-200">
+                  <UserCircle className="size-4" />
+                  {roleText}
+                </span>
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-slate-300 sm:justify-start">
+                <Calendar className="size-4 text-slate-300" />
+                <span>Tham gia ngày {joinedDate}</span>
               </div>
             </div>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
-            <button
-              type="button"
-              onClick={onEdit}
-              className="customer-profile-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-6 py-3 font-bold transition"
-            >
-              <Pencil className="size-5" />
-              Chỉnh sửa hồ sơ
-            </button>
-            <button
-              type="button"
-              onClick={onChangePassword}
-              className="customer-profile-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-6 py-3 font-bold transition"
-            >
-              <Lock className="size-5" />
-              Đổi mật khẩu
-            </button>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:shrink-0 justify-center sm:justify-start">
+            {!isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleStartEdit}
+                  className="btn-gold-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-bold text-[#0D1B2A] shadow-[0_0_20px_rgba(230,193,122,0.4)] transition hover:shadow-[0_0_30px_rgba(230,193,122,0.6)] hover:brightness-110 active:scale-95 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
+                >
+                  <Pencil className="size-4" />
+                  Chỉnh sửa hồ sơ
+                </button>
+                <button
+                  type="button"
+                  onClick={onChangePassword}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10 hover:border-white/30 cursor-pointer"
+                >
+                  <Lock className="size-4" />
+                  Đổi mật khẩu
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
+                  disabled={isSubmitting}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  disabled={isSubmitting}
+                  className="btn-gold-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-bold text-[#0D1B2A] shadow-[0_0_20px_rgba(230,193,122,0.4)] transition hover:shadow-[0_0_30px_rgba(230,193,122,0.6)] hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
+                >
+                  {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-        <aside className="customer-profile-panel rounded-lg border p-6 text-content">
-          <div className="mb-7 flex items-center gap-3">
-            <UserCircle className="customer-section-heading-icon size-7" />
-            <h2 className="customer-panel-title font-display text-xl font-extrabold">Tài khoản của tôi</h2>
+      {/* Main Grid: Compact Account Aside & Information / Edit Area */}
+      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+        {/* Compact "Tài khoản của tôi" card with navigatable links */}
+        <aside className="customer-profile-panel h-fit rounded-2xl border border-white/10 bg-slate-900/60 p-5 text-content backdrop-blur-md shadow-xl space-y-4">
+          <div className="flex items-center gap-2.5 pb-1 border-b border-white/5">
+            <span className="grid size-8 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
+              <UserCircle className="size-4" />
+            </span>
+            <h2 className="font-display text-base font-black text-white">Tài khoản của tôi</h2>
           </div>
-          <div className="space-y-0">
-            <ProfileMetric icon={ShieldCheck} label="Trạng thái tài khoản" value={accountStatusLabel} valueClassName={accountStatusTone} />
-            <ProfileMetric
-              icon={Ticket}
-              label="Tổng số vé đã đặt"
-              value={ticketsLoading ? 'Đang tải' : ticketList.length}
-              valueClassName="text-primary"
-            />
-            <ProfileMetric
-              icon={CalendarCheck2}
-              label="Số sự kiện đã tham gia"
-              value={ticketsLoading ? 'Đang tải' : eventIds.size}
-              valueClassName="text-primary"
-              last
-            />
+          <div className="space-y-2">
+            {/* Trạng thái tài khoản */}
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <ShieldCheck className="size-4" />
+                </span>
+                <span className="text-xs font-medium text-slate-400">Trạng thái</span>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Hoạt động
+              </span>
+            </div>
+
+            {/* Vé đã đặt */}
+            <Link
+              to="/my-tickets"
+              className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#C99A47]/10 text-[#E6C17A] transition group-hover:scale-105">
+                  <Ticket className="size-4" />
+                </span>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">Vé đã đặt</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-white group-hover:text-[#E6C17A] transition">
+                  {ticketsLoading ? '...' : ticketList.length}
+                </span>
+                <ChevronRight className="size-4 text-slate-500 group-hover:text-[#E6C17A] group-hover:translate-x-0.5 transition" />
+              </div>
+            </Link>
+
+            {/* Sự kiện đã tham gia */}
+            <Link
+              to="/my-tickets"
+              className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sky-500/10 text-sky-400 transition group-hover:scale-105">
+                  <CalendarCheck2 className="size-4" />
+                </span>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">Đã tham gia</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-white group-hover:text-[#E6C17A] transition">
+                  {ticketsLoading ? '...' : eventIds.size}
+                </span>
+                <ChevronRight className="size-4 text-slate-500 group-hover:text-[#E6C17A] group-hover:translate-x-0.5 transition" />
+              </div>
+            </Link>
+
+            {/* Sự kiện yêu thích */}
+            <Link
+              to="/favorites"
+              className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-400 transition group-hover:scale-105">
+                  <Heart className="size-4" />
+                </span>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">Yêu thích</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-white group-hover:text-[#E6C17A] transition">
+                  {favoritesLoading ? '...' : (Array.isArray(favorites) ? favorites.length : 0)}
+                </span>
+                <ChevronRight className="size-4 text-slate-500 group-hover:text-[#E6C17A] group-hover:translate-x-0.5 transition" />
+              </div>
+            </Link>
           </div>
         </aside>
 
+        {/* Right Section: View Mode or Direct In-Place Edit Mode */}
         <div className="space-y-4">
-          <CustomerInfoSection title="Thông tin cơ bản" icon={UserCircle} tone="blue">
-            <CustomerInfoCard icon={Calendar} label="Họ và tên" value={user.full_name} />
-            <CustomerInfoCard icon={Calendar} label="Ngày sinh" value={formatDate(user.dob)} />
-          </CustomerInfoSection>
+          {!isEditing ? (
+            <>
+              <CustomerInfoSection title="Thông tin cơ bản" icon={UserCircle}>
+                <CustomerInfoCard icon={UserCircle} label="Họ và tên" value={user?.full_name} />
+                <CustomerInfoCard icon={Calendar} label="Ngày sinh" value={formatDate(user?.dob)} />
+                <CustomerInfoCard icon={MapPin} label="Thành phố" value={user?.city} />
+              </CustomerInfoSection>
 
-          <CustomerInfoSection title="Thông tin liên hệ" icon={Phone} tone="purple">
-            <CustomerInfoCard icon={Phone} label="Số điện thoại" value={user.phone} />
-            <CustomerInfoCard icon={Mail} label="Email" value={user.email} linkType="email" />
-            <CustomerInfoCard icon={MapPin} label="Địa chỉ" value={user.address} className="md:col-span-2" />
-          </CustomerInfoSection>
+              <CustomerInfoSection title="Thông tin liên hệ" icon={Phone}>
+                <CustomerInfoCard icon={Phone} label="Số điện thoại" value={user?.phone} />
+                <CustomerInfoCard icon={Mail} label="Email tài khoản" value={user?.email} linkType="email" />
+                <CustomerInfoCard icon={MapPin} label="Địa chỉ" value={user?.address} className="md:col-span-2" />
+              </CustomerInfoSection>
 
-          <AccountSecurityPanel user={user} />
+              <AccountSecurityPanel user={user} />
+            </>
+          ) : (
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-content backdrop-blur-md shadow-xl">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
+                    <UserCircle className="size-5" />
+                  </span>
+                  <h2 className="font-display text-lg font-black text-white">Chỉnh sửa thông tin cơ bản</h2>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Họ và tên *"
+                    value={formData.full_name}
+                    error={errors.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Ngày sinh"
+                    type="date"
+                    value={formData.dob}
+                    error={errors.dob}
+                    onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                  />
+                  <Input
+                    label="Thành phố"
+                    placeholder="Ví dụ: Hà Nội, TP. Hồ Chí Minh..."
+                    value={formData.city}
+                    error={errors.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="md:col-span-2"
+                  />
+                </div>
+              </section>
+
+              <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-content backdrop-blur-md shadow-xl">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
+                    <Phone className="size-5" />
+                  </span>
+                  <h2 className="font-display text-lg font-black text-white">Chỉnh sửa thông tin liên hệ</h2>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <span className="text-sm font-semibold text-slate-300">Email tài khoản</span>
+                    <div className="flex h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 text-slate-400">
+                      <span className="font-medium text-[13px]">{user?.email}</span>
+                      <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
+                        Cố định
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Email dùng để đăng nhập và nhận vé, không thể thay đổi.</p>
+                  </div>
+
+                  <Input
+                    label="Số điện thoại"
+                    placeholder="09xxxxxxxx hoặc +849xxxxxxxx"
+                    value={formData.phone}
+                    error={errors.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                  <Input
+                    label="Địa chỉ chi tiết"
+                    placeholder="Số nhà, tên đường, phường/xã..."
+                    value={formData.address}
+                    error={errors.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  />
+                </div>
+              </section>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="rounded-full border border-white/20 bg-white/5 px-6 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
+                  disabled={isSubmitting}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-gold-primary inline-flex items-center justify-center gap-2 rounded-full px-7 py-2.5 text-sm font-bold transition cursor-pointer active:scale-95 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+                >
+                  {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-function ProfileMetric({ icon: Icon, label, value, valueClassName = 'text-content', last = false }) {
+function CustomerInfoSection({ title, icon: Icon, children }) {
   return (
-    <div className={`customer-profile-metric flex gap-5 py-5 ${last ? '' : 'border-b'}`}>
-      <Icon className="customer-profile-metric-icon mt-1 size-8 shrink-0" />
-      <div className="min-w-0">
-        <p className="customer-profile-label text-sm font-medium">{label}</p>
-        <p className={`mt-1 break-words text-lg font-extrabold ${valueClassName}`}>{valueOrEmpty(value)}</p>
-      </div>
-    </div>
-  )
-}
-
-function CustomerInfoSection({ title, icon: Icon, tone = 'blue', children }) {
-  const toneClass = {
-    blue: 'customer-tone-blue',
-    purple: 'customer-tone-purple',
-    green: 'customer-tone-green',
-  }[tone]
-
-  return (
-    <section className="customer-profile-panel rounded-lg border p-5 text-content">
+    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-content backdrop-blur-md shadow-xl">
       <div className="mb-5 flex items-center gap-3">
-        <span className={`customer-section-icon grid size-10 place-items-center rounded-md ${toneClass}`}>
+        <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
           <Icon className="size-5" />
         </span>
-        <h2 className="customer-panel-title font-display text-xl font-extrabold">{title}</h2>
+        <h2 className="font-display text-lg font-black text-white">{title}</h2>
       </div>
       <div className="grid gap-3 md:grid-cols-2">{children}</div>
     </section>
   )
 }
 
-function CustomerInfoCard({ icon: Icon, label, value, className = '', linkType, valueClassName = 'customer-info-value' }) {
+function CustomerInfoCard({ icon: Icon, label, value, className = '', linkType }) {
   const displayValue = valueOrEmpty(value)
   const isEmpty = displayValue === EMPTY_TEXT
   const href = !isEmpty && linkType === 'email' ? `mailto:${displayValue}` : null
 
   return (
-    <div className={`customer-info-card flex min-h-16 items-center gap-4 rounded-lg border p-3 ${className}`}>
-      <span className="customer-info-card-icon grid size-11 shrink-0 place-items-center rounded-md">
+    <div className={`flex min-h-16 items-center gap-3.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5 transition hover:border-[#E6C17A]/30 ${className}`}>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/5 text-slate-300">
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">
-        <p className="customer-profile-label text-sm font-medium">{label}</p>
+        <p className="text-xs font-medium text-slate-400">{label}</p>
         {href ? (
-          <a href={href} className={`mt-1 block break-words font-extrabold ${valueClassName} hover:text-primary`}>
+          <a href={href} className="mt-0.5 block break-words text-sm font-bold text-white hover:text-[#E6C17A] transition">
             {displayValue}
           </a>
         ) : (
-          <p className={`mt-1 break-words font-extrabold ${isEmpty ? 'text-slate-500' : valueClassName}`}>
+          <p className={`mt-0.5 break-words text-sm font-bold ${isEmpty ? 'text-slate-500' : 'text-white'}`}>
             {displayValue}
           </p>
         )}
@@ -1543,51 +1823,75 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
-      <aside className="h-fit rounded-lg border border-border-soft/50 bg-surface p-6 text-center text-content shadow-sm">
-        <div className="relative mx-auto size-36">
+      <aside className="h-fit rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-center text-content shadow-xl backdrop-blur-md">
+        <div className="relative mx-auto size-36 sm:size-40">
           {previewUrl ? (
-            <img src={previewUrl} alt="Ảnh đại diện xem trước" className="size-36 rounded-full object-cover ring-4 ring-primary/30" />
+            <img src={previewUrl} alt="Ảnh đại diện xem trước" className="size-36 sm:size-40 rounded-full object-cover ring-4 ring-[#E6C17A]/30" />
           ) : (
-            <div className="flex size-36 items-center justify-center rounded-full bg-surface ring-4 ring-primary/30">
+            <div className="flex size-36 sm:size-40 items-center justify-center rounded-full bg-slate-800 ring-4 ring-[#E6C17A]/30">
               <UserCircle className="size-20 text-muted" />
             </div>
           )}
-          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-primary text-white shadow-lg transition-transform hover:scale-110">
+          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-lg transition-transform hover:scale-110" title="Chọn ảnh đại diện mới">
             <Camera className="size-5" />
             <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
           </label>
         </div>
-        <p className="mt-4 text-sm text-subtle">JPG, PNG. Đề xuất 400x400px.</p>
+        <p className="mt-4 text-xs font-medium text-slate-400">JPG, PNG. Đề xuất 400x400px.</p>
       </aside>
-      <section className="rounded-lg border border-border-soft/50 bg-surface p-6 text-content shadow-sm">
-        <h2 className="font-display text-2xl font-bold text-content">Chỉnh sửa hồ sơ</h2>
+      <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 sm:p-8 text-content shadow-xl backdrop-blur-md">
+        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+          <div>
+            <h2 className="font-display text-2xl font-black text-white">Chỉnh sửa hồ sơ</h2>
+            <p className="mt-1 text-xs text-slate-400">Cập nhật thông tin cá nhân của bạn trên EventHub</p>
+          </div>
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
+            title="Đóng / Hủy"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          <div className="rounded-lg border border-border-soft/50 bg-panel-soft p-5">
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
             <div className="mb-5 flex items-center gap-3">
-              <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+              <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                 <UserCircle className="size-5" />
               </span>
-              <h3 className="font-display text-xl font-bold text-content">Thông tin tài khoản</h3>
+              <h3 className="font-display text-lg font-bold text-white">Thông tin tài khoản</h3>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
-            <Input label="Họ và tên" value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
-            <Input label="Số điện thoại" value={formData.phone} error={errors.phone} placeholder="09xxxxxxxx hoặc +849xxxxxxxx" onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-            <Input label="Ngày sinh" type="date" value={formData.dob} error={errors.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
-            <Input label="Thành phố" value={formData.city} error={errors.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
-            <Input label="Địa chỉ" value={formData.address} error={errors.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="md:col-span-2" />
+              <Input label="Họ và tên *" value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
+              
+              <div className="space-y-2">
+                <span className="text-sm font-semibold text-slate-300">Email tài khoản</span>
+                <div className="flex h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 text-slate-400">
+                  <span className="font-medium text-[13px]">{user.email}</span>
+                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
+                    Cố định
+                  </span>
+                </div>
+              </div>
+
+              <Input label="Số điện thoại" value={formData.phone} error={errors.phone} placeholder="09xxxxxxxx hoặc +849xxxxxxxx" onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+              <Input label="Ngày sinh" type="date" value={formData.dob} error={errors.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
+              <Input label="Thành phố" placeholder="Ví dụ: Hà Nội, TP. Hồ Chí Minh..." value={formData.city} error={errors.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
+              <Input label="Địa chỉ" placeholder="Số nhà, tên đường..." value={formData.address} error={errors.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="md:col-span-2" />
             </div>
           </div>
 
           {isOrganizer && (
-            <div className="rounded-lg border border-border-soft/50 bg-panel-soft p-5">
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
               <div className="mb-5 flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                   <Building2 className="size-5" />
                 </span>
                 <div>
-                  <h3 className="font-display text-xl font-bold text-content">Thông tin công khai của nhà tổ chức</h3>
-                  <p className="mt-1 text-sm text-subtle">Các nội dung này sẽ được dùng để giới thiệu hồ sơ nhà tổ chức.</p>
+                  <h3 className="font-display text-lg font-bold text-white">Thông tin công khai của nhà tổ chức</h3>
+                  <p className="mt-1 text-xs text-slate-400">Các nội dung này sẽ được dùng để giới thiệu hồ sơ nhà tổ chức.</p>
                 </div>
               </div>
               <div className="grid gap-5 md:grid-cols-2">
@@ -1606,31 +1910,41 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
                   onChange={(e) => setFormData({ ...formData, social_url: e.target.value })}
                 />
                 <label className="block space-y-2 md:col-span-2">
-                  <span className="text-sm font-semibold text-muted">Mô tả/giới thiệu</span>
+                  <span className="text-sm font-semibold text-slate-300">Mô tả/giới thiệu</span>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={6}
                     maxLength={5000}
                     placeholder="Giới thiệu ngắn gọn về cá nhân, tổ chức hoặc lĩnh vực sự kiện của bạn."
-                    className={`w-full resize-y rounded-md border bg-surface p-3 text-content outline-none transition-all focus:ring-2 focus:ring-primary/20 ${
-                      errors.description ? 'border-error ring-error/10' : 'border-border-soft focus:border-primary'
+                    className={`w-full resize-y rounded-xl border bg-black/40 p-4 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 outline-none transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.2)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_14px_rgba(201,154,71,0.35)] ${
+                      errors.description ? 'border-error ring-error/10' : 'border-white/10'
                     }`}
                   />
                   <div className="flex items-center justify-between gap-3 text-xs">
-                    {errors.description ? <p className="text-error">{errors.description}</p> : <span className="text-subtle">Tối đa 5000 ký tự.</span>}
-                    <span className="text-subtle">{formData.description.length}/5000</span>
+                    {errors.description ? <p className="text-error">{errors.description}</p> : <span className="text-slate-400">Tối đa 5000 ký tự.</span>}
+                    <span className="text-slate-400">{formData.description.length}/5000</span>
                   </div>
                 </label>
               </div>
             </div>
           )}
 
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onDone} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft" disabled={updateMutation.isPending || isUploading}>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end border-t border-white/5 pt-6">
+            <button
+              type="button"
+              onClick={onDone}
+              className="rounded-full border border-white/15 bg-white/5 px-7 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
+              disabled={updateMutation.isPending || isUploading}
+            >
               Hủy
             </button>
-            <button type="submit" disabled={updateMutation.isPending || isUploading} className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70">
+            <button
+              type="submit"
+              disabled={updateMutation.isPending || isUploading}
+              className="btn-gold-primary inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-bold cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+            >
               {updateMutation.isPending || isUploading ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               {isUploading ? 'Đang tải ảnh...' : updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
             </button>
@@ -1718,10 +2032,20 @@ function ChangePassword({ user, onDone }) {
         </div>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onDone} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft" disabled={mutation.isPending}>
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
+            disabled={mutation.isPending}
+          >
             Hủy
           </button>
-          <button type="submit" disabled={!canSubmit || mutation.isPending} className="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
+          <button
+            type="submit"
+            disabled={!canSubmit || mutation.isPending}
+            className="btn-gold-primary inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-bold cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+          >
             {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
             {hasPassword ? 'Cập nhật mật khẩu' : 'Lưu mật khẩu'}
           </button>
@@ -1877,17 +2201,17 @@ function Input({ label, error, className = '', type, ...props }) {
 
   return (
     <label className={`block space-y-2 ${className}`}>
-      <span className="text-sm font-semibold text-muted">{label}</span>
+      <span className="text-sm font-semibold text-slate-300">{label}</span>
       <div className="relative">
         <input
           {...props}
           type={inputType}
-          className={`w-full rounded-md border bg-surface p-3 pr-10 text-content outline-none transition-all focus:ring-2 focus:ring-primary/20 ${
-            error ? 'border-error ring-error/10' : 'border-border-soft focus:border-primary'
+          className={`w-full rounded-xl border bg-black/40 p-3.5 pr-10 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 outline-none transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.2)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_14px_rgba(201,154,71,0.35)] ${
+            error ? 'border-error ring-error/10' : 'border-white/10'
           } disabled:opacity-50`}
         />
         {isPassword && (
-          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-content">
+          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-white cursor-pointer">
             {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
           </button>
         )}
@@ -2015,6 +2339,7 @@ function roleLabel(roles = []) {
     customer: 'Khách hàng',
     user: 'Khách hàng',
   }
-  const list = Array.isArray(roles) ? roles : []
+  const list = Array.isArray(roles) ? roles : roles ? [roles] : []
   return list.map((role) => labels[String(role).toLowerCase()] || role).join(', ') || 'Khách hàng'
 }
+
