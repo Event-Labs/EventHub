@@ -326,7 +326,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
       <div className="flex items-center justify-between relative">
         <div className="absolute top-5 left-0 w-full h-[2px] bg-border-soft/30 -z-10" />
         <div
-          className="absolute top-5 left-0 h-[2px] bg-tertiary -z-10 transition-all"
+          className="absolute top-5 left-0 h-[2px] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] -z-10 transition-all shadow-[0_0_8px_rgba(201,154,71,0.5)]"
           style={{ width: `${progress}%` }}
         />
         {STEP_LABELS.map((label, index) => {
@@ -345,9 +345,9 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
             >
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm transition-all z-10 ${isActive
-                  ? 'bg-tertiary text-white shadow-md'
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 scale-105'
                   : isCompleted
-                    ? 'bg-tertiary text-white'
+                    ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A]'
                     : 'bg-panel-soft border-2 border-border-soft/50 text-content/80'
                   }`}
               >
@@ -358,7 +358,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
                 )}
               </div>
               <span
-                className={`font-medium text-[13px] leading-[18px] text-center max-w-[120px] ${isActive || isCompleted ? 'text-primary font-bold' : 'text-subtle'
+                className={`font-medium text-[13px] leading-[18px] text-center max-w-[120px] ${isActive ? 'text-[#E6C17A] font-bold' : isCompleted ? 'text-content font-bold' : 'text-subtle'
                   }`}
               >
                 {label}
@@ -1666,18 +1666,19 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                     </p>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border-soft/30 text-left text-xs uppercase tracking-wider text-muted">
-                          <th className="py-3 pr-4">Khu vực / Vùng</th>
-                          <th className="py-3 pr-4">Hình thức</th>
-                          <th className="py-3 pr-4">Sức chứa</th>
-                          <th className="py-3 pr-4">Tên loại vé & Mô tả</th>
-                          <th className="py-3">Giá vé (VND)*</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border-soft/20">
+                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-bold">Khu vực / Vùng</th>
+                            <th className="px-4 py-3 text-left font-bold">Hình thức</th>
+                            <th className="px-4 py-3 text-left font-bold">Sức chứa</th>
+                            <th className="px-4 py-3 text-left font-bold">Tên loại vé & Mô tả</th>
+                            <th className="px-4 py-3 text-left font-bold">Giá vé (VND)*</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 font-medium text-slate-300">
                         {groupedItems.map((group) => {
                           const ticket = sessionTickets.find((tt) => {
                             if (group.isSeated) {
@@ -1767,8 +1768,8 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                           }
 
                           return (
-                            <tr key={group.groupKey} className="hover:bg-panel-soft/30 transition text-content border-b border-border-soft/20">
-                              <td className="py-4 pr-4 align-top">
+                            <tr key={group.groupKey} className="hover:bg-white/[0.02] transition-colors text-content">
+                              <td className="px-4 py-3.5 align-top">
                                 <div className="flex items-center gap-2">
                                   <div className="flex -space-x-1">
                                     {group.colors.map((c, i) => (
@@ -1779,17 +1780,17 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                                 </div>
                               </td>
 
-                              <td className="py-4 pr-4 align-top">
+                              <td className="px-4 py-3.5 align-top">
                                 <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${group.isSeated ? 'bg-primary/10 text-primary' : 'bg-tertiary/10 text-tertiary'}`}>
                                   {group.isSeated ? 'Ghế ngồi' : 'Vé đứng (GA)'}
                                 </span>
                               </td>
 
-                              <td className="py-4 pr-4 font-bold text-sm align-top">
+                              <td className="px-4 py-3.5 font-bold text-sm align-top">
                                 {group.totalQuantity.toLocaleString('vi-VN')} {group.isSeated ? 'ghế' : 'chỗ'}
                               </td>
 
-                              <td className="py-4 pr-4 align-top space-y-2">
+                              <td className="px-4 py-3.5 align-top space-y-2">
                                 <div>
                                   <input
                                     type="text"
@@ -1843,7 +1844,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                                 </div>
                               </td>
 
-                              <td className="py-4 align-top">
+                              <td className="px-4 py-3.5 align-top">
                                 <input
                                   type="text"
                                   placeholder="VD: 500.000"
@@ -1861,6 +1862,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                       </tbody>
                     </table>
                   </div>
+                </div>
                 </section>
               )
             })()}
@@ -1904,7 +1906,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                 <button
                   type="button"
                   onClick={addTicketType}
-                  className="flex items-center gap-1.5 rounded-lg bg-tertiary px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-orange-600 transition cursor-pointer"
+                  className="org-btn-primary px-3.5 py-2 text-xs cursor-pointer"
                 >
                   <Icon name="add" className="text-[16px]" />
                   <span>Thêm loại vé</span>
@@ -2218,7 +2220,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                   <button
                     type="button"
                     onClick={addTicketType}
-                    className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-tertiary text-white text-xs font-bold shadow hover:bg-orange-600 transition"
+                    className="org-btn-primary px-4 py-2 text-xs"
                   >
                     <Icon name="add" className="text-sm" />
                     Thêm loại vé đầu tiên
@@ -2233,7 +2235,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
             <button
               type="button"
               onClick={() => setShowSyncConfirm(true)}
-              className="flex w-full items-center justify-center gap-3 rounded-xl bg-tertiary/10 text-tertiary shadow-sm px-6 py-4 text-sm font-bold border border-tertiary/30 hover:bg-tertiary hover:text-white transition-all transform hover:scale-[1.01]"
+              className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#C99A47]/10 text-[#E6C17A] shadow-sm px-6 py-4 text-sm font-bold border border-[#E6C17A]/30 hover:bg-[#C99A47]/20 hover:border-[#E6C17A] transition-all transform hover:scale-[1.01]"
             >
               <Icon name="content_copy" className="text-[20px]" />
               Sao chép Bố cục Sơ đồ & Vé cho TẤT CẢ các phiên khác cùng địa điểm
@@ -2564,7 +2566,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                 type="button"
                 disabled={uploadingPermits}
                 onClick={() => permitFileInputRef.current?.click()}
-                className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-tertiary text-white text-xs font-bold shadow-md hover:bg-orange-600 transition disabled:opacity-50 cursor-pointer"
+                className="mt-3 org-btn-primary px-4 py-2 text-xs disabled:opacity-50 cursor-pointer"
               >
                 {uploadingPermits ? (
                   <>
@@ -4413,7 +4415,7 @@ export function CreateEventPage() {
                 type="button"
                 onClick={handleNext}
                 disabled={loading}
-                className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 transition"
+                className="org-btn-primary px-8 py-2.5 text-sm font-bold shadow-md disabled:opacity-50 transition"
               >
                 {loading ? 'Đang lưu...' : (currentStep === 4 ? 'Tiếp theo' : nextLabel)}
                 {!loading && <Icon name="arrow_forward" className="text-[18px]" />}
@@ -4436,7 +4438,7 @@ export function CreateEventPage() {
                 onClick={handleSubmit}
                 disabled={loading || !completeness.isReady}
                 title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
-                className="rounded-lg border border-tertiary/50 px-6 py-2.5 text-sm font-bold text-tertiary hover:bg-tertiary/10 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
+                className="org-btn-primary px-6 py-2.5 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
                 {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
               </button>
@@ -4448,7 +4450,7 @@ export function CreateEventPage() {
                 onClick={handleUpdateEvent}
                 disabled={loading || !isValidAllSteps()}
                 title={!isValidAllSteps() ? 'Thông tin sự kiện còn thiếu hoặc không hợp lệ' : ''}
-                className="flex items-center gap-2 rounded-lg bg-tertiary px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
+                className="org-btn-primary px-8 py-2.5 text-sm font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition ml-2"
               >
                 {loading ? 'Đang lưu...' : 'Lưu lại'}
               </button>

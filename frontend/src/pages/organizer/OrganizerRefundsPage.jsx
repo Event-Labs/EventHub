@@ -1,17 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import {
-  CheckCircle2,
-  CheckCircle,
-  Filter,
-  Hourglass,
   RotateCcw,
   Search,
-  XCircle,
   Eye,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { SectionHeader } from '@/components/SectionHeader.jsx'
+import { OrganizerPage, StatusBadge, TableActionButton } from './OrganizerComponents.jsx'
 import { fetchOrganizerRefundRequests } from '@/services/refunds.js'
 
 function formatDateTime(value) {
@@ -86,43 +81,14 @@ export function OrganizerRefundsPage() {
     }
   }, [rawList])
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'PENDING':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-400">
-            <Hourglass className="size-3.5" /> Chờ duyệt
-          </span>
-        )
-      case 'APPROVED':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-bold text-blue-400">
-            <CheckCircle className="size-3.5" /> Đã duyệt
-          </span>
-        )
-      case 'REFUNDED':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-400">
-            <CheckCircle2 className="size-3.5" /> Đã hoàn
-          </span>
-        )
-      case 'REJECTED':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-1 text-xs font-bold text-red-400">
-            <XCircle className="size-3.5" /> Đã từ chối
-          </span>
-        )
-      default:
-        return <span className="rounded-full bg-slate-500/15 px-2.5 py-1 text-xs font-bold text-slate-300">{status}</span>
-    }
-  }
+  const getStatusBadge = (status) => <StatusBadge status={status} />
 
   return (
-    <div className="space-y-6">
-      <SectionHeader
-        title="Quản lý yêu cầu Hoàn vé"
-        description="Xem xét và xử lý các yêu cầu hoàn tiền vé từ người mua theo chính sách sự kiện"
-      />
+    <OrganizerPage
+      title="Quản lý yêu cầu Hoàn vé"
+      description="Xem xét và xử lý các yêu cầu hoàn tiền vé từ người mua theo chính sách sự kiện"
+    >
+      <div className="space-y-6">
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -152,7 +118,7 @@ export function OrganizerRefundsPage() {
               key={f.value}
               onClick={() => setSelectedStatus(f.value)}
               className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${selectedStatus === f.value
-                ? 'bg-primary text-slate-950 shadow'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
                 : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/5 hover:text-white'
                 }`}
             >
@@ -227,22 +193,12 @@ export function OrganizerRefundsPage() {
                       {getStatusBadge(item.status)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3.5 text-right">
-                      {item.status === 'PENDING' ? (
-                        <button
-                          onClick={() => navigate(`/organizer/refunds/${item.id}`)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-[#1c2747] px-3 py-1.5 text-xs font-bold text-white transition hover:border-primary hover:text-primary"
-                        >
-                          Xử lý
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => navigate(`/organizer/refunds/${item.id}`)}
-                          title="Chi tiết"
-                          className="inline-flex size-8 items-center justify-center rounded-lg border border-white/10 bg-[#1c2747] text-slate-300 transition hover:border-primary hover:text-primary"
-                        >
-                          <Eye className="size-4" />
-                        </button>
-                      )}
+                      <TableActionButton
+                        icon={Eye}
+                        tone={item.status === 'PENDING' ? 'primary' : 'default'}
+                        title={item.status === 'PENDING' ? 'Xử lý yêu cầu hoàn tiền' : 'Xem chi tiết'}
+                        onClick={() => navigate(`/organizer/refunds/${item.id}`)}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -251,6 +207,7 @@ export function OrganizerRefundsPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </OrganizerPage>
   )
 }

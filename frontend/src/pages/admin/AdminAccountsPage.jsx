@@ -6,6 +6,7 @@ import {
   Panel,
   Status,
   Table,
+  TableActionButton,
   UserCell,
 } from './AdminComponents.jsx'
 import adminUserService from '@/services/adminUser'
@@ -248,30 +249,27 @@ export function AdminAccountsPage() {
             {new Date(user.created_at).toLocaleDateString('vi-VN')}
           </span>,
           <Status key="status" value={user.status} />,
-          <div key="actions" className="flex items-center gap-4 text-subtle">
-            <button
-              onClick={() => handleAction('VIEW', user)}
+          <div key="actions" className="flex items-center gap-2">
+            <TableActionButton
+              icon={Eye}
+              tone="default"
               title="Xem chi tiết"
-              className="grid size-9 place-items-center rounded-full text-white transition duration-200 hover:-translate-y-0.5 hover:bg-white/15 hover:shadow-lg hover:shadow-white/20 hover:ring-1 hover:ring-white/50"
-            >
-               <Eye className="size-5" />
-            </button>
+              onClick={() => handleAction('VIEW', user)}
+            />
             {user.status === 'LOCKED' ? (
-              <button
-                onClick={() => handleAction('UNLOCK', user)}
+              <TableActionButton
+                icon={Unlock}
+                tone="success"
                 title="Mở khóa"
-                className="grid size-9 place-items-center rounded-full text-success transition duration-200 hover:-translate-y-0.5 hover:bg-success/25 hover:shadow-lg hover:shadow-success/35 hover:ring-1 hover:ring-success/50"
-              >
-                <Unlock className="size-5 text-success" />
-              </button>
+                onClick={() => handleAction('UNLOCK', user)}
+              />
             ) : (
-              <button
-                onClick={() => handleAction('LOCK', user)}
+              <TableActionButton
+                icon={AlertTriangle}
+                tone="danger"
                 title="Khóa tài khoản"
-                className="grid size-9 place-items-center rounded-full text-error transition duration-200 hover:-translate-y-0.5 hover:bg-error/25 hover:shadow-lg hover:shadow-error/35 hover:ring-1 hover:ring-error/50"
-              >
-                <AlertTriangle className="size-5 text-error" />
-              </button>
+                onClick={() => handleAction('LOCK', user)}
+              />
             )}
           </div>,
         ])}

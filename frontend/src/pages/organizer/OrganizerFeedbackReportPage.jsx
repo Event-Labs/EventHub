@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Star } from 'lucide-react'
+import { ChevronDown, Star } from 'lucide-react'
 import { useEffect, useState, useMemo } from 'react'
 import {
   fetchOrganizerFeedbackEvents,
@@ -9,7 +9,22 @@ import {
   OrganizerPage,
   OrganizerPanel,
   OrganizerTable,
+  resolveStatusConfig,
 } from './OrganizerComponents.jsx'
+
+const EVENT_STATUS_LABELS = {
+  PUBLISHED: 'Đã xuất bản',
+  DRAFT: 'Bản nháp',
+  PENDING_REVIEW: 'Chờ duyệt',
+  HIDDEN: 'Đã ẩn',
+  CANCELLED: 'Đã hủy',
+  COMPLETED: 'Đã kết thúc',
+}
+
+function getEventStatusLabel(status) {
+  if (!status) return '—'
+  return EVENT_STATUS_LABELS[status] || resolveStatusConfig(status).label || status
+}
 
 function RatingStars({ value }) {
   return (
@@ -17,9 +32,8 @@ function RatingStars({ value }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`size-4 ${
-            star <= value ? 'fill-amber-400 text-amber-400' : 'text-border-soft/40'
-          }`}
+          className={`size-4 ${star <= value ? 'fill-amber-400 text-amber-400' : 'text-border-soft/40'
+            }`}
         />
       ))}
     </div>
@@ -58,9 +72,9 @@ export function OrganizerFeedbackReportPage() {
   return (
     <OrganizerPage
       title="Báo cáo Phản hồi"
-      description="Theo dõi đánh giá và nhận xét từ khách tham dự (dữ liệu từ database)"
+      description="Theo dõi đánh giá và nhận xét từ khách tham dự"
     >
-      <OrganizerPanel className="mb-5">
+      <div className="mb-5">
         {eventsQuery.isLoading && (
           <p className="text-sm text-muted animate-pulse">Đang tải sự kiện...</p>
         )}
@@ -73,25 +87,28 @@ export function OrganizerFeedbackReportPage() {
           </p>
         )}
         {events.length > 0 && (
-          <label className="block max-w-xl">
-            <span className="text-sm font-semibold text-subtle">Chọn sự kiện</span>
-            <select
-              className="mt-2 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
-              value={eventId}
-              onChange={(e) => setEventId(e.target.value)}
-            >
-              {events.map((event) => (
-                <option key={event.id} value={event.id} className="bg-surface text-content">
-                  {event.title}
-                  {event.average_rating != null
-                    ? ` — ★ ${event.average_rating} (${event.feedback_count})`
-                    : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+            <div className="relative w-full sm:w-[420px]">
+              <select
+                className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                value={eventId}
+                onChange={(e) => setEventId(e.target.value)}
+              >
+                {events.map((event) => (
+                  <option key={event.id} value={event.id} className="bg-slate-900 text-white">
+                    {event.title}
+                    {event.average_rating != null
+                      ? ` — ★ ${event.average_rating} (${event.feedback_count})`
+                      : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            </div>
+          </div>
         )}
-      </OrganizerPanel>
+      </div>
 
       {reportQuery.isLoading && eventId && (
         <OrganizerPanel className="animate-pulse">Đang tải báo cáo...</OrganizerPanel>
@@ -117,7 +134,10 @@ export function OrganizerFeedbackReportPage() {
                   : '—'
               }
             />
-            <Kpi label="Trạng thái sự kiện" value={report.event.status} />
+            <Kpi
+              label="Trạng thái sự kiện"
+              value={getEventStatusLabel(report.event?.status)}
+            />
           </div>
 
           <OrganizerPanel className="mb-5 text-content">
@@ -177,7 +197,7 @@ function Kpi({ label, value }) {
   return (
     <OrganizerPanel className="min-h-24 flex flex-col justify-between">
       <p className="text-xs font-bold text-muted uppercase tracking-wider">{label}</p>
-      <p className="mt-3 text-2xl font-extrabold text-content">{value}</p>
+      <p className="mt-3 text-xl sm:text-2xl font-extrabold text-content">{value}</p>
     </OrganizerPanel>
   )
 }

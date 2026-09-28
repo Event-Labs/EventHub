@@ -20,7 +20,7 @@ import {
 } from '@/services/platformFinance.js'
 import { uploadPolicyDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, Page, Panel, Row, Table } from './AdminComponents.jsx'
+import { Badge, Page, Panel, Row, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 
 const PAGE_SIZE = 10
@@ -267,7 +267,7 @@ function PolicyTable({ policies, isLoading, isError, isBusy, onEdit, onDocuments
           <Upload className="size-4" /> Upload/Xem file ({policy.document_count || 0})
         </button>,
         formatRange(policy.effective_from, policy.effective_to),
-        <Badge key="status" tone={policy.is_active ? 'green' : 'blue'}>{policy.is_active ? 'Đang áp dụng' : 'Tạm ẩn'}</Badge>,
+        <StatusBadge key="status" status={policy.is_active ? 'ACTIVE' : 'INACTIVE'} />,
         <ActionButtons key="actions" isBusy={isBusy} toggleTitle={policy.is_active ? 'Tạm ẩn' : 'Hiện lại'} onEdit={() => onEdit(policy)} onToggle={() => onToggle(policy)} onDelete={() => onDelete(policy)} />,
       ])}
     />
@@ -558,9 +558,9 @@ function Modal({ title, onClose, children, wide = false }) {
 function ActionButtons({ isBusy, toggleTitle, onEdit, onToggle, onDelete }) {
   return (
     <div className="flex items-center gap-2">
-      <IconButton title="Sửa" onClick={onEdit} disabled={isBusy} icon={Pencil} />
-      <IconButton title={toggleTitle || 'Bật/tắt trạng thái'} onClick={onToggle} disabled={isBusy} icon={Power} />
-      <IconButton title="Xóa" onClick={onDelete} disabled={isBusy} icon={Trash2} danger />
+      <TableActionButton title="Sửa" onClick={onEdit} disabled={isBusy} icon={Pencil} tone="primary" />
+      <TableActionButton title={toggleTitle || 'Bật/tắt trạng thái'} onClick={onToggle} disabled={isBusy} icon={Power} tone="warning" />
+      <TableActionButton title="Xóa" onClick={onDelete} disabled={isBusy} icon={Trash2} tone="danger" />
     </div>
   )
 }

@@ -9,7 +9,7 @@ import {
 } from '@/services/events.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, Page, Panel, Table } from './AdminComponents.jsx'
+import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 const emptyForm = {
   name: '',
@@ -192,36 +192,28 @@ export function AdminEventCategoriesPage() {
               <span key="count" className="font-extrabold text-content">
                 {category.event_count ?? 0}
               </span>,
-              <Badge key="status" tone={category.is_active ? 'green' : 'blue'}>
-                {category.is_active ? 'Đang hoạt động' : 'Tạm ẩn'}
-              </Badge>,
+              <StatusBadge key="status" status={category.is_active ? 'ACTIVE' : 'INACTIVE'} />,
               <div key="actions" className="flex items-center gap-2">
-                <button
-                  type="button"
+                <TableActionButton
                   title="Sửa"
+                  icon={Edit3}
+                  tone="primary"
                   onClick={() => openEdit(category)}
-                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-tertiary hover:bg-panel-soft hover:text-tertiary"
-                >
-                  <Edit3 className="size-4" />
-                </button>
-                <button
-                  type="button"
+                />
+                <TableActionButton
                   title={category.is_active ? 'Tạm ẩn' : 'Kích hoạt'}
-                  onClick={() => toggleActive(category)}
+                  icon={Power}
+                  tone={category.is_active ? 'warning' : 'success'}
                   disabled={updateMutation.isPending}
-                  className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition duration-200 hover:-translate-y-0.5 hover:border-tertiary hover:bg-panel-soft hover:text-tertiary disabled:opacity-60"
-                >
-                  <Power className="size-4" />
-                </button>
-                <button
-                  type="button"
+                  onClick={() => toggleActive(category)}
+                />
+                <TableActionButton
                   title="Xóa"
-                  onClick={() => deleteCategory(category)}
+                  icon={Trash2}
+                  tone="danger"
                   disabled={deleteMutation.isPending}
-                  className="grid size-9 place-items-center rounded-xl border border-error/30 text-error transition duration-200 hover:-translate-y-0.5 hover:bg-error/10 disabled:opacity-60"
-                >
-                  <Trash2 className="size-4" />
-                </button>
+                  onClick={() => deleteCategory(category)}
+                />
               </div>,
             ])}
           />

@@ -14,6 +14,8 @@ import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import {
   AvatarInitials,
   Badge,
+  StatusBadge,
+  TableActionButton,
   OrganizerPage,
   OrganizerPanel,
 } from './OrganizerComponents.jsx'
@@ -24,22 +26,35 @@ const ORDER_STATUSES = [
   { value: '', label: 'Tất cả trạng thái' },
   { value: 'PAID', label: 'Đã thanh toán' },
   { value: 'PENDING', label: 'Chờ thanh toán' },
+  { value: 'REFUND_REQUESTED', label: 'Yêu cầu hoàn tiền' },
+  { value: 'REFUNDED', label: 'Đã hoàn tiền' },
   { value: 'CANCELLED', label: 'Đã hủy' },
   { value: 'EXPIRED', label: 'Hết hạn' },
+  { value: 'FAILED', label: 'Thất bại' },
 ]
 
 const STATUS_TONE = {
   PAID: 'green',
-  PENDING: 'blue',
-  CANCELLED: 'red',
-  EXPIRED: 'gray',
+  PENDING: 'amber',
+  REFUND_REQUESTED: 'purple',
+  REFUNDED: 'cyan',
+  PARTIALLY_REFUNDED: 'cyan',
+  CANCELLED: 'gray',
+  EXPIRED: 'orange',
+  FAILED: 'red',
+  PROCESSING: 'amber',
 }
 
 const STATUS_LABEL = {
   PAID: 'Đã thanh toán',
   PENDING: 'Chờ thanh toán',
+  REFUND_REQUESTED: 'Yêu cầu hoàn tiền',
+  REFUNDED: 'Đã hoàn tiền',
+  PARTIALLY_REFUNDED: 'Hoàn một phần',
   CANCELLED: 'Đã hủy',
   EXPIRED: 'Hết hạn',
+  FAILED: 'Thất bại',
+  PROCESSING: 'Đang xử lý',
 }
 
 function formatCurrency(amount) {
@@ -131,8 +146,8 @@ export function OrganizerOrdersPage() {
       description="Xem tất cả đơn hàng từ các sự kiện bạn quản lý."
     >
       {/* ── Filter bar ── */}
-      <OrganizerPanel className="mb-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+      <div className="mb-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           {/* Search */}
           <form className="relative flex-1" onSubmit={handleSearch}>
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
@@ -182,14 +197,14 @@ export function OrganizerOrdersPage() {
 
           <button
             type="button"
-            className="admin-secondary flex items-center gap-2"
+            className="org-btn-secondary flex items-center gap-2"
             onClick={loadOrders}
             disabled={loading}
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
-      </OrganizerPanel>
+      </div>
 
 
 
@@ -204,77 +219,78 @@ export function OrganizerOrdersPage() {
           <p className="mt-1 text-sm text-subtle">Thử thay đổi bộ lọc hoặc tìm kiếm khác.</p>
         </OrganizerPanel>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="border-b border-border-soft/30 text-xs uppercase text-subtle">
-              <tr>
-                <th className="px-5 py-4 font-extrabold">Mã đơn</th>
-                <th className="px-5 py-4 font-extrabold">Người mua</th>
-                <th className="px-5 py-4 font-extrabold">Sự kiện</th>
-                <th className="px-5 py-4 font-extrabold">Số vé</th>
-                <th className="px-5 py-4 font-extrabold">Tổng tiền</th>
-                <th className="px-5 py-4 font-extrabold">Trạng thái</th>
-                <th className="px-5 py-4 font-extrabold">Ngày đặt</th>
-                <th className="px-5 py-4 font-extrabold">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="border-b border-border-soft/20 transition-colors last:border-0 hover:bg-panel-soft/60"
-                >
-                  <td className="px-5 py-4">
-                    <span className="font-mono text-xs font-bold text-content">
-                      {order.order_code}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <AvatarInitials
-                        name={order.buyer_name || order.buyer_email || 'K'}
-                        className="size-8 animate-pulse-slow"
-                      />
-                      <div>
-                        <p className="font-semibold text-content">{order.buyer_name}</p>
-                        <p className="text-xs text-subtle">{order.buyer_email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <p className="max-w-[180px] truncate font-semibold text-content">
-                      {order.event_title}
-                    </p>
-                  </td>
-                  <td className="px-5 py-4 text-center font-semibold text-content">
-                    {order.ticket_quantity}
-                  </td>
-                  <td className="px-5 py-4 font-bold text-primary">
-                    {formatCurrency(order.total_amount)}
-                  </td>
-                  <td className="px-5 py-4">
-                    <Badge tone={STATUS_TONE[order.status] || 'gray'}>
-                      {STATUS_LABEL[order.status] || order.status}
-                    </Badge>
-                  </td>
-                  <td className="px-5 py-4 text-subtle">
-                    {formatDateTime(order.created_at)}
-                  </td>
-                  <td className="px-5 py-4">
-                    <button
-                      type="button"
-                      className="grid size-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-tertiary hover:text-tertiary"
-                      onClick={() => setDetailOrderId(order.id)}
-                      title="Xem chi tiết"
-                      aria-label={`Xem chi tiết đơn hàng ${order.order_code}`}
-                    >
-                      <Eye className="size-4" />
-                    </button>
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left text-xs">
+              <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 font-bold">Mã đơn</th>
+                  <th className="px-4 py-3 font-bold">Người mua</th>
+                  <th className="px-4 py-3 font-bold">Sự kiện</th>
+                  <th className="px-4 py-3 font-bold text-center">Số vé</th>
+                  <th className="px-4 py-3 font-bold">Tổng tiền</th>
+                  <th className="px-4 py-3 font-bold">Trạng thái</th>
+                  <th className="px-4 py-3 font-bold">Ngày đặt</th>
+                  <th className="px-4 py-3 font-bold text-right">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                {orders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="hover:bg-white/[0.02] transition-colors"
+                  >
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-xs font-bold text-content">
+                        {order.order_code}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <AvatarInitials
+                          name={order.buyer_name || order.buyer_email || 'K'}
+                          className="size-8 animate-pulse-slow"
+                        />
+                        <div>
+                          <p className="font-semibold text-content">{order.buyer_name}</p>
+                          <p className="text-xs text-subtle">{order.buyer_email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <p className="max-w-[180px] truncate font-semibold text-content">
+                        {order.event_title}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3.5 text-center font-semibold text-content">
+                      {order.ticket_quantity}
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-primary">
+                      {formatCurrency(order.total_amount)}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <StatusBadge
+                        status={order.status}
+                        label={STATUS_LABEL[order.status]}
+                        tone={STATUS_TONE[order.status]}
+                      />
+                    </td>
+                    <td className="px-4 py-3.5 text-subtle">
+                      {formatDateTime(order.created_at)}
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <TableActionButton
+                        onClick={() => setDetailOrderId(order.id)}
+                        title="Xem chi tiết"
+                        icon={Eye}
+                        tone="default"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -389,9 +405,11 @@ function OrderDetailModal({ orderId, onClose }) {
                     <span className="font-mono font-bold text-content">{order.order_code}</span>
                   </DetailRow>
                   <DetailRow label="Trạng thái">
-                    <Badge tone={STATUS_TONE[order.status] || 'gray'}>
-                      {STATUS_LABEL[order.status] || order.status}
-                    </Badge>
+                    <StatusBadge
+                      status={order.status}
+                      label={STATUS_LABEL[order.status]}
+                      tone={STATUS_TONE[order.status]}
+                    />
                   </DetailRow>
                   <DetailRow label="Sự kiện">
                     <span className="font-semibold text-content">{order.event_title}</span>
@@ -517,7 +535,7 @@ function OrderDetailModal({ orderId, onClose }) {
         </div>
 
         <div className="flex justify-end border-t border-border-soft/30 px-6 py-4">
-          <button className="admin-secondary" onClick={onClose}>
+          <button className="org-btn-secondary" onClick={onClose}>
             Đóng
           </button>
         </div>

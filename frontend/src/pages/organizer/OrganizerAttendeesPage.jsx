@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -204,7 +205,7 @@ export function OrganizerAttendeesPage() {
       description="Xem danh sách người tham dự từ vé đã bán cho sự kiện của bạn."
     >
       {/* ── Event selector ── */}
-      <OrganizerPanel className="mb-5">
+      <div className="mb-5">
         {eventsLoading ? (
           <div className="flex items-center gap-2 text-sm text-subtle">
             <Loader2 className="size-4 animate-spin text-primary" />
@@ -213,22 +214,25 @@ export function OrganizerAttendeesPage() {
         ) : events.length === 0 ? (
           <p className="text-sm text-subtle">Bạn chưa có sự kiện nào.</p>
         ) : (
-          <label className="block max-w-xl">
-            <span className="text-sm font-semibold text-subtle">Chọn sự kiện</span>
-            <select
-              className="mt-2 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content"
-              value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-            >
-              {events.map((ev) => (
-                <option key={ev.id} value={ev.id} className="bg-surface text-content">
-                  {ev.title}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+            <div className="relative w-full sm:w-[420px]">
+              <select
+                className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+              >
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id} className="bg-slate-900 text-white">
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            </div>
+          </div>
         )}
-      </OrganizerPanel>
+      </div>
 
       {selectedEventId && (
         <>
@@ -250,8 +254,8 @@ export function OrganizerAttendeesPage() {
           )}
 
           {/* ── Filters ── */}
-          <OrganizerPanel className="mb-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="mb-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               {/* Search */}
               <form className="relative flex-1" onSubmit={handleSearch}>
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
@@ -319,7 +323,7 @@ export function OrganizerAttendeesPage() {
 
               <button
                 type="button"
-                className="admin-primary flex items-center gap-2"
+                className="org-btn-primary flex items-center gap-2"
                 onClick={handleExport}
                 disabled={exporting || loading}
               >
@@ -333,7 +337,7 @@ export function OrganizerAttendeesPage() {
 
               <button
                 type="button"
-                className="admin-secondary flex items-center gap-2"
+                className="org-btn-secondary flex items-center gap-2"
                 onClick={loadAttendees}
                 disabled={loading}
                 title="Làm mới"
@@ -341,7 +345,7 @@ export function OrganizerAttendeesPage() {
                 <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
             </div>
-          </OrganizerPanel>
+          </div>
 
           {/* ── Error ── */}
           {error && (
@@ -363,69 +367,71 @@ export function OrganizerAttendeesPage() {
               </p>
             </OrganizerPanel>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border-soft/30 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
-              <table className="w-full min-w-[860px] text-left text-sm">
-                <thead className="border-b border-border-soft/30 text-xs uppercase text-subtle">
-                  <tr>
-                    <th className="px-5 py-4 font-extrabold">Người đặt vé</th>
-                    <th className="px-5 py-4 font-extrabold">Loại vé</th>
-                    <th className="px-5 py-4 font-extrabold">Phiên</th>
-                    <th className="px-5 py-4 font-extrabold">Ghế / Khu vực</th>
-                    <th className="px-5 py-4 font-extrabold">Mã vé</th>
-                    <th className="px-5 py-4 font-extrabold">Trạng thái</th>
-                    <th className="px-5 py-4 font-extrabold">Check-in lúc</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendees.map((att) => (
-                    <tr
-                      key={att.id}
-                      className="border-b border-border-soft/20 transition-colors last:border-0 hover:bg-panel-soft/60"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <AvatarInitials
-                            name={att.attendee_name || att.attendee_email || 'A'}
-                            src={att.attendee_avatar_url}
-                            className="size-8 animate-pulse-slow"
-                          />
-                          <div>
-                            <p className="font-semibold text-content">{att.attendee_name}</p>
-                            <p className="text-xs text-subtle">{att.attendee_email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <Badge tone="blue">{att.ticket_type_name}</Badge>
-                      </td>
-                      <td className="px-5 py-4 text-subtle">
-                        <p className="font-semibold text-content">{att.session_name || '—'}</p>
-                        <p className="text-xs mt-0.5">{att.venue_name}</p>
-                      </td>
-                      <td className="px-5 py-4 text-subtle">
-                        {att.row_label && att.seat_number
-                          ? `${att.row_label}${att.seat_number}`
-                          : 'Không có ghế'}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="font-mono text-xs font-bold text-content">
-                          {att.ticket_code}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <Badge
-                          tone={TICKET_STATUS_TONE[att.status] || 'gray'}
-                        >
-                          {TICKET_STATUS_LABEL[att.status] || att.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4 text-subtle">
-                        {formatDateTime(att.checked_in_at)}
-                      </td>
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] text-left text-xs">
+                  <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3 font-bold">Người đặt vé</th>
+                      <th className="px-4 py-3 font-bold">Loại vé</th>
+                      <th className="px-4 py-3 font-bold">Phiên</th>
+                      <th className="px-4 py-3 font-bold">Ghế / Khu vực</th>
+                      <th className="px-4 py-3 font-bold">Mã vé</th>
+                      <th className="px-4 py-3 font-bold">Trạng thái</th>
+                      <th className="px-4 py-3 font-bold">Check-in lúc</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                    {attendees.map((att) => (
+                      <tr
+                        key={att.id}
+                        className="hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <AvatarInitials
+                              name={att.attendee_name || att.attendee_email || 'A'}
+                              src={att.attendee_avatar_url}
+                              className="size-8 animate-pulse-slow"
+                            />
+                            <div>
+                              <p className="font-semibold text-content">{att.attendee_name}</p>
+                              <p className="text-xs text-subtle">{att.attendee_email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <Badge tone="blue">{att.ticket_type_name}</Badge>
+                        </td>
+                        <td className="px-4 py-3.5 text-subtle">
+                          <p className="font-semibold text-content">{att.session_name || '—'}</p>
+                          <p className="text-xs mt-0.5">{att.venue_name}</p>
+                        </td>
+                        <td className="px-4 py-3.5 text-subtle">
+                          {att.row_label && att.seat_number
+                            ? `${att.row_label}${att.seat_number}`
+                            : 'Không có ghế'}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span className="font-mono text-xs font-bold text-content">
+                            {att.ticket_code}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <Badge
+                            tone={TICKET_STATUS_TONE[att.status] || 'gray'}
+                          >
+                            {TICKET_STATUS_LABEL[att.status] || att.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3.5 text-subtle">
+                          {formatDateTime(att.checked_in_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

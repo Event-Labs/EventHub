@@ -32,20 +32,20 @@ import {
 
 const STATUS_LABELS = {
     DRAFT: 'Bản nháp',
-    PENDING_REVIEW: 'Đang duyệt',
+    PENDING_REVIEW: 'Chờ duyệt',
     PUBLISHED: 'Đã xuất bản',
-    HIDDEN: 'Ẩn',
+    HIDDEN: 'Đã ẩn',
     CANCELLED: 'Đã hủy',
-    COMPLETED: 'Đã duyệt',
+    COMPLETED: 'Đã kết thúc',
 }
 
 const STATUS_TONES = {
     DRAFT: 'gray',
-    PENDING_REVIEW: 'blue',
+    PENDING_REVIEW: 'amber',
     PUBLISHED: 'green',
     HIDDEN: 'gray',
-    CANCELLED: 'red',
-    COMPLETED: 'purple',
+    CANCELLED: 'gray',
+    COMPLETED: 'green',
 }
 
 function DemandPredictionCard({ eventId }) {
@@ -221,7 +221,7 @@ export function OrganizerEventDetailPage() {
             title="Chi tiết sự kiện"
             description="Xem thông tin chi tiết, trạng thái và thống kê của sự kiện"
             action={
-                <Link to="/organizer/events" className="admin-secondary">
+                <Link to="/organizer/events" className="org-btn-secondary">
                     <ArrowLeft className="size-4" /> Quay lại
                 </Link>
             }
@@ -345,13 +345,13 @@ export function OrganizerEventDetailPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <Link
                             to={`/organizer/orders?eventId=${event.id}`}
-                            className="flex items-center justify-center gap-2 rounded-xl border border-primary text-primary hover:bg-primary/10 transition px-4 py-2"
+                            className="flex items-center justify-center gap-2 rounded-xl border border-[#C99A47]/50 text-[#E6C17A] hover:bg-[#C99A47]/10 transition px-4 py-2 font-bold text-xs"
                         >
                             Xem đơn hàng
                         </Link>
                         <Link
                             to={`/organizer/attendees?eventId=${event.id}`}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition px-4 py-2 shadow-sm"
+                            className="org-btn-primary text-xs py-2 shadow-sm"
                         >
                             Danh sách khách
                         </Link>

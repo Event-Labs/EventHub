@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, Mail, Send, Smartphone } from 'lucide-react'
+import { Bell, Mail, Smartphone } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import {
@@ -90,21 +90,11 @@ export function OrganizerAnnouncementsPage() {
   return (
     <OrganizerPage
       title="Gửi Thông báo"
-      description="Gửi cập nhật quan trọng tới người đã mua vé qua web realtime và email."
+      description="Gửi cập nhật quan trọng tới người đã mua vé qua hệ thống và email"
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-5">
           <OrganizerPanel>
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-extrabold text-content">Thông báo mới</h3>
-                <p className="mt-1 text-sm text-muted">
-                  Người tham dự sẽ nhận notification ngay trên web nếu đang online.
-                </p>
-              </div>
-              <Bell className="size-6 text-primary" />
-            </div>
-
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="block">
                 <span className="text-xs font-bold text-subtle">Sự kiện</span>
@@ -135,12 +125,10 @@ export function OrganizerAnnouncementsPage() {
                 <div className="mt-3 flex flex-wrap gap-5 text-sm font-semibold text-content">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.web} onChange={update('web')} className="accent-primary" />
-                    <Smartphone className="size-4 text-primary" />
-                    Web realtime
+                    Website
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.email} onChange={update('email')} className="accent-primary" />
-                    <Mail className="size-4 text-primary" />
                     Email
                   </label>
                 </div>
@@ -159,10 +147,9 @@ export function OrganizerAnnouncementsPage() {
               </label>
 
               <button
-                className="org-btn-primary ml-auto disabled:cursor-not-allowed disabled:opacity-60"
+                className="org-btn-primary ml-auto h-12 px-8 text-base font-bold shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={sendMutation.isPending || !form.event_id || (!form.web && !form.email)}
               >
-                <Send className="size-4" />
                 {sendMutation.isPending ? 'Đang gửi...' : 'Gửi ngay'}
               </button>
             </form>
@@ -170,20 +157,21 @@ export function OrganizerAnnouncementsPage() {
         </div>
 
         <aside className="space-y-5">
-          <OrganizerPanel>
-            <h3 className="mb-4 text-sm font-extrabold uppercase text-subtle">Preview</h3>
-            <div className="mx-auto max-w-72 rounded-[2rem] bg-black/80 border border-border-soft/20 p-4 text-white shadow-xl">
-              <div className="rounded-[1.5rem] bg-gradient-to-br from-slate-900 via-sky-950 to-blue-900 p-5">
-                <p className="text-xs font-bold text-primary">EventHub</p>
-                <p className="mt-6 text-xs text-slate-300 truncate">{selectedEvent?.title || 'Sự kiện đã chọn'}</p>
-                <p className="mt-5 text-lg font-bold truncate">{form.title || 'Tiêu đề thông báo'}</p>
-                <p className="mt-2 line-clamp-5 text-xs leading-5 text-slate-200">
-                  {form.content || 'Nội dung thông báo sẽ hiển thị tại đây.'}
-                </p>
-                <p className="mt-14 text-center text-3xl font-extrabold">Now</p>
-              </div>
+          <div>
+            <h3 className="mb-3 text-base font-extrabold uppercase text-white">Xem trước</h3>
+            <div className="rounded-2xl border border-border-soft/30 bg-gradient-to-br from-slate-900 via-sky-950 to-blue-900 p-5 text-white shadow-xl min-h-[280px] flex flex-col">
+              <p className="text-xs font-bold text-primary tracking-wide">EventHub</p>
+              <p className="mt-3 text-sm font-medium text-white/80 line-clamp-2 leading-snug">
+                {selectedEvent?.title || 'Sự kiện đã chọn'}
+              </p>
+              <p className="mt-2.5 text-lg font-bold text-white line-clamp-2 leading-snug">
+                {form.title || 'Tiêu đề thông báo'}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-white/90 whitespace-pre-wrap flex-1 line-clamp-6">
+                {form.content || 'Nội dung thông báo sẽ hiển thị tại đây'}
+              </p>
             </div>
-          </OrganizerPanel>
+          </div>
 
           <OrganizerPanel>
             <div className="mb-4 flex items-center justify-between">
@@ -198,7 +186,7 @@ export function OrganizerAnnouncementsPage() {
               <div key={item.id} className="border-t border-border-soft/20 py-4 first:border-t-0 text-content">
                 <div className="flex items-center justify-between gap-3">
                   <p className="line-clamp-1 font-bold">{item.title}</p>
-                  <Badge tone="green">Sent</Badge>
+                  <Badge tone="green">Đã gửi</Badge>
                 </div>
                 <p className="mt-1 line-clamp-1 text-xs text-muted">{item.event_title}</p>
                 <p className="mt-1 text-xs text-muted">{formatDateTime(item.sent_at || item.created_at)}</p>
