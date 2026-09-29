@@ -2,16 +2,49 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const eventsAdminRepository = require('./events.repository');
+const systemSettingsRepository = require('./systemSettings.repository');
 const notificationsService = require('../notifications/notifications.service');
 const ollamaClient = require('../../infrastructure/ai/ollama.client');
-const { collectAllEventImages, fetchImageAsBase64, extractImagesFromHtml } = require('../../common/utils/htmlImageParser.util');
+const { collectAllEventImages, fetchImageAsBase64, extractImagesFromHtml, fetchDocumentContent } = require('../../common/utils/htmlImageParser.util');
 
 const REVIEWABLE_STATUSES  = new Set(['PENDING_REVIEW']);
 const HIDEABLE_STATUSES    = new Set(['PUBLISHED', 'COMPLETED']);
 const UNHIDEABLE_STATUSES  = new Set(['HIDDEN']);
 
-const AI_REVIEW_SYSTEM_PROMPT = `Bạn là Chuyên gia Kiểm duyệt & Đánh giá Toàn diện Sự kiện EventHub.
-Nhiệm vụ của bạn là kiểm tra, soát lỗi và đánh giá sự kiện KHÁCH QUAN, CHUẨN XÁC, trả về JSON thuần túy theo cấu trúc:
+const AI_REVIEW_SYSTEM_PROMPT = `Bạn là Chuyên gia Kiểm duyệt & Thẩm định Toàn diện Sự kiện của nền tảng EventHub.
+Nhiệm vụ của bạn là kiểm tra, đối chiếu thông tin và đánh giá sự kiện KHÁCH QUAN, CHUẨN XÁC, THẤU ĐÁO VÀ HỢP LÝ.
+
+BỘ ĐIỀU KHOẢN & QUY ĐỊNH NỀN TẢNG (PLATFORM POLICIES & TERMS):
+1. GIẤY PHÉP & HỒ SƠ PHÁP LÝ (TERMS_ORGANIZER):
+   - Quy định: Nhà tổ chức cần cung cấp giấy tờ chứng minh tính pháp lý và quyền tổ chức sự kiện, bao gồm một hoặc nhiều loại:
+     + Giấy phép biểu diễn / tổ chức sự kiện do cơ quan thẩm quyền cấp (Sở Văn hóa & Thể thao, UBND...).
+     + Giấy chứng nhận Đăng ký kinh doanh / Quyết định thành lập của đơn vị tổ chức.
+     + Hợp đồng thuê địa điểm / Mặt bằng tổ chức hoặc Biên bản thỏa thuận hợp tác.
+     + Giấy ủy quyền hoặc văn bản chấp thuận liên quan.
+   - NGUYÊN TẮC THẨM ĐỊNH GIẤY PHÉP (Khách quan, thiết thực, KHÔNG QUÁ NHẠY CẢM):
+     + Đọc kỹ kết quả AI Vision / OCR của các tệp giấy phép đính kèm (PERMIT_DOCUMENT_*).
+     + Nếu tài liệu là Giấy phép, Hợp đồng địa điểm hoặc ĐKKD hợp lệ, thể hiện quyền tổ chức hoặc thỏa thuận địa điểm rõ ràng -> Đánh giá HỢP LỆ (VALID) và ghi nhận vào "compliant_checks".
+     + KHÔNG QUÁ NHẠY CẢM: Không bắt bẻ tiểu tiết (như độ phân giải ảnh, định dạng tệp, hay thiếu một vài chi tiết nhỏ nếu đã có hợp đồng thuê địa điểm hoặc giấy phép cơ bản chứng minh quyền tổ chức). Không đòi hỏi phải có đầy đủ 100% mọi loại giấy tờ nếu quy mô sự kiện ở mức thông thường.
+     + Chỉ đưa ra "warnings" (LƯU Ý) hoặc "suggestions" (GỢI Ý) mang tính xây dựng nếu có điểm cần BTC/Admin lưu ý thêm (ví dụ: ngày hiệu lực sắp hết, cần bổ sung phụ lục), nhưng KHÔNG từ chối (REJECT) sự kiện vì các lưu ý nhỏ này.
+     + CHỈ xếp vào "critical_violations" (VI PHẠM / REJECT) khi: Hoàn toàn không có giấy phép/tài liệu nào, hoặc giấy phép đã hết hạn rõ ràng, hoặc tài liệu giả mạo/hoàn toàn không liên quan đến sự kiện.
+
+2. NỘI DUNG & CHÍNH TẢ (CONTENT & SPELLING):
+   - Soát lỗi chính tả tiếng Việt trong Tiêu đề, Mô tả ngắn và Mô tả chi tiết (gõ sai dấu, sai telex, từ viết sai).
+   - Liệt kê các từ viết sai và từ đúng gợi ý vào "content_review.spelling_grammar_issues".
+   - Đánh giá tiêu đề và mô tả không được chứa nội dung giật tít lừa đảo, cờ bạc, cam kết lợi nhuận phi pháp.
+
+3. HÌNH ẢNH & OCR (IMAGE_POLICY):
+   - Poster chính (Thumbnail) và Cover Banner là bắt buộc; Ảnh trong mô tả là tùy chọn.
+   - Phân tích kết quả AI Vision cho từng ảnh: phát hiện ảnh khiêu dâm/18+, bạo lực máu me, cờ bạc, ma túy.
+   - Không đánh đồng ảnh nghệ thuật, bơi lội, thể thao, sân khấu với nội dung vi phạm.
+
+4. LỊCH TRÌNH, CƠ CẤU VÉ & CHÍNH SÁCH HOÀN TIỀN (TICKET_POLICY & REFUND_POLICY):
+   - Lịch trình các phiên (Sessions) phải có logic thời gian: giờ kết thúc sau giờ bắt đầu.
+   - Cơ cấu vé (Tickets) minh bạch về tên loại vé, giá tiền (không âm) và số lượng.
+   - Chính sách hoàn tiền rõ ràng.
+
+ĐỊNH DẠNG ĐẦU RA BẮT BUỘC (JSON THUẦN TÚY):
+Trả về duy nhất 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG thêm text ngoài JSON) theo cấu trúc:
 {
   "decision": "APPROVE" | "REJECT" | "NEEDS_REVIEW",
   "risk_score": <0 đến 100>,
@@ -30,7 +63,7 @@ Nhiệm vụ của bạn là kiểm tra, soát lỗi và đánh giá sự kiện
       {
         "source": "MAIN_POSTER | COVER_BANNER | DESCRIPTION_IMAGE_1 | PERMIT_DOCUMENT_1",
         "status": "VALID | WARNING | VIOLATION | MISSING",
-        "analysis": "<Đánh giá nội dung và OCR trên ảnh>",
+        "analysis": "<Đánh giá nội dung và OCR trên ảnh hoặc tài liệu giấy phép>",
         "issues": ["<Vấn đề phát hiện nếu có>"],
         "suggestion": "<Gợi ý cải thiện chỉ khi thực sự cần thiết>"
       }
@@ -44,26 +77,36 @@ Nhiệm vụ của bạn là kiểm tra, soát lỗi và đánh giá sự kiện
     {"policy_code": "TERMS_ORGANIZER | IMAGE_POLICY | REFUND_POLICY | PAYMENT_POLICY | TICKET_POLICY", "issue": "<Mô tả điểm cần lưu ý>", "highlighted_text": "<Trích dẫn>"}
   ],
   "suggestions": ["<Lời khuyên cải thiện thực sự có giá trị cho BTC>"]
-}
-
-QUY TẮC CỐT LÕI (BẮT BUỘC):
-1. GIẤY PHÉP: Nếu mục Giấy phép là 'KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM' -> BẮT BUỘC xếp vào critical_violations (TERMS_ORGANIZER) và TUYỆT ĐỐI KHÔNG khen giấy phép trong compliant_checks.
-2. HÌNH ẢNH: Đọc kỹ kết quả AI VISION cho từng ảnh. Chỉ đánh giá 'VALID' khi ảnh đã quét và nội dung an toàn (không khiêu dâm/18+, bạo lực, cờ bạc, lừa đảo). Nếu ảnh chưa có hoặc có vấn đề -> báo warning/violation, TUYỆT ĐỐI KHÔNG đưa vào compliant_checks.
-3. CHÍNH TẢ & VĂN BẢN: Soát kỹ từng từ trong Tiêu đề và Mô tả để chỉ ra các từ sai chính tả tiếng Việt.
-4. ĐỊNH DẠNG: TUYỆT ĐỐI KHÔNG chèn link URL ảnh vào bất kỳ trường text nào. Trả lời súc tích, ngắn gọn, đi thẳng vào trọng tâm.`;
+}`;
 
 /**
- * Đánh giá an toàn và tính hợp lệ của ảnh từ mô tả Vision AI.
- * Đảm bảo: Không phải cứ có ảnh là đạt chuẩn. Chỉ khi AI quét xác nhận nội dung không vi phạm mới là VALID.
+ * Đánh giá an toàn và tính hợp lệ của ảnh / tài liệu từ mô tả Vision AI.
  */
-function assessImageSafety(description) {
+function assessImageSafety(description, source = '') {
   const desc = String(description || '').toLowerCase();
+  const isPermit = typeof source === 'string' && source.startsWith('PERMIT');
 
   if (!desc || desc.length < 15 || desc.includes('không thể tải') || desc.includes('failed to load') || desc.includes('error')) {
     return {
       status: 'WARNING',
-      issues: ['Không thể tải hoặc chưa quét được đầy đủ nội dung ảnh qua AI Vision.'],
-      suggestion: 'Vui lòng kiểm tra lại đường dẫn và định dạng hình ảnh.',
+      issues: [isPermit ? 'Không thể tải hoặc chưa quét được nội dung tài liệu giấy phép qua AI Vision.' : 'Không thể tải hoặc chưa quét được đầy đủ nội dung ảnh qua AI Vision.'],
+      suggestion: isPermit ? 'Vui lòng kiểm tra lại đường dẫn và định dạng tệp giấy phép đính kèm.' : 'Vui lòng kiểm tra lại đường dẫn và định dạng hình ảnh.',
+    };
+  }
+
+  // Đánh giá riêng cho tài liệu giấy phép pháp lý (Permits)
+  if (isPermit) {
+    if (desc.includes('giả mạo') || desc.includes('fraudulent') || desc.includes('hết hạn rõ ràng') || desc.includes('severely expired')) {
+      return {
+        status: 'WARNING',
+        issues: ['Tài liệu giấy phép có dấu hiệu cần lưu ý về thời hạn hoặc tính pháp lý.'],
+        suggestion: 'Admin đối chiếu kỹ ngày hiệu lực và đơn vị cấp phép trong tài liệu.',
+      };
+    }
+    return {
+      status: 'VALID',
+      issues: [],
+      suggestion: '',
     };
   }
 
@@ -98,12 +141,12 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
 
   const items = imageAnalysisResults.map((img) => {
     const aiItem = aiItems.find((it) => it.source === img.source);
-    const safety = assessImageSafety(img.description);
+    const safety = assessImageSafety(img.description, img.source);
 
     let status = safety.status;
     let issues = [...safety.issues];
     let suggestion = safety.suggestion;
-    let analysis = cleanAiOutputText(img.description || 'Đã kiểm duyệt hình ảnh và OCR bằng AI Vision.');
+    let analysis = cleanAiOutputText(img.description || (img.source.startsWith('PERMIT') ? 'Đã kiểm tra tài liệu giấy phép qua AI Vision.' : 'Đã kiểm duyệt hình ảnh và OCR bằng AI Vision.'));
 
     if (aiItem) {
       if (aiItem.analysis && aiItem.analysis.length > 10) {
@@ -540,7 +583,12 @@ class EventsAdminService {
         : [];
 
     const permitSummary = permitFiles.length > 0
-      ? `${permitFiles.length} tài liệu đính kèm (${permitFiles.map((f) => f.file_name || f.name || 'Giấy phép').join(', ')})`
+      ? `${permitFiles.length} tài liệu đính kèm:\n` +
+        permitFiles.map((f, idx) => {
+          const name = f.file_name || f.name || `Tài liệu ${idx + 1}`;
+          const type = f.type || (name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/document');
+          return `  + [Tài liệu #${idx + 1}] "${name}" (${type})`;
+        }).join('\n')
       : 'KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM';
 
     // Format image sources & presence status
@@ -582,27 +630,30 @@ Mô tả chi tiết: ${cleanDescription || 'Không có'}
 Hình ảnh sự kiện đã đăng:
 ${imageSummary}
 Thời gian tổng thể: ${event.start_time || 'Chưa rõ'} đến ${event.end_time || 'Chưa rõ'}
-Giấy phép / Tài liệu đính kèm: ${permitSummary}
+Hồ sơ Giấy phép & Tài liệu đính kèm:
+${permitSummary}
 Lịch trình (Sessions): ${sessionSummary}
 Cơ cấu vé (Tickets): ${ticketSummary}
 Chính sách hoàn tiền sự kiện: ${refundSummary}
 
-YÊU CẦU ĐÁNH GIÁ ĐA CHIỀU CHO AI:
-1. SOÁT LỖI CHÍNH TẢ & VĂN BẢN (Title & Description):
+YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
+1. THẨM ĐỊNH HỒ SƠ GIẤY PHÉP (PERMITS & DOCUMENTS REVIEW):
+   - Đọc kỹ kết quả AI VISION / OCR của TỪNG TÀI LIỆU (PERMIT_DOCUMENT_*) bên dưới.
+   - Thẩm định xem tài liệu có phải là Giấy phép tổ chức, Giấy phép ĐKKD, Hợp đồng địa điểm, hoặc Giấy tờ pháp lý hợp lệ không.
+   - NGUYÊN TẮC: Khách quan, thiết thực, KHÔNG QUÁ NHẠY CẢM. Không bắt bẻ tiểu tiết nếu tài liệu đã thể hiện quyền tổ chức hoặc thỏa thuận địa điểm rõ ràng.
+   - Nếu tài liệu hợp lệ -> Đánh giá VALID trong image_review và ghi nhận vào "compliant_checks".
+   - Nếu có điểm cần lưu ý nhỏ (như ngày cấp, phụ lục bổ sung) -> Đưa vào "warnings" hoặc "suggestions" mang tính xây dựng, KHÔNG tự ý REJECT.
+   - NẾU "KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM" hoặc giấy phép hết hạn/giả mạo nghiêm trọng -> BẮT BUỘC đưa vào "critical_violations" (TERMS_ORGANIZER) và KHÔNG khen trong compliant_checks.
+2. SOÁT LỖI CHÍNH TẢ & VĂN BẢN (Title & Description):
    - Soát kỹ từng từ trong Tiêu đề, Mô tả ngắn và Mô tả chi tiết để phát hiện lỗi chính tả tiếng Việt (gõ sai dấu, sai telex, từ viết sai).
    - Liệt kê các từ sai chính tả vào "spelling_grammar_issues" cùng với gợi ý từ đúng.
    - Đánh giá tiêu đề có bị giật tít, lừa đảo, hứa hẹn phi lý không.
-   - Đánh giá mô tả có đầy đủ thông tin thiết yếu và cấu trúc dễ đọc không.
-2. DUYỆT TẤT CẢ HÌNH ẢNH (Image & OCR Review):
-   - Đọc kết quả từ AI VISION cho TỪNG ẢNH bên dưới.
-   - Đánh giá mức độ phù hợp với nội dung sự kiện, phát hiện ảnh vi phạm (bạo lực, 18+, cờ bạc, lừa đảo).
-   - Đọc chữ/OCR trên ảnh: phát hiện lỗi chính tả trên ảnh, mâu thuẫn ngày giờ/địa điểm trên ảnh so với bài đăng.
-   - Đề xuất cải thiện cho từng ảnh trong "image_review.items".
-   - Lưu ý: Ảnh Poster & Banner là bắt buộc; Ảnh trong mô tả là tùy chọn (nếu chưa có thì gợi ý bổ sung trong suggestions).
-3. KIỂM TRA GIẤY PHÉP, LỊCH TRÌNH, VÉ & HOÀN TIỀN:
-   - NẾU "KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM" -> BẮT BUỘC đưa vào critical_violations và TUYỆT ĐỐI KHÔNG khen giấy phép trong compliant_checks.
+3. DUYỆT HÌNH ẢNH & OCR (Image Moderation):
+   - Đọc kết quả từ AI VISION cho Poster, Banner, ảnh mô tả.
+   - Phát hiện ảnh vi phạm (bạo lực, 18+, cờ bạc, lừa đảo). Không cấm ảnh nghệ thuật/thể thao.
+4. LỊCH TRÌNH, VÉ & HOÀN TIỀN:
    - Kiểm tra logic giờ các phiên và tính minh bạch của cơ cấu vé.
-4. ĐỀ XUẤT CẢI THIỆN:
+5. ĐỀ XUẤT CẢI THIỆN:
    - Đưa ra danh sách gợi ý thiết thực để Nhà tổ chức chỉnh sửa hoàn thiện sự kiện.`;
     const imageSources = collectAllEventImages(event);
     const imageAnalysisResults = []; // { source, url, fileName, description }
@@ -621,9 +672,35 @@ YÊU CẦU ĐÁNH GIÁ ĐA CHIỀU CHO AI:
       if (imageSources.length > 0) {
         logger.info(`[AiReview] Bắt đầu phân tích ${imageSources.length} ảnh bằng vision model '${ollamaClient.OLLAMA_VISION_MODEL}'...`);
 
-        // Download images as Base64
+        // Download images / extract document content
         const imagesWithBase64 = [];
         for (const item of imageSources) {
+          const isPermit = item.source && item.source.startsWith('PERMIT');
+
+          if (isPermit) {
+            const docResult = await fetchDocumentContent(item.url, 12000);
+            if (docResult) {
+              if (docResult.type === 'DOCX_TEXT') {
+                const textPreview = docResult.text.slice(0, 600);
+                imageAnalysisResults.push({
+                  source: item.source,
+                  url: item.url || '',
+                  fileName: item.fileName || '',
+                  description: `Văn bản tài liệu (${item.fileName || 'DOCX'}): ${textPreview}`,
+                });
+                continue;
+              } else if (docResult.type === 'IMAGE_BASE64' && docResult.base64) {
+                imagesWithBase64.push({
+                  source: item.source,
+                  url: item.url,
+                  fileName: item.fileName,
+                  base64: docResult.base64,
+                });
+                continue;
+              }
+            }
+          }
+
           const b64 = await fetchImageAsBase64(item.url, 8000);
           if (b64) {
             imagesWithBase64.push({
@@ -633,17 +710,17 @@ YÊU CẦU ĐÁNH GIÁ ĐA CHIỀU CHO AI:
               base64: b64,
             });
           } else {
-            logger.warn(`[AiReview] Không thể tải ảnh [${item.source}]: ${item.url.slice(0, 80)}`);
+            logger.warn(`[AiReview] Không thể tải ảnh/tài liệu [${item.source}]: ${item.url.slice(0, 80)}`);
             imageAnalysisResults.push({
               source: item.source,
               url: item.url || '',
               fileName: item.fileName || '',
-              description: 'KHÔNG THỂ TẢI ẢNH — URL không truy cập được hoặc đã hết hạn.',
+              description: 'KHÔNG THỂ TẢI TÀI LIỆU / ẢNH — URL không truy cập được hoặc đã hết hạn.',
             });
           }
         }
 
-        // Call vision model for each image
+        // Call vision model for images requiring OCR/Visual Inspection
         if (imagesWithBase64.length > 0) {
           const visionResults = await ollamaClient.describeImageBatch(
             imagesWithBase64,
@@ -711,7 +788,7 @@ YÊU CẦU ĐÁNH GIÁ ĐA CHIỀU CHO AI:
           ? parsedJson.suggestions
           : [];
 
-        // 1. Đảm bảo không bỏ sót vi phạm giấy phép nếu DB không có permit
+        // 1. Đảm bảo kiểm tra giấy phép chính xác
         if (permitFiles.length === 0 && !criticalViolations.some((v) => /giấy phép|pháp lý|permit/i.test(v.issue))) {
           criticalViolations.unshift({
             policy_code: 'TERMS_ORGANIZER',
@@ -719,6 +796,22 @@ YÊU CẦU ĐÁNH GIÁ ĐA CHIỀU CHO AI:
             highlighted_text: 'Giấy phép / Tài liệu đính kèm: KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM',
           });
           recommendation = 'REJECT';
+        }
+
+        // Nếu thực tế ĐÃ CÓ giấy phép đính kèm -> Lọc bỏ các cảnh báo sai lệch về việc "thiếu giấy phép" (tránh false positives từ AI)
+        if (permitFiles.length > 0) {
+          criticalViolations = criticalViolations.filter((v) => {
+            if (v.policy_code === 'TERMS_ORGANIZER' && /chưa có giấy phép|thiếu giấy phép|không có giấy phép|chưa tải lên giấy phép/i.test(v.issue)) {
+              return false;
+            }
+            return true;
+          });
+          yellowWarnings = yellowWarnings.filter((w) => {
+            if (w.policy_code === 'TERMS_ORGANIZER' && /chưa có giấy phép|thiếu giấy phép|không có giấy phép|chưa tải lên giấy phép/i.test(w.issue)) {
+              return false;
+            }
+            return true;
+          });
         }
 
         // 2. Kiểm tra Poster chính
@@ -767,6 +860,11 @@ YÊU CẦU ĐÁNH GIÁ ĐA CHIỀU CHO AI:
           }
           return true;
         });
+
+        // Tự động điều chỉnh lại decision nếu không còn critical_violations
+        if (criticalViolations.length === 0 && recommendation === 'REJECT') {
+          recommendation = yellowWarnings.length > 0 ? 'NEEDS_REVIEW' : 'APPROVE';
+        }
 
         // 5. Ảnh trong mô tả: Nếu chưa có -> thêm vào gợi ý (suggestions)
         if (!hasDescImages && !suggestions.some((s) => /mô tả|minh họa/i.test(s))) {
@@ -1007,6 +1105,210 @@ YÊU CẦU ĐÁNH GIÁ ĐA CHIỀU CHO AI:
     }
   }
 
+  async getAutoReviewSettings() {
+    const settings = await systemSettingsRepository.getAutoReviewSettings();
+    const stats = await systemSettingsRepository.getAutoReviewStats();
+    return {
+      settings,
+      stats,
+    };
+  }
+
+  async updateAutoReviewSettings(adminId, payload) {
+    const updated = await systemSettingsRepository.saveAutoReviewSettings(payload, adminId);
+    const stats = await systemSettingsRepository.getAutoReviewStats();
+    return {
+      settings: updated,
+      stats,
+    };
+  }
+
+  async processAutoReviewForEvent(eventId) {
+    const settings = await systemSettingsRepository.getAutoReviewSettings();
+    if (!settings.auto_review_enabled) {
+      logger.info(`[AutoReview] Skipped for event ${eventId}: Auto-review is disabled in system settings.`);
+      return { skipped: true, reason: 'AUTO_REVIEW_DISABLED' };
+    }
+
+    try {
+      logger.info(`[AutoReview] Triggering AI evaluation pipeline for event ${eventId}...`);
+      const aiResult = await this.runAiReview(eventId);
+
+      const event = await eventsAdminRepository.findByIdForAdmin(eventId);
+      if (!event || event.status !== 'PENDING_REVIEW') {
+        logger.info(`[AutoReview] Event ${eventId} is not in PENDING_REVIEW status (${event?.status}). Skipped status transition.`);
+        return { eventId, skipped: true, reason: 'NOT_PENDING_REVIEW', aiResult };
+      }
+
+      const recommendation = aiResult?.recommendation || 'NEEDS_REVIEW';
+      const rawWarnings = aiResult?.warnings || {};
+      const qualityScore = typeof rawWarnings.quality_score === 'number' ? rawWarnings.quality_score : 80;
+      const riskScore = typeof rawWarnings.risk_score === 'number' ? rawWarnings.risk_score : 10;
+      const criticalViolations = Array.isArray(rawWarnings.critical_violations) ? rawWarnings.critical_violations : [];
+      const yellowWarnings = Array.isArray(rawWarnings.warnings) ? rawWarnings.warnings : [];
+      const suggestions = Array.isArray(rawWarnings.suggestions) ? rawWarnings.suggestions : [];
+      const spellingIssues = Array.isArray(rawWarnings.content_review?.spelling_grammar_issues) ? rawWarnings.content_review.spelling_grammar_issues : [];
+
+      let finalAction = 'NEEDS_REVIEW';
+      let reviewNote = '';
+
+      if (
+        settings.auto_approve_enabled &&
+        recommendation === 'APPROVE' &&
+        criticalViolations.length === 0 &&
+        qualityScore >= (settings.min_quality_score || 75) &&
+        riskScore <= (settings.max_risk_score || 25)
+      ) {
+        finalAction = 'APPROVED';
+        reviewNote = `[TỰ ĐỘNG DUYỆT BỞI AI] ${rawWarnings.summary || 'Sự kiện đáp ứng đầy đủ tiêu chuẩn kiểm duyệt của EventHub.'}`;
+      } else if (
+        settings.auto_reject_enabled &&
+        (recommendation === 'REJECT' || criticalViolations.length > 0 || riskScore >= 70)
+      ) {
+        finalAction = 'REJECTED';
+        reviewNote = `[TỰ ĐỘNG TỪ CHỐI BỞI AI] ${rawWarnings.summary || 'Sự kiện chưa đạt yêu cầu kiểm duyệt hoặc vi phạm chính sách nền tảng.'}`;
+      }
+
+      if (finalAction === 'APPROVED' || finalAction === 'REJECTED') {
+        const updated = await eventsAdminRepository.reviewEvent({
+          eventId,
+          reviewedBy: null, // Auto AI
+          status: finalAction,
+          reviewNote,
+        });
+
+        if (settings.auto_notify_organizer) {
+          this._notifyAutoReview({
+            organizerUserId: event.organizer_user_id,
+            organizerEmail:  event.organizer_business_email || event.organizer_user_email,
+            eventId:         event.id,
+            eventTitle:      event.title,
+            status:          finalAction,
+            reviewNote,
+            criticalViolations,
+            warnings:        yellowWarnings,
+            suggestions,
+            spellingIssues,
+          }).catch((err) => logger.warn(`[processAutoReviewForEvent] notification failed: ${err.message}`));
+        }
+
+        logger.info(`[AutoReview] Event ${eventId} automatically transitioned to ${finalAction}`);
+        return { eventId, action: finalAction, event: updated, aiResult };
+      }
+
+      logger.info(`[AutoReview] Event ${eventId} evaluated as NEEDS_REVIEW (requires manual admin review)`);
+      return { eventId, action: 'NEEDS_REVIEW', event, aiResult };
+    } catch (err) {
+      logger.error(`[AutoReview] Error processing auto-review for event ${eventId}: ${err.message}`);
+      return { eventId, error: err.message };
+    }
+  }
+
+  async runBatchAutoReview(adminId) {
+    const pendingEvents = await systemSettingsRepository.getPendingEventIds();
+    const results = [];
+    let approvedCount = 0;
+    let rejectedCount = 0;
+    let pendingCount = 0;
+    let errorCount = 0;
+
+    for (const pending of pendingEvents) {
+      try {
+        const res = await this.processAutoReviewForEvent(pending.id);
+        if (res.action === 'APPROVED') approvedCount++;
+        else if (res.action === 'REJECTED') rejectedCount++;
+        else if (res.action === 'NEEDS_REVIEW') pendingCount++;
+        else if (res.error) errorCount++;
+        results.push(res);
+      } catch (e) {
+        errorCount++;
+        results.push({ eventId: pending.id, error: e.message });
+      }
+    }
+
+    const stats = await systemSettingsRepository.getAutoReviewStats();
+    return {
+      total_processed: pendingEvents.length,
+      approved_count: approvedCount,
+      rejected_count: rejectedCount,
+      needs_review_count: pendingCount,
+      error_count: errorCount,
+      results,
+      stats,
+    };
+  }
+
+  async _notifyAutoReview({
+    organizerUserId,
+    organizerEmail,
+    eventId,
+    eventTitle,
+    status,
+    reviewNote,
+    criticalViolations = [],
+    warnings = [],
+    suggestions = [],
+    spellingIssues = [],
+  }) {
+    if (!organizerUserId) return;
+
+    const isApproved = status === 'APPROVED';
+    const title = isApproved
+      ? `[Hệ thống AI] Sự kiện "${eventTitle}" đã được tự động phê duyệt`
+      : `[Hệ thống AI] Sự kiện "${eventTitle}" chưa đạt yêu cầu kiểm duyệt`;
+
+    let content = isApproved
+      ? `Chúc mừng bạn! Sự kiện "${eventTitle}" đã vượt qua quá trình thẩm định tự động của Hệ thống AI và được phê duyệt. Bạn có thể xuất bản sự kiện bất cứ lúc nào từ trang quản lý sự kiện.`
+      : `Sự kiện "${eventTitle}" của bạn chưa đạt yêu cầu kiểm duyệt tự động từ Hệ thống AI và đã bị từ chối.`;
+
+    if (reviewNote) {
+      content += `\n\n📌 Đánh giá tổng quan: ${reviewNote.replace('[TỰ ĐỘNG DUYỆT BỞI AI] ', '').replace('[TỰ ĐỘNG TỪ CHỐI BỞI AI] ', '')}`;
+    }
+
+    if (criticalViolations.length > 0) {
+      content += '\n\n❌ Các vi phạm cần khắc phục:';
+      criticalViolations.forEach((v, idx) => {
+        content += `\n  ${idx + 1}. [${v.policy_code || 'QUY ĐỊNH'}] ${v.issue}`;
+        if (v.highlighted_text) content += ` (Trích dẫn: "${v.highlighted_text}")`;
+      });
+    }
+
+    if (warnings.length > 0) {
+      content += '\n\n⚠️ Cảnh báo & Lưu ý:';
+      warnings.forEach((w, idx) => {
+        content += `\n  ${idx + 1}. ${w.issue}`;
+      });
+    }
+
+    if (spellingIssues.length > 0) {
+      content += '\n\n📝 Gợi ý sửa lỗi chính tả & câu chữ:';
+      spellingIssues.forEach((s, idx) => {
+        content += `\n  ${idx + 1}. ${s}`;
+      });
+    }
+
+    if (suggestions.length > 0) {
+      content += '\n\n💡 Đề xuất cải thiện từ AI:';
+      suggestions.forEach((sg, idx) => {
+        content += `\n  - ${sg}`;
+      });
+    }
+
+    if (!isApproved) {
+      content += '\n\nVui lòng điều chỉnh lại thông tin, bổ sung giấy phép/hình ảnh phù hợp và gửi lại yêu cầu duyệt để được hỗ trợ.';
+    }
+
+    await notificationsService.createAndDispatch(
+      {
+        userId: organizerUserId,
+        eventId,
+        title,
+        content,
+        type: 'EVENT',
+      },
+      organizerEmail ? { email: organizerEmail } : {},
+    );
+  }
 }
 
 module.exports = new EventsAdminService();

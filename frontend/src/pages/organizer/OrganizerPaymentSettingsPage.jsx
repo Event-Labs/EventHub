@@ -20,7 +20,6 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   WalletCards,
   Wifi,
 } from 'lucide-react'
@@ -108,7 +107,7 @@ const PAYOS_PAYOUT_GUIDE_STEPS = [
     stepNumber: 4,
     title: 'Lấy bộ 3 Key Kênh chi & Dán vào form',
     detail: 'Sau khi kênh chi kích hoạt thành công, copy Client ID, API Key và Checksum Key của Kênh chi và dán vào form bên cạnh, sau đó nhấn "Kiểm tra kết nối Kênh chi".',
-    note: 'Nếu kích hoạt Kênh chi trên cùng ứng dụng/kênh hiện tại, bạn có thể chọn "Dùng chung bộ khóa với Kênh thu".',
+    note: 'Bộ 3 khóa này được cấp riêng cho Kênh chi trên PayOS để đảm bảo tính an toàn và phân quyền độc lập.',
     badge: 'Kết nối API',
   },
 ]
@@ -149,7 +148,6 @@ export function OrganizerPaymentSettingsPage() {
   const [activeTab, setActiveTab] = useState(() => location.state?.tab || 'inbound')
 
   // Payout Channel State
-  const [payoutMode, setPayoutMode] = useState('same') // 'same' | 'custom'
   const [payoutFormData, setPayoutFormData] = useState({
     client_id: '',
     api_key: '',
@@ -218,9 +216,6 @@ export function OrganizerPaymentSettingsPage() {
             api_key: '',
             checksum_key: '',
           })
-          setPayoutMode('custom')
-        } else if (incoming.payout_status === 'SAME_AS_INBOUND') {
-          setPayoutMode('same')
         }
 
         if (incoming.status === 'ACTIVE') {
@@ -261,20 +256,18 @@ export function OrganizerPaymentSettingsPage() {
     [channel],
   )
 
-  const isPayoutActive = channel?.payout_status === 'ACTIVE' || channel?.payout_status === 'SAME_AS_INBOUND'
+  const isPayoutActive = channel?.payout_status === 'ACTIVE' && Boolean(channel?.payout_client_id)
   const hasStoredPayoutCredentials = Boolean(channel?.payout_client_id)
 
   const safePayoutMeta = useMemo(
     () => ({
       merchantId: channel?.payout_client_id
         ? maskValue(channel.payout_client_id, 6)
-        : channel?.payout_status === 'SAME_AS_INBOUND'
-        ? safeChannelMeta.merchantId
         : 'PAYOS_••••••',
       connectionKey: '••••••••••••',
       verificationKey: '••••••••••••',
     }),
-    [channel, safeChannelMeta],
+    [channel],
   )
 
   const runConnectionTest = async () => {
@@ -338,30 +331,24 @@ export function OrganizerPaymentSettingsPage() {
     setPayoutTesting(true)
     setPayoutTestState({ status: 'loading', message: '', balance: null })
     try {
-      if (payoutMode === 'same') {
-        await api.post('/organizer/payments/channel/payout', {
-          use_inbound_for_payout: true,
-        })
-      } else {
-        const hasStored = Boolean(channel?.payout_client_id)
-        const hasNewInput =
-          payoutFormData.api_key.trim() ||
-          payoutFormData.checksum_key.trim() ||
-          payoutFormData.client_id.trim() !== (channel?.payout_client_id || '')
+      const hasStored = Boolean(channel?.payout_client_id)
+      const hasNewInput =
+        payoutFormData.api_key.trim() ||
+        payoutFormData.checksum_key.trim() ||
+        payoutFormData.client_id.trim() !== (channel?.payout_client_id || '')
 
-        if (!hasStored || hasNewInput) {
-          if (!payoutFormData.client_id.trim() || !payoutFormData.api_key.trim() || !payoutFormData.checksum_key.trim()) {
-            throw new Error('Vui lòng nhập đầy đủ Client ID, API Key và Checksum Key cho Kênh chi.')
-          }
+      if (!hasStored || hasNewInput) {
+        if (!payoutFormData.client_id.trim() || !payoutFormData.api_key.trim() || !payoutFormData.checksum_key.trim()) {
+          throw new Error('Vui lòng nhập đầy đủ Client ID, API Key và Checksum Key cho Kênh chi.')
         }
-
-        await api.post('/organizer/payments/channel/payout', {
-          use_inbound_for_payout: false,
-          payout_client_id: payoutFormData.client_id.trim(),
-          payout_api_key: payoutFormData.api_key.trim() || undefined,
-          payout_checksum_key: payoutFormData.checksum_key.trim() || undefined,
-        })
       }
+
+      await api.post('/organizer/payments/channel/payout', {
+        use_inbound_for_payout: false,
+        payout_client_id: payoutFormData.client_id.trim(),
+        payout_api_key: payoutFormData.api_key.trim() || undefined,
+        payout_checksum_key: payoutFormData.checksum_key.trim() || undefined,
+      })
 
       const res = await api.post('/organizer/payments/channel/payout/test')
       const data = res.data?.data
@@ -439,7 +426,7 @@ export function OrganizerPaymentSettingsPage() {
           {isPayoutActive ? (
             <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">
               <CheckCircle2 className="size-3" />
-              {channel?.payout_status === 'SAME_AS_INBOUND' ? 'Dùng chung Kênh thu' : 'Đang hoạt động'}
+              Đang hoạt động
             </span>
           ) : (
             <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/15 px-2.5 py-0.5 text-xs font-semibold text-warning">
@@ -835,10 +822,8 @@ export function OrganizerPaymentSettingsPage() {
                   </h3>
                   <p className="mt-1 text-sm text-subtle">
                     {isPayoutActive
-                      ? channel?.payout_status === 'SAME_AS_INBOUND'
-                        ? 'Hệ thống đang sử dụng bộ khóa Kênh thu để chi hoàn tiền tự động qua PayOS.'
-                        : 'Hệ thống đang sử dụng bộ khóa Kênh chi riêng đã xác thực thành công với PayOS.'
-                      : 'Khi Ban tổ chức duyệt yêu cầu hoàn tiền, hệ thống sẽ ưu tiên dùng cổng PayOS Payouts tự động nếu đã kích hoạt, hoặc hướng dẫn quét mã VietQR để hoàn tiền.'}
+                      ? 'Hệ thống đang sử dụng bộ khóa Kênh chi riêng đã xác thực thành công với PayOS.'
+                      : 'Để thực hiện hoàn tiền tự động qua PayOS, Ban tổ chức vui lòng cài đặt bộ khóa Kênh chi riêng và xác thực kết nối.'}
                   </p>
                 </div>
               </div>
@@ -847,7 +832,7 @@ export function OrganizerPaymentSettingsPage() {
                 <button
                   type="button"
                   onClick={runPayoutConnectionTest}
-                  disabled={payoutTesting}
+                  disabled={payoutTesting || (!payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
                   className="flex items-center gap-2 rounded-xl border border-border-soft/40 bg-surface px-4 py-2 text-sm font-semibold text-content hover:bg-surface/80 disabled:opacity-50"
                 >
                   <RefreshCw className={`size-4 ${payoutTesting ? 'animate-spin text-primary' : ''}`} />
@@ -862,71 +847,8 @@ export function OrganizerPaymentSettingsPage() {
             <div>
               <h2 className="text-2xl font-bold text-content">Cấu hình Kênh chi (Payouts / Chi hộ)</h2>
               <p className="mt-1 text-sm text-subtle">
-                Chọn phương thức cấu hình bộ khóa cho Kênh chi và làm theo hướng dẫn các bước để kích hoạt dịch vụ trên payOS.
+                Cài đặt bộ khóa Kênh chi riêng và làm theo các bước hướng dẫn bên dưới để kích hoạt dịch vụ trên payOS.
               </p>
-            </div>
-
-            {/* Mode Selector Cards */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setPayoutMode('same')}
-                className={`rounded-2xl border p-5 text-left transition ${
-                  payoutMode === 'same'
-                    ? 'border-primary bg-primary/10 shadow-sm'
-                    : 'border-border-soft/30 bg-panel-soft/60 hover:border-border-soft'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-xl bg-primary/20 text-primary">
-                      <WalletCards className="size-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-content text-sm">Dùng chung với Kênh thu</h4>
-                      <p className="text-xs text-subtle">Khuyên dùng nếu cùng tài khoản</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`size-4 rounded-full border-2 transition ${
-                      payoutMode === 'same' ? 'border-primary bg-primary' : 'border-border-soft/50'
-                    }`}
-                  />
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-subtle">
-                  Sử dụng trực tiếp Client ID, API Key và Checksum Key của Kênh thu hiện tại. Phù hợp khi bạn đã bật Kênh chi trên cùng ứng dụng PayOS.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPayoutMode('custom')}
-                className={`rounded-2xl border p-5 text-left transition ${
-                  payoutMode === 'custom'
-                    ? 'border-primary bg-primary/10 shadow-sm'
-                    : 'border-border-soft/30 bg-panel-soft/60 hover:border-border-soft'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-xl bg-tertiary/20 text-tertiary">
-                      <KeyRound className="size-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-content text-sm">Nhập bộ khóa Kênh chi riêng</h4>
-                      <p className="text-xs text-subtle">Dành cho Kênh chi độc lập</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`size-4 rounded-full border-2 transition ${
-                      payoutMode === 'custom' ? 'border-primary bg-primary' : 'border-border-soft/50'
-                    }`}
-                  />
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-subtle">
-                  Nhập riêng bộ 3 thông số Client ID, API Key, Checksum Key được payOS cấp riêng cho Kênh chi / Kênh chuyển tiền.
-                </p>
-              </button>
             </div>
 
             {/* Split Grid: Checklist on left, Form on right */}
@@ -998,7 +920,7 @@ export function OrganizerPaymentSettingsPage() {
                                           navigator.clipboard.writeText(serverIp)
                                           toast.success(`Đã sao chép IP máy chủ: ${serverIp}`)
                                         }}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 font-bold text-slate-950 hover:opacity-90 transition shadow-sm"
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1.5 font-bold text-[#0D1B2A] hover:opacity-90 transition shadow-sm"
                                       >
                                         <Copy className="size-3.5" />
                                         Sao chép IP
@@ -1034,14 +956,10 @@ export function OrganizerPaymentSettingsPage() {
               <section className="space-y-5 rounded-2xl border border-border-soft/30 bg-surface p-5">
                 <div>
                   <h3 className="text-base font-bold text-content">
-                    {payoutMode === 'same'
-                      ? 'Xác nhận kết nối Kênh chi dùng chung'
-                      : 'Nhập 3 key Kênh chi từ payOS'}
+                    Nhập 3 key Kênh chi từ payOS
                   </h3>
                   <p className="mt-1 text-sm text-subtle">
-                    {payoutMode === 'same'
-                      ? 'Hệ thống sẽ dùng thông tin kết nối của Kênh thu để xác thực lệnh chi hộ với PayOS.'
-                      : 'Dán đúng thứ tự: Client ID, API Key, Checksum Key được cấp riêng cho Kênh chi.'}
+                    Dán đúng thứ tự: Client ID, API Key, Checksum Key được cấp riêng cho Kênh chi.
                   </p>
                 </div>
 
@@ -1054,66 +972,47 @@ export function OrganizerPaymentSettingsPage() {
                   <div className="flex items-center justify-between border-t border-border-soft/20 pt-1.5">
                     <span className="text-subtle">Khóa Kênh chi (Hoàn tiền):</span>
                     <span className="font-mono text-primary font-bold">
-                      {payoutMode === 'same'
-                        ? `${safeChannelMeta.merchantId} (Dùng chung)`
-                        : hasStoredPayoutCredentials
+                      {hasStoredPayoutCredentials
                         ? safePayoutMeta.merchantId
                         : 'Chưa cấu hình'}
                     </span>
                   </div>
                 </div>
 
-                {payoutMode === 'same' ? (
-                  <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-                    <div className="flex items-center gap-2 font-semibold text-primary">
-                      <ShieldCheck className="size-4" />
-                      Thông tin Kênh thu đang liên kết
-                    </div>
-                    <div className="grid gap-2 text-content">
-                      <p><span className="font-medium text-muted">Client ID:</span> {safeChannelMeta.merchantId}</p>
-                      <p><span className="font-medium text-muted">API Key:</span> {safeChannelMeta.connectionKey}</p>
-                      <p><span className="font-medium text-muted">Trạng thái:</span> {channel?.status === 'ACTIVE' ? 'Đang hoạt động' : 'Chưa kích hoạt'}</p>
-                    </div>
-                    <p className="text-xs text-subtle leading-relaxed border-t border-primary/20 pt-2">
-                      Nhấn nút bên dưới để hệ thống gửi yêu cầu kiểm tra tới API PayOS Payouts xem tài khoản đã được cấp quyền Chi hộ hay chưa.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <CredentialField
-                      id="payout-client-id"
-                      label="Client ID (Kênh chi)"
-                      icon={Copy}
-                      value={payoutFormData.client_id}
-                      placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.merchantId}` : 'Dán Client ID Kênh chi'}
-                      onChange={(value) => setPayoutFormData((prev) => ({ ...prev, client_id: value }))}
-                    />
-                    <CredentialField
-                      id="payout-api-key"
-                      label="API Key (Kênh chi)"
-                      icon={KeyRound}
-                      type="password"
-                      value={payoutFormData.api_key}
-                      placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.connectionKey}` : 'Dán API Key Kênh chi'}
-                      onChange={(value) => setPayoutFormData((prev) => ({ ...prev, api_key: value }))}
-                    />
-                    <CredentialField
-                      id="payout-checksum-key"
-                      label="Checksum Key (Kênh chi)"
-                      icon={ShieldCheck}
-                      type="password"
-                      value={payoutFormData.checksum_key}
-                      placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.verificationKey}` : 'Dán Checksum Key Kênh chi'}
-                      onChange={(value) => setPayoutFormData((prev) => ({ ...prev, checksum_key: value }))}
-                    />
-                  </div>
-                )}
+                <div className="space-y-4">
+                  <CredentialField
+                    id="payout-client-id"
+                    label="Client ID (Kênh chi)"
+                    icon={Copy}
+                    value={payoutFormData.client_id}
+                    placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.merchantId}` : 'Dán Client ID Kênh chi'}
+                    onChange={(value) => setPayoutFormData((prev) => ({ ...prev, client_id: value }))}
+                  />
+                  <CredentialField
+                    id="payout-api-key"
+                    label="API Key (Kênh chi)"
+                    icon={KeyRound}
+                    type="password"
+                    value={payoutFormData.api_key}
+                    placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.connectionKey}` : 'Dán API Key Kênh chi'}
+                    onChange={(value) => setPayoutFormData((prev) => ({ ...prev, api_key: value }))}
+                  />
+                  <CredentialField
+                    id="payout-checksum-key"
+                    label="Checksum Key (Kênh chi)"
+                    icon={ShieldCheck}
+                    type="password"
+                    value={payoutFormData.checksum_key}
+                    placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.verificationKey}` : 'Dán Checksum Key Kênh chi'}
+                    onChange={(value) => setPayoutFormData((prev) => ({ ...prev, checksum_key: value }))}
+                  />
+                </div>
 
                 {/* Test / Verify Action Button */}
                 <button
                   type="button"
                   onClick={runPayoutConnectionTest}
-                  disabled={payoutTesting || (payoutMode === 'custom' && !payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
+                  disabled={payoutTesting || (!payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
                   className="org-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50 py-3 font-bold"
                 >
                   {payoutTesting ? (
@@ -1155,26 +1054,9 @@ export function OrganizerPaymentSettingsPage() {
                       Không thể kết nối Kênh chi
                     </div>
                     <p className="text-xs leading-relaxed">{payoutTestState.message}</p>
-                    <div className="rounded-lg bg-surface/80 p-2.5 text-[12px] text-subtle border border-error/20">
-                      💡 <strong>Gợi ý:</strong> Nếu tài khoản PayOS chưa kịp kích hoạt Kênh chi hoặc chưa có ví Bảo Kim, Ban tổ chức hoàn toàn có thể chọn phương thức <strong>"Chuyển khoản thủ công" (quét mã VietQR)</strong> trong trang Hoàn tiền để hoàn tất giao dịch ngay lập tức.
-                    </div>
                   </div>
                 )}
               </section>
-            </div>
-          </div>
-
-          {/* Manual Transfer Notice Card */}
-          <div className="rounded-2xl border border-tertiary/30 bg-tertiary/10 p-5">
-            <div className="flex items-start gap-3">
-              <Sparkles className="size-5 text-primary shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <h4 className="font-bold text-content">Phương án hoàn tiền không cần kích hoạt Kênh chi</h4>
-                <p className="mt-1 text-subtle leading-relaxed">
-                  Đối với các sự kiện vừa và nhỏ hoặc đang thử nghiệm, việc đăng ký hồ sơ doanh nghiệp và ký quỹ ví Bảo Kim có thể mất thời gian.
-                  EventHub đã tích hợp sẵn tính năng <strong>Chuyển khoản thủ công</strong>: khi duyệt hoàn tiền, hệ thống sẽ tự động tạo một mã <strong>VietQR</strong> chứa đúng số tiền, số tài khoản và ngân hàng của khách hàng để Ban tổ chức chỉ cần mở app ngân hàng quét mã chuyển tiền trong 3 giây.
-                </p>
-              </div>
             </div>
           </div>
         </div>

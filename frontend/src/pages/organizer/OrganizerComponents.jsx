@@ -13,7 +13,7 @@ export function OrganizerPage({ title, description, action, actionTo, onAction, 
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-black text-white drop-shadow-sm tracking-tight">
+          <h1 className="font-display text-3xl font-black tracking-tight">
             {renderCosmicTitle(title)}
           </h1>
           {description && <p className="mt-1.5 text-[15px] text-slate-400">{description}</p>}
@@ -55,35 +55,37 @@ export function OrganizerPanel({ children, className = '' }) {
  */
 export function OrganizerTable({ headers, rows }) {
   return (
-    <div className="overflow-x-auto glass-panel rounded-[24px] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-      <table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="bg-slate-900/40">
-          <tr className="border-b border-white/10">
-            {headers.map((header) => (
-              <th
-                key={header}
-                className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400"
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
-          {rows.map((row, rowIndex) => (
-            <tr
-              key={rowIndex}
-              className="transition-colors hover:bg-white/[0.02]"
-            >
-              {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="px-6 py-4 align-middle text-[14px] text-slate-200">
-                  {cell}
-                </td>
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-left text-xs">
+          <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <tr>
+              {headers.map((header) => (
+                <th
+                  key={header}
+                  className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400"
+                >
+                  {header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+            {rows.map((row, rowIndex) => (
+              <tr
+                key={rowIndex}
+                className="transition-colors hover:bg-white/[0.02]"
+              >
+                {row.map((cell, cellIndex) => (
+                  <td key={cellIndex} className="px-4 py-3.5 align-middle text-slate-200">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -103,28 +105,8 @@ export function SearchBar({ placeholder = 'Search...' }) {
   )
 }
 
-/**
- * Badge
- */
-export function Badge({ children, tone = 'blue' }) {
-  const tones = {
-    blue: 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]',
-    purple: 'bg-ai/20 text-ai border-ai/30 shadow-[0_0_10px_rgba(236,72,153,0.15)]',
-    green: 'bg-success/20 text-success border-success/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]',
-    red: 'bg-error/20 text-error border-error/30 shadow-[0_0_10px_rgba(239,68,68,0.15)]',
-    amber: 'bg-warning/20 text-warning border-warning/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]',
-    gray: 'bg-white/10 text-slate-300 border-white/20',
-    orange: 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.15)]',
-  }
-
-  return (
-    <span
-      className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${tones[tone] || tones.gray}`}
-    >
-      {children}
-    </span>
-  )
-}
+export { Badge, StatusBadge, resolveStatusConfig } from '@/components/StatusBadge.jsx'
+export { TableActionButton } from '@/components/TableActionButton.jsx'
 
 /**
  * Insight – AI callout block
@@ -226,11 +208,10 @@ export function ConfirmModal({ open, title = 'Xác nhận hành động', messag
           <button
             type="button"
             onClick={onConfirm}
-            className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
-              tone === 'danger'
+            className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${tone === 'danger'
                 ? 'bg-error text-white hover:bg-error/90 shadow-sm'
-                : 'bg-primary text-white hover:bg-primary/90 shadow-sm'
-            }`}
+                : 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm hover:brightness-110'
+              }`}
           >
             {confirmText}
           </button>

@@ -608,6 +608,20 @@ class OrganizerEventsService {
       short_description: fullEvent.short_description,
     });
 
+    // Kích hoạt AI Auto-Review & Auto-Decision pipeline (chạy nền bất đồng bộ)
+    setTimeout(() => {
+      try {
+        const eventsAdminService = require('../admin/events.service');
+        eventsAdminService.processAutoReviewForEvent(eventId).catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn(`[submitEvent] Auto-review background job failed for event ${eventId}: ${err.message}`);
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(`[submitEvent] Failed to initialize auto-review for event ${eventId}: ${err.message}`);
+      }
+    }, 1000);
+
     return mapEvent(event);
   }
 

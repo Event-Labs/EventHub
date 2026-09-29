@@ -22,8 +22,10 @@ import {
   AlertCircle,
   Check,
   X,
+  Eye,
+  Download,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 
@@ -40,6 +42,47 @@ import { Page, Panel, Badge, ImagePlaceholder } from './AdminComponents.jsx'
 // ---------------------------------------------------------------------------
 // Constants & Helpers
 // ---------------------------------------------------------------------------
+function formatFileSize(bytes) {
+  if (!bytes || Number.isNaN(Number(bytes))) return ''
+  const b = Number(bytes)
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function resolvePermit(permit, idx) {
+  if (!permit) return null
+  if (typeof permit === 'string') {
+    const cleanUrl = permit.trim()
+    const fileName = cleanUrl.split('/').pop()?.split('?')[0] || `Tài liệu #${idx + 1}`
+    const isPdf = cleanUrl.toLowerCase().includes('.pdf')
+    const isImg = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(cleanUrl)
+    return {
+      id: `doc-${idx}`,
+      name: decodeURIComponent(fileName),
+      url: cleanUrl,
+      size: null,
+      type: isPdf ? 'application/pdf' : isImg ? 'image/jpeg' : 'document',
+    }
+  }
+
+  const url = permit?.url || permit?.file_url || permit?.secure_url || permit?.link || ''
+  const rawName = permit?.name || permit?.file_name || permit?.filename || permit?.title
+  const fileName = rawName || (url ? decodeURIComponent(url.split('/').pop()?.split('?')[0]) : `Giấy phép #${idx + 1}`)
+  const type = permit?.type || permit?.mime_type || ''
+  const isPdf = type.includes('pdf') || fileName.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('.pdf')
+  const isImg = type.includes('image') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(fileName) || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url)
+
+  return {
+    id: permit?.id || `permit-${idx}`,
+    name: fileName,
+    url,
+    size: permit?.size || permit?.file_size || null,
+    type: isPdf ? 'application/pdf' : isImg ? 'image/jpeg' : (type || 'document'),
+    uploaded_at: permit?.uploaded_at || null,
+  }
+}
+
 function formatDate(value) {
   if (!value) return '—'
   return new Date(value).toLocaleString('vi-VN', {
@@ -499,6 +542,17 @@ export function AdminEventReviewDetailPage() {
   const queryClient = useQueryClient()
 
   const [confirmState, setConfirmState] = useState(null)
+  const [previewDoc, setPreviewDoc] = useState(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && previewDoc) {
+        setPreviewDoc(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [previewDoc])
 
   // -------------------------------------------------------------------------
   // Queries
@@ -788,36 +842,90 @@ export function AdminEventReviewDetailPage() {
               {/* Extra Details */}
               <div className="space-y-6">
                 {/* Event Permits Section */}
-                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
-                  <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-                    <ShieldCheck className="size-5 text-indigo-400" />
-                    <h3 className="font-display text-base font-black text-white">Giấy phép & Tài liệu đính kèm</h3>
-                  </div>
+                {(() => {
+                  const permitsList = (Array.isArray(event.permits) && event.permits.length > 0)
+                    ? event.permits
+                    : (Array.isArray(event.refund_policy?.permit_files) && event.refund_policy.permit_files.length > 0)
+                      ? event.refund_policy.permit_files
+                      : []
 
-                  {event.permits && event.permits.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {event.permits.map((permit, idx) => (
-                        <div key={idx} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <FileText className="size-5 shrink-0 text-slate-400" />
-                            <span className="truncate text-xs font-medium text-slate-200">{permit?.file_name || `Giấy phép #${idx + 1}`}</span>
-                          </div>
-                          <a
-                            href={permit?.file_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="ml-2 flex shrink-0 items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-[11px] font-bold text-indigo-400 hover:bg-white/10"
-                          >
-                            <span>Xem</span>
-                            <ExternalLink className="size-3" />
-                          </a>
+                  return (
+                    <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="size-5 text-indigo-400" />
+                          <h3 className="font-display text-base font-black text-white">Giấy phép & Tài liệu đính kèm</h3>
                         </div>
-                      ))}
+                        {permitsList.length > 0 && (
+                          <span className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-indigo-300 border border-indigo-500/20">
+                            {permitsList.length} tài liệu
+                          </span>
+                        )}
+                      </div>
+
+                      {permitsList.length > 0 ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {permitsList.map((rawPermit, idx) => {
+                            const permit = resolvePermit(rawPermit, idx)
+                            if (!permit) return null
+                            return (
+                              <div
+                                key={permit.id || idx}
+                                className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3 transition hover:border-white/15 hover:bg-white/[0.06]"
+                              >
+                                <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
+                                    {permit.type.includes('pdf') ? (
+                                      <FileText className="size-4" />
+                                    ) : permit.type.includes('image') ? (
+                                      <ImageIcon className="size-4" />
+                                    ) : (
+                                      <FileCheck className="size-4" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="truncate block text-xs font-semibold text-slate-200 group-hover:text-white transition" title={permit.name}>
+                                      {permit.name}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                                      <span>{permit.type.includes('pdf') ? 'PDF' : permit.type.includes('image') ? 'Ảnh' : 'Tài liệu'}</span>
+                                      {permit.size && (
+                                        <>
+                                          <span>•</span>
+                                          <span>{formatFileSize(permit.size)}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                                  {permit.url ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewDoc(permit)}
+                                        className="flex items-center gap-1 rounded-lg bg-indigo-500/20 px-2.5 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition shadow-sm"
+                                        title="Xem tài liệu trực tiếp"
+                                      >
+                                        <Eye className="size-3" />
+                                        <span>Xem</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span className="text-[11px] text-slate-500 italic">Không có link</span>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs italic text-slate-500">Không có giấy phép đính kèm.</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-xs italic text-slate-500">Không có giấy phép đính kèm.</p>
-                  )}
-                </div>
+                  )
+                })()}
 
                 {/* Event Sessions */}
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
@@ -882,6 +990,48 @@ export function AdminEventReviewDetailPage() {
                               : 'Sự kiện không hỗ trợ hoàn tiền.')
                           : 'Áp dụng chính sách hoàn vé tiêu chuẩn của EventHub.')}
                   </p>
+
+                  {event.refund_policy?.policy_file_url && (
+                    <div className="mt-2 flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3 transition hover:border-white/15">
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                        <FileText className="size-5 shrink-0 text-indigo-400" />
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-slate-200">
+                            {event.refund_policy.policy_file_name || 'Tài liệu chính sách hoàn tiền đính kèm.pdf'}
+                          </p>
+                          {event.refund_policy.policy_file_size && (
+                            <p className="text-[10px] text-slate-400">
+                              {formatFileSize(event.refund_policy.policy_file_size)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc({
+                            name: event.refund_policy.policy_file_name || 'Tài liệu chính sách hoàn tiền đính kèm',
+                            url: event.refund_policy.policy_file_url,
+                            type: 'application/pdf',
+                            size: event.refund_policy.policy_file_size,
+                          })}
+                          className="flex items-center gap-1 rounded-lg bg-indigo-500/20 px-2.5 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition"
+                        >
+                          <Eye className="size-3" />
+                          <span>Xem</span>
+                        </button>
+                        <a
+                          href={event.refund_policy.policy_file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex size-7 items-center justify-center rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 transition"
+                          title="Mở trong tab mới"
+                        >
+                          <ExternalLink className="size-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1143,7 +1293,7 @@ export function AdminEventReviewDetailPage() {
                 type="button"
                 onClick={() => onSubmitReview('APPROVED')}
                 disabled={isPending}
-                className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !shadow-[0_0_20px_rgba(59,130,246,0.3)] !px-0 !py-2.5 text-xs font-bold"
+                className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0"
               >
                 Phê duyệt
               </button>
@@ -1170,6 +1320,155 @@ export function AdminEventReviewDetailPage() {
         onConfirm={confirmState?.onConfirm}
         onCancel={() => setConfirmState(null)}
       />
+
+      <DocumentPreviewModal
+        doc={previewDoc}
+        onClose={() => setPreviewDoc(null)}
+      />
+    </div>
+  )
+}
+
+function DocumentPreviewModal({ doc, onClose }) {
+  if (!doc) return null
+
+  const isImage = doc.type?.includes('image') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(doc.url) || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(doc.name)
+  const isPdf = doc.type?.includes('pdf') || doc.url?.toLowerCase().includes('.pdf') || doc.name?.toLowerCase().endsWith('.pdf')
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex flex-col w-full max-w-5xl h-[88vh] rounded-3xl border border-white/10 bg-slate-900 shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5 bg-slate-900/90 backdrop-blur-md">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
+              {isPdf ? (
+                <FileText className="size-5" />
+              ) : isImage ? (
+                <ImageIcon className="size-5" />
+              ) : (
+                <FileCheck className="size-5" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate font-display text-sm sm:text-base font-bold text-white" title={doc.name}>
+                {doc.name}
+              </h3>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span className="uppercase font-semibold text-indigo-300">
+                  {isPdf ? 'Tài liệu PDF' : isImage ? 'Hình ảnh' : 'Tài liệu đính kèm'}
+                </span>
+                {doc.size && (
+                  <>
+                    <span>•</span>
+                    <span>{formatFileSize(doc.size)}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Controls */}
+          <div className="flex items-center gap-2 shrink-0">
+            {doc.url && (
+              <a
+                href={doc.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 hover:text-white transition"
+                title="Mở trong tab mới"
+              >
+                <span>Mở tab mới</span>
+                <ExternalLink className="size-3.5" />
+              </a>
+            )}
+            {doc.url && (
+              <a
+                href={doc.url}
+                download={doc.name}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 hover:text-white transition"
+                title="Tải về máy"
+              >
+                <Download className="size-3.5" />
+                <span className="hidden sm:inline">Tải về</span>
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid size-9 place-items-center rounded-xl bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+              title="Đóng (Esc)"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Content Preview */}
+        <div className="flex-1 bg-black/40 overflow-hidden flex items-center justify-center p-2 sm:p-4">
+          {doc.url ? (
+            isImage ? (
+              <div className="h-full w-full flex items-center justify-center overflow-auto p-2">
+                <img
+                  src={doc.url}
+                  alt={doc.name}
+                  className="max-h-full max-w-full rounded-xl object-contain shadow-2xl border border-white/5"
+                />
+              </div>
+            ) : isPdf ? (
+              <div className="w-full h-full flex flex-col">
+                <iframe
+                  src={`${doc.url}#toolbar=1`}
+                  className="w-full flex-1 rounded-xl border border-white/10 bg-slate-950"
+                  title={doc.name}
+                />
+              </div>
+            ) : (
+              // For DOCX or other docs
+              <div className="flex flex-col items-center justify-center p-8 text-center max-w-md">
+                <div className="grid size-16 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 mb-4 ring-1 ring-indigo-500/20">
+                  <FileText className="size-8" />
+                </div>
+                <h4 className="font-bold text-white text-base mb-1">{doc.name}</h4>
+                <p className="text-xs text-slate-400 mb-6">
+                  Định dạng tài liệu này phù hợp nhất khi mở hoặc xem trong ứng dụng chuyên dụng hoặc tải về.
+                </p>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition"
+                  >
+                    <ExternalLink className="size-4" />
+                    Mở trực tiếp
+                  </a>
+                  <a
+                    href={doc.url}
+                    download={doc.name}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/10 transition"
+                  >
+                    <Download className="size-4" />
+                    Tải về máy
+                  </a>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="text-center p-8 text-slate-500 text-sm">
+              Không tìm thấy đường dẫn tài liệu.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -1194,7 +1493,7 @@ function SparklesIcon(props) {
   )
 }
 
-function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'bg-primary' }) {
+function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'admin-primary' }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
@@ -1205,7 +1504,7 @@ function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmTe
           <button type="button" className="admin-secondary" onClick={onCancel}>
             {cancelText}
           </button>
-          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
+          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
             {confirmText}
           </button>
         </div>
