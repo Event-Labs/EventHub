@@ -104,7 +104,7 @@ function collectAllEventImages(eventData = {}) {
     }
   });
 
-  // 4. Các tệp giấy phép / tài liệu pháp lý nếu là hình ảnh
+  // 4. Các tệp giấy phép / tài liệu pháp lý (hình ảnh hoặc file PDF)
   const permitFiles = Array.isArray(eventData.permits)
     ? eventData.permits
     : Array.isArray(eventData.refund_policy?.permit_files)
@@ -115,13 +115,17 @@ function collectAllEventImages(eventData = {}) {
     const fileUrl = typeof file === 'string' ? file : file?.file_url || file?.url || file?.path;
     if (fileUrl && typeof fileUrl === 'string') {
       const trimmed = fileUrl.trim();
+      const fileName = file?.file_name || file?.name || `Giấy phép ${index + 1}`;
+      const isPdf = trimmed.toLowerCase().includes('.pdf') || (typeof file === 'object' && file?.type?.includes('pdf'));
       const isImg = trimmed.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif|bmp)(\?.*)?$/i.test(trimmed) || trimmed.includes('/image/upload/');
-      if (isImg && !imageSources.some((item) => item.url === trimmed)) {
+      
+      if ((isImg || isPdf) && !imageSources.some((item) => item.url === trimmed)) {
         imageSources.push({
           source: `PERMIT_DOCUMENT_${index + 1}`,
           url: trimmed,
           isBase64: trimmed.startsWith('data:image/'),
-          fileName: file?.file_name || file?.name || `Giấy phép ${index + 1}`,
+          fileName,
+          isPdf,
         });
       }
     }
@@ -160,10 +164,18 @@ async function fetchImageAsBase64(imageUrl, timeoutMs = 8000) {
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       let downloadUrl = trimmed;
 
-      // Tối ưu hóa tải ảnh từ Cloudinary
-      if (downloadUrl.includes('res.cloudinary.com') && downloadUrl.includes('/image/upload/')) {
-        if (!downloadUrl.includes('/w_') && !downloadUrl.includes('/c_limit')) {
-          downloadUrl = downloadUrl.replace('/image/upload/', '/image/upload/w_800,c_limit,q_auto:eco,f_jpg/');
+      // Hỗ trợ Cloudinary CDN: tự động render trang 1 của PDF sang ảnh JPG hoặc tối ưu hóa kích thước ảnh
+      if (downloadUrl.includes('res.cloudinary.com')) {
+        if (downloadUrl.toLowerCase().includes('.pdf')) {
+          if (downloadUrl.includes('/upload/')) {
+            downloadUrl = downloadUrl
+              .replace(/\.pdf(\?.*)?$/i, '.jpg')
+              .replace('/upload/', '/upload/w_1000,c_limit,q_auto:good,f_jpg,pg_1/');
+          }
+        } else if (downloadUrl.includes('/image/upload/')) {
+          if (!downloadUrl.includes('/w_') && !downloadUrl.includes('/c_limit')) {
+            downloadUrl = downloadUrl.replace('/image/upload/', '/image/upload/w_1000,c_limit,q_auto:eco,f_jpg/');
+          }
         }
       }
 
@@ -176,7 +188,7 @@ async function fetchImageAsBase64(imageUrl, timeoutMs = 8000) {
       });
 
       if (!response.ok) {
-        logger.warn(`[htmlImageParser] Failed to fetch image from Cloudinary/Web: ${trimmed.slice(0, 60)} (Status: ${response.status})`);
+        logger.warn(`[htmlImageParser] Failed to fetch image/document from Cloudinary/Web: ${trimmed.slice(0, 60)} (Status: ${response.status})`);
         return null;
       }
 
@@ -192,8 +204,118 @@ async function fetchImageAsBase64(imageUrl, timeoutMs = 8000) {
   }
 }
 
+const zlib = require('zlib');
+
+/**
+ * Trích xuất toàn bộ text từ buffer file .docx (PKZip) chuẩn xác không cần thư viện ngoài
+ */
+function extractTextFromDocxBuffer(buffer) {
+  if (!buffer || buffer.length < 30) return null;
+  try {
+    let offset = 0;
+    while (offset < buffer.length - 30) {
+      if (buffer.readUInt32LE(offset) !== 0x04034b50) {
+        offset++;
+        continue;
+      }
+      const method = buffer.readUInt16LE(offset + 8);
+      const compressedSize = buffer.readUInt32LE(offset + 18);
+      const fileNameLen = buffer.readUInt16LE(offset + 26);
+      const extraLen = buffer.readUInt16LE(offset + 28);
+      const fileName = buffer.toString('utf8', offset + 30, offset + 30 + fileNameLen);
+      const dataStart = offset + 30 + fileNameLen + extraLen;
+
+      if (fileName === 'word/document.xml') {
+        const compressedData = buffer.subarray(dataStart, dataStart + compressedSize);
+        let xmlStr = '';
+        if (method === 8) {
+          xmlStr = zlib.inflateRawSync(compressedData).toString('utf8');
+        } else if (method === 0) {
+          xmlStr = compressedData.toString('utf8');
+        }
+        if (xmlStr) {
+          return xmlStr
+            .replace(/<\/w:p>/gi, '\n')
+            .replace(/<w:tab\/>/gi, '\t')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+      }
+
+      offset = dataStart + compressedSize;
+    }
+  } catch (err) {
+    logger.warn(`[htmlImageParser] Error extracting docx text: ${err.message}`);
+  }
+  return null;
+}
+
+/**
+ * Tải và xử lý nội dung tài liệu đính kèm (DOCX, PDF, Hình ảnh, Text)
+ */
+async function fetchDocumentContent(documentUrl, timeoutMs = 10000) {
+  if (!documentUrl || typeof documentUrl !== 'string') return null;
+  const trimmed = documentUrl.trim();
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return null;
+
+  try {
+    const isDocx = trimmed.toLowerCase().includes('.docx') || trimmed.includes('/raw/upload/');
+    const isPdf = trimmed.toLowerCase().includes('.pdf');
+
+    // Nếu là PDF trên Cloudinary: có thể lấy bản xem trước ảnh JPG
+    let fetchUrl = trimmed;
+    if (isPdf && fetchUrl.includes('res.cloudinary.com') && fetchUrl.includes('/upload/')) {
+      fetchUrl = fetchUrl
+        .replace(/\.pdf(\?.*)?$/i, '.jpg')
+        .replace('/upload/', '/upload/w_1000,c_limit,q_auto:good,f_jpg,pg_1/');
+    }
+
+    const response = await fetch(fetchUrl, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        'User-Agent': 'EventHub-AI-DocumentReader/1.0',
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // 1. Thử bóc tách text nếu là docx
+    if (isDocx || buffer.subarray(0, 4).toString() === 'PK\x03\x04') {
+      const docxText = extractTextFromDocxBuffer(buffer);
+      if (docxText && docxText.length > 5) {
+        return {
+          type: 'DOCX_TEXT',
+          text: docxText,
+          size: buffer.length,
+        };
+      }
+    }
+
+    // 2. Nếu là ảnh hoặc render của PDF -> trả về Base64 cho Vision AI
+    return {
+      type: 'IMAGE_BASE64',
+      base64: buffer.toString('base64'),
+      size: buffer.length,
+    };
+  } catch (err) {
+    logger.warn(`[htmlImageParser] Error fetching document content (${trimmed.slice(0, 60)}): ${err.message}`);
+    return null;
+  }
+}
+
 module.exports = {
   extractImagesFromHtml,
   collectAllEventImages,
   fetchImageAsBase64,
+  extractTextFromDocxBuffer,
+  fetchDocumentContent,
 };

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { 
-  Pencil, 
-  Trash2, 
-  Eye, 
-  Plus, 
-  Search, 
+import {
+  Pencil,
+  Trash2,
+  Eye,
+  Plus,
+  Search,
   AlertCircle,
   Percent,
   DollarSign,
@@ -13,8 +13,8 @@ import {
 import {
   Badge,
   OrganizerPage,
-  OrganizerPanel,
   OrganizerTable,
+  TableActionButton,
 } from './OrganizerComponents.jsx'
 import { Modal } from '../../components/Modal.jsx'
 import promotionService from '../../services/promotions'
@@ -111,13 +111,13 @@ export function OrganizerPromosPage() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
-  
+
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  
+
   const [selectedPromo, setSelectedPromo] = useState(null)
   const [formData, setFormData] = useState({
     code: '',
@@ -174,7 +174,7 @@ export function OrganizerPromosPage() {
   const handleCreate = async (e) => {
     e.preventDefault()
     setFormErrors({})
-    
+
     if (!formData.applyToAllEvents && !formData.eventIds?.length) {
       setFormErrors({ eventIds: 'Vui lòng chọn ít nhất 1 sự kiện áp dụng' })
       return
@@ -199,17 +199,17 @@ export function OrganizerPromosPage() {
       fetchData(filters)
       toast.success('Đã tạo mã khuyến mãi.')
     } catch (error) {
-       if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
-         const issues = error.response.data.data || []
-         const errors = {}
-         issues.forEach(issue => {
-           errors[issue.path[0]] = getPromoMessage(issue.message, 'Dữ liệu không hợp lệ')
-         })
-         setFormErrors(errors)
-       } else {
-         toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể tạo mã khuyến mãi.'))
-       }
-     }
+      if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
+        const issues = error.response.data.data || []
+        const errors = {}
+        issues.forEach(issue => {
+          errors[issue.path[0]] = getPromoMessage(issue.message, 'Dữ liệu không hợp lệ')
+        })
+        setFormErrors(errors)
+      } else {
+        toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể tạo mã khuyến mãi.'))
+      }
+    }
   }
 
   const handleEdit = async (e) => {
@@ -238,16 +238,16 @@ export function OrganizerPromosPage() {
       fetchData(filters)
       toast.success('Đã cập nhật mã khuyến mãi.')
     } catch (error) {
-       if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
-         const issues = error.response.data.data || []
-         const errors = {}
-         issues.forEach(issue => {
-           errors[issue.path[0]] = getPromoMessage(issue.message, 'Dữ liệu không hợp lệ')
-         })
-         setFormErrors(errors)
-       } else {
-         toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể cập nhật mã khuyến mãi.'))
-       }
+      if (error.response?.data?.errorCode === 'VALIDATION_ERROR') {
+        const issues = error.response.data.data || []
+        const errors = {}
+        issues.forEach(issue => {
+          errors[issue.path[0]] = getPromoMessage(issue.message, 'Dữ liệu không hợp lệ')
+        })
+        setFormErrors(errors)
+      } else {
+        toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể cập nhật mã khuyến mãi.'))
+      }
     }
   }
 
@@ -264,8 +264,8 @@ export function OrganizerPromosPage() {
       fetchData(filters)
       toast.success('Đã ngừng hoạt động mã khuyến mãi.')
     } catch (error) {
-       console.error('Error deactivating promo:', error)
-       toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể ngừng hoạt động mã khuyến mãi.'))
+      console.error('Error deactivating promo:', error)
+      toast.error(getPromoMessage(error?.response?.data?.message, 'Không thể ngừng hoạt động mã khuyến mãi.'))
     }
   }
 
@@ -329,15 +329,15 @@ export function OrganizerPromosPage() {
 
   return (
     <OrganizerPage
-      title="Quản lý mã Khuyến mãi"
+      title="Quản lý Mã khuyến mãi"
       description="Tạo và theo dõi hiệu quả sử dụng mã khuyến mãi cho sự kiện."
       action={
-        <button 
-          className={`flex items-center gap-2 ${hasEvents ? 'org-btn-primary' : 'bg-neutral text-muted cursor-not-allowed px-4 py-2 rounded-xl font-bold text-sm'}`} 
-          onClick={() => { 
+        <button
+          className={`flex items-center gap-2 ${hasEvents ? 'org-btn-primary' : 'bg-neutral text-muted cursor-not-allowed px-4 py-2 rounded-xl font-bold text-sm'}`}
+          onClick={() => {
             if (hasEvents) {
-              resetForm(); 
-              setShowCreateModal(true); 
+              resetForm();
+              setShowCreateModal(true);
             }
           }}
           disabled={!hasEvents}
@@ -350,17 +350,17 @@ export function OrganizerPromosPage() {
     >
       {!hasEvents && !loading && (
         <div className="mb-6 rounded-xl bg-warning/10 p-4 border border-warning/30">
-           <div className="flex items-center gap-3 text-warning">
-              <AlertCircle className="size-5 shrink-0" />
-              <div>
-                <p className="text-sm font-bold">Bạn chưa có sự kiện nào</p>
-                <p className="text-sm mt-1 text-subtle">Vui lòng tạo ít nhất một sự kiện trước khi có thể quản lý mã khuyến mãi.</p>
-              </div>
-           </div>
+          <div className="flex items-center gap-3 text-warning">
+            <AlertCircle className="size-5 shrink-0" />
+            <div>
+              <p className="text-sm font-bold">Bạn chưa có sự kiện nào</p>
+              <p className="text-sm mt-1 text-subtle">Vui lòng tạo ít nhất một sự kiện trước khi có thể quản lý mã khuyến mãi.</p>
+            </div>
+          </div>
         </div>
       )}
 
-      <OrganizerPanel className="mb-5">
+      <div className="mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
@@ -373,7 +373,7 @@ export function OrganizerPromosPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-subtle">Trạng thái:</span>
-            <select 
+            <select
               className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary min-w-[140px]"
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
@@ -383,18 +383,8 @@ export function OrganizerPromosPage() {
               ))}
             </select>
           </div>
-          <button 
-            className="text-sm font-bold text-primary hover:underline"
-            onClick={() => {
-              const resetFilters = DEFAULT_FILTERS
-              setFilters(resetFilters)
-              fetchData(resetFilters)
-            }}
-          >
-            Xóa bộ lọc
-          </button>
         </div>
-      </OrganizerPanel>
+      </div>
 
       {loading ? (
         <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-border-soft/30 bg-surface/80">
@@ -405,31 +395,41 @@ export function OrganizerPromosPage() {
         <OrganizerTable
           headers={['Mã khuyến mãi', 'Sự kiện áp dụng', 'Loại giảm giá', 'Theo dõi sử dụng', 'Thời gian áp dụng', 'Trạng thái', 'Thao tác']}
           rows={promos.map((promo) => [
-            <span key="promo" className="font-extrabold text-lg text-primary">{promo.code}</span>,
-            <span key="event" className="text-sm font-semibold text-subtle">{promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}</span>,
-            <span key="type" className="font-medium text-subtle">{getDiscountLabel(promo)}</span>,
+            <span key="promo" className="font-mono text-sm font-bold text-white tracking-wider">{promo.code}</span>,
+            <span key="event" className="text-sm font-medium text-white">{promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}</span>,
+            <span key="type" className="text-sm font-medium text-white">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
-            <span key="period" className="whitespace-nowrap text-sm text-subtle">{formatDateRange(promo.start_time, promo.end_time)}</span>,
+            <span key="period" className="whitespace-nowrap text-sm font-medium text-white">{formatDateRange(promo.start_time, promo.end_time)}</span>,
             <StatusBadge key="status" status={promo.status} />,
-            <div key="actions" className="flex items-center gap-3 text-muted">
-              <button onClick={() => openDetail(promo)} className="rounded-md p-1.5 text-sky-500 transition-all hover:scale-110 hover:bg-sky-500/10 hover:text-sky-400" title="Xem chi tiết"><Eye className="size-4" /></button>
-              <button 
-                onClick={() => openEdit(promo)} 
-                className={`rounded-md p-1.5 text-violet-500 transition-all hover:scale-110 hover:bg-violet-500/10 hover:text-violet-400 ${promo.status === 'Expired' ? 'cursor-not-allowed opacity-50' : ''}`}
+            <div key="actions" className="flex items-center gap-2">
+              <TableActionButton
+                icon={Eye}
+                tone="default"
+                title="Xem chi tiết"
+                onClick={() => openDetail(promo)}
+              />
+              <TableActionButton
+                icon={Pencil}
+                tone="primary"
                 title="Chỉnh sửa"
                 disabled={promo.status === 'Expired'}
-              >
-                <Pencil className="size-4" />
-              </button>
-              <button onClick={() => { setSelectedPromo(promo); setShowDeleteModal(true); }} className={`rounded-md p-1.5 transition-all ${Number(promo.usage_count || promo.used_count || 0) > 0 ? 'cursor-not-allowed text-muted opacity-50' : 'text-error hover:scale-110 hover:bg-error/10 hover:text-error'}`} title={Number(promo.usage_count || promo.used_count || 0) > 0 ? 'Mã đã được sử dụng, không thể xóa' : 'Ngừng hoạt động'} disabled={Number(promo.usage_count || promo.used_count || 0) > 0}><Trash2 className="size-4" /></button>
+                onClick={() => openEdit(promo)}
+              />
+              <TableActionButton
+                icon={Trash2}
+                tone="danger"
+                title={Number(promo.usage_count || promo.used_count || 0) > 0 ? 'Mã đã được sử dụng, không thể ngừng hoạt động' : 'Ngừng hoạt động'}
+                disabled={Number(promo.usage_count || promo.used_count || 0) > 0}
+                onClick={() => { setSelectedPromo(promo); setShowDeleteModal(true); }}
+              />
             </div>,
           ])}
         />
       )}
 
       {/* Modals */}
-      <PromoFormModal 
-        open={showCreateModal} 
+      <PromoFormModal
+        open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="Tạo mã khuyến mãi mới"
         onSubmit={handleCreate}
@@ -439,8 +439,8 @@ export function OrganizerPromosPage() {
         events={events}
       />
 
-      <PromoFormModal 
-        open={showEditModal} 
+      <PromoFormModal
+        open={showEditModal}
         onClose={() => setShowEditModal(false)}
         title="Chỉnh sửa mã khuyến mãi"
         onSubmit={handleEdit}
@@ -452,7 +452,7 @@ export function OrganizerPromosPage() {
         currentUsage={selectedPromo?.usage_percentage}
       />
 
-      <PromoDetailModal 
+      <PromoDetailModal
         open={showDetailModal}
         onClose={() => setShowDetailModal(false)}
         promo={selectedPromo}
@@ -476,7 +476,7 @@ export function OrganizerPromosPage() {
           <div>
             <h4 className="font-bold text-lg text-content">Bạn có chắc chắn?</h4>
             <p className="text-sm text-subtle mt-2">
-              Thao tác này sẽ ngừng hoạt động mã khuyến mãi <strong>{selectedPromo?.code}</strong>. 
+              Thao tác này sẽ ngừng hoạt động mã khuyến mãi <strong>{selectedPromo?.code}</strong>.
               Người dùng sẽ không thể sử dụng mã này nữa, nhưng các bản ghi hiện có vẫn được giữ lại.
             </p>
           </div>
@@ -488,19 +488,19 @@ export function OrganizerPromosPage() {
 
 function Usage({ used, limit, percent }) {
   if (limit === null || limit === undefined || limit === 0) {
-    return <span className="font-bold text-subtle">Không giới hạn</span>
+    return <span className="text-sm font-medium text-white">Không giới hạn</span>
   }
 
   return (
     <div className="w-36">
       <div className="mb-1.5 flex justify-between text-xs font-bold font-display tracking-tight">
-        <span className="text-content">{used} / {limit}</span>
-        <span className="text-primary">{percent}%</span>
+        <span className="text-white">{used} / {limit}</span>
+        <span className="text-cyan-400">{percent}%</span>
       </div>
       <div className="h-2 rounded-full bg-panel-soft overflow-hidden">
-        <div 
-          className={`h-full rounded-full transition-all duration-500 ${percent > 90 ? 'bg-error' : 'bg-primary'}`} 
-          style={{ width: `${percent}%` }} 
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${percent > 90 ? 'bg-error' : 'bg-primary'}`}
+          style={{ width: `${percent}%` }}
         />
       </div>
     </div>
@@ -509,7 +509,7 @@ function Usage({ used, limit, percent }) {
 
 function StatusBadge({ status }) {
   return (
-    <span className="flex min-w-[140px] justify-center whitespace-nowrap">
+    <span className="inline-flex items-center">
       <Badge tone={getStatusTone(status)}>{getStatusLabel(status)}</Badge>
     </span>
   )
@@ -538,7 +538,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             </div>
             <div className="mt-2 flex items-center gap-4">
               <div className="h-2.5 flex-1 overflow-hidden rounded-full border border-border-soft/20 bg-panel-soft">
-                 <div className="h-full bg-tertiary" style={{ width: `${currentUsage}%` }} />
+                <div className="h-full bg-tertiary" style={{ width: `${currentUsage}%` }} />
               </div>
             </div>
             <p className="mt-2 text-xs text-muted">Hãy cẩn thận khi giảm giới hạn sử dụng xuống thấp hơn số lượt đã dùng hiện tại.</p>
@@ -562,22 +562,21 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 
             <div>
               <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.eventIds ? 'text-error' : 'text-subtle'}`}>Sự kiện áp dụng</span>
-              <label className={`mt-1.5 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-bold transition ${
-                formData.applyToAllEvents
-                  ? 'border-tertiary/40 bg-tertiary/10 text-content'
-                  : 'border-border-soft/40 bg-panel-soft text-content'
-              }`}>
+              <label className={`mt-1.5 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-bold transition ${formData.applyToAllEvents
+                ? 'border-tertiary/40 bg-tertiary/10 text-content'
+                : 'border-border-soft/40 bg-panel-soft text-content'
+                }`}>
                 <span>Áp dụng cho tất cả sự kiện</span>
-              <input
-                type="checkbox"
-                className="size-4 accent-tertiary"
-                checked={Boolean(formData.applyToAllEvents)}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  applyToAllEvents: e.target.checked,
-                  eventIds: e.target.checked ? [] : formData.eventIds,
-                })}
-              />
+                <input
+                  type="checkbox"
+                  className="size-4 accent-tertiary"
+                  checked={Boolean(formData.applyToAllEvents)}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    applyToAllEvents: e.target.checked,
+                    eventIds: e.target.checked ? [] : formData.eventIds,
+                  })}
+                />
               </label>
 
               {!formData.applyToAllEvents && (

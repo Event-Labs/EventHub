@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, ChevronRight, Home, LogOut, Moon, Search, Settings, Sun, X } from 'lucide-react'
+import { Bell, CheckCheck, ChevronRight, Home, LogOut, Moon, Settings, Sun } from 'lucide-react'
 import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
 import {
   fetchNotifications,
@@ -10,6 +10,7 @@ import {
   markNotificationRead,
 } from '@/services/notifications.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
+import { CosmicSpaceBackground } from '@/components/CosmicSpaceBackground.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const collapsedWidth = 76
@@ -41,7 +42,6 @@ export function RolePortalLayout({
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [searchOpen, setSearchOpen] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const themeKey = useMemo(() => getPortalThemeKey(user), [user])
   const [theme, setTheme] = useState(() => getStoredPortalTheme(getPortalThemeKey(user)))
@@ -74,7 +74,8 @@ export function RolePortalLayout({
   if (!isAllowed) return <Navigate to="/" replace />
 
   return (
-    <div className="flex h-screen w-full min-w-0 overflow-hidden bg-background text-content">
+    <div className="relative flex h-screen w-full min-w-0 overflow-hidden bg-background text-content">
+      <CosmicSpaceBackground />
       <aside
         className={`fixed bottom-0 left-0 top-[80px] z-50 flex flex-col items-center gap-4 bg-transparent px-3 pb-6 transition-[width] duration-300 ease-out will-change-[width] ${
           sidebarExpanded ? 'w-[240px]' : 'w-20'
@@ -138,14 +139,12 @@ export function RolePortalLayout({
         style={{ width: sidebarExpanded ? expandedWidth : collapsedWidth }}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col transition-all duration-300 ease-out">
+      <main className="relative z-10 flex min-w-0 flex-1 flex-col transition-all duration-300 ease-out">
         <PortalTopBar
           user={user}
           avatar={avatar}
           roleLabel={roleLabel}
           profileTo={profileTo}
-          searchOpen={searchOpen}
-          setSearchOpen={setSearchOpen}
           theme={theme}
           onToggleTheme={() => setPortalTheme(theme === 'light' ? 'dark' : 'light')}
         />
@@ -249,10 +248,10 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
   )
 }
 
-function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearchOpen, theme, onToggleTheme }) {
+function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme }) {
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b border-white/10 bg-slate-950/80 px-8 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl">
-      <div className="flex min-w-0 flex-1 items-center gap-5">
+      <div className="flex items-center gap-5">
         <NavLink to="/" title="Về trang chủ" className="shrink-0 transition opacity-90 hover:opacity-100">
           <img
             src={logoSrc}
@@ -261,26 +260,6 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
             style={{ filter: 'none' }}
           />
         </NavLink>
-        <div className="min-w-0 flex-1 ml-4">
-        {searchOpen ? (
-          <div className="glass-panel flex h-[44px] w-full max-w-2xl items-center gap-3 rounded-full border-white/10 px-5 shadow-inner">
-            <Search className="size-5 shrink-0 text-primary" />
-            <input autoFocus className="w-full bg-transparent text-[15px] font-medium text-white outline-none placeholder:text-slate-500" placeholder={'Tìm kiếm...'} />
-            <button type="button" onClick={() => setSearchOpen(false)} className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white transition-colors">
-              <X className="size-4" />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="glass-panel flex h-[44px] w-full max-w-2xl items-center gap-3 rounded-full border-white/10 px-5 text-[15px] text-slate-400 shadow-inner transition-all hover:border-primary/50 hover:text-white"
-          >
-            <Search className="size-5" />
-            <span>{'Tìm kiếm...'}</span>
-          </button>
-        )}
-        </div>
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-3">
@@ -295,7 +274,6 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, searchOpen, setSearc
         <div className="glass-panel flex h-[44px] items-center gap-1 rounded-full border-white/10 px-2 shadow-inner">
           <TopBarIconButton icon={theme === 'light' ? Sun : Moon} label={theme === 'light' ? 'Chế độ sáng' : 'Chế độ tối'} onClick={onToggleTheme} />
           <PortalNotificationBell />
-          <TopBarIconButton icon={Settings} label={'Cài đặt'} />
         </div>
         <NavLink
           to={profileTo}

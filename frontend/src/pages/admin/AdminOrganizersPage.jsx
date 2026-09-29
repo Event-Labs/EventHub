@@ -8,7 +8,7 @@ import {
 } from '@/services/adminOrganizers.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, KpiGrid, Page, Panel, Status, Table, UserCell } from './AdminComponents.jsx'
+import { Badge, KpiGrid, Page, Panel, Status, Table, TableActionButton, UserCell } from './AdminComponents.jsx'
 import { ConfirmSuspendOrganizerModal } from './ConfirmSuspendOrganizerModal.jsx'
 
 export function AdminOrganizersPage() {
@@ -183,28 +183,20 @@ export function AdminOrganizersPage() {
               <p><span className="font-bold text-success">{formatCurrency(organizer.gross_revenue)}</span></p>
             </div>,
             <Status key="status" value={organizer.status} />,
-            <div key="actions" className="flex items-center gap-3 text-subtle">
-              <button
-                type="button"
-                onClick={() => navigate(`/admin/organizers/${organizer.id}`)}
+            <div key="actions" className="flex items-center gap-2">
+              <TableActionButton
+                icon={Eye}
+                tone="default"
                 title="Xem chi tiết"
-                className="grid size-9 place-items-center rounded-full text-white transition hover:-translate-y-0.5 hover:bg-white/15"
-              >
-                <Eye className="size-5" />
-              </button>
-              <button
-                type="button"
+                onClick={() => navigate(`/admin/organizers/${organizer.id}`)}
+              />
+              <TableActionButton
+                icon={organizer.status === 'ACTIVE' ? AlertTriangle : ShieldCheck}
+                tone={organizer.status === 'ACTIVE' ? 'danger' : 'success'}
                 disabled={statusMutation.isPending}
-                onClick={() => handleToggleStatus(organizer)}
                 title={organizer.status === 'ACTIVE' ? 'Tạm ngưng organizer' : 'Kích hoạt organizer'}
-                className={`grid size-9 place-items-center rounded-full transition hover:-translate-y-0.5 disabled:opacity-50 ${
-                  organizer.status === 'ACTIVE'
-                    ? 'text-error hover:bg-error/20'
-                    : 'text-success hover:bg-success/20'
-                }`}
-              >
-                {organizer.status === 'ACTIVE' ? <AlertTriangle className="size-5" /> : <ShieldCheck className="size-5" />}
-              </button>
+                onClick={() => handleToggleStatus(organizer)}
+              />
             </div>,
           ])}
         />
@@ -238,8 +230,8 @@ export function AdminOrganizersPage() {
                 onClick={() => setFilters((prev) => ({ ...prev, page: item }))}
                 className={`grid h-9 min-w-9 place-items-center rounded-xl border px-3 text-xs font-extrabold transition ${
                   item === filters.page
-                    ? 'border-tertiary bg-tertiary text-white'
-                    : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-tertiary'
+                    ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                    : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:text-[#E6C17A]'
                 }`}
               >
                 {item}

@@ -343,18 +343,18 @@ async function describeImageBatch(images, eventTitle = '') {
   for (const img of images) {
     const isPermit = img.source && img.source.startsWith('PERMIT');
     const contextPrompt = isPermit
-      ? `You are an official document inspector. Analyze this permit/license document image for an event titled "${eventTitle}":\n` +
-        `1. Document type: Is this an official permit, business license, decision letter, or contract?\n` +
-        `2. OCR & Text: Read and transcribe the main header, issuing authority, seal/signature, dates, and event name.\n` +
-        `3. Validity check: Does it look authentic or forged/irrelevant? Are dates expired?\n` +
-        `Be concise and direct. Answer in English.`
+      ? `You are an expert official document inspector and OCR analyst for EventHub. Analyze this permit/legal document (${img.fileName || 'Tài liệu giấy phép'}) for an event titled "${eventTitle}":\n` +
+        `1. Document Classification: Identify document type (e.g. Event Organization Permit, Performance License from Dept of Culture / Gov authority, Business Registration Certificate, Venue Rental Contract, Partnership Agreement, Approval Decision).\n` +
+        `2. OCR & Text details: Transcribe key text visible: Issuing Authority / Company name, Document title / Decision number, Venue / Location, Effective dates / Expiration, Signatures / Official Stamps.\n` +
+        `3. Objective Validity: Does the document appear authentic and relevant to the event? (Be balanced and sensible; do not nitpick minor formatting or image resolution).\n` +
+        `4. Status Assessment: Is it valid, needs attention, or invalid? Summarize in 2-3 clear sentences in Vietnamese.`
       : `You are an expert image content moderator and OCR reviewer for event images. Analyze this image for an event titled "${eventTitle}":\n` +
         `1. Visual content: What main objects, people, scenes, logos, and themes are shown?\n` +
         `2. Relevance: Is this image genuinely related and appropriate for "${eventTitle}"? If irrelevant, explain why.\n` +
         `3. Safety check (Sensible & Objective): Only flag explicit pornography/nudity, extreme violence, weapons, or illegal gambling/fraud. Do NOT flag swimwear, fashion, artistic performance, gym, dance, or health themes as pornography.\n` +
         `4. OCR & Text check: Transcribe visible text. Note any real spelling typos, or date/price contradictions.\n` +
         `5. Suggestions (Only when truly necessary): Note that image dimensions and aspect ratios are already standardized by the platform, so DO NOT suggest resizing. Only suggest meaningful improvements if text is unreadable or visual quality is noticeably degraded.\n` +
-        `Be concise, objective and sensible. Answer in English.`;
+        `Be concise, objective and sensible. Answer in Vietnamese or English.`;
 
     logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}'...`);
     const description = await describeImage(img.base64, contextPrompt);

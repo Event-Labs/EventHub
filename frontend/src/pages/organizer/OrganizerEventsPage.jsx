@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { AlertTriangle, CalendarDays, Edit, Globe, RefreshCw, Eye } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Edit, Eye, Globe, Plus, RefreshCw, Search, X } from 'lucide-react'
 import {
   Badge,
   OrganizerPage,
   OrganizerTable,
+  TableActionButton,
 } from './OrganizerComponents.jsx'
 import {
   cancelOrganizerEvent,
@@ -16,20 +17,20 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 
 const STATUS_LABELS = {
   DRAFT: 'Bản nháp',
-  PENDING_REVIEW: 'Đang duyệt',
+  PENDING_REVIEW: 'Chờ duyệt',
   PUBLISHED: 'Đã xuất bản',
-  HIDDEN: 'Ẩn',
+  HIDDEN: 'Đã ẩn',
   CANCELLED: 'Đã hủy',
-  COMPLETED: 'Đã duyệt',
+  COMPLETED: 'Đã kết thúc',
 }
 
 const STATUS_TONES = {
   DRAFT: 'gray',
-  PENDING_REVIEW: 'blue',
+  PENDING_REVIEW: 'amber',
   PUBLISHED: 'green',
   HIDDEN: 'gray',
-  CANCELLED: 'red',
-  COMPLETED: 'purple',
+  CANCELLED: 'gray',
+  COMPLETED: 'green',
 }
 
 function formatEventDate(iso) {
@@ -308,12 +309,25 @@ export function OrganizerEventsPage() {
     >
       <div className="mb-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <input
-            className="h-10 flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none placeholder:text-subtle focus:border-primary focus:ring-2 focus:ring-primary/15"
-            placeholder="Tìm theo tên sự kiện..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+            <input
+              className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-8 text-sm text-content outline-none placeholder:text-subtle focus:border-primary focus:ring-2 focus:ring-primary/15"
+              placeholder="Tìm theo tên sự kiện..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-content"
+                onClick={() => setSearch('')}
+                title="Xóa tìm kiếm"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
           <select
             className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
             value={statusFilter}
@@ -326,9 +340,8 @@ export function OrganizerEventsPage() {
               </option>
             ))}
           </select>
-          <button type="button" onClick={loadEvents} className="admin-secondary shrink-0">
+          <button type="button" onClick={loadEvents} className="org-btn-secondary shrink-0">
             <RefreshCw className="size-4" />
-            Làm mới
           </button>
         </div>
       </div>
@@ -338,14 +351,22 @@ export function OrganizerEventsPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       ) : !filtered.length ? (
-        <div className="rounded-2xl border border-dashed border-border-soft/40 py-16 text-center text-sm text-subtle">
-          {events.length
-            ? 'Không có sự kiện phù hợp bộ lọc.'
-            : 'Chưa có sự kiện nào. Nhấn "Tạo sự kiện" để bắt đầu.'}
+        <div className="rounded-2xl border border-dashed border-border-soft/40 py-16 text-center text-sm text-subtle flex flex-col items-center justify-center gap-4">
+          <p>
+            {events.length
+              ? 'Không có sự kiện phù hợp bộ lọc.'
+              : 'Chưa có sự kiện nào. Nhấn "Tạo sự kiện" để bắt đầu.'}
+          </p>
+          {!events.length && (
+            <Link to="/organizer/events/create" className="org-btn-primary">
+              <Plus className="size-4" />
+              Tạo sự kiện
+            </Link>
+          )}
         </div>
       ) : (
         <OrganizerTable
-          headers={['Sự kiện', 'Ngày diễn ra', 'Trạng thái', 'Danh mục', 'Cập nhật', 'Hành động']}
+          headers={['Sự kiện', 'Ngày diễn ra', 'Trạng thái', 'Danh mục', 'Cập nhật', 'Thao tác']}
           rows={filtered.map((event) => [
             /* Thumbnail + title */
             <div key="event" className="flex items-center gap-3">
@@ -374,44 +395,35 @@ export function OrganizerEventsPage() {
 
             /* Actions */
             <div key="actions" className="flex items-center gap-2">
-              {/* Detail */}
-              <Link
+              <TableActionButton
                 to={`/organizer/events/${event.id}`}
-                title="Chi tiết"
-                className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:bg-panel-soft/80 hover:text-primary"
-              >
-                <Eye className="size-4" />
-              </Link>
-              {/* Edit */}
-              <Link
+                title="Xem chi tiết"
+                icon={Eye}
+                tone="default"
+              />
+              <TableActionButton
                 to={`/organizer/events/${event.id}/edit`}
-                title="Chỉnh sửa"
-                className="grid size-8 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:bg-panel-soft/80 hover:text-tertiary"
-              >
-                <Edit className="size-4" />
-              </Link>
-              {/* Slot cố định cho action chính — luôn chiếm w-20 để các row thẳng hàng */}
-              <span className="inline-flex w-20">
-                {event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? (
-                  <button
-                    type="button"
-                    onClick={() => openPublishModal(event)}
-                    title="Xuất bản sự kiện"
-                    className="h-8 w-full rounded-xl bg-success text-xs font-semibold text-white shadow-sm transition hover:bg-success/80"
-                  >
-                    Xuất bản
-                  </button>
-                ) : event.status === 'PUBLISHED' ? (
-                  <button
-                    type="button"
-                    onClick={() => openCancelModal(event)}
-                    title="Hủy sự kiện"
-                    className="h-8 w-full rounded-xl border border-error/40 bg-error/10 text-xs font-semibold text-error transition hover:bg-error/20"
-                  >
-                    Hủy
-                  </button>
-                ) : <span className="h-8 w-full block"></span>}
-              </span>
+                title="Chỉnh sửa sự kiện"
+                icon={Edit}
+                tone="primary"
+              />
+              {event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? (
+                <TableActionButton
+                  onClick={() => openPublishModal(event)}
+                  title="Xuất bản sự kiện"
+                  icon={Globe}
+                  tone="success"
+                />
+              ) : event.status === 'PUBLISHED' ? (
+                <TableActionButton
+                  onClick={() => openCancelModal(event)}
+                  title="Hủy sự kiện"
+                  icon={AlertTriangle}
+                  tone="danger"
+                />
+              ) : (
+                <span className="size-8 block" />
+              )}
             </div>,
           ])}
         />

@@ -19,6 +19,12 @@ import {
   ShieldAlert,
   Image as ImageIcon,
   FileText,
+  Settings,
+  Sliders,
+  Play,
+  Zap,
+  Info,
+  X,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -30,10 +36,13 @@ import {
   unhideAdminEvent,
   fetchAdminAiReview,
   runAdminAiReview,
+  fetchAdminAutoReviewSettings,
+  updateAdminAutoReviewSettings,
+  runAdminBatchAutoReview,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, ImagePlaceholder, Page, Panel, Table } from './AdminComponents.jsx'
+import { Badge, ImagePlaceholder, Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -54,13 +63,13 @@ const STATUS_TABS = [
 function statusBadge(status, approvalStatus) {
   if (status === 'HIDDEN') {
     return approvalStatus === 'REJECTED'
-      ? <Badge tone="purple">Từ chối</Badge>
+      ? <Badge tone="red">Từ chối</Badge>
       : <Badge tone="gray">Đã ẩn</Badge>
   }
   const map = {
-    PENDING_REVIEW: { tone: 'blue', label: 'Chờ duyệt' },
+    PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
     PUBLISHED: { tone: 'green', label: 'Đã duyệt' },
-    CANCELLED: { tone: 'gray', label: 'Đã huỷ' },
+    CANCELLED: { tone: 'gray', label: 'Đã hủy' },
     COMPLETED: { tone: 'green', label: 'Đã kết thúc' },
   }
   const cfg = map[status] ?? { tone: 'gray', label: status }
@@ -98,6 +107,29 @@ export function AdminEventReviewPage() {
   // Confirm modal state
   const [confirmState, setConfirmState] = useState(null)
 
+  // AI Auto-review settings state & queries
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  const { data: autoReviewData, isLoading: isSettingsLoading } = useQuery({
+    queryKey: ['admin-auto-review-settings'],
+    queryFn: fetchAdminAutoReviewSettings,
+  })
+
+  const autoReviewSettings = autoReviewData?.settings || {
+    auto_review_enabled: false,
+    auto_approve_enabled: true,
+    auto_reject_enabled: true,
+    auto_notify_organizer: true,
+    min_quality_score: 75,
+    max_risk_score: 25,
+  }
+  const autoReviewStats = autoReviewData?.stats || {
+    pending_count: 0,
+    auto_approved_count: 0,
+    auto_rejected_count: 0,
+    total_ai_reviewed_count: 0,
+  }
+
   // -------------------------------------------------------------------------
   // Data fetching
   // -------------------------------------------------------------------------
@@ -123,6 +155,48 @@ export function AdminEventReviewPage() {
   // -------------------------------------------------------------------------
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: (newSettings) => updateAdminAutoReviewSettings(newSettings),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['admin-auto-review-settings'], updated)
+      toast.success('Đã lưu cấu hình AI tự động duyệt sự kiện thành công.')
+      setIsSettingsOpen(false)
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể lưu cài đặt tự động duyệt.'))
+    },
+  })
+
+  const toggleAutoReviewMutation = useMutation({
+    mutationFn: (enabled) => updateAdminAutoReviewSettings({ auto_review_enabled: enabled }),
+    onSuccess: (updated, variables) => {
+      queryClient.setQueryData(['admin-auto-review-settings'], updated)
+      toast.success(
+        variables
+          ? 'Đã BẬT hệ thống AI tự động đánh giá & duyệt sự kiện.'
+          : 'Đã TẮT hệ thống AI tự động duyệt sự kiện (chuyển sang duyệt thủ công).'
+      )
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể cập nhật trạng thái AI tự động duyệt.'))
+    },
+  })
+
+  const batchAutoReviewMutation = useMutation({
+    mutationFn: runAdminBatchAutoReview,
+    onSuccess: (res) => {
+      const { total_processed, approved_count, rejected_count, needs_review_count } = res
+      toast.success(
+        `Hoàn tất quét tự động ${total_processed} sự kiện: ${approved_count} đã duyệt, ${rejected_count} đã từ chối, ${needs_review_count} cần admin kiểm tra.`
+      )
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-settings'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể thực hiện quét tự động hàng loạt.'))
+    },
+  })
 
   const reviewMutation = useMutation({
     mutationFn: ({ eventId, payload }) => reviewAdminEvent(eventId, payload),
@@ -302,6 +376,98 @@ export function AdminEventReviewPage() {
       title="Duyệt Sự kiện"
       description="Kiểm duyệt và phê duyệt các sự kiện được gửi bởi Organizer."
     >
+      {/* AI Auto-Review Control Banner */}
+      <div className="mb-6 overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 via-panel-soft/70 to-panel p-4 shadow-lg backdrop-blur-md">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3.5">
+            <div className={`mt-0.5 grid size-11 shrink-0 place-items-center rounded-xl border shadow-inner ${
+              autoReviewSettings.auto_review_enabled
+                ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
+                : 'border-border-soft/60 bg-panel text-subtle'
+            }`}>
+              <Bot className="size-6" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="font-display text-base font-black tracking-wide text-content flex items-center gap-2">
+                  <span>Hệ thống AI Tự động Thẩm định & Duyệt Sự kiện</span>
+                  <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <Sparkles className="size-3 text-indigo-400" />
+                    AI Agent
+                  </span>
+                </h2>
+                {autoReviewSettings.auto_review_enabled ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-400 shadow-sm shadow-emerald-500/20">
+                    <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
+                    ĐANG BẬT (TỰ ĐỘNG)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-500/30 bg-zinc-500/10 px-2.5 py-0.5 text-xs font-bold text-zinc-400">
+                    <span className="size-2 rounded-full bg-zinc-400" />
+                    ĐANG TẮT (DUYỆT THỦ CÔNG)
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-subtle max-w-2xl leading-relaxed">
+                Tự động quét nội dung, thẩm định giấy phép đính kèm & hình ảnh, tự động phê duyệt nếu đạt chuẩn hoặc từ chối và gửi hướng dẫn khắc phục chi tiết cho Organizer.
+              </p>
+
+              {/* Stats badges */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft/60 px-2.5 py-1 text-subtle">
+                  Chờ duyệt: <strong className="text-amber-400">{autoReviewStats.pending_count}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-2.5 py-1 text-emerald-300">
+                  AI Tự động duyệt: <strong className="text-emerald-400">{autoReviewStats.auto_approved_count}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-950/20 px-2.5 py-1 text-rose-300">
+                  AI Tự động từ chối: <strong className="text-rose-400">{autoReviewStats.auto_rejected_count}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Quick ON/OFF Switch */}
+            <button
+              type="button"
+              disabled={toggleAutoReviewMutation.isPending}
+              onClick={() => toggleAutoReviewMutation.mutate(!autoReviewSettings.auto_review_enabled)}
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-black shadow-md transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
+                autoReviewSettings.auto_review_enabled
+                  ? 'border border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30'
+                  : 'border border-border-soft/50 bg-panel-soft text-subtle hover:bg-surface hover:text-content'
+              }`}
+            >
+              <Zap className={`size-4 ${autoReviewSettings.auto_review_enabled ? 'text-emerald-400' : 'text-subtle'}`} />
+              <span>{autoReviewSettings.auto_review_enabled ? 'Bật tự động' : 'Tắt tự động'}</span>
+            </button>
+
+            {/* Batch Run Button */}
+            <button
+              type="button"
+              disabled={batchAutoReviewMutation.isPending || autoReviewStats.pending_count === 0}
+              onClick={() => batchAutoReviewMutation.mutate()}
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-gradient-to-r from-indigo-600 to-indigo-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-indigo-600/30 transition duration-200 hover:-translate-y-0.5 hover:from-indigo-500 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Play className={`size-4 ${batchAutoReviewMutation.isPending ? 'animate-spin' : ''}`} />
+              <span>{batchAutoReviewMutation.isPending ? 'Đang chạy...' : 'Quét duyệt tất cả'}</span>
+            </button>
+
+            {/* Settings Button */}
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-border-soft/60 bg-panel-soft px-3.5 py-2 text-xs font-bold text-content shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400/50 hover:bg-surface hover:text-indigo-300"
+            >
+              <Sliders className="size-4 text-indigo-400" />
+              <span>Cài đặt tự động</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Status tab filter */}
       <div className="mb-5 flex flex-wrap gap-2">
         {STATUS_TABS.map((tab) => (
@@ -310,8 +476,8 @@ export function AdminEventReviewPage() {
             type="button"
             onClick={() => { setActiveStatus(tab.value); setPage(1) }}
             className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${activeStatus === tab.value
-                ? 'bg-tertiary text-white shadow-tertiary/20'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
               }`}
           >
             {tab.label}
@@ -393,35 +559,34 @@ export function AdminEventReviewPage() {
                     value={notes[event.id] ?? ''}
                     onChange={(e) => setNote(event.id, e.target.value)}
                   />
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     {/* Hide — only for PUBLISHED */}
                     {event.status === 'PUBLISHED' && (
-                      <ActionButton
+                      <TableActionButton
                         title="Ẩn sự kiện"
-                        color="gray"
-                        icon={<EyeOff className="size-4" />}
+                        tone="danger"
+                        icon={EyeOff}
                         onClick={() => quickHide(event.id)}
                         disabled={isMutating}
                       />
                     )}
                     {/* Unhide — only for HIDDEN+APPROVED (was published, then hidden) */}
                     {event.status === 'HIDDEN' && event.approval_status === 'APPROVED' && (
-                      <ActionButton
+                      <TableActionButton
                         title="Bỏ ẩn"
-                        color="green"
-                        icon={<Eye className="size-4" />}
+                        tone="success"
+                        icon={Eye}
                         onClick={() => quickUnhide(event.id)}
                         disabled={isMutating}
                       />
                     )}
-                    {/* View detail button */}
-                    <button
-                      type="button"
+                    {/* View/Review detail button */}
+                    <TableActionButton
+                      title={event.status === 'PENDING_REVIEW' ? 'Duyệt chi tiết sự kiện' : 'Xem chi tiết sự kiện'}
+                      tone="primary"
+                      icon={Eye}
                       onClick={() => navigate(`/admin/events/review/${event.id}`)}
-                      className="flex items-center gap-1.5 rounded-xl border border-tertiary/30 bg-tertiary/5 px-3 h-9 text-xs font-bold text-tertiary transition hover:bg-tertiary/10"
-                    >
-                      {event.status === 'PENDING_REVIEW' ? 'Duyệt chi tiết' : 'Xem chi tiết'}
-                    </button>
+                    />
                   </div>
                 </div>,
               ])}
@@ -481,6 +646,15 @@ export function AdminEventReviewPage() {
         confirmColor={confirmState?.confirmColor}
         onConfirm={confirmState?.onConfirm}
         onCancel={() => setConfirmState(null)}
+      />
+
+      {/* AI Auto-Review Settings Modal */}
+      <AiAutoReviewSettingsModal
+        open={isSettingsOpen}
+        settings={autoReviewSettings}
+        isLoading={updateSettingsMutation.isPending}
+        onSave={(newSettings) => updateSettingsMutation.mutate(newSettings)}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </Page>
   )
@@ -1173,7 +1347,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   )
 }
 
-function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'bg-primary' }) {
+function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'admin-primary' }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
@@ -1192,3 +1366,243 @@ function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmTe
     </div>
   )
 }
+
+function AiAutoReviewSettingsModal({
+  open,
+  settings,
+  isLoading,
+  onSave,
+  onClose,
+}) {
+  const [formState, setFormState] = useState({
+    auto_review_enabled: false,
+    auto_approve_enabled: true,
+    auto_reject_enabled: true,
+    auto_notify_organizer: true,
+    min_quality_score: 75,
+    max_risk_score: 25,
+  })
+
+  useEffect(() => {
+    if (settings) {
+      setFormState({
+        auto_review_enabled: Boolean(settings.auto_review_enabled),
+        auto_approve_enabled: Boolean(settings.auto_approve_enabled),
+        auto_reject_enabled: Boolean(settings.auto_reject_enabled),
+        auto_notify_organizer: Boolean(settings.auto_notify_organizer),
+        min_quality_score: Number(settings.min_quality_score) || 75,
+        max_risk_score: Number(settings.max_risk_score) || 25,
+      })
+    }
+  }, [settings, open])
+
+  if (!open) return null
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave(formState)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-md">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-indigo-500/40 bg-[#0F172A] shadow-2xl shadow-indigo-950/60">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border-soft/60 bg-slate-900/80 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/30">
+              <Bot className="size-5" />
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-black text-white">
+                Cài đặt Hệ thống AI Tự động Duyệt & Cảnh báo
+              </h3>
+              <p className="text-xs text-slate-400">
+                Tùy chỉnh tiêu chuẩn tự động phê duyệt, từ chối và phản hồi Organizer
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+          {/* Main Master Toggle */}
+          <div className={`rounded-xl border p-4 transition ${
+            formState.auto_review_enabled
+              ? 'border-indigo-500/50 bg-indigo-950/30 shadow-inner'
+              : 'border-slate-800 bg-slate-900/50'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Kích hoạt AI Tự động Đánh giá & Duyệt</span>
+                  {formState.auto_review_enabled && (
+                    <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                      Đang kích hoạt
+                    </span>
+                  )}
+                </label>
+                <p className="text-xs text-slate-400">
+                  Khi bật, sự kiện gửi duyệt sẽ được AI quét toàn diện (giấy phép, ảnh, nội dung, lịch trình, giá vé).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={formState.auto_review_enabled}
+                onChange={(e) => setFormState((prev) => ({ ...prev, auto_review_enabled: e.target.checked }))}
+                className="size-5 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Sub options grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Auto Approve Card */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-emerald-400" />
+                  <span className="text-sm font-bold text-emerald-300">Tự động Phê duyệt</span>
+                </div>
+                <input
+                  type="checkbox"
+                  disabled={!formState.auto_review_enabled}
+                  checked={formState.auto_approve_enabled}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, auto_approve_enabled: e.target.checked }))}
+                  className="size-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-400 disabled:opacity-40 cursor-pointer"
+                />
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Tự động chuyển sự kiện sang trạng thái <strong>ĐÃ DUYỆT (COMPLETED)</strong> khi không có vi phạm và điểm chất lượng đạt chuẩn.
+              </p>
+            </div>
+
+            {/* Auto Reject Card */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <XCircle className="size-4 text-rose-400" />
+                  <span className="text-sm font-bold text-rose-300">Tự động Từ chối</span>
+                </div>
+                <input
+                  type="checkbox"
+                  disabled={!formState.auto_review_enabled}
+                  checked={formState.auto_reject_enabled}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, auto_reject_enabled: e.target.checked }))}
+                  className="size-4 rounded border-slate-700 bg-slate-950 text-rose-500 focus:ring-rose-400 disabled:opacity-40 cursor-pointer"
+                />
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Tự động chuyển sự kiện sang trạng thái <strong>TỪ CHỐI (HIDDEN)</strong> khi phát hiện vi phạm pháp lý hoặc chính sách nghiêm trọng.
+              </p>
+            </div>
+          </div>
+
+          {/* Auto Notify Organizer */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="size-4 text-amber-400" />
+                <span className="text-sm font-bold text-amber-300">Gửi cảnh báo & đề xuất cải thiện cho Organizer</span>
+              </div>
+              <input
+                type="checkbox"
+                disabled={!formState.auto_review_enabled}
+                checked={formState.auto_notify_organizer}
+                onChange={(e) => setFormState((prev) => ({ ...prev, auto_notify_organizer: e.target.checked }))}
+                className="size-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-400 disabled:opacity-40 cursor-pointer"
+              />
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Tự động gửi thông báo chi tiết (vi phạm cụ thể, cảnh báo, đề xuất cải thiện nội dung và lỗi chính tả phát hiện bởi AI) về email & tài khoản của Organizer.
+            </p>
+          </div>
+
+          {/* Threshold Sliders */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {/* Min Quality Score */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300">
+                  Điểm chất lượng tối thiểu để duyệt
+                </label>
+                <span className="text-sm font-black text-emerald-400">{formState.min_quality_score}/100</span>
+              </div>
+              <input
+                type="range"
+                min="50"
+                max="95"
+                step="5"
+                disabled={!formState.auto_review_enabled || !formState.auto_approve_enabled}
+                value={formState.min_quality_score}
+                onChange={(e) => setFormState((prev) => ({ ...prev, min_quality_score: Number(e.target.value) }))}
+                className="w-full accent-emerald-500 cursor-pointer disabled:opacity-40"
+              />
+              <p className="text-[11px] text-slate-500">
+                Khuyến nghị: 75-80 điểm. Sự kiện có điểm thấp hơn sẽ chuyển sang Admin duyệt thủ công.
+              </p>
+            </div>
+
+            {/* Max Risk Score */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300">
+                  Mức rủi ro tối đa cho phép
+                </label>
+                <span className="text-sm font-black text-rose-400">{formState.max_risk_score}/100</span>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="50"
+                step="5"
+                disabled={!formState.auto_review_enabled || !formState.auto_approve_enabled}
+                value={formState.max_risk_score}
+                onChange={(e) => setFormState((prev) => ({ ...prev, max_risk_score: Number(e.target.value) }))}
+                className="w-full accent-rose-500 cursor-pointer disabled:opacity-40"
+              />
+              <p className="text-[11px] text-slate-500">
+                Khuyến nghị: ≤ 25 điểm. Sự kiện có rủi ro cao hơn sẽ không thể tự động duyệt.
+              </p>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-slate-300 rounded-xl hover:bg-slate-800 transition"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-5 py-2 text-xs font-black text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-indigo-400 transition disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  <span>Đang lưu...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="size-4" />
+                  <span>Lưu cấu hình</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+

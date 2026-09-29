@@ -37,10 +37,10 @@ class RefundsService {
       await client.query('BEGIN');
 
       // 1. Fetch order and ticket with row-level lock
-      const data = await refundsRepository.findOrderAndTicketForRefund(
+      const data = await refundsRepository.getRefundContext(
+        customerId,
         order_id,
         ticket_id,
-        customerId,
         client,
         true,
       );

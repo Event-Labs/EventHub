@@ -44,3 +44,19 @@ export async function runAdminAiReview(eventOrId) {
   return result
 }
 
+export async function fetchAdminAutoReviewSettings() {
+  const response = await http.get('/admin/events/settings/auto-review')
+  return response.data.data
+}
+
+export async function updateAdminAutoReviewSettings(payload) {
+  const response = await http.patch('/admin/events/settings/auto-review', payload)
+  return response.data.data
+}
+
+export async function runAdminBatchAutoReview() {
+  const response = await http.post('/admin/events/auto-review/batch')
+  return response.data.data
+}
+
+

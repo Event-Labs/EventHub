@@ -4,11 +4,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
-  FileText,
   Heart,
   MapPin,
-  RefreshCw,
   ShieldCheck,
   UserCircle,
 } from 'lucide-react'
@@ -19,7 +16,7 @@ import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
+import { hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -191,6 +188,19 @@ export function EventDetailPage() {
     setSelectedSessionId((current) => (String(current) === String(sessionId) ? null : sessionId))
   }
 
+  const activeDraft = readBookingDraft()
+  const isHoldingForThisEvent = Boolean(
+    hasActiveSeatHold(activeDraft) &&
+    event &&
+    String(activeDraft?.eventId) === String(event.id)
+  )
+
+  useEffect(() => {
+    if (isHoldingForThisEvent && activeDraft?.selectedSession?.id && !selectedSessionId) {
+      setSelectedSessionId(activeDraft.selectedSession.id)
+    }
+  }, [isHoldingForThisEvent, activeDraft?.selectedSession?.id, selectedSessionId])
+
   const handleBook = () => {
     if (requireLogin()) return
     if (!selectedSession) return
@@ -199,36 +209,54 @@ export function EventDetailPage() {
       return
     }
     setBookingError('')
+
+    const baseCart = {
+      eventId: event.id,
+      eventTitle: event.title,
+      eventSlug: event.slug,
+      eventStartTime: event.start_time,
+      eventEndTime: event.end_time,
+      venueSummary: event.venue?.summary || venueSummary(firstVenue),
+      selectedSession,
+      availableTicketTypes: selectedSessionTickets,
+      seatingRules: event.seating_rules || {},
+      additionalTerms: event.additional_terms || '',
+      refundPolicy: event.refund_policy || null,
+      policyFileUrl: event.refund_policy?.policy_file_url || null,
+      policyFileName: event.refund_policy?.policy_file_name || null,
+      policyFileSize: event.refund_policy?.policy_file_size || null,
+      requireAttendeeInfo: Boolean(event.require_attendee_info),
+      items: [],
+    }
+
+    const hasMatchingHold = Boolean(
+      isHoldingForThisEvent &&
+      String(activeDraft?.selectedSession?.id) === String(selectedSession.id)
+    )
+
+    const cartToPass = hasMatchingHold ? { ...baseCart, ...activeDraft } : baseCart
+
     navigate('/booking/seats', {
       state: {
-        cart: {
-          eventId: event.id,
-          eventTitle: event.title,
-          eventSlug: event.slug,
-          eventStartTime: event.start_time,
-          eventEndTime: event.end_time,
-          venueSummary: event.venue?.summary || venueSummary(firstVenue),
-          selectedSession,
-          availableTicketTypes: selectedSessionTickets,
-          seatingRules: event.seating_rules || {},
-          additionalTerms: event.additional_terms || '',
-          refundPolicy: event.refund_policy || null,
-          policyFileUrl: event.refund_policy?.policy_file_url || null,
-          policyFileName: event.refund_policy?.policy_file_name || null,
-          policyFileSize: event.refund_policy?.policy_file_size || null,
-          requireAttendeeInfo: Boolean(event.require_attendee_info),
-          items: [],
-        },
+        cart: cartToPass,
       },
     })
   }
 
   if (eventQuery.isLoading) {
-    return <StatePanel message="Đang tải chi tiết sự kiện..." />
+    return (
+      <div className="pt-24 pb-12">
+        <StatePanel message="Đang tải chi tiết sự kiện..." />
+      </div>
+    )
   }
 
   if (eventQuery.isError || !event) {
-    return <StatePanel message="Không tìm thấy sự kiện công khai này." tone="error" />
+    return (
+      <div className="pt-24 pb-12">
+        <StatePanel message="Không tìm thấy sự kiện công khai này." tone="error" />
+      </div>
+    )
   }
 
   const heroImage = event.banner_url || event.thumbnail_url
@@ -240,30 +268,54 @@ export function EventDetailPage() {
 
   return (
     <div className="overflow-x-hidden">
-      <section className="relative h-[420px] overflow-hidden sm:h-[500px] lg:h-[600px] xl:h-[640px]">
+      <section className="relative min-h-[500px] sm:min-h-[560px] lg:h-[660px] xl:h-[700px] overflow-hidden flex items-end">
+        {/* Ảnh banner: sắc nét hoàn toàn từ đỉnh xuống thân, chỉ mờ dần ở chân ảnh */}
         {heroImage && (
           <img
             src={heroImage}
             alt={event.title}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            style={{
+              WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, rgba(0,0,0,0.6) 80%, transparent 100%)',
+              maskImage: 'linear-gradient(to bottom, black 0%, black 60%, rgba(0,0,0,0.6) 80%, transparent 100%)',
+            }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--color-primary)_0%,_transparent_60%)] opacity-20 mix-blend-screen" />
-        <div className="relative mx-auto flex h-full w-full max-w-7xl items-end px-4 pb-10 sm:px-6 sm:pb-12 lg:px-8 lg:pb-14">
+
+        {/* Lớp làm mờ mờ CHỈ ở chân banner để hòa mềm mại với nền */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-36 sm:h-48 backdrop-blur-[6px]"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 50%, black 100%)',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, black 50%, black 100%)',
+          }}
+        />
+
+        {/* Lớp chuyển màu gradient chỉ ở chân banner để làm nổi bật thông tin và hòa nền */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 sm:h-96 bg-gradient-to-t from-[#030712] via-[#030712]/70 via-45% to-transparent" />
+
+        {/* Ánh sáng dạ quang xanh primary nhẹ ở đáy */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-[radial-gradient(ellipse_at_bottom,_var(--color-primary)_0%,_transparent_70%)] opacity-20 mix-blend-screen" />
+
+        <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl items-end px-4 pt-28 pb-12 sm:px-6 sm:pb-14 lg:px-8 lg:pb-16">
           <div className="min-w-0 max-w-4xl">
             {event.category?.name && (
-              <span className="inline-flex rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-bold text-primary shadow-[0_0_20px_rgba(6,182,212,0.2)] backdrop-blur-md">
+              <span
+                className="inline-flex items-center rounded-full border border-[#C99A47]/70 bg-black/60 px-3.5 py-1 text-xs font-bold uppercase backdrop-blur-md shadow-[0_0_14px_rgba(201,154,71,0.5)]"
+                style={{ color: '#E6C17A' }}
+              >
                 {event.category.name}
               </span>
             )}
-            <h1 className="mt-5 break-words font-display text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl drop-shadow-xl">
+            <h1 className="mt-2.5 break-words font-display text-3xl font-black leading-tight text-white sm:mt-3 sm:text-4xl lg:text-5xl drop-shadow-xl">
               {event.title}
             </h1>
-            <p className="mt-5 max-w-3xl break-words text-xl leading-relaxed text-slate-300 drop-shadow-md">
-              {event.short_description}
-            </p>
-            <div className="mt-8 flex max-w-full flex-wrap gap-6 text-slate-200">
+            {event.short_description && (
+              <p className="mt-2 max-w-3xl break-words text-sm leading-relaxed text-slate-200/90 sm:mt-2.5 sm:text-base drop-shadow-md">
+                {event.short_description}
+              </p>
+            )}
+            <div className="mt-3.5 flex max-w-full flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:mt-4 sm:text-sm text-slate-200">
               <Info icon={UserCircle} text={`Ban tổ chức: ${event.organizer?.full_name || 'EventHub'}`} />
               <Info icon={Calendar} text={`${formatDateTime(event.start_time)} - ${formatDateTime(event.end_time)}`} />
               <Info icon={MapPin} text={event.venue?.summary || venueSummary(firstVenue)} />
@@ -272,7 +324,7 @@ export function EventDetailPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
+      <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
         <section className="min-w-0 space-y-10">
           {/* Tổng quan Bento Card */}
           <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
@@ -365,9 +417,10 @@ export function EventDetailPage() {
                           className={cn(
                             'shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all',
                             sessionExpired && 'cursor-not-allowed bg-slate-800 text-slate-500 border border-slate-700',
-                            !sessionExpired && selected && 'bg-primary text-slate-950 shadow-[0_0_15px_rgba(6,182,212,0.4)]',
+                            !sessionExpired && selected && 'shadow-[0_0_16px_rgba(201,154,71,0.5)] scale-[1.03]',
                             !sessionExpired && !selected && 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/30',
                           )}
+                          style={!sessionExpired && selected ? { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' } : {}}
                         >
                           {sessionExpired ? 'Đã hết hạn' : selected ? 'Đã chọn' : 'Chọn'}
                         </button>
@@ -449,7 +502,7 @@ export function EventDetailPage() {
                         <iframe
                           title={`Bản đồ ${venue.name}`}
                           src={mapUrl}
-                          className="h-80 w-full border-0 md:h-[420px] mix-blend-luminosity opacity-80 transition hover:mix-blend-normal hover:opacity-100"
+                          className="h-80 w-full border-0 md:h-[420px]"
                           loading="lazy"
                           referrerPolicy="no-referrer-when-downgrade"
                           allowFullScreen
@@ -473,88 +526,7 @@ export function EventDetailPage() {
             </div>
           </section>
 
-          {/* Chính sách hoàn vé */}
-          <section>
-            <h2 className="mb-6 font-display text-2xl font-black text-white drop-shadow-md">
-              Chính sách hoàn vé
-            </h2>
-            <div className="glass-panel relative overflow-hidden rounded-[24px] border border-white/10 p-6 md:p-8">
-              <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
-              <div className="flex items-start gap-4">
-                <div
-                  className={cn(
-                    'flex size-11 shrink-0 items-center justify-center rounded-xl border',
-                    event.refund_policy?.allow_refund
-                      ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
-                      : 'border-slate-700 bg-slate-800/80 text-slate-400',
-                  )}
-                >
-                  <RefreshCw className="size-5" />
-                </div>
-                <div className="min-w-0 flex-1 space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border',
-                        event.refund_policy?.allow_refund
-                          ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
-                          : 'border-slate-600 bg-slate-700/50 text-slate-300',
-                      )}
-                    >
-                      {event.refund_policy?.allow_refund
-                        ? 'Hỗ trợ hoàn vé có điều kiện'
-                        : 'Không hỗ trợ hoàn vé'}
-                    </span>
-                  </div>
 
-                  <div className="space-y-2 text-sm text-slate-300">
-                    {generateRefundPolicyLines(event.refund_policy).map((line, idx) => (
-                      <div key={idx} className="flex items-start gap-2.5">
-                        <span
-                          className={cn(
-                            'mt-1.5 size-1.5 shrink-0 rounded-full',
-                            event.refund_policy?.allow_refund ? 'bg-cyan-400' : 'bg-slate-500',
-                          )}
-                        />
-                        <span className="leading-relaxed">{line}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {event.refund_policy?.allow_refund && event.refund_policy?.refund_notes && (
-                    <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-slate-400">
-                      <span className="font-semibold text-slate-300">Lưu ý từ BTC: </span>
-                      <span className="whitespace-pre-line">{event.refund_policy.refund_notes}</span>
-                    </div>
-                  )}
-
-                  {event.refund_policy?.policy_file_url && (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="size-4 text-cyan-400 shrink-0" />
-                        <span className="font-medium text-slate-200 truncate">
-                          {event.refund_policy.policy_file_name || 'Tài liệu chính sách sự kiện'}
-                        </span>
-                      </div>
-                      <a
-                        href={event.refund_policy.policy_file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition"
-                      >
-                        <span>Xem file</span>
-                        <ExternalLink className="size-3" />
-                      </a>
-                    </div>
-                  )}
-
-                  <p className="pt-1 text-xs italic text-slate-400">
-                    * Yêu cầu hoàn vé được tính toán theo mốc thời gian so với giờ bắt đầu sự kiện. Khách hàng thực hiện gửi yêu cầu tại chi tiết vé đã mua.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
 
           {/* Chính sách & Điều khoản tham dự */}
           {event.additional_terms && (
@@ -631,9 +603,16 @@ export function EventDetailPage() {
               type="button"
               onClick={handleBook}
               disabled={selectedSessionExpired || !selectedSession}
-              className="cosmic-btn-primary w-full py-4 text-lg"
+              className="w-full py-4 text-lg font-bold rounded-full transition-all hover:brightness-110 hover:shadow-[0_0_28px_rgba(201,154,71,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              {selectedSessionExpired || (!selectedSession && eventExpired) ? 'Đã hết hạn' : selectedSession ? 'Đặt vé ngay' : 'Đặt vé'}
+              {selectedSessionExpired || (!selectedSession && eventExpired)
+                ? 'Đã hết hạn'
+                : (isHoldingForThisEvent && String(activeDraft?.selectedSession?.id) === String(selectedSession?.id))
+                  ? 'Tiếp tục đặt vé (Đang giữ ghế)'
+                  : selectedSession
+                    ? 'Đặt vé ngay'
+                    : 'Đặt vé'}
             </button>
           </div>
         </aside>
@@ -644,8 +623,8 @@ export function EventDetailPage() {
 
 function Info({ icon: Icon, text }) {
   return (
-    <div className="flex min-w-0 max-w-full items-start gap-2">
-      <Icon className="mt-0.5 size-5 shrink-0 text-primary" />
+    <div className="flex min-w-0 max-w-full items-center gap-1.5">
+      <Icon className="size-4 shrink-0 text-primary" />
       <span className="min-w-0 break-words">{text}</span>
     </div>
   )
