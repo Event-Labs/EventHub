@@ -95,8 +95,8 @@ class EventsService {
       throw new AppError('min_price must be less than or equal to max_price', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    const page = query.page;
-    const limit = query.limit;
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Number(query.limit) || 10);
     const { rows, total } = await eventsRepository.findPublicEvents({
       userId,
       keyword: query.keyword,

@@ -14,8 +14,8 @@
 const logger = require('../../core/logger');
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || 'qwen3:4b';
-const OLLAMA_TIMEOUT  = Number(process.env.OLLAMA_TIMEOUT_MS || 60000);
+const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || 'eve-agent';
+const OLLAMA_TIMEOUT  = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 
 /**
  * Base fetch wrapper with timeout.
@@ -62,13 +62,14 @@ async function generate(prompt, options = {}) {
   const model = options.model || OLLAMA_MODEL;
   const think = options.think === true;
 
-  // Qwen3 thinking control via /no_think token
-  const finalPrompt = think ? prompt : `${prompt}\n/no_think`;
+  // Qwen3 thinking control via /no_think token removed.
+  const finalPrompt = prompt;
 
   const body = {
     model,
     prompt: finalPrompt,
     stream: false,
+    think,
     options: {
       temperature: options.temperature ?? 0.3,
       top_p:       options.top_p       ?? 0.9,
@@ -85,46 +86,41 @@ async function generate(prompt, options = {}) {
  *
  * @param {Array<{role: string, content: string}>} messages
  * @param {object} options
- * @returns {{ content: string, model: string }}
+ * @returns {{ content: string, model: string, eval_count: number, tool_calls: Array, thinking: string|null }}
  */
 async function chat(messages, options = {}) {
   const model = options.model || OLLAMA_MODEL;
-  const think = options.think === true;
-
-  // Add /no_think to last user message if thinking is disabled
-  const processedMessages = messages.map((msg, idx) => {
-    if (!think && msg.role === 'user' && idx === messages.length - 1) {
-      return { ...msg, content: `${msg.content}\n/no_think` };
-    }
-    return msg;
-  });
 
   const body = {
     model,
-    messages: processedMessages,
+    messages,
     stream: false,
+    keep_alive: '1h',
+    think: false,
     options: {
-      temperature: options.temperature ?? 0.35,
+      temperature: options.temperature ?? 0.25,
       top_p:       options.top_p       ?? 0.85,
-      num_predict: options.max_tokens  ?? 1200,
+      num_predict: options.max_tokens  ?? 1024,
+      num_ctx:     4096,
+      num_thread:  12,
     },
   };
 
-  if (options.tools && Array.isArray(options.tools) && options.tools.length > 0) {
+  // Enable native tool calling — Ollama handles JSON formatting automatically.
+  // Qwen3 8B supports this natively via its chat template.
+  if (options.tools && options.tools.length > 0) {
     body.tools = options.tools;
   }
 
   const result = await ollamaFetch('/api/chat', body);
   const content = String(result.message?.content || '').trim();
 
-  // Strip <think>...</think> blocks if thinking leaked through
-  const cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-
   return {
-    content:    cleaned,
+    content,
     model:      result.model || model,
     eval_count: result.eval_count,
     tool_calls: result.message?.tool_calls || [],
+    thinking:   result.message?.thinking || null,
   };
 }
 

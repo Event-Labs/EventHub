@@ -2,13 +2,22 @@ import { Calendar, Heart, MapPin } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils.js'
 
-function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
+function formatDateRange(start, end) {
+  if (!start) return 'Chưa cập nhật'
 
-  return new Intl.DateTimeFormat('vi-VN', {
+  const formatter = new Intl.DateTimeFormat('vi-VN', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(value))
+  })
+  const startStr = formatter.format(new Date(start))
+
+  if (!end) return startStr
+  const endDate = new Date(end)
+  const startDate = new Date(start)
+  
+  if (endDate.getTime() <= startDate.getTime()) return startStr
+  
+  return `${startStr} - ${formatter.format(endDate)}`
 }
 
 function formatPrice(event) {
@@ -32,7 +41,7 @@ function normalizeEvent(event) {
     image: event.thumbnail_url || event.banner_url || event.image,
     category: event.category?.name || event.category || 'Sự kiện',
     badgeColor: event.badgeColor || 'primary',
-    date: event.date || formatDateTime(event.start_time),
+    date: event.date || formatDateRange(event.start_time, event.end_time),
     time: event.time || '',
     location: event.location || event.venue?.summary || event.venue || 'Địa điểm cập nhật sau',
     priceLabel: formatPrice(event),
