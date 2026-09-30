@@ -123,7 +123,7 @@ class AiDocumentParserService {
         `THÔNG TIN SỰ KIỆN CHÍNH (THỜI GIAN, ĐỊA ĐIỂM, NỘI DUNG):\n${descMainInfo.slice(0, 1000)}`,
         detectedSections.additional_terms ? `CHÍNH SÁCH VÉ TÓM TẮT:\n${detectedSections.additional_terms.slice(0, 300)}` : '',
       ].filter(Boolean).join('\n\n');
-    }
+    }  
 
     const prompt = `Bạn là Trợ lý AI chuyên trách bóc tách tài liệu sự kiện của nền tảng EventHub.
 NHIỆM VỤ: Đọc kỹ tài liệu kế hoạch sự kiện dưới đây và trích xuất các thuộc tính cấu trúc thành một JSON duy nhất theo đúng cấu trúc yêu cầu.
