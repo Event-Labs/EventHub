@@ -912,7 +912,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
                 );
                 ticketTypeId = matchedTicket ? matchedTicket.id : detail.ticket_types[0].id;
                 if (quantity <= 1) {
-                  const qtyMatch = allUserText.match(/(\d+)\s*(?:v[eé]|ticket)/i);
+                  const qtyMatch = allUserText.match(/(\d+)\s*(?:v[eé]|chỗ|ghế|ticket)/i);
                   if (qtyMatch) {
                     const parsedQty = parseInt(qtyMatch[1], 10);
                     if (parsedQty > 0) quantity = parsedQty;
@@ -927,6 +927,9 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         let attendeesParam = '';
         if (requireAttendeeInfo) {
           const collectedAttendees = extractAttendeesFromText(allUserText, userProfile);
+          if (collectedAttendees.length > quantity) {
+            quantity = collectedAttendees.length;
+          }
           if (collectedAttendees.length < quantity) {
             return {
               error: `LỖI: Khách hàng đặt ${quantity} vé nhưng mới chỉ cung cấp thông tin cho ${collectedAttendees.length} người tham gia. Sự kiện này bắt buộc mỗi vé phải có thông tin check-in riêng (chỉ người đó mới được vào, không thể đổi người khác). Bạn PHẢI yêu cầu khách cung cấp tiếp Họ và tên + Email cho các vé còn lại, TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý BỊA ĐIỀN HOẶC SAO CHÉP 1 NGƯỜI CHO NHIỀU VÉ!`
@@ -1044,11 +1047,11 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
     let requireAttendeeInfo = false;
     let hasSeatMap = false;
     let eventDetail = null;
+    let sessionList = [];
 
     if (activeEvent) {
       let sessionText = '';
       let ticketText = '';
-      let sessionList = [];
       try {
         eventDetail = await eventsService.getPublicEventDetail(activeEvent.slug || activeEvent.id, userId);
         if (eventDetail) {
@@ -1208,10 +1211,56 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
     const collectedAttendees = extractAttendeesFromText(allUserMessages, userProfile);
     const hasEnoughAttendees = !requireAttendeeInfo || (hasChosenTickets && collectedAttendees.length >= totalOrderQty);
 
+    const seatedOrderQty = (() => {
+      if (detectedTickets.length > 0) return detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
+      const qtyMatch = allUserMessages.match(/(\d+)\s*(?:v[eé]|chỗ|ghế|ticket)/i);
+      if (qtyMatch) {
+        const q = parseInt(qtyMatch[1], 10);
+        if (q > 0) return q;
+      }
+      if (collectedAttendees.length > 0) return collectedAttendees.length;
+      return 1;
+    })();
+
     const msgClean = (message || '').trim().replace(/[\.\-\s\+]/g, '');
     const isJustPhone = msgClean.length >= 9 && msgClean.length <= 13 && /^(?:84|0)[35789]\d{8}$|^0\d{9,10}$/.test(msgClean);
 
-    if (activeEvent && !hasSeatMap) {
+    if (activeEvent && hasSeatMap) {
+      if (isJustPhone) {
+        if (!requireAttendeeInfo) {
+          messages.push({
+            role: 'system',
+            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Sự kiện có sơ đồ chỗ ngồi và KHÔNG yêu cầu thông tin người tham gia. Bạn PHẢI GỌI NGAY tool generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}" }) để mở sơ đồ chọn ghế cho khách!`
+          });
+        } else {
+          if (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0) {
+            messages.push({
+              role: 'system',
+              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}) và đã cung cấp đủ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Bạn PHẢI GỌI NGAY tool generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: ${seatedOrderQty} }) để tạo nút chọn ghế trên sơ đồ cho khách!`
+            });
+          } else {
+            messages.push({
+              role: 'system',
+              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Bạn hãy cảm ơn khách đã gửi SĐT, TUYỆT ĐỐI KHÔNG HỎI LẠI SỐ ĐIỆN THOẠI NỮA. Sự kiện này có sơ đồ chỗ ngồi và có yêu cầu thông tin check-in riêng cho từng người tham gia. Bạn hãy hỏi khách muốn đặt mấy vé và xin Họ tên + Email của người tham gia (khách có thể nhắn "dùng thông tin của tôi" nếu tự đi một mình).`
+            });
+          }
+        }
+      } else if (!effectivePhone) {
+        messages.push({
+          role: 'system',
+          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn đặt vé nhưng tài khoản CHƯA CÓ số điện thoại liên hệ. Bạn hãy hỏi khách hàng số điện thoại liên hệ: "Dạ tài khoản của bạn hiện chưa có số điện thoại liên hệ. Bạn vui lòng cho Eve xin số điện thoại để Eve hoàn tất đặt vé giúp bạn nhé! 🥰". TUYỆT ĐỐI KHÔNG TỰ BỊA SỐ ĐIỆN THOẠI VÀ CHƯA GỌI TOOL generatePrefillBookingAction!`
+        });
+      } else if (requireAttendeeInfo) {
+        if (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0) {
+          messages.push({
+            role: 'system',
+            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã cung cấp ĐỦ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản: ${userProfile?.full_name || 'Khách hàng'} (${userProfile?.email || ''}, SĐT: ${effectivePhone}).
+Sự kiện có sơ đồ chỗ ngồi. Bạn BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: ${seatedOrderQty} }) ngay lập tức để hoàn tất tạo thông tin vé cho khách!
+TUYỆT ĐỐI KHÔNG được trả lời dạng hứa hẹn "đang chuyển bạn đến trang thanh toán", "vui lòng đợi" mà BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction!`
+          });
+        }
+      }
+    } else if (activeEvent && !hasSeatMap) {
       if (!hasChosenTickets) {
         // Customer has NOT chosen ticket types and quantities yet!
         // DO NOT ask for attendees or phone. Let the assistant introduce the schedule and ticket categories as requested.
@@ -1293,7 +1342,9 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         activeTools = TOOLS.filter(t => t.function.name !== 'searchEvents');
 
         // Only allow generatePrefillBookingAction when customer has chosen tickets, has phone, and has provided enough attendees
-        const canPrefill = hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees;
+        const canPrefill = hasSeatMap
+          ? (Boolean(effectivePhone) && (!requireAttendeeInfo || (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0)))
+          : (hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees);
         if (!canPrefill) {
           activeTools = activeTools.filter(t => t.function.name !== 'generatePrefillBookingAction');
         }
@@ -1382,17 +1433,32 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
     }
 
     // Safety net for ACTION tags:
-    // If the customer has chosen tickets, has a phone number, and has provided enough attendees,
-    // but the model did NOT emit the tool call (or hallucinated in text),
+    // If the requirements are met but the model did NOT emit the tool call (or hallucinated in text),
     // automatically execute generatePrefillBookingAction deterministically!
-    if (!toolExecutionContext.lastGeneratedActionTag && activeEvent && !hasSeatMap) {
-      const canPrefill = hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees;
-      if (canPrefill) {
-        logger.info('[AgentLoop] Auto-triggering generatePrefillBookingAction because all requirements are met but model skipped tool call.');
+    let effectiveSeatedQty = seatedOrderQty || 1;
+    if (!toolExecutionContext.lastGeneratedActionTag && activeEvent) {
+      let shouldAutoPrefill = false;
+      let autoPrefillQty = 1;
+
+      if (hasSeatMap) {
+        if (effectivePhone && (!requireAttendeeInfo || (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0))) {
+          shouldAutoPrefill = true;
+          autoPrefillQty = seatedOrderQty;
+          effectiveSeatedQty = autoPrefillQty;
+        }
+      } else {
+        if (hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees) {
+          shouldAutoPrefill = true;
+          autoPrefillQty = totalOrderQty;
+        }
+      }
+
+      if (shouldAutoPrefill) {
+        logger.info(`[AgentLoop] Auto-triggering generatePrefillBookingAction (hasSeatMap=${hasSeatMap}, qty=${autoPrefillQty}) because all requirements are met but model skipped tool call.`);
         await this.executeTool(userId, 'generatePrefillBookingAction', {
           eventId: activeEvent.slug,
-          sessionId: activeEvent.sessions?.[0]?.id || '',
-          quantity: totalOrderQty
+          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+          quantity: autoPrefillQty
         }, toolExecutionContext);
       }
     }
@@ -1404,9 +1470,13 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
       finalContent = finalContent.replace(/\[ACTION:[A-Z_]+:?[\s\S]*?(?:\]|$)/gi, '').trim();
 
       // If the model ended with a pending/waiting phrase like "Vui lòng đợi một chút nhé", make it clear and helpful
-      if (/vui lòng đợi|đang xử lý/i.test(finalContent)) {
-        finalContent = finalContent.replace(/(?:vui lòng đợi|đang xử lý)[\s\S]*$/i, '').trim();
-        finalContent += '\n\nEve đã tạo thông tin vé giúp bạn rồi nè! Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha! 🎉';
+      if (/vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang/i.test(finalContent)) {
+        finalContent = finalContent.replace(/(?:👉\s*)?(?:\*{1,2})?(?:vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang)[\s\S]*$/i, '').trim();
+        if (hasSeatMap) {
+          finalContent += `\n\nEve đã ghi nhận thông tin người tham gia cho bạn rồi nhé! Bạn nhấn vào nút bên dưới để chọn đúng ${effectiveSeatedQty} vị trí ghế ưng ý trên sơ đồ, sau đó hệ thống sẽ tự động đưa bạn đến thẳng trang thanh toán nha! 🎭✨`;
+        } else {
+          finalContent += '\n\nEve đã tạo thông tin vé giúp bạn rồi nè! Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha! 🎉';
+        }
       }
 
       finalContent += `\n\n${toolExecutionContext.lastGeneratedActionTag}`;
