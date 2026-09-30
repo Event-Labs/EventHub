@@ -12,6 +12,15 @@ class AiAssistantController {
       next(err);
     }
   };
+
+  getTrainingStats = async (req, res, next) => {
+    try {
+      const stats = await aiAssistantService.getCollectedTrainingStats();
+      res.status(200).json(ApiResponse.success(stats, 'Training stats retrieved'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new AiAssistantController();
