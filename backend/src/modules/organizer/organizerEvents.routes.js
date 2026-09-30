@@ -1,6 +1,12 @@
 const express = require('express');
+const multer = require('multer');
 const organizerEventsController = require('./organizerEvents.controller');
 const { protect, authorize } = require('../../middlewares/auth.middleware');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
 
 const router = express.Router();
 
@@ -16,6 +22,7 @@ router.post('/me/sensitive-access/verify', organizerEventsController.verifySensi
 router.get('/venues', organizerEventsController.getVenues);
 router.get('/ai-content-generation/latest', organizerEventsController.getLatestAiContentGeneration);
 router.post('/ai-content-generation', organizerEventsController.generateAiEventContent);
+router.post('/ai-extract-event', upload.single('file'), organizerEventsController.extractEventFromFile);
 router.post('/', organizerEventsController.createEvent);
 router.get('/', organizerEventsController.listEvents);
 router.get('/:eventId', organizerEventsController.getEvent);
