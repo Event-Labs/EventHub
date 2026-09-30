@@ -52,6 +52,16 @@ class OrganizerEventsRepository {
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
   }
 
+  async ensureAiImageReviewColumns(client = db) {
+    await client.query(`
+      ALTER TABLE events
+        ADD COLUMN IF NOT EXISTS review_status VARCHAR(50) DEFAULT 'PENDING',
+        ADD COLUMN IF NOT EXISTS ai_flagged_reasons JSONB DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS ai_extracted_text TEXT DEFAULT '',
+        ADD COLUMN IF NOT EXISTS ai_image_review_results JSONB DEFAULT '{}'::jsonb
+    `);
+  }
+
   async findOrganizerByUserId(userId) {
     const { rows } = await db.query(
       `
@@ -304,6 +314,7 @@ class OrganizerEventsRepository {
 
   async createEvent(organizerId, data) {
     await this.ensureRequireAttendeeInfoColumn();
+    await this.ensureAiImageReviewColumns();
     const now = new Date();
     const startTime = data.start_time || new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const endTime = data.end_time || new Date(startTime.getTime() + 3 * 60 * 60 * 1000);
@@ -360,6 +371,7 @@ class OrganizerEventsRepository {
 
   async updateEvent(eventId, organizerId, data) {
     await this.ensureRequireAttendeeInfoColumn();
+    await this.ensureAiImageReviewColumns();
     const fields = [];
     const values = [];
     let idx = 1;

@@ -14,6 +14,11 @@ const eventsListAdminController = require('./events.list.controller');
 // List pending review events
 router.get('/pending', eventsListAdminController.listPendingReview);
 
+// AI Auto-Review Settings & Batch Trigger
+router.get('/settings/auto-review', eventsAdminController.getAutoReviewSettings);
+router.patch('/settings/auto-review', eventsAdminController.updateAutoReviewSettings);
+router.post('/auto-review/batch', eventsAdminController.runBatchAutoReview);
+
 // Get event details for review
 router.get('/:eventId', eventsAdminController.getEventDetail);
 

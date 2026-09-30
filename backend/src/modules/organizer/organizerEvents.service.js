@@ -7,6 +7,7 @@ const organizerEventsRepository = require('./organizerEvents.repository');
 const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
 const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 const { validateRefundRules } = require('../refunds/refundPolicyHelper');
+const aiImageReviewService = require('../ai/aiImageReview.service');
 const logger = require('../../core/logger');
 const ollamaClient = require('../../infrastructure/ai/ollama.client');
 
@@ -393,6 +394,16 @@ class OrganizerEventsService {
     }
 
     const event = await organizerEventsRepository.createEvent(organizerId, data);
+
+    // Kích hoạt AI Review hình ảnh (Poster, Banner, HTML Description) bất đồng bộ
+    aiImageReviewService.triggerAsyncImageReview(event.id, {
+      title: event.title,
+      thumbnail_url: event.thumbnail_url,
+      banner_url: event.banner_url,
+      description: event.description,
+      short_description: event.short_description,
+    });
+
     return mapEvent(event);
   }
 
@@ -426,6 +437,23 @@ class OrganizerEventsService {
 
     if (Object.keys(eventFields).length) {
       await organizerEventsRepository.updateEvent(eventId, organizerId, eventFields);
+
+      // Kích hoạt lại AI Review nếu có thay đổi ảnh, mô tả hoặc tiêu đề
+      if (
+        eventFields.thumbnail_url !== undefined ||
+        eventFields.banner_url !== undefined ||
+        eventFields.description !== undefined ||
+        eventFields.short_description !== undefined ||
+        eventFields.title !== undefined
+      ) {
+        aiImageReviewService.triggerAsyncImageReview(eventId, {
+          title: eventFields.title || currentEvent.title,
+          thumbnail_url: eventFields.thumbnail_url !== undefined ? eventFields.thumbnail_url : currentEvent.thumbnail_url,
+          banner_url: eventFields.banner_url !== undefined ? eventFields.banner_url : currentEvent.banner_url,
+          description: eventFields.description !== undefined ? eventFields.description : currentEvent.description,
+          short_description: eventFields.short_description !== undefined ? eventFields.short_description : currentEvent.short_description,
+        });
+      }
     }
 
     if (Array.isArray(data.sessions)) {
@@ -572,6 +600,30 @@ class OrganizerEventsService {
     if (!event) {
       throw new AppError('Event cannot be submitted', 400, ErrorCodes.INVALID_INPUT);
     }
+
+    // Kích hoạt AI Image Review khi submit sự kiện
+    aiImageReviewService.triggerAsyncImageReview(eventId, {
+      title: fullEvent.title,
+      thumbnail_url: fullEvent.thumbnail_url,
+      banner_url: fullEvent.banner_url,
+      description: fullEvent.description,
+      short_description: fullEvent.short_description,
+    });
+
+    // Kích hoạt AI Auto-Review & Auto-Decision pipeline (chạy nền bất đồng bộ)
+    setTimeout(() => {
+      try {
+        const eventsAdminService = require('../admin/events.service');
+        eventsAdminService.processAutoReviewForEvent(eventId).catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn(`[submitEvent] Auto-review background job failed for event ${eventId}: ${err.message}`);
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(`[submitEvent] Failed to initialize auto-review for event ${eventId}: ${err.message}`);
+      }
+    }, 1000);
+
     return mapEvent(event);
   }
 
