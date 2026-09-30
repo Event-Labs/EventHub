@@ -1,7 +1,6 @@
 import { Eye, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import heroImage from '@/assets/hero.png'
 import { clearAuthSession, getAuthToken, getPostLoginPath, getRememberLoginPreference, getStoredUser, setAuthSession } from '@/lib/auth.js'
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
@@ -156,7 +155,9 @@ export function LoginPage() {
       <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
         <div className="text-center">
-          <AuthLogo />
+          <h1 className="font-display text-3xl font-extrabold text-white">
+            Đăng nhập
+          </h1>
           <p className="mt-3 text-sm font-medium text-slate-300">
             Đăng nhập để tiếp tục đặt vé và quản lý sự kiện
           </p>
@@ -220,7 +221,8 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || otp.length !== 6}
-                className="cosmic-btn-primary w-full"
+                className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
                 {loading ? 'Đang xử lý...' : 'Xác thực OTP'}
               </button>
@@ -271,7 +273,7 @@ export function LoginPage() {
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-sm font-bold text-primary hover:underline"
+                  className="text-sm font-bold text-white hover:text-slate-300 transition-colors"
                 >
                   Quên mật khẩu?
                 </Link>
@@ -279,7 +281,8 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || (otpStep && otp.length !== 6)}
-                className="cosmic-btn-primary w-full py-3.5 text-[15px]"
+                className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
                 {loading ? 'Đang đăng nhập...' : (otpStep ? 'Xác thực OTP' : 'Đăng nhập')}
               </button>
@@ -290,9 +293,9 @@ export function LoginPage() {
           Chưa có tài khoản?
           <Link
             to="/register"
-            className="ml-2 font-bold text-primary hover:underline"
+            className="ml-2 font-bold text-primary hover:text-white transition-colors"
           >
-            Đăng ký
+            Tạo tài khoản ngay
           </Link>
         </p>
       </div>
@@ -321,14 +324,7 @@ export function AuthLogo() {
 
 export function AuthShell({ children }) {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
-      <img
-        src={heroImage}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover opacity-60 mix-blend-overlay"
-      />
-      <div className="absolute inset-0 bg-background/90 backdrop-blur-md" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-20" />
+    <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 sm:py-12">
       <div className="relative z-10 w-full">{children}</div>
     </div>
   )
@@ -342,11 +338,18 @@ export function Field({ icon: Icon, trailing: Trailing, label, ...props }) {
     <label className="block space-y-2">
       <span className="mb-2 inline-block text-sm font-bold text-white">{label}</span>
       <div className="relative">
-        <Icon className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+        {Icon && (
+          <Icon className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+        )}
         <input
           {...props}
           type={isPassword ? (showPassword ? 'text' : 'password') : props.type}
-          className="cosmic-input pl-12 pr-12"
+          className={`cosmic-input ${Icon ? '!pl-12' : '!pl-4'} ${Trailing || isPassword ? '!pr-12' : '!pr-4'} ${props.className || ''}`}
+          style={{
+            paddingLeft: Icon ? '3rem' : '1rem',
+            paddingRight: (Trailing || isPassword) ? '3rem' : '1rem',
+            ...props.style,
+          }}
         />
         {isPassword && Trailing && (
           <button

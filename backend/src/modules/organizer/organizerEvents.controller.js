@@ -1,5 +1,6 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const organizerEventsService = require('./organizerEvents.service');
+const aiDocumentParserService = require('./aiDocumentParser.service');
 const logger = require('../../core/logger');
 
 class OrganizerEventsController {
@@ -231,6 +232,25 @@ class OrganizerEventsController {
     try {
       const data = await organizerEventsService.generateAiEventContent(req.user.sub, req.body);
       res.status(200).json(ApiResponse.success(data, 'AI event content generated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  extractEventFromFile = async (req, res, next) => {
+    try {
+      let documentText = '';
+      if (req.file) {
+        documentText = await aiDocumentParserService.extractTextFromFile(req.file);
+      } else if (req.body?.raw_text && req.body.raw_text.trim()) {
+        documentText = req.body.raw_text.trim();
+      } else {
+        return res.status(400).json(ApiResponse.error('Vui lòng tải lên file tài liệu hoặc nhập văn bản kế hoạch sự kiện'));
+      }
+
+      const note = req.body?.note || '';
+      const result = await aiDocumentParserService.extractEventFromText(documentText, note);
+      res.status(200).json(ApiResponse.success(result, 'Trích xuất dữ liệu sự kiện thành công'));
     } catch (err) {
       next(err);
     }

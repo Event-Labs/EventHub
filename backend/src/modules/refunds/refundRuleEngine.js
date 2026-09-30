@@ -1,3 +1,5 @@
+const { generateRefundPolicyText } = require('./refundPolicyHelper');
+
 const ALLOWED_REASONS = [
   'Trùng lịch cá nhân',
   'Sự kiện thay đổi thông tin',
@@ -15,30 +17,33 @@ const ALLOWED_REJECT_REASONS = [
 
 class RefundRuleEngine {
   /**
-   * Evaluates eligibility for customer ticket refund according to Report 3
-   * (Functions 74, 75, 76 and Business Rules BR-01, BR-02, BR-17, BR-18, BR-20, BR-71, BR-72, BR-75).
+   * Evaluates eligibility for customer ticket refund according to Structured Refund Policy
+   * and Business Rules.
    *
    * @param {Object} context
    * @param {Object} context.ticket
    * @param {Object} context.order
    * @param {Object} context.event
-   * @param {Object} context.activeRefund
+   * @param {Object} [context.activeRefund]
    * @param {string} context.customerId
-   * @param {string} context.reason
+   * @param {string} [context.reason]
    * @param {string} [context.customerNote]
    * @param {Date} [context.currentTime]
-   * @returns {Object} RefundValidationResult { eligible, reason, errorCode, refundableAmount, cancellationFee, feePercentage, policy }
+   * @param {boolean} [context.validateReason=true]
+   * @returns {Object} RefundValidationResult
    */
   evaluateEligibility(context) {
     const {
       ticket,
       order,
       event,
+      session,
       activeRefund,
       customerId,
       reason,
       customerNote,
       currentTime = new Date(),
+      validateReason = true,
     } = context;
 
     const now = currentTime.getTime();
@@ -122,7 +127,7 @@ class RefundRuleEngine {
       }
 
       // Check session expiration
-      const sessionEndTime = ticket.session_end_time || event?.end_time;
+      const sessionEndTime = ticket.session_end_time || session?.end_time || event?.end_time;
       if (sessionEndTime && new Date(sessionEndTime).getTime() < now) {
         return {
           eligible: false,
@@ -134,7 +139,7 @@ class RefundRuleEngine {
 
     // 5. Active Refund Request check (BR-72)
     if (activeRefund) {
-      const activeStatuses = ['PENDING', 'APPROVED', 'REFUNDED'];
+      const activeStatuses = ['PENDING', 'APPROVED', 'PROCESSING', 'REFUNDED'];
       if (activeStatuses.includes(activeRefund.status)) {
         return {
           eligible: false,
@@ -144,69 +149,18 @@ class RefundRuleEngine {
       }
     }
 
-    // 6. Event Refund Policy checks (Report 3: 3.7.10 & BR-71)
-    const rawPolicy = event?.refund_policy;
-    const policy = typeof rawPolicy === 'string' ? JSON.parse(rawPolicy) : (rawPolicy || {});
-
-    if (policy.allow_refunds === false) {
-      return {
-        eligible: false,
-        reason: 'Sự kiện này áp dụng chính sách Không hoàn tiền.',
-        errorCode: 'POLICY_NON_REFUNDABLE',
-        policy,
-      };
-    }
-
-    // Check refund deadline
-    const deadlineDays = Number(policy.deadline_days || 0);
-    const eventStartTime = ticket?.session_start_time || event?.start_time;
-    if (eventStartTime && deadlineDays > 0) {
-      const startTime = new Date(eventStartTime).getTime();
-      const diffDays = (startTime - now) / (1000 * 60 * 60 * 24);
-
-      if (diffDays < deadlineDays) {
-        return {
-          eligible: false,
-          reason: `Đã quá thời hạn yêu cầu hoàn tiền cho vé này. Chính sách yêu cầu gửi trước ít nhất ${deadlineDays} ngày trước khi sự kiện diễn ra.`,
-          errorCode: 'POLICY_DEADLINE_PASSED',
-          policy,
-        };
-      }
-    }
-
-    // 7. Reason validation (Report 3 Table 3.7.10 items 6 & 7)
-    if (!reason || !reason.trim()) {
-      return {
-        eligible: false,
-        reason: 'Vui lòng chọn lý do hoàn tiền.',
-        errorCode: 'REASON_REQUIRED',
-      };
-    }
-
-    const trimmedReason = reason.trim();
-    if (!ALLOWED_REASONS.includes(trimmedReason)) {
-      return {
-        eligible: false,
-        reason: `Lý do hoàn tiền không hợp lệ. Vui lòng chọn một trong: ${ALLOWED_REASONS.join(', ')}`,
-        errorCode: 'INVALID_REASON',
-      };
-    }
-
-    if (trimmedReason === 'Khác' && (!customerNote || !customerNote.trim())) {
-      return {
-        eligible: false,
-        reason: 'Vui lòng nhập lý do cụ thể khi chọn "Khác".',
-        errorCode: 'REASON_NOTE_REQUIRED',
-      };
-    }
-
-    // 8. Calculate net refundable amount (BR-75)
-    // Công thức: Số tiền hoàn = Tiền thực tế đã trả - Phí hủy vé/phí nền tảng (nếu có)
+    // 6. Calculate Actual Paid Amount (BR-75, no platform fee in current business rule)
     let originalPrice = 0;
     let actualPaid = 0;
 
     if (ticket) {
-      originalPrice = Number(ticket.unit_price || ticket.final_price || 0);
+      originalPrice = Number(
+        ticket.unit_price ||
+        ticket.final_price ||
+        ticket.order_item_unit_price ||
+        ticket.order_item_final_price ||
+        0
+      );
       const subtotal = Number(order.subtotal || order.order_subtotal || 0);
       const discountAmount = Number(order.discount_amount || order.order_discount_amount || 0);
       const totalAmount = Number(order.total_amount || order.order_total_amount || 0);
@@ -229,16 +183,186 @@ class RefundRuleEngine {
       actualPaid = Number(order.total_amount || 0);
     }
 
-    const feePercentage = Math.min(100, Math.max(0, Number(policy.fee_percentage || 0)));
-    const cancellationFee = Math.round((actualPaid * feePercentage) / 100);
-    const refundableAmount = Math.max(0, actualPaid - cancellationFee);
+    // 7. Event Refund Policy checks & Policy Snapshot Priority
+    // Prefer policy snapshot on ticket if available, else event refund_policy
+    const rawPolicy = ticket?.refund_policy_snapshot || event?.refund_policy;
+    const policy = typeof rawPolicy === 'string' ? JSON.parse(rawPolicy) : (rawPolicy || {});
+    const policyText = generateRefundPolicyText(policy);
+
+    const isAllowed = Boolean(policy.allow_refund ?? policy.allow_refunds);
+    if (!isAllowed) {
+      return {
+        eligible: false,
+        reason: 'Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.',
+        errorCode: 'POLICY_NON_REFUNDABLE',
+        originalPrice,
+        actualPaid,
+        refundRate: 0,
+        refundableAmount: 0,
+        policy,
+        policyText,
+      };
+    }
+
+    // Check remaining time before event start
+    const eventStartTime = ticket?.session_start_time || session?.start_time || event?.start_time;
+    if (!eventStartTime) {
+      return {
+        eligible: false,
+        reason: 'Không xác định được thời gian bắt đầu của sự kiện.',
+        errorCode: 'EVENT_START_TIME_MISSING',
+        originalPrice,
+        actualPaid,
+        policy,
+        policyText,
+      };
+    }
+
+    const startTimeMs = new Date(eventStartTime).getTime();
+    const diffMs = startTimeMs - now;
+    if (diffMs <= 0) {
+      return {
+        eligible: false,
+        reason: 'Sự kiện đã bắt đầu hoặc đã kết thúc, không thể yêu cầu hoàn tiền.',
+        errorCode: 'EVENT_ALREADY_STARTED',
+        daysBeforeEvent: 0,
+        originalPrice,
+        actualPaid,
+        policy,
+        policyText,
+      };
+    }
+
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const daysBeforeEvent = Math.floor(diffDays);
+
+    // 8. Find matching refund rule
+    const rules = Array.isArray(policy.refund_rules) ? policy.refund_rules : [];
+    let matchedRule = null;
+    let refundRate = 0;
+
+    if (rules.length > 0) {
+      // Sort rules descending by days_before
+      const sortedRules = [...rules].sort((a, b) => Number(b.days_before) - Number(a.days_before));
+      for (const rule of sortedRules) {
+        if (diffDays >= Number(rule.days_before)) {
+          matchedRule = rule;
+          refundRate = Number(rule.refund_rate);
+          break;
+        }
+      }
+
+      if (!matchedRule) {
+        const minDays = sortedRules[sortedRules.length - 1].days_before;
+        return {
+          eligible: false,
+          reason: `Yêu cầu được gửi trong vòng ${minDays} ngày trước khi sự kiện bắt đầu nên không đủ điều kiện hoàn tiền theo chính sách.`,
+          errorCode: 'POLICY_DEADLINE_PASSED',
+          daysBeforeEvent,
+          refundRate: 0,
+          originalPrice,
+          actualPaid,
+          refundableAmount: 0,
+          policy,
+          policyText,
+        };
+      }
+    } else if (policy.deadline_days !== undefined) {
+      // Fallback for legacy policy without tiered refund_rules
+      const deadlineDays = Number(policy.deadline_days || 0);
+      if (deadlineDays > 0 && diffDays < deadlineDays) {
+        return {
+          eligible: false,
+          reason: `Đã quá thời hạn yêu cầu hoàn tiền cho vé này. Chính sách yêu cầu gửi trước ít nhất ${deadlineDays} ngày trước khi sự kiện diễn ra.`,
+          errorCode: 'POLICY_DEADLINE_PASSED',
+          daysBeforeEvent,
+          refundRate: 0,
+          originalPrice,
+          actualPaid,
+          refundableAmount: 0,
+          policy,
+          policyText,
+        };
+      }
+      const feePercentage = Math.min(100, Math.max(0, Number(policy.fee_percentage || 0)));
+      refundRate = Math.max(0, 100 - feePercentage);
+    } else {
+      // If allow_refund is true but no rules configured, default to ineligible
+      return {
+        eligible: false,
+        reason: 'Chính sách hoàn tiền chưa được cấu hình mốc cụ thể.',
+        errorCode: 'NO_MATCHING_REFUND_RULE',
+        daysBeforeEvent,
+        refundRate: 0,
+        originalPrice,
+        actualPaid,
+        refundableAmount: 0,
+        policy,
+        policyText,
+      };
+    }
+
+    if (refundRate <= 0) {
+      return {
+        eligible: false,
+        reason: 'Mức hoàn tiền áp dụng cho thời điểm này là 0%.',
+        errorCode: 'ZERO_REFUND_RATE',
+        daysBeforeEvent,
+        refundRate: 0,
+        originalPrice,
+        actualPaid,
+        refundableAmount: 0,
+        policy,
+        policyText,
+        ruleMatched: matchedRule,
+      };
+    }
+
+    // 9. Reason validation (only if validateReason is true)
+    if (validateReason) {
+      if (!reason || !reason.trim()) {
+        return {
+          eligible: false,
+          reason: 'Vui lòng chọn lý do hoàn tiền.',
+          errorCode: 'REASON_REQUIRED',
+        };
+      }
+
+      const trimmedReason = reason.trim();
+      if (!ALLOWED_REASONS.includes(trimmedReason)) {
+        return {
+          eligible: false,
+          reason: `Lý do hoàn tiền không hợp lệ. Vui lòng chọn một trong: ${ALLOWED_REASONS.join(', ')}`,
+          errorCode: 'INVALID_REASON',
+        };
+      }
+
+      if (trimmedReason === 'Khác' && (!customerNote || !customerNote.trim())) {
+        return {
+          eligible: false,
+          reason: 'Vui lòng nhập lý do cụ thể khi chọn "Khác".',
+          errorCode: 'REASON_NOTE_REQUIRED',
+        };
+      }
+    }
+
+    // 10. Calculate final refund amount
+    // Refund Amount = Actual Paid Amount × Applicable Refund Rate
+    const refundableAmount = Math.round((actualPaid * refundRate) / 100);
 
     if (refundableAmount <= 0 && actualPaid > 0) {
       return {
         eligible: false,
-        reason: 'Số tiền hoàn lại sau khi trừ phí hoàn vé phải lớn hơn 0.',
+        reason: 'Số tiền hoàn lại theo tỷ lệ áp dụng bằng 0 đ.',
         errorCode: 'ZERO_REFUNDABLE_AMOUNT',
+        daysBeforeEvent,
+        refundRate,
+        originalPrice,
+        actualPaid,
+        refundableAmount: 0,
         policy,
+        policyText,
+        ruleMatched: matchedRule,
       };
     }
 
@@ -246,12 +370,14 @@ class RefundRuleEngine {
       eligible: true,
       reason: null,
       errorCode: null,
+      daysBeforeEvent,
+      refundRate,
       originalPrice,
       actualPaid,
       refundableAmount,
-      cancellationFee,
-      feePercentage,
       policy,
+      policyText,
+      ruleMatched: matchedRule,
     };
   }
 

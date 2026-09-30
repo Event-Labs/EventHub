@@ -30,7 +30,7 @@ import {
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, ImagePlaceholder, Page, Panel, Table } from './AdminComponents.jsx'
+import { Badge, ImagePlaceholder, Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -51,13 +51,13 @@ const STATUS_TABS = [
 function statusBadge(status, approvalStatus) {
   if (status === 'HIDDEN') {
     return approvalStatus === 'REJECTED'
-      ? <Badge tone="purple">Từ chối</Badge>
+      ? <Badge tone="red">Từ chối</Badge>
       : <Badge tone="gray">Đã ẩn</Badge>
   }
   const map = {
-    PENDING_REVIEW: { tone: 'blue', label: 'Chờ duyệt' },
+    PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
     PUBLISHED: { tone: 'green', label: 'Đã duyệt' },
-    CANCELLED: { tone: 'gray', label: 'Đã huỷ' },
+    CANCELLED: { tone: 'gray', label: 'Đã hủy' },
     COMPLETED: { tone: 'green', label: 'Đã kết thúc' },
   }
   const cfg = map[status] ?? { tone: 'gray', label: status }
@@ -307,8 +307,8 @@ export function AdminEventReviewPage() {
             type="button"
             onClick={() => { setActiveStatus(tab.value); setPage(1) }}
             className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${activeStatus === tab.value
-                ? 'bg-tertiary text-white shadow-tertiary/20'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:bg-surface hover:text-content'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
               }`}
           >
             {tab.label}
@@ -390,35 +390,34 @@ export function AdminEventReviewPage() {
                     value={notes[event.id] ?? ''}
                     onChange={(e) => setNote(event.id, e.target.value)}
                   />
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     {/* Hide — only for PUBLISHED */}
                     {event.status === 'PUBLISHED' && (
-                      <ActionButton
+                      <TableActionButton
                         title="Ẩn sự kiện"
-                        color="gray"
-                        icon={<EyeOff className="size-4" />}
+                        tone="danger"
+                        icon={EyeOff}
                         onClick={() => quickHide(event.id)}
                         disabled={isMutating}
                       />
                     )}
                     {/* Unhide — only for HIDDEN+APPROVED (was published, then hidden) */}
                     {event.status === 'HIDDEN' && event.approval_status === 'APPROVED' && (
-                      <ActionButton
+                      <TableActionButton
                         title="Bỏ ẩn"
-                        color="green"
-                        icon={<Eye className="size-4" />}
+                        tone="success"
+                        icon={Eye}
                         onClick={() => quickUnhide(event.id)}
                         disabled={isMutating}
                       />
                     )}
-                    {/* View detail button */}
-                    <button
-                      type="button"
+                    {/* View/Review detail button */}
+                    <TableActionButton
+                      title={event.status === 'PENDING_REVIEW' ? 'Duyệt chi tiết sự kiện' : 'Xem chi tiết sự kiện'}
+                      tone="primary"
+                      icon={Eye}
                       onClick={() => navigate(`/admin/events/review/${event.id}`)}
-                      className="flex items-center gap-1.5 rounded-xl border border-tertiary/30 bg-tertiary/5 px-3 h-9 text-xs font-bold text-tertiary transition hover:bg-tertiary/10"
-                    >
-                      {event.status === 'PENDING_REVIEW' ? 'Duyệt chi tiết' : 'Xem chi tiết'}
-                    </button>
+                    />
                   </div>
                 </div>,
               ])}
@@ -899,7 +898,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   )
 }
 
-function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'bg-primary' }) {
+function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'admin-primary' }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">

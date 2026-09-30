@@ -173,7 +173,7 @@ export function AiEventContentGeneratorModal({
               <h3 className="font-display text-lg font-extrabold text-white flex items-center gap-2">
                 Trợ lý AI Tạo Nội dung Sự kiện
                 <span className="rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-[11px] font-bold text-indigo-300 border border-indigo-500/30">
-                  Local AI Ready
+                  Qwen3 EventHub AI
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
