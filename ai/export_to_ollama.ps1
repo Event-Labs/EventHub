@@ -8,32 +8,29 @@ converting to GGUF, and creating the Ollama model.
 #>
 
 $ErrorActionPreference = "Stop"
-$OLLAMA_MODEL_NAME = "eventhub-qwen3"
-$CHECKPOINT_DIR = "checkpoints/final_lora"
-$GGUF_OUT = "eventhub-qwen3-4b.gguf"
+$OLLAMA_MODEL_NAME = "qwen3-eventhub-Q4_K_M.gguf"
+$GGUF_FILE = "qwen3-eventhub-Q4_K_M.gguf"
+$MODELFILE = "Modelfile.extractor"
 
-Write-Host "1. Checking if checkpoint exists..."
-if (-Not (Test-Path -Path $CHECKPOINT_DIR)) {
-    Write-Host "Error: Checkpoint directory $CHECKPOINT_DIR not found. Run train_qwen.py first." -ForegroundColor Red
+Write-Host "1. Checking if GGUF model exists..."
+if (-Not (Test-Path -Path $GGUF_FILE)) {
+    Write-Host "Error: GGUF file $GGUF_FILE not found in current directory." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "2. Note: For a production build, you need to merge the LoRA weights into the base model first."
-Write-Host "   Assuming weights are merged or using direct llama.cpp conversion script."
-
-Write-Host "3. Creating Ollama model from Modelfile..."
+Write-Host "2. Checking Ollama CLI..."
 if (-Not (Get-Command "ollama" -ErrorAction SilentlyContinue)) {
     Write-Host "Ollama is not installed or not in PATH." -ForegroundColor Red
     exit 1
 }
 
-if (-Not (Test-Path -Path "Modelfile")) {
-    Write-Host "Modelfile not found in current directory." -ForegroundColor Red
+if (-Not (Test-Path -Path $MODELFILE)) {
+    Write-Host "$MODELFILE not found in current directory." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "Running: ollama create $OLLAMA_MODEL_NAME -f Modelfile"
-ollama create $OLLAMA_MODEL_NAME -f Modelfile
+Write-Host "3. Creating Ollama model $OLLAMA_MODEL_NAME from $MODELFILE..."
+ollama create $OLLAMA_MODEL_NAME -f $MODELFILE
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Success! Model $OLLAMA_MODEL_NAME created in Ollama." -ForegroundColor Green
