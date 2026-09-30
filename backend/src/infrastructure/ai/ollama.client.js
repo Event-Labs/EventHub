@@ -289,20 +289,84 @@ async function getModels() {
 }
 
 /**
+ * Kiểm tra xem đoạn văn bản có chứa nhiều từ tiếng Anh hay không
+ */
+function isEnglishOrForeignText(text) {
+  if (!text || typeof text !== 'string') return false;
+  const lower = text.toLowerCase();
+  const englishIndicators = [
+    'the image', 'this image', 'shows a', 'depicts', 'there is', 'there are',
+    'contains', 'consists of', 'a poster for', 'a flyer for', 'in the background',
+    'in the foreground', 'wearing a', 'standing in front', 'written on it',
+    'legal document', 'business registration', 'official seal', 'license',
+    'validity', 'is valid', 'appears to be'
+  ];
+  return englishIndicators.some((indicator) => lower.includes(indicator));
+}
+
+/**
+ * Trau chuốt và chuẩn hóa mô tả sang tiếng Việt tự nhiên, chuyên nghiệp bằng model ngôn ngữ chính
+ */
+async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eventTitle = '') {
+  if (!rawDescription || typeof rawDescription !== 'string') {
+    return 'Không có mô tả chi tiết cho hình ảnh này.';
+  }
+
+  // Nếu mô tả đã thuần tiếng Việt và không chứa các cấu trúc tiếng Anh điển hình -> giữ nguyên
+  if (!isEnglishOrForeignText(rawDescription)) {
+    return rawDescription.trim();
+  }
+
+  try {
+    const prompt = `Bạn là Chuyên gia Thẩm định Hình ảnh & Văn bản Sự kiện EventHub tại Việt Nam.
+Hãy dịch và trau chuốt lại bản phân tích hình ảnh sau đây thành TIẾNG VIỆT tự nhiên, chuẩn xác, chuyên nghiệp và đầy đủ ngữ cảnh sự kiện Việt Nam.
+Ngữ cảnh sự kiện: "${eventTitle || 'Sự kiện EventHub'}" - Nguồn ảnh: ${sourceLabel || 'Ảnh sự kiện'}.
+
+Nội dung cần chuyển ngữ:
+"""
+${rawDescription}
+"""
+
+Yêu cầu bắt buộc:
+1. Trả về DUY NHẤT đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG để sót từ tiếng Anh thừa, KHÔNG dùng <think>, KHÔNG thêm lời chào hay giải thích ngoài).
+2. Giữ nguyên chuẩn xác các tên riêng (nghệ sĩ, ca sĩ, ban nhạc), địa danh tại Việt Nam, ngày giờ, số liệu giá vé, số quyết định hoặc tên cơ quan cấp phép nếu có.`;
+
+    const vietnameseText = await generate(prompt, {
+      model: OLLAMA_MODEL,
+      temperature: 0.1,
+      max_tokens: 350,
+      think: false,
+    });
+
+    if (vietnameseText && vietnameseText.length > 10) {
+      return vietnameseText.replace(/<\/?[a-zA-Z0-9_-]+>/g, '').trim();
+    }
+  } catch (err) {
+    logger.warn(`[OllamaClient] ensureVietnameseDescription fallback: ${err.message}`);
+  }
+
+  return rawDescription.trim();
+}
+
+/**
  * Describe a single image using the vision model (moondream).
- * Returns a text description of what the image contains.
+ * Returns a text description of what the image contains in Vietnamese.
  *
  * @param {string} base64Image - Pure base64 encoded image (no data URI prefix)
  * @param {string} contextPrompt - Optional prompt to guide the vision model's focus
- * @returns {Promise<string>} Text description of the image content
+ * @param {string} sourceLabel - Label of the source image
+ * @param {string} eventTitle - Event title for context
+ * @returns {Promise<string>} Text description of the image content in Vietnamese
  */
-async function describeImage(base64Image, contextPrompt = '') {
+async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '') {
   if (!base64Image) return 'Không thể phân tích ảnh (dữ liệu ảnh trống).';
 
   const prompt = contextPrompt || 
-    'Describe this image in detail. What objects, people, text, logos, or content do you see? ' +
-    'Is there any violent, sexual, gambling, or fraudulent content? ' +
-    'Respond in Vietnamese.';
+    'Bạn là chuyên gia phân tích ảnh sự kiện tại Việt Nam. Hãy quan sát và mô tả chi tiết hình ảnh này BẰNG TIẾNG VIỆT:\n' +
+    '1. Mô tả nội dung trực quan: Các đối tượng, con người, cảnh quan, nghệ sĩ, chủ đề sự kiện.\n' +
+    '2. Đọc toàn bộ chữ xuất hiện trên ảnh (OCR tiếng Việt): Tiêu đề, ngày giờ, địa điểm, giá vé, nhà tài trợ.\n' +
+    '3. Kiểm tra an toàn: Có yếu tố vi phạm (bạo lực, khiêu dâm, cờ bạc, lừa đảo) hay không?\n' +
+    'Bắt buộc trả lời hoàn toàn bằng tiếng Việt.';
 
   const body = {
     model: OLLAMA_VISION_MODEL,
@@ -312,15 +376,17 @@ async function describeImage(base64Image, contextPrompt = '') {
     keep_alive: 0, // Giải phóng ngay VRAM sau khi đọc ảnh xong để nhường trọn bộ nhớ cho text model
     options: {
       temperature: 0.2,
-      num_predict: 250,
+      num_predict: 300,
     },
   };
 
   try {
     const result = await ollamaFetch('/api/generate', body, OLLAMA_VISION_TIMEOUT);
-    const description = String(result.response || '').trim();
-    if (!description) return 'Model vision không trả về mô tả cho ảnh này.';
-    return description;
+    const rawDescription = String(result.response || '').trim();
+    if (!rawDescription) return 'Mô hình AI Vision không trả về mô tả cho ảnh này.';
+
+    // Tự động chuẩn hóa và trau chuốt 100% sang tiếng Việt nhuần nhuyễn
+    return await ensureVietnameseDescription(rawDescription, sourceLabel, eventTitle);
   } catch (err) {
     logger.warn(`[OllamaClient] Vision model '${OLLAMA_VISION_MODEL}' error: ${err.message}`);
     return `Không thể phân tích ảnh bằng vision model (${err.message.slice(0, 100)})`;
@@ -342,29 +408,36 @@ async function describeImageBatch(images, eventTitle = '') {
 
   for (const img of images) {
     const isPermit = img.source && img.source.startsWith('PERMIT');
-    const contextPrompt = isPermit
-      ? `You are an expert official document inspector and OCR analyst for EventHub. Analyze this permit/legal document (${img.fileName || 'Tài liệu giấy phép'}) for an event titled "${eventTitle}":\n` +
-        `1. Document Classification: Identify document type (e.g. Event Organization Permit, Performance License from Dept of Culture / Gov authority, Business Registration Certificate, Venue Rental Contract, Partnership Agreement, Approval Decision).\n` +
-        `2. OCR & Text details: Transcribe key text visible: Issuing Authority / Company name, Document title / Decision number, Venue / Location, Effective dates / Expiration, Signatures / Official Stamps.\n` +
-        `3. Objective Validity: Does the document appear authentic and relevant to the event? (Be balanced and sensible; do not nitpick minor formatting or image resolution).\n` +
-        `4. Status Assessment: Is it valid, needs attention, or invalid? Summarize in 2-3 clear sentences in Vietnamese.`
-      : `You are an expert image content moderator and OCR reviewer for event images. Analyze this image for an event titled "${eventTitle}":\n` +
-        `1. Visual content: What main objects, people, scenes, logos, and themes are shown?\n` +
-        `2. Relevance: Is this image genuinely related and appropriate for "${eventTitle}"? If irrelevant, explain why.\n` +
-        `3. Safety check (Sensible & Objective): Only flag explicit pornography/nudity, extreme violence, weapons, or illegal gambling/fraud. Do NOT flag swimwear, fashion, artistic performance, gym, dance, or health themes as pornography.\n` +
-        `4. OCR & Text check: Transcribe visible text. Note any real spelling typos, or date/price contradictions.\n` +
-        `5. Suggestions (Only when truly necessary): Note that image dimensions and aspect ratios are already standardized by the platform, so DO NOT suggest resizing. Only suggest meaningful improvements if text is unreadable or visual quality is noticeably degraded.\n` +
-        `Be concise, objective and sensible. Answer in Vietnamese or English.`;
+    const sourceLabel = img.source === 'MAIN_POSTER'
+      ? 'Ảnh đại diện chính (Poster)'
+      : img.source === 'COVER_BANNER'
+        ? 'Ảnh bìa (Cover Banner)'
+        : isPermit
+          ? `Tài liệu giấy phép (${img.fileName || 'Hồ sơ pháp lý'})`
+          : `Ảnh trong mô tả (${img.source})`;
 
-    logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}'...`);
-    const description = await describeImage(img.base64, contextPrompt);
+    const contextPrompt = isPermit
+      ? `Bạn là chuyên gia thẩm định hồ sơ pháp lý và OCR tài liệu sự kiện tại Việt Nam cho EventHub. Hãy phân tích tệp tài liệu giấy phép này (${img.fileName || 'Tài liệu'}) thuộc sự kiện "${eventTitle}":\n` +
+        `1. Phân loại tài liệu: Nhận diện loại văn bản (Giấy phép biểu diễn / tổ chức từ Sở Văn hóa & Thể thao, UBND; Giấy chứng nhận ĐKKD; Hợp đồng thuê địa điểm/mặt bằng; Quyết định phê duyệt).\n` +
+        `2. Đọc chữ (OCR tiếng Việt): Trích xuất tên cơ quan ban hành, số quyết định, tên đơn vị tổ chức, địa điểm tổ chức tại Việt Nam, thời hạn hiệu lực, dấu mộc đỏ hoặc chữ ký.\n` +
+        `3. Tính hợp lệ & liên quan: Tài liệu có khớp với sự kiện "${eventTitle}" không? Có dấu hiệu giả mạo, hết hạn hoặc lạc đề không?\n` +
+        `4. Kết luận ngắn gọn trong 2-3 câu. BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`
+      : `Bạn là chuyên gia kiểm duyệt hình ảnh và OCR cho các sự kiện tại Việt Nam. Hãy phân tích hình ảnh này cho sự kiện "${eventTitle}":\n` +
+        `1. Nội dung trực quan: Nhận diện người, nghệ sĩ biểu diễn, sân khấu, chủ đề và bối cảnh sự kiện.\n` +
+        `2. Mức độ phù hợp: Hình ảnh có phù hợp và khớp với chủ đề của sự kiện "${eventTitle}" tại Việt Nam không?\n` +
+        `3. Đọc chữ trên ảnh (OCR tiếng Việt): Đọc các thông tin chữ trên poster/banner (Tên sự kiện, ca sĩ/khách mời, ngày giờ, địa điểm tổ chức, giá vé, đơn vị tài trợ). Phát hiện lỗi chính tả tiếng Việt hoặc mâu thuẫn thông tin nếu có.\n` +
+        `4. An toàn nội dung: Chỉ gắn cờ nếu chứa nội dung đồi trụy, cờ bạc lừa đảo, bạo lực máu me hoặc chất cấm. KHÔNG gắn cờ ảnh nghệ thuật, thời trang, bơi lội, ca múa nhạc lành mạnh.\n` +
+        `BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`;
+
+    logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}' in Vietnamese...`);
+    const description = await describeImage(img.base64, contextPrompt, sourceLabel, eventTitle);
     results.push({
       source: img.source,
       url: img.url || '',
       fileName: img.fileName || '',
       description,
     });
-    logger.info(`[OllamaClient] Image [${img.source}] analysis complete (${description.length} chars).`);
+    logger.info(`[OllamaClient] Image [${img.source}] analysis complete (${description.length} chars, Vietnamese).`);
   }
 
   return results;
