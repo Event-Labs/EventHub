@@ -8,7 +8,7 @@ import {
   updateAdminSubscription,
 } from '@/services/subscriptions.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Page, Panel, Table } from './AdminComponents.jsx'
+import { Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 
 
@@ -217,20 +217,21 @@ export function AdminPlansPage() {
                   : 'Không hỗ trợ mã giảm giá',
               ]} />,
               <FeatureList key="features" plan={plan} />,
-              <StatusPill key="status" active={plan.is_active} />,
+              <StatusBadge key="status" status={plan.is_active ? 'ACTIVE' : 'INACTIVE'} />,
               <span key="subscribers" className="font-bold text-content">{Number(plan.subscriber_count || 0)}</span>,
               <div key="actions" className="flex items-center gap-2">
-                <IconButton title="Sửa" icon={Edit3} disabled={busy} onClick={() => openEdit(plan)} />
-                <IconButton
+                <TableActionButton title="Sửa" icon={Edit3} tone="primary" disabled={busy} onClick={() => openEdit(plan)} />
+                <TableActionButton
                   title={plan.is_active ? 'Tạm ẩn' : 'Hiện lại'}
                   icon={Power}
+                  tone={plan.is_active ? 'warning' : 'success'}
                   disabled={busy}
                   onClick={() => {
                     setActionError('')
                     saveMutation.mutate({ id: plan.id, payload: { is_active: !plan.is_active } })
                   }}
                 />
-                <IconButton title="Xóa" icon={Trash2} danger disabled={busy} onClick={() => handleDelete(plan)} />
+                <TableActionButton title="Xóa" icon={Trash2} tone="danger" disabled={busy} onClick={() => handleDelete(plan)} />
               </div>,
             ])}
           />

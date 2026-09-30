@@ -567,7 +567,7 @@ export function AdminEventReviewDetailPage() {
                 type="button"
                 onClick={() => onSubmitReview('APPROVED')}
                 disabled={isPending}
-                className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !shadow-[0_0_20px_rgba(59,130,246,0.3)] !px-0"
+                className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0"
               >
                 Phê duyệt
               </button>
@@ -618,7 +618,7 @@ function SparklesIcon(props) {
   )
 }
 
-function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'bg-primary' }) {
+function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'admin-primary' }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
@@ -629,7 +629,7 @@ function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmTe
           <button type="button" className="admin-secondary" onClick={onCancel}>
             {cancelText}
           </button>
-          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
+          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
             {confirmText}
           </button>
         </div>

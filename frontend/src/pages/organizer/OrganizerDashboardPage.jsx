@@ -621,7 +621,7 @@ export function OrganizerDashboardPage() {
       description="Theo dõi tình trạng sự kiện, bán vé, check-in và doanh thu thực nhận của organizer."
     >
       {/* ── Filters ── */}
-      <OrganizerPanel className="mb-6">
+      <div className="mb-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-4 sm:flex-row">
             <label className="flex-1">
@@ -664,23 +664,22 @@ export function OrganizerDashboardPage() {
               type="button"
               onClick={loadStats}
               disabled={loading}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-[#C99A47]/40 hover:text-[#E6C17A] disabled:opacity-50"
             >
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-              Làm mới
             </button>
             <button
               type="button"
               onClick={loadFinancialSummary}
               disabled={summaryLoading}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-tertiary px-4 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="org-btn-primary h-10 px-4 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50"
             >
               {summaryLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
               Tạo báo cáo AI
             </button>
           </div>
         </div>
-      </OrganizerPanel>
+      </div>
 
       {error && (
         <div className="mb-5 rounded-xl border border-error/30 bg-error/[0.07] px-4 py-3 text-sm text-error">

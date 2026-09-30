@@ -6,6 +6,8 @@ import {
   ConfirmModal,
   OrganizerPage,
   OrganizerTable,
+  StatusBadge,
+  TableActionButton,
 } from './OrganizerComponents.jsx'
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { deleteSeatMap, getSeatMap } from '@/services/organizerSeatMaps.js'
@@ -762,26 +764,33 @@ export function OrganizerVenueSeatMapsPage() {
         </div>
       ) : (
         <OrganizerTable
-          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', 'Tổng số ghế', 'Khu vực', 'Trạng thái', '']}
+          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', 'Tổng số ghế', 'Khu vực', 'Trạng thái', 'Thao tác']}
           rows={seatMaps.map((sm) => [
             sm.name,
             sm.layout_type,
             layoutLabel(sm),
             getSeatMapTotalSeats(sm),
             getSeatMapZoneCount(sm),
-            <Badge key="status" tone={sm.is_active ? 'green' : 'gray'}>
-              {sm.is_active ? 'Đang hoạt động' : 'Không hoạt động'}
-            </Badge>,
-            <div key="actions" className="flex items-center gap-3 text-muted">
-              <button type="button" onClick={() => openPreview(sm.id)} title="Xem sơ đồ">
-                <Eye className="size-4 hover:text-primary transition-colors" />
-              </button>
-              <button type="button" onClick={() => openEditor(sm.id)} title="Sửa">
-                <Pencil className="size-4 hover:text-tertiary transition-colors" />
-              </button>
-              <button type="button" onClick={() => setSeatMapToDelete(sm.id)} title="Xóa">
-                <Trash2 className="size-4 text-error hover:opacity-80 transition-opacity" />
-              </button>
+            <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
+            <div key="actions" className="flex items-center gap-2">
+              <TableActionButton
+                icon={Eye}
+                tone="default"
+                title="Xem sơ đồ"
+                onClick={() => openPreview(sm.id)}
+              />
+              <TableActionButton
+                icon={Pencil}
+                tone="primary"
+                title="Sửa sơ đồ"
+                onClick={() => openEditor(sm.id)}
+              />
+              <TableActionButton
+                icon={Trash2}
+                tone="danger"
+                title="Xóa sơ đồ"
+                onClick={() => setSeatMapToDelete(sm.id)}
+              />
             </div>,
           ])}
         />
