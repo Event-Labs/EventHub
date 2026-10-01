@@ -3,22 +3,27 @@ const cors = require('cors');
 const hpp = require('hpp');
 
 const securityMiddlewares = (app) => {
-    app.use(helmet());
-
-    const allowedOrigins = [
-        process.env.CLIENT_URL,
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://event-hub-eta-tan.vercel.app'
-    ].filter(Boolean);
+    // Tắt CORP của helmet để không chặn resources cross-origin
+    app.use(helmet({
+        crossOriginResourcePolicy: false,
+    }));
 
     app.use(cors({
         origin: function (origin, callback) {
-            // Cho phép requests không có origin (như curl, mobile, Postman) hoặc thuộc danh sách / đuôi .vercel.app
-            if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+            // Cho phép requests không có origin (curl, mobile app, postman)
+            if (!origin) return callback(null, true);
+
+            // Cho phép tất cả preview/production của vercel (*.vercel.app), localhost, và CLIENT_URL
+            if (
+                origin.includes('localhost') ||
+                origin.includes('127.0.0.1') ||
+                origin.endsWith('.vercel.app') ||
+                origin === process.env.CLIENT_URL
+            ) {
                 return callback(null, true);
             }
-            return callback(new Error(`Not allowed by CORS: ${origin}`));
+
+            return callback(null, true);
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
