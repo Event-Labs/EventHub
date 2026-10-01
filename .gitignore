@@ -27,3 +27,5 @@ ai/merged_model/
 .Trashes
 ehthumbs.db
 Thumbs.db
+.vercel
+.env*
