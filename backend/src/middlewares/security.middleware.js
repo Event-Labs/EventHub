@@ -30,7 +30,8 @@ const securityMiddlewares = (app) => {
         allowedHeaders: [
             'Content-Type',
             'Authorization',
-            'X-Organizer-Sensitive-Token'
+            'X-Organizer-Sensitive-Token',
+            'ngrok-skip-browser-warning'
         ]
     }));
 
