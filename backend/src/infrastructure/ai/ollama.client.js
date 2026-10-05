@@ -13,10 +13,10 @@
 
 const logger = require('../../core/logger');
 
-const OLLAMA_BASE_URL    = process.env.OLLAMA_BASE_URL    || 'http://localhost:11434';
-const OLLAMA_MODEL       = process.env.OLLAMA_MODEL       || 'qwen3:4b';
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3:4b';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
-const OLLAMA_TIMEOUT     = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
+const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
 
 
@@ -76,9 +76,9 @@ async function generate(prompt, options = {}) {
     ...(options.format ? { format: options.format } : {}),
     options: {
       temperature: options.temperature ?? 0.3,
-      top_p:       options.top_p       ?? 0.9,
-      num_predict: options.max_tokens  ?? 2048,
-      num_ctx:     options.num_ctx      ?? 4096,
+      top_p: options.top_p ?? 0.9,
+      num_predict: options.max_tokens ?? 2048,
+      num_ctx: options.num_ctx ?? 4096,
     },
   };
 
@@ -138,9 +138,9 @@ async function chat(messages, options = {}) {
     keep_alive: options.keep_alive || '60m',
     options: {
       temperature: options.temperature ?? 0.2,
-      top_p:       options.top_p       ?? 0.85,
-      num_predict: options.max_tokens  ?? 1200,
-      num_ctx:     options.num_ctx      ?? 4096,
+      top_p: options.top_p ?? 0.85,
+      num_predict: options.max_tokens ?? 1200,
+      num_ctx: options.num_ctx ?? 4096,
     },
   };
 
@@ -169,8 +169,8 @@ async function chat(messages, options = {}) {
   const cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 
   return {
-    content:    cleaned,
-    model:      result.model || model,
+    content: cleaned,
+    model: result.model || model,
     eval_count: result.eval_count,
     tool_calls: result.message?.tool_calls || [],
   };
@@ -422,7 +422,7 @@ Yêu cầu bắt buộc:
 async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '') {
   if (!base64Image) return 'Không thể phân tích ảnh (dữ liệu ảnh trống).';
 
-  const prompt = contextPrompt || 
+  const prompt = contextPrompt ||
     'Bạn là chuyên gia phân tích ảnh sự kiện tại Việt Nam. Hãy quan sát và mô tả chi tiết hình ảnh này BẰNG TIẾNG VIỆT:\n' +
     '1. Mô tả nội dung trực quan: Các đối tượng, con người, cảnh quan, nghệ sĩ, chủ đề sự kiện.\n' +
     '2. Đọc toàn bộ chữ xuất hiện trên ảnh (OCR tiếng Việt): Tiêu đề, ngày giờ, địa điểm, giá vé, nhà tài trợ.\n' +
@@ -479,16 +479,16 @@ async function describeImageBatch(images, eventTitle = '') {
 
     const contextPrompt = isPermit
       ? `Bạn là chuyên gia thẩm định hồ sơ pháp lý và OCR tài liệu sự kiện tại Việt Nam cho EventHub. Hãy phân tích tệp tài liệu giấy phép này (${img.fileName || 'Tài liệu'}) thuộc sự kiện "${eventTitle}":\n` +
-        `1. Phân loại tài liệu: Nhận diện loại văn bản (Giấy phép biểu diễn / tổ chức từ Sở Văn hóa & Thể thao, UBND; Giấy chứng nhận ĐKKD; Hợp đồng thuê địa điểm/mặt bằng; Quyết định phê duyệt).\n` +
-        `2. Đọc chữ (OCR tiếng Việt): Trích xuất tên cơ quan ban hành, số quyết định, tên đơn vị tổ chức, địa điểm tổ chức tại Việt Nam, thời hạn hiệu lực, dấu mộc đỏ hoặc chữ ký.\n` +
-        `3. Tính hợp lệ & liên quan: Tài liệu có khớp với sự kiện "${eventTitle}" không? Có dấu hiệu giả mạo, hết hạn hoặc lạc đề không?\n` +
-        `4. Kết luận ngắn gọn trong 2-3 câu. BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`
+      `1. Phân loại tài liệu: Nhận diện loại văn bản (Giấy phép biểu diễn / tổ chức từ Sở Văn hóa & Thể thao, UBND; Giấy chứng nhận ĐKKD; Hợp đồng thuê địa điểm/mặt bằng; Quyết định phê duyệt).\n` +
+      `2. Đọc chữ (OCR tiếng Việt): Trích xuất tên cơ quan ban hành, số quyết định, tên đơn vị tổ chức, địa điểm tổ chức tại Việt Nam, thời hạn hiệu lực, dấu mộc đỏ hoặc chữ ký.\n` +
+      `3. Tính hợp lệ & liên quan: Tài liệu có khớp với sự kiện "${eventTitle}" không? Có dấu hiệu giả mạo, hết hạn hoặc lạc đề không?\n` +
+      `4. Kết luận ngắn gọn trong 2-3 câu. BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`
       : `Bạn là chuyên gia kiểm duyệt hình ảnh và OCR cho các sự kiện tại Việt Nam. Hãy phân tích hình ảnh này cho sự kiện "${eventTitle}":\n` +
-        `1. Nội dung trực quan: Nhận diện người, nghệ sĩ biểu diễn, sân khấu, chủ đề và bối cảnh sự kiện.\n` +
-        `2. Mức độ phù hợp: Hình ảnh có phù hợp và khớp với chủ đề của sự kiện "${eventTitle}" tại Việt Nam không?\n` +
-        `3. Đọc chữ trên ảnh (OCR tiếng Việt): Đọc các thông tin chữ trên poster/banner (Tên sự kiện, ca sĩ/khách mời, ngày giờ, địa điểm tổ chức, giá vé, đơn vị tài trợ). Phát hiện lỗi chính tả tiếng Việt hoặc mâu thuẫn thông tin nếu có.\n` +
-        `4. An toàn nội dung: Chỉ gắn cờ nếu chứa nội dung đồi trụy, cờ bạc lừa đảo, bạo lực máu me hoặc chất cấm. KHÔNG gắn cờ ảnh nghệ thuật, thời trang, bơi lội, ca múa nhạc lành mạnh.\n` +
-        `BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`;
+      `1. Nội dung trực quan: Nhận diện người, nghệ sĩ biểu diễn, sân khấu, chủ đề và bối cảnh sự kiện.\n` +
+      `2. Mức độ phù hợp: Hình ảnh có phù hợp và khớp với chủ đề của sự kiện "${eventTitle}" tại Việt Nam không?\n` +
+      `3. Đọc chữ trên ảnh (OCR tiếng Việt): Đọc các thông tin chữ trên poster/banner (Tên sự kiện, ca sĩ/khách mời, ngày giờ, địa điểm tổ chức, giá vé, đơn vị tài trợ). Phát hiện lỗi chính tả tiếng Việt hoặc mâu thuẫn thông tin nếu có.\n` +
+      `4. An toàn nội dung: Chỉ gắn cờ nếu chứa nội dung đồi trụy, cờ bạc lừa đảo, bạo lực máu me hoặc chất cấm. KHÔNG gắn cờ ảnh nghệ thuật, thời trang, bơi lội, ca múa nhạc lành mạnh.\n` +
+      `BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`;
 
     logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}' in Vietnamese...`);
     const description = await describeImage(img.base64, contextPrompt, sourceLabel, eventTitle);
