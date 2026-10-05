@@ -1,114 +1,82 @@
-# 🛡️ Tính Năng AI Event Review & Moderation (Kiểm Duyệt Sự Kiện Tự Động)
+# 🛡️ Tính Năng AI Event Review & Moderation (Đối Chiếu Chính Sách EventHub)
 
-Tài liệu này hướng dẫn chi tiết về kiến trúc, bộ tiêu chí kiểm duyệt, định dạng dữ liệu (Dataset) và cách thức tích hợp tính năng **AI Review** vào nền tảng **EventHub**.
-
----
-
-## 1. 🎯 Mục Tiêu & Đối Tượng Sử Dụng
-
-Tính năng **AI Event Review** đóng 2 vai trò trọng yếu trong hệ thống:
-1. **Dành cho Quản trị viên (Admin):** Tự động phát hiện các sự kiện lừa đảo tài chính (Ponzi, crypto x100, đa cấp), cờ bạc, nội dung độc hại (18+, bạo lực) để tự động từ chối hoặc gắn cờ cảnh báo kèm lý do chi tiết cho Admin duyệt nhanh.
-2. **Dành cho Ban tổ chức (Organizer):** Đánh giá chất lượng nội dung bài viết sự kiện, kiểm tra độ logic (thời gian, địa điểm, chính sách vé) và đưa ra các gợi ý chỉnh sửa cụ thể để tăng độ tin cậy và tỷ lệ bán vé.
+Tài liệu này mô tả chi tiết cách hệ thống AI tự động kiểm duyệt sự kiện dựa trên **4 bộ chính sách chính thức** của nền tảng **EventHub**:
+1. **`TERMS_ORGANIZER`**: Điều khoản sử dụng dành cho Nhà tổ chức.
+2. **`REFUND_POLICY`**: Chính sách hoàn tiền vé & sự kiện.
+3. **`PAYMENT_POLICY`**: Chính sách thanh toán và giao dịch.
+4. **`TICKET_POLICY` & `PRIVACY_POLICY`**: Chính sách vé, check-in và bảo mật thông tin.
 
 ---
 
-## 2. 📋 Bộ Tiêu Chí Kiểm Duyệt (5 Lớp Đánh Giá)
+## 1. 📋 Bản Đồ Đối Chiếu Chính Sách & Điều Kiện Kiểm Duyệt
 
-| Lớp Kiểm Duyệt | Phạm Vi Phân Tích | Hành Động Khi Vi Phạm |
-| :--- | :--- | :--- |
-| **1. Chống Lừa Đảo (Anti-Fraud)** | Cam kết lợi nhuận bất khả thi (*"x100 vốn", "lãi 30%/tháng", "bao lỗ 100%"*), chiêu trò nạp tiền làm nhiệm vụ giật đơn, cọc tiền vào nhóm kín Telegram. | ❌ **`REJECT`** (Rủi ro cao) |
-| **2. Pháp Lý & Thuần Phong Mỹ Tục** | Cổ súy cờ bạc, chia sẻ tool hack tài xỉu/baccarat, cá độ thể thao, nội dung 18+, bạo lực, chính trị nhạy cảm. | ❌ **`REJECT`** (Rủi ro cao) |
-| **3. Tính Hợp Lý & Đầy Đủ (Validation)** | Giấu địa chỉ (*"Địa chỉ bí mật sẽ nhắn tin sau"*), thiếu địa điểm cụ thể, thời gian phi logic (trong quá khứ, không có khung giờ bắt đầu/kết thúc). | ⚠️ **`NEEDS_REVIEW`** |
-| **4. Chính Sách Vé & Hoàn Tiền** | Mâu thuẫn quyền lợi (*"Cam kết hoàn tiền 100% nếu không hài lòng"* nhưng lại ghi *"Không hỗ trợ hoàn tiền dưới mọi lý do"*), ép cọc phí vô lý. | ⚠️ **`NEEDS_REVIEW`** |
-| **5. Điểm Chất Lượng & Gợi Ý** | Đánh giá độ dài, tính chuyên nghiệp, cấu trúc bài viết và gợi ý bổ sung danh sách diễn giả, lịch trình, chính sách check-in QR code. | 💡 **Gợi ý hoàn thiện** |
+```mermaid
+graph TD
+    Event["Thông tin sự kiện do Organizer nhập"] --> P1["1. TERMS_ORGANIZER (Điều khoản NTC)"]
+    Event --> P2["2. PAYMENT_POLICY (Chính sách thanh toán)"]
+    Event --> P3["3. REFUND_POLICY (Chính sách hoàn tiền)"]
+    Event --> P4["4. TICKET_POLICY (Chính sách vé & Địa điểm)"]
 
----
+    P1 -->|Phát hiện Ponzi/Lừa đảo/18+| R1["❌ REJECT"]
+    P2 -->|Yêu cầu chuyển khoản ngoài luồng| R2["❌ REJECT"]
+    P3 -->|Tuyên bố Hủy sự kiện không hoàn tiền| R3["⚠️ NEEDS_REVIEW"]
+    P4 -->|Giấu địa chỉ / Thiếu quyền lợi vé| R4["⚠️ NEEDS_REVIEW"]
+    
+    P1 & P2 & P3 & P4 -->|Tuân thủ 100%| APP["🟢 APPROVE"]
+```
 
-## 3. 📂 Cấu Trúc Dataset Huấn Luyện (`src/data/review_data.py`)
+### Chi tiết các quy tắc đối chiếu:
 
-Bộ dữ liệu kiểm duyệt được định nghĩa tại `src/data/review_data.py` và được chuẩn hóa theo định dạng Chat (System, User, Assistant).
-
-### Các nhóm kịch bản có sẵn trong Dataset:
-- **Nhóm REJECT:**
-  - Lừa đảo đầu tư coin x100, bao lỗ.
-  - Làm nhiệm vụ giật đơn sàn TMĐT nạp tiền trước.
-  - Hội thảo offline chia sẻ tool hack cờ bạc/baccarat.
-- **Nhóm APPROVE:**
-  - Hội thảo công nghệ TechSummit (AI & Cloud) chuyên nghiệp.
-  - Đêm nhạc Indie Acoustic có thông tin check-in và quyền lợi vé rõ ràng.
-  - Giải chạy thiện nguyện GreenRun vì trẻ em vùng cao có đơn vị bảo trợ uy tín.
-- **Nhóm NEEDS_REVIEW:**
-  - Workshop làm bánh giấu địa chỉ cụ thể.
-  - Khóa học kỹ năng thuyết trình mâu thuẫn chính sách hoàn tiền.
+| Mã Chính Sách | Điều Khoản Đối Chiếu | Hành Vi Vi Phạm Cần Bắt Lỗi | Mức Độ Rủi Ro & Kết Luận |
+| :--- | :--- | :--- | :--- |
+| **`PAYMENT_POLICY`** | **Điều 2 & 6: Kênh thanh toán & Trách nhiệm** | - Kêu gọi người mua chuyển khoản STK cá nhân ngoài web.<br>- Hướng dẫn giao dịch qua Zalo/Telegram để né phí sàn. | 🔴 **`REJECT`** *(High Risk)* |
+| **`TERMS_ORGANIZER`** | **Điều 4: Trách nhiệm Nhà tổ chức** | - Cam kết lợi nhuận tài chính phi thực tế (*"x100 vốn", "lãi 30%/tháng", "bao lỗ 100%"*).<br>- Cổ súy cờ bạc, chia sẻ tool hack tài xỉu, nội dung 18+.<br>- Tạo đơn ảo, thao túng vé hoặc vi phạm bản quyền. | 🔴 **`REJECT`** *(High Risk)* |
+| **`REFUND_POLICY`** | **Điều 3 & 5: Trường hợp & Trách nhiệm hoàn tiền** | - NTC tự ý đưa ra quy định: *"Hủy sự kiện vẫn không hoàn tiền dưới mọi lý do"* (Trái ngược hoàn toàn với quyền lợi người mua khi sự kiện hoãn/hủy).<br>- Mâu thuẫn giữa *"Cam kết hoàn tiền"* và *"Miễn đổi trả"*. | 🟡 **`NEEDS_REVIEW`** *(Medium Risk)* |
+| **`TICKET_POLICY`** | **Điều 2 & 5: Loại vé & Điều kiện sử dụng** | - Giấu địa chỉ (*"Địa chỉ bí mật sẽ nhắn sau"*), thiếu địa chỉ số nhà/hội trường cụ thể.<br>- Thiếu khung giờ bắt đầu/kết thúc hoặc thời gian nằm ở quá khứ.<br>- Không nêu rõ quyền lợi các hạng vé (Thường, VIP). | 🟡 **`NEEDS_REVIEW`** *(Medium Risk)* |
 
 ---
 
-## 4. 📦 Định Dạng Output JSON Chuẩn của AI
+## 2. 📦 Định Dạng Output JSON Chuẩn Đối Chiếu Chính Sách
 
-AI luôn được cấu hình để phản hồi bằng định dạng **JSON nguyên bản** (Pure JSON), giúp Backend dễ dàng bóc tách dữ liệu và lưu trữ vào Database:
+Khi AI phân tích, kết quả trả về sẽ gắn liền với mã chính sách bị vi phạm:
 
 ```json
 {
   "decision": "REJECT", // "APPROVE" | "NEEDS_REVIEW" | "REJECT"
-  "risk_score": 85,      // Thang điểm rủi ro: 0 (An toàn) -> 100 (Cực kỳ nguy hiểm)
-  "quality_score": 30,   // Thang điểm chất lượng bài viết: 0 -> 100
-  "summary": "Sự kiện có dấu hiệu lừa đảo tài chính với cam kết lợi nhuận phi thực tế và địa điểm tổ chức không rõ ràng.",
-  "flags": [
+  "risk_score": 95,      // Thang điểm rủi ro: 0 -> 100
+  "quality_score": 35,   // Thang điểm chất lượng nội dung: 0 -> 100
+  "summary": "Sự kiện vi phạm nghiêm trọng Chính sách thanh toán do yêu cầu khách hàng chuyển khoản cá nhân ngoài hệ thống.",
+  "policy_violations": [
     {
-      "category": "FRAUD_RISK",
+      "policy_code": "PAYMENT_POLICY",
       "severity": "HIGH",
-      "issue": "Cam kết lợi nhuận bất khả thi và bao lỗ 100%.",
-      "highlighted_text": "Nạp 10 triệu nhận 100 triệu sau 3 ngày, cam kết bảo hiểm vốn 100%"
+      "issue": "Yêu cầu chuyển khoản vào STK cá nhân ngoài hệ thống EventHub (Vi phạm Điều 2 & Điều 6 PAYMENT_POLICY).",
+      "highlighted_text": "vui lòng không thanh toán trên web mà hãy chuyển khoản trực tiếp vào STK cá nhân: 1903xxx"
     },
     {
-      "category": "MISSING_INFO",
-      "severity": "MEDIUM",
-      "issue": "Địa điểm tổ chức không công khai minh bạch.",
-      "highlighted_text": "Khách sạn bí mật"
+      "policy_code": "TERMS_ORGANIZER",
+      "severity": "HIGH",
+      "issue": "Hành vi trốn phí nền tảng và gây rủi ro lừa đảo giao dịch (Vi phạm Điều 4 TERMS_ORGANIZER).",
+      "highlighted_text": "Để tránh phí nền tảng"
     }
   ],
   "suggestions": [
-    "Loại bỏ các cam kết tài chính không được cấp phép theo quy định.",
-    "Cập nhật địa chỉ số nhà, tên hội trường cụ thể."
+    "Mọi giao dịch bán vé bắt buộc phải thông qua cổng thanh toán chính thức của EventHub để bảo vệ quyền lợi người mua."
   ]
 }
 ```
 
 ---
 
-## 5. 🔌 Hướng Dẫn Tích Hợp Cho Backend (API Calling)
+## 3. 🧪 Chạy Kiểm Thử Nhanh
 
-Backend (Java Spring Boot, .NET Core, NodeJS) có thể gọi trực tiếp vào dịch vụ Ollama nội bộ:
-
-### Endpoint:
-- **URL:** `POST http://localhost:11434/api/chat`
-- **Headers:** `Content-Type: application/json`
-
-### Body Request Mẫu:
-```json
-{
-  "model": "eventhub-qwen3",
-  "messages": [
-    {
-      "role": "system",
-      "content": "Bạn là Chuyên gia Kiểm duyệt Sự kiện EventHub. Hãy phân tích sự kiện sau và trả về JSON chuẩn theo schema: decision (APPROVE/REJECT/NEEDS_REVIEW), risk_score (0-100), quality_score (0-100), summary, flags, suggestions."
-    },
-    {
-      "role": "user",
-      "content": "Tên sự kiện: Tech AI Workshop 2026\nMô tả: Hội thảo thực hành ứng dụng GenAI trong doanh nghiệp tại Tòa nhà Innovation, 285 Cách Mạng Tháng 8, Q10, TP.HCM từ 08:30 - 12:00. Vé 150.000 VNĐ bao gồm tài liệu và tea-break."
-    }
-  ],
-  "stream": false,
-  "format": "json"
-}
-```
-
----
-
-## 6. 🧪 Chạy Thử Nghiệm Kiểm Tra (Test Script)
-
-Bạn có thể chạy script kiểm tra nhanh tính năng review bằng lệnh:
+Mở Terminal và chạy:
 ```bash
 python scripts/test_review.py
 ```
-Script sẽ gửi một sự kiện mẫu tới AI và in ra kết quả phân tích JSON chi tiết trên màn hình.
+Menu test gồm 5 kịch bản thực tế đại diện cho từng chính sách:
+- **Phím 1:** Test vi phạm `PAYMENT_POLICY` (Chuyển khoản cá nhân né phí).
+- **Phím 2:** Test vi phạm `REFUND_POLICY` (Hủy show không hoàn tiền).
+- **Phím 3:** Test vi phạm `TICKET_POLICY` (Giấu địa chỉ bí mật).
+- **Phím 4:** Test vi phạm `TERMS_ORGANIZER` (Lừa đảo Ponzi x100).
+- **Phím 5:** Test sự kiện Hợp Lệ 100% (Đạt chuẩn tất cả chính sách).
