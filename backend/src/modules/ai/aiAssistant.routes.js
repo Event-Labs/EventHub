@@ -5,5 +5,6 @@ const optionalAuth = require('../../middlewares/optionalAuth.middleware');
 const router = express.Router();
 
 router.post('/chat', optionalAuth, aiAssistantController.chat);
+router.get('/training-stats', aiAssistantController.getTrainingStats);
 
 module.exports = router;

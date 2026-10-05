@@ -455,6 +455,13 @@ export function BookingSeatsPage() {
   const [invalidSeatId, setInvalidSeatId] = useState(null)
   const [standingTicketType, setStandingTicketType] = useState(null)
   const [resettingSelection, setResettingSelection] = useState(false)
+  const [buyerProfile, setBuyerProfile] = useState(null)
+
+  useEffect(() => {
+    getProfile()
+      .then((profile) => setBuyerProfile(profile))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (location.state?.cart) {
@@ -614,6 +621,34 @@ export function BookingSeatsPage() {
     saveBookingDraft(displayCart)
   }, [displayCart, session])
 
+  const effectiveBuyer = useMemo(() => ({
+    name: (displayCart?.buyer?.name || buyerProfile?.full_name || '').trim(),
+    email: (displayCart?.buyer?.email || buyerProfile?.email || '').trim(),
+    phone: (displayCart?.buyer?.phone || buyerProfile?.phone || '').trim(),
+  }), [displayCart?.buyer, buyerProfile])
+
+  const attendeeSlots = useMemo(() => expandAttendeeSlots(displayCart), [displayCart])
+  const collectAttendees = requiresAttendeeInfo(displayCart)
+  const prefilledList = displayCart?.prefilledAttendees || []
+
+  const canFastForward = useMemo(() => {
+    const isBuyerValid = Boolean(
+      effectiveBuyer.name &&
+      effectiveBuyer.email &&
+      isEmail(effectiveBuyer.email) &&
+      effectiveBuyer.phone
+    )
+    if (!isBuyerValid) return false
+    if (!collectAttendees) return true
+
+    if (prefilledList.length < attendeeSlots.length || attendeeSlots.length === 0) return false
+    return attendeeSlots.every((slot, idx) => {
+      const existing = displayCart?.attendees?.[slot.id]
+      const p = existing || prefilledList[idx]
+      return p?.name?.trim() && p?.email?.trim() && isEmail(p.email)
+    })
+  }, [effectiveBuyer, collectAttendees, prefilledList, attendeeSlots, displayCart?.attendees])
+
   if (!cart || !session) return <NavigateBackToEvents />
 
   const continueFlow = async () => {
@@ -632,8 +667,28 @@ export function BookingSeatsPage() {
         holdExpiresAt,
         hold_expires_at: holdExpiresAt,
       }
-      saveBookingDraft(heldCart)
-      navigate('/booking/attendees', { state: { cart: heldCart } })
+
+      const cleanAttendees = {}
+      attendeeSlots.forEach((slot, idx) => {
+        const existing = heldCart.attendees?.[slot.id]
+        const p = existing || prefilledList[idx] || (prefilledList.length === 1 && !collectAttendees ? prefilledList[0] : null)
+        const name = (p?.name || (!collectAttendees ? effectiveBuyer.name : '')).trim()
+        const email = (p?.email || (!collectAttendees ? effectiveBuyer.email : '')).trim()
+        cleanAttendees[slot.id] = { name, email }
+      })
+
+      const finalCart = {
+        ...heldCart,
+        buyer: effectiveBuyer,
+        attendees: cleanAttendees,
+      }
+      saveBookingDraft(finalCart)
+
+      if (canFastForward) {
+        navigate('/booking/review', { state: { cart: finalCart } })
+      } else {
+        navigate('/booking/attendees', { state: { cart: finalCart } })
+      }
     } catch (err) {
       toast.error(getApiMessage(err, hasSeatMap ? 'Không thể giữ ghế bạn đã chọn. Vui lòng thử lại.' : 'Không thể giữ vé bạn đã chọn. Vui lòng thử lại.'))
       if (hasSeatMap) {
@@ -838,7 +893,7 @@ export function BookingSeatsPage() {
           cart={displayCart}
           setCart={setCart}
           colorByTicketTypeId={colorByTicketTypeId}
-          cta={'Tiếp tục'}
+          cta={canFastForward ? 'Kiểm tra & Thanh toán' : 'Tiếp tục'}
           onClick={continueFlow}
           disabled={checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
           onReset={resetSelection}
@@ -880,11 +935,29 @@ export function BookingAttendeesPage() {
   )
 
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
-  const [attendees, setAttendees] = useState(cart?.attendees || {})
-  const [buyer, setBuyer] = useState(cart?.buyer || { name: '', email: '', phone: '' })
+  const [buyer, setBuyer] = useState(() => ({
+    name: cart?.buyer?.name || '',
+    email: cart?.buyer?.email || '',
+    phone: cart?.buyer?.phone || '',
+  }))
 
+  const [attendees, setAttendees] = useState(() => {
+    const initial = { ...(cart?.attendees || {}) }
+    const prefilled = cart?.prefilledAttendees || []
+    attendeeSlots.forEach((slot, idx) => {
+      if (!initial[slot.id]) {
+        const p = prefilled[idx] || prefilled[0]
+        const name = p?.name || cart?.buyer?.name || ''
+        const email = p?.email || cart?.buyer?.email || ''
+        if (name || email) {
+          initial[slot.id] = { name, email }
+        }
+      }
+    })
+    return initial
+  })
   useEffect(() => {
-    if (!buyer.email) {
+    if (!buyer.email || !buyer.name || !buyer.phone) {
       getProfile()
         .then((profile) => {
           setBuyer((prev) => ({
@@ -895,7 +968,27 @@ export function BookingAttendeesPage() {
         })
         .catch(() => { })
     }
-  }, [buyer.email])
+  }, [])
+
+  useEffect(() => {
+    setAttendees((prev) => {
+      let changed = false
+      const next = { ...prev }
+      const prefilled = cart?.prefilledAttendees || []
+      attendeeSlots.forEach((slot, idx) => {
+        if (!next[slot.id] || (!next[slot.id].name && !next[slot.id].email)) {
+          const p = prefilled[idx] || prefilled[0]
+          const name = p?.name || cart?.buyer?.name || buyer.name || ''
+          const email = p?.email || cart?.buyer?.email || buyer.email || ''
+          if (name || email) {
+            next[slot.id] = { name, email }
+            changed = true
+          }
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [attendeeSlots, cart?.prefilledAttendees, cart?.buyer, buyer.name, buyer.email])
 
   useEffect(() => {
     if (!cart?.items?.length) return
