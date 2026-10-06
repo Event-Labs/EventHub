@@ -47,25 +47,25 @@ function formatEventDate(iso) {
 // ---------------------------------------------------------------------------
 function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
         {/* Header */}
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-success/15">
             <Globe className="size-5 text-success" />
           </span>
           <div>
-            <h3 className="text-lg font-extrabold text-content">Xác nhận xuất bản</h3>
-            <p className="mt-1 text-sm text-subtle">
+            <h3 className="text-xl font-black text-white">Xác nhận xuất bản</h3>
+            <p className="mt-1 text-sm text-slate-300">
               Sự kiện sẽ hiển thị công khai ngay sau khi xuất bản.
             </p>
           </div>
         </div>
 
         {/* Event info */}
-        <div className="mt-4 rounded-xl border border-border-soft/40 bg-panel-soft p-4">
-          <p className="text-sm font-semibold text-content">{event.title}</p>
-          <p className="mt-1 text-xs text-subtle">
+        <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-4">
+          <p className="text-base font-bold text-white">{event.title}</p>
+          <p className="mt-1 text-xs text-slate-300">
             Ngày diễn ra: {formatEventDate(event.start_time)}
           </p>
         </div>
@@ -115,23 +115,23 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
 // ---------------------------------------------------------------------------
 function CancelConfirmModal({ event, onConfirm, onClose, loading, error }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
         {/* Header */}
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-error/15">
             <AlertTriangle className="size-5 text-error" />
           </span>
           <div>
-            <h3 className="text-lg font-extrabold text-content">Xác nhận hủy sự kiện</h3>
-            <p className="mt-1 text-sm text-subtle">Hành động này không thể hoàn tác.</p>
+            <h3 className="text-xl font-black text-white">Xác nhận hủy sự kiện</h3>
+            <p className="mt-1 text-sm text-slate-300">Hành động này không thể hoàn tác.</p>
           </div>
         </div>
 
         {/* Event info */}
-        <div className="mt-4 rounded-xl border border-border-soft/40 bg-panel-soft p-4">
-          <p className="text-sm font-semibold text-content">{event.title}</p>
-          <p className="mt-1 text-xs text-subtle">
+        <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-4">
+          <p className="text-base font-bold text-white">{event.title}</p>
+          <p className="mt-1 text-xs text-slate-300">
             Ngày diễn ra: {formatEventDate(event.start_time)}
           </p>
           <div className="mt-2">
@@ -310,9 +310,9 @@ export function OrganizerEventsPage() {
       <div className="mb-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
             <input
-              className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-8 text-sm text-content outline-none placeholder:text-subtle focus:border-primary focus:ring-2 focus:ring-primary/15"
+              className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-8 text-sm font-normal text-white outline-none placeholder:text-white/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
               placeholder="Tìm theo tên sự kiện..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -320,7 +320,7 @@ export function OrganizerEventsPage() {
             {search && (
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-content"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
                 onClick={() => setSearch('')}
                 title="Xóa tìm kiếm"
               >
@@ -329,13 +329,13 @@ export function OrganizerEventsPage() {
             )}
           </div>
           <select
-            className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">Tất cả trạng thái</option>
+            <option value="" className="bg-[#0b1329] text-white">Tất cả trạng thái</option>
             {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
+              <option key={value} value={value} className="bg-[#0b1329] text-white">
                 {label}
               </option>
             ))}
@@ -377,24 +377,24 @@ export function OrganizerEventsPage() {
                   <CalendarDays className="size-5" />
                 </span>
               )}
-              <div>
-                <span className="font-bold">{event.title}</span>
-                {event.format && <p className="text-xs text-subtle">{event.format}</p>}
+              <div className="min-w-0">
+                <span className="font-bold text-[13px] text-white block hover:text-primary transition leading-snug">{event.title}</span>
+                {event.format && <p className="text-[11px] text-subtle mt-0.5">{event.format}</p>}
               </div>
             </div>,
 
-            formatEventDate(event.start_time),
+            <span key="date" className="whitespace-nowrap">{formatEventDate(event.start_time)}</span>,
 
             <Badge key="status" tone={STATUS_TONES[event.status] || 'gray'}>
               {STATUS_LABELS[event.status] || event.status}
             </Badge>,
 
-            event.category_name || '—',
+            <span key="cat" className="whitespace-nowrap">{event.category_name || '—'}</span>,
 
-            formatEventDate(event.updated_at),
+            <span key="updated" className="whitespace-nowrap">{formatEventDate(event.updated_at)}</span>,
 
             /* Actions */
-            <div key="actions" className="flex items-center gap-2">
+            <div key="actions" className="flex items-center gap-2 whitespace-nowrap">
               <TableActionButton
                 to={`/organizer/events/${event.id}`}
                 title="Xem chi tiết"

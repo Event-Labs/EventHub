@@ -26,7 +26,7 @@ import {
   removeStaffFromEvent,
   updateEventStaff,
 } from '@/services/operations.js'
-import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel, TableActionButton } from './OrganizerComponents.jsx'
+import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel, StatCard, TableActionButton } from './OrganizerComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
@@ -165,19 +165,19 @@ export function OrganizerStaffManagementPage() {
       {/* ── Toolbar ── */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+          <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
           <div className="relative w-full sm:w-[420px]">
             <select
-              className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+              className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
               disabled={loading}
             >
               {(data?.events || []).filter(isApprovedOrPublishedEvent).map((ev) => (
-                <option key={ev.id} value={ev.id} className="bg-slate-900 text-white">{ev.title}</option>
+                <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">{ev.title}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
           </div>
         </div>
 
@@ -200,21 +200,38 @@ export function OrganizerStaffManagementPage() {
       )}
 
       {/* ── Quota cards ── */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <QuotaCard label="Gói dịch vụ" value={plan?.name || 'Chưa có'} />
-        <QuotaCard
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={Layers}
+          label="Gói dịch vụ"
+          value={plan?.name || 'Chưa có'}
+          sub={subscriptionActive ? 'Đang hoạt động' : 'Chưa kích hoạt'}
+          accentBg="bg-primary/15"
+          accentColor="text-primary"
+        />
+        <StatCard
+          icon={Users}
           label="Giới hạn / sự kiện"
-          value={perEventLimit > 0 ? perEventLimit : '—'}
+          value={perEventLimit > 0 ? perEventLimit.toLocaleString('vi-VN') : '—'}
+          sub="Tối đa mỗi sự kiện"
+          accentBg="bg-tertiary/15"
+          accentColor="text-tertiary"
         />
-        <QuotaCard
+        <StatCard
+          icon={UserCheck}
           label="Đã phân công"
-          value={assignedStaff.length}
-          sub={pendingCount > 0 ? `+${pendingCount} đang chờ` : null}
+          value={assignedStaff.length.toLocaleString('vi-VN')}
+          sub={pendingCount > 0 ? `+${pendingCount} đang chờ` : 'Nhân sự đã phân công'}
+          accentBg="bg-success/15"
+          accentColor="text-success"
         />
-        <QuotaCard
+        <StatCard
+          icon={UserPlus}
           label="Slot còn lại"
-          value={subscriptionActive && perEventLimit > 0 ? slotsRemaining : '—'}
-          warn={limitReached}
+          value={subscriptionActive && perEventLimit > 0 ? slotsRemaining.toLocaleString('vi-VN') : '—'}
+          sub={limitReached ? 'Đã đạt giới hạn tối đa' : 'Có thể mời thêm'}
+          accentBg={limitReached ? 'bg-error/15' : 'bg-warning/15'}
+          accentColor={limitReached ? 'text-error' : 'text-warning'}
         />
       </div>
 
@@ -264,34 +281,34 @@ export function OrganizerStaffManagementPage() {
                 <p className="text-sm text-subtle">Chưa có staff nào được phân công cho sự kiện này.</p>
               </OrganizerPanel>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-xs">
-                    <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[840px] text-left text-xs">
+                    <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
-                        <th className="px-4 py-3 font-bold">Nhân sự</th>
-                        <th className="px-4 py-3 font-bold">Email</th>
-                        <th className="px-4 py-3 font-bold">Vai trò</th>
-                        <th className="px-4 py-3 font-bold">Cổng</th>
-                        <th className="px-4 py-3 font-bold">Khu vực làm việc</th>
-                        <th className="px-4 py-3 font-bold">Ngày phân công</th>
-                        <th className="px-4 py-3 font-bold text-right">Hành động</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Nhân sự</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Email</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Ngày phân công</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Hành động</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-medium text-slate-300">
                       {assignedStaff.map((staff) => (
                         <tr key={staff.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-4 py-3.5">
+                          <td className="px-3.5 py-3">
                             <div className="flex items-center gap-3">
-                              <AvatarInitials name={staff.staff_name || 'Staff'} className="size-9" />
+                              <AvatarInitials name={staff.staff_name || 'Staff'} className="size-8 shrink-0" />
                               <span className="font-bold text-content">{staff.staff_name}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 text-subtle">{staff.staff_email}</td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-3.5 py-3 text-subtle">{staff.staff_email}</td>
+                          <td className="px-3.5 py-3">
                             <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-3.5 py-3">
                             {staff.gate ? (
                               <Badge tone="purple">
                                 <span className="flex items-center gap-1">
@@ -303,7 +320,7 @@ export function OrganizerStaffManagementPage() {
                               <span className="text-xs text-muted">Tất cả cổng</span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-3.5 py-3">
                             {staff.zone ? (
                               <Badge tone="yellow">
                                 <span className="flex items-center gap-1">
@@ -315,10 +332,10 @@ export function OrganizerStaffManagementPage() {
                               <span className="text-xs text-muted">Toàn bộ khu vực</span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 text-subtle">
+                          <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
                             {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
                           </td>
-                          <td className="px-4 py-3.5 text-right">
+                          <td className="px-3.5 py-3 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-2">
                               <TableActionButton
                                 icon={Edit2}
@@ -362,28 +379,28 @@ export function OrganizerStaffManagementPage() {
                 <p className="text-sm text-subtle">Chưa có lời mời nào.</p>
               </OrganizerPanel>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-xs">
-                    <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[880px] text-left text-xs">
+                    <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
-                        <th className="px-4 py-3 font-bold">Email</th>
-                        <th className="px-4 py-3 font-bold">Người nhận</th>
-                        <th className="px-4 py-3 font-bold">Vai trò</th>
-                        <th className="px-4 py-3 font-bold">Cổng</th>
-                        <th className="px-4 py-3 font-bold">Khu vực làm việc</th>
-                        <th className="px-4 py-3 font-bold">Trạng thái</th>
-                        <th className="px-4 py-3 font-bold">Hết hạn</th>
-                        <th className="px-4 py-3 font-bold text-right">Hành động</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Email</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Người nhận</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Hết hạn</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Hành động</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-medium text-slate-300">
                       {invitations.map((inv) => (
                         <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-4 py-3.5 font-semibold text-content">{inv.invited_email}</td>
-                          <td className="px-4 py-3.5 text-subtle">{inv.invited_user_name || '—'}</td>
-                          <td className="px-4 py-3.5 text-content">{inv.staff_role || 'Staff'}</td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-3.5 py-3 font-semibold text-content">{inv.invited_email}</td>
+                          <td className="px-3.5 py-3 text-subtle">{inv.invited_user_name || '—'}</td>
+                          <td className="px-3.5 py-3 text-content">{inv.staff_role || 'Staff'}</td>
+                          <td className="px-3.5 py-3">
                             {inv.gate ? (
                               <Badge tone="purple">
                                 <span className="flex items-center gap-1">
@@ -395,7 +412,7 @@ export function OrganizerStaffManagementPage() {
                               <span className="text-xs text-muted">Tất cả cổng</span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-3.5 py-3">
                             {inv.zone ? (
                               <Badge tone="yellow">
                                 <span className="flex items-center gap-1">
@@ -407,15 +424,15 @@ export function OrganizerStaffManagementPage() {
                               <span className="text-xs text-muted">Toàn bộ khu vực</span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-3.5 py-3">
                             <InvitationStatusBadge status={inv.status} />
                           </td>
-                          <td className="px-4 py-3.5 text-muted">
+                          <td className="px-3.5 py-3 text-muted whitespace-nowrap">
                             {inv.expires_at
                               ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
                               : '—'}
                           </td>
-                          <td className="px-4 py-3.5 text-right">
+                          <td className="px-3.5 py-3 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end">
                               <TableActionButton
                                 icon={Trash2}
@@ -533,10 +550,10 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4 shrink-0">
-          <div className="flex items-center gap-2 font-extrabold text-content">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4 shrink-0">
+          <div className="flex items-center gap-2 font-black text-white text-lg">
             <Edit2 className="size-5 text-primary" />
             Chỉnh sửa phân công: {staff.staff_name}
           </div>
@@ -709,16 +726,16 @@ function InviteStaffModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4 shrink-0">
-          <div className="flex items-center gap-2 font-extrabold text-content">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4 shrink-0">
+          <div className="flex items-center gap-2 font-black text-white text-lg">
             <UserPlus className="size-5 text-primary" />
             Mời nhân sự
           </div>
           <button
-            className="grid size-8 place-items-center rounded-full text-muted hover:bg-panel-soft/60 transition-colors"
+            className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 transition-colors"
             onClick={onClose}
           >
             <X className="size-4" />
@@ -739,31 +756,31 @@ function InviteStaffModal({
 
           <div className="grid gap-4">
             {/* Event */}
-            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-subtle">
+            <label className="grid min-w-0 gap-1.5 text-sm font-bold text-white">
               Sự kiện
               <select
-                className="h-10 min-w-0 w-full truncate rounded-xl border border-border-soft/40 bg-panel-soft px-3 pr-9 text-sm font-semibold text-content outline-none focus:border-primary"
+                className="h-10 min-w-0 w-full truncate rounded-xl border border-white/15 bg-[#0d172e] px-3 pr-9 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                 title={events.find((ev) => ev.id === form.event_id)?.title || ''}
                 value={form.event_id}
                 onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value }))}
                 required
                 disabled={events.length === 0}
               >
-                <option value="" className="bg-surface text-content">Chọn sự kiện...</option>
+                <option value="" className="bg-[#0b1329] text-white">Chọn sự kiện...</option>
                 {events.filter(isApprovedOrPublishedEvent).map((ev) => (
-                  <option key={ev.id} value={ev.id} className="bg-surface text-content">{ev.title}</option>
+                  <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">{ev.title}</option>
                 ))}
               </select>
             </label>
 
             {/* Email with autocomplete */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+            <label className="grid gap-1.5 text-sm font-bold text-white">
               Email tài khoản customer
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
                 <input
                   type="search"
-                  className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-9 pr-3 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted"
+                  className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-9 pr-3 text-sm font-normal text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-white/50"
                   placeholder="Tìm tên hoặc email..."
                   value={candidateSearch}
                   onChange={(e) => {
@@ -792,7 +809,7 @@ function InviteStaffModal({
             </label>
 
             {/* Role */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+            <label className="grid gap-1.5 text-sm font-bold text-white">
               Vai trò
               <input
                 className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
@@ -894,9 +911,9 @@ function InviteStaffModal({
 
 function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfirm, onCancel }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-sm rounded-2xl bg-surface border border-border-soft/30 p-6 shadow-2xl text-content">
-        <h3 className="font-extrabold text-content">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-sm rounded-2xl bg-[#0b1329] border border-white/15 p-6 shadow-2xl shadow-black/90 text-white">
+        <h3 className="font-black text-xl text-white">{title}</h3>
         <p className="mt-2 text-sm text-subtle">{message}</p>
         <div className="mt-5 flex justify-end gap-3">
           <button className="org-btn-secondary" onClick={onCancel} disabled={loading}>
@@ -924,14 +941,14 @@ function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfir
 function QuotaCard({ label, value, sub, warn }) {
   return (
     <div
-      className={`rounded-2xl border px-4 py-3 shadow-sm ${warn ? 'border-error/30 bg-error/10 text-error' : 'border-border-soft/30 bg-panel-soft text-content'
+      className={`rounded-2xl border px-5 py-4 shadow-sm ${warn ? 'border-error/30 bg-error/10 text-error' : 'border-border-soft/30 bg-panel-soft text-content'
         }`}
     >
-      <p className="text-xs font-bold uppercase text-muted">{label}</p>
-      <p className={`mt-1 text-2xl font-extrabold ${warn ? 'text-error' : 'text-content'}`}>
+      <p className="text-base sm:text-lg font-bold uppercase tracking-wider text-white">{label}</p>
+      <p className={`mt-1.5 text-[15px] font-normal ${warn ? 'text-error' : 'text-slate-200'}`}>
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-xs font-semibold text-subtle">{sub}</p>}
+      {sub && <p className="mt-1 text-[13px] font-normal text-slate-400">{sub}</p>}
     </div>
   )
 }
