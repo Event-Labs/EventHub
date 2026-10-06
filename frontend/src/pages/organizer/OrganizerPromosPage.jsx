@@ -317,12 +317,12 @@ export function OrganizerPromosPage() {
   }
 
   const getDiscountLabel = (promo) => {
-    const value = parseFloat(promo.discount_value).toLocaleString()
+    const value = parseFloat(promo.discount_value).toLocaleString('vi-VN')
     if (promo.discount_type === 'PERCENTAGE') {
-      const cap = promo.max_discount ? `, tối đa ${formatVnd(promo.max_discount)}` : ''
-      return `Giảm ${value}%${cap} cho ${promo.applyToAllEvents ? 'tất cả sự kiện' : 'sự kiện đã chọn'}`
+      const cap = promo.max_discount ? ` (tối đa ${formatVnd(promo.max_discount)})` : ''
+      return `Giảm ${value}%${cap}`
     }
-    return `Giảm cố định ${formatVnd(promo.discount_value)}`
+    return `Giảm ${formatVnd(promo.discount_value)}`
   }
 
   const hasEvents = events && events.length > 0;
@@ -363,23 +363,23 @@ export function OrganizerPromosPage() {
       <div className="mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
             <input
-              className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted"
+              className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-white/50"
               placeholder="Tìm kiếm theo mã khuyến mãi hoặc tên sự kiện..."
               value={filters.keyword}
               onChange={(e) => handleFilterChange('keyword', e.target.value)}
             />
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-subtle">Trạng thái:</span>
+            <span className="text-base font-bold text-white">Trạng thái:</span>
             <select
-              className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary min-w-[140px]"
+              className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary min-w-[140px]"
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
             >
               {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value} className="bg-surface text-content">{option.label}</option>
+                <option key={option.value} value={option.value} className="bg-[#0b1329] text-white">{option.label}</option>
               ))}
             </select>
           </div>
@@ -393,15 +393,18 @@ export function OrganizerPromosPage() {
         </div>
       ) : (
         <OrganizerTable
+          minWidth="min-w-full"
           headers={['Mã khuyến mãi', 'Sự kiện áp dụng', 'Loại giảm giá', 'Theo dõi sử dụng', 'Thời gian áp dụng', 'Trạng thái', 'Thao tác']}
           rows={promos.map((promo) => [
-            <span key="promo" className="font-mono text-sm font-bold text-white tracking-wider">{promo.code}</span>,
-            <span key="event" className="text-sm font-medium text-white">{promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}</span>,
-            <span key="type" className="text-sm font-medium text-white">{getDiscountLabel(promo)}</span>,
+            <span key="promo" className="font-mono text-xs font-bold text-white tracking-wider whitespace-nowrap">{promo.code}</span>,
+            <span key="event" className="line-clamp-2 max-w-[150px] text-xs font-medium text-white" title={promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}>
+              {promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}
+            </span>,
+            <span key="type" className="text-xs font-medium text-white whitespace-nowrap">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
-            <span key="period" className="whitespace-nowrap text-sm font-medium text-white">{formatDateRange(promo.start_time, promo.end_time)}</span>,
+            <span key="period" className="whitespace-nowrap text-xs font-medium text-slate-300">{formatDateRange(promo.start_time, promo.end_time)}</span>,
             <StatusBadge key="status" status={promo.status} />,
-            <div key="actions" className="flex items-center gap-2">
+            <div key="actions" className="flex items-center gap-1.5 whitespace-nowrap">
               <TableActionButton
                 icon={Eye}
                 tone="default"
@@ -488,16 +491,16 @@ export function OrganizerPromosPage() {
 
 function Usage({ used, limit, percent }) {
   if (limit === null || limit === undefined || limit === 0) {
-    return <span className="text-sm font-medium text-white">Không giới hạn</span>
+    return <span className="text-xs font-medium text-slate-300 whitespace-nowrap">Không giới hạn</span>
   }
 
   return (
-    <div className="w-36">
-      <div className="mb-1.5 flex justify-between text-xs font-bold font-display tracking-tight">
+    <div className="w-24">
+      <div className="mb-1 flex justify-between text-[11px] font-bold font-display tracking-tight">
         <span className="text-white">{used} / {limit}</span>
         <span className="text-cyan-400">{percent}%</span>
       </div>
-      <div className="h-2 rounded-full bg-panel-soft overflow-hidden">
+      <div className="h-1.5 rounded-full bg-panel-soft overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${percent > 90 ? 'bg-error' : 'bg-primary'}`}
           style={{ width: `${percent}%` }}
@@ -516,9 +519,9 @@ function StatusBadge({ status }) {
 }
 
 function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData, errors = {}, events, isEdit, currentUsage }) {
-  const fieldClass = 'mt-1.5 h-11 w-full rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-muted'
-  const errorFieldClass = 'border-error bg-error/5 ring-1 ring-error/20 text-content'
-  const panelClass = 'rounded-xl border border-border-soft/30 bg-panel/60 p-4'
+  const fieldClass = 'mt-1.5 h-11 w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 text-sm text-white font-medium outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-slate-400'
+  const errorFieldClass = 'border-error bg-error/5 ring-1 ring-error/20 text-white'
+  const panelClass = 'rounded-xl border border-white/10 bg-[#0e172e] p-4 text-white'
 
   return (
     <Modal open={open} title={title} onClose={onClose} maxWidth="max-w-3xl"
@@ -548,7 +551,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
         <section className={panelClass}>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.8fr_1.2fr]">
             <label className="block">
-              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-subtle'}`}>Mã khuyến mãi</span>
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-white'}`}>Mã khuyến mãi</span>
               <input
                 type="text"
                 className={`${fieldClass} font-extrabold uppercase tracking-widest ${errors.code ? errorFieldClass : ''}`}
@@ -561,10 +564,10 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             </label>
 
             <div>
-              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.eventIds ? 'text-error' : 'text-subtle'}`}>Sự kiện áp dụng</span>
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.eventIds ? 'text-error' : 'text-white'}`}>Sự kiện áp dụng</span>
               <label className={`mt-1.5 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-bold transition ${formData.applyToAllEvents
-                ? 'border-tertiary/40 bg-tertiary/10 text-content'
-                : 'border-border-soft/40 bg-panel-soft text-content'
+                ? 'border-tertiary/40 bg-tertiary/20 text-white'
+                : 'border-white/15 bg-[#0d172e] text-white'
                 }`}>
                 <span>Áp dụng cho tất cả sự kiện</span>
                 <input
@@ -588,8 +591,8 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
                     eventIds: e.target.value ? [e.target.value] : [],
                   })}
                 >
-                  <option value="" className="bg-surface text-content">Chọn sự kiện cụ thể</option>
-                  {(events || []).filter(isApprovedOrPublishedEvent).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-surface text-content">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
+                  <option value="" className="bg-[#0b1329] text-white">Chọn sự kiện cụ thể</option>
+                  {(events || []).filter(isApprovedOrPublishedEvent).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-[#0b1329] text-white">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
                 </select>
               )}
               {errors.eventIds && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.eventIds}</p>}
@@ -600,7 +603,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
         <section className={panelClass}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="block">
-              <span className="text-xs font-bold text-subtle uppercase font-display tracking-tight">Loại giảm giá</span>
+              <span className="text-sm font-bold text-white uppercase font-display tracking-tight">Loại giảm giá</span>
               <select
                 className={fieldClass}
                 value={formData.discount_type}
@@ -610,15 +613,15 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
                   max_discount: e.target.value === 'PERCENTAGE' ? formData.max_discount : '',
                 })}
               >
-                <option value="PERCENTAGE" className="bg-surface text-content">Phần trăm (%)</option>
-                <option value="FIXED" className="bg-surface text-content">Số tiền cố định (VND)</option>
+                <option value="PERCENTAGE" className="bg-[#0b1329] text-white">Phần trăm (%)</option>
+                <option value="FIXED" className="bg-[#0b1329] text-white">Số tiền cố định (VND)</option>
               </select>
             </label>
 
             <label className="block">
-              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-subtle'}`}>Giá trị giảm</span>
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-white'}`}>Giá trị giảm</span>
               <div className="relative mt-1.5">
-                <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-muted'}`}>
+                <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-slate-400'}`}>
                   {formData.discount_type === 'PERCENTAGE' ? <Percent className="size-4" /> : <DollarSign className="size-4" />}
                 </span>
                 <input
@@ -635,7 +638,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
 
             {formData.discount_type === 'PERCENTAGE' && (
               <label className="block">
-                <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.max_discount ? 'text-error' : 'text-subtle'}`}>Giảm tối đa</span>
+                <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.max_discount ? 'text-error' : 'text-white'}`}>Giảm tối đa</span>
                 <input
                   type="number"
                   min="0"
@@ -653,7 +656,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
         <section className={panelClass}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="block">
-              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-subtle'}`}>Giới hạn lượt dùng</span>
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-white'}`}>Giới hạn lượt dùng</span>
               <input
                 type="number"
                 className={`${fieldClass} ${errors.usage_limit ? errorFieldClass : ''}`}
@@ -665,7 +668,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold text-subtle uppercase font-display tracking-tight">Giá trị đơn hàng tối thiểu</span>
+              <span className="text-sm font-bold text-white uppercase font-display tracking-tight">Giá trị đơn hàng tối thiểu</span>
               <input
                 type="number"
                 className={fieldClass}
@@ -676,7 +679,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             </label>
 
             <label className="block">
-              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-subtle'}`}>Thời gian bắt đầu</span>
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-white'}`}>Thời gian bắt đầu</span>
               <input
                 type="datetime-local"
                 className={`${fieldClass} ${errors.start_time ? errorFieldClass : ''}`}
@@ -688,7 +691,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             </label>
 
             <label className="block">
-              <span className={`text-xs font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-subtle'}`}>Thời gian kết thúc</span>
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-white'}`}>Thời gian kết thúc</span>
               <input
                 type="datetime-local"
                 className={`${fieldClass} ${errors.end_time ? errorFieldClass : ''}`}
@@ -733,15 +736,15 @@ function PromoDetailModal({ open, onClose, promo }) {
 
           <DetailCard>
             <DetailItem label="Sự kiện áp dụng" value={promo.applyToAllEvents ? 'Tất cả sự kiện' : 'Sự kiện cụ thể'} />
-            <div className="mt-3 space-y-1 text-sm text-content">
+            <div className="mt-3 space-y-1.5 text-sm text-content">
               <p>
-                <span className="font-bold text-muted">Tên sự kiện: </span>
-                <span className="font-semibold text-content">{promo.applyToAllEvents ? 'Tất cả sự kiện của organizer' : (promo.event_name || 'Không có')}</span>
+                <span className="text-base font-bold text-white">Tên sự kiện: </span>
+                <span className="text-base font-bold text-white">{promo.applyToAllEvents ? 'Tất cả sự kiện của organizer' : (promo.event_name || 'Không có')}</span>
               </p>
               {!promo.applyToAllEvents && (promo.eventIds?.length || promo.event_id) && (
                 <p className="text-xs">
-                  <span className="font-bold text-muted">Mã sự kiện: </span>
-                  <span className="font-mono text-muted">{(promo.eventIds || [promo.event_id]).join(', ')}</span>
+                  <span className="font-bold text-slate-300">Mã sự kiện: </span>
+                  <span className="font-mono text-slate-400">{(promo.eventIds || [promo.event_id]).join(', ')}</span>
                 </p>
               )}
             </div>
@@ -812,7 +815,7 @@ function PromoDetailModal({ open, onClose, promo }) {
 
 function DetailCard({ children, className = '' }) {
   return (
-    <div className={`rounded-xl border border-border-soft/30 bg-surface/80 p-4 ${className}`}>
+    <div className={`rounded-xl border border-white/10 bg-[#0e172e] p-4 text-white ${className}`}>
       {children}
     </div>
   )
@@ -820,8 +823,8 @@ function DetailCard({ children, className = '' }) {
 
 function StatusDetailRow({ status }) {
   return (
-    <div className="flex shrink-0 items-center gap-3 whitespace-nowrap rounded-xl border border-border-soft/30 bg-panel-soft px-3 py-2">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Trạng thái</p>
+    <div className="flex shrink-0 items-center gap-3 whitespace-nowrap rounded-xl border border-white/10 bg-[#121c38] px-3 py-2">
+      <p className="text-xs font-bold uppercase tracking-wider text-white">Trạng thái</p>
       <StatusBadge status={status} />
     </div>
   )
@@ -829,15 +832,15 @@ function StatusDetailRow({ status }) {
 
 function OfferCard({ icon: Icon, typeLabel, value }) {
   return (
-    <div className="rounded-xl border border-tertiary/30 bg-tertiary/10 p-5">
+    <div className="rounded-xl border border-tertiary/40 bg-tertiary/15 p-5">
       <div className="flex items-start gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-tertiary text-white">
           <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Ưu đãi</p>
-          <p className="mt-1 text-sm font-bold text-subtle">{typeLabel}</p>
-          <div className="mt-3 inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-xl bg-panel-soft border border-border-soft/20 px-3 py-2 text-lg font-extrabold text-primary shadow-sm">
+          <p className="text-base font-extrabold uppercase tracking-wider text-white">Ưu đãi</p>
+          <p className="mt-1 text-sm font-semibold text-slate-300">{typeLabel}</p>
+          <div className="mt-3 inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-xl bg-[#0b1329] border border-white/15 px-3 py-2 text-lg font-extrabold text-primary shadow-sm">
             {value}
           </div>
         </div>
@@ -848,9 +851,9 @@ function OfferCard({ icon: Icon, typeLabel, value }) {
 
 function UsageStat({ label, value }) {
   return (
-    <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-3">
-      <p className="text-[10px] font-bold uppercase text-muted">{label}</p>
-      <p className="mt-1 break-words text-lg font-extrabold text-content">{value}</p>
+    <div className="rounded-xl border border-white/10 bg-[#121c38] p-3">
+      <p className="text-xs font-bold uppercase text-white">{label}</p>
+      <p className="mt-1 break-words text-lg font-extrabold text-white">{value}</p>
     </div>
   )
 }
@@ -858,8 +861,8 @@ function UsageStat({ label, value }) {
 function DetailItem({ label, value, highlight }) {
   return (
     <div>
-      <p className="text-[10px] font-bold text-muted uppercase tracking-wider">{label}</p>
-      <div className={`mt-1 font-bold ${highlight ? 'text-2xl text-primary' : 'text-content'}`}>
+      <p className="text-xs font-bold text-white uppercase tracking-wider">{label}</p>
+      <div className={`mt-1 font-bold ${highlight ? 'text-2xl text-primary' : 'text-slate-200'}`}>
         {value}
       </div>
     </div>
