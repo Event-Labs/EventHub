@@ -128,13 +128,13 @@ export function OrganizerRefundsPage() {
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
           <input
             type="text"
             placeholder="Tìm theo mã vé, tên, email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#151d34] py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:border-primary focus:outline-none"
+            className="w-full rounded-xl border border-white/15 bg-[#0d172e] py-2 pl-9 pr-4 text-xs font-normal text-white placeholder:text-white/50 focus:border-primary focus:outline-none"
           />
         </div>
       </div>
@@ -150,60 +150,62 @@ export function OrganizerRefundsPage() {
             <p className="mt-1 text-xs text-slate-400">Tất cả các yêu cầu theo bộ lọc sẽ được hiển thị tại đây.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Mã YC / Ngày</th>
-                  <th className="px-4 py-3">Sự kiện</th>
-                  <th className="px-4 py-3">Vé / Người mua</th>
-                  <th className="px-4 py-3">Số tiền hoàn</th>
-                  <th className="px-4 py-3">Lý do</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3 text-right">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5 font-medium text-slate-300">
-                {filteredList.map((item) => (
-                  <tr key={item.id} className="hover:bg-white/[0.02]">
-                    <td className="whitespace-nowrap px-4 py-3.5">
-                      <p className="font-mono font-bold text-primary">#{item.id.slice(0, 8)}</p>
-                      <p className="text-[10px] text-slate-400">{formatDateTime(item.created_at)}</p>
-                    </td>
-                    <td className="max-w-[200px] px-4 py-3.5">
-                      <p className="truncate font-bold text-white" title={item.event?.title}>
-                        {item.event?.title || 'N/A'}
-                      </p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5">
-                      <p className="font-mono font-semibold text-slate-200">{item.ticket?.ticket_code || item.order?.order_code}</p>
-                      <p className="text-[11px] text-slate-400">
-                        {item.customer?.full_name || item.order?.buyer_name || 'Khách hàng'}
-                      </p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 font-mono font-bold text-amber-400">
-                      {formatCurrency(item.refund_amount)}
-                    </td>
-                    <td className="max-w-[220px] px-4 py-3.5">
-                      <p className="line-clamp-2 text-slate-300" title={item.reason}>
-                        {item.reason}
-                      </p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5">
-                      {getStatusBadge(item.status)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-right">
-                      <TableActionButton
-                        icon={Eye}
-                        tone={item.status === 'PENDING' ? 'primary' : 'default'}
-                        title={item.status === 'PENDING' ? 'Xử lý yêu cầu hoàn tiền' : 'Xem chi tiết'}
-                        onClick={() => navigate(`/organizer/refunds/${item.id}`)}
-                      />
-                    </td>
+          <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[880px] text-left text-xs">
+                <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
+                  <tr>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Mã YC / Ngày</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vé / Người mua</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Số tiền hoàn</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Lý do</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Hành động</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                  {filteredList.map((item) => (
+                    <tr key={item.id} className="hover:bg-white/[0.02]">
+                      <td className="whitespace-nowrap px-3.5 py-3">
+                        <p className="font-mono font-bold text-primary">#{item.id.slice(0, 8)}</p>
+                        <p className="text-[10px] text-slate-400">{formatDateTime(item.created_at)}</p>
+                      </td>
+                      <td className="max-w-[180px] px-3.5 py-3">
+                        <p className="truncate font-bold text-white text-xs" title={item.event?.title}>
+                          {item.event?.title || 'N/A'}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap px-3.5 py-3">
+                        <p className="font-mono font-semibold text-slate-200">{item.ticket?.ticket_code || item.order?.order_code}</p>
+                        <p className="text-[11px] text-slate-400">
+                          {item.customer?.full_name || item.order?.buyer_name || 'Khách hàng'}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap px-3.5 py-3 font-mono font-bold text-amber-400">
+                        {formatCurrency(item.refund_amount)}
+                      </td>
+                      <td className="max-w-[200px] px-3.5 py-3">
+                        <p className="line-clamp-2 text-slate-300 text-xs" title={item.reason}>
+                          {item.reason}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap px-3.5 py-3">
+                        {getStatusBadge(item.status)}
+                      </td>
+                      <td className="whitespace-nowrap px-3.5 py-3 text-right">
+                        <TableActionButton
+                          icon={Eye}
+                          tone={item.status === 'PENDING' ? 'primary' : 'default'}
+                          title={item.status === 'PENDING' ? 'Xử lý yêu cầu hoàn tiền' : 'Xem chi tiết'}
+                          onClick={() => navigate(`/organizer/refunds/${item.id}`)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

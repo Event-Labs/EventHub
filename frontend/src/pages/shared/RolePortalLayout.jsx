@@ -115,17 +115,17 @@ export function RolePortalLayout({
               type="button"
               onClick={logout}
               title={'\u0110\u0103ng xu\u1ea5t'}
-              className="group flex h-10 w-full items-center justify-start gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold text-subtle transition-all duration-200 hover:bg-panel-soft hover:text-error"
+              className="group flex h-10 w-full items-center justify-start gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold text-white/90 transition-all duration-200 hover:bg-white/10 hover:text-error"
             >
-              <LogOut className="size-[18px] shrink-0" />
-              <span className="portal-sidebar-label min-w-0">{'\u0110\u0103ng xu\u1ea5t'}</span>
+              <LogOut className="size-[18px] shrink-0 text-white/80 group-hover:text-error" />
+              <span className="portal-sidebar-label min-w-0 text-white group-hover:text-error">{'\u0110\u0103ng xu\u1ea5t'}</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={logout}
               title={'\u0110\u0103ng xu\u1ea5t'}
-              className="grid size-12 place-items-center rounded-2xl text-slate-400 transition-all duration-200 hover:bg-white/5 hover:text-error"
+              className="grid size-12 place-items-center rounded-2xl text-white/80 transition-all duration-200 hover:bg-white/10 hover:text-error"
             >
               <LogOut className="size-[20px]" />
             </button>
@@ -139,7 +139,7 @@ export function RolePortalLayout({
         style={{ width: sidebarExpanded ? expandedWidth : collapsedWidth }}
       />
 
-      <main className="relative z-10 flex min-w-0 flex-1 flex-col transition-all duration-300 ease-out">
+      <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-x-hidden transition-all duration-300 ease-out">
         <PortalTopBar
           user={user}
           avatar={avatar}
@@ -148,8 +148,8 @@ export function RolePortalLayout({
           theme={theme}
           onToggleTheme={() => setPortalTheme(theme === 'light' ? 'dark' : 'light')}
         />
-        <div className="flex-1 overflow-y-auto pt-20 w-full min-w-0">
-          <div className="mx-auto w-full max-w-[1320px] px-6 py-6 lg:px-8">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pt-20 w-full min-w-0">
+          <div className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8 min-w-0">
             <Outlet />
           </div>
         </div>
@@ -182,7 +182,7 @@ function SidebarSection({ section, expanded, showDivider, pathname }) {
   return (
     <div className="w-full">
       {showDivider && <div className="mx-4 my-2 h-px bg-white/10" />}
-      <p className="portal-sidebar-label px-4 pb-2 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+      <p className="portal-sidebar-label px-4 pb-2 pt-2 text-[11px] font-black uppercase tracking-widest text-white">
         {section.label}
       </p>
       <div className="space-y-1">
@@ -208,13 +208,13 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
           return `grid size-12 place-items-center rounded-[18px] transition-all duration-200 ${
             current
               ? 'bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(6,182,212,0.2)] border border-primary/30'
-              : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
+              : 'text-white/80 hover:bg-white/10 hover:text-white border border-transparent'
           }`
         }}
       >
         {({ isActive }) => {
           const current = active ?? isActive
-          return Icon ? <Icon className={`size-[20px] ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-slate-400'}`} /> : null
+          return Icon ? <Icon className={`size-[20px] ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-white/80'}`} /> : null
         }}
       </NavLink>
     )
@@ -230,7 +230,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
         return `group flex h-12 w-full items-center gap-3 overflow-hidden rounded-[18px] px-4 text-[14px] font-bold transition-all duration-200 ${
           current
             ? 'bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(6,182,212,0.2)] border border-primary/30'
-            : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
+            : 'text-white hover:bg-white/10 border border-transparent'
         }`
       }}
     >
@@ -238,8 +238,8 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
         const current = active ?? isActive
         return (
           <>
-            {Icon && <Icon className={`size-[20px] shrink-0 ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-slate-400 group-hover:text-white'}`} />}
-            <span className="portal-sidebar-label min-w-0 flex-1">{item.label}</span>
+            {Icon && <Icon className={`size-[20px] shrink-0 ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-white/80 group-hover:text-white'}`} />}
+            <span className={`portal-sidebar-label min-w-0 flex-1 ${current ? 'text-primary' : 'text-white'}`}>{item.label}</span>
             {current && <ChevronRight className="size-4 shrink-0 text-primary" />}
           </>
         )

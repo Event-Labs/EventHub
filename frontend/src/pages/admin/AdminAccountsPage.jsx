@@ -183,11 +183,11 @@ export function AdminAccountsPage() {
 
       <Panel className="my-6 flex flex-wrap items-center gap-4">
         <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
             <input
               type="text"
               placeholder="Tìm theo tên hoặc email..."
-              className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none focus:border-primary transition focus:ring-2 focus:ring-primary/10 placeholder:text-muted"
+              className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none focus:border-primary transition focus:ring-2 focus:ring-primary/10 placeholder:text-white/50"
               value={filters.search}
               onChange={handleSearchChange}
             />

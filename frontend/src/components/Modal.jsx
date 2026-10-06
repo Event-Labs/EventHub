@@ -4,21 +4,21 @@ export function Modal({ open, title, children, footer, onClose, maxWidth = 'max-
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm">
-      <section className={`w-full ${maxWidth} max-h-[92vh] overflow-hidden rounded-xl border border-border-soft/40 bg-surface text-content shadow-2xl shadow-black/30`}>
-        <header className="flex items-center justify-between gap-4 border-b border-border-soft/40 bg-panel px-5 py-4">
-          <h3 className="min-w-0 truncate font-display text-lg font-extrabold text-content">{title}</h3>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+      <section className={`w-full ${maxWidth} max-h-[92vh] overflow-hidden rounded-2xl border border-white/15 bg-[#0b1329] text-white shadow-2xl shadow-black/90`}>
+        <header className="flex items-center justify-between gap-4 border-b border-white/10 bg-[#111c3a] px-6 py-4">
+          <h3 className="min-w-0 truncate font-display text-xl font-black text-white">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="grid size-8 shrink-0 place-items-center rounded-full border border-transparent text-muted transition hover:border-border-soft/50 hover:bg-panel-soft hover:text-content"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white"
           >
             <X className="size-4" />
           </button>
         </header>
-        <div className="max-h-[calc(92vh-8rem)] overflow-y-auto px-5 py-5">{children}</div>
+        <div className="max-h-[calc(92vh-8rem)] overflow-y-auto px-6 py-5 bg-[#0b1329]">{children}</div>
         {footer && (
-          <footer className="flex flex-col-reverse gap-3 border-t border-border-soft/40 bg-panel px-5 py-4 sm:flex-row sm:justify-end">
+          <footer className="flex flex-col-reverse gap-3 border-t border-white/10 bg-[#111c3a] px-6 py-4 sm:flex-row sm:justify-end">
             {footer}
           </footer>
         )}
@@ -44,10 +44,10 @@ export function ConfirmCheckInModal({ open, onClose }) {
         <InfoBlock title="Người tham dự" lines={['Marcus Richardson', 'marcus@example.com', '+1 555-0123']} />
         <InfoBlock title="Vé" lines={['EH-021-XP', 'VIP Pass', 'Zone A / Row 4']} status="Hợp lệ" />
       </div>
-      <div className="mt-4 rounded-md border border-[#c3c6d7] bg-[#f7f9fb] p-4">
-        <p className="text-xs font-bold uppercase text-[#737686]">Sự kiện</p>
-        <p className="mt-1 font-bold text-[#191c1e]">TechNexus Summit 2024</p>
-        <p className="text-sm text-[#434655]">Oct 24, 09:00 AM - Convention Center</p>
+      <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-4">
+        <p className="text-sm font-bold uppercase tracking-wider text-white">Sự kiện</p>
+        <p className="mt-1 font-bold text-base text-white">TechNexus Summit 2024</p>
+        <p className="text-sm text-slate-300">Oct 24, 09:00 AM - Convention Center</p>
       </div>
       <label className="mt-4 flex items-start gap-3 rounded-md bg-[#f2f4f6] p-3 text-sm">
         <input type="checkbox" className="mt-1 accent-primary" />
@@ -140,13 +140,13 @@ export function ManualTicketModal({ open, onClose }) {
 
 function InfoBlock({ title, lines, status }) {
   return (
-    <div className="rounded-md bg-[#f2f4f6] p-4">
+    <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 text-white">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase text-[#737686]">{title}</p>
-        {status && <span className="rounded bg-green-100 px-2 py-1 text-xs font-bold text-green-700">{status}</span>}
+        <p className="text-sm font-bold uppercase tracking-wider text-white">{title}</p>
+        {status && <span className="rounded bg-green-500/20 text-green-400 border border-green-500/30 px-2 py-0.5 text-xs font-bold">{status}</span>}
       </div>
       {lines.map((line) => (
-        <p key={line} className="mt-1 text-sm font-semibold text-[#191c1e]">{line}</p>
+        <p key={line} className="mt-1 text-sm font-semibold text-slate-200">{line}</p>
       ))}
       <ClipboardCheck className="mt-3 size-4 text-primary" />
     </div>
