@@ -57,8 +57,8 @@ export function LockedAccountModal({ open, lockData, onLogout }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/75 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto flex flex-col items-center rounded-[24px] border border-border-soft/50 bg-surface p-7 shadow-[0_25px_70px_-18px_rgba(0,0,0,0.7)]">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto flex flex-col items-center rounded-[24px] border border-white/15 bg-[#0b1329] p-7 shadow-[0_25px_70px_-18px_rgba(0,0,0,0.9)] text-white">
 
         {/* Icon */}
         <div className="mb-4 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-error/30 bg-error/15 ring-8 ring-error/5">
@@ -66,10 +66,10 @@ export function LockedAccountModal({ open, lockData, onLogout }) {
         </div>
 
         {/* Title */}
-        <h2 className="mb-1 text-center text-2xl font-black leading-tight tracking-tight text-content">
+        <h2 className="mb-1 text-center text-2xl font-black leading-tight tracking-tight text-white">
           Tài khoản bị khóa
         </h2>
-        <p className="mb-5 text-center text-sm font-medium text-subtle">
+        <p className="mb-5 text-center text-sm font-medium text-slate-300">
           Tài khoản của bạn đã bị quản trị viên khóa.
         </p>
 

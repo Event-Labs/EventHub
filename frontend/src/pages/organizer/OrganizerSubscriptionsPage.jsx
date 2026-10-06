@@ -128,17 +128,17 @@ export function OrganizerSubscriptionsPage() {
 
       {/* Payment Modal */}
       {selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl bg-surface border border-border-soft/30 p-6 shadow-2xl text-content">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl bg-[#0b1329] border border-white/15 p-6 shadow-2xl shadow-black/90 text-white">
             <button
               onClick={() => !isProcessing && setSelectedPlan(null)}
-              className="absolute right-4 top-4 text-muted transition hover:text-content"
+              className="absolute right-4 top-4 text-slate-400 transition hover:text-white"
             >
               <X className="size-5" />
             </button>
-            <h3 className="mb-1 text-xl font-extrabold text-content">Xác nhận đăng ký</h3>
-            <p className="mb-5 text-sm text-subtle">
-              Bạn đang chọn gói <strong className="text-content">{selectedPlan.name}</strong>
+            <h3 className="mb-1 text-2xl font-black text-white">Xác nhận đăng ký</h3>
+            <p className="mb-5 text-sm text-slate-300">
+              Bạn đang chọn gói <strong className="text-white font-bold">{selectedPlan.name}</strong>
             </p>
 
             {currentPlan && selectedPlan.id !== currentPlan.subscription_id && (

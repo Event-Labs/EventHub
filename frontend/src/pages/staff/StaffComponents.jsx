@@ -7,11 +7,10 @@ import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 export function StaffPage({ title, description, action, children, className = '' }) {
   return (
     <div className={className}>
-      {(title || description || action) && (
+      {(title || action) && (
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             {title && <h1 className="font-display text-3xl font-black tracking-tight">{renderCosmicTitle(title)}</h1>}
-            {description && <p className="mt-1.5 text-[15px] text-slate-400">{description}</p>}
           </div>
           {action}
         </div>
@@ -39,15 +38,15 @@ export function StaffPanel({ children, className = '' }) {
  */
 export function StaffTable({ headers, rows }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-      <div className="overflow-x-auto">
+    <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+      <div className="w-full overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-xs">
-          <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
             <tr>
               {headers.map((h) => (
                 <th
                   key={h}
-                  className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400"
+                  className="px-4 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap"
                 >
                   {h}
                 </th>
@@ -80,9 +79,9 @@ export function StaffTable({ headers, rows }) {
 export function StaffSearch({ placeholder = 'Tìm kiếm...' }) {
   return (
     <div className="glass-panel relative flex h-[44px] items-center rounded-full border-white/10 px-4 shadow-inner">
-      <Search className="size-5 shrink-0 text-slate-400" />
+      <Search className="size-5 shrink-0 text-white" />
       <input
-        className="ml-3 w-full bg-transparent text-[15px] font-medium text-white outline-none placeholder:text-slate-500"
+        className="ml-3 w-full bg-transparent text-[15px] font-normal text-white outline-none placeholder:text-white/50"
         placeholder={placeholder}
       />
     </div>

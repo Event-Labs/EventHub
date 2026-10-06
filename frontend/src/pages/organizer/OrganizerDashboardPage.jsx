@@ -4,7 +4,6 @@ import {
   ArrowUpRight,
   BarChart3,
   CalendarRange,
-  CalendarClock,
   CheckCircle2,
   CircleDollarSign,
   Loader2,
@@ -74,12 +73,12 @@ function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-primary
         <Icon className={`size-6 ${accentColor}`} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p>
+        <p className="text-[13px] font-bold uppercase tracking-wider text-white">{label}</p>
         <p className="mt-1 truncate text-2xl font-black text-white drop-shadow-sm">{value}</p>
         {sub && (
-          <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-400">
-            {trend === 'up' && <ArrowUpRight className="size-3.5 text-success drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]" />}
-            {trend === 'down' && <ArrowDownRight className="size-3.5 text-error drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
+          <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-slate-300">
+            {trend === 'up' && <ArrowUpRight className="size-4 text-success drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]" />}
+            {trend === 'down' && <ArrowDownRight className="size-4 text-error drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
             {sub}
           </p>
         )}
@@ -313,7 +312,6 @@ function TicketOpsChart({ dashboard }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-bold text-content">Tình trạng vé vận hành</h2>
-          <p className="mt-1 text-xs text-subtle">Theo dõi vé đã check-in, vé còn hiệu lực và vé đã hủy.</p>
         </div>
         <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
           {fmtNumber(issued)} vé đã phát hành
@@ -367,7 +365,6 @@ function EventStatusCharts({ dashboard }) {
       <OrganizerPanel>
         <div className="mb-4">
           <h2 className="font-bold text-content">Phân bổ trạng thái sự kiện</h2>
-          <p className="mt-1 text-xs text-subtle">Nhìn nhanh tỷ trọng sự kiện đã public, chờ duyệt, nháp và đã duyệt.</p>
         </div>
         <DonutChart
           segments={statusSegments}
@@ -378,7 +375,6 @@ function EventStatusCharts({ dashboard }) {
       <OrganizerPanel>
         <div className="mb-4">
           <h2 className="font-bold text-content">Lịch vận hành</h2>
-          <p className="mt-1 text-xs text-subtle">Tách riêng sự kiện đang diễn ra, sắp diễn ra và nhóm còn lại.</p>
         </div>
         <DonutChart
           segments={timelineSegments}
@@ -402,8 +398,7 @@ function DashboardOverview({ dashboard, subscription }) {
       <OrganizerPanel>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-bold text-content">Tổng quan vận hành</h2>
-            <p className="mt-1 text-xs text-subtle">Tình trạng sự kiện, sức chứa, bán vé và check-in của organizer.</p>
+            <h2 className="text-xl font-black text-white">Tổng quan vận hành</h2>
           </div>
           <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
             {fmtNumber(dashboard?.total_events)} sự kiện
@@ -411,37 +406,36 @@ function DashboardOverview({ dashboard, subscription }) {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase text-subtle">Đang công khai</p>
+            <p className="text-sm font-bold text-white whitespace-nowrap">Đang công khai</p>
             <p className="mt-1 text-2xl font-black text-content">{fmtNumber(dashboard?.published_events)}</p>
-            <p className="mt-1 text-xs text-muted">{fmtNumber(dashboard?.upcoming_events)} sắp diễn ra</p>
+            <p className="mt-1 text-[13px] text-slate-400 whitespace-nowrap">{fmtNumber(dashboard?.upcoming_events)} sắp diễn ra</p>
           </div>
           <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase text-subtle">Chờ duyệt</p>
+            <p className="text-sm font-bold text-white whitespace-nowrap">Chờ duyệt</p>
             <p className="mt-1 text-2xl font-black text-warning">{fmtNumber(dashboard?.pending_review_events)}</p>
-            <p className="mt-1 text-xs text-muted">{fmtNumber(dashboard?.draft_events)} bản nháp</p>
+            <p className="mt-1 text-[13px] text-slate-400 whitespace-nowrap">{fmtNumber(dashboard?.draft_events)} bản nháp</p>
           </div>
           <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase text-subtle">Tỷ lệ lấp đầy</p>
+            <p className="text-sm font-bold text-white whitespace-nowrap">Tỷ lệ lấp đầy</p>
             <p className="mt-1 text-2xl font-black text-success">{fmtNumber(dashboard?.occupancy_rate, 1)}%</p>
             <div className="mt-2"><ProgressBar value={dashboard?.occupancy_rate} /></div>
           </div>
           <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase text-subtle">Check-in</p>
+            <p className="text-sm font-bold text-white whitespace-nowrap">Check-in</p>
             <p className="mt-1 text-2xl font-black text-ai">{fmtNumber(dashboard?.checkin_rate, 1)}%</p>
-            <p className="mt-1 text-xs text-muted">{fmtNumber(dashboard?.checked_in_tickets)} / {fmtNumber(dashboard?.issued_tickets)} vé</p>
+            <p className="mt-1 text-[13px] text-slate-400 whitespace-nowrap">{fmtNumber(dashboard?.checked_in_tickets)} / {fmtNumber(dashboard?.issued_tickets)} vé</p>
           </div>
         </div>
       </OrganizerPanel>
 
       <OrganizerPanel>
-        <div className="mb-4 flex items-center gap-2">
-          <CalendarClock className="size-5 text-primary" />
-          <h2 className="font-bold text-content">Sắp tới & gói dịch vụ</h2>
+        <div className="mb-4">
+          <h2 className="text-xl font-black text-white">Sắp tới & gói dịch vụ</h2>
         </div>
         {nextEvent ? (
           <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-            <p className="truncate font-bold text-content">{nextEvent.title}</p>
-            <p className="mt-1 text-xs text-subtle">{fmtDate(nextEvent.start_time)} · {fmtNumber(nextEvent.tickets_sold)} / {fmtNumber(nextEvent.capacity)} vé</p>
+            <p className="truncate text-sm font-bold text-white">{nextEvent.title}</p>
+            <p className="mt-1 text-[13px] text-slate-400">{fmtDate(nextEvent.start_time)} · {fmtNumber(nextEvent.tickets_sold)} / {fmtNumber(nextEvent.capacity)} vé</p>
             <div className="mt-3"><ProgressBar value={nextEventOccupancy} tone="bg-tertiary" /></div>
           </div>
         ) : (
@@ -450,9 +444,9 @@ function DashboardOverview({ dashboard, subscription }) {
           </div>
         )}
         <div className="mt-3 rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-          <p className="text-[11px] font-bold uppercase text-subtle">Gói hiện tại</p>
-          <p className="mt-1 text-lg font-black text-content">{plan?.name || 'Chưa có gói active'}</p>
-          <p className="mt-1 text-xs text-muted">
+          <p className="text-sm font-bold text-white whitespace-nowrap">Gói hiện tại</p>
+          <p className="mt-1 text-lg font-black text-white">{plan?.name || 'Chưa có gói active'}</p>
+          <p className="mt-1 text-[13px] text-slate-400">
             {plan ? `Hết hạn ${fmtDate(plan.end_date)} · Giá gói ${fmtCurrency(plan.price)}` : 'Cần kích hoạt gói để mở đầy đủ tính năng.'}
           </p>
         </div>
@@ -477,8 +471,7 @@ function MoneyCompositionChart({ overall }) {
     <OrganizerPanel className="mb-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-bold text-content">Cơ cấu doanh thu</h2>
-          <p className="mt-1 text-xs text-subtle">Tỷ trọng thực nhận, phí gói dịch vụ và chiết khấu trong kỳ.</p>
+          <h2 className="text-xl font-black text-white">Cơ cấu doanh thu</h2>
         </div>
         <p className="text-sm font-black text-content">{fmtCurrency(gross)}</p>
       </div>
@@ -499,7 +492,7 @@ function MoneyCompositionChart({ overall }) {
           { label: 'Tổng chiết khấu', value: discount, text: 'text-warning' },
         ].map((item) => (
           <div key={item.label} className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase text-subtle">{item.label}</p>
+            <p className="text-[13px] font-bold uppercase tracking-wider text-white">{item.label}</p>
             <p className={`mt-1 text-lg font-extrabold ${item.text}`}>{fmtCurrency(item.value)}</p>
           </div>
         ))}
@@ -625,20 +618,20 @@ export function OrganizerDashboardPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-4 sm:flex-row">
             <label className="flex-1">
-              <span className="block text-sm font-semibold text-subtle">Sự kiện</span>
+              <span className="block text-base font-bold text-white mb-1.5">Sự kiện</span>
               {eventsLoading ? (
-                <div className="mt-2 flex h-10 items-center gap-2 text-sm text-subtle">
+                <div className="mt-1 flex h-10 items-center gap-2 text-sm text-subtle">
                   <Loader2 className="size-4 animate-spin" /> Đang tải...
                 </div>
               ) : (
                 <select
-                  className="mt-2 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                  className="mt-1 h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                   value={selectedEventId}
                   onChange={(e) => setSelectedEventId(e.target.value)}
                 >
-                  <option value="">Tất cả sự kiện</option>
+                  <option value="" className="bg-[#0b1329] text-white">Tất cả sự kiện</option>
                   {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>{ev.title}</option>
+                    <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">{ev.title}</option>
                   ))}
                 </select>
               )}
@@ -730,7 +723,7 @@ export function OrganizerDashboardPage() {
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="size-5 text-ai" />
-                  <h2 className="font-bold text-content">Báo cáo tài chính AI</h2>
+                  <h2 className="text-xl font-black text-white">Báo cáo tài chính AI</h2>
                 </div>
                 <span className="w-fit rounded border border-border-soft/30 bg-surface/80 px-2 py-1 text-xs font-bold text-subtle">
                   {financialSummary.source === 'HUGGING_FACE_SPACE'
@@ -826,7 +819,7 @@ export function OrganizerDashboardPage() {
           <OrganizerPanel className="mb-6">
             <div className="mb-4 flex items-center gap-2">
               <BarChart3 className="size-5 text-primary" />
-              <h2 className="font-bold text-content">Doanh thu ròng theo ngày</h2>
+              <h2 className="text-xl font-black text-white">Doanh thu ròng theo ngày</h2>
               <span className="ml-auto text-xs text-subtle">
                 <CalendarRange className="mr-1 inline size-3" />
                 {activeRangeLabel}
@@ -868,7 +861,6 @@ export function OrganizerDashboardPage() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-bold text-content">Doanh thu theo sự kiện</h2>
-                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu gộp, doanh thu ròng, giảm giá đã áp dụng và số đơn của từng sự kiện.</p>
                 </div>
                 <span className="rounded-md border border-border-soft/35 bg-panel-soft px-3 py-1 text-xs font-bold text-subtle">
                   {byEvent.length} sự kiện

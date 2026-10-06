@@ -1077,13 +1077,13 @@ function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
-      <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-6 shadow-2xl space-y-4 text-content">
-        <div className="flex items-center justify-between border-b border-border-soft/30 pb-3">
-          <h3 className="text-base font-extrabold text-content">
-            Mô tả loại vé: <span className="text-tertiary">{ticketName}</span>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in p-4">
+      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 space-y-4 text-white">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <h3 className="text-lg font-black text-white">
+            Mô tả loại vé: <span className="text-primary">{ticketName}</span>
           </h3>
-          <button type="button" onClick={onClose} className="text-muted hover:text-content text-sm font-bold">✕</button>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white text-sm font-bold">✕</button>
         </div>
         <div>
           <label className="text-xs text-subtle font-semibold mb-1.5 block">Nội dung mô tả vé (quyền lợi, lối đi, quà tặng...):</label>
@@ -1666,16 +1666,16 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                     </p>
                   </div>
 
-                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                    <div className="w-full overflow-x-auto">
+                      <table className="w-full min-w-[780px] text-xs">
+                        <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                           <tr>
-                            <th className="px-4 py-3 text-left font-bold">Khu vực / Vùng</th>
-                            <th className="px-4 py-3 text-left font-bold">Hình thức</th>
-                            <th className="px-4 py-3 text-left font-bold">Sức chứa</th>
-                            <th className="px-4 py-3 text-left font-bold">Tên loại vé & Mô tả</th>
-                            <th className="px-4 py-3 text-left font-bold">Giá vé (VND)*</th>
+                            <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực / Vùng</th>
+                            <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Hình thức</th>
+                            <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Sức chứa</th>
+                            <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Tên loại vé & Mô tả</th>
+                            <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Giá vé (VND)*</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -4342,11 +4342,6 @@ export function CreateEventPage() {
           <h1 className="font-display text-3xl font-extrabold text-content">
             {isEditMode ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện'}
           </h1>
-          <p className="mt-1 text-sm text-subtle">
-            {isEditMode
-              ? 'Cập nhật thông tin sự kiện qua 5 bước.'
-              : 'Thiết lập sự kiện của bạn trong 5 bước đơn giản.'}
-          </p>
         </div>
         {!isEditMode && (
           <button
