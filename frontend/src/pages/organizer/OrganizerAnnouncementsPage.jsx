@@ -97,16 +97,16 @@ export function OrganizerAnnouncementsPage() {
           <OrganizerPanel>
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="text-xs font-bold text-subtle">Sự kiện</span>
+                <span className="block text-base font-bold text-white mb-1.5">Sự kiện</span>
                 <select
                   required
                   value={form.event_id}
                   onChange={update('event_id')}
-                  className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                  className="mt-1 h-11 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white outline-none focus:border-primary shadow-sm"
                 >
-                  <option value="" className="bg-surface text-content">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
+                  <option value="" className="bg-[#0b1329] text-white">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
                   {events.map((event) => (
-                    <option key={event.id} value={event.id} className="bg-surface text-content">
+                    <option key={event.id} value={event.id} className="bg-[#0b1329] text-white">
                       {event.title}
                     </option>
                   ))}
@@ -121,8 +121,8 @@ export function OrganizerAnnouncementsPage() {
               />
 
               <div>
-                <span className="text-xs font-bold text-subtle">Kênh gửi</span>
-                <div className="mt-3 flex flex-wrap gap-5 text-sm font-semibold text-content">
+                <span className="block text-base font-bold text-white mb-1.5">Kênh gửi</span>
+                <div className="mt-2 flex flex-wrap gap-5 text-sm font-semibold text-content">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.web} onChange={update('web')} className="accent-primary" />
                     Website
@@ -135,13 +135,13 @@ export function OrganizerAnnouncementsPage() {
               </div>
 
               <label className="block">
-                <span className="text-xs font-bold text-subtle">Nội dung</span>
+                <span className="block text-base font-bold text-white mb-1.5">Nội dung</span>
                 <textarea
                   required
                   minLength={5}
                   value={form.content}
                   onChange={update('content')}
-                  className="mt-2 min-h-44 w-full resize-y rounded-xl border border-border-soft/40 bg-panel-soft p-4 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
+                  className="mt-1 min-h-44 w-full resize-y rounded-xl border border-border-soft/40 bg-panel-soft p-4 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
                   placeholder="Nhập thay đổi về thời gian, địa điểm, hướng dẫn check-in hoặc cập nhật quan trọng..."
                 />
               </label>
@@ -202,13 +202,13 @@ export function OrganizerAnnouncementsPage() {
 function Field({ label, value, onChange, placeholder }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-subtle">{label}</span>
+      <span className="block text-base font-bold text-white mb-1.5">{label}</span>
       <input
         required
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
+        className="mt-1 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
       />
     </label>
   )

@@ -461,20 +461,20 @@ export function OrganizerTicketSalesPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-4 sm:flex-row">
             <label className="flex-1">
-              <span className="block text-sm font-semibold text-subtle">Sự kiện</span>
+              <span className="block text-base font-bold text-white mb-1.5">Sự kiện</span>
               {eventsLoading ? (
-                <div className="mt-2 flex h-10 items-center gap-2 text-sm text-subtle">
+                <div className="mt-1 flex h-10 items-center gap-2 text-sm text-subtle">
                   <Loader2 className="size-4 animate-spin" /> Đang tải...
                 </div>
               ) : (
                 <select
-                  className="org-input"
+                  className="mt-1 h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                   value={selectedEventId}
                   onChange={(e) => setSelectedEventId(e.target.value)}
                 >
-                  <option value="">Tất cả sự kiện</option>
+                  <option value="" className="bg-[#0b1329] text-white">Tất cả sự kiện</option>
                   {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>{ev.title}</option>
+                    <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">{ev.title}</option>
                   ))}
                 </select>
               )}
@@ -616,16 +616,16 @@ export function OrganizerTicketSalesPage() {
                   <Ticket className="size-5 text-primary" />
                   <h2 className="font-bold text-content">Bán hàng theo loại vé</h2>
                 </div>
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                  <div className="max-h-[420px] overflow-auto">
-                    <table className="w-full text-xs">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                  <div className="w-full max-h-[420px] overflow-auto">
+                    <table className="w-full min-w-[600px] text-xs">
+                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                         <tr>
-                          <th className="px-4 py-3 text-left font-bold">Loại vé</th>
-                          <th className="px-4 py-3 text-right font-bold">Sức chứa</th>
-                          <th className="px-4 py-3 text-right font-bold">Đã bán</th>
-                          <th className="px-4 py-3 text-right font-bold">Doanh thu</th>
-                          <th className="px-4 py-3 text-right font-bold">Lấp đầy</th>
+                          <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Sức chứa</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Đã bán</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Doanh thu</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Lấp đầy</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5 font-medium text-slate-300">

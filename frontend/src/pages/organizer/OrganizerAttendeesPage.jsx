@@ -215,20 +215,20 @@ export function OrganizerAttendeesPage() {
           <p className="text-sm text-subtle">Bạn chưa có sự kiện nào.</p>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
-            <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+            <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
             <div className="relative w-full sm:w-[420px]">
               <select
-                className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(e.target.value)}
               >
                 {events.map((ev) => (
-                  <option key={ev.id} value={ev.id} className="bg-slate-900 text-white">
+                  <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">
                     {ev.title}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
             </div>
           </div>
         )}
@@ -258,9 +258,9 @@ export function OrganizerAttendeesPage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               {/* Search */}
               <form className="relative flex-1" onSubmit={handleSearch}>
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
                 <input
-                  className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-8 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted"
+                  className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-8 text-sm font-normal text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-white/50"
                   placeholder="Tìm tên, email hoặc mã vé..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
@@ -268,7 +268,7 @@ export function OrganizerAttendeesPage() {
                 {searchInput && (
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-content"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
                     onClick={clearSearch}
                   >
                     <X className="size-4" />
@@ -279,13 +279,13 @@ export function OrganizerAttendeesPage() {
               {/* Session filter */}
               {sessions.length > 0 && (
                 <select
-                  className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content lg:w-52"
+                  className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-52"
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
                 >
-                  <option value="" className="bg-surface text-content">Tất cả phiên</option>
+                  <option value="" className="bg-[#0b1329] text-white">Tất cả phiên</option>
                   {sessions.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-surface text-content">
+                    <option key={s.id} value={s.id} className="bg-[#0b1329] text-white">
                       {s.session_name || new Date(s.start_time).toLocaleDateString('vi-VN')}
                     </option>
                   ))}
@@ -295,13 +295,13 @@ export function OrganizerAttendeesPage() {
               {/* Ticket type filter */}
               {ticketTypes.length > 0 && (
                 <select
-                  className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content lg:w-44"
+                  className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-44"
                   value={selectedTicketTypeId}
                   onChange={(e) => setSelectedTicketTypeId(e.target.value)}
                 >
-                  <option value="" className="bg-surface text-content">Tất cả loại vé</option>
+                  <option value="" className="bg-[#0b1329] text-white">Tất cả loại vé</option>
                   {ticketTypes.map((tt) => (
-                    <option key={tt.id} value={tt.id} className="bg-surface text-content">
+                    <option key={tt.id} value={tt.id} className="bg-[#0b1329] text-white">
                       {tt.name}
                     </option>
                   ))}
@@ -310,12 +310,12 @@ export function OrganizerAttendeesPage() {
 
               {/* Status filter */}
               <select
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content lg:w-44"
+                className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-44"
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
               >
                 {TICKET_STATUSES.map((s) => (
-                  <option key={s.value} value={s.value} className="bg-surface text-content">
+                  <option key={s.value} value={s.value} className="bg-[#0b1329] text-white">
                     {s.label}
                   </option>
                 ))}
@@ -367,18 +367,18 @@ export function OrganizerAttendeesPage() {
               </p>
             </OrganizerPanel>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[860px] text-left text-xs">
-                  <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[880px] text-left text-xs">
+                  <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                     <tr>
-                      <th className="px-4 py-3 font-bold">Người đặt vé</th>
-                      <th className="px-4 py-3 font-bold">Loại vé</th>
-                      <th className="px-4 py-3 font-bold">Phiên</th>
-                      <th className="px-4 py-3 font-bold">Ghế / Khu vực</th>
-                      <th className="px-4 py-3 font-bold">Mã vé</th>
-                      <th className="px-4 py-3 font-bold">Trạng thái</th>
-                      <th className="px-4 py-3 font-bold">Check-in lúc</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Người đặt vé</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Ghế / Khu vực</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Mã vé</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Check-in lúc</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -387,44 +387,44 @@ export function OrganizerAttendeesPage() {
                         key={att.id}
                         className="hover:bg-white/[0.02] transition-colors"
                       >
-                        <td className="px-4 py-3.5">
+                        <td className="px-3.5 py-3">
                           <div className="flex items-center gap-3">
                             <AvatarInitials
                               name={att.attendee_name || att.attendee_email || 'A'}
                               src={att.attendee_avatar_url}
-                              className="size-8 animate-pulse-slow"
+                              className="size-8 shrink-0 animate-pulse-slow"
                             />
-                            <div>
-                              <p className="font-semibold text-content">{att.attendee_name}</p>
-                              <p className="text-xs text-subtle">{att.attendee_email}</p>
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-content">{att.attendee_name}</p>
+                              <p className="truncate text-xs text-subtle">{att.attendee_email}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-3.5 py-3 whitespace-nowrap">
                           <Badge tone="blue">{att.ticket_type_name}</Badge>
                         </td>
-                        <td className="px-4 py-3.5 text-subtle">
+                        <td className="px-3.5 py-3 text-subtle">
                           <p className="font-semibold text-content">{att.session_name || '—'}</p>
                           <p className="text-xs mt-0.5">{att.venue_name}</p>
                         </td>
-                        <td className="px-4 py-3.5 text-subtle">
+                        <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
                           {att.row_label && att.seat_number
                             ? `${att.row_label}${att.seat_number}`
                             : 'Không có ghế'}
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-3.5 py-3 whitespace-nowrap">
                           <span className="font-mono text-xs font-bold text-content">
                             {att.ticket_code}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-3.5 py-3 whitespace-nowrap">
                           <Badge
                             tone={TICKET_STATUS_TONE[att.status] || 'gray'}
                           >
                             {TICKET_STATUS_LABEL[att.status] || att.status}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3.5 text-subtle">
+                        <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
                           {formatDateTime(att.checked_in_at)}
                         </td>
                       </tr>

@@ -117,20 +117,20 @@ export function OrganizerCheckinDashboardPage() {
           <p className="text-sm text-subtle">Chưa có sự kiện đã xuất bản nào.</p>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
-            <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+            <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
             <div className="relative w-full sm:w-[420px]">
               <select
-                className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(e.target.value)}
               >
                 {events.map((ev) => (
-                  <option key={ev.id} value={ev.id} className="bg-slate-900 text-white">
+                  <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">
                     {ev.title}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
             </div>
             <button
               type="button"
@@ -259,15 +259,15 @@ export function OrganizerCheckinDashboardPage() {
             {byTicketType.length > 0 && (
               <OrganizerPanel>
                 <h2 className="mb-4 font-bold text-content">Check-in theo loại vé</h2>
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-[500px] text-xs">
+                      <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                         <tr>
-                          <th className="px-4 py-3 text-left font-bold">Loại vé</th>
-                          <th className="px-4 py-3 text-right font-bold">Tổng</th>
-                          <th className="px-4 py-3 text-right font-bold">Đã CK</th>
-                          <th className="px-4 py-3 text-right font-bold">Tỷ lệ</th>
+                          <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Tổng</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Đã CK</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Tỷ lệ</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -304,15 +304,15 @@ export function OrganizerCheckinDashboardPage() {
                 <ScanLine className="size-5 text-tertiary" />
                 <h2 className="font-bold text-content">Check-in gần nhất (20 lần)</h2>
               </div>
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px] text-xs">
-                    <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[650px] text-xs">
+                    <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
-                        <th className="px-4 py-3 text-left font-bold">Người tham dự</th>
-                        <th className="px-4 py-3 text-left font-bold">Loại vé</th>
-                        <th className="px-4 py-3 text-left font-bold">Phiên</th>
-                        <th className="px-4 py-3 text-left font-bold">Thời gian</th>
+                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Người tham dự</th>
+                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
+                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên</th>
+                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Thời gian</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-medium text-slate-300">
