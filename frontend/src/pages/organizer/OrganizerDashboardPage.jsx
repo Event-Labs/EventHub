@@ -6,12 +6,23 @@ import {
   CalendarRange,
   CalendarClock,
   CheckCircle2,
+  Check,
+  ChevronDown,
+  ChevronUp,
   CircleDollarSign,
+  Copy,
+  Gauge,
+  Hourglass,
+  Info,
+  Layers,
   Loader2,
+  Printer,
   RefreshCw,
   ReceiptText,
+  ShieldAlert,
   Sparkles,
   TrendingUp,
+  Zap,
 } from 'lucide-react'
 import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
@@ -508,6 +519,602 @@ function MoneyCompositionChart({ overall }) {
   )
 }
 
+// ─── Executive Financial AI Sub-components ────────────────────────────────────
+
+function parseFinancialReport(summaryText) {
+  if (!summaryText) return []
+  const rawSections = summaryText.split(/(?=###\s+)/g)
+  return rawSections
+    .map((sec) => {
+      const trimmed = sec.trim()
+      if (!trimmed) return null
+      const firstLineEnd = trimmed.indexOf('\n')
+      if (firstLineEnd === -1) {
+        return { title: trimmed.replace(/^###\s+/, ''), content: '' }
+      }
+      const title = trimmed.slice(0, firstLineEnd).replace(/^###\s+/, '').trim()
+      const content = trimmed.slice(firstLineEnd).trim()
+      return { title, content }
+    })
+    .filter(Boolean)
+}
+
+function FormattedMarkdownContent({ text }) {
+  if (!text) return null
+  const paragraphs = text.split(/\n\s*\n/)
+  return (
+    <div className="space-y-3">
+      {paragraphs.map((p, pIdx) => {
+        const lines = p.split('\n')
+        return (
+          <div key={pIdx} className="space-y-2">
+            {lines.map((line, lIdx) => {
+              const trimmed = line.trim()
+              if (!trimmed) return null
+              const isListItem = /^[0-9]+\.\s+|^\*\s+|-\s+/.test(trimmed)
+              const cleanText = trimmed.replace(/^[0-9]+\.\s+|^\*\s+|-\s+/, '')
+              const parts = cleanText.split(/(\*\*.*?\*\*)/g)
+              const renderedLine = parts.map((part, pIndex) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return (
+                    <strong key={pIndex} className="font-bold text-white drop-shadow-sm">
+                      {part.slice(2, -2)}
+                    </strong>
+                  )
+                }
+                return part
+              })
+
+              if (isListItem) {
+                return (
+                  <div key={lIdx} className="flex items-start gap-2.5 text-sm text-slate-300">
+                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
+                    <span className="leading-relaxed">{renderedLine}</span>
+                  </div>
+                )
+              }
+
+              return (
+                <p key={lIdx} className="text-sm leading-relaxed text-slate-300">
+                  {renderedLine}
+                </p>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function XaiScoreDrawer({ xai }) {
+  if (!xai) return null
+
+  const components = [
+    { key: 'occupancy_component', title: 'Tỷ lệ lấp đầy sự kiện', defaultWeight: '30%', max: 30, color: 'bg-primary' },
+    { key: 'margin_component', title: 'Biên lợi nhuận ròng (Net Margin)', defaultWeight: '25%', max: 25, color: 'bg-emerald-500' },
+    { key: 'velocity_component', title: 'Xung lực bán vé 7 ngày (Sales Momentum)', defaultWeight: '20%', max: 20, color: 'bg-blue-500' },
+    { key: 'inventory_pacing_component', title: 'Kiểm soát tồn kho & Thời gian', defaultWeight: '15%', max: 15, color: 'bg-amber-500' },
+    { key: 'tier_mix_component', title: 'Cơ cấu danh mục hạng vé (Tier Mix)', defaultWeight: '10%', max: 10, color: 'bg-indigo-500' },
+  ]
+
+  return (
+    <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/70 p-5 shadow-inner">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+        <div>
+          <h4 className="text-sm font-bold uppercase tracking-wider text-primary">
+            Giải trình thuật toán AI (Explainable AI - XAI)
+          </h4>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Hệ thống tính điểm minh bạch 100 điểm dựa trên 5 chỉ số định lượng trọng số:
+          </p>
+        </div>
+        <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-black text-primary">
+          Tổng điểm: {xai.total_health_score || xai.total || 0} / 100
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {components.map((item) => {
+          const data = xai[item.key] || {}
+          const score = Number(data.score || 0)
+          const maxScore = Number(data.max_score || item.max)
+          const pct = Math.min(100, Math.max(0, (score / maxScore) * 100))
+
+          return (
+            <div key={item.key} className="rounded-lg border border-white/5 bg-slate-900/40 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="font-semibold text-slate-200">
+                  {item.title} <span className="text-slate-400">({data.weight || item.defaultWeight})</span>
+                </span>
+                <span className="font-bold text-white">
+                  {score.toFixed(1)} / {maxScore} điểm ({pct.toFixed(0)}%)
+                </span>
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                <div className={`h-full ${item.color} transition-all duration-500`} style={{ width: `${pct}%` }} />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                <span>Dữ liệu đo lường: <strong className="text-slate-200">{data.metric_value || '—'}</strong></span>
+                <span className="italic">{data.formula || ''}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function TierBreakdownTable({ tiers = [] }) {
+  if (!tiers.length) return null
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-slate-950/50">
+      <div className="border-b border-white/10 bg-white/[0.02] px-4 py-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+          Cơ cấu đóng góp doanh thu & Tỷ lệ lấp đầy theo hạng vé (Pareto)
+        </h4>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-white/5 bg-slate-900/50 text-slate-400">
+              <th className="px-4 py-2.5 font-bold">Hạng vé</th>
+              <th className="px-4 py-2.5 font-bold">Giá niêm yết</th>
+              <th className="px-4 py-2.5 font-bold">Đã bán / Sức chứa</th>
+              <th className="px-4 py-2.5 font-bold">Lấp đầy</th>
+              <th className="px-4 py-2.5 font-bold">Đóng góp DT</th>
+              <th className="px-4 py-2.5 font-bold">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5 text-slate-300">
+            {tiers.map((t) => {
+              const statusClass =
+                t.status === 'Hết vé (Sold Out)'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                  : t.status === 'Đang bán tốt'
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : t.status === 'Chậm tiêu thụ'
+                  ? 'border-rose-500/30 bg-rose-500/10 text-rose-400'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+
+              return (
+                <tr key={t.id || t.name} className="hover:bg-white/[0.02]">
+                  <td className="px-4 py-3 font-bold text-white">{t.name}</td>
+                  <td className="px-4 py-3 font-semibold">{fmtCurrency(t.price)}</td>
+                  <td className="px-4 py-3">
+                    {t.sold} / {t.capacity} vé
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-800">
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: `${Math.min(100, t.occupancy_rate)}%` }}
+                        />
+                      </div>
+                      <span className="font-bold">{t.occupancy_rate}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-bold text-emerald-400">{t.revenue_contribution_pct}%</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${statusClass}`}>
+                      {t.status}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ExecutivePillarCard({ title, content, index }) {
+  const getPillarConfig = () => {
+    const t = (title || '').toUpperCase()
+    if (t.includes('HIỆU SUẤT') || t.includes('LỢI NHUẬN') || index === 0) {
+      return {
+        icon: CircleDollarSign,
+        badge: 'Trụ cột 1 · Hiệu suất tài chính',
+        badgeClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
+        cardBorder: 'border-emerald-500/20 hover:border-emerald-500/40',
+      }
+    }
+    if (t.includes('VẬN TỐC') || t.includes('TIÊU THỤ') || index === 1) {
+      return {
+        icon: Zap,
+        badge: 'Trụ cột 2 · Vận tốc & Đà tăng trưởng',
+        badgeClass: 'border-blue-500/30 bg-blue-500/10 text-blue-400',
+        cardBorder: 'border-blue-500/20 hover:border-blue-500/40',
+      }
+    }
+    if (t.includes('ĐIỂM NGHẼN') || t.includes('RỦI RO') || index === 2) {
+      return {
+        icon: ShieldAlert,
+        badge: 'Trụ cột 3 · Rủi ro & Tồn kho',
+        badgeClass: 'border-amber-500/30 bg-amber-500/10 text-amber-400',
+        cardBorder: 'border-amber-500/20 hover:border-amber-500/40',
+      }
+    }
+    return {
+      icon: Sparkles,
+      badge: 'Trụ cột 4 · Đề xuất chiến lược',
+      badgeClass: 'border-purple-500/30 bg-purple-500/10 text-purple-400',
+      cardBorder: 'border-purple-500/20 hover:border-purple-500/40',
+    }
+  }
+
+  const { icon: Icon, badge, badgeClass, cardBorder } = getPillarConfig()
+
+  return (
+    <div className={`rounded-2xl border bg-slate-900/60 p-5 shadow-sm transition-all ${cardBorder}`}>
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="grid size-7 place-items-center rounded-lg bg-white/5">
+            <Icon className="size-4 text-white" />
+          </div>
+          <h3 className="text-sm font-bold text-white drop-shadow-sm">{title}</h3>
+        </div>
+        <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${badgeClass}`}>
+          {badge}
+        </span>
+      </div>
+      <FormattedMarkdownContent text={content} />
+    </div>
+  )
+}
+
+function formatMarkdownToHtml(text) {
+  if (!text) return ''
+  const paragraphs = text.split(/\n\s*\n/)
+  return paragraphs
+    .map((p) => {
+      const lines = p.split('\n')
+      const formattedLines = lines
+        .map((line) => {
+          const trimmed = line.trim()
+          if (!trimmed) return ''
+          const isListItem = /^[0-9]+\.\s+|^\*\s+|-\s+/.test(trimmed)
+          const clean = trimmed.replace(/^[0-9]+\.\s+|^\*\s+|-\s+/, '')
+          const withBold = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          if (isListItem) {
+            return `<div class="pillar-item"><span class="pillar-bullet"></span><span>${withBold}</span></div>`
+          }
+          return `<p>${withBold}</p>`
+        })
+        .filter(Boolean)
+        .join('')
+      return `<div style="margin-bottom: 8px;">${formattedLines}</div>`
+    })
+    .join('')
+}
+
+function printExecutiveYieldReport({ financialSummary, eventTitle, dateRangeLabel }) {
+  if (!financialSummary) return
+
+  const intel = financialSummary.intelligence || {}
+  const metrics = intel.metrics || {}
+  const velocity = intel.velocity || {}
+  const pacing = intel.inventory_pacing || {}
+  const forecast = intel.forecast || {}
+  const xai = intel.xai_breakdown || {}
+  const tiers = intel.tier_breakdown || []
+  const whatIf = intel.what_if || {}
+  const pillars = parseFinancialReport(financialSummary.summary)
+  const now = new Date().toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  const tierRowsHtml = tiers
+    .map(
+      (t) => `
+    <tr>
+      <td style="font-weight: 700;">${t.name}</td>
+      <td>${fmtCurrency(t.price)}</td>
+      <td>${t.sold} / ${t.capacity} vé</td>
+      <td><strong>${t.occupancy_rate}%</strong></td>
+      <td style="font-weight: 700; color: #166534;">${t.revenue_contribution_pct}%</td>
+      <td><span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; border: 1px solid #cbd5e1;">${t.status}</span></td>
+    </tr>
+  `,
+    )
+    .join('')
+
+  const xaiRowsHtml = [
+    { key: 'occupancy_component', title: 'Tỷ lệ lấp đầy sự kiện', max: 30 },
+    { key: 'margin_component', title: 'Biên lợi nhuận ròng (Net Margin)', max: 25 },
+    { key: 'velocity_component', title: 'Xung lực bán vé 7 ngày (Sales Momentum)', max: 20 },
+    { key: 'inventory_pacing_component', title: 'Kiểm soát tồn kho & Thời gian', max: 15 },
+    { key: 'tier_mix_component', title: 'Cơ cấu danh mục hạng vé (Tier Mix)', max: 10 },
+  ]
+    .map((item) => {
+      const d = xai[item.key] || {}
+      const sc = Number(d.score || 0)
+      const mx = Number(d.max_score || item.max)
+      return `
+      <tr>
+        <td style="font-weight: 600;">${item.title}</td>
+        <td>${d.weight || ''}</td>
+        <td><strong>${d.metric_value || '—'}</strong></td>
+        <td><strong>${sc.toFixed(1)} / ${mx} điểm</strong></td>
+        <td style="font-size: 10px; color: #64748b; font-style: italic;">${d.formula || ''}</td>
+      </tr>
+    `
+    })
+    .join('')
+
+  const pillarsHtml = pillars
+    .map(
+      (p) => `
+    <div class="pillar-card">
+      <div class="pillar-title">${p.title}</div>
+      <div class="pillar-content">${formatMarkdownToHtml(p.content)}</div>
+    </div>
+  `,
+    )
+    .join('')
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bao_Cao_Tai_Chinh_${(eventTitle || 'EventHub').replace(/[^a-zA-Z0-9_-]/g, '_')}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm 12mm 12mm 12mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .header-bar {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .brand { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #2563eb; margin-bottom: 2px; }
+    .header-title { font-size: 16px; font-weight: 800; color: #0f172a; margin: 0 0 2px 0; text-transform: uppercase; }
+    .header-sub { font-size: 10.5px; color: #475569; margin: 0; }
+    .header-meta { text-align: right; font-size: 10.5px; color: #475569; }
+    .header-meta strong { color: #0f172a; }
+    
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .kpi-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      page-break-inside: avoid;
+    }
+    .kpi-label { font-size: 8.5px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
+    .kpi-val { font-size: 15px; font-weight: 800; color: #0f172a; }
+    .kpi-desc { font-size: 9.5px; color: #475569; margin-top: 2px; }
+    
+    .section-title {
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #1e293b;
+      border-left: 3px solid #2563eb;
+      padding-left: 6px;
+      margin: 12px 0 6px 0;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; page-break-inside: avoid; }
+    th { background: #f1f5f9; color: #334155; font-weight: 700; text-align: left; padding: 5px 8px; border: 1px solid #cbd5e1; }
+    td { padding: 5px 8px; border: 1px solid #e2e8f0; color: #1e293b; }
+    
+    .pillars-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .pillar-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px;
+      background: #ffffff;
+      page-break-inside: avoid;
+    }
+    .pillar-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin: 0 0 6px 0;
+    }
+    .pillar-content p { margin: 0 0 5px 0; font-size: 10px; line-height: 1.4; color: #334155; }
+    .pillar-content strong { color: #0f172a; }
+    .pillar-item { display: flex; align-items: flex-start; gap: 5px; margin-bottom: 3px; font-size: 10px; line-height: 1.35; color: #334155; }
+    .pillar-bullet { width: 4px; height: 4px; background: #2563eb; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+    
+    .whatif-box {
+      border: 1px solid #86efac;
+      background: #f0fdf4;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      page-break-inside: avoid;
+    }
+    .whatif-title { font-weight: 700; color: #166534; font-size: 10.5px; margin-bottom: 2px; }
+    .whatif-desc { color: #15803d; font-size: 10px; }
+
+    .footer {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      color: #94a3b8;
+      font-size: 8.5px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <div>
+      <div class="brand">EVENTHUB PLATFORM · FINANCIAL INTELLIGENCE</div>
+      <div class="header-title">Báo Cáo Cố Vấn Doanh Thu & Quản Trị Tồn Kho Vé</div>
+      <div class="header-sub">Sự kiện: <strong>${eventTitle || 'Tất cả sự kiện'}</strong></div>
+    </div>
+    <div class="header-meta">
+      <div>Kỳ phân tích: <strong>${dateRangeLabel || 'Tất cả thời gian'}</strong></div>
+      <div>Thời điểm xuất: <strong>${now}</strong></div>
+      <div style="margin-top: 2px; font-size: 9.5px; color: #2563eb; font-weight: 700;">Model: EventHub AI · Qwen 3 (8B)</div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Financial Health Score</div>
+      <div class="kpi-val">${intel.health_score || 0} <span style="font-size: 10px; color: #64748b;">/ 100</span></div>
+      <div class="kpi-desc">Mức độ rủi ro: <strong>${riskLabel(intel.risk_level)}</strong></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">RevPAS (Doanh thu / Chỗ ngồi)</div>
+      <div class="kpi-val">${fmtCurrency(metrics.revpas || 0)}</div>
+      <div class="kpi-desc">Hiệu suất khai thác: <strong>${metrics.revpas_efficiency || 0}%</strong> giá vé</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Vận tốc bán 7 ngày gần nhất</div>
+      <div class="kpi-val">${velocity.daily_tickets || 0} <span style="font-size: 10px; color: #64748b;">vé/ngày</span></div>
+      <div class="kpi-desc">Đà bán: <strong>${intel.momentum?.label || 'Ổn định'}</strong></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tồn kho & Tiến độ thời gian</div>
+      <div class="kpi-val" style="color: #d97706;">${pacing.remaining_tickets || 0} <span style="font-size: 10px; color: #64748b;">vé tồn</span></div>
+      <div class="kpi-desc">${pacing.days_until_event !== null && pacing.days_until_event !== undefined ? `Còn ${pacing.days_until_event} ngày (cần ${pacing.required_daily_tickets || 0} vé/ngày)` : 'Chưa xác định ngày'}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Biên lợi nhuận ròng</div>
+      <div class="kpi-val" style="color: #16a34a;">${metrics.net_margin_rate || 0}%</div>
+      <div class="kpi-desc">Chi phí nền tảng & dịch vụ: ${metrics.fee_rate || 0}%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Dự báo 7 ngày tiếp theo</div>
+      <div class="kpi-val">${fmtCurrency(forecast.next_7_days_revenue || 0)}</div>
+      <div class="kpi-desc">Dự kiến ~${forecast.next_7_days_tickets || 0} vé (Độ tin cậy: ${forecast.confidence || 'MEDIUM'})</div>
+    </div>
+  </div>
+
+  ${
+    tiers.length > 0
+      ? `
+    <div class="section-title">Cơ cấu đóng góp doanh thu & Tỷ lệ lấp đầy theo hạng vé (Pareto)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Hạng vé</th>
+          <th>Giá niêm yết</th>
+          <th>Đã bán / Sức chứa</th>
+          <th>Lấp đầy</th>
+          <th>Đóng góp DT</th>
+          <th>Trạng thái</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tierRowsHtml}
+      </tbody>
+    </table>
+  `
+      : ''
+  }
+
+  <div class="section-title">Nội dung phân tích chiến lược (Executive Yield Insights)</div>
+  <div class="pillars-grid">
+    ${pillarsHtml}
+  </div>
+
+  ${
+    whatIf.estimated_gross_revenue
+      ? `
+    <div class="whatif-box">
+      <div class="whatif-title">Mô phỏng kích cầu doanh thu (What-If Revenue Modeling)</div>
+      <div class="whatif-desc">
+        Nếu chiến dịch kích cầu bán thêm <strong>${Number(whatIf.additional_tickets || 0).toLocaleString('vi-VN')} vé</strong> ở mức giá trung bình hiện tại (${fmtCurrency(whatIf.avg_ticket_price)}), doanh thu gộp dự kiến gia tăng thêm <strong>${fmtCurrency(whatIf.estimated_gross_revenue)}</strong>.
+      </div>
+    </div>
+  `
+      : ''
+  }
+
+  ${
+    xai.total_health_score
+      ? `
+    <div class="section-title">Giải trình thuật toán AI (Explainable AI - XAI Scoring Breakdown)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Thành phần đánh giá</th>
+          <th>Trọng số</th>
+          <th>Dữ liệu đo lường</th>
+          <th>Điểm đạt được</th>
+          <th>Công thức & Tiêu chí</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${xaiRowsHtml}
+      </tbody>
+    </table>
+  `
+      : ''
+  }
+
+  <div class="footer">
+    <div>Báo cáo được khởi tạo tự động bởi Hệ thống Quản trị Doanh thu AI - Nền tảng EventHub.</div>
+    <div>Trang 1/1 · Bảo mật nội bộ Organizer</div>
+  </div>
+</body>
+</html>`
+
+  const iframe = document.createElement('iframe')
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentWindow.document
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  iframe.contentWindow.focus()
+  setTimeout(() => {
+    iframe.contentWindow.print()
+    setTimeout(() => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe)
+      }
+    }, 2000)
+  }, 300)
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerDashboardPage() {
@@ -534,6 +1141,8 @@ export function OrganizerDashboardPage() {
   const [financialSummary, setFinancialSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [showXaiBreakdown, setShowXaiBreakdown] = useState(false)
 
   useEffect(() => {
     fetchOrganizerEvents()
@@ -577,17 +1186,12 @@ export function OrganizerDashboardPage() {
   useEffect(() => { loadStats() }, [loadStats])
 
   const loadFinancialSummary = useCallback(async () => {
-    if (!selectedEventId) {
-      setSummaryError('Vui lòng chọn một sự kiện để tạo báo cáo tài chính.')
-      return
-    }
-
     setSummaryLoading(true)
     setSummaryError('')
     try {
       const range = getDateRange(datePreset, { from: customFrom, to: customTo })
       const data = await generateFinancialSummary({
-        eventId: selectedEventId,
+        eventId: selectedEventId || undefined,
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
       })
@@ -598,6 +1202,13 @@ export function OrganizerDashboardPage() {
       setSummaryLoading(false)
     }
   }, [datePreset, customFrom, customTo, selectedEventId])
+
+  const handleCopySummary = () => {
+    if (!financialSummary?.summary) return
+    navigator.clipboard.writeText(financialSummary.summary)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -614,6 +1225,16 @@ export function OrganizerDashboardPage() {
   const maxEventRevenue = Math.max(...byEvent.map((e) => Number(e.gross_revenue)), 1)
   const activeRange = getDateRange(datePreset, { from: customFrom, to: customTo })
   const activeRangeLabel = getDateRangeLabel(datePreset, activeRange)
+
+  const handlePrintReport = () => {
+    const eventObj = events.find((ev) => ev.id === selectedEventId)
+    const eventTitle = eventObj ? eventObj.title : (selectedEventId ? 'Sự kiện' : 'Tất cả sự kiện')
+    printExecutiveYieldReport({
+      financialSummary,
+      eventTitle,
+      dateRangeLabel: activeRangeLabel,
+    })
+  }
 
   return (
     <OrganizerPage
@@ -702,81 +1323,200 @@ export function OrganizerDashboardPage() {
           <DashboardOverview dashboard={dashboard} subscription={subscription} />
 
           {financialSummary && (
-            <OrganizerPanel className="mb-6 border-ai/30 bg-ai/[0.06]">
-              {financialSummary.intelligence && (
-                <div className="mb-5 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-                    <p className="text-xs font-bold uppercase text-subtle">Financial Health Score</p>
-                    <p className="mt-1 text-3xl font-black text-content">
-                      {financialSummary.intelligence.health_score}
-                      <span className="text-base font-bold text-subtle">/100</span>
-                    </p>
-                  </div>
-                  <div className={`rounded-md border px-4 py-3 ${riskClass(financialSummary.intelligence.risk_level)}`}>
-                    <p className="text-xs font-bold uppercase opacity-75">Mức rủi ro</p>
-                    <p className="mt-1 text-xl font-black">{riskLabel(financialSummary.intelligence.risk_level)}</p>
-                  </div>
-                  <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-                    <p className="text-xs font-bold uppercase text-subtle">Dự báo 7 ngày</p>
-                    <p className="mt-1 text-lg font-black text-content">
-                      {fmtCurrency(financialSummary.intelligence.forecast?.next_7_days_revenue)}
-                    </p>
-                    <p className="text-xs font-semibold text-subtle">
-                      ~{Number(financialSummary.intelligence.forecast?.next_7_days_tickets || 0).toLocaleString('vi-VN')} vé
-                    </p>
-                  </div>
-                </div>
-              )}
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="size-5 text-ai" />
-                  <h2 className="font-bold text-content">Báo cáo tài chính AI</h2>
-                </div>
-                <span className="w-fit rounded border border-border-soft/30 bg-surface/80 px-2 py-1 text-xs font-bold text-subtle">
-                  {financialSummary.source === 'HUGGING_FACE_SPACE'
-                    ? 'Hugging Face AI'
-                    : financialSummary.source === 'LOCAL_AI_SERVICE'
-                      ? 'Local AI'
-                      : 'Rule-based'}
-                </span>
-              </div>
-              <p className="text-sm font-semibold leading-7 text-content">
-                {financialSummary.summary}
-              </p>
-              {financialSummary.insights && (
-                <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                  {financialSummary.insights.occupancy && (
-                    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-                      <p className="text-xs font-bold uppercase text-subtle">Tỷ lệ lấp đầy</p>
-                      <p className="mt-1 text-sm font-semibold text-content">{financialSummary.insights.occupancy}</p>
+            <OrganizerPanel id="ai-executive-report" className="mb-8 border-ai/40 bg-gradient-to-b from-ai/[0.08] to-transparent p-6 shadow-2xl">
+              {/* ── Executive Header ── */}
+              <div className="mb-6 flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-tr from-ai to-primary shadow-lg shadow-ai/30">
+                      <Sparkles className="size-5 text-white" />
                     </div>
-                  )}
-                  {financialSummary.insights.recommendation && (
-                    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3">
-                      <p className="text-xs font-bold uppercase text-subtle">Khuyến nghị</p>
-                      <p className="mt-1 text-sm font-semibold text-content">{financialSummary.insights.recommendation}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              {financialSummary.intelligence && (
-                <div className="mt-4 grid gap-3 xl:grid-cols-3">
-                  <InsightList title="Insight chính" items={financialSummary.intelligence.key_insights || []} />
-                  <InsightList title="Rủi ro" items={financialSummary.intelligence.risks || []} />
-                  <InsightList title="Hành động đề xuất" items={financialSummary.intelligence.recommendations || []} />
-                  {financialSummary.intelligence.what_if && (
-                    <div className="rounded-md border border-border-soft/35 bg-panel-soft/70 px-4 py-3 xl:col-span-3">
-                      <p className="text-xs font-bold uppercase text-subtle">What-if</p>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-content">
-                        Nếu bán thêm {Number(financialSummary.intelligence.what_if.additional_tickets || 0).toLocaleString('vi-VN')} vé
-                        với giá vé trung bình hiện tại, doanh thu gộp có thể tăng khoảng{' '}
-                        <span className="font-black text-success">
-                          {fmtCurrency(financialSummary.intelligence.what_if.estimated_gross_revenue)}
-                        </span>
-                        .
+                    <div>
+                      <h2 className="text-xl font-black text-white drop-shadow-sm">
+                        Báo cáo Cố vấn Doanh thu & Lợi nhuận (Executive Yield Briefing)
+                      </h2>
+                      <p className="text-xs font-semibold text-slate-400">
+                        Phân tích định lượng nâng cao (RevPAS, Velocity, Pacing) kết hợp AI Chiến lược cấp cao
                       </p>
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                <div className="no-print flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-ai/30 bg-ai/10 px-3 py-1 text-xs font-bold text-[#c99a47]">
+                    EventHub AI · Qwen 3 (8B) Yield Advisor
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handlePrintReport}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-slate-700 hover:text-white"
+                    title="In hoặc xuất báo cáo PDF"
+                  >
+                    <Printer className="size-3.5" />
+                    <span>In / Xuất PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopySummary}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-slate-700 hover:text-white"
+                    title="Sao chép nội dung báo cáo"
+                  >
+                    {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+                    <span>{copied ? 'Đã sao chép' : 'Sao chép'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ── 6-Metric Executive Quantitative Scorecard ── */}
+              {financialSummary.intelligence && (
+                <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                  {/* Card 1: Health Score */}
+                  <div className="print-border rounded-xl border border-white/10 bg-slate-900/60 p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Health Score</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowXaiBreakdown((prev) => !prev)}
+                        className="no-print text-[10px] font-bold text-primary hover:underline"
+                      >
+                        {showXaiBreakdown ? 'Thu gọn XAI' : 'Xem XAI'}
+                      </button>
+                    </div>
+                    <div className="mt-1.5 flex items-baseline gap-1">
+                      <span className="text-2xl font-black text-white">{financialSummary.intelligence.health_score}</span>
+                      <span className="text-xs font-bold text-slate-400">/100</span>
+                    </div>
+                    <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${riskClass(financialSummary.intelligence.risk_level)}`}>
+                      {riskLabel(financialSummary.intelligence.risk_level)}
+                    </span>
+                  </div>
+
+                  {/* Card 2: RevPAS */}
+                  <div className="print-border rounded-xl border border-white/10 bg-slate-900/60 p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">RevPAS (Doanh thu / Chỗ)</p>
+                    <p className="mt-1.5 text-lg font-black text-white">
+                      {fmtCurrency(financialSummary.intelligence.metrics?.revpas || 0)}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                      Hiệu suất: <strong className="text-primary">{financialSummary.intelligence.metrics?.revpas_efficiency || 0}%</strong> giá vé
+                    </p>
+                  </div>
+
+                  {/* Card 3: Velocity */}
+                  <div className="print-border rounded-xl border border-white/10 bg-slate-900/60 p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Vận tốc bán 7 ngày</p>
+                    <p className="mt-1.5 text-lg font-black text-white">
+                      {financialSummary.intelligence.velocity?.daily_tickets || 0} <span className="text-xs font-normal text-slate-400">vé/ngày</span>
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-emerald-400">
+                      {financialSummary.intelligence.momentum?.label || 'Ổn định'}
+                    </p>
+                  </div>
+
+                  {/* Card 4: Inventory & Pacing */}
+                  <div className="print-border rounded-xl border border-white/10 bg-slate-900/60 p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tồn kho & Thời gian</p>
+                    <p className="mt-1.5 text-lg font-black text-amber-400">
+                      {financialSummary.intelligence.inventory_pacing?.remaining_tickets || 0} <span className="text-xs font-normal text-slate-400">vé tồn</span>
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                      {financialSummary.intelligence.inventory_pacing?.days_until_event !== null && financialSummary.intelligence.inventory_pacing?.days_until_event !== undefined
+                        ? `Còn ${financialSummary.intelligence.inventory_pacing.days_until_event} ngày (cần ${financialSummary.intelligence.inventory_pacing.required_daily_tickets || 0} vé/ngày)`
+                        : 'Không giới hạn ngày'}
+                    </p>
+                  </div>
+
+                  {/* Card 5: Net Margin */}
+                  <div className="print-border rounded-xl border border-white/10 bg-slate-900/60 p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Biên lợi nhuận ròng</p>
+                    <p className="mt-1.5 text-lg font-black text-emerald-400">
+                      {financialSummary.intelligence.metrics?.net_margin_rate || 0}%
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                      Phí DV: {financialSummary.intelligence.metrics?.fee_rate || 0}%
+                    </p>
+                  </div>
+
+                  {/* Card 6: Forecast 7d */}
+                  <div className="print-border rounded-xl border border-white/10 bg-slate-900/60 p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Dự báo 7 ngày tới</p>
+                    <p className="mt-1.5 text-lg font-black text-white">
+                      {fmtCurrency(financialSummary.intelligence.forecast?.next_7_days_revenue || 0)}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                      ~{financialSummary.intelligence.forecast?.next_7_days_tickets || 0} vé (Độ tin cậy: {financialSummary.intelligence.forecast?.confidence || 'MEDIUM'})
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Collapsible XAI Explainer ── */}
+              {showXaiBreakdown && financialSummary.intelligence?.xai_breakdown && (
+                <div className="mb-6">
+                  <XaiScoreDrawer xai={financialSummary.intelligence.xai_breakdown} />
+                </div>
+              )}
+
+              {/* ── Tier Breakdown Table (Pareto) ── */}
+              {financialSummary.intelligence?.tier_breakdown && financialSummary.intelligence.tier_breakdown.length > 0 && (
+                <div className="mb-6">
+                  <TierBreakdownTable tiers={financialSummary.intelligence.tier_breakdown} />
+                </div>
+              )}
+
+              {/* ── 4 Pillars of AI Executive Analysis ── */}
+              <div className="mb-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">
+                    Nội dung phân tích chiến lược (Executive Insights)
+                  </h3>
+                </div>
+
+                {(() => {
+                  const pillars = parseFinancialReport(financialSummary.summary)
+                  if (pillars.length > 0) {
+                    return (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {pillars.map((pillar, idx) => (
+                          <ExecutivePillarCard
+                            key={idx}
+                            index={idx}
+                            title={pillar.title}
+                            content={pillar.content}
+                          />
+                        ))}
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="rounded-xl border border-white/10 bg-slate-900/40 p-5">
+                      <FormattedMarkdownContent text={financialSummary.summary} />
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* ── What-if Scenario & Recommendations ── */}
+              {financialSummary.intelligence?.what_if && (
+                <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="size-4 text-emerald-400" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                      Mô phỏng kích cầu doanh thu (What-If Revenue Scenario)
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-200">
+                    Nếu chiến dịch kích cầu bán thêm{' '}
+                    <strong className="text-white">
+                      {Number(financialSummary.intelligence.what_if.additional_tickets || 0).toLocaleString('vi-VN')} vé
+                    </strong>{' '}
+                    ở mức giá vé trung bình hiện tại ({fmtCurrency(financialSummary.intelligence.what_if.avg_ticket_price)}),
+                    doanh thu gộp sự kiện dự kiến gia tăng thêm{' '}
+                    <strong className="font-black text-emerald-400">
+                      {fmtCurrency(financialSummary.intelligence.what_if.estimated_gross_revenue)}
+                    </strong>
+                    .
+                  </p>
                 </div>
               )}
             </OrganizerPanel>
