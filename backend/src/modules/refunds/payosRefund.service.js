@@ -275,7 +275,7 @@ class PayOSRefundService {
       toAccountNumber: String(targetAccountNumber).trim(),
     };
 
-    const idempotencyKey = `idemp-${refundId}`;
+    const idempotencyKey = crypto.randomUUID();
     const headers = {
       'Content-Type': 'application/json',
       'x-client-id': activeClientId,
@@ -327,6 +327,12 @@ class PayOSRefundService {
         ) {
           errorDesc =
             `Tài khoản PayOS của Ban tổ chức chưa kích hoạt dịch vụ Chi hộ (Payouts) trên payOS (Lỗi 601: ${errorDesc || 'API key không tồn tại trên hệ thống chi hộ'}). Do cổng PayOS chỉ nhận tiền vào tài khoản ngân hàng và không tự động trừ tiền để hoàn trả, Ban tổ chức vui lòng chọn phương thức "Chuyển khoản thủ công" (quét mã VietQR hoặc chuyển trực tiếp) để hoàn tiền cho khách hàng.`;
+        } else if (
+          String(json.code) === '606' ||
+          errorDesc.toLowerCase().includes('idempotency key')
+        ) {
+          errorDesc =
+            `Khóa giao dịch (Idempotency key) đã được sử dụng trước đó trên cổng PayOS (Lỗi 606). Vui lòng bấm thử lại để hệ thống tự động làm mới mã giao dịch hoặc chọn phương thức "Chuyển khoản thủ công".`;
         } else if (
           errorDesc.toLowerCase().includes('địa chỉ ip') ||
           errorDesc.toLowerCase().includes('ip không được phép') ||
