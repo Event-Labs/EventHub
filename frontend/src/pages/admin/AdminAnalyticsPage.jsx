@@ -591,7 +591,7 @@ export function AdminAnalyticsPage() {
           {/* ── Revenue Trend Chart ── */}
           <Panel className="mb-6">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-soft/25 bg-panel-soft/45 px-4 py-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted">Khoảng thời gian</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-white">Khoảng thời gian</span>
               <span className="rounded-md border border-border-soft/30 bg-primary/20 px-2.5 py-1 text-xs font-bold text-content">
                 {activeRangeLabel}
               </span>

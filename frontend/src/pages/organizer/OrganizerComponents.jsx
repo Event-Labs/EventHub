@@ -16,7 +16,6 @@ export function OrganizerPage({ title, description, action, actionTo, onAction, 
           <h1 className="font-display text-3xl font-black tracking-tight">
             {renderCosmicTitle(title)}
           </h1>
-          {description && <p className="mt-1.5 text-[15px] text-slate-400">{description}</p>}
         </div>
         {actionIsElement && action}
         {!actionIsElement && action && actionTo && (
@@ -53,17 +52,17 @@ export function OrganizerPanel({ children, className = '' }) {
 /**
  * OrganizerTable
  */
-export function OrganizerTable({ headers, rows }) {
+export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-xs">
-          <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+    <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+      <div className="w-full overflow-x-auto">
+        <table className={`w-full ${minWidth} text-left text-xs`}>
+          <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
             <tr>
               {headers.map((header) => (
                 <th
                   key={header}
-                  className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400"
+                  className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap"
                 >
                   {header}
                 </th>
@@ -77,7 +76,7 @@ export function OrganizerTable({ headers, rows }) {
                 className="transition-colors hover:bg-white/[0.02]"
               >
                 {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="px-4 py-3.5 align-middle text-slate-200">
+                  <td key={cellIndex} className="px-3.5 py-3 align-middle text-slate-200">
                     {cell}
                   </td>
                 ))}
@@ -96,9 +95,9 @@ export function OrganizerTable({ headers, rows }) {
 export function SearchBar({ placeholder = 'Search...' }) {
   return (
     <div className="glass-panel relative flex h-[44px] flex-1 items-center rounded-full border-white/10 px-4 shadow-inner">
-      <Search className="size-5 shrink-0 text-slate-400" />
+      <Search className="size-5 shrink-0 text-white" />
       <input
-        className="ml-3 w-full bg-transparent text-[15px] font-medium text-white outline-none placeholder:text-slate-500"
+        className="ml-3 w-full bg-transparent text-[15px] font-normal text-white outline-none placeholder:text-white/50"
         placeholder={placeholder}
       />
     </div>
@@ -167,19 +166,19 @@ export function AvatarInitials({ name, src, className = 'size-9' }) {
  */
 export function StatCard({ icon: Icon, label, value, sub, trend, accentColor = 'text-tertiary', accentBg = 'bg-tertiary/15' }) {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border border-border-soft/40 bg-surface/80 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.18)]">
-      <div className={`grid size-11 shrink-0 place-items-center rounded-xl ${accentBg}`}>
-        <Icon className={`size-5 ${accentColor}`} />
+    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-white/5 shadow-inner ${accentBg}`}>
+        <Icon className={`size-6 ${accentColor}`} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-        <p className="mt-1 text-xl font-extrabold text-content tracking-tight">{value}</p>
+        <p className="text-[13px] font-bold uppercase tracking-wider text-white">{label}</p>
+        <p className="mt-1 text-2xl font-black text-white tracking-tight drop-shadow-sm">{value}</p>
         {sub && (
-          <p className="mt-0.5 text-xs text-muted truncate">{sub}</p>
+          <p className="mt-1.5 truncate text-[13px] font-medium text-slate-300">{sub}</p>
         )}
       </div>
       {trend !== undefined && (
-        <div className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${trend >= 0 ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
+        <div className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${trend >= 0 ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
           {trend >= 0 ? '+' : ''}{trend}%
         </div>
       )}
@@ -193,15 +192,15 @@ export function StatCard({ icon: Icon, label, value, sub, trend, accentColor = '
 export function ConfirmModal({ open, title = 'Xác nhận hành động', message, confirmText = 'Xác nhận', cancelText = 'Hủy', tone = 'danger', onConfirm, onCancel }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-6 shadow-2xl transition-all">
-        <h3 className="text-lg font-bold text-content">{title}</h3>
-        <p className="mt-2 text-sm text-subtle leading-relaxed">{message}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white transition-all">
+        <h3 className="text-xl font-black text-white">{title}</h3>
+        <p className="mt-2 text-sm text-slate-300 leading-relaxed">{message}</p>
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-border-soft/40 px-4 py-2 text-sm font-semibold text-content hover:bg-panel-soft transition-colors"
+            className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10 transition-colors"
           >
             {cancelText}
           </button>

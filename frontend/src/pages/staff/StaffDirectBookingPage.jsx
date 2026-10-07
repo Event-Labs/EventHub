@@ -586,13 +586,13 @@ export function StaffDirectBookingPage() {
               <SectionTitle step="1" title="Chọn sự kiện đang mở bán" />
               <div className="mt-5 flex gap-3">
                 <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Tìm sự kiện"
-                  className="h-11 w-full rounded-lg border border-sky-900/60 bg-sky-950/30 pl-10 pr-3 text-sm text-content outline-none transition focus:border-violet-400"
-                />
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Tìm sự kiện"
+                    className="h-11 w-full rounded-lg border border-sky-900/60 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none transition focus:border-violet-400 placeholder:text-white/50"
+                  />
                 </div>
                 <button type="button" className="grid size-11 shrink-0 place-items-center rounded-lg border border-sky-900/60 bg-sky-950/30 text-subtle transition hover:border-violet-400 hover:text-content" aria-label="Bộ lọc sự kiện">
                   <SlidersHorizontal className="size-4" />

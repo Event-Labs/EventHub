@@ -99,13 +99,13 @@ export function AdminOrganizersPage() {
 
       <Panel className="my-6 flex flex-wrap items-center gap-4">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
           <input
             type="text"
             value={filters.search}
             onChange={(e) => updateFilter({ search: e.target.value })}
             placeholder="Tìm theo tên, email, người sở hữu..."
-            className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/10"
+            className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none transition placeholder:text-white/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
           />
         </div>
 

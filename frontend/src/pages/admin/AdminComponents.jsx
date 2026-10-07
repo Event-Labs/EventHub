@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+import { Badge, StatusBadge, resolveStatusConfig } from '@/components/StatusBadge.jsx'
+import { TableActionButton } from '@/components/TableActionButton.jsx'
 
 /**
  * Page – layout wrapper for Admin pages
@@ -30,9 +32,6 @@ export function Page({
           <h1 className="font-display text-3xl font-black tracking-tight">
             {renderCosmicTitle(title)}
           </h1>
-          {description && (
-            <p className="mt-1.5 text-[15px] text-slate-400">{description}</p>
-          )}
         </div>
         {actions}
         {!actions && action && (
@@ -177,15 +176,15 @@ export function FilterBar({ labels }) {
  */
 export function Table({ headers, rows, compact = false, tableClassName = 'min-w-[760px]' }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-      <div className="overflow-x-auto">
+    <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+      <div className="w-full overflow-x-auto">
         <table className={`w-full text-left text-xs ${tableClassName}`}>
-          <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
             <tr>
               {headers.map((header) => (
                 <th
                   key={header}
-                  className="px-4 py-3 font-bold last:w-[120px] last:min-w-[120px]"
+                  className="px-4 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap last:w-[120px] last:min-w-[120px]"
                 >
                   {header}
                 </th>
@@ -265,8 +264,8 @@ export function ImagePlaceholder({ label, className = 'h-12 w-20' }) {
   )
 }
 
-export { Badge, StatusBadge, resolveStatusConfig } from '@/components/StatusBadge.jsx'
-export { TableActionButton } from '@/components/TableActionButton.jsx'
+export { Badge, StatusBadge, resolveStatusConfig }
+export { TableActionButton }
 
 /**
  * Status – Unified status badge for Admin portal

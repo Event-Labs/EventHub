@@ -282,17 +282,17 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="flex max-h-[92vh] w-full max-w-[1150px] flex-col overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="flex max-h-[92vh] w-full max-w-[1150px] flex-col overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20">
               <Armchair className="size-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-content">{seatMap?.name || 'Chi tiết sơ đồ ghế'}</h2>
+                <h2 className="text-xl font-black text-white">{seatMap?.name || 'Chi tiết sơ đồ ghế'}</h2>
                 {seatMap && (
                   <Badge tone={seatMap.is_active ? 'green' : 'gray'}>
                     {seatMap.is_active ? 'Đang hoạt động' : 'Tắt'}
@@ -764,15 +764,16 @@ export function OrganizerVenueSeatMapsPage() {
         </div>
       ) : (
         <OrganizerTable
+          minWidth="min-w-[840px]"
           headers={['Tên sơ đồ', 'Loại', 'Cấu hình', 'Tổng số ghế', 'Khu vực', 'Trạng thái', 'Thao tác']}
           rows={seatMaps.map((sm) => [
-            sm.name,
-            sm.layout_type,
-            layoutLabel(sm),
-            getSeatMapTotalSeats(sm),
-            getSeatMapZoneCount(sm),
+            <span key="name" className="font-semibold text-white">{sm.name}</span>,
+            <span key="type" className="whitespace-nowrap">{sm.layout_type}</span>,
+            <span key="layout" className="whitespace-nowrap">{layoutLabel(sm)}</span>,
+            <span key="seats" className="whitespace-nowrap font-mono">{getSeatMapTotalSeats(sm)}</span>,
+            <span key="zones" className="whitespace-nowrap">{getSeatMapZoneCount(sm)}</span>,
             <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-            <div key="actions" className="flex items-center gap-2">
+            <div key="actions" className="flex items-center gap-2 whitespace-nowrap">
               <TableActionButton
                 icon={Eye}
                 tone="default"
