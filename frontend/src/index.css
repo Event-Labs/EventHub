@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import 'tailwindcss';
 
 :root {
@@ -1489,3 +1489,41 @@ html.light .direct-booking-page [class*="text-slate-500"] {
 .animate-star-pulse {
   animation: star-pulse-rotate 5s ease-in-out infinite;
 }
+
+/* ── LED Border Beam Effect for Active Subscription Plan ── */
+@keyframes led-border-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.plan-card-led-wrapper {
+  position: relative;
+  border-radius: 1rem;
+  padding: 2.5px;
+  overflow: hidden;
+  background-color: #1B365D;
+  box-shadow: 0 0 25px rgba(201, 154, 71, 0.25);
+}
+
+.plan-card-led-beam {
+  position: absolute;
+  top: -100%;
+  left: -100%;
+  width: 300%;
+  height: 300%;
+  background: conic-gradient(
+    transparent 0deg,
+    transparent 280deg,
+    #1B365D 300deg,
+    #C99A47 325deg,
+    #E6C17A 350deg,
+    #ffffff 360deg
+  );
+  animation: led-border-rotate 3.5s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+}
