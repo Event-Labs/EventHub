@@ -81,7 +81,12 @@ export function OrganizerRefundsPage() {
     }
   }, [rawList])
 
-  const getStatusBadge = (status) => <StatusBadge status={status} />
+  const getStatusBadge = (status) => {
+    if (status === 'PENDING') {
+      return <StatusBadge status={status} label="Chờ duyệt" tone="amber" />
+    }
+    return <StatusBadge status={status} />
+  }
 
   return (
     <OrganizerPage
@@ -90,23 +95,30 @@ export function OrganizerRefundsPage() {
     >
       <div className="space-y-6">
 
-      {/* Summary Cards */}
+      {/* Summary Cards - 100% Solid Opaque Background */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border border-white/10 bg-[#121b33] p-4">
-          <p className="text-xs font-semibold text-slate-400">Tổng yêu cầu</p>
-          <p className="mt-1 font-mono text-2xl font-black text-white">{counts.all}</p>
+        {/* Card 1: Tổng yêu cầu */}
+        <div className="rounded-2xl border border-white/15 bg-[#0f172a] p-4 sm:p-5 shadow-xl transition-all">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Tổng yêu cầu</p>
+          <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight">{counts.all}</p>
         </div>
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-          <p className="text-xs font-semibold text-amber-300">Cần xử lý (Chờ duyệt)</p>
-          <p className="mt-1 font-mono text-2xl font-black text-amber-400">{counts.pending}</p>
+
+        {/* Card 2: Cần xử lý (Chờ duyệt) */}
+        <div className="rounded-2xl border border-amber-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-amber-500/10 transition-all">
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Cần xử lý (Chờ duyệt)</p>
+          <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">{counts.pending}</p>
         </div>
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-          <p className="text-xs font-semibold text-emerald-300">Đã hoàn tiền</p>
-          <p className="mt-1 font-mono text-2xl font-black text-emerald-400">{counts.refunded}</p>
+
+        {/* Card 3: Đã hoàn tiền (Xanh lá) */}
+        <div className="rounded-2xl border border-emerald-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-emerald-500/10 transition-all">
+          <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Đã hoàn tiền</p>
+          <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">{counts.refunded}</p>
         </div>
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-          <p className="text-xs font-semibold text-red-300">Từ chối</p>
-          <p className="mt-1 font-mono text-2xl font-black text-red-400">{counts.rejected}</p>
+
+        {/* Card 4: Từ chối */}
+        <div className="rounded-2xl border border-rose-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-rose-500/10 transition-all">
+          <p className="text-xs font-bold uppercase tracking-wider text-rose-300">Từ chối</p>
+          <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-rose-400 tracking-tight">{counts.rejected}</p>
         </div>
       </div>
 
