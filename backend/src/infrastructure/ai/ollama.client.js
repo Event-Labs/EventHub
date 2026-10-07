@@ -72,6 +72,7 @@ async function generate(prompt, options = {}) {
     model,
     prompt: finalPrompt,
     think,
+    stream: false,
     keep_alive: options.keep_alive || '60m',
     ...(options.format ? { format: options.format } : {}),
     options: {

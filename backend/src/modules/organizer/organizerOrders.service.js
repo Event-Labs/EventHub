@@ -4,12 +4,18 @@ const organizerOrdersRepository = require('./organizerOrders.repository');
 const organizerEventsRepository = require('./organizerEvents.repository');
 const logger = require('../../core/logger');
 
-function resolveFinancialAiProvider() {
-  return 'eventhub_ai';
-}
+const aiFinancialService = require('./aiFinancial.service');
 
 async function requestFinancialSummary(payload) {
-  throw new Error('AI service is disabled');
+  const aiResult = await aiFinancialService.generateFinancialSummary(payload);
+  return {
+    result: {
+      summary: aiResult.summary,
+      model: aiResult.model_version || 'qwen3-financial-v1',
+      adapter: null,
+    },
+    source: 'LOCAL_AI_SERVICE',
+  };
 }
 
 function toNumber(value) {
@@ -159,21 +165,31 @@ function buildOccupancyInsight(rate) {
   return `Tỷ lệ lấp đầy ${occupancyRate}% còn thấp, nhà tổ chức nên ưu tiên tăng truyền thông và ưu đãi bán vé.`;
 }
 
-function buildFallbackFinancialSummary(payload) {
-  const occupancy = buildOccupancyInsight(payload.occupancy_rate);
-  const recommendation =
-    payload.occupancy_rate >= 60
-      ? `Khuyến nghị: tiếp tục khai thác hạng vé ${payload.best_ticket_type || 'bán tốt nhất'} và tối ưu vận hành sự kiện.`
-      : `Khuyến nghị: dùng hạng vé ${payload.best_ticket_type || 'bán tốt nhất'} làm điểm nhấn truyền thông và triển khai mã khuyến mãi ngắn hạn.`;
+function buildFallbackFinancialSummary(payload, intelligence) {
+  const tiers = Array.isArray(intelligence?.tier_breakdown) ? intelligence.tier_breakdown : [];
+  const starTier = tiers.find(t => t.status === 'Đang bán tốt') || tiers[0];
+  const laggingTier = tiers.find(t => t.status === 'Chậm tiêu thụ');
+  const fmt = (v) => formatMoney(v);
+
+  const summary = `### 🎯 1. ĐÁNH GIÁ HIỆU SUẤT TÀI CHÍNH & TỶ SUẤT LỢI NHUẬN
+Sự kiện "${payload.event_title}" ghi nhận tổng doanh thu gộp đạt ${fmt(payload.gross_revenue)}, trong đó doanh thu ròng thực nhận là ${fmt(payload.net_revenue)} sau khi trừ chi phí dịch vụ & nền tảng ${fmt(payload.platform_fee || payload.subscription_cost)}. Biên lợi nhuận ròng đạt ${intelligence?.metrics?.net_margin_rate || 0}%, thể hiện mức độ kiểm soát chi phí ổn định. Doanh thu trên mỗi chỗ ngồi khả dụng (RevPAS) đạt ${fmt(intelligence?.metrics?.revpas || 0)}, tương ứng hiệu suất khai thác ${intelligence?.metrics?.revpas_efficiency || 0}% so với giá vé niêm yết trung bình ${fmt(intelligence?.metrics?.avg_ticket_price || 0)}.
+
+### 📈 2. VẬN TỐC TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
+Tổng số lượng vé tiêu thụ đạt ${payload.tickets_sold} vé qua ${payload.total_orders} đơn hàng thành công, đạt tỷ lệ lấp đầy ${payload.occupancy_rate}%. Vận tốc bán vé gần nhất ghi nhận ở mức ${intelligence?.velocity?.daily_tickets || 0} vé/ngày (bình quân ${fmt(intelligence?.velocity?.daily_revenue || 0)}/ngày), trạng thái đà tăng trưởng: ${intelligence?.momentum?.label || 'Ổn định'}. Về cơ cấu danh mục, hạng vé ${starTier ? `"${starTier.name}"` : (payload.best_ticket_type || 'chủ lực')} là nguồn đóng góp doanh thu lớn nhất với tỷ trọng ${starTier?.revenue_contribution_pct || 0}% tổng doanh thu.
+
+### ⚠️ 3. ĐIỂM NGHẼN TỒN KHO & CẢNH BÁO RỦI RO
+Điểm sức khỏe tài chính đạt ${intelligence?.health_score || 0}/100 (${getRiskLabel(intelligence?.risk_level)}). Số lượng vé còn tồn trong kho là ${intelligence?.metrics?.remaining_tickets || 0} vé trên tổng sức chứa ${intelligence?.metrics?.total_capacity || payload.tickets_sold} chỗ. ${intelligence?.inventory_pacing?.days_until_event !== null && intelligence?.inventory_pacing?.days_until_event !== undefined ? `Với thời gian đếm ngược còn ${intelligence.inventory_pacing.days_until_event} ngày đến sự kiện, mức độ rủi ro tồn kho được xếp loại ${intelligence.inventory_pacing.inventory_risk_level === 'CRITICAL' ? 'RẤT CAO' : (intelligence.inventory_pacing.inventory_risk_level === 'HIGH' ? 'CAO' : 'KIỂM SOÁT ĐƯỢC')}, đòi hỏi tốc độ tiêu thụ tối thiểu ${intelligence.inventory_pacing.required_daily_tickets || 0} vé/ngày để giải phóng toàn bộ chỗ ngồi.` : 'Cần tiếp tục theo dõi sát sao tiến độ tiêu thụ theo từng mốc mở bán.'} ${laggingTier ? `Hạng vé "${laggingTier.name}" đang có tỷ lệ lấp đầy thấp (${laggingTier.occupancy_rate}%), là điểm nghẽn tồn đọng cần giải tỏa.` : ''}
+
+### 💡 4. KẾ HOẠCH HÀNH ĐỘNG DOANH THU & ĐỊNH GIÁ ĐỘNG
+1. **Tối ưu hóa giá vé & Kích cầu ngắn hạn (48h tới):** ${laggingTier ? `Kích hoạt chương trình Flash Bundle (mua 2 vé tặng kèm quyền lợi ưu đãi) hoặc voucher 10-15% cho hạng vé "${laggingTier.name}" để kích thích quyết định mua sớm.` : `Tập trung mở gói ưu đãi nhóm (Group Ticket) cho các hạng vé còn tồn để cải thiện doanh thu trung bình.`}
+2. **Khai thác tệp khách tiềm năng:** Thực hiện chiến dịch tiếp thị lại (Retargeting) hướng đến người dùng đã truy cập xem trang sự kiện nhưng chưa hoàn tất đặt vé.
+3. **Mục tiêu doanh thu khả thi:** Ưu tiên đẩy mạnh bán vé cho các ngày cuối tuần để tối ưu hóa tỷ lệ lấp đầy trước giờ diễn ra sự kiện.`;
 
   return {
-    summary:
-      `Báo cáo tài chính cho sự kiện ${payload.event_title} ghi nhận doanh thu gộp ${formatMoney(payload.gross_revenue)}, ` +
-      `doanh thu ròng ${formatMoney(payload.net_revenue)} sau khi trừ phí gói dịch vụ ${formatMoney(payload.subscription_cost)}. ` +
-      `Sự kiện đã bán ${payload.tickets_sold} vé qua ${payload.total_orders} đơn hàng. ${occupancy} ${recommendation}`,
+    summary,
     insights: {
-      occupancy,
-      recommendation,
+      occupancy: buildOccupancyInsight(payload.occupancy_rate),
+      recommendation: intelligence?.recommendations?.[0] || 'Tối ưu giá vé và chiến dịch truyền thông ngắn hạn.',
     },
     model: 'RULE_BASED_FALLBACK',
     adapter: null,
@@ -182,11 +198,11 @@ function buildFallbackFinancialSummary(payload) {
 
 function calculateSalesMomentum(dailySales = []) {
   const rows = dailySales.filter((item) => toNumber(item.tickets_sold) > 0 || toNumber(item.revenue) > 0);
-  if (rows.length < 4) {
+  if (rows.length < 3) {
     return {
-      status: 'INSUFFICIENT_DATA',
+      status: 'STABLE',
       percent_change: 0,
-      label: 'Chưa đủ dữ liệu xu hướng bán vé',
+      label: 'Đà bán vé đang ổn định',
     };
   }
 
@@ -197,118 +213,214 @@ function calculateSalesMomentum(dailySales = []) {
   const secondAvg = secondHalf.reduce((sum, item) => sum + toNumber(item.revenue), 0) / Math.max(secondHalf.length, 1);
   const percentChange = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg) * 100 : 0;
 
-  if (percentChange >= 25) {
+  if (percentChange >= 20) {
     return {
       status: 'ACCELERATING',
       percent_change: round(percentChange, 1),
-      label: 'Doanh thu đang tăng tốc',
+      label: `Doanh thu đang tăng tốc (+${round(percentChange, 1)}%)`,
     };
   }
-  if (percentChange <= -25) {
+  if (percentChange <= -20) {
     return {
       status: 'SLOWING',
       percent_change: round(percentChange, 1),
-      label: 'Doanh thu đang chậm lại',
+      label: `Doanh thu đang chậm lại (${round(percentChange, 1)}%)`,
     };
   }
   return {
     status: 'STABLE',
     percent_change: round(percentChange, 1),
-    label: 'Doanh thu đang ổn định',
+    label: 'Doanh thu đang giữ nhịp ổn định',
   };
 }
 
 function getRiskLevel(score) {
-  if (score >= 80) return 'LOW';
-  if (score >= 55) return 'MEDIUM';
+  if (score >= 75) return 'LOW';
+  if (score >= 50) return 'MEDIUM';
   return 'HIGH';
 }
 
 function getRiskLabel(level) {
-  if (level === 'LOW') return 'rủi ro thấp';
-  if (level === 'MEDIUM') return 'rủi ro vừa';
-  if (level === 'HIGH') return 'rủi ro cao';
-  return 'chưa xác định';
+  if (level === 'LOW') return 'RỦI RO THẤP (Sức khỏe tài chính tốt)';
+  if (level === 'MEDIUM') return 'RỦI RO VỪA (Cần theo dõi sát)';
+  if (level === 'HIGH') return 'RỦI RO CAO (Cần can thiệp ngay)';
+  return 'Chưa xác định';
 }
 
-function buildFinancialIntelligence({ payload, ticketSales, eventSales }) {
+function buildFinancialIntelligence({ payload, ticketSales, eventSales, event }) {
   const occupancyRate = toNumber(payload.occupancy_rate);
   const grossRevenue = toNumber(payload.gross_revenue);
   const netRevenue = toNumber(payload.net_revenue);
   const subscriptionCost = toNumber(payload.subscription_cost);
+  const platformFee = toNumber(payload.platform_fee || subscriptionCost);
   const ticketsSold = toNumber(payload.tickets_sold);
   const totalOrders = toNumber(payload.total_orders);
-  const totalCapacity = toNumber(eventSales.total_capacity);
-  const avgTicketPrice = ticketsSold > 0 ? grossRevenue / ticketsSold : 0;
-  const avgOrderValue = totalOrders > 0 ? grossRevenue / totalOrders : 0;
-  const netMarginRate = grossRevenue > 0 ? (netRevenue / grossRevenue) * 100 : 0;
-  const subscriptionCostRate = grossRevenue > 0 ? (subscriptionCost / grossRevenue) * 100 : 0;
+  const totalCapacity = toNumber(event?.total_capacity) || toNumber(eventSales?.total_capacity) || toNumber(ticketSales.overall?.total_capacity) || ticketsSold;
+  
+  // Advanced metrics
+  const avgTicketPrice = ticketsSold > 0 ? Math.round(grossRevenue / ticketsSold) : 0;
+  const avgOrderValue = totalOrders > 0 ? Math.round(grossRevenue / totalOrders) : 0;
+  const netMarginRate = grossRevenue > 0 ? round((netRevenue / grossRevenue) * 100, 1) : 0;
+  const feeRate = grossRevenue > 0 ? round((platformFee / grossRevenue) * 100, 1) : 0;
   const remainingTickets = Math.max(totalCapacity - ticketsSold, 0);
-  const momentum = calculateSalesMomentum(ticketSales.daily_sales || []);
 
-  const occupancyScore = clamp((occupancyRate / 90) * 35, 0, 35);
-  const marginScore = clamp((netMarginRate / 95) * 20, 0, 20);
-  const momentumScore =
-    momentum.status === 'ACCELERATING'
-      ? 20
-      : momentum.status === 'STABLE'
-        ? 14
-        : momentum.status === 'SLOWING'
-          ? 7
-          : 10;
-  const orderScore = clamp((totalOrders / 100) * 10, 0, 10);
-  const ticketMixScore = payload.best_ticket_type ? 15 : 8;
-  const healthScore = Math.round(occupancyScore + marginScore + momentumScore + orderScore + ticketMixScore);
+  // RevPAS: Revenue Per Available Seat (Chỉ số chuẩn quốc tế ngành sự kiện)
+  const revpas = totalCapacity > 0 ? Math.round(grossRevenue / totalCapacity) : 0;
+  const revpasEfficiency = avgTicketPrice > 0 ? round((revpas / avgTicketPrice) * 100, 1) : 0;
+
+  // 7-day Velocity & Momentum
+  const dailyRows = ticketSales.daily_sales || [];
+  const recentDays = dailyRows.slice(-7);
+  const prevDays = dailyRows.slice(-14, -7);
+  const recentRevenue = recentDays.reduce((s, r) => s + toNumber(r.revenue), 0);
+  const recentTickets = recentDays.reduce((s, r) => s + toNumber(r.tickets_sold), 0);
+  const velocityDailyTickets = round(recentDays.length > 0 ? recentTickets / recentDays.length : (dailyRows.length > 0 ? ticketsSold / dailyRows.length : 0), 1);
+  const velocityDailyRevenue = Math.round(recentDays.length > 0 ? recentRevenue / recentDays.length : (dailyRows.length > 0 ? grossRevenue / dailyRows.length : 0));
+  
+  let velocityGrowthPct = 0;
+  if (prevDays.length > 0) {
+    const prevRevenue = prevDays.reduce((s, r) => s + toNumber(r.revenue), 0);
+    velocityGrowthPct = prevRevenue > 0 ? round(((recentRevenue - prevRevenue) / prevRevenue) * 100, 1) : (recentRevenue > 0 ? 100 : 0);
+  }
+  const momentum = calculateSalesMomentum(dailyRows);
+
+  // Days-to-Event and Inventory Pacing
+  const eventDateStr = event?.start_time || eventSales?.start_time || null;
+  let daysUntilEvent = null;
+  if (eventDateStr) {
+    const diffMs = new Date(eventDateStr).getTime() - Date.now();
+    daysUntilEvent = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  }
+  const requiredDailyTickets = (daysUntilEvent && daysUntilEvent > 0) ? Math.ceil(remainingTickets / daysUntilEvent) : 0;
+
+  let inventoryRiskLevel = 'LOW';
+  if (totalCapacity > 0 && remainingTickets > 0) {
+    const unsoldRate = remainingTickets / totalCapacity;
+    if (daysUntilEvent !== null) {
+      if (daysUntilEvent <= 7 && unsoldRate > 0.35) inventoryRiskLevel = 'CRITICAL';
+      else if (daysUntilEvent <= 14 && unsoldRate > 0.5) inventoryRiskLevel = 'HIGH';
+      else if (daysUntilEvent <= 30 && unsoldRate > 0.7) inventoryRiskLevel = 'MEDIUM';
+      else inventoryRiskLevel = 'LOW';
+    } else {
+      if (unsoldRate > 0.7) inventoryRiskLevel = 'MEDIUM';
+      else inventoryRiskLevel = 'LOW';
+    }
+  }
+
+  // Tier Breakdown & Pareto Contribution
+  const tierBreakdown = (ticketSales.by_ticket_type || []).map((t) => {
+    const tierRev = toNumber(t.revenue);
+    const tierSold = toNumber(t.sold_quantity);
+    const tierCap = toNumber(t.capacity) || tierSold;
+    const occPct = tierCap > 0 ? round((tierSold / tierCap) * 100, 1) : 0;
+    const revSharePct = grossRevenue > 0 ? round((tierRev / grossRevenue) * 100, 1) : 0;
+    let status = 'Đang bán tốt';
+    if (occPct >= 100) status = 'Hết vé (Sold Out)';
+    else if (occPct < 30) status = 'Chậm tiêu thụ';
+    else if (occPct < 70) status = 'Trung bình';
+    return {
+      id: t.ticket_type_id,
+      name: t.ticket_type_name,
+      price: toNumber(t.price),
+      sold: tierSold,
+      capacity: tierCap,
+      revenue: tierRev,
+      occupancy_rate: occPct,
+      revenue_contribution_pct: revSharePct,
+      status,
+    };
+  });
+
+  // Explainable AI (XAI) Health Score Breakdown (100-point scale)
+  const occupancyScore = clamp(round((occupancyRate / 90) * 30, 1), 0, 30);
+  const marginScore = clamp(round((netMarginRate / 95) * 25, 1), 0, 25);
+  const velocityScore = momentum.status === 'ACCELERATING' ? 20 : (momentum.status === 'STABLE' ? 14 : 7);
+  const inventoryScore = inventoryRiskLevel === 'LOW' ? 15 : (inventoryRiskLevel === 'MEDIUM' ? 11 : (inventoryRiskLevel === 'HIGH' ? 6 : 2));
+  const tierMixScore = tierBreakdown.length >= 3 ? 10 : (tierBreakdown.length >= 2 ? 8 : 5);
+  
+  const healthScore = Math.min(100, Math.round(occupancyScore + marginScore + velocityScore + inventoryScore + tierMixScore));
   const riskLevel = getRiskLevel(healthScore);
 
-  const dailyRows = ticketSales.daily_sales || [];
-  const avgDailyRevenue = dailyRows.length
-    ? dailyRows.reduce((sum, item) => sum + toNumber(item.revenue), 0) / dailyRows.length
-    : 0;
-  const avgDailyTickets = dailyRows.length
-    ? dailyRows.reduce((sum, item) => sum + toNumber(item.tickets_sold), 0) / dailyRows.length
-    : 0;
-  const forecastTickets7d = Math.min(Math.round(avgDailyTickets * 7), remainingTickets || Math.round(avgDailyTickets * 7));
-  const forecastRevenue7d = Math.round(avgDailyRevenue * 7);
+  const xaiBreakdown = {
+    occupancy_component: {
+      score: occupancyScore,
+      max_score: 30,
+      weight: '30%',
+      metric_value: `${occupancyRate}%`,
+      formula: 'Tỷ lệ lấp đầy đạt được so với chuẩn mục tiêu 90%',
+    },
+    margin_component: {
+      score: marginScore,
+      max_score: 25,
+      weight: '25%',
+      metric_value: `${netMarginRate}%`,
+      formula: 'Biên lợi nhuận ròng sau phí nền tảng so với chuẩn 95%',
+    },
+    velocity_component: {
+      score: velocityScore,
+      max_score: 20,
+      weight: '20%',
+      metric_value: `${momentum.percent_change >= 0 ? '+' : ''}${momentum.percent_change}%`,
+      formula: 'Xung lực tăng trưởng bán vé 7 ngày gần nhất',
+    },
+    inventory_pacing_component: {
+      score: inventoryScore,
+      max_score: 15,
+      weight: '15%',
+      metric_value: daysUntilEvent !== null ? `${daysUntilEvent} ngày còn lại` : inventoryRiskLevel,
+      formula: 'Mức độ giải phóng tồn kho theo tiến độ thời gian diễn ra',
+    },
+    tier_mix_component: {
+      score: tierMixScore,
+      max_score: 10,
+      weight: '10%',
+      metric_value: `${tierBreakdown.length} hạng vé`,
+      formula: 'Cơ cấu phân bổ doanh thu đa tầng hạng vé',
+    },
+    total_health_score: healthScore,
+  };
+
+  const forecastTickets7d = Math.min(Math.round(velocityDailyTickets * 7), remainingTickets || Math.round(velocityDailyTickets * 7));
+  const forecastRevenue7d = Math.round(velocityDailyRevenue * 7);
   const whatIfTickets = Math.min(Math.max(Math.ceil(ticketsSold * 0.1), 10), remainingTickets || Math.max(Math.ceil(ticketsSold * 0.1), 10));
   const whatIfRevenue = Math.round(whatIfTickets * avgTicketPrice);
 
   const keyInsights = [
-    `Financial Health Score đạt ${healthScore}/100, tương ứng ${getRiskLabel(riskLevel)}.`,
-    `Doanh thu ròng chiếm ${round(netMarginRate, 1)}% doanh thu gộp; phí gói dịch vụ chiếm ${round(subscriptionCostRate, 1)}%.`,
+    `Financial Health Score đạt ${healthScore}/100 (${getRiskLabel(riskLevel)}).`,
+    `RevPAS đạt ${formatMoney(revpas)} (hiệu suất ${revpasEfficiency}% so với giá vé trung bình).`,
+    `Doanh thu ròng chiếm ${netMarginRate}% doanh thu gộp; phí dịch vụ nền tảng chiếm ${feeRate}%.`,
     momentum.label,
   ];
   if (payload.best_ticket_type) {
-    keyInsights.push(`Hạng vé ${payload.best_ticket_type} đang là điểm nhấn doanh thu chính.`);
+    keyInsights.push(`Hạng vé "${payload.best_ticket_type}" đang là động lực đóng góp doanh thu chủ đạo.`);
   }
 
   const risks = [];
   if (occupancyRate < 50) {
-    risks.push('Tỷ lệ lấp đầy còn thấp, có rủi ro không khai thác hết sức chứa sự kiện.');
+    risks.push(`Tỷ lệ lấp đầy ${occupancyRate}% còn thấp, còn tới ${remainingTickets} vé chưa được khai thác.`);
+  }
+  if (inventoryRiskLevel === 'CRITICAL' || inventoryRiskLevel === 'HIGH') {
+    risks.push(`Cảnh báo tồn kho [${inventoryRiskLevel}]: Còn ${daysUntilEvent} ngày nữa nhưng chưa bán hết ${remainingTickets} vé (cần ${requiredDailyTickets} vé/ngày).`);
   }
   if (momentum.status === 'SLOWING') {
-    risks.push('Tốc độ doanh thu đang chậm lại, cần can thiệp truyền thông hoặc ưu đãi sớm.');
-  }
-  if (grossRevenue === 0 || ticketsSold === 0) {
-    risks.push('Chưa có doanh thu hoặc vé bán, cần ưu tiên kích hoạt chiến dịch bán vé.');
+    risks.push('Tốc độ doanh thu đang có chiều hướng giảm sút, cần kích cầu hoặc remarketing ngay.');
   }
   if (risks.length === 0) {
-    risks.push('Chưa phát hiện rủi ro tài chính nghiêm trọng trong khoảng thời gian này.');
+    risks.push('Các chỉ số vận hành và tài chính hiện nằm trong vùng an toàn và kiểm soát tốt.');
   }
 
   const recommendations = [];
-  if (occupancyRate < 50) {
-    recommendations.push(`Dùng hạng vé ${payload.best_ticket_type || 'bán tốt nhất'} làm thông điệp chính và chạy ưu đãi ngắn hạn để tăng tỷ lệ lấp đầy.`);
-  } else if (occupancyRate < 80) {
-    recommendations.push('Tối ưu thông điệp giá trị và mở ưu đãi nhẹ cho các hạng vé còn tồn.');
-  } else {
-    recommendations.push('Tập trung vận hành, check-in và trải nghiệm khách tham dự vì nhu cầu đang cao.');
+  const laggingTier = tierBreakdown.find((t) => t.status === 'Chậm tiêu thụ');
+  if (laggingTier) {
+    recommendations.push(`Kích hoạt chiến dịch combo hoặc flash discount 10-15% cho hạng vé "${laggingTier.name}" để kích thích dòng tiền.`);
   }
-  if (momentum.status === 'SLOWING') {
-    recommendations.push('Tạo chiến dịch remarketing trong 48-72 giờ tới để kéo lại đà bán.');
+  if (occupancyRate < 70) {
+    recommendations.push('Đẩy mạnh truyền thông số & remarketing vào khung giờ vàng (19h - 22h) để cải thiện vận tốc bán.');
+  } else {
+    recommendations.push('Sự kiện có nhu cầu cao: Giữ nguyên mức giá và chuẩn bị kịch bản check-in vận hành đón tiếp.');
   }
   if (remainingTickets > 0 && avgTicketPrice > 0) {
-    recommendations.push(`Nếu bán thêm ${whatIfTickets} vé với giá trung bình hiện tại, doanh thu gộp có thể tăng khoảng ${formatMoney(whatIfRevenue)}.`);
+    recommendations.push(`Cơ hội mở rộng: Bán thêm ${whatIfTickets} vé sẽ gia tăng thêm xấp xỉ ${formatMoney(whatIfRevenue)} doanh thu gộp.`);
   }
 
   return {
@@ -318,21 +430,38 @@ function buildFinancialIntelligence({ payload, ticketSales, eventSales }) {
     risks,
     recommendations,
     momentum,
+    xai_breakdown: xaiBreakdown,
+    tier_breakdown: tierBreakdown,
+    velocity: {
+      daily_tickets: velocityDailyTickets,
+      daily_revenue: velocityDailyRevenue,
+      growth_pct: velocityGrowthPct,
+      recent_7d_revenue: recentRevenue,
+      recent_7d_tickets: recentTickets,
+    },
+    inventory_pacing: {
+      days_until_event: daysUntilEvent,
+      remaining_tickets: remainingTickets,
+      required_daily_tickets: requiredDailyTickets,
+      inventory_risk_level: inventoryRiskLevel,
+    },
     forecast: {
       next_7_days_revenue: forecastRevenue7d,
       next_7_days_tickets: forecastTickets7d,
-      confidence: dailyRows.length >= 7 ? 'MEDIUM' : 'LOW',
+      confidence: dailyRows.length >= 7 ? 'HIGH' : (dailyRows.length >= 3 ? 'MEDIUM' : 'LOW'),
     },
     what_if: {
       additional_tickets: whatIfTickets,
       estimated_gross_revenue: whatIfRevenue,
-      avg_ticket_price: round(avgTicketPrice, 2),
+      avg_ticket_price: avgTicketPrice,
     },
     metrics: {
-      avg_ticket_price: round(avgTicketPrice, 2),
-      avg_order_value: round(avgOrderValue, 2),
-      net_margin_rate: round(netMarginRate, 1),
-      subscription_cost_rate: round(subscriptionCostRate, 1),
+      revpas,
+      revpas_efficiency: revpasEfficiency,
+      avg_ticket_price: avgTicketPrice,
+      avg_order_value: avgOrderValue,
+      net_margin_rate: netMarginRate,
+      fee_rate: feeRate,
       remaining_tickets: remainingTickets,
       total_capacity: totalCapacity,
     },
@@ -431,9 +560,13 @@ class OrganizerOrdersService {
 
   async generateFinancialSummary(userId, filters = {}) {
     const organizerId = await this._resolveOrganizerId(userId);
-    const event = await this._assertOwnsEvent(organizerId, filters.eventId);
+    let event = null;
+    if (filters.eventId) {
+      event = await this._assertOwnsEvent(organizerId, filters.eventId);
+    }
+
     const queryFilters = {
-      eventId: filters.eventId,
+      eventId: filters.eventId || null,
       dateFrom: filters.dateFrom || null,
       dateTo: filters.dateTo || null,
     };
@@ -447,23 +580,46 @@ class OrganizerOrdersService {
     const eventSales = ticketSales.by_event?.[0] || {};
     const bestTicketType = pickBestTicketType(ticketSales.by_ticket_type || []);
     const bestSalesDay = pickBestSalesDay(ticketSales.daily_sales || []);
+    const subscriptionCost = toNumber(event ? (eventRevenue.subscription_cost || 0) : (revenueStats.overall?.subscription_cost || 0));
+    const platformFee = toNumber(event ? (eventRevenue.platform_fee || subscriptionCost || 0) : (revenueStats.overall?.total_platform_fee || subscriptionCost || 0));
+
     const payload = {
-      event_title: event.title || eventRevenue.event_title || eventSales.event_title || 'Sự kiện',
-      gross_revenue: toNumber(eventRevenue.gross_revenue || revenueStats.overall?.gross_revenue),
-      net_revenue: toNumber(eventRevenue.net_revenue || revenueStats.overall?.net_revenue),
-      platform_fee: 0,
-      subscription_cost: toNumber(eventRevenue.subscription_cost || revenueStats.overall?.subscription_cost),
+      event_title: event?.title || (filters.eventId ? 'Sự kiện' : 'Tất cả sự kiện của Organizer'),
+      gross_revenue: toNumber(event ? eventRevenue.gross_revenue : revenueStats.overall?.gross_revenue),
+      net_revenue: toNumber(event ? eventRevenue.net_revenue : revenueStats.overall?.net_revenue),
+      platform_fee: platformFee,
+      subscription_cost: subscriptionCost,
       tickets_sold: toNumber(ticketSales.overall?.total_tickets_sold),
-      total_orders: toNumber(eventRevenue.total_orders || ticketSales.overall?.total_orders),
-      occupancy_rate: toNumber(eventSales.occupancy_rate),
+      total_orders: toNumber(event ? eventRevenue.total_orders : (revenueStats.overall?.total_orders || ticketSales.overall?.total_orders)),
+      occupancy_rate: toNumber(event ? eventSales.occupancy_rate : (revenueStats.dashboard?.occupancy_rate || eventSales.occupancy_rate)),
       best_ticket_type: bestTicketType?.ticket_type_name || '',
       best_sales_day: bestSalesDay?.day || '',
     };
-    const intelligence = buildFinancialIntelligence({ payload, ticketSales, eventSales });
+    const intelligence = buildFinancialIntelligence({ payload, ticketSales, eventSales, event });
 
-    let timeout = null;
+    const enrichedPayload = {
+      ...payload,
+      revpas: intelligence.metrics.revpas,
+      revpas_efficiency: intelligence.metrics.revpas_efficiency,
+      avg_ticket_price: intelligence.metrics.avg_ticket_price,
+      avg_order_value: intelligence.metrics.avg_order_value,
+      net_margin_rate: intelligence.metrics.net_margin_rate,
+      total_capacity: intelligence.metrics.total_capacity,
+      remaining_tickets: intelligence.metrics.remaining_tickets,
+      velocity_daily_tickets: intelligence.velocity.daily_tickets,
+      velocity_daily_revenue: intelligence.velocity.daily_revenue,
+      velocity_growth_pct: intelligence.velocity.growth_pct,
+      momentum_label: intelligence.momentum.label,
+      days_until_event: intelligence.inventory_pacing.days_until_event,
+      inventory_risk_level: intelligence.inventory_pacing.inventory_risk_level,
+      required_daily_tickets: intelligence.inventory_pacing.required_daily_tickets,
+      health_score: intelligence.health_score,
+      risk_level: intelligence.risk_level,
+      tier_breakdown: intelligence.tier_breakdown,
+    };
+
     try {
-      const { result: aiResult, source } = await requestFinancialSummary(payload);
+      const { result: aiResult, source } = await requestFinancialSummary(enrichedPayload);
       return {
         ...aiResult,
         insights: aiResult.insights || {
@@ -472,17 +628,17 @@ class OrganizerOrdersService {
         },
         intelligence,
         source,
-        metrics: payload,
+        metrics: enrichedPayload,
       };
     } catch (error) {
       logger.warn(`[FinancialSummary] AI service unavailable, using fallback: ${error.message}`);
-      const fallback = buildFallbackFinancialSummary(payload);
+      const fallback = buildFallbackFinancialSummary(enrichedPayload, intelligence);
       return {
         ...fallback,
         intelligence,
         source: 'RULE_BASED_FALLBACK',
         warning: `Financial AI service unavailable: ${error.message}`,
-        metrics: payload,
+        metrics: enrichedPayload,
       };
     }
   }
