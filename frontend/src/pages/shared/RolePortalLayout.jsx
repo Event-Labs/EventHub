@@ -456,7 +456,7 @@ function PortalNotificationBell() {
           <Link
             to="/notifications"
             onClick={() => setNotificationOpen(false)}
-            className="block border-t border-border-soft/30 px-4 py-2.5 text-center text-xs font-extrabold text-tertiary hover:bg-panel-soft/60"
+            className="block border-t border-border-soft/30 px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] hover:bg-white/[0.04] transition-colors"
           >
             Xem tất cả thông báo
           </Link>
