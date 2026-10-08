@@ -12,7 +12,7 @@ import {
 import adminUserService from '@/services/adminUser'
 import { UserDetailView, LockUserModal } from './UserManagementComponents'
 import { Modal } from '@/components/Modal'
-import { Search, RotateCcw, AlertTriangle, Eye, Unlock } from 'lucide-react'
+import { Search, RotateCcw, AlertTriangle, Eye, Unlock, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export function AdminAccountsPage() {
   const [users, setUsers] = useState([])
@@ -181,7 +181,7 @@ export function AdminAccountsPage() {
         ]}
       />
 
-      <Panel className="my-6 flex flex-wrap items-center gap-4">
+      <div className="my-6 flex flex-wrap items-center gap-4">
         <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
             <input
@@ -194,7 +194,7 @@ export function AdminAccountsPage() {
         </div>
           
         <select 
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-tertiary focus:border-primary focus:ring-2 focus:ring-primary/10"
+          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
           value={filters.role}
           onChange={handleRoleChange}
         >
@@ -206,7 +206,7 @@ export function AdminAccountsPage() {
         </select>
 
         <select 
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-tertiary focus:border-primary focus:ring-2 focus:ring-primary/10"
+          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
           value={filters.status}
           onChange={handleStatusChange}
         >
@@ -217,12 +217,15 @@ export function AdminAccountsPage() {
         </select>
 
         <button 
+          type="button"
           onClick={resetFilters}
-          className="flex items-center gap-1 text-sm font-bold text-subtle transition hover:text-tertiary"
+          title="Đặt lại bộ lọc"
+          aria-label="Đặt lại"
+          className="grid size-10 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47]"
         >
-          <RotateCcw className="size-3" /> Đặt lại
+          <RotateCcw className="size-4" />
         </button>
-      </Panel>
+      </div>
 
       <Table
         headers={['Người dùng', 'Vai trò', 'Ngày đăng ký', 'Trạng thái', 'Thao tác']}
@@ -281,11 +284,14 @@ export function AdminAccountsPage() {
         </p>
         <div className="flex flex-wrap items-center gap-2">
            <button 
+            type="button"
             disabled={filters.page === 1}
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
-            className="admin-secondary py-2 px-4 text-xs disabled:opacity-50"
+            className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
+            title="Trang trước"
+            aria-label="Trang trước"
            >
-            Trước
+            <ChevronLeft className="size-4" />
            </button>
            {pageItems.map((item, index) => (
             item === 'ellipsis' ? (
@@ -299,8 +305,8 @@ export function AdminAccountsPage() {
                 onClick={() => setFilters(prev => ({ ...prev, page: item }))}
                 className={`grid h-9 min-w-9 place-items-center rounded-xl border px-3 text-xs font-extrabold transition ${
                   item === filters.page
-                    ? 'border-tertiary bg-tertiary text-white'
-                    : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary hover:text-tertiary'
+                    ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                    : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/60 hover:text-[#E6C17A]'
                 }`}
                 aria-current={item === filters.page ? 'page' : undefined}
               >
@@ -309,11 +315,14 @@ export function AdminAccountsPage() {
             )
            ))}
            <button 
+            type="button"
             disabled={filters.page >= totalPages}
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
-            className="admin-secondary py-2 px-4 text-xs disabled:opacity-50"
+            className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
+            title="Trang sau"
+            aria-label="Trang sau"
            >
-            Sau
+            <ChevronRight className="size-4" />
            </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Eye, RotateCcw, Search, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Eye, RotateCcw, Search, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   fetchAdminOrganizers,
@@ -97,7 +97,7 @@ export function AdminOrganizersPage() {
         ]}
       />
 
-      <Panel className="my-6 flex flex-wrap items-center gap-4">
+      <div className="my-6 flex flex-wrap items-center gap-4">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
           <input
@@ -105,14 +105,14 @@ export function AdminOrganizersPage() {
             value={filters.search}
             onChange={(e) => updateFilter({ search: e.target.value })}
             placeholder="Tìm theo tên, email, người sở hữu..."
-            className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none transition placeholder:text-white/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
+            className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none transition placeholder:text-white/50 focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
           />
         </div>
 
         <select
           value={filters.status}
           onChange={(e) => updateFilter({ status: e.target.value })}
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-tertiary focus:border-primary focus:ring-2 focus:ring-primary/10"
+          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
         >
           <option value="" className="bg-surface text-content">Mọi trạng thái</option>
           <option value="ACTIVE" className="bg-surface text-content">Hoạt động</option>
@@ -122,7 +122,7 @@ export function AdminOrganizersPage() {
         <select
           value={filters.sortBy}
           onChange={(e) => updateFilter({ sortBy: e.target.value })}
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-tertiary focus:border-primary focus:ring-2 focus:ring-primary/10"
+          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
         >
           <option value="created_at" className="bg-surface text-content">Mới nhất</option>
           <option value="organization_name" className="bg-surface text-content">Tên organizer</option>
@@ -133,11 +133,13 @@ export function AdminOrganizersPage() {
         <button
           type="button"
           onClick={resetFilters}
-          className="flex items-center gap-1 text-sm font-bold text-subtle transition hover:text-tertiary"
+          title="Đặt lại bộ lọc"
+          aria-label="Đặt lại"
+          className="grid size-10 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47]"
         >
-          <RotateCcw className="size-3" /> Đặt lại
+          <RotateCcw className="size-4" />
         </button>
-      </Panel>
+      </div>
 
       {organizersQuery.isLoading ? (
         <Panel>
@@ -214,11 +216,14 @@ export function AdminOrganizersPage() {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
+            type="button"
             disabled={filters.page === 1}
             onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
-            className="admin-secondary px-4 py-2 text-xs disabled:opacity-50"
+            className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
+            title="Trang trước"
+            aria-label="Trang trước"
           >
-            Trước
+            <ChevronLeft className="size-4" />
           </button>
           {pageItems.map((item, index) => (
             item === 'ellipsis' ? (
@@ -230,20 +235,24 @@ export function AdminOrganizersPage() {
                 onClick={() => setFilters((prev) => ({ ...prev, page: item }))}
                 className={`grid h-9 min-w-9 place-items-center rounded-xl border px-3 text-xs font-extrabold transition ${
                   item === filters.page
-                    ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
-                    : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:text-[#E6C17A]'
+                    ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                    : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/60 hover:text-[#E6C17A]'
                 }`}
+                aria-current={item === filters.page ? 'page' : undefined}
               >
                 {item}
               </button>
             )
           ))}
           <button
+            type="button"
             disabled={filters.page >= totalPages}
             onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-            className="admin-secondary px-4 py-2 text-xs disabled:opacity-50"
+            className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
+            title="Trang sau"
+            aria-label="Trang sau"
           >
-            Sau
+            <ChevronRight className="size-4" />
           </button>
         </div>
       </div>

@@ -95,9 +95,9 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
 export function SearchBar({ placeholder = 'Search...' }) {
   return (
     <div className="glass-panel relative flex h-[44px] flex-1 items-center rounded-full border-white/10 px-4 shadow-inner">
-      <Search className="size-5 shrink-0 text-white" />
+      <Search className="size-5 shrink-0 text-subtle" />
       <input
-        className="ml-3 w-full bg-transparent text-[15px] font-normal text-white outline-none placeholder:text-white/50"
+        className="ml-3 w-full bg-transparent text-[15px] font-normal text-content outline-none placeholder:text-muted"
         placeholder={placeholder}
       />
     </div>
@@ -119,7 +119,7 @@ export function Insight({ children, title = 'AI Insights' }) {
         </div>
         <div>
           <p className="font-black text-ai text-lg drop-shadow-sm">{title}</p>
-          <p className="mt-1 text-[15px] leading-relaxed text-slate-300 font-medium">{children}</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-subtle font-medium">{children}</p>
         </div>
       </div>
     </section>
@@ -162,19 +162,19 @@ export function AvatarInitials({ name, src, className = 'size-9' }) {
 }
 
 /**
- * StatCard – dark-themed KPI metric card
+ * StatCard – KPI metric card
  */
 export function StatCard({ icon: Icon, label, value, sub, trend, accentColor = 'text-tertiary', accentBg = 'bg-tertiary/15' }) {
   return (
-    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-white/5 shadow-inner ${accentBg}`}>
-        <Icon className={`size-6 ${accentColor}`} />
+    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner ${accentBg}`}>
+        {Icon && <Icon className={`size-6 ${accentColor}`} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-bold uppercase tracking-wider text-white">{label}</p>
-        <p className="mt-1 text-2xl font-black text-white tracking-tight drop-shadow-sm">{value}</p>
+        <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="mt-1 text-2xl font-black text-content tracking-tight font-display drop-shadow-sm">{value}</p>
         {sub && (
-          <p className="mt-1.5 truncate text-[13px] font-medium text-slate-300">{sub}</p>
+          <p className="mt-1.5 truncate text-[13px] font-medium text-muted">{sub}</p>
         )}
       </div>
       {trend !== undefined && (
