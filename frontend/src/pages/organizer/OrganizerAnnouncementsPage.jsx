@@ -97,16 +97,16 @@ export function OrganizerAnnouncementsPage() {
           <OrganizerPanel>
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="block text-base font-bold text-white mb-1.5">Sự kiện</span>
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Sự kiện</span>
                 <select
                   required
                   value={form.event_id}
                   onChange={update('event_id')}
-                  className="mt-1 h-11 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white outline-none focus:border-primary shadow-sm"
+                  className="mt-1 h-11 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white outline-none focus:border-primary shadow-sm [html.light_&]:bg-white/90 [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/35"
                 >
-                  <option value="" className="bg-[#0b1329] text-white">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
+                  <option value="" className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
                   {events.map((event) => (
-                    <option key={event.id} value={event.id} className="bg-[#0b1329] text-white">
+                    <option key={event.id} value={event.id} className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">
                       {event.title}
                     </option>
                   ))}
@@ -121,8 +121,8 @@ export function OrganizerAnnouncementsPage() {
               />
 
               <div>
-                <span className="block text-base font-bold text-white mb-1.5">Kênh gửi</span>
-                <div className="mt-2 flex flex-wrap gap-5 text-sm font-semibold text-content">
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Kênh gửi</span>
+                <div className="mt-2 flex flex-wrap gap-5 text-sm font-semibold text-content [html.light_&]:text-[#1B365D]">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.web} onChange={update('web')} className="accent-primary" />
                     Website
@@ -135,13 +135,13 @@ export function OrganizerAnnouncementsPage() {
               </div>
 
               <label className="block">
-                <span className="block text-base font-bold text-white mb-1.5">Nội dung</span>
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Nội dung</span>
                 <textarea
                   required
                   minLength={5}
                   value={form.content}
                   onChange={update('content')}
-                  className="mt-1 min-h-44 w-full resize-y rounded-xl border border-border-soft/40 bg-panel-soft p-4 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
+                  className="mt-1 min-h-44 w-full resize-y rounded-xl border border-border-soft/40 bg-panel-soft p-4 text-sm text-content outline-none focus:border-primary placeholder:text-muted [html.light_&]:bg-[#FAF4EB]/60 [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/35 [html.light_&]:placeholder:text-[#536b88]"
                   placeholder="Nhập thay đổi về thời gian, địa điểm, hướng dẫn check-in hoặc cập nhật quan trọng..."
                 />
               </label>
@@ -158,16 +158,19 @@ export function OrganizerAnnouncementsPage() {
 
         <aside className="space-y-5">
           <div>
-            <h3 className="mb-3 text-base font-extrabold uppercase text-white">Xem trước</h3>
-            <div className="rounded-2xl border border-border-soft/30 bg-gradient-to-br from-slate-900 via-sky-950 to-blue-900 p-5 text-white shadow-xl min-h-[280px] flex flex-col">
-              <p className="text-xs font-bold text-primary tracking-wide">EventHub</p>
-              <p className="mt-3 text-sm font-medium text-white/80 line-clamp-2 leading-snug">
+            <h3 className="mb-3 text-base font-extrabold uppercase text-white [html.light_&]:text-[#0D1B2A]">Xem trước</h3>
+            <div className="rounded-2xl border border-border-soft/30 bg-gradient-to-br from-slate-900 via-sky-950 to-blue-900 p-5 text-white shadow-xl min-h-[280px] flex flex-col [html.light_&]:bg-none [html.light_&]:bg-white/92 [html.light_&]:border-[#C99A47]/35 [html.light_&]:shadow-[0_8px_32px_rgba(27,54,93,0.08)]">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-[11px] font-bold text-primary [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#92400e] [html.light_&]:border [html.light_&]:border-[#C99A47]/30">EventHub</span>
+                <span className="text-[11px] font-semibold text-white/50 [html.light_&]:text-[#536b88]">Vừa xong</span>
+              </div>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-white/70 line-clamp-1 [html.light_&]:text-[#536b88]">
                 {selectedEvent?.title || 'Sự kiện đã chọn'}
               </p>
-              <p className="mt-2.5 text-lg font-bold text-white line-clamp-2 leading-snug">
+              <p className="mt-2 text-base font-bold text-white line-clamp-2 leading-snug [html.light_&]:text-[#0D1B2A]">
                 {form.title || 'Tiêu đề thông báo'}
               </p>
-              <p className="mt-3 text-sm leading-relaxed text-white/90 whitespace-pre-wrap flex-1 line-clamp-6">
+              <p className="mt-3 text-sm leading-relaxed text-white/90 whitespace-pre-wrap flex-1 line-clamp-6 [html.light_&]:text-[#1B365D]">
                 {form.content || 'Nội dung thông báo sẽ hiển thị tại đây'}
               </p>
             </div>
@@ -202,13 +205,13 @@ export function OrganizerAnnouncementsPage() {
 function Field({ label, value, onChange, placeholder }) {
   return (
     <label className="block">
-      <span className="block text-base font-bold text-white mb-1.5">{label}</span>
+      <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">{label}</span>
       <input
         required
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="mt-1 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
+        className="mt-1 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted [html.light_&]:bg-[#FAF4EB]/60 [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/35 [html.light_&]:placeholder:text-[#536b88]"
       />
     </label>
   )

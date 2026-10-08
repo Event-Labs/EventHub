@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Eye, XCircle } from 'lucide-react'
+import { Building2, CheckCircle2, Clock, Eye, Layers, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import {
   fetchAdminOrganizerRequests,
@@ -147,26 +147,36 @@ export function AdminOrganizerRequestsPage() {
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
+          icon={Clock}
           label="Hàng đợi chờ duyệt"
           value={pendingCountQuery.isLoading ? '...' : pendingCount}
-          accent="bg-tertiary"
+          accentBg="bg-warning/15"
+          accentColor="text-warning"
+          sub="Cần xử lý"
         />
         <MetricCard
+          icon={Layers}
           label="Đang hiển thị"
           value={requestsQuery.isLoading ? '...' : requests.length}
-          accent="bg-success"
+          accentBg="bg-primary/15"
+          accentColor="text-primary"
+          sub="Tổng số trong bộ lọc"
         />
         <MetricCard
+          icon={CheckCircle2}
           label="Trạng thái hiện tại"
           value={statusFilterLabel}
-          accent="bg-tertiary"
-          compact
+          accentBg="bg-tertiary/15"
+          accentColor="text-tertiary"
+          sub="Bộ lọc trạng thái"
         />
         <MetricCard
+          icon={Building2}
           label="Loại hiện tại"
           value={requestTypeFilterLabel}
-          accent="bg-warning"
-          compact
+          accentBg="bg-secondary/15"
+          accentColor="text-secondary"
+          sub="Bộ lọc loại đăng ký"
         />
       </div>
 
@@ -376,24 +386,25 @@ export function AdminOrganizerRequestsPage() {
   )
 }
 
-function MetricCard({ label, value, accent, compact = false }) {
+function MetricCard({ icon: Icon, label, value, accentBg = 'bg-primary/15', accentColor = 'text-primary', sub }) {
   return (
-    <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
-      <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
-        <p className={`mt-5 font-display font-extrabold leading-none text-content tracking-tight ${compact ? 'text-2xl' : 'text-4xl'}`}>
-          {value}
-        </p>
+    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner ${accentBg}`}>
+        {Icon && <Icon className={`size-6 ${accentColor}`} />}
       </div>
-    </Panel>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="mt-1 text-2xl font-black text-content tracking-tight font-display drop-shadow-sm">{value}</p>
+        {sub && <p className="mt-1.5 truncate text-[13px] font-medium text-muted">{sub}</p>}
+      </div>
+    </div>
   )
 }
 
 function FilterGroup({ label, filters, value, onChange }) {
   return (
     <div>
-      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      <p className="mb-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
       <div className="flex flex-wrap items-center gap-2">
         {filters.map((filter) => (
           <button

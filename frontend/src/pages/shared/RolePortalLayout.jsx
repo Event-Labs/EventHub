@@ -11,6 +11,7 @@ import {
 } from '@/services/notifications.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { CosmicSpaceBackground } from '@/components/CosmicSpaceBackground.jsx'
+import { PortalCloudsBackground } from '@/components/PortalCloudsBackground.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const collapsedWidth = 76
@@ -74,8 +75,28 @@ export function RolePortalLayout({
   if (!isAllowed) return <Navigate to="/" replace />
 
   return (
-    <div className="relative flex h-screen w-full min-w-0 overflow-hidden bg-background text-content">
-      <CosmicSpaceBackground />
+    <div className="relative flex h-screen w-full min-w-0 overflow-hidden bg-background text-content transition-colors duration-500">
+      {/* ── Background layer manager with smooth 1000ms cross-fade transition ── */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        {/* Dark Mode Cosmos Atmosphere */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+            theme === 'dark' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          <CosmicSpaceBackground active={theme === 'dark'} />
+        </div>
+
+        {/* Light Mode Sunlit Clouds Horizon Atmosphere */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+            theme === 'light' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          <PortalCloudsBackground active={theme === 'light'} />
+        </div>
+      </div>
+
       <aside
         className={`fixed bottom-0 left-0 top-[80px] z-50 flex flex-col items-center gap-4 bg-transparent px-3 pb-6 transition-[width] duration-300 ease-out will-change-[width] ${
           sidebarExpanded ? 'w-[240px]' : 'w-20'
@@ -84,13 +105,16 @@ export function RolePortalLayout({
         onMouseLeave={() => setSidebarExpanded(false)}
       >
         <nav
-          className={`glass-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[32px] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-[width] duration-300 ease-out will-change-[width] ${
-            sidebarExpanded ? 'w-full' : 'w-14'
-          }`}
+          className={`glass-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[32px] transition-all duration-300 ease-out will-change-[width] ${
+            theme === 'light'
+              ? 'border-[#C99A47]/30 bg-white/80 shadow-[0_8px_32px_rgba(27,54,93,0.08)]'
+              : 'border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)]'
+          } ${sidebarExpanded ? 'w-full' : 'w-14'}`}
         >
           <div
-            className={`portal-sidebar-scroll flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden py-3 ${sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
-              }`}
+            className={`portal-sidebar-scroll flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden py-3 ${
+              sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
+            }`}
           >
             {navSections.map((section, sectionIndex) => (
               <SidebarSection
@@ -99,33 +123,54 @@ export function RolePortalLayout({
                 expanded={sidebarExpanded}
                 showDivider={sectionIndex > 0}
                 pathname={location.pathname}
+                theme={theme}
               />
             ))}
           </div>
         </nav>
 
         <div
-          className={`glass-panel flex shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[32px] border-white/10 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-[width,padding] duration-300 ease-out will-change-[width] ${
-            sidebarExpanded ? 'w-full px-2' : 'w-14 items-center px-1'
-          }`}
+          className={`glass-panel flex shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[32px] py-3 transition-all duration-300 ease-out will-change-[width] ${
+            theme === 'light'
+              ? 'border-[#C99A47]/30 bg-white/80 shadow-[0_8px_32px_rgba(27,54,93,0.08)]'
+              : 'border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2)]'
+          } ${sidebarExpanded ? 'w-full px-2' : 'w-14 items-center px-1'}`}
         >
-          {bottomItems.map((item) => <SidebarItem key={item.label} item={item} expanded={sidebarExpanded} />)}
+          {bottomItems.map((item) => (
+            <SidebarItem
+              key={item.label}
+              item={item}
+              expanded={sidebarExpanded}
+              active={isItemActive(item, location.pathname)}
+              theme={theme}
+            />
+          ))}
           {sidebarExpanded ? (
             <button
               type="button"
               onClick={logout}
-              title={'\u0110\u0103ng xu\u1ea5t'}
-              className="group flex h-10 w-full items-center justify-start gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold text-white/90 transition-all duration-200 hover:bg-white/10 hover:text-error"
+              title={'Đăng xuất'}
+              className={`group flex h-10 w-full items-center justify-start gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold transition-all duration-200 hover:text-error ${
+                theme === 'light'
+                  ? 'text-[#1B365D] hover:bg-[#C99A47]/15'
+                  : 'text-white/90 hover:bg-white/10'
+              }`}
             >
-              <LogOut className="size-[18px] shrink-0 text-white/80 group-hover:text-error" />
-              <span className="portal-sidebar-label min-w-0 text-white group-hover:text-error">{'\u0110\u0103ng xu\u1ea5t'}</span>
+              <LogOut className={`size-[18px] shrink-0 group-hover:text-error ${
+                theme === 'light' ? 'text-[#1B365D]' : 'text-white/80'
+              }`} />
+              <span className="portal-sidebar-label min-w-0 group-hover:text-error">{'Đăng xuất'}</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={logout}
-              title={'\u0110\u0103ng xu\u1ea5t'}
-              className="grid size-12 place-items-center rounded-2xl text-white/80 transition-all duration-200 hover:bg-white/10 hover:text-error"
+              title={'Đăng xuất'}
+              className={`grid size-12 place-items-center rounded-2xl transition-all duration-200 hover:text-error ${
+                theme === 'light'
+                  ? 'text-[#1B365D] hover:bg-[#C99A47]/15'
+                  : 'text-white/80 hover:bg-white/10'
+              }`}
             >
               <LogOut className="size-[20px]" />
             </button>
@@ -158,14 +203,18 @@ export function RolePortalLayout({
   )
 }
 
-function SidebarSection({ section, expanded, showDivider, pathname }) {
+function SidebarSection({ section, expanded, showDivider, pathname, theme }) {
   const Icon = getSectionIcon(section)
   const items = section.group ? section.children : section.items
 
   if (!expanded) {
     return (
       <div className="flex w-full flex-col items-center gap-1">
-        {showDivider && <div className="my-1 h-px w-8 bg-border-soft/30" />}
+        {showDivider && (
+          <div className={`my-1 h-px w-8 ${
+            theme === 'light' ? 'bg-[#C99A47]/30' : 'bg-border-soft/30'
+          }`} />
+        )}
         {items.map((item) => (
           <SidebarItem
             key={item.to || item.label}
@@ -173,6 +222,7 @@ function SidebarSection({ section, expanded, showDivider, pathname }) {
             expanded={false}
             active={isItemActive(item, pathname)}
             fallbackIcon={Icon}
+            theme={theme}
           />
         ))}
       </div>
@@ -181,21 +231,34 @@ function SidebarSection({ section, expanded, showDivider, pathname }) {
 
   return (
     <div className="w-full">
-      {showDivider && <div className="mx-4 my-2 h-px bg-white/10" />}
-      <p className="portal-sidebar-label px-4 pb-2 pt-2 text-[11px] font-black uppercase tracking-widest text-white">
+      {showDivider && (
+        <div className={`mx-4 my-2 h-px ${
+          theme === 'light' ? 'bg-[#C99A47]/20' : 'bg-white/10'
+        }`} />
+      )}
+      <p className={`portal-sidebar-label px-4 pb-2 pt-2 text-[11px] font-black uppercase tracking-widest ${
+        theme === 'light' ? 'text-[#1B365D]' : 'text-white'
+      }`}>
         {section.label}
       </p>
       <div className="space-y-1">
         {items.map((item) => (
-          <SidebarItem key={item.to || item.label} item={item} expanded={expanded} active={isItemActive(item, pathname)} />
+          <SidebarItem
+            key={item.to || item.label}
+            item={item}
+            expanded={expanded}
+            active={isItemActive(item, pathname)}
+            theme={theme}
+          />
         ))}
       </div>
     </div>
   )
 }
 
-function SidebarItem({ item, expanded, active, fallbackIcon }) {
+function SidebarItem({ item, expanded, active, fallbackIcon, theme }) {
   const Icon = item.icon || fallbackIcon
+  const isLight = theme === 'light'
 
   if (!expanded) {
     return (
@@ -205,6 +268,13 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
         title={item.label}
         className={({ isActive }) => {
           const current = active ?? isActive
+          if (isLight) {
+            return `grid size-12 place-items-center rounded-[18px] transition-all duration-200 ${
+              current
+                ? 'bg-gradient-to-r from-[#C99A47]/25 to-[#E6C17A]/35 text-[#0D1B2A] border border-[#C99A47]/60 shadow-[0_2px_10px_rgba(201,154,71,0.25)]'
+                : 'text-[#1B365D] hover:bg-[#C99A47]/12 hover:text-[#0D1B2A] border border-transparent'
+            }`
+          }
           return `grid size-12 place-items-center rounded-[18px] transition-all duration-200 ${
             current
               ? 'bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(6,182,212,0.2)] border border-primary/30'
@@ -214,7 +284,18 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
       >
         {({ isActive }) => {
           const current = active ?? isActive
-          return Icon ? <Icon className={`size-[20px] ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-white/80'}`} /> : null
+          if (isLight) {
+            return Icon ? (
+              <Icon className={`size-[20px] ${
+                current ? 'text-[#C99A47] drop-shadow-[0_0_6px_rgba(201,154,71,0.5)]' : 'text-[#1B365D]'
+              }`} />
+            ) : null
+          }
+          return Icon ? (
+            <Icon className={`size-[20px] ${
+              current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-white/80'
+            }`} />
+          ) : null
         }}
       </NavLink>
     )
@@ -227,6 +308,13 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
       title={item.label}
       className={({ isActive }) => {
         const current = active ?? isActive
+        if (isLight) {
+          return `group flex h-12 w-full items-center gap-3 overflow-hidden rounded-[18px] px-4 text-[14px] font-bold transition-all duration-200 ${
+            current
+              ? 'bg-gradient-to-r from-[#C99A47]/25 to-[#E6C17A]/35 text-[#0D1B2A] border border-[#C99A47]/60 shadow-[0_2px_12px_rgba(201,154,71,0.25)]'
+              : 'text-[#1B365D] hover:bg-[#C99A47]/12 hover:text-[#0D1B2A] border border-transparent'
+          }`
+        }
         return `group flex h-12 w-full items-center gap-3 overflow-hidden rounded-[18px] px-4 text-[14px] font-bold transition-all duration-200 ${
           current
             ? 'bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(6,182,212,0.2)] border border-primary/30'
@@ -236,10 +324,33 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
     >
       {({ isActive }) => {
         const current = active ?? isActive
+        if (isLight) {
+          return (
+            <>
+              {Icon && (
+                <Icon className={`size-[20px] shrink-0 transition-colors ${
+                  current
+                    ? 'text-[#C99A47] drop-shadow-[0_0_6px_rgba(201,154,71,0.5)]'
+                    : 'text-[#1B365D] group-hover:text-[#0D1B2A]'
+                }`} />
+              )}
+              <span className={`portal-sidebar-label min-w-0 flex-1 ${
+                current ? 'font-black text-[#0D1B2A]' : 'text-[#1B365D] group-hover:text-[#0D1B2A]'
+              }`}>{item.label}</span>
+              {current && <ChevronRight className="size-4 shrink-0 text-[#C99A47]" />}
+            </>
+          )
+        }
         return (
           <>
-            {Icon && <Icon className={`size-[20px] shrink-0 ${current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-white/80 group-hover:text-white'}`} />}
-            <span className={`portal-sidebar-label min-w-0 flex-1 ${current ? 'text-primary' : 'text-white'}`}>{item.label}</span>
+            {Icon && (
+              <Icon className={`size-[20px] shrink-0 ${
+                current ? 'text-primary drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-white/80 group-hover:text-white'
+              }`} />
+            )}
+            <span className={`portal-sidebar-label min-w-0 flex-1 ${current ? 'text-primary' : 'text-white'}`}>
+              {item.label}
+            </span>
             {current && <ChevronRight className="size-4 shrink-0 text-primary" />}
           </>
         )
@@ -249,8 +360,14 @@ function SidebarItem({ item, expanded, active, fallbackIcon }) {
 }
 
 function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme }) {
+  const isLight = theme === 'light'
+
   return (
-    <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b border-white/10 bg-slate-950/80 px-8 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl">
+    <header className={`fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b px-8 py-4 backdrop-blur-xl transition-colors duration-500 ${
+      isLight
+        ? 'border-[#C99A47]/30 bg-[#F5EBDD]/90 text-[#0D1B2A] shadow-[0_8px_32px_rgba(27,54,93,0.06)]'
+        : 'border-white/10 bg-slate-950/80 text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)]'
+    }`}>
       <div className="flex items-center gap-5">
         <NavLink to="/" title="Về trang chủ" className="shrink-0 transition opacity-90 hover:opacity-100">
           <img
@@ -265,34 +382,54 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <NavLink
           to="/"
-          className="hidden sm:inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-5 py-2.5 text-[13px] font-bold text-primary transition-all hover:bg-primary hover:text-slate-950 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+          className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-bold transition-all ${
+            isLight
+              ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
+              : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-slate-950 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+          }`}
           title="Chuyển sang trang khách hàng"
         >
           <Home className="size-4" />
           <span>Trang khách hàng</span>
         </NavLink>
-        <div className="glass-panel flex h-[44px] items-center gap-1 rounded-full border-white/10 px-2 shadow-inner">
-          <TopBarIconButton icon={theme === 'light' ? Sun : Moon} label={theme === 'light' ? 'Chế độ sáng' : 'Chế độ tối'} onClick={onToggleTheme} />
-          <PortalNotificationBell />
+        <div className={`glass-panel flex h-[44px] items-center gap-1 rounded-full px-2 shadow-inner ${
+          isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
+        }`}>
+          <TopBarIconButton
+            icon={theme === 'light' ? Sun : Moon}
+            label={theme === 'light' ? 'Chế độ sáng' : 'Chế độ tối'}
+            onClick={onToggleTheme}
+            theme={theme}
+          />
+          <PortalNotificationBell theme={theme} />
         </div>
         <NavLink
           to={profileTo}
-          className="glass-panel flex h-[44px] items-center gap-3 rounded-full border-white/10 pl-2 pr-4 shadow-inner transition-all hover:border-primary/50 hover:bg-white/5"
-          title={'\u0048\u1ed3 s\u01a1'}
+          className={`glass-panel flex h-[44px] items-center gap-3 rounded-full pl-2 pr-4 shadow-inner transition-all ${
+            isLight
+              ? 'border-[#C99A47]/30 bg-white/70 hover:border-[#C99A47] hover:bg-white/95'
+              : 'border-white/10 hover:border-primary/50 hover:bg-white/5'
+          }`}
+          title={'Hồ sơ'}
         >
           {avatar}
           <div className="hidden text-left sm:block">
-            <p className="text-[13px] font-bold leading-tight text-white">{user?.full_name?.split(' ').slice(-1)[0] || roleLabel}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-primary">{roleLabel}</p>
+            <p className={`text-[13px] font-bold leading-tight ${isLight ? 'text-[#0D1B2A]' : 'text-white'}`}>
+              {user?.full_name?.split(' ').slice(-1)[0] || roleLabel}
+            </p>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-[#C99A47]' : 'text-primary'}`}>
+              {roleLabel}
+            </p>
           </div>
-          <ChevronRight className="size-4 text-slate-400" />
+          <ChevronRight className={`size-4 ${isLight ? 'text-[#1B365D]/60' : 'text-slate-400'}`} />
         </NavLink>
       </div>
     </header>
   )
 }
 
-function PortalNotificationBell() {
+function PortalNotificationBell({ theme }) {
+  const isLight = theme === 'light'
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
@@ -394,24 +531,38 @@ function PortalNotificationBell() {
       >
         <Bell className="size-[16px]" />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-tertiary px-1 text-[9px] font-extrabold text-white">
+          <span
+            className={`absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full px-1 text-[9px] font-black transition-all ${
+              isLight
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] ring-1.5 ring-white shadow-[0_2px_6px_rgba(201,154,71,0.45)]'
+                : 'bg-tertiary text-white shadow-sm ring-1 ring-slate-900/50'
+            }`}
+          >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {notificationOpen && (
-        <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border border-border-soft/40 bg-slate-950 shadow-2xl sm:w-96">
-          <div className="flex items-center justify-between border-b border-border-soft/30 px-4 py-3">
+        <div className={`absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border sm:w-96 ${
+          isLight
+            ? 'border-[#C99A47]/30 bg-white text-[#0D1B2A] shadow-[0_16px_48px_rgba(27,54,93,0.15)]'
+            : 'border-border-soft/40 bg-slate-950 text-white shadow-2xl'
+        }`}>
+          <div className={`flex items-center justify-between border-b px-4 py-3 ${
+            isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/90' : 'border-border-soft/30'
+          }`}>
             <div>
-              <p className="text-sm font-extrabold text-content">Thông báo</p>
-              <p className="text-xs text-subtle">{unreadCount} chưa đọc</p>
+              <p className={`text-sm font-extrabold ${isLight ? 'text-[#0D1B2A]' : 'text-content'}`}>Thông báo</p>
+              <p className={`text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>{unreadCount} chưa đọc</p>
             </div>
             {notifications.length > 0 && (
               <button
                 type="button"
                 onClick={() => markAllMutation.mutate()}
-                className="grid size-8 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-tertiary"
+                className={`grid size-8 place-items-center rounded-full transition ${
+                  isLight ? 'text-[#1B365D] hover:bg-[#C99A47]/20' : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
+                }`}
                 title="Đánh dấu tất cả đã đọc"
               >
                 <CheckCheck className="size-4" />
@@ -421,10 +572,10 @@ function PortalNotificationBell() {
 
           <div className="max-h-80 overflow-y-auto">
             {notificationsQuery.isLoading && (
-              <p className="px-4 py-5 text-center text-xs text-subtle">Đang tải thông báo...</p>
+              <p className={`px-4 py-5 text-center text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>Đang tải thông báo...</p>
             )}
             {!notificationsQuery.isLoading && notifications.length === 0 && (
-              <p className="px-4 py-5 text-center text-xs text-subtle">Bạn chưa có thông báo nào.</p>
+              <p className={`px-4 py-5 text-center text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>Bạn chưa có thông báo nào.</p>
             )}
             {notifications.map((notification) => {
               const display = formatNotificationDisplay(notification)
@@ -433,17 +584,24 @@ function PortalNotificationBell() {
                   key={notification.id}
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
-                  className={`block w-full border-b border-border-soft/20 px-4 py-3 text-left transition last:border-b-0 hover:bg-panel-soft/60 ${notification.is_read ? 'opacity-80' : 'bg-tertiary/[0.08]'
-                    }`}
+                  className={`block w-full border-b px-4 py-3 text-left transition last:border-b-0 ${
+                    isLight
+                      ? notification.is_read
+                        ? 'border-[#C99A47]/15 hover:bg-[#F5EBDD]/50 text-[#0D1B2A]'
+                        : 'border-[#C99A47]/20 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 text-[#0D1B2A]'
+                      : notification.is_read
+                        ? 'border-border-soft/20 opacity-80 hover:bg-panel-soft/60'
+                        : 'border-border-soft/20 bg-tertiary/[0.08] hover:bg-panel-soft/60'
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     {!notification.is_read && (
-                      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-tertiary" />
+                      <span className={`mt-1.5 size-2 shrink-0 rounded-full ${isLight ? 'bg-[#C99A47]' : 'bg-tertiary'}`} />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-1 text-xs font-extrabold text-content">{display.title}</p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-4 text-subtle">{display.content}</p>
-                      <p className="mt-1 text-[10px] text-muted">
+                      <p className={`line-clamp-1 text-xs font-extrabold ${isLight ? 'text-[#0D1B2A]' : 'text-content'}`}>{display.title}</p>
+                      <p className={`mt-1 line-clamp-2 text-xs leading-4 ${isLight ? 'text-[#1B365D]/80' : 'text-subtle'}`}>{display.content}</p>
+                      <p className={`mt-1 text-[10px] ${isLight ? 'text-[#506680]' : 'text-muted'}`}>
                         {formatTimeAgo(notification.created_at)}
                       </p>
                     </div>
@@ -456,7 +614,9 @@ function PortalNotificationBell() {
           <Link
             to="/notifications"
             onClick={() => setNotificationOpen(false)}
-            className="block border-t border-border-soft/30 px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] hover:bg-white/[0.04] transition-colors"
+            className={`block border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors ${
+              isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
+            }`}
           >
             Xem tất cả thông báo
           </Link>
@@ -478,9 +638,19 @@ function formatTimeAgo(isoDate) {
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function TopBarIconButton({ icon: Icon, label, onClick }) {
+function TopBarIconButton({ icon: Icon, label, onClick, theme }) {
+  const isLight = theme === 'light'
   return (
-    <button type="button" title={label} onClick={onClick} className="relative grid size-9 place-items-center rounded-full text-subtle transition hover:bg-panel-soft hover:text-content">
+    <button
+      type="button"
+      title={label}
+      onClick={onClick}
+      className={`relative grid size-9 place-items-center rounded-full transition ${
+        isLight
+          ? 'text-[#1B365D] hover:bg-[#C99A47]/20 hover:text-[#0D1B2A]'
+          : 'text-subtle hover:bg-panel-soft hover:text-content'
+      }`}
+    >
       <Icon className="size-[16px]" />
     </button>
   )

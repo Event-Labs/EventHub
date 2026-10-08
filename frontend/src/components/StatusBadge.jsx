@@ -6,41 +6,41 @@ import { memo } from 'react'
  */
 export const BADGE_TONES = {
   green:
-    'bg-emerald-500/25 text-emerald-300 border-emerald-400/50 shadow-[0_0_12px_rgba(16,185,129,0.25)] font-extrabold',
+    'bg-emerald-500/25 text-emerald-300 border-emerald-400/50 shadow-[0_0_12px_rgba(16,185,129,0.25)] font-extrabold [html.light_&]:bg-[#dcfce7] [html.light_&]:text-[#065f46] [html.light_&]:border-[#10b981] [html.light_&]:shadow-sm [html.light_&]:font-black',
   emerald:
-    'bg-emerald-500/25 text-emerald-300 border-emerald-400/50 shadow-[0_0_12px_rgba(16,185,129,0.25)] font-extrabold',
+    'bg-emerald-500/25 text-emerald-300 border-emerald-400/50 shadow-[0_0_12px_rgba(16,185,129,0.25)] font-extrabold [html.light_&]:bg-[#dcfce7] [html.light_&]:text-[#065f46] [html.light_&]:border-[#10b981] [html.light_&]:shadow-sm [html.light_&]:font-black',
   amber:
-    'bg-amber-500/25 text-amber-300 border-amber-400/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] font-extrabold',
+    'bg-amber-500/25 text-amber-300 border-amber-400/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] font-extrabold [html.light_&]:bg-[#fef3c7] [html.light_&]:text-[#92400e] [html.light_&]:border-[#f59e0b] [html.light_&]:shadow-sm [html.light_&]:font-black',
   yellow:
-    'bg-amber-500/25 text-amber-300 border-amber-400/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] font-extrabold',
+    'bg-amber-500/25 text-amber-300 border-amber-400/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] font-extrabold [html.light_&]:bg-[#fef3c7] [html.light_&]:text-[#92400e] [html.light_&]:border-[#f59e0b] [html.light_&]:shadow-sm [html.light_&]:font-black',
   purple:
-    'bg-purple-500/25 text-purple-300 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)] font-extrabold',
+    'bg-purple-500/25 text-purple-300 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)] font-extrabold [html.light_&]:bg-[#f3e8ff] [html.light_&]:text-[#6b21a8] [html.light_&]:border-[#a855f7] [html.light_&]:shadow-sm [html.light_&]:font-black',
   violet:
-    'bg-purple-500/25 text-purple-300 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)] font-extrabold',
+    'bg-purple-500/25 text-purple-300 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)] font-extrabold [html.light_&]:bg-[#f3e8ff] [html.light_&]:text-[#6b21a8] [html.light_&]:border-[#a855f7] [html.light_&]:shadow-sm [html.light_&]:font-black',
   cyan:
-    'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] font-extrabold',
+    'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] font-extrabold [html.light_&]:bg-[#e0f2fe] [html.light_&]:text-[#0369a1] [html.light_&]:border-[#0284c7] [html.light_&]:shadow-sm [html.light_&]:font-black',
   sky:
-    'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] font-extrabold',
+    'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] font-extrabold [html.light_&]:bg-[#e0f2fe] [html.light_&]:text-[#0369a1] [html.light_&]:border-[#0284c7] [html.light_&]:shadow-sm [html.light_&]:font-black',
   blue:
-    'bg-sky-500/25 text-sky-300 border-sky-400/50 shadow-[0_0_12px_rgba(14,165,233,0.25)] font-extrabold',
+    'bg-sky-500/25 text-sky-300 border-sky-400/50 shadow-[0_0_12px_rgba(14,165,233,0.25)] font-extrabold [html.light_&]:bg-[#dbeafe] [html.light_&]:text-[#1e40af] [html.light_&]:border-[#3b82f6] [html.light_&]:shadow-sm [html.light_&]:font-black',
   primary:
-    'bg-primary/25 text-primary border-primary/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] font-extrabold',
+    'bg-primary/25 text-primary border-primary/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] font-extrabold [html.light_&]:bg-[#fef9c3] [html.light_&]:text-[#854d0e] [html.light_&]:border-[#C99A47] [html.light_&]:shadow-sm [html.light_&]:font-black',
   indigo:
-    'bg-indigo-500/25 text-indigo-300 border-indigo-400/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] font-extrabold',
+    'bg-indigo-500/25 text-indigo-300 border-indigo-400/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] font-extrabold [html.light_&]:bg-[#e0e7ff] [html.light_&]:text-[#3730a3] [html.light_&]:border-[#6366f1] [html.light_&]:shadow-sm [html.light_&]:font-black',
   orange:
-    'bg-orange-500/25 text-orange-300 border-orange-400/50 shadow-[0_0_12px_rgba(249,115,22,0.25)] font-extrabold',
+    'bg-orange-500/25 text-orange-300 border-orange-400/50 shadow-[0_0_12px_rgba(249,115,22,0.25)] font-extrabold [html.light_&]:bg-[#ffedd5] [html.light_&]:text-[#9a3412] [html.light_&]:border-[#f97316] [html.light_&]:shadow-sm [html.light_&]:font-black',
   red:
-    'bg-rose-500/25 text-rose-300 border-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.25)] font-extrabold',
+    'bg-rose-500/25 text-rose-300 border-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.25)] font-extrabold [html.light_&]:bg-[#ffe4e6] [html.light_&]:text-[#9f1239] [html.light_&]:border-[#f43f5e] [html.light_&]:shadow-sm [html.light_&]:font-black',
   rose:
-    'bg-rose-500/25 text-rose-300 border-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.25)] font-extrabold',
+    'bg-rose-500/25 text-rose-300 border-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.25)] font-extrabold [html.light_&]:bg-[#ffe4e6] [html.light_&]:text-[#9f1239] [html.light_&]:border-[#f43f5e] [html.light_&]:shadow-sm [html.light_&]:font-black',
   error:
-    'bg-rose-500/25 text-rose-300 border-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.25)] font-extrabold',
+    'bg-rose-500/25 text-rose-300 border-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.25)] font-extrabold [html.light_&]:bg-[#fee2e2] [html.light_&]:text-[#991b1b] [html.light_&]:border-[#ef4444] [html.light_&]:shadow-sm [html.light_&]:font-black',
   gray:
-    'bg-slate-500/25 text-slate-200 border-slate-400/40 font-extrabold',
+    'bg-slate-500/25 text-slate-200 border-slate-400/40 font-extrabold [html.light_&]:bg-[#e2e8f0] [html.light_&]:text-[#1e293b] [html.light_&]:border-[#94a3b8] [html.light_&]:shadow-sm [html.light_&]:font-black',
   slate:
-    'bg-slate-500/25 text-slate-200 border-slate-400/40 font-extrabold',
+    'bg-slate-500/25 text-slate-200 border-slate-400/40 font-extrabold [html.light_&]:bg-[#e2e8f0] [html.light_&]:text-[#1e293b] [html.light_&]:border-[#94a3b8] [html.light_&]:shadow-sm [html.light_&]:font-black',
   neutral:
-    'bg-white/20 text-slate-200 border-white/40 font-extrabold',
+    'bg-white/20 text-slate-200 border-white/40 font-extrabold [html.light_&]:bg-[#f1f5f9] [html.light_&]:text-[#0f172a] [html.light_&]:border-[#cbd5e1] [html.light_&]:shadow-sm [html.light_&]:font-black',
 }
 
 /**

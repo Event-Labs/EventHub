@@ -1,11 +1,21 @@
 import {
+  BarChart3,
+  Building2,
+  Calendar,
   CheckCircle2,
+  CircleDollarSign,
+  Clock,
   Eye,
+  Layers,
   Lock,
   MoreVertical,
   Plus,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
+  UserCheck,
+  Users,
+  UserX,
 } from 'lucide-react'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
@@ -86,37 +96,96 @@ export function AttentionSection({ items }) {
   )
 }
 
+function resolveKpiIconAndTone(label, change) {
+  const lower = String(label || '').toLowerCase()
+  if (lower.includes('người dùng') || lower.includes('tài khoản')) {
+    if (lower.includes('khóa') || lower.includes('bị khóa')) {
+      return { icon: Lock, bg: 'bg-error/15', color: 'text-error' }
+    }
+    if (lower.includes('hoạt động')) {
+      return { icon: UserCheck, bg: 'bg-success/15', color: 'text-success' }
+    }
+    return { icon: Users, bg: 'bg-primary/15', color: 'text-primary' }
+  }
+  if (lower.includes('ban tổ chức') || lower.includes('organizer')) {
+    if (lower.includes('tạm ngưng') || lower.includes('suspended')) {
+      return { icon: ShieldAlert, bg: 'bg-error/15', color: 'text-error' }
+    }
+    if (lower.includes('hoạt động')) {
+      return { icon: CheckCircle2, bg: 'bg-success/15', color: 'text-success' }
+    }
+    if (lower.includes('sự kiện public') || lower.includes('sự kiện')) {
+      return { icon: Calendar, bg: 'bg-warning/15', color: 'text-warning' }
+    }
+    return { icon: Building2, bg: 'bg-warning/15', color: 'text-warning' }
+  }
+  if (lower.includes('nhân viên') || lower.includes('staff')) {
+    return { icon: ShieldCheck, bg: 'bg-tertiary/15', color: 'text-tertiary' }
+  }
+  if (lower.includes('chờ duyệt') || lower.includes('yêu cầu') || lower.includes('pending')) {
+    return { icon: Clock, bg: 'bg-warning/15', color: 'text-warning' }
+  }
+  if (lower.includes('doanh thu') || lower.includes('tiền')) {
+    return { icon: CircleDollarSign, bg: 'bg-success/15', color: 'text-success' }
+  }
+  if (change && String(change).toLowerCase().includes('urgent')) {
+    return { icon: ShieldAlert, bg: 'bg-error/15', color: 'text-error' }
+  }
+  return { icon: Layers, bg: 'bg-primary/15', color: 'text-primary' }
+}
+
 /**
- * KpiGrid – KPI metric cards grid
+ * KpiGrid – KPI metric cards grid (form đồng bộ Hình 3)
  */
 export function KpiGrid({ items }) {
-  const gridClass = items.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-5'
+  const gridClass = items.length === 4 ? 'xl:grid-cols-4' : items.length === 3 ? 'sm:grid-cols-3' : 'xl:grid-cols-5'
   return (
     <div className={`grid gap-4 sm:grid-cols-2 ${gridClass}`}>
-      {items.map(([label, value, change]) => (
-        <Panel key={label} className="flex flex-col gap-3 group transition-all duration-300 hover:border-primary/40 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)]">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary transition-colors">
-            {label}
-          </p>
-          <p className="text-3xl font-black text-white drop-shadow-sm">{value}</p>
-          {change && (
-            <span
-              className={`self-start rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${change.toLowerCase().includes('urgent')
-                  ? 'border-error/30 bg-error/20 text-error shadow-[0_0_10px_rgba(239,68,68,0.2)]'
-                  : 'border-success/30 bg-success/20 text-success shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                }`}
-            >
-              {change}
-            </span>
-          )}
-        </Panel>
-      ))}
+      {items.map((item) => {
+        const [label, value, change, CustomIcon, customBg, customColor, sub] = Array.isArray(item)
+          ? item
+          : [item.label, item.value, item.change, item.icon, item.accentBg, item.accentColor, item.sub]
+        const fallback = resolveKpiIconAndTone(label, change)
+        const Icon = CustomIcon || fallback.icon
+        const accentBg = customBg || fallback.bg
+        const accentColor = customColor || fallback.color
+
+        return (
+          <div
+            key={label}
+            className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+          >
+            <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner ${accentBg}`}>
+              <Icon className={`size-6 ${accentColor}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
+              <p className="mt-1 text-2xl font-black text-content tracking-tight font-display drop-shadow-sm">{value}</p>
+              {change ? (
+                <div className="mt-1.5">
+                  <span
+                    className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
+                      String(change).toLowerCase().includes('urgent')
+                        ? 'border-error/30 bg-error/20 text-error'
+                        : 'border-success/30 bg-success/20 text-success'
+                    }`}
+                  >
+                    {change}
+                  </span>
+                </div>
+              ) : sub ? (
+                <p className="mt-1.5 truncate text-[13px] font-medium text-muted">{sub}</p>
+              ) : null}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 /**
- * Panel – dark-themed card surface
+ * Panel – card surface
  */
 export function Panel({ children, className = '' }) {
   return (
@@ -140,7 +209,7 @@ export function Insight({ title = 'AI Insight', text }) {
         </div>
         <div>
           <h3 className="font-black text-ai text-lg drop-shadow-sm">{title}</h3>
-          <p className="mt-1 text-[15px] leading-relaxed text-slate-300 font-medium">{text}</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-subtle font-medium">{text}</p>
         </div>
       </div>
     </section>
@@ -153,18 +222,18 @@ export function Insight({ title = 'AI Insight', text }) {
 export function FilterBar({ labels }) {
   return (
     <Panel className="my-5 flex flex-wrap items-center gap-4 py-4 px-6">
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+      <span className="text-[10px] font-black uppercase tracking-widest text-subtle">
         Lọc theo
       </span>
       {labels.map((label) => (
         <select
           key={label}
-          className="h-9 rounded-xl border border-white/10 bg-slate-900/50 px-4 text-[13px] font-medium text-white outline-none focus:border-primary/50 transition-colors cursor-pointer appearance-none shadow-inner"
+          className="h-9 rounded-xl border border-white/10 bg-slate-900/50 px-4 text-[13px] font-medium text-content outline-none focus:border-primary/50 transition-colors cursor-pointer appearance-none shadow-inner"
         >
           <option>{label}</option>
         </select>
       ))}
-      <button className="ml-auto text-[13px] font-bold text-slate-400 hover:text-primary transition-colors">
+      <button className="ml-auto text-[13px] font-bold text-subtle hover:text-primary transition-colors">
         Xóa bộ lọc
       </button>
     </Panel>
