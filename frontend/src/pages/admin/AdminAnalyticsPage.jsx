@@ -53,13 +53,13 @@ function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-tertiary/15', 
     <Panel className="relative overflow-hidden">
       {accentBar && <div className={`absolute inset-x-0 top-0 h-0.5 rounded-t-2xl ${accentBar}`} />}
       <div className="flex items-start gap-4 pt-1">
-        <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-white/5 shadow-inner ${accentBg}`}>
+        <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner ${accentBg}`}>
           <Icon className={`size-6 ${accentColor}`} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p>
-          <p className="mt-1 truncate text-2xl font-black text-white drop-shadow-sm">{value}</p>
-          {sub && <p className="mt-1 text-[11px] font-semibold text-slate-400 truncate">{sub}</p>}
+          <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
+          <p className="mt-1 truncate text-2xl font-black text-content font-display drop-shadow-sm">{value}</p>
+          {sub && <p className="mt-1 text-[13px] font-medium text-muted truncate">{sub}</p>}
         </div>
       </div>
     </Panel>

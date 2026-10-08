@@ -79,9 +79,9 @@ export function StaffTable({ headers, rows }) {
 export function StaffSearch({ placeholder = 'Tìm kiếm...' }) {
   return (
     <div className="glass-panel relative flex h-[44px] items-center rounded-full border-white/10 px-4 shadow-inner">
-      <Search className="size-5 shrink-0 text-white" />
+      <Search className="size-5 shrink-0 text-subtle" />
       <input
-        className="ml-3 w-full bg-transparent text-[15px] font-normal text-white outline-none placeholder:text-white/50"
+        className="ml-3 w-full bg-transparent text-[15px] font-normal text-content outline-none placeholder:text-muted"
         placeholder={placeholder}
       />
     </div>
@@ -120,7 +120,7 @@ export function Insight({ children }) {
         <div className="glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-ai/30 bg-ai/20 shadow-inner">
           <Sparkles className="size-6 text-ai drop-shadow-[0_0_8px_rgba(236,72,153,0.6)]" />
         </div>
-        <p className="text-[15px] leading-relaxed text-slate-300 font-medium pt-1">
+        <p className="text-[15px] leading-relaxed text-subtle font-medium pt-1">
           <span className="font-black text-ai drop-shadow-sm block text-lg mb-1">Gợi ý AI: </span>
           {children}
         </p>
