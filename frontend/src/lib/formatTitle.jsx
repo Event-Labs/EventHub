@@ -3,9 +3,11 @@ export function renderCosmicTitle(title, variant = 'gold') {
   const trimmed = title.trim()
   if (!trimmed) return title
 
+  const goldClasses = "cosmic-header-title text-transparent bg-clip-text bg-gradient-to-r from-[#C99A47] to-[#E6C17A] drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] [html.light_&]:drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)] inline-block"
+
   if (variant === 'gold') {
     return (
-      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C99A47] to-[#E6C17A] drop-shadow-[0_0_8px_rgba(230,193,122,0.9)] drop-shadow-[0_0_20px_rgba(201,154,71,0.7)] drop-shadow-[0_0_35px_rgba(230,193,122,0.45)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] inline-block">
+      <span className={goldClasses}>
         {trimmed}
       </span>
     )
@@ -14,7 +16,7 @@ export function renderCosmicTitle(title, variant = 'gold') {
   const words = trimmed.split(' ')
   if (words.length <= 1) {
     return (
-      <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary drop-shadow-sm">
+      <span className={goldClasses}>
         {trimmed}
       </span>
     )
@@ -48,7 +50,7 @@ export function renderCosmicTitle(title, variant = 'gold') {
 
   return (
     <>
-      {start}{start ? ' ' : ''}<span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary drop-shadow-sm">{end}</span>
+      {start}{start ? ' ' : ''}<span className={goldClasses}>{end}</span>
     </>
   )
 }

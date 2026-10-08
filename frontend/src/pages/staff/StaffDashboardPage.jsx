@@ -60,20 +60,23 @@ export function StaffDashboardPage() {
         <Shortcut to="/staff/check-in-count" icon={BarChart3} label="Thống kê soát vé" />
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards (Form đồng bộ Hình 3) */}
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
         {kpis.map(([label, value, Icon]) => (
-          <StaffPanel key={label} className="relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase text-subtle">{label}</p>
-              <div className="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="size-4" />
-              </div>
+          <div
+            key={label}
+            className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+          >
+            <div className="glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner bg-primary/15">
+              <Icon className="size-6 text-primary" />
             </div>
-            <p className="mt-3 text-3xl font-black text-content">
-              {loading ? '...' : numberFormatter.format(Number(value || 0))}
-            </p>
-          </StaffPanel>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
+              <p className="mt-1 text-2xl font-black text-content tracking-tight font-display drop-shadow-sm">
+                {loading ? '...' : numberFormatter.format(Number(value || 0))}
+              </p>
+            </div>
+          </div>
         ))}
       </div>
 
