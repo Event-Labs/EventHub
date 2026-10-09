@@ -261,7 +261,7 @@ export function OrganizerCheckinDashboardPage() {
                 <h2 className="mb-4 font-bold text-content">Check-in theo loại vé</h2>
                 <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                   <div className="w-full overflow-x-auto">
-                    <table className="w-full min-w-[500px] text-xs">
+                    <table className="w-full min-w-[500px] text-sm">
                       <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                         <tr>
                           <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
@@ -274,11 +274,11 @@ export function OrganizerCheckinDashboardPage() {
                         {byTicketType.map((tt) => (
                           <tr key={tt.ticket_type_id} className="hover:bg-white/[0.02] transition-colors">
                             <td className="px-4 py-3.5">
-                              <p className="font-semibold text-content">{tt.ticket_type_name}</p>
+                              <p className="text-sm font-semibold text-content">{tt.ticket_type_name}</p>
                               <p className="text-xs text-subtle">{fmtCurrency(tt.price)}</p>
                             </td>
-                            <td className="px-4 py-3.5 text-right text-subtle">{tt.total_tickets}</td>
-                            <td className="px-4 py-3.5 text-right font-semibold text-success">{tt.checked_in}</td>
+                            <td className="px-4 py-3.5 text-right text-sm text-subtle">{tt.total_tickets}</td>
+                            <td className="px-4 py-3.5 text-right text-sm font-semibold text-success">{tt.checked_in}</td>
                             <td className="px-4 py-3.5 text-right">
                               <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold border ${tt.checkin_rate >= 80 ? 'bg-success/15 text-success border-success/30' :
                                   tt.checkin_rate >= 50 ? 'bg-tertiary/15 text-tertiary border-tertiary/30' :
@@ -306,7 +306,7 @@ export function OrganizerCheckinDashboardPage() {
               </div>
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[650px] text-xs">
+                  <table className="w-full min-w-[650px] text-sm">
                     <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Người tham dự</th>
@@ -319,13 +319,13 @@ export function OrganizerCheckinDashboardPage() {
                       {recentCheckins.map((c, i) => (
                         <tr key={`${c.ticket_code}-${i}`} className="hover:bg-white/[0.02] transition-colors">
                           <td className="px-4 py-3.5">
-                            <p className="font-semibold text-content">{c.attendee_name || '—'}</p>
+                            <p className="text-sm font-semibold text-content">{c.attendee_name || '—'}</p>
                             <p className="text-xs text-subtle">{c.attendee_email}</p>
                           </td>
                           <td className="px-4 py-3.5">
                             <Badge tone="blue">{c.ticket_type_name}</Badge>
                           </td>
-                          <td className="px-4 py-3.5 text-subtle">
+                          <td className="px-4 py-3.5 text-subtle text-sm">
                             {c.session_name || '—'}
                           </td>
                           <td className="px-4 py-3.5">
