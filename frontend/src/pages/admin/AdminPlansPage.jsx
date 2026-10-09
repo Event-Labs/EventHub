@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit3, Plus, Power, Trash2, X } from 'lucide-react'
+import { Edit3, Plus, Power, Trash2 } from 'lucide-react'
 import {
   createAdminSubscription,
   deleteAdminSubscription,
@@ -8,6 +8,7 @@ import {
   updateAdminSubscription,
 } from '@/services/subscriptions.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { Modal } from '@/components/Modal.jsx'
 import { Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 
@@ -218,8 +219,8 @@ export function AdminPlansPage() {
               ]} />,
               <FeatureList key="features" plan={plan} />,
               <StatusBadge key="status" status={plan.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-              <span key="subscribers" className="font-bold text-content">{Number(plan.subscriber_count || 0)}</span>,
-              <div key="actions" className="flex items-center gap-2">
+              <span key="subscribers" className="text-sm font-bold text-content block text-center">{Number(plan.subscriber_count || 0)}</span>,
+              <div key="actions" className="flex items-center justify-center gap-2">
                 <TableActionButton title="Sửa" icon={Edit3} tone="primary" disabled={busy} onClick={() => openEdit(plan)} />
                 <TableActionButton
                   title={plan.is_active ? 'Tạm ẩn' : 'Hiện lại'}
@@ -239,110 +240,110 @@ export function AdminPlansPage() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-          <form
-            onSubmit={submitForm}
-            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border-soft/40 bg-surface shadow-2xl"
-          >
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-soft/30 bg-surface px-5 py-4">
-              <div>
-                <h3 className="text-xl font-extrabold text-content">
-                  {modal.mode === 'edit' ? 'Cập nhật gói dịch vụ' : 'Thêm gói dịch vụ'}
-                </h3>
-              </div>
-              <button type="button" onClick={() => setModal(null)} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft transition">
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 text-content">
-              <FormSection title="Thông tin gói">
-                <TextInput label="Tên gói" value={form.name} onChange={(name) => updateField('name', name)} required />
-                <TextInput inputMode="numeric" label="Giá gói" value={form.price} onChange={(price) => updateField('price', onlyNumberText(price))} placeholder="0" />
-              </FormSection>
-
-              <FormSection title="Giới hạn tổng của organizer">
-                <TextInput inputMode="numeric" label="Tổng số sự kiện" value={form.event_limit} onChange={(value) => updateField('event_limit', onlyNumberText(value))} placeholder="0" />
-                <TextInput inputMode="numeric" label="Sự kiện hoạt động cùng lúc" value={form.max_active_events} onChange={(value) => updateField('max_active_events', onlyNumberText(value))} placeholder="0" />
-                <TextInput inputMode="numeric" label="Tổng staff" value={form.staff_limit} onChange={(value) => updateField('staff_limit', onlyNumberText(value))} placeholder="0" />
-              </FormSection>
-
-              <FormSection title="Giới hạn cho mỗi sự kiện">
-                <TextInput inputMode="numeric" label="Vé/sự kiện" value={form.max_tickets_per_event} onChange={(value) => updateField('max_tickets_per_event', onlyNumberText(value))} placeholder="0" />
-                <TextInput inputMode="numeric" label="Staff/sự kiện" value={form.max_staff_per_event} onChange={(value) => updateField('max_staff_per_event', onlyNumberText(value))} placeholder="0" />
-                <TextInput inputMode="numeric" label="Loại vé/sự kiện" value={form.max_ticket_types_per_event} onChange={(value) => updateField('max_ticket_types_per_event', onlyNumberText(value))} placeholder="0" />
-                <TextInput inputMode="numeric" label="Mã giảm giá/sự kiện" value={form.max_promo_codes_per_event} onChange={(value) => updateField('max_promo_codes_per_event', onlyNumberText(value))} placeholder="0" disabled={!form.promo_code_enabled} />
-              </FormSection>
-
-              <section className="rounded-2xl border border-border-soft/30 bg-panel-soft/35 p-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-subtle">Tính năng</h4>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {booleanFields.map(([field, label]) => (
-                    <Checkbox
-                      key={field}
-                      label={label}
-                      checked={form[field]}
-                      onChange={(checked) => updateField(field, checked)}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              {formError && (
-                <p className="rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
-                  {formError}
-                </p>
-              )}
-            </div>
-
-            <div className="flex shrink-0 justify-end gap-3 border-t border-border-soft/30 bg-surface px-5 py-4">
-              <button type="button" onClick={() => setModal(null)} className="admin-secondary">
+        <Modal
+          open={Boolean(modal)}
+          title={modal.mode === 'edit' ? 'Cập nhật gói dịch vụ' : 'Thêm gói dịch vụ'}
+          onClose={() => setModal(null)}
+          maxWidth="max-w-4xl"
+          footer={
+            <div className="flex w-full items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="admin-secondary px-6"
+              >
                 Hủy
               </button>
-              <button type="submit" disabled={saveMutation.isPending} className="admin-primary">
+              <button
+                type="submit"
+                form="subscription-plan-form"
+                disabled={saveMutation.isPending}
+                className="admin-primary px-6 disabled:cursor-not-allowed disabled:opacity-70"
+              >
                 {saveMutation.isPending ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
+          }
+        >
+          <form id="subscription-plan-form" onSubmit={submitForm} className="space-y-5">
+            <FormSection title="Thông tin gói">
+              <TextInput label="Tên gói" value={form.name} onChange={(name) => updateField('name', name)} required />
+              <TextInput inputMode="numeric" label="Giá gói" value={form.price} onChange={(price) => updateField('price', onlyNumberText(price))} placeholder="0" />
+            </FormSection>
+
+            <FormSection title="Giới hạn tổng của organizer">
+              <TextInput inputMode="numeric" label="Tổng số sự kiện" value={form.event_limit} onChange={(value) => updateField('event_limit', onlyNumberText(value))} placeholder="0" />
+              <TextInput inputMode="numeric" label="Sự kiện hoạt động cùng lúc" value={form.max_active_events} onChange={(value) => updateField('max_active_events', onlyNumberText(value))} placeholder="0" />
+              <TextInput inputMode="numeric" label="Tổng staff" value={form.staff_limit} onChange={(value) => updateField('staff_limit', onlyNumberText(value))} placeholder="0" />
+            </FormSection>
+
+            <FormSection title="Giới hạn cho mỗi sự kiện">
+              <TextInput inputMode="numeric" label="Vé/sự kiện" value={form.max_tickets_per_event} onChange={(value) => updateField('max_tickets_per_event', onlyNumberText(value))} placeholder="0" />
+              <TextInput inputMode="numeric" label="Staff/sự kiện" value={form.max_staff_per_event} onChange={(value) => updateField('max_staff_per_event', onlyNumberText(value))} placeholder="0" />
+              <TextInput inputMode="numeric" label="Loại vé/sự kiện" value={form.max_ticket_types_per_event} onChange={(value) => updateField('max_ticket_types_per_event', onlyNumberText(value))} placeholder="0" />
+              <TextInput inputMode="numeric" label="Mã giảm giá/sự kiện" value={form.max_promo_codes_per_event} onChange={(value) => updateField('max_promo_codes_per_event', onlyNumberText(value))} placeholder="0" disabled={!form.promo_code_enabled} />
+            </FormSection>
+
+            <section className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+              <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Tính năng</h4>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {booleanFields.map(([field, label]) => (
+                  <Checkbox
+                    key={field}
+                    label={label}
+                    checked={form[field]}
+                    onChange={(checked) => updateField(field, checked)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {formError && (
+              <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm font-semibold text-rose-400">
+                {formError}
+              </p>
+            )}
           </form>
-        </div>
+        </Modal>
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-5 text-content shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-extrabold text-content">Xóa gói dịch vụ?</h3>
-                <p className="mt-2 text-sm font-semibold text-subtle">
-                  Gói "{deleteTarget.name}" sẽ được đánh dấu đã xóa và ẩn khỏi danh sách quản lý.
-                </p>
-              </div>
-              <button type="button" onClick={() => setDeleteTarget(null)} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft">
-                <X className="size-4" />
-              </button>
-            </div>
-
-            {actionError && (
-              <p className="mt-4 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error">
-                {actionError}
-              </p>
-            )}
-
-            <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
-              <button type="button" onClick={() => setDeleteTarget(null)} className="admin-secondary">
+        <Modal
+          open={Boolean(deleteTarget)}
+          title="Xóa gói dịch vụ?"
+          onClose={() => setDeleteTarget(null)}
+          maxWidth="max-w-md"
+          footer={
+            <div className="flex w-full items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="admin-secondary px-6"
+              >
                 Hủy
               </button>
               <button
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
               </button>
             </div>
+          }
+        >
+          <div className="py-1">
+            <p className="text-sm font-medium leading-relaxed text-slate-200 [html.light_&]:text-[#0D1B2A]">
+              Gói <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">"{deleteTarget.name}"</span> sẽ được đánh dấu đã xóa và ẩn khỏi danh sách quản lý.
+            </p>
+            {actionError && (
+              <p className="mt-3 text-xs font-semibold text-rose-400">
+                {actionError}
+              </p>
+            )}
           </div>
-        </div>
+        </Modal>
       )}
     </Page>
   )
@@ -353,7 +354,7 @@ function Metric({ label, value, accent }) {
     <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
         <p className="mt-5 text-4xl font-display font-extrabold leading-none text-content tracking-tight">{value}</p>
       </div>
     </Panel>
@@ -362,8 +363,8 @@ function Metric({ label, value, accent }) {
 
 function FormSection({ title, children }) {
   return (
-    <section className="rounded-2xl border border-border-soft/30 bg-panel-soft/30 p-4">
-      <h4 className="text-xs font-bold uppercase tracking-wider text-subtle">{title}</h4>
+    <section className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+      <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{title}</h4>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
     </section>
   )
@@ -372,11 +373,11 @@ function FormSection({ title, children }) {
 function TextInput({ label, value, onChange, ...props }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-subtle">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content placeholder:text-muted outline-none disabled:cursor-not-allowed disabled:bg-panel-soft/50 disabled:text-muted focus:border-primary"
+        className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white placeholder:text-slate-400 outline-none focus:border-[#C99A47] disabled:cursor-not-allowed disabled:bg-white/5 disabled:opacity-50 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
         {...props}
       />
     </label>
@@ -385,12 +386,12 @@ function TextInput({ label, value, onChange, ...props }) {
 
 function Checkbox({ label, checked, onChange }) {
   return (
-    <label className="flex items-center gap-3 text-sm font-semibold text-subtle cursor-pointer">
+    <label className="flex items-center gap-3 text-sm font-semibold text-white [html.light_&]:text-[#0D1B2A] cursor-pointer">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="size-4 accent-primary"
+        className="size-4.5 rounded accent-[#C99A47] cursor-pointer"
       />
       {label}
     </label>

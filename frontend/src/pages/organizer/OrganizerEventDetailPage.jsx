@@ -28,7 +28,10 @@ import {
     TrendingDown,
     Minus,
     Sparkles,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react'
+import '@/components/RichTextEditor.css'
 
 const STATUS_LABELS = {
     DRAFT: 'Bản nháp',
@@ -160,6 +163,7 @@ export function OrganizerEventDetailPage() {
     const [loading, setLoading] = useState(true)
     const [checkinStats, setCheckinStats] = useState(null)
     const [revenueStats, setRevenueStats] = useState(null)
+    const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
 
     const loadData = useCallback(async () => {
         setLoading(true)
@@ -219,12 +223,8 @@ export function OrganizerEventDetailPage() {
     return (
         <OrganizerPage
             title="Chi tiết sự kiện"
-            description="Xem thông tin chi tiết, trạng thái và thống kê của sự kiện"
-            action={
-                <Link to="/organizer/events" className="org-btn-secondary">
-                    <ArrowLeft className="size-4" /> Quay lại
-                </Link>
-            }
+            backLink="/organizer/events"
+            backLabel="Quay lại"
         >
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 {/* Left column: Event info */}
@@ -280,10 +280,45 @@ export function OrganizerEventDetailPage() {
                             {event.description && (
                                 <div className="mt-6 border-t border-border-soft/30 pt-6">
                                     <h3 className="mb-3 text-sm font-bold text-content">Mô tả sự kiện</h3>
-                                    <div
-                                        className="prose prose-sm max-w-none text-subtle"
-                                        dangerouslySetInnerHTML={{ __html: event.description }}
-                                    />
+
+                                    <div className="relative">
+                                        <div
+                                            className={`ql-editor ql-content description-html block max-w-full break-words text-sm text-subtle p-0 [&_*]:max-w-full [&_a]:break-words [&_a]:text-[#E6C17A] [&_a]:underline [&_table]:block [&_table]:overflow-x-auto transition-all duration-300 ${
+                                                isDescriptionExpanded
+                                                    ? 'overflow-visible'
+                                                    : 'max-h-56 overflow-hidden'
+                                            }`}
+                                            dangerouslySetInnerHTML={{ __html: event.description }}
+                                        />
+
+                                        {!isDescriptionExpanded && event.description.length > 250 && (
+                                            <div
+                                                onClick={() => setIsDescriptionExpanded(true)}
+                                                className="absolute inset-x-0 bottom-0 flex h-24 cursor-pointer items-end justify-center bg-gradient-to-t from-[var(--color-panel,#0f172a)] via-[var(--color-panel,#0f172a)]/80 to-transparent pb-1"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    aria-label="Xem thêm"
+                                                    className="cursor-pointer text-[#E6C17A] hover:text-[#C99A47] transition-all hover:scale-110"
+                                                >
+                                                    <ChevronDown className="size-6" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {isDescriptionExpanded && event.description.length > 250 && (
+                                        <div className="mt-2 flex justify-center">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsDescriptionExpanded(false)}
+                                                aria-label="Thu gọn"
+                                                className="cursor-pointer text-[#E6C17A] hover:text-[#C99A47] transition-all hover:scale-110 p-1"
+                                            >
+                                                <ChevronUp className="size-6" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -351,7 +386,7 @@ export function OrganizerEventDetailPage() {
                         </Link>
                         <Link
                             to={`/organizer/attendees?eventId=${event.id}`}
-                            className="org-btn-primary text-xs py-2 shadow-sm"
+                            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] hover:brightness-110 transition px-4 py-2 font-bold text-xs shadow-sm"
                         >
                             Danh sách khách
                         </Link>

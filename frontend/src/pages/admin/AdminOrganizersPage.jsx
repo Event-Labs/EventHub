@@ -185,7 +185,7 @@ export function AdminOrganizersPage() {
               <p><span className="font-bold text-success">{formatCurrency(organizer.gross_revenue)}</span></p>
             </div>,
             <Status key="status" value={organizer.status} />,
-            <div key="actions" className="flex items-center gap-2">
+            <div key="actions" className="flex items-center justify-center gap-2">
               <TableActionButton
                 icon={Eye}
                 tone="default"

@@ -60,19 +60,16 @@ export function StaffDashboardPage() {
         <Shortcut to="/staff/check-in-count" icon={BarChart3} label="Thống kê soát vé" />
       </div>
 
-      {/* KPI Cards (Form đồng bộ Hình 3) */}
+      {/* KPI Cards (Chỉ có text và data) */}
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
-        {kpis.map(([label, value, Icon]) => (
+        {kpis.map(([label, value]) => (
           <div
             key={label}
-            className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+            className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
           >
-            <div className="glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner bg-primary/15">
-              <Icon className="size-6 text-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
+            <div>
               <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-              <p className="mt-1 text-2xl font-black text-content tracking-tight font-display drop-shadow-sm">
+              <p className="mt-2 text-3xl font-black text-content tracking-tight font-display drop-shadow-sm">
                 {loading ? '...' : numberFormatter.format(Number(value || 0))}
               </p>
             </div>
