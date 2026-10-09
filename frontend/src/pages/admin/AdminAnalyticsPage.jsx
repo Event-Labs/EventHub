@@ -48,20 +48,15 @@ function fmtTrendLabel(value) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, accentBg = 'bg-tertiary/15', accentColor = 'text-tertiary', accentBar }) {
+function StatCard({ label, value, sub, accentBar }) {
   return (
-    <Panel className="relative overflow-hidden">
+    <Panel className="relative overflow-hidden flex flex-col justify-between">
       {accentBar && <div className={`absolute inset-x-0 top-0 h-0.5 rounded-t-2xl ${accentBar}`} />}
-      <div className="flex items-start gap-4 pt-1">
-        <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner ${accentBg}`}>
-          <Icon className={`size-6 ${accentColor}`} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-          <p className="mt-1 truncate text-2xl font-black text-content font-display drop-shadow-sm">{value}</p>
-          {sub && <p className="mt-1 text-[13px] font-medium text-muted truncate">{sub}</p>}
-        </div>
+      <div>
+        <p className="text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
+        <p className="mt-2 truncate text-3xl font-black text-white font-display drop-shadow-sm [html.light_&]:text-[#0D1B2A]">{value}</p>
       </div>
+      {sub && <p className="mt-2 text-[13px] font-medium text-slate-300 truncate [html.light_&]:text-[#536b88]">{sub}</p>}
     </Panel>
   )
 }
@@ -198,7 +193,6 @@ function CategoryDistributionChart({ items }) {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-black text-white drop-shadow-sm">Sự kiện theo danh mục</h2>
-          <p className="mt-1 text-[13px] font-medium text-slate-400">Tách theo 3 lớp để admin nhìn rõ tổng, published và completed.</p>
         </div>
         <span className="glass-panel rounded-full border-white/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400 shadow-inner">
           {items.length} danh mục
@@ -252,7 +246,7 @@ function CategoryDistributionChart({ items }) {
 function CompactMetric({ label, value, tone = 'text-white' }) {
   return (
     <div className="glass-panel rounded-xl border-white/5 bg-slate-900/40 px-4 py-3 shadow-inner">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p>
+      <p className="text-[11px] font-black uppercase tracking-widest text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
       <p className={`mt-1 text-lg font-black drop-shadow-sm ${tone === 'text-content' ? 'text-white' : tone}`}>{value}</p>
     </div>
   )
@@ -412,7 +406,7 @@ export function AdminAnalyticsPage() {
     >
       {/* ── Attention Required ── */}
       {overview && (
-        <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/[0.06] p-4 sm:p-5">
+        <div className="mb-5 rounded-2xl border border-amber-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-amber-500/10 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-50/80">
           <div className="mb-3 flex items-center gap-2">
             <div className="grid size-7 place-items-center rounded-lg bg-warning/20">
               <AlertTriangle className="size-4 text-warning" />
@@ -432,14 +426,13 @@ export function AdminAnalyticsPage() {
                 type="button"
                 key={label}
                 onClick={() => navigate(to)}
-                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
-                  severity === 'critical'
-                    ? 'border-error/30 bg-error/[0.07]'
-                    : 'border-warning/30 bg-warning/[0.05]'
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${severity === 'critical'
+                  ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-50/80'
+                  : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-500/30 [html.light_&]:bg-amber-100/60'
                   }`}
               >
-                <span className="text-sm font-semibold text-subtle">{label}</span>
-                <span className={`shrink-0 text-xl font-extrabold ${severity === 'critical' ? 'text-error' : 'text-warning'}`}>
+                <span className="text-sm font-bold text-slate-200 [html.light_&]:text-[#1B365D]">{label}</span>
+                <span className={`shrink-0 text-xl font-black ${severity === 'critical' ? 'text-rose-400' : 'text-amber-400'}`}>
                   {count}
                 </span>
               </button>
@@ -537,68 +530,59 @@ export function AdminAnalyticsPage() {
           </div>
 
           {/* ── Chart controls ── */}
-          <Panel className="mb-5">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-              <DateRangeFilter
-                value={datePreset}
-                customFrom={customFrom}
-                customTo={customTo}
-                comparisonEnabled={comparison.enabled}
-                comparisonMode={comparison.mode}
-                comparisonFrom={comparison.from}
-                comparisonTo={comparison.to}
-                onPresetChange={setDatePreset}
-                onCustomFromChange={setCustomFrom}
-                onCustomToChange={setCustomTo}
-                onComparisonChange={setComparison}
-                compact
-              />
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <DateRangeFilter
+              value={datePreset}
+              customFrom={customFrom}
+              customTo={customTo}
+              comparisonEnabled={comparison.enabled}
+              comparisonMode={comparison.mode}
+              comparisonFrom={comparison.from}
+              comparisonTo={comparison.to}
+              onPresetChange={setDatePreset}
+              onCustomFromChange={setCustomFrom}
+              onCustomToChange={setCustomTo}
+              onComparisonChange={setComparison}
+              compact
+            />
 
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <span className="block text-sm font-semibold text-subtle">Nhóm theo</span>
-                  <div className="mt-2 flex gap-2">
-                    {[['day', 'Ngày'], ['week', 'Tuần'], ['month', 'Tháng']].map(([val, lbl]) => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setTrendGroupBy(val)}
-                        className={`h-9 rounded-xl border px-3 text-sm font-semibold transition ${
-                          trendGroupBy === val
-                            ? 'border-primary/60 bg-tertiary/15 text-tertiary'
-                            : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-tertiary/40 hover:text-tertiary'
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Nhóm theo</span>
+                <div className="mt-1 flex gap-2">
+                  {[['day', 'Ngày'], ['week', 'Tuần'], ['month', 'Tháng']].map(([val, lbl]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setTrendGroupBy(val)}
+                      className={`h-10 rounded-xl px-4 text-sm font-bold transition ${trendGroupBy === val
+                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 border border-[#C99A47]'
+                        : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/5 hover:text-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#1B365D]'
                         }`}
-                      >
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
+                    >
+                      {lbl}
+                    </button>
+                  ))}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={load}
-                  disabled={loading}
-                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft px-4 text-sm font-semibold text-subtle transition hover:border-tertiary/40 hover:text-tertiary disabled:opacity-50"
-                >
-                  <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-                  Làm mới
-                </button>
               </div>
+
+              <button
+                type="button"
+                onClick={load}
+                disabled={loading}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-[#151d34] px-4 text-sm font-bold text-white transition hover:border-[#E6C17A]/60 hover:text-[#E6C17A] disabled:opacity-50 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#1B365D]"
+              >
+                <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+                Làm mới
+              </button>
             </div>
-          </Panel>
+          </div>
 
           {/* ── Revenue Trend Chart ── */}
           <Panel className="mb-6">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-soft/25 bg-panel-soft/45 px-4 py-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-white">Khoảng thời gian</span>
-              <span className="rounded-md border border-border-soft/30 bg-primary/20 px-2.5 py-1 text-xs font-bold text-content">
-                {activeRangeLabel}
-              </span>
-            </div>
             <div className="mb-4 flex items-center gap-2">
-              <BarChart3 className="size-5 text-tertiary" />
-              <h2 className="font-bold text-content">Xu hướng giao dịch vé</h2>
+              <BarChart3 className="size-5 text-[#E6C17A]" />
+              <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Xu hướng giao dịch vé</h2>
             </div>
             <div className={comparison.enabled ? 'grid items-start gap-5 xl:grid-cols-2' : ''}>
               <div>
@@ -646,7 +630,7 @@ export function AdminAnalyticsPage() {
 
           <Panel className="mb-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-bold text-content">Tình trạng vận hành</h2>
+              <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Tình trạng vận hành</h2>
               <span className="rounded-md border border-border-soft/30 bg-panel-soft px-2.5 py-1 text-xs font-bold text-subtle">
                 Tổng quan
               </span>
@@ -692,8 +676,7 @@ export function AdminAnalyticsPage() {
             <Panel className="mb-6">
               <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <h2 className="font-bold text-content">Doanh thu từ gói dịch vụ</h2>
-                  <p className="mt-1 text-xs text-subtle">So sánh doanh thu từng gói, số lượt đăng ký và số gói active.</p>
+                  <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Doanh thu từ gói dịch vụ</h2>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
                   <CompactMetric
@@ -760,16 +743,16 @@ export function AdminAnalyticsPage() {
             )}
 
             <Panel>
-              <h2 className="mb-4 font-bold text-content">Tóm tắt đơn hàng</h2>
+              <h2 className="mb-4 font-bold text-white [html.light_&]:text-[#0D1B2A]">Tóm tắt đơn hàng</h2>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 {[
-                  ['Tổng đơn', Number(orders.total_orders).toLocaleString('vi-VN'), 'text-content'],
+                  ['Tổng đơn', Number(orders.total_orders).toLocaleString('vi-VN'), 'text-white'],
                   ['Đã thanh toán', Number(orders.paid_orders).toLocaleString('vi-VN'), 'text-success'],
                   ['Đang xử lý', Number(orders.pending_orders).toLocaleString('vi-VN'), 'text-warning'],
                   ['Đã hủy', Number(orders.cancelled_orders).toLocaleString('vi-VN'), 'text-error'],
                 ].map(([label, value, color]) => (
                   <div key={label} className="flex items-center justify-between rounded-md border border-border-soft/30 bg-panel-soft/60 px-4 py-3">
-                    <p className="text-xs font-bold uppercase text-subtle">{label}</p>
+                    <p className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
                     <p className={`text-lg font-extrabold ${color}`}>{value}</p>
                   </div>
                 ))}

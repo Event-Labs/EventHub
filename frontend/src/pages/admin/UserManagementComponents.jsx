@@ -152,7 +152,7 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
             items={[
                ['Sự kiện đã tạo', user.events_created || 0, 'Organizer'],
                ['Vé đã mua', user.tickets_bought || 0, 'Customer'],
-               ['Tổng giao dịch', `${(user.total_spent || 0).toLocaleString('vi-VN')} VNĐ`, 'Finance'],
+               ['Tổng giao dịch', `${Math.round(Number(user.total_spent || 0)).toLocaleString('vi-VN')} đ`, 'Finance'],
                ['Cập nhật gần nhất', new Date(user.updated_at).toLocaleDateString('vi-VN'), 'System'],
             ]}
           />
@@ -278,16 +278,19 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
       title="Khóa tài khoản người dùng"
       onClose={onClose}
       footer={
-        <>
-          <button className="admin-secondary px-6 shrink-0" onClick={onClose}>Hủy bỏ</button>
+        <div className="flex w-full items-center justify-end gap-3">
+          <button type="button" className="admin-secondary px-6" onClick={onClose}>
+            Hủy bỏ
+          </button>
           <button 
-            className="admin-primary bg-error border-none text-white hover:bg-error/90 w-full font-extrabold rounded-xl" 
+            type="button"
+            className="admin-primary bg-error border-none text-white hover:bg-error/90 px-6 font-extrabold rounded-xl" 
             onClick={handleSubmit} 
             disabled={loading}
           >
-            {loading ? 'Đang thực hiện...' : 'Xác nhận khóa tài khoản'}
+            {loading ? 'Đang thực hiện...' : 'Xác nhận'}
           </button>
-        </>
+        </div>
       }
     >
       <div className="space-y-6">
@@ -302,25 +305,32 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
         </div>
 
         <div>
-          <label className="text-xs font-bold uppercase text-subtle">Lý do khóa tài khoản</label>
+          <label className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">Lý do khóa tài khoản</label>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {reasons.map(r => (
-               <label key={r} className={`flex items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition cursor-pointer ${reason === r ? 'border-primary bg-tertiary/10 text-tertiary' : 'border-border-soft/40 bg-panel-soft text-subtle hover:bg-panel-soft/80'}`}>
+               <label
+                 key={r}
+                 className={`flex items-center gap-2.5 rounded-xl border p-3 text-sm font-semibold transition cursor-pointer ${
+                   reason === r
+                     ? 'border-[#C99A47] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/15 text-[#E6C17A] shadow-md shadow-[#C99A47]/20 [html.light_&]:bg-amber-100/70 [html.light_&]:text-[#854d0e]'
+                     : 'border-white/10 bg-panel-soft text-slate-300 hover:border-white/20 hover:text-white [html.light_&]:border-border-soft [html.light_&]:text-subtle'
+                 }`}
+               >
                   <input 
                     type="radio" 
                     name="reason" 
                     value={r} 
                     checked={reason === r} 
                     onChange={(e) => setReason(e.target.value)}
-                    className="accent-primary"
+                    className="accent-[#C99A47] size-4"
                   />
-                  {r}
+                  <span>{r}</span>
                </label>
             ))}
           </div>
           {reason === 'Khác' && (
             <textarea
-              className="mt-3 w-full rounded-xl border border-border-soft/40 bg-panel-soft p-3 text-sm font-medium text-content outline-none focus:border-primary placeholder:text-muted"
+              className="mt-3 w-full rounded-xl border border-border-soft/40 bg-panel-soft p-3 text-sm font-medium text-content outline-none focus:border-[#C99A47] placeholder:text-muted"
               placeholder="Nhập lý do cụ thể..."
               value={customReason}
               onChange={(e) => setCustomReason(e.target.value)}
@@ -330,7 +340,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
         </div>
 
         <div>
-           <label className="text-xs font-bold uppercase text-subtle">Thời gian khóa</label>
+           <label className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">Thời gian khóa</label>
            <div className="mt-3 flex flex-wrap gap-2">
               {durations.map(d => (
                 <button

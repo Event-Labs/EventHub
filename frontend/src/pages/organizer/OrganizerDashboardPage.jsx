@@ -77,23 +77,20 @@ function riskClass(level) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, trend, accentBg = 'bg-primary/20', accentColor = 'text-primary' }) {
+function StatCard({ label, value, sub, trend }) {
   return (
-    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-white/5 shadow-inner ${accentBg}`}>
-        <Icon className={`size-6 ${accentColor}`} />
+    <div className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+      <div>
+        <p className="text-[13px] font-bold uppercase tracking-wider text-content">{label}</p>
+        <p className="mt-2 truncate text-3xl font-black text-content font-display drop-shadow-sm">{value}</p>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-bold uppercase tracking-wider text-white">{label}</p>
-        <p className="mt-1 truncate text-2xl font-black text-white drop-shadow-sm">{value}</p>
-        {sub && (
-          <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-slate-300">
-            {trend === 'up' && <ArrowUpRight className="size-4 text-success drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]" />}
-            {trend === 'down' && <ArrowDownRight className="size-4 text-error drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
-            {sub}
-          </p>
-        )}
-      </div>
+      {sub && (
+        <p className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-slate-300">
+          {trend === 'up' && <ArrowUpRight className="size-4 text-success drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]" />}
+          {trend === 'down' && <ArrowDownRight className="size-4 text-error drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
+          {sub}
+        </p>
+      )}
     </div>
   )
 }
@@ -650,9 +647,9 @@ function TierBreakdownTable({ tiers = [] }) {
         </h4>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
+        <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-slate-900/50 text-slate-400">
+            <tr className="border-b border-white/5 bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider font-bold">
               <th className="px-4 py-2.5 font-bold">Hạng vé</th>
               <th className="px-4 py-2.5 font-bold">Giá niêm yết</th>
               <th className="px-4 py-2.5 font-bold">Đã bán / Sức chứa</th>

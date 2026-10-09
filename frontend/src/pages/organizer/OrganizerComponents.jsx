@@ -1,18 +1,28 @@
 import { isValidElement, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Sparkles } from 'lucide-react'
+import { ArrowLeft, Plus, Search, Sparkles } from 'lucide-react'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 
 /**
  * OrganizerPage – page-level layout wrapper
  */
-export function OrganizerPage({ title, description, action, actionTo, onAction, children }) {
+export function OrganizerPage({ title, description, backLink, backLabel, backAction, action, actionTo, onAction, children }) {
   const actionIsElement = isValidElement(action)
 
   return (
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="flex flex-col gap-1.5">
+          {backLink && (
+            <Link
+              to={backLink}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-white hover:text-white/80 transition-colors w-fit"
+            >
+              <ArrowLeft className="size-4" />
+              <span>{backLabel || 'Quay lại'}</span>
+            </Link>
+          )}
+          {backAction}
           <h1 className="font-display text-3xl font-black tracking-tight">
             {renderCosmicTitle(title)}
           </h1>
@@ -56,17 +66,27 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
       <div className="w-full overflow-x-auto">
-        <table className={`w-full ${minWidth} text-left text-xs`}>
+        <table className={`w-full ${minWidth} text-left text-sm`}>
           <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
             <tr>
-              {headers.map((header) => (
-                <th
-                  key={header}
-                  className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap"
-                >
-                  {header}
-                </th>
-              ))}
+              {headers.map((header, colIndex) => {
+                const isObj = typeof header === 'object' && header !== null
+                const label = isObj ? header.label : header
+                const isCenter = isObj
+                  ? header.align === 'center'
+                  : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                return (
+                  <th
+                    key={label || colIndex}
+                    className={`px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap ${
+                      isCenter ? 'text-center' : ''
+                    }`}
+                  >
+                    {label}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -75,11 +95,29 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
                 key={rowIndex}
                 className="transition-colors hover:bg-white/[0.02]"
               >
-                {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="px-3.5 py-3 align-middle text-slate-200">
-                    {cell}
-                  </td>
-                ))}
+                {row.map((cell, cellIndex) => {
+                  const header = headers[cellIndex]
+                  const isObj = typeof header === 'object' && header !== null
+                  const label = isObj ? header.label : header
+                  const isCenter = isObj
+                    ? header.align === 'center'
+                    : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                  return (
+                    <td
+                      key={cellIndex}
+                      className={`px-3.5 py-3.5 align-middle text-slate-200 text-sm ${
+                        isCenter ? 'text-center' : ''
+                      }`}
+                    >
+                      {isCenter ? (
+                        <div className="flex items-center justify-center gap-1.5">{cell}</div>
+                      ) : (
+                        cell
+                      )}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
@@ -164,22 +202,21 @@ export function AvatarInitials({ name, src, className = 'size-9' }) {
 /**
  * StatCard – KPI metric card
  */
-export function StatCard({ icon: Icon, label, value, sub, trend, accentColor = 'text-tertiary', accentBg = 'bg-tertiary/15' }) {
+export function StatCard({ label, value, sub, trend }) {
   return (
-    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner ${accentBg}`}>
-        {Icon && <Icon className={`size-6 ${accentColor}`} />}
-      </div>
-      <div className="min-w-0 flex-1">
+    <div className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+      <div>
         <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-        <p className="mt-1 text-2xl font-black text-content tracking-tight font-display drop-shadow-sm">{value}</p>
-        {sub && (
-          <p className="mt-1.5 truncate text-[13px] font-medium text-muted">{sub}</p>
-        )}
+        <p className="mt-2 text-3xl font-black text-content tracking-tight font-display drop-shadow-sm">{value}</p>
       </div>
-      {trend !== undefined && (
-        <div className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${trend >= 0 ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
-          {trend >= 0 ? '+' : ''}{trend}%
+      {(sub || trend !== undefined) && (
+        <div className="mt-3 flex items-center justify-between gap-2">
+          {sub && <p className="truncate text-[13px] font-medium text-muted">{sub}</p>}
+          {trend !== undefined && (
+            <div className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${trend >= 0 ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
+              {trend >= 0 ? '+' : ''}{trend}%
+            </div>
+          )}
         </div>
       )}
     </div>

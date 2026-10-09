@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit3, Plus, Power, Trash2, X } from 'lucide-react'
+import { Edit3, Plus, Power, Trash2 } from 'lucide-react'
 import {
   createAdminEventCategory,
   deleteAdminEventCategory,
@@ -9,6 +9,7 @@ import {
 } from '@/services/events.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 const emptyForm = {
@@ -184,16 +185,16 @@ export function AdminEventCategoriesPage() {
           <Table
             headers={['Tên loại', 'Slug', 'Mô tả', 'Số sự kiện', 'Trạng thái', 'Hành động']}
             rows={categories.map((category) => [
-              <span key="name" className="font-extrabold text-content">{category.name}</span>,
-              <span key="slug" className="font-semibold text-subtle">{category.slug}</span>,
-              <span key="description" className="line-clamp-2 text-subtle">
+              <span key="name" className="text-sm font-extrabold text-content">{category.name}</span>,
+              <span key="slug" className="text-sm font-semibold text-subtle">{category.slug}</span>,
+              <span key="description" className="text-sm line-clamp-2 text-subtle">
                 {category.description || 'Chưa có mô tả'}
               </span>,
-              <span key="count" className="font-extrabold text-content">
+              <span key="count" className="text-sm font-extrabold text-content block text-center">
                 {category.event_count ?? 0}
               </span>,
               <StatusBadge key="status" status={category.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-              <div key="actions" className="flex items-center gap-2">
+              <div key="actions" className="flex items-center justify-center gap-2">
                 <TableActionButton
                   title="Sửa"
                   icon={Edit3}
@@ -221,28 +222,36 @@ export function AdminEventCategoriesPage() {
       </div>
 
       {modalMode && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-          <form
-            onSubmit={submitForm}
-            className="w-full max-w-lg rounded-2xl border border-border-soft/40 bg-surface p-5 shadow-2xl"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-extrabold text-content">
-                  {modalMode === 'edit' ? 'Cập nhật loại sự kiện' : 'Thêm loại sự kiện'}
-                </h3>
-              </div>
+        <Modal
+          open={Boolean(modalMode)}
+          title={modalMode === 'edit' ? 'Cập nhật loại sự kiện' : 'Thêm loại sự kiện'}
+          onClose={closeModal}
+          maxWidth="max-w-lg"
+          footer={
+            <div className="flex w-full items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={closeModal}
-                className="grid size-9 place-items-center rounded-xl text-subtle transition hover:bg-panel-soft"
+                className="admin-secondary px-6"
               >
-                <X className="size-4" />
+                Hủy
+              </button>
+              <button
+                type="submit"
+                form="event-category-form"
+                disabled={isSaving}
+                className="admin-primary px-6 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSaving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
-
-            <label className="mt-5 block">
-              <span className="text-xs font-bold text-subtle">Tên loại</span>
+          }
+        >
+          <form id="event-category-form" onSubmit={submitForm} className="space-y-4">
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">
+                Tên loại
+              </span>
               <input
                 required
                 maxLength={100}
@@ -255,81 +264,64 @@ export function AdminEventCategoriesPage() {
                     slug: modalMode === 'create' && !current.slug ? slugifyText(name) : current.slug,
                   }))
                 }}
-                className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary placeholder:text-muted"
+                placeholder="Nhập tên loại sự kiện..."
+                className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white outline-none focus:border-[#C99A47] placeholder:text-slate-400 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
               />
             </label>
 
-            <label className="mt-4 block">
-              <span className="text-xs font-bold text-subtle">Slug</span>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">
+                Slug
+              </span>
               <input
                 required
                 maxLength={150}
                 value={form.slug}
                 onChange={(event) => setForm({ ...form, slug: slugifyText(event.target.value) })}
                 placeholder="am-nhac-bieu-dien"
-                className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary placeholder:text-muted"
+                className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white outline-none focus:border-[#C99A47] placeholder:text-slate-400 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
               />
             </label>
 
-            <label className="mt-4 block">
-              <span className="text-xs font-bold text-subtle">Mô tả</span>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">
+                Mô tả
+              </span>
               <textarea
                 rows={4}
                 maxLength={1000}
                 value={form.description}
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
-                className="mt-2 w-full resize-none rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
+                placeholder="Nhập mô tả cho loại sự kiện..."
+                className="mt-2 w-full resize-none rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 py-3 text-sm text-white outline-none focus:border-[#C99A47] placeholder:text-slate-400 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
               />
             </label>
 
-            <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-subtle">
+            <label className="flex items-center gap-3 pt-1 text-sm font-semibold text-white [html.light_&]:text-[#0D1B2A] cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.is_active}
                 onChange={(event) => setForm({ ...form, is_active: event.target.checked })}
-                className="size-4 accent-primary"
+                className="size-4.5 rounded accent-[#C99A47] cursor-pointer"
               />
-              Đang hoạt động
+              <span>Đang hoạt động</span>
             </label>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={closeModal} className="admin-secondary">
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="admin-primary disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSaving ? 'Đang lưu...' : 'Lưu'}
-              </button>
-            </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-5 text-content shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-extrabold text-content">
-                  Xóa loại sự kiện?
-                </h3>
-                <p className="mt-2 text-sm font-semibold text-subtle">
-                  Loại <span className="font-bold text-content">{deleteTarget.name}</span> sẽ
-                  bị ẩn khỏi hệ thống nhưng dữ liệu vẫn được giữ trong database.
-                </p>
-              </div>
-              <button type="button" onClick={() => setDeleteTarget(null)} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft">
-                <X className="size-4" />
-              </button>
-            </div>
-            <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
+        <Modal
+          open={Boolean(deleteTarget)}
+          title="Xóa loại sự kiện?"
+          onClose={() => setDeleteTarget(null)}
+          maxWidth="max-w-md"
+          footer={
+            <div className="flex w-full items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="admin-secondary"
+                className="admin-secondary px-6"
               >
                 Hủy
               </button>
@@ -337,13 +329,19 @@ export function AdminEventCategoriesPage() {
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
               </button>
             </div>
+          }
+        >
+          <div className="py-1">
+            <p className="text-sm font-medium leading-relaxed text-slate-200 [html.light_&]:text-[#0D1B2A]">
+              Loại <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">{deleteTarget.name}</span> sẽ bị ẩn khỏi hệ thống nhưng dữ liệu vẫn được giữ trong database.
+            </p>
           </div>
-        </div>
+        </Modal>
       )}
     </Page>
   )
@@ -354,7 +352,7 @@ function MetricCard({ label, value, accent }) {
     <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
         <p className="mt-5 text-4xl font-display font-extrabold leading-none text-content tracking-tight">{value}</p>
       </div>
     </Panel>

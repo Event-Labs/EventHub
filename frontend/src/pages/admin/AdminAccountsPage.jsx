@@ -248,11 +248,11 @@ export function AdminAccountsPage() {
               <Badge tone="gray">CHƯA XÁC THỰC</Badge>
             )}
           </div>,
-          <span key="date" className="text-subtle font-medium">
+          <span key="date" className="text-sm text-subtle font-medium">
             {new Date(user.created_at).toLocaleDateString('vi-VN')}
           </span>,
           <Status key="status" value={user.status} />,
-          <div key="actions" className="flex items-center gap-2">
+          <div key="actions" className="flex items-center justify-center gap-2">
             <TableActionButton
               icon={Eye}
               tone="default"

@@ -773,7 +773,7 @@ export function OrganizerVenueSeatMapsPage() {
             <span key="seats" className="whitespace-nowrap font-mono">{getSeatMapTotalSeats(sm)}</span>,
             <span key="zones" className="whitespace-nowrap">{getSeatMapZoneCount(sm)}</span>,
             <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-            <div key="actions" className="flex items-center gap-2 whitespace-nowrap">
+            <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">
               <TableActionButton
                 icon={Eye}
                 tone="default"

@@ -40,17 +40,27 @@ export function StaffTable({ headers, rows }) {
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
       <div className="w-full overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-xs">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
             <tr>
-              {headers.map((h) => (
-                <th
-                  key={h}
-                  className="px-4 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap"
-                >
-                  {h}
-                </th>
-              ))}
+              {headers.map((h, colIndex) => {
+                const isObj = typeof h === 'object' && h !== null
+                const label = isObj ? h.label : h
+                const isCenter = isObj
+                  ? h.align === 'center'
+                  : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                return (
+                  <th
+                    key={label || colIndex}
+                    className={`px-4 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap ${
+                      isCenter ? 'text-center' : ''
+                    }`}
+                  >
+                    {label}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -59,11 +69,29 @@ export function StaffTable({ headers, rows }) {
                 key={i}
                 className="transition-colors hover:bg-white/[0.02]"
               >
-                {row.map((cell, j) => (
-                  <td key={j} className="px-4 py-3.5 align-middle text-slate-200">
-                    {cell}
-                  </td>
-                ))}
+                {row.map((cell, j) => {
+                  const header = headers[j]
+                  const isObj = typeof header === 'object' && header !== null
+                  const label = isObj ? header.label : header
+                  const isCenter = isObj
+                    ? header.align === 'center'
+                    : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                  return (
+                    <td
+                      key={j}
+                      className={`px-4 py-3.5 align-middle text-slate-200 text-sm ${
+                        isCenter ? 'text-center' : ''
+                      }`}
+                    >
+                      {isCenter ? (
+                        <div className="flex items-center justify-center gap-1.5">{cell}</div>
+                      ) : (
+                        cell
+                      )}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
