@@ -372,7 +372,7 @@ export function OrganizerPromosPage() {
             />
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-base font-bold text-white">Trạng thái:</span>
+            <span className="text-sm font-bold text-white">Trạng thái:</span>
             <select
               className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary min-w-[140px]"
               value={filters.status}
@@ -396,15 +396,15 @@ export function OrganizerPromosPage() {
           minWidth="min-w-full"
           headers={['Mã khuyến mãi', 'Sự kiện áp dụng', 'Loại giảm giá', 'Theo dõi sử dụng', 'Thời gian áp dụng', 'Trạng thái', 'Thao tác']}
           rows={promos.map((promo) => [
-            <span key="promo" className="font-mono text-xs font-bold text-white tracking-wider whitespace-nowrap">{promo.code}</span>,
-            <span key="event" className="line-clamp-2 max-w-[150px] text-xs font-medium text-white" title={promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}>
+            <span key="promo" className="font-mono text-sm font-bold text-white tracking-wider whitespace-nowrap">{promo.code}</span>,
+            <span key="event" className="line-clamp-2 max-w-[200px] text-sm font-semibold text-white" title={promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}>
               {promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}
             </span>,
-            <span key="type" className="text-xs font-medium text-white whitespace-nowrap">{getDiscountLabel(promo)}</span>,
+            <span key="type" className="text-sm font-medium text-white whitespace-nowrap">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
-            <span key="period" className="whitespace-nowrap text-xs font-medium text-slate-300">{formatDateRange(promo.start_time, promo.end_time)}</span>,
+            <span key="period" className="whitespace-nowrap text-sm font-medium text-slate-300">{formatDateRange(promo.start_time, promo.end_time)}</span>,
             <StatusBadge key="status" status={promo.status} />,
-            <div key="actions" className="flex items-center gap-1.5 whitespace-nowrap">
+            <div key="actions" className="flex items-center justify-center gap-1.5 whitespace-nowrap">
               <TableActionButton
                 icon={Eye}
                 tone="default"
@@ -491,12 +491,12 @@ export function OrganizerPromosPage() {
 
 function Usage({ used, limit, percent }) {
   if (limit === null || limit === undefined || limit === 0) {
-    return <span className="text-xs font-medium text-slate-300 whitespace-nowrap">Không giới hạn</span>
+    return <span className="text-sm font-medium text-slate-300 whitespace-nowrap">Không giới hạn</span>
   }
 
   return (
-    <div className="w-24">
-      <div className="mb-1 flex justify-between text-[11px] font-bold font-display tracking-tight">
+    <div className="w-28">
+      <div className="mb-1 flex justify-between text-xs font-bold font-display tracking-tight">
         <span className="text-white">{used} / {limit}</span>
         <span className="text-cyan-400">{percent}%</span>
       </div>

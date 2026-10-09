@@ -63,6 +63,24 @@ function formatCurrency(amount) {
   )
 }
 
+function formatDateOnly(dateStr) {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatTimeOnly(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
 function formatDateTime(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleString('vi-VN', {
@@ -221,17 +239,17 @@ export function OrganizerOrdersPage() {
       ) : (
         <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
           <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[880px] text-left text-xs">
+            <table className="w-full text-left text-sm">
               <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                 <tr>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Mã đơn</th>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Người mua</th>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Số vé</th>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Tổng tiền</th>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Ngày đặt</th>
-                  <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Thao tác</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Mã đơn</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Người mua</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
+                  <th className="w-14 px-2 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Số vé</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Tổng tiền</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Trạng thái</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Ngày đặt</th>
+                  <th className="w-14 px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -240,51 +258,54 @@ export function OrganizerOrdersPage() {
                     key={order.id}
                     className="hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="px-3.5 py-3 whitespace-nowrap">
-                      <span className="font-mono text-xs font-bold text-content">
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <span className="font-mono text-xs sm:text-sm font-bold text-content tracking-tight">
                         {order.order_code}
                       </span>
                     </td>
-                    <td className="px-3.5 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="max-w-[170px] xl:max-w-[210px] px-3 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
                         <AvatarInitials
                           name={order.buyer_name || order.buyer_email || 'K'}
                           className="size-8 shrink-0 animate-pulse-slow"
                         />
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-content">{order.buyer_name}</p>
-                          <p className="truncate text-xs text-subtle">{order.buyer_email}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-content" title={order.buyer_name}>{order.buyer_name}</p>
+                          <p className="truncate text-xs text-subtle" title={order.buyer_email}>{order.buyer_email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3.5 py-3">
-                      <p className="max-w-[170px] truncate font-bold text-white text-xs">
+                    <td className="max-w-[160px] xl:max-w-[200px] px-3 py-3">
+                      <p className="truncate text-sm font-bold text-white" title={order.event_title}>
                         {order.event_title}
                       </p>
                     </td>
-                    <td className="px-3.5 py-3 text-center font-semibold text-content whitespace-nowrap">
+                    <td className="w-14 px-2 py-3 text-center text-sm font-semibold text-content whitespace-nowrap">
                       {order.ticket_quantity}
                     </td>
-                    <td className="px-3.5 py-3 font-bold text-primary whitespace-nowrap">
+                    <td className="px-3 py-3 text-right font-mono font-bold text-primary text-sm whitespace-nowrap">
                       {formatCurrency(order.total_amount)}
                     </td>
-                    <td className="px-3.5 py-3 whitespace-nowrap">
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
                       <StatusBadge
                         status={order.status}
                         label={STATUS_LABEL[order.status]}
                         tone={STATUS_TONE[order.status]}
                       />
                     </td>
-                    <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
-                      {formatDateTime(order.created_at)}
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <p className="text-sm font-medium text-slate-200">{formatDateOnly(order.created_at)}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{formatTimeOnly(order.created_at)}</p>
                     </td>
-                    <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                      <TableActionButton
-                        onClick={() => setDetailOrderId(order.id)}
-                        title="Xem chi tiết"
-                        icon={Eye}
-                        tone="default"
-                      />
+                    <td className="w-14 px-3 py-3 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center">
+                        <TableActionButton
+                          onClick={() => setDetailOrderId(order.id)}
+                          title="Xem chi tiết"
+                          icon={Eye}
+                          tone="default"
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

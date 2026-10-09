@@ -394,7 +394,7 @@ export function OrganizerEventsPage() {
             <span key="updated" className="whitespace-nowrap">{formatEventDate(event.updated_at)}</span>,
 
             /* Actions */
-            <div key="actions" className="flex items-center gap-2 whitespace-nowrap">
+            <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">
               <TableActionButton
                 to={`/organizer/events/${event.id}`}
                 title="Xem chi tiết"

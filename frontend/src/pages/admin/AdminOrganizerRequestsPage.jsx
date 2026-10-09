@@ -7,6 +7,7 @@ import {
 } from '@/services/organizerRequests.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 
@@ -246,89 +247,33 @@ export function AdminOrganizerRequestsPage() {
       )}
 
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-          <Panel className="admin-review-modal-scroll max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto border-border-soft/60">
-            {selectedRequest.organization_avatar_url && (
-              <img
-                src={selectedRequest.organization_avatar_url}
-                alt={selectedRequest.organization_name}
-                className="mb-4 size-20 rounded-xl border border-border-soft/40 object-cover"
-              />
-            )}
-            <h3 className="font-display text-2xl font-extrabold text-content">
-              {selectedRequest.organization_name}
-            </h3>
-            <p className="mt-1 text-sm text-subtle font-medium">
-              {selectedRequest.applicant?.full_name} · {selectedRequest.applicant?.email}
-            </p>
-            <div className="mt-4 grid gap-3 rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm sm:grid-cols-2">
-              <Info label="Trạng thái" value={statusLabel(selectedRequest.status)} />
-              <Info label="Nội dung yêu cầu" value={requestActionLabel(selectedRequest.request_action)} />
-              <Info label="Loại đăng ký" value={requestTypeLabel(selectedRequest.request_type)} />
-              <Info label="Số điện thoại" value={selectedRequest.business_phone} />
-              <Info label="SĐT tài khoản" value={selectedRequest.applicant?.phone || 'Chưa cung cấp'} />
-              <Info
-                label="Email tổ chức"
-                value={
-                  selectedRequest.business_email
-                    ? `${selectedRequest.business_email} · ${
-                        selectedRequest.business_email_verified ? 'Đã xác thực' : 'Chưa xác thực'
-                      }`
-                    : 'Không áp dụng'
-                }
-              />
-              <Info label="Mã số thuế" value={selectedRequest.tax_code || 'Không áp dụng'} />
-              {selectedRequest.request_type === 'ORGANIZATION' ? (
-                <>
-                  <Info label="Người đại diện" value={selectedRequest.legal_representative_name || 'Chưa cung cấp'} />
-                  <Info label="Chức vụ" value={selectedRequest.legal_representative_position || 'Chưa cung cấp'} />
-                  <InfoDocument label="Giấy chứng nhận đăng ký doanh nghiệp" url={selectedRequest.legal_document_url} />
-                  <InfoDocument label="Giấy phép đặc thù" url={selectedRequest.business_license_url} />
-                  <InfoDocument label="Giấy tờ người đại diện" url={selectedRequest.legal_representative_id_url} />
-                  <InfoDocument label="Giấy ủy quyền" url={selectedRequest.authorization_letter_url} />
-                </>
-              ) : (
-                <>
-                  <Info label="Họ tên pháp lý" value={selectedRequest.individual_full_name || 'Chưa cung cấp'} />
-                  <Info label="Số CCCD/Hộ chiếu" value={selectedRequest.individual_identity_number || 'Chưa cung cấp'} />
-                  <Info label="MST cá nhân" value={selectedRequest.individual_tax_code || 'Chưa cung cấp'} />
-                  <InfoDocument label="CCCD mặt trước" url={selectedRequest.individual_id_front_url} />
-                  <InfoDocument label="CCCD mặt sau" url={selectedRequest.individual_id_back_url} />
-                  <InfoDocument label="Ảnh selfie" url={selectedRequest.individual_selfie_url} />
-                </>
-              )}
-              <Info
-                label="Điều khoản Organizer"
-                value={selectedRequest.terms_accepted ? 'Đã chấp nhận' : 'Chưa chấp nhận'}
-              />
-              {selectedRequest.change_summary && (
-                <Info label="Duyệt về" value={selectedRequest.change_summary} />
-              )}
-            </div>
-            <p className="mt-4 whitespace-pre-wrap text-sm text-subtle leading-relaxed bg-panel-soft p-4 rounded-xl border border-border-soft/30">
-              {selectedRequest.organization_description}
-            </p>
-
-            {selectedRequest.status === 'PENDING' ? (
-              <>
-                <label className="mt-5 block">
-                  <span className="text-sm font-semibold text-subtle">
-                    Ghi chú (bắt buộc khi từ chối)
-                  </span>
-                  <textarea
-                    className="mt-2 min-h-24 w-full rounded-xl border border-border-soft/40 bg-panel-soft p-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
-                    value={reviewNote}
-                    onChange={(event) => setReviewNote(event.target.value)}
-                    placeholder="Lý do duyệt / từ chối..."
-                  />
-                </label>
-                {reviewError && (
-                  <p className="mt-3 text-sm text-error font-semibold">{reviewError}</p>
-                )}
-                <div className="mt-5 flex flex-wrap gap-3">
+        <Modal
+          open={Boolean(selectedRequest)}
+          title="Chi tiết yêu cầu Organizer"
+          onClose={() => setSelectedRequest(null)}
+          maxWidth="max-w-3xl"
+          footer={
+            selectedRequest.status === 'PENDING' ? (
+              <div className="flex w-full flex-wrap items-center justify-end gap-3">
                 <button
                   type="button"
-                  className="admin-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  className="admin-secondary px-6"
+                  onClick={() => setSelectedRequest(null)}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  className="admin-danger flex items-center gap-2 rounded-xl px-5 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={reviewMutation.isPending}
+                  onClick={() => submitReview('REJECTED')}
+                >
+                  <XCircle className="size-4" />
+                  Từ chối
+                </button>
+                <button
+                  type="button"
+                  className="admin-primary flex items-center gap-2 rounded-xl px-6 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={
                     reviewMutation.isPending ||
                     (selectedRequest.request_type === 'ORGANIZATION' &&
@@ -336,67 +281,155 @@ export function AdminOrganizerRequestsPage() {
                       !selectedRequest.business_email_verified)
                   }
                   onClick={() => submitReview('APPROVED')}
-                  >
-                    <CheckCircle2 className="size-4" />
-                    Duyệt
-                  </button>
-                <button
-                  type="button"
-                  className="admin-danger disabled:cursor-not-allowed disabled:opacity-70"
-                  disabled={reviewMutation.isPending}
-                  onClick={() => submitReview('REJECTED')}
-                  >
-                    <XCircle className="size-4" />
-                    Từ chối
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-secondary"
-                    onClick={() => setSelectedRequest(null)}
-                  >
-                    Đóng
-                  </button>
-                </div>
-              </>
+                >
+                  <CheckCircle2 className="size-4" />
+                  {reviewMutation.isPending ? 'Đang xử lý...' : 'Duyệt yêu cầu'}
+                </button>
+              </div>
             ) : (
-              <div className="mt-5 space-y-3 text-sm">
-                <p className="text-subtle font-medium">
-                  <span className="text-content font-bold">Trạng thái: </span>
-                  {statusLabel(selectedRequest.status)}
-                </p>
-                {selectedRequest.review_note && (
-                  <p className="text-subtle font-medium">
-                    <span className="text-content font-bold">Ghi chú: </span>
-                    {selectedRequest.review_note}
-                  </p>
-                )}
+              <div className="flex w-full items-center justify-end gap-3">
                 <button
                   type="button"
-                  className="admin-secondary"
+                  className="admin-secondary px-6"
                   onClick={() => setSelectedRequest(null)}
                 >
                   Đóng
                 </button>
               </div>
+            )
+          }
+        >
+          <div className="space-y-6">
+            {/* Header info card */}
+            <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#121c38]/60 p-5 sm:flex-row sm:items-center sm:justify-between [html.light_&]:border-border-soft/40 [html.light_&]:bg-panel-soft">
+              <div className="flex items-center gap-4">
+                {selectedRequest.organization_avatar_url ? (
+                  <img
+                    src={selectedRequest.organization_avatar_url}
+                    alt={selectedRequest.organization_name}
+                    className="size-16 rounded-2xl border border-white/15 object-cover shadow-md"
+                  />
+                ) : (
+                  <div className="grid size-16 place-items-center rounded-2xl bg-tertiary/20 text-tertiary border border-tertiary/30">
+                    <Building2 className="size-8" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-display text-xl font-extrabold text-white [html.light_&]:text-[#0D1B2A]">
+                    {selectedRequest.organization_name}
+                  </h3>
+                  <p className="mt-1 text-sm font-medium text-slate-300 [html.light_&]:text-[#536b88]">
+                    {selectedRequest.applicant?.full_name} · {selectedRequest.applicant?.email}
+                  </p>
+                </div>
+              </div>
+              <StatusBadge status={selectedRequest.status} />
+            </div>
+
+            {/* Description if present */}
+            {selectedRequest.organization_description && (
+              <div className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-border-soft/40 [html.light_&]:bg-panel-soft">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D] mb-1.5">Mô tả tổ chức</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-white [html.light_&]:text-[#0D1B2A]">
+                  {selectedRequest.organization_description}
+                </p>
+              </div>
             )}
-          </Panel>
-        </div>
+
+            {/* Detailed profile information */}
+            <div className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-5 [html.light_&]:border-border-soft/40 [html.light_&]:bg-panel-soft">
+              <h4 className="mb-4 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                Thông tin hồ sơ đăng ký
+              </h4>
+              <div className="grid gap-4 text-sm sm:grid-cols-2">
+                <Info label="Trạng thái" value={statusLabel(selectedRequest.status)} />
+                <Info label="Nội dung yêu cầu" value={requestActionLabel(selectedRequest.request_action)} />
+                <Info label="Loại đăng ký" value={requestTypeLabel(selectedRequest.request_type)} />
+                <Info label="Số điện thoại" value={selectedRequest.business_phone || 'Chưa cung cấp'} />
+                <Info label="SĐT tài khoản" value={selectedRequest.applicant?.phone || 'Chưa cung cấp'} />
+                <Info
+                  label="Email tổ chức"
+                  value={
+                    selectedRequest.business_email
+                      ? `${selectedRequest.business_email} · ${
+                          selectedRequest.business_email_verified ? 'Đã xác thực' : 'Chưa xác thực'
+                        }`
+                      : 'Không áp dụng'
+                  }
+                />
+                <Info label="Mã số thuế" value={selectedRequest.tax_code || 'Không áp dụng'} />
+                {selectedRequest.request_type === 'ORGANIZATION' ? (
+                  <>
+                    <Info label="Người đại diện" value={selectedRequest.legal_representative_name || 'Chưa cung cấp'} />
+                    <Info label="Chức vụ" value={selectedRequest.legal_representative_position || 'Chưa cung cấp'} />
+                    <InfoDocument label="Giấy chứng nhận đăng ký doanh nghiệp" url={selectedRequest.legal_document_url} />
+                    <InfoDocument label="Giấy phép đặc thù" url={selectedRequest.business_license_url} />
+                    <InfoDocument label="Giấy tờ người đại diện" url={selectedRequest.legal_representative_id_url} />
+                    <InfoDocument label="Giấy ủy quyền" url={selectedRequest.authorization_letter_url} />
+                  </>
+                ) : (
+                  <>
+                    <Info label="Họ tên pháp lý" value={selectedRequest.individual_full_name || 'Chưa cung cấp'} />
+                    <Info label="Số CCCD/Hộ chiếu" value={selectedRequest.individual_identity_number || 'Chưa cung cấp'} />
+                    <Info label="MST cá nhân" value={selectedRequest.individual_tax_code || 'Chưa cung cấp'} />
+                    <InfoDocument label="CCCD mặt trước" url={selectedRequest.individual_id_front_url} />
+                    <InfoDocument label="CCCD mặt sau" url={selectedRequest.individual_id_back_url} />
+                    <InfoDocument label="Ảnh selfie" url={selectedRequest.individual_selfie_url} />
+                  </>
+                )}
+                <Info
+                  label="Điều khoản Organizer"
+                  value={selectedRequest.terms_accepted ? 'Đã chấp nhận' : 'Chưa chấp nhận'}
+                />
+                {selectedRequest.change_summary && (
+                  <Info label="Duyệt về" value={selectedRequest.change_summary} />
+                )}
+              </div>
+            </div>
+
+            {/* Review Note Section */}
+            {selectedRequest.status === 'PENDING' ? (
+              <div className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-5 [html.light_&]:border-border-soft/40 [html.light_&]:bg-panel-soft">
+                <label className="block">
+                  <span className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    Ghi chú (bắt buộc khi từ chối)
+                  </span>
+                  <textarea
+                    className="mt-2.5 min-h-24 w-full rounded-xl border border-white/15 bg-[#0b1329] p-3 text-sm text-white outline-none focus:border-[#C99A47] placeholder:text-slate-400 [html.light_&]:border-border-soft/60 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+                    value={reviewNote}
+                    onChange={(event) => setReviewNote(event.target.value)}
+                    placeholder="Lý do duyệt / từ chối..."
+                  />
+                </label>
+                {reviewError && (
+                  <p className="mt-3 text-sm text-rose-400 font-semibold">{reviewError}</p>
+                )}
+              </div>
+            ) : selectedRequest.review_note ? (
+              <div className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-border-soft/40 [html.light_&]:bg-panel-soft">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">
+                  Ghi chú kiểm duyệt
+                </p>
+                <p className="mt-1 text-sm font-medium text-white [html.light_&]:text-[#0D1B2A]">
+                  {selectedRequest.review_note}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </Modal>
       )}
     </Page>
   )
 }
 
-function MetricCard({ icon: Icon, label, value, accentBg = 'bg-primary/15', accentColor = 'text-primary', sub }) {
+function MetricCard({ label, value, sub }) {
   return (
-    <div className="glass-panel flex items-start gap-4 rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-      <div className={`glass-panel grid size-12 shrink-0 place-items-center rounded-full border-white/5 shadow-inner ${accentBg}`}>
-        {Icon && <Icon className={`size-6 ${accentColor}`} />}
+    <div className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+      <div>
+        <p className="text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
+        <p className="mt-2 text-3xl font-black text-white tracking-tight font-display drop-shadow-sm [html.light_&]:text-[#0D1B2A]">{value}</p>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-        <p className="mt-1 text-2xl font-black text-content tracking-tight font-display drop-shadow-sm">{value}</p>
-        {sub && <p className="mt-1.5 truncate text-[13px] font-medium text-muted">{sub}</p>}
-      </div>
+      {sub && <p className="mt-2 truncate text-[13px] font-medium text-slate-300 [html.light_&]:text-[#536b88]">{sub}</p>}
     </div>
   )
 }
@@ -413,8 +446,8 @@ function FilterGroup({ label, filters, value, onChange }) {
             onClick={() => onChange(filter.value)}
             className={`inline-flex min-w-24 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${
               value === filter.value
-                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 border border-[#C99A47]'
+                : 'border border-white/10 bg-[#151d34] text-slate-300 hover:border-[#C99A47]/50 hover:bg-white/5 hover:text-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#1B365D]'
             }`}
           >
             {filter.label}
@@ -428,8 +461,8 @@ function FilterGroup({ label, filters, value, onChange }) {
 function Info({ label, value }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
-      <p className="mt-1 break-words font-semibold text-content">{value}</p>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</p>
+      <p className="mt-1 break-words font-semibold text-white [html.light_&]:text-[#0D1B2A]">{value}</p>
     </div>
   )
 }
@@ -437,18 +470,18 @@ function Info({ label, value }) {
 function InfoLink({ label, url }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</p>
       {url ? (
         <a
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="mt-1 inline-flex font-semibold text-tertiary underline-offset-4 hover:underline"
+          className="mt-1 inline-flex font-semibold text-[#E6C17A] underline-offset-4 hover:underline"
         >
           Mở tài liệu
         </a>
       ) : (
-        <p className="mt-1 font-semibold text-content">Không áp dụng</p>
+        <p className="mt-1 font-semibold text-slate-400">Không áp dụng</p>
       )}
     </div>
   )
@@ -459,12 +492,12 @@ function InfoDocument({ label, url }) {
 
   return (
     <div className={image ? 'sm:col-span-2' : ''}>
-      <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</p>
       {url ? (
         image ? (
-          <a href={url} target="_blank" rel="noreferrer" className="mt-2 block">
-            <img src={url} alt={label} className="h-48 w-full rounded-xl border border-border-soft/40 object-cover" />
-            <span className="mt-2 inline-flex font-semibold text-tertiary underline-offset-4 hover:underline">
+          <a href={url} target="_blank" rel="noreferrer" className="mt-2 block group">
+            <img src={url} alt={label} className="h-56 w-full rounded-2xl border border-white/15 object-contain bg-black/40 shadow-md group-hover:border-[#C99A47]/60 transition" />
+            <span className="mt-2 inline-flex font-semibold text-[#E6C17A] underline-offset-4 hover:underline">
               Mở ảnh gốc
             </span>
           </a>
@@ -473,13 +506,13 @@ function InfoDocument({ label, url }) {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="mt-1 inline-flex font-semibold text-tertiary underline-offset-4 hover:underline"
+            className="mt-1 inline-flex font-semibold text-[#E6C17A] underline-offset-4 hover:underline"
           >
             Mở tài liệu
           </a>
         )
       ) : (
-        <p className="mt-1 font-semibold text-content">Không áp dụng</p>
+        <p className="mt-1 font-semibold text-slate-400">Không áp dụng</p>
       )}
     </div>
   )

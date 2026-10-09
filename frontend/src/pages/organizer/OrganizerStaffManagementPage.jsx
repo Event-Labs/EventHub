@@ -283,7 +283,7 @@ export function OrganizerStaffManagementPage() {
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[840px] text-left text-xs">
+                  <table className="w-full min-w-[840px] text-left text-sm">
                     <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Nhân sự</th>
@@ -292,7 +292,7 @@ export function OrganizerStaffManagementPage() {
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Ngày phân công</th>
-                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Hành động</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Hành động</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -335,8 +335,8 @@ export function OrganizerStaffManagementPage() {
                           <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
                             {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
                           </td>
-                          <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-2">
+                          <td className="px-3.5 py-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2">
                               <TableActionButton
                                 icon={Edit2}
                                 tone="primary"
@@ -381,7 +381,7 @@ export function OrganizerStaffManagementPage() {
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[880px] text-left text-xs">
+                  <table className="w-full min-w-[880px] text-left text-sm">
                     <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Email</th>
@@ -391,7 +391,7 @@ export function OrganizerStaffManagementPage() {
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Hết hạn</th>
-                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Hành động</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Hành động</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -432,8 +432,8 @@ export function OrganizerStaffManagementPage() {
                               ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
                               : '—'}
                           </td>
-                          <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end">
+                          <td className="px-3.5 py-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center">
                               <TableActionButton
                                 icon={Trash2}
                                 tone="danger"

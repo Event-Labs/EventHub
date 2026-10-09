@@ -369,7 +369,7 @@ export function OrganizerAttendeesPage() {
           ) : (
             <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
               <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[880px] text-left text-xs">
+                <table className="w-full min-w-[880px] text-left text-sm">
                   <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                     <tr>
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Người đặt vé</th>
@@ -395,7 +395,7 @@ export function OrganizerAttendeesPage() {
                               className="size-8 shrink-0 animate-pulse-slow"
                             />
                             <div className="min-w-0">
-                              <p className="truncate font-semibold text-content">{att.attendee_name}</p>
+                              <p className="truncate text-sm font-semibold text-content">{att.attendee_name}</p>
                               <p className="truncate text-xs text-subtle">{att.attendee_email}</p>
                             </div>
                           </div>
@@ -404,16 +404,16 @@ export function OrganizerAttendeesPage() {
                           <Badge tone="blue">{att.ticket_type_name}</Badge>
                         </td>
                         <td className="px-3.5 py-3 text-subtle">
-                          <p className="font-semibold text-content">{att.session_name || '—'}</p>
+                          <p className="text-sm font-semibold text-content">{att.session_name || '—'}</p>
                           <p className="text-xs mt-0.5">{att.venue_name}</p>
                         </td>
-                        <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
+                        <td className="px-3.5 py-3 text-subtle text-sm whitespace-nowrap">
                           {att.row_label && att.seat_number
                             ? `${att.row_label}${att.seat_number}`
                             : 'Không có ghế'}
                         </td>
                         <td className="px-3.5 py-3 whitespace-nowrap">
-                          <span className="font-mono text-xs font-bold text-content">
+                          <span className="font-mono text-sm font-bold text-content">
                             {att.ticket_code}
                           </span>
                         </td>
@@ -424,7 +424,7 @@ export function OrganizerAttendeesPage() {
                             {TICKET_STATUS_LABEL[att.status] || att.status}
                           </Badge>
                         </td>
-                        <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
+                        <td className="px-3.5 py-3 text-subtle text-sm whitespace-nowrap">
                           {formatDateTime(att.checked_in_at)}
                         </td>
                       </tr>
