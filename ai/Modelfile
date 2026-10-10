@@ -77,11 +77,15 @@ Luôn trả về định dạng JSON thuần túy theo schema:
 # PARAMETER stop "<|im_end|>"
 # PARAMETER stop "<|im_start|>"
 
-# Tối ưu hóa Hybrid GPU / CPU cho NVIDIA RTX 3050 (4GB VRAM) & CPU i5-12450H
-PARAMETER num_ctx 4096
+# CPU-only optimization for Intel Core i3-8100T
+# 4 cores / 4 threads
+
+PARAMETER num_ctx 2048
 PARAMETER num_gpu 99
-PARAMETER num_thread 8
-PARAMETER temperature 0.2
+PARAMETER num_thread 4
+PARAMETER temperature 0.1
 PARAMETER top_p 0.85
+PARAMETER repeat_penalty 1.1
+
 PARAMETER stop "<|im_end|>"
 PARAMETER stop "<|im_start|>"

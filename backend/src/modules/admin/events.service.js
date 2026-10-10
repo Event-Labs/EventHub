@@ -825,7 +825,7 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
 
       const aiResponse = await ollamaClient.chat(messages, {
         temperature: 0.15,
-        max_tokens: 1000,
+        max_tokens: 600,
       });
 
       logger.info(`[AiReview] LLM output received (${aiResponse.content.length} chars). Extracting JSON...`);

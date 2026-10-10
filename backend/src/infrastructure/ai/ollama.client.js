@@ -77,9 +77,11 @@ async function generate(prompt, options = {}) {
     options: {
       temperature: options.temperature ?? 0.3,
       top_p:       options.top_p       ?? 0.9,
-      num_predict: options.max_tokens  ?? 2048,
-      num_ctx:     options.num_ctx      ?? 4096,
+      num_predict: options.max_tokens  ?? 800,   // Đổi từ 2048 -> 800
+      num_ctx:     options.num_ctx      ?? 2048,  // Đổi từ 4096 -> 2048
+      num_thread:  options.num_thread   ?? 4,     // Thêm 4 luồng CPU
     },
+
   };
 
   if (Array.isArray(options.images) && options.images.length > 0) {
@@ -139,8 +141,9 @@ async function chat(messages, options = {}) {
     options: {
       temperature: options.temperature ?? 0.2,
       top_p:       options.top_p       ?? 0.85,
-      num_predict: options.max_tokens  ?? 1200,
-      num_ctx:     options.num_ctx      ?? 4096,
+      num_predict: options.max_tokens  ?? 600,   // Đổi từ 1200 -> 600
+      num_ctx:     options.num_ctx      ?? 2048,  // Đổi từ 4096 -> 2048
+      num_thread:  options.num_thread   ?? 4,     // Thêm 4 luồng CPU
     },
   };
 
@@ -429,15 +432,17 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
     '3. Kiểm tra an toàn: Có yếu tố vi phạm (bạo lực, khiêu dâm, cờ bạc, lừa đảo) hay không?\n' +
     'Bắt buộc trả lời hoàn toàn bằng tiếng Việt.';
 
-  const body = {
+    const body = {
     model: OLLAMA_VISION_MODEL,
     prompt,
     images: [base64Image],
     stream: false,
-    keep_alive: 0, // Giải phóng ngay VRAM sau khi đọc ảnh xong để nhường trọn bộ nhớ cho text model
+    keep_alive: '10m', // SỬA 1: Giữ model trong RAM, không để 0
     options: {
       temperature: 0.2,
-      num_predict: 300,
+      num_predict: 200, // SỬA 2: Giảm predict xuống 200
+      num_ctx: 2048,    // SỬA 3: Giảm context xuống 2048
+      num_thread: 4,    // SỬA 4: Ép 4 luồng CPU i3
     },
   };
 
@@ -446,8 +451,8 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
     const rawDescription = String(result.response || '').trim();
     if (!rawDescription) return 'Mô hình AI Vision không trả về mô tả cho ảnh này.';
 
-    // Tự động chuẩn hóa và trau chuốt 100% sang tiếng Việt nhuần nhuyễn
-    return await ensureVietnameseDescription(rawDescription, sourceLabel, eventTitle);
+    // SỬA 5: Trả về trực tiếp rawDescription (Bỏ gọi ensureVietnameseDescription)
+    return rawDescription;
   } catch (err) {
     logger.warn(`[OllamaClient] Vision model '${OLLAMA_VISION_MODEL}' error: ${err.message}`);
     return `Không thể phân tích ảnh bằng vision model (${err.message.slice(0, 100)})`;
@@ -464,6 +469,13 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
  */
 async function describeImageBatch(images, eventTitle = '') {
   if (!Array.isArray(images) || images.length === 0) return [];
+
+  // THÊM ĐOẠN NÀY: Ưu tiên tối đa 2 ảnh quan trọng nhất
+  const prioritizedImages = [...images].sort((a, b) => {
+    const aPermit = a.source && a.source.startsWith('PERMIT') ? 2 : (a.source === 'MAIN_POSTER' ? 1 : 0);
+    const bPermit = b.source && b.source.startsWith('PERMIT') ? 2 : (b.source === 'MAIN_POSTER' ? 1 : 0);
+    return bPermit - aPermit;
+  }).slice(0, 2);
 
   const results = [];
 
