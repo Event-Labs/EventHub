@@ -1627,11 +1627,13 @@ html.light .direct-booking-page [class*="text-slate-500"] {
     transform: translate(-50%, -50%) scale(0.98);
     filter: brightness(1);
   }
+
   50% {
     opacity: 0.88;
     transform: translate(-50%, -50%) scale(1.03);
     filter: brightness(1.12);
   }
+
   100% {
     opacity: 0.52;
     transform: translate(-50%, -50%) scale(0.98);
@@ -1650,10 +1652,12 @@ html.light .direct-booking-page [class*="text-slate-500"] {
     opacity: 0.25;
     transform: translate3d(0, 0, 0);
   }
+
   50% {
     opacity: 0.48;
     transform: translate3d(14px, -6px, 0);
   }
+
   100% {
     opacity: 0.25;
     transform: translate3d(0, 0, 0);
@@ -1671,10 +1675,12 @@ html.light .direct-booking-page [class*="text-slate-500"] {
     opacity: 0.28;
     transform: translate3d(-50%, 0, 0) rotate(-0.4deg);
   }
+
   50% {
     opacity: 0.55;
     transform: translate3d(-50%, 0, 0) rotate(0.6deg);
   }
+
   100% {
     opacity: 0.28;
     transform: translate3d(-50%, 0, 0) rotate(-0.4deg);
