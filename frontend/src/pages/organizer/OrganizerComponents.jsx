@@ -1,4 +1,5 @@
 import { isValidElement, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Search, Sparkles } from 'lucide-react'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
@@ -228,8 +229,8 @@ export function StatCard({ label, value, sub, trend }) {
  */
 export function ConfirmModal({ open, title = 'Xác nhận hành động', message, confirmText = 'Xác nhận', cancelText = 'Hủy', tone = 'danger', onConfirm, onCancel }) {
   if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white transition-all">
         <h3 className="text-xl font-black text-white">{title}</h3>
         <p className="mt-2 text-sm text-slate-300 leading-relaxed">{message}</p>
@@ -253,6 +254,7 @@ export function ConfirmModal({ open, title = 'Xác nhận hành động', messag
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
