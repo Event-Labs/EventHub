@@ -432,14 +432,6 @@ function Step1EventInfo({
               <Icon name="info" className="text-tertiary" />
               Thông tin cơ bản
             </h3>
-            <button
-              type="button"
-              onClick={() => setIsAiModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110 active:scale-95"
-            >
-              <Sparkles className="size-4 animate-pulse" />
-              ✨ Tạo nội dung với AI
-            </button>
           </div>
           <div className="space-y-6">
             <div>
