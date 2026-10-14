@@ -1,0 +1,3378 @@
+{
+  "ai_chat_histories": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "conversation",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "announcements": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "title",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "content",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "sent_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "event_categories": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "slug",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": []
+  },
+  "event_feedbacks": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "rating",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "content",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "event_sessions": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "venue_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "seat_map_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "session_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "start_time",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "end_time",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "checkin_start_time",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "session_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "seat_map_id",
+        "foreign_table_name": "seat_maps",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "venue_id",
+        "foreign_table_name": "venues",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "event_staffs": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "staff_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "staff_role",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "assigned_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "assigned_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "gate",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "zone",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "assigned_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "staff_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "events": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "category_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "title",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "slug",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "short_description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "banner_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "thumbnail_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "start_time",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "end_time",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "event_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "visibility",
+        "data_type": "USER-DEFINED",
+        "udt_name": "visibility_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "approval_status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "approval_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "approved_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "start_publish_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "end_publish_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "format",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "tags",
+        "data_type": "ARRAY",
+        "udt_name": "_text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "refund_policy",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "additional_terms",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "seating_rules",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "require_attendee_info",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "review_note",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "reviewed_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ai_recommendation",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ai_warnings",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ai_reviewed_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "approved_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "category_id",
+        "foreign_table_name": "event_categories",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "notifications": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "title",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "content",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "notification_type_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_read",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "order_items": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "order_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ticket_type_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "session_seat_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "quantity",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "unit_price",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "final_price",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "attendee_info",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "order_id",
+        "foreign_table_name": "orders",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "session_seat_id",
+        "foreign_table_name": "session_seats",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "ticket_type_id",
+        "foreign_table_name": "ticket_types",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "orders": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "buyer_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "buyer_email",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "buyer_phone",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_by_staff_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "order_channel",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "promo_code_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "order_code",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "order_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "subtotal",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "discount_amount",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "platform_fee",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "total_amount",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "expired_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_by_staff_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_by_role",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "payment_method",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "internal_note",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "booking_source",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "created_by_staff_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "promo_code_id",
+        "foreign_table_name": "promo_codes",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "organizer_payment_channels": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "provider",
+        "data_type": "USER-DEFINED",
+        "udt_name": "payment_provider_enum",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "api_key_encrypted",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "checksum_key_encrypted",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "bank_name",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "bank_account_number",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "bank_account_holder",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "is_default",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "payout_client_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "payout_api_key_encrypted",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "payout_checksum_key_encrypted",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "payout_status",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "organizer_requests": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organization_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organization_description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "business_email",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "business_phone",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "request_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "review_note",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "reviewed_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "reviewed_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "request_type",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organization_avatar_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "tax_code",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "business_email_verified",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "business_email_verified_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_document_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "business_license_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_representative_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_representative_position",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_representative_id_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "authorization_letter_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_full_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_identity_number",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_id_front_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_id_back_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_selfie_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_tax_code",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "terms_accepted",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "terms_accepted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "request_action",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "change_summary",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "reviewed_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "organizer_subscriptions": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "subscription_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "start_date",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "end_date",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "subscription_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "subscription_id",
+        "foreign_table_name": "subscriptions",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "organizers": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organization_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "business_email",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "business_phone",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "request_type",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organization_avatar_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "tax_code",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_document_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "business_license_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_representative_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_representative_position",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "legal_representative_id_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "authorization_letter_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_full_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_identity_number",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_id_front_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_id_back_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_selfie_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "individual_tax_code",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "terms_accepted",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "terms_accepted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "payment_orders": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "order_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "payment_owner_type",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "payment_channel_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "reference_type",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "reference_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "provider",
+        "data_type": "USER-DEFINED",
+        "udt_name": "payment_provider_enum",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "provider_order_code",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "amount",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "currency",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "checkout_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "qr_code",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "expired_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "paid_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "provider_transaction_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "raw_payload",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "order_id",
+        "foreign_table_name": "orders",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "payment_channel_id",
+        "foreign_table_name": "organizer_payment_channels",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "platform_policy_configs": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "policy_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "platform_policy_type_enum",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "title",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "config",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "effective_from",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "effective_to",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "created_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "updated_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "platform_policy_documents": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "policy_config_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "title",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "file_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "file_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "file_size",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "mime_type",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "version",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_public",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "uploaded_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "policy_config_id",
+        "foreign_table_name": "platform_policy_configs",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "uploaded_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "promo_codes": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "code",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "discount_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "discount_type_enum",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "discount_value",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "min_order_value",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "max_discount",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "usage_limit",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "used_count",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "start_time",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "end_time",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "event_ids",
+        "data_type": "ARRAY",
+        "udt_name": "_uuid",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "refund_requests": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "order_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ticket_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "customer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "refund_amount",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "reason",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "refund_method",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "bank_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "bank_account_number",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "bank_account_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "organizer_note",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "organizer_proof_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "organizer_transaction_ref",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "processed_by_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "requested_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "reviewed_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "refunded_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "refund_rate",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "policy_snapshot",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "customer_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "order_id",
+        "foreign_table_name": "orders",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "processed_by_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "ticket_id",
+        "foreign_table_name": "tickets",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "roles": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      }
+    ],
+    "fks": []
+  },
+  "seat_maps": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "venue_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "rows_count",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "cols_count",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "layout_type",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "canvas_width",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "canvas_height",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "config",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "stage_position",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "custom_stage_x",
+        "data_type": "double precision",
+        "udt_name": "float8",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "custom_stage_y",
+        "data_type": "double precision",
+        "udt_name": "float8",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "custom_stage_width",
+        "data_type": "double precision",
+        "udt_name": "float8",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "custom_stage_height",
+        "data_type": "double precision",
+        "udt_name": "float8",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "venue_id",
+        "foreign_table_name": "venues",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "seat_types": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "color",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": []
+  },
+  "seat_zones": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "seat_map_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "color",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "sort_order",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "seat_map_id",
+        "foreign_table_name": "seat_maps",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "seats": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "seat_map_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "seat_type_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "row_label",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "seat_number",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "x_position",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "y_position",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_disabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "zone_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "seat_map_id",
+        "foreign_table_name": "seat_maps",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "seat_type_id",
+        "foreign_table_name": "seat_types",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "zone_id",
+        "foreign_table_name": "seat_zones",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "session_seats": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_session_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "seat_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "seat_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "held_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "held_until",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "order_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "event_session_id",
+        "foreign_table_name": "event_sessions",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "held_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "order_id",
+        "foreign_table_name": "orders",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "seat_id",
+        "foreign_table_name": "seats",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "subscription_payment_orders": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "subscription_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_sub_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "provider",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "provider_order_code",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "amount",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "checkout_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "qr_code",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "paid_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "expired_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "subscription_id",
+        "foreign_table_name": "subscriptions",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "subscriptions": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "price",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_limit",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "staff_limit",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "analytics_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "priority_support",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "duration_days",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "features",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "max_active_events",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "max_tickets_per_event",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "max_staff_per_event",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "max_ticket_types_per_event",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "max_promo_codes_per_event",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "platform_fee_rate",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "promo_code_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "seat_map_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "manual_checkin_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "attendee_export_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "advanced_analytics_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ai_report_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "custom_branding_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": []
+  },
+  "system_settings": {
+    "columns": [
+      {
+        "column_name": "key",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "value",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": []
+  },
+  "ticket_holds": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ticket_type_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "session_seat_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "quantity",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "order_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "expires_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "ticket_hold_status_enum",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "order_id",
+        "foreign_table_name": "orders",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "session_seat_id",
+        "foreign_table_name": "session_seats",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "ticket_type_id",
+        "foreign_table_name": "ticket_types",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "ticket_type_seats": {
+    "columns": [
+      {
+        "column_name": "ticket_type_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "seat_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "seat_id",
+        "foreign_table_name": "seats",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "ticket_type_id",
+        "foreign_table_name": "ticket_types",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "ticket_types": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_session_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "price",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "quantity",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "max_per_order",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "sale_start",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "sale_end",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_seated",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "event_session_id",
+        "foreign_table_name": "event_sessions",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "tickets": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "order_item_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "event_session_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ticket_type_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "session_seat_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ticket_code",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "qr_code",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "attendee_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "attendee_email",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "ticket_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "checked_in_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "checked_in_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "checkin_method",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "refund_policy_snapshot",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "checked_in_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "event_session_id",
+        "foreign_table_name": "event_sessions",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "order_item_id",
+        "foreign_table_name": "order_items",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "session_seat_id",
+        "foreign_table_name": "session_seats",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "ticket_type_id",
+        "foreign_table_name": "ticket_types",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "user_behavior_logs": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "action_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "behavior_action_enum",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "session_id",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "event_id",
+        "foreign_table_name": "events",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "user_roles": {
+    "columns": [
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "role_id",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "role_id",
+        "foreign_table_name": "roles",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "user_id",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "users": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "email",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "password_hash",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "google_id",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "full_name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "phone",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "avatar_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "bio",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "udt_name": "user_status_enum",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "email_verified",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "address",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "dob",
+        "data_type": "date",
+        "udt_name": "date",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "city",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "lock_reason",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "locked_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "locked_until",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "locked_by",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "two_factor_enabled",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "password_changed_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "last_login_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "last_login_ip",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "last_security_check_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "last_login_user_agent",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "last_login_device",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "security_check_result",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "favorite_event_ids",
+        "data_type": "ARRAY",
+        "udt_name": "_uuid",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "locked_by",
+        "foreign_table_name": "users",
+        "foreign_column_name": "id"
+      }
+    ]
+  },
+  "venues": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "organizer_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "country",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "city",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "district",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ward",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "address_line",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "latitude",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "longitude",
+        "data_type": "numeric",
+        "udt_name": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES"
+      }
+    ],
+    "fks": [
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      },
+      {
+        "column_name": "organizer_id",
+        "foreign_table_name": "organizers",
+        "foreign_column_name": "id"
+      }
+    ]
+  }
+}
