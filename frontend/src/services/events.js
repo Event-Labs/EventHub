@@ -31,7 +31,8 @@ export async function deleteAdminEventCategory(categoryId) {
 }
 
 export async function fetchEventDetail(identifier) {
-  const response = await http.get(`/events/${identifier}`)
+  const encoded = encodeURIComponent(String(identifier || '').trim());
+  const response = await http.get(`/events/${encoded}`)
   return response.data.data
 }
 
