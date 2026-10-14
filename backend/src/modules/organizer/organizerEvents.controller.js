@@ -1,5 +1,6 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const organizerEventsService = require('./organizerEvents.service');
+const organizerEventsRepository = require('./organizerEvents.repository');
 const aiDocumentParserService = require('./aiDocumentParser.service');
 const logger = require('../../core/logger');
 
@@ -120,6 +121,15 @@ class OrganizerEventsController {
     try {
       const data = await organizerEventsService.cancelEvent(req.user.sub, req.params.eventId);
       res.status(200).json(ApiResponse.success(data, 'Event cancelled successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  deleteDraftEvent = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.deleteDraftEvent(req.user.sub, req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, 'Đã xóa bản nháp sự kiện thành công'));
     } catch (err) {
       next(err);
     }
@@ -249,7 +259,15 @@ class OrganizerEventsController {
       }
 
       const note = req.body?.note || '';
-      const result = await aiDocumentParserService.extractEventFromText(documentText, note);
+      let organizerName = '';
+      try {
+        const organizer = await organizerEventsRepository.findOrganizerByUserId(req.user.sub);
+        organizerName = organizer?.organization_name || organizer?.individual_full_name || req.user?.name || '';
+      } catch (err) {
+        logger.warn(`[extractEventFromFile] Could not load organizer name: ${err.message}`);
+      }
+
+      const result = await aiDocumentParserService.extractEventFromText(documentText, note, { organizerName });
       res.status(200).json(ApiResponse.success(result, 'Trích xuất dữ liệu sự kiện thành công'));
     } catch (err) {
       next(err);
