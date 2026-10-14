@@ -161,4 +161,12 @@ function validateSelectedSeats({ rules: rawRules, selectedSeats = [], eligibleSe
 module.exports = {
   normalizeRules,
   validateSelectedSeats,
+  isAvailableSeat,
+  sortSeats,
+  positionValue,
+  seatId,
+  rowId,
+  singletonSeatIds,
+  physicalNeighborInfo,
+  rowSegments,
 };

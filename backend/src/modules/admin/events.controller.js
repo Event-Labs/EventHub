@@ -64,6 +64,33 @@ class EventsAdminController {
       next(err);
     }
   };
+
+  getAutoReviewSettings = async (req, res, next) => {
+    try {
+      const data = await eventsAdminService.getAutoReviewSettings();
+      res.status(200).json(ApiResponse.success(data, 'AI auto-review settings retrieved successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  updateAutoReviewSettings = async (req, res, next) => {
+    try {
+      const data = await eventsAdminService.updateAutoReviewSettings(req.user.sub, req.body);
+      res.status(200).json(ApiResponse.success(data, 'AI auto-review settings updated successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  runBatchAutoReview = async (req, res, next) => {
+    try {
+      const data = await eventsAdminService.runBatchAutoReview(req.user.sub);
+      res.status(200).json(ApiResponse.success(data, 'Batch AI auto-review completed successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new EventsAdminController();

@@ -7,7 +7,6 @@ import {
   Power,
   Trash2,
   Upload,
-  X,
 } from 'lucide-react'
 import {
   createPlatformPolicy,
@@ -20,7 +19,8 @@ import {
 } from '@/services/platformFinance.js'
 import { uploadPolicyDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Badge, Page, Panel, Row, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
+import { Modal } from '@/components/Modal.jsx'
+import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 
 const PAGE_SIZE = 10
@@ -219,15 +219,61 @@ export function AdminFinancePage() {
       </div>
 
       {policyModal && (
-        <Modal title={policyModal.mode === 'edit' ? 'Cập nhật chính sách nền tảng' : 'Thêm chính sách nền tảng'} onClose={() => setPolicyModal(null)}>
-          <form onSubmit={submitPolicy} className="space-y-4">
-            <SelectInput label="Loại chính sách" value={policyForm.policy_type} options={policyTypes} onChange={(policy_type) => setPolicyForm({ ...policyForm, policy_type, config: createDefaultPolicyConfig(policy_type, policyForm.config) })} />
-            <TextInput label="Tiêu đề" value={policyForm.title} onChange={(title) => setPolicyForm({ ...policyForm, title })} required />
-            <TextareaInput label="Mô tả" value={policyForm.description} onChange={(description) => setPolicyForm({ ...policyForm, description })} />
+        <Modal
+          open={Boolean(policyModal)}
+          title={policyModal.mode === 'edit' ? 'Cập nhật chính sách nền tảng' : 'Thêm chính sách nền tảng'}
+          onClose={() => setPolicyModal(null)}
+          maxWidth="max-w-2xl"
+          footer={
+            <div className="flex w-full items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPolicyModal(null)}
+                className="admin-secondary px-6"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                form="platform-policy-form"
+                disabled={policyMutation.isPending}
+                className="admin-primary px-6 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {policyMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+              </button>
+            </div>
+          }
+        >
+          <form id="platform-policy-form" onSubmit={submitPolicy} className="space-y-4">
+            <SelectInput
+              label="Loại chính sách"
+              value={policyForm.policy_type}
+              options={policyTypes}
+              onChange={(policy_type) =>
+                setPolicyForm({
+                  ...policyForm,
+                  policy_type,
+                  config: createDefaultPolicyConfig(policy_type, policyForm.config),
+                })
+              }
+            />
+            <TextInput
+              label="Tiêu đề"
+              value={policyForm.title}
+              onChange={(title) => setPolicyForm({ ...policyForm, title })}
+              required
+            />
+            <TextareaInput
+              label="Mô tả"
+              value={policyForm.description}
+              onChange={(description) => setPolicyForm({ ...policyForm, description })}
+            />
             <PolicyConfigFields form={policyForm} setForm={setPolicyForm} />
             <DateInputs form={policyForm} setForm={setPolicyForm} />
-            <ActiveInput checked={policyForm.is_active} onChange={(is_active) => setPolicyForm({ ...policyForm, is_active })} />
-            <FormActions isSaving={policyMutation.isPending} onCancel={() => setPolicyModal(null)} />
+            <ActiveInput
+              checked={policyForm.is_active}
+              onChange={(is_active) => setPolicyForm({ ...policyForm, is_active })}
+            />
           </form>
         </Modal>
       )}
@@ -259,14 +305,21 @@ function PolicyTable({ policies, isLoading, isError, isBusy, onEdit, onDocuments
 
   return (
     <Table
-      headers={['Loại chính sách', 'Tiêu đề', 'Tài liệu', 'Hiệu lực', 'Trạng thái', 'Hành động']}
+      headers={[
+        'Loại chính sách',
+        'Tiêu đề',
+        'Tài liệu',
+        { label: 'Hiệu lực', className: 'min-w-[200px]' },
+        'Trạng thái',
+        'Hành động',
+      ]}
       rows={policies.map((policy) => [
-        labelFrom(policyTypes, policy.policy_type),
-        <span key="title" className="font-extrabold">{policy.title}</span>,
+        <span key="type" className="text-sm text-subtle font-medium">{labelFrom(policyTypes, policy.policy_type)}</span>,
+        <span key="title" className="text-sm font-extrabold text-content">{policy.title}</span>,
         <button key="docs" type="button" onClick={() => onDocuments(policy)} className="inline-flex items-center gap-2 text-sm font-bold text-primary">
           <Upload className="size-4" /> Upload/Xem file ({policy.document_count || 0})
         </button>,
-        formatRange(policy.effective_from, policy.effective_to),
+        <div key="range">{formatRange(policy.effective_from, policy.effective_to)}</div>,
         <StatusBadge key="status" status={policy.is_active ? 'ACTIVE' : 'INACTIVE'} />,
         <ActionButtons key="actions" isBusy={isBusy} toggleTitle={policy.is_active ? 'Tạm ẩn' : 'Hiện lại'} onEdit={() => onEdit(policy)} onToggle={() => onToggle(policy)} onDelete={() => onDelete(policy)} />,
       ])}
@@ -309,37 +362,34 @@ function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
   const itemName = target.item.name || target.item.title
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-5 text-content shadow-2xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-extrabold text-content">Xóa chính sách?</h3>
-            <p className="mt-2 text-sm font-semibold text-subtle">
-              Chính sách "{itemName}" sẽ được xóa khỏi danh sách quản lý.
-            </p>
-          </div>
-          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft">
-            <X className="size-4" />
-          </button>
-        </div>
-
-        {error && <p className="mt-4 text-xs font-semibold text-error">{error}</p>}
-
-        <div className="mt-6 flex justify-end gap-3 border-t border-border-soft/30 pt-4">
-          <button type="button" onClick={onClose} className="admin-secondary">
+    <Modal
+      open={Boolean(target)}
+      title="Xóa chính sách?"
+      onClose={onClose}
+      maxWidth="max-w-md"
+      footer={
+        <div className="flex w-full items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="admin-secondary px-6">
             Hủy
           </button>
           <button
             type="button"
             disabled={isDeleting}
             onClick={onConfirm}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDeleting ? 'Đang xóa...' : 'Xóa'}
           </button>
         </div>
+      }
+    >
+      <div className="py-1">
+        <p className="text-sm font-medium leading-relaxed text-slate-200 [html.light_&]:text-[#0D1B2A]">
+          Chính sách <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">"{itemName}"</span> sẽ được xóa khỏi danh sách quản lý.
+        </p>
+        {error && <p className="mt-3 text-xs font-semibold text-rose-400">{error}</p>}
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -356,20 +406,20 @@ function PolicyConfigFields({ form, setForm }) {
   }
 
   return (
-    <div className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
-      <p className="text-sm font-extrabold text-content">Cấu hình chi tiết</p>
+    <div className="rounded-xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+      <p className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Cấu hình chi tiết</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {fields.map(([key, label, type]) => {
           const value = form.config?.[key]
 
           if (type === 'boolean') {
             return (
-              <label key={key} className="flex items-center gap-3 rounded-xl border border-border-soft/40 bg-surface px-3 py-3 text-sm font-semibold text-subtle">
+              <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#121c38]/60 px-3.5 py-3 text-sm font-semibold text-white [html.light_&]:border-slate-200 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={Boolean(value)}
                   onChange={(event) => updateConfig(key, event.target.checked)}
-                  className="size-4 accent-primary"
+                  className="size-4.5 rounded accent-[#C99A47] cursor-pointer"
                 />
                 {label}
               </label>
@@ -473,28 +523,40 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
   const documents = documentsQuery.data || []
 
   return (
-    <Modal title={`Tài liệu chính sách - ${policy.title}`} onClose={onClose} wide>
+    <Modal
+      open={Boolean(policy)}
+      title={`Tài liệu chính sách - ${policy.title}`}
+      onClose={onClose}
+      maxWidth="max-w-4xl"
+      footer={
+        <div className="flex w-full items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="admin-secondary px-6">
+            Đóng
+          </button>
+        </div>
+      }
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault()
           uploadMutation.mutate()
         }}
-        className="grid gap-4 border-b border-border-soft/30 pb-5 lg:grid-cols-[minmax(320px,1.5fr)_minmax(120px,0.55fr)_minmax(260px,0.95fr)]"
+        className="grid gap-4 border-b border-white/10 pb-5 [html.light_&]:border-slate-200 lg:grid-cols-[minmax(320px,1.5fr)_minmax(120px,0.55fr)_minmax(260px,0.95fr)]"
       >
         <TextInput label="Tiêu đề tài liệu" value={form.title} onChange={(title) => setForm({ ...form, title })} required />
         <TextInput label="Phiên bản" value={form.version} onChange={(version) => setForm({ ...form, version })} />
         <label className="block">
-          <span className="text-xs font-bold text-subtle">File PDF hoặc DOCX</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">File PDF hoặc DOCX</span>
           <input
             required
             type="file"
             accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx"
             onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })}
-            className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-sm font-semibold text-content file:mr-3 file:rounded-lg file:border-0 file:bg-tertiary/15 file:px-3 file:py-1 file:text-sm file:font-bold file:text-primary placeholder:text-muted"
+            className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3 py-2 text-sm font-semibold text-white file:mr-3 file:rounded-lg file:border-0 file:bg-[#C99A47]/20 file:px-3 file:py-1 file:text-sm file:font-bold file:text-[#E6C17A] placeholder:text-slate-400 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
           />
         </label>
-        <label className="flex items-center gap-3 text-sm font-semibold text-subtle lg:col-span-2">
-          <input type="checkbox" checked={form.is_public} onChange={(event) => setForm({ ...form, is_public: event.target.checked })} className="size-4 accent-primary" />
+        <label className="flex items-center gap-3 text-sm font-semibold text-white [html.light_&]:text-[#0D1B2A] lg:col-span-2 cursor-pointer">
+          <input type="checkbox" checked={form.is_public} onChange={(event) => setForm({ ...form, is_public: event.target.checked })} className="size-4.5 rounded accent-[#C99A47] cursor-pointer" />
           Công khai tài liệu
         </label>
         <button type="submit" disabled={uploadMutation.isPending} className="admin-primary lg:justify-self-end">
@@ -503,12 +565,12 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
       </form>
 
       <div className="mt-5 space-y-3">
-        {documentsQuery.isLoading && <p className="text-sm font-semibold text-subtle">Đang tải tài liệu...</p>}
+        {documentsQuery.isLoading && <p className="text-sm font-semibold text-slate-400">Đang tải tài liệu...</p>}
         {documents.map((document) => (
-          <div key={document.id} className="flex flex-col gap-3 rounded-xl border border-border-soft/30 bg-panel-soft p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div key={document.id} className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="truncate text-base font-black text-content">{document.title}</p>
-              <p className="text-xs font-semibold text-subtle">
+              <p className="truncate text-base font-black text-white [html.light_&]:text-[#0D1B2A]">{document.title}</p>
+              <p className="text-xs font-semibold text-slate-400 [html.light_&]:text-slate-600">
                 {document.file_name || 'policy-document'} · phiên bản {document.version}
               </p>
             </div>
@@ -519,7 +581,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
                 rel="noreferrer"
                 title="Xem file"
                 aria-label="Xem file"
-                className="grid size-9 place-items-center rounded-xl border border-border-soft/40 text-subtle transition hover:border-tertiary hover:bg-surface hover:text-tertiary"
+                className="grid size-9 place-items-center rounded-xl border border-white/15 text-slate-300 transition hover:border-[#C99A47] hover:bg-white/10 hover:text-[#E6C17A] [html.light_&]:border-slate-300 [html.light_&]:text-slate-600 [html.light_&]:hover:bg-slate-200"
               >
                 <Eye className="size-4" />
               </a>
@@ -530,34 +592,16 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
           </div>
         ))}
         {!documentsQuery.isLoading && documents.length === 0 && (
-          <p className="text-sm font-semibold text-subtle">Chưa có tài liệu chính sách.</p>
+          <p className="text-sm font-semibold text-slate-400">Chưa có tài liệu chính sách.</p>
         )}
       </div>
     </Modal>
   )
 }
 
-function Modal({ title, onClose, children, wide = false }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-      <div className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-border-soft/40 bg-surface shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-2xl'}`}>
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-soft/30 bg-surface px-5 py-4">
-          <h3 className="text-xl font-extrabold text-content">{title}</h3>
-          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-subtle hover:bg-panel-soft transition">
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-content">
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function ActionButtons({ isBusy, toggleTitle, onEdit, onToggle, onDelete }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-center gap-2">
       <TableActionButton title="Sửa" onClick={onEdit} disabled={isBusy} icon={Pencil} tone="primary" />
       <TableActionButton title={toggleTitle || 'Bật/tắt trạng thái'} onClick={onToggle} disabled={isBusy} icon={Power} tone="warning" />
       <TableActionButton title="Xóa" onClick={onDelete} disabled={isBusy} icon={Trash2} tone="danger" />
@@ -580,8 +624,13 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
 function TextInput({ label, value, onChange, ...props }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-subtle">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content placeholder:text-muted outline-none focus:border-primary" {...props} />
+      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white placeholder:text-slate-400 outline-none focus:border-[#C99A47] [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+        {...props}
+      />
     </label>
   )
 }
@@ -593,10 +642,16 @@ function NumberInput({ label, value, onChange }) {
 function SelectInput({ label, value, options, onChange }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-subtle">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm font-semibold text-content outline-none focus:border-primary">
+      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white outline-none focus:border-[#C99A47] [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+      >
         {options.map(([optionValue, labelText]) => (
-          <option key={optionValue || 'empty'} value={optionValue} className="bg-surface text-content">{labelText}</option>
+          <option key={optionValue || 'empty'} value={optionValue} className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">
+            {labelText}
+          </option>
         ))}
       </select>
     </label>
@@ -606,8 +661,13 @@ function SelectInput({ label, value, options, onChange }) {
 function TextareaInput({ label, value, onChange, rows = 4 }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-subtle">{label}</span>
-      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full resize-none rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-3 text-sm font-semibold text-content placeholder:text-muted outline-none focus:border-primary" />
+      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
+      <textarea
+        rows={rows}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 w-full resize-none rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 py-3 text-sm font-semibold text-white placeholder:text-slate-400 outline-none focus:border-[#C99A47] [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+      />
     </label>
   )
 }
@@ -623,19 +683,10 @@ function DateInputs({ form, setForm }) {
 
 function ActiveInput({ checked, onChange }) {
   return (
-    <label className="flex items-center gap-3 text-sm font-semibold text-subtle cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="size-4 accent-primary" />
+    <label className="flex items-center gap-3 text-sm font-semibold text-white [html.light_&]:text-[#0D1B2A] cursor-pointer">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="size-4.5 rounded accent-[#C99A47] cursor-pointer" />
       Đang áp dụng
     </label>
-  )
-}
-
-function FormActions({ isSaving, onCancel }) {
-  return (
-    <div className="flex justify-end gap-3 border-t border-border-soft/30 pt-4">
-      <button type="button" onClick={onCancel} className="admin-secondary">Hủy</button>
-      <button type="submit" disabled={isSaving} className="admin-primary">{isSaving ? 'Đang lưu...' : 'Lưu'}</button>
-    </div>
   )
 }
 
@@ -644,7 +695,7 @@ function MetricCard({ label, value, accent }) {
     <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-subtle">{label}</p>
+        <p className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
         <p className="mt-5 text-3xl font-display font-extrabold leading-none text-content tracking-tight">{value}</p>
       </div>
     </Panel>
@@ -692,11 +743,41 @@ function cleanPolicyPayload(form) {
 }
 
 function formatRange(from, to) {
-  if (!from && !to) return 'Luôn áp dụng'
+  if (!from && !to) {
+    return <span className="text-sm font-medium text-slate-300">Luôn áp dụng</span>
+  }
+
+  const formatDt = (val) => {
+    if (!val) return 'Không giới hạn'
+    const d = new Date(val)
+    if (Number.isNaN(d.getTime())) return '—'
+    const time = d.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    const date = d.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+    return `${time} · ${date}`
+  }
+
   return (
-    <div className="text-xs font-semibold text-subtle">
-      <Row label="Từ" value={from ? new Date(from).toLocaleString('vi-VN') : 'Không giới hạn'} />
-      <Row label="Đến" value={to ? new Date(to).toLocaleString('vi-VN') : 'Không giới hạn'} />
+    <div className="flex flex-col gap-1.5 py-0.5 text-sm whitespace-nowrap">
+      <div className="flex items-center gap-2.5">
+        <span className="inline-block w-8 shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400">Từ</span>
+        <span className="font-semibold text-slate-200">
+          {formatDt(from)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="inline-block w-8 shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400">Đến</span>
+        <span className={to ? 'font-semibold text-slate-200' : 'font-medium text-slate-400 italic'}>
+          {formatDt(to)}
+        </span>
+      </div>
     </div>
   )
 }
