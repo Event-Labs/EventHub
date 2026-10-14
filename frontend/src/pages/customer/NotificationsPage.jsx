@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Check,
   CheckCheck,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   CreditCard,
@@ -143,10 +144,6 @@ export function NotificationsPage() {
       category: activeFilter === 'invitation' ? 'invitation' : 'all',
     }),
   })
-  const notificationTotalQuery = useQuery({
-    queryKey: ['notifications', 'total'],
-    queryFn: () => fetchNotifications({ page: 1, limit: 1 }),
-  })
   const invitationsQuery = useQuery({
     queryKey: ['staff-invitations', 'me'],
     queryFn: fetchMyStaffInvitations,
@@ -214,17 +211,10 @@ export function NotificationsPage() {
   const pagination = notificationsQuery.data?.pagination || { page: 1, total: 0, total_pages: 1 }
   const invitations = invitationsQuery.data || []
   const invitationsById = new Map(invitations.map((invitation) => [invitation.id, invitation]))
-  const invitationCount = invitations.length
   const filteredNotifications = displayNotifications
 
-  const filterCounts = {
-    all: notificationTotalQuery.data?.pagination?.total || 0,
-    unread: unreadCount,
-    invitation: invitationCount,
-  }
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 xl:px-12 lg:py-10">
       <SectionHeader
         title="Trung tâm thông báo"
         description="Theo dõi cập nhật sự kiện, thanh toán và lời mời dành cho bạn."
@@ -241,56 +231,53 @@ export function NotificationsPage() {
         ) : null}
       />
 
-      <section className="mb-5 grid gap-3 sm:grid-cols-3">
-        <SummaryCard icon={Inbox} label="Tổng thông báo" value={filterCounts.all} tone="primary" />
-        <SummaryCard icon={Bell} label="Chưa đọc" value={unreadCount} tone="warning" />
-        <SummaryCard icon={UserRoundCheck} label="Lời mời staff" value={invitationCount} tone="success" />
-      </section>
-
-      <section className="glass-panel overflow-hidden rounded-[32px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_50%)] opacity-10 pointer-events-none" />
-        <div className="flex flex-col gap-4 border-b border-white/10 bg-slate-950/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 relative z-10">
-          <div className="glass-panel rounded-full p-1.5 border-white/5 shadow-inner flex gap-1 overflow-x-auto scrollbar-hide">
-            {FILTERS.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                onClick={() => {
-                  setActiveFilter(filter.value)
-                  setPage(1)
-                }}
-                className={cn(
-                  'inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-4 text-xs font-black tracking-widest uppercase transition-all',
-                  activeFilter === filter.value
-                    ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent',
-                )}
-              >
-                {filter.label}
-                <span className={cn(
-                  'rounded-full px-2 py-0.5 text-[10px] leading-none border',
-                  activeFilter === filter.value ? 'bg-primary/30 text-primary border-primary/40' : 'bg-white/5 text-slate-500 border-white/10',
-                )}>
-                  {filterCounts[filter.value]}
-                </span>
-              </button>
-            ))}
-          </div>
-          <p className="px-1 text-xs font-semibold text-slate-400">
-            Trang {pagination.page}/{Math.max(1, pagination.total_pages)} · {pagination.total} thông báo
-          </p>
+      {/* ── Phần 1: Bộ lọc ── */}
+      <div className="relative z-10 mb-6 flex w-full justify-end">
+        <div className="flex flex-wrap items-center gap-2">
+          {FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => {
+                setActiveFilter(filter.value)
+                setPage(1)
+              }}
+              className={cn(
+                'inline-flex h-9 shrink-0 items-center rounded-full px-4 text-xs font-bold transition-all cursor-pointer select-none',
+                activeFilter === filter.value
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                  : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/10 hover:text-white',
+              )}
+            >
+              {filter.label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {notificationsQuery.isLoading && <StatePanel message="Đang tải thông báo..." loading />}
-        {notificationsQuery.isError && <StatePanel message="Không thể tải thông báo." tone="error" />}
+      {/* ── Phần 2: Nội dung thông báo ── */}
+      <section className="relative z-10 space-y-3.5">
+        {notificationsQuery.isLoading && (
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel message="Đang tải thông báo..." loading />
+          </div>
+        )}
+        {notificationsQuery.isError && (
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel message="Không thể tải thông báo." tone="error" />
+          </div>
+        )}
         {!notificationsQuery.isLoading && displayNotifications.length === 0 && (
-          <StatePanel message="Bạn chưa có thông báo nào." />
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel message="Bạn chưa có thông báo nào." />
+          </div>
         )}
         {!notificationsQuery.isLoading && displayNotifications.length > 0 && filteredNotifications.length === 0 && (
-          <StatePanel message="Không có thông báo phù hợp với bộ lọc này." />
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel message="Không có thông báo phù hợp với bộ lọc này." />
+          </div>
         )}
 
-        <div className="divide-y divide-border-soft/25">
         {filteredNotifications.map((notification) => {
           const Icon = iconFor(notification.type)
           const isInvitation = isStaffInvitationNotification(notification)
@@ -309,8 +296,10 @@ export function NotificationsPage() {
             <article
               key={notification.id}
               className={cn(
-                'group relative px-6 py-6 transition-all duration-300 hover:bg-white/5',
-                !notification.is_read && 'bg-primary/5',
+                'group relative overflow-hidden rounded-2xl border p-5 sm:p-6 shadow-xl transition-all duration-300',
+                !notification.is_read
+                  ? 'border-primary/30 bg-[#0f172a] hover:border-primary/50 hover:bg-[#131d38]'
+                  : 'border-white/10 bg-[#0f172a] hover:border-white/20 hover:bg-[#131d38]',
               )}
             >
               {!notification.is_read && <span className="absolute left-0 top-0 h-full w-1 bg-primary" />}
@@ -328,7 +317,7 @@ export function NotificationsPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-display text-base font-extrabold text-content sm:text-lg">
-                        {title}
+                          {title}
                         </h3>
                         {!notification.is_read && (
                           <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">Mới</span>
@@ -361,7 +350,7 @@ export function NotificationsPage() {
                         <button
                           type="button"
                           onClick={() => acceptInvitationMutation.mutate(notification.id)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-success px-3.5 text-sm font-extrabold text-[#061225] transition hover:brightness-110 disabled:opacity-60"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-success px-3.5 text-sm font-extrabold text-[#061225] transition hover:brightness-110 disabled:opacity-60 cursor-pointer"
                           disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
                         >
                           <Check className="size-4" /> Đồng ý lời mời
@@ -369,7 +358,7 @@ export function NotificationsPage() {
                         <button
                           type="button"
                           onClick={() => declineInvitationMutation.mutate(notification.id)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-error/30 px-3.5 text-sm font-bold text-error transition hover:bg-error/10 disabled:opacity-60"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-error/30 px-3.5 text-sm font-bold text-error transition hover:bg-error/10 disabled:opacity-60 cursor-pointer"
                           disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
                         >
                           <X className="size-4" /> Từ chối
@@ -388,7 +377,7 @@ export function NotificationsPage() {
                       <button
                         type="button"
                         onClick={() => markReadMutation.mutate(notification.id)}
-                        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-muted transition hover:bg-white/5 hover:text-content"
+                        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-muted transition hover:bg-white/5 hover:text-content cursor-pointer"
                       >
                         <CheckCheck className="size-4" /> Đã đọc
                       </button>
@@ -409,16 +398,18 @@ export function NotificationsPage() {
             </article>
           )
         })}
-        </div>
+      </section>
 
-        {pagination.total_pages > 1 && (
+      {/* ── Phần 3: Phân trang ── */}
+      {pagination.total_pages > 1 && (
+        <div className="relative z-10 mt-8 flex w-full justify-center">
           <Pagination
             page={pagination.page}
             totalPages={pagination.total_pages}
             onPageChange={setPage}
           />
-        )}
-      </section>
+        </div>
+      )}
     </div>
   )
 }
@@ -428,63 +419,52 @@ function Pagination({ page, totalPages, onPageChange }) {
     .filter((item) => item === 1 || item === totalPages || Math.abs(item - page) <= 1)
 
   return (
-    <nav className="flex items-center justify-between gap-4 border-t border-white/10 bg-slate-950/40 px-6 py-5 relative z-10" aria-label="Phân trang thông báo">
+    <nav className="flex items-center gap-2" aria-label="Phân trang thông báo">
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
-        className="h-10 rounded-full border border-white/10 px-5 text-sm font-bold text-slate-300 transition-all hover:border-primary/50 hover:bg-white/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+        className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-slate-200 transition-all hover:bg-white/10 hover:text-white disabled:border-white/5 disabled:bg-[#151d34]/40 disabled:text-slate-600 disabled:cursor-not-allowed cursor-pointer"
+        aria-label="Trang trước"
       >
-        Trước
+        <ChevronLeft className="size-5" />
       </button>
-      <div className="flex items-center gap-1.5">
-        {pages.map((item, index) => (
-          <div key={item} className="flex items-center gap-1.5">
-            {index > 0 && item - pages[index - 1] > 1 && <span className="px-1 text-slate-500">…</span>}
-            <button
-              type="button"
-              onClick={() => onPageChange(item)}
-              aria-current={item === page ? 'page' : undefined}
-              className={cn(
-                'grid size-10 place-items-center rounded-full text-sm font-extrabold transition-all',
-                item === page ? 'bg-primary text-[#071226] shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'text-slate-300 hover:bg-white/10 hover:text-white',
-              )}
-            >
-              {item}
-            </button>
-          </div>
-        ))}
-      </div>
+
+      {pages.map((item, index) => (
+        <div key={item} className="flex items-center gap-2">
+          {index > 0 && item - pages[index - 1] > 1 && (
+            <span className="px-1 text-xs font-bold text-slate-500 select-none">…</span>
+          )}
+          <button
+            type="button"
+            onClick={() => onPageChange(item)}
+            aria-current={item === page ? 'page' : undefined}
+            className={cn(
+              'grid size-9 sm:size-10 place-items-center rounded-full text-xs font-bold transition-all cursor-pointer',
+              item === page
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/10 hover:text-white',
+            )}
+          >
+            {item}
+          </button>
+        </div>
+      ))}
+
       <button
         type="button"
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages}
-        className="h-10 rounded-full border border-white/10 px-5 text-sm font-bold text-slate-300 transition-all hover:border-primary/50 hover:bg-white/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+        className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-slate-200 transition-all hover:bg-white/10 hover:text-white disabled:border-white/5 disabled:bg-[#151d34]/40 disabled:text-slate-600 disabled:cursor-not-allowed cursor-pointer"
+        aria-label="Trang sau"
       >
-        Sau
+        <ChevronRight className="size-5" />
       </button>
     </nav>
   )
 }
 
-function SummaryCard({ icon: Icon, label, value, tone }) {
-  const tones = {
-    primary: 'border-primary/30 bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(6,182,212,0.1)]',
-    warning: 'border-warning/30 bg-warning/10 text-warning shadow-[inset_0_0_20px_rgba(245,158,11,0.1)]',
-    success: 'border-success/30 bg-success/10 text-success shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]',
-  }
-  return (
-    <div className={cn('glass-panel flex items-center gap-4 rounded-[24px] p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)]', tones[tone])}>
-      <span className="grid size-12 place-items-center rounded-[16px] bg-current/10 border border-current/20 shadow-inner">
-        <Icon className="size-6 drop-shadow-sm" />
-      </span>
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{label}</p>
-        <p className="mt-1 text-3xl font-black drop-shadow-md">{value}</p>
-      </div>
-    </div>
-  )
-}
+
 
 function StatePanel({ message, tone = 'default', loading = false }) {
   return (

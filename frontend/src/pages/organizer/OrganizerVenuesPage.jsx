@@ -301,10 +301,10 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="flex max-h-[90vh] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content">
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
-          <h2 className="text-lg font-bold text-content">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4">
+          <h2 className="text-xl font-black text-white">
             {editVenue ? 'Sửa địa điểm' : 'Thêm địa điểm'}
           </h2>
           <button type="button" onClick={onClose} className="text-2xl leading-none text-muted hover:text-content transition-colors">
@@ -489,17 +489,17 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="flex max-h-[90vh] w-full max-w-[850px] flex-col overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-[850px] flex-col overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20">
-              <MapPin className="size-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#C99A47]/15 text-[#E6C17A] border border-[#E6C17A]/35 shadow-[0_0_12px_rgba(201,154,71,0.25)]">
+              <MapPin className="size-5 text-[#E6C17A]" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-content">{venue.name}</h2>
-              <p className="text-xs text-subtle">Chi tiết địa điểm tổ chức</p>
+              <h2 className="text-xl font-black text-white">{venue.name}</h2>
+              <p className="text-xs text-slate-300">Chi tiết địa điểm tổ chức</p>
             </div>
           </div>
           <button
@@ -517,7 +517,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
-                <Armchair className="size-4 text-tertiary" />
+                <Armchair className="size-4 text-[#E6C17A]" />
                 <span>Sức chứa tối đa</span>
               </div>
               <p className="text-xl font-extrabold text-content">{maxCap} <span className="text-xs font-normal text-subtle">ghế</span></p>
@@ -525,7 +525,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
 
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
-                <Layers className="size-4 text-primary" />
+                <Layers className="size-4 text-[#E6C17A]" />
                 <span>Số sơ đồ ghế</span>
               </div>
               <p className="text-xl font-extrabold text-content">{venue.seat_map_count || 0} <span className="text-xs font-normal text-subtle">sơ đồ</span></p>
@@ -533,7 +533,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
 
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
-                <Building2 className="size-4 text-secondary" />
+                <Building2 className="size-4 text-[#E6C17A]" />
                 <span>Khu vực</span>
               </div>
               <p className="text-sm font-bold text-content truncate">{venue.city || venue.country || 'Việt Nam'}</p>
@@ -558,7 +558,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
                         href={googleMapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-tertiary hover:underline font-semibold"
+                        className="inline-flex items-center gap-1 text-[#E6C17A] hover:underline font-semibold"
                       >
                         Google Maps <ExternalLink className="size-3" />
                       </a>
@@ -582,7 +582,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle">Sơ đồ ghế thuộc địa điểm</h4>
                   <Link
                     to={`/organizer/venues/${venue.id}/seat-maps`}
-                    className="text-xs text-tertiary hover:underline font-semibold"
+                    className="text-xs text-[#E6C17A] hover:underline font-semibold"
                   >
                     Quản lý tất cả
                   </Link>
@@ -661,30 +661,46 @@ function VenueCard({ venue, onDetail, onEdit, onDelete }) {
   const maxCap = venue.max_seats || venue.total_seats || 0
 
   return (
-    <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm text-content transition-colors hover:border-tertiary/40">
-      <div className="mb-3 flex items-start gap-3">
+    <div className="group relative overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-b from-[#142042]/95 via-[#0e172e]/98 to-[#0b1328] p-5 shadow-[0_10px_32px_rgba(0,0,0,0.45)] backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#E6C17A]/70 hover:shadow-[0_14px_40px_rgba(201,154,71,0.22)] [html.light_&]:from-white [html.light_&]:via-white [html.light_&]:to-slate-50/90 [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-md [html.light_&]:hover:shadow-xl [html.light_&]:hover:border-[#C99A47]">
+      {/* Top golden accent line */}
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#E6C17A]/40 to-transparent group-hover:via-[#E6C17A] transition-all duration-300" />
+
+      {/* Subtle corner golden ambient glow on hover */}
+      <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-[#C99A47]/10 blur-2xl group-hover:bg-[#C99A47]/20 transition-all duration-500" />
+
+      <div className="mb-4 flex items-start gap-3.5">
         <div
           onClick={() => onDetail(venue)}
-          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20 hover:bg-tertiary/25 transition-colors"
+          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-[#C99A47]/20 text-[#E6C17A] border border-[#E6C17A]/40 shadow-[0_0_16px_rgba(201,154,71,0.25)] hover:bg-[#C99A47]/30 hover:border-[#E6C17A]/75 hover:shadow-[0_0_22px_rgba(201,154,71,0.45)] hover:scale-105 transition-all duration-300 group/icon"
           title="Xem chi tiết"
         >
-          <MapPin className="size-5" />
+          <MapPin className="size-5.5 text-[#E6C17A] drop-shadow-[0_0_6px_rgba(201,154,71,0.5)] group-hover/icon:scale-110 transition-transform" />
         </div>
         <div className="flex-1 min-w-0">
           <h3
             onClick={() => onDetail(venue)}
-            className="font-bold text-content truncate cursor-pointer hover:text-tertiary transition-colors"
+            className="text-base font-extrabold text-white truncate cursor-pointer hover:text-[#E6C17A] transition-colors [html.light_&]:text-[#0D1B2A]"
             title="Xem chi tiết"
           >
             {venue.name}
           </h3>
-          <p className="mt-1 text-sm text-subtle truncate">{location || venue.address_line}</p>
-          <p className="mt-2 text-xs text-muted">
-            {venue.seat_map_count || 0} sơ đồ · Sức chứa tối đa: <span className="font-bold text-content">{maxCap}</span> người (ghế + đứng)
+          <p className="mt-1 text-sm font-medium text-slate-300 truncate [html.light_&]:text-[#1B365D]">
+            {location || venue.address_line || 'Chưa cập nhật địa chỉ'}
           </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.05] px-2.5 py-1 font-semibold text-slate-200 border border-white/10 [html.light_&]:bg-[#C99A47]/10 [html.light_&]:border-[#C99A47]/20 [html.light_&]:text-[#0D1B2A]">
+              <Layers className="size-3.5 text-[#E6C17A]" />
+              <span><strong className="text-white [html.light_&]:text-[#0D1B2A]">{venue.seat_map_count || 0}</strong> sơ đồ</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.05] px-2.5 py-1 font-semibold text-slate-200 border border-white/10 [html.light_&]:bg-[#C99A47]/10 [html.light_&]:border-[#C99A47]/20 [html.light_&]:text-[#0D1B2A]">
+              <Armchair className="size-3.5 text-[#E6C17A]" />
+              <span>Sức chứa: <strong className="text-[#E6C17A]">{Number(maxCap).toLocaleString()}</strong> người</span>
+            </span>
+          </div>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 pt-2">
+
+      <div className="mt-4 flex flex-wrap items-center gap-2 pt-3.5 border-t border-white/10 [html.light_&]:border-[#C99A47]/15">
         <button
           type="button"
           onClick={() => onDetail(venue)}
@@ -706,7 +722,7 @@ function VenueCard({ venue, onDetail, onEdit, onDelete }) {
         <button
           type="button"
           onClick={() => onDelete(venue)}
-          className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-xs font-bold text-error hover:bg-error/20 transition-colors"
+          className="ml-auto flex items-center gap-1 rounded-full border border-error/30 bg-error/10 px-3.5 py-1.5 text-xs font-bold text-error hover:bg-error/20 transition-colors"
         >
           <Trash2 className="size-3.5" />
           Xóa
@@ -796,10 +812,10 @@ export function OrganizerVenuesPage() {
       onAction={openCreate}
     >
       <div className="mb-5">
-        <div className="relative w-72 max-w-full">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+        <div className="relative w-80 max-w-full">
+          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400 [html.light_&]:text-[#1B365D]" />
           <input
-            className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted"
+            className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none focus:border-[#E6C17A] focus:ring-2 focus:ring-[#E6C17A]/20 placeholder:text-white/40 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/35 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-[#536b88] transition-all"
             placeholder="Tìm theo tên, thành phố..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -811,10 +827,13 @@ export function OrganizerVenuesPage() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E6C17A] border-t-transparent" />
         </div>
       ) : !filtered.length ? (
-        <div className="rounded-xl border border-dashed border-border-soft/30 py-16 text-center text-sm text-muted flex flex-col items-center justify-center gap-4">
+        <div className="rounded-2xl border border-dashed border-white/15 bg-[#0e172e]/60 py-16 text-center text-sm text-slate-400 flex flex-col items-center justify-center gap-4 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#536b88]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A] shadow-[0_0_15px_rgba(201,154,71,0.2)]">
+            <Building2 className="size-6 text-[#E6C17A]" />
+          </div>
           <p>Chưa có địa điểm nào. Nhấn &quot;Tạo địa điểm&quot; để bắt đầu.</p>
           <button type="button" onClick={openCreate} className="org-btn-primary">
             <Building2 className="size-4" />

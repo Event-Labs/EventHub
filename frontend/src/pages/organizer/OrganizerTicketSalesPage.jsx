@@ -461,20 +461,20 @@ export function OrganizerTicketSalesPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-4 sm:flex-row">
             <label className="flex-1">
-              <span className="block text-sm font-semibold text-subtle">Sự kiện</span>
+              <span className="block text-base font-bold text-white mb-1.5">Sự kiện</span>
               {eventsLoading ? (
-                <div className="mt-2 flex h-10 items-center gap-2 text-sm text-subtle">
+                <div className="mt-1 flex h-10 items-center gap-2 text-sm text-subtle">
                   <Loader2 className="size-4 animate-spin" /> Đang tải...
                 </div>
               ) : (
                 <select
-                  className="org-input"
+                  className="mt-1 h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                   value={selectedEventId}
                   onChange={(e) => setSelectedEventId(e.target.value)}
                 >
-                  <option value="">Tất cả sự kiện</option>
+                  <option value="" className="bg-[#0b1329] text-white">Tất cả sự kiện</option>
                   {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>{ev.title}</option>
+                    <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">{ev.title}</option>
                   ))}
                 </select>
               )}
@@ -616,32 +616,32 @@ export function OrganizerTicketSalesPage() {
                   <Ticket className="size-5 text-primary" />
                   <h2 className="font-bold text-content">Bán hàng theo loại vé</h2>
                 </div>
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                  <div className="max-h-[420px] overflow-auto">
-                    <table className="w-full text-xs">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                  <div className="w-full max-h-[420px] overflow-auto">
+                    <table className="w-full min-w-[600px] text-sm">
+                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                         <tr>
-                          <th className="px-4 py-3 text-left font-bold">Loại vé</th>
-                          <th className="px-4 py-3 text-right font-bold">Sức chứa</th>
-                          <th className="px-4 py-3 text-right font-bold">Đã bán</th>
-                          <th className="px-4 py-3 text-right font-bold">Doanh thu</th>
-                          <th className="px-4 py-3 text-right font-bold">Lấp đầy</th>
+                          <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Sức chứa</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Đã bán</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Doanh thu</th>
+                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Lấp đầy</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5 font-medium text-slate-300">
                         {byTicketType.map((tt) => (
                           <tr key={tt.ticket_type_id} className="hover:bg-white/[0.02] transition-colors">
                             <td className="px-4 py-3.5">
-                              <p className="font-semibold text-content">{tt.ticket_type_name}</p>
+                              <p className="text-sm font-semibold text-content">{tt.ticket_type_name}</p>
                               <p className="text-xs text-subtle">{fmtCurrency(tt.unit_price)}/vé</p>
                             </td>
-                            <td className="px-4 py-3.5 text-right text-subtle">
+                            <td className="px-4 py-3.5 text-right text-sm text-subtle">
                               {Number(tt.capacity).toLocaleString('vi-VN')}
                             </td>
-                            <td className="px-4 py-3.5 text-right font-semibold text-content">
+                            <td className="px-4 py-3.5 text-right text-sm font-semibold text-content">
                               {Number(tt.sold_quantity).toLocaleString('vi-VN')}
                             </td>
-                            <td className="px-4 py-3.5 text-right font-semibold text-success">
+                            <td className="px-4 py-3.5 text-right text-sm font-semibold text-success">
                               {fmtShort(tt.revenue)}
                             </td>
                             <td className="px-4 py-3.5 text-right">
@@ -652,14 +652,14 @@ export function OrganizerTicketSalesPage() {
                       </tbody>
                       <tfoot>
                         <tr className="border-t border-white/10 bg-[#172242]/70">
-                          <td className="px-4 py-3 font-bold text-white">Tổng cộng</td>
-                          <td className="px-4 py-3 text-right font-bold text-subtle">
+                          <td className="px-4 py-3 font-bold text-white text-sm">Tổng cộng</td>
+                          <td className="px-4 py-3 text-right font-bold text-subtle text-sm">
                             {byTicketType.reduce((s, tt) => s + Number(tt.capacity), 0).toLocaleString('vi-VN')}
                           </td>
-                          <td className="px-4 py-3 text-right font-bold text-content">
+                          <td className="px-4 py-3 text-right font-bold text-content text-sm">
                             {Number(overall.total_tickets_sold).toLocaleString('vi-VN')}
                           </td>
-                          <td className="px-4 py-3 text-right font-bold text-success">
+                          <td className="px-4 py-3 text-right font-bold text-success text-sm">
                             {fmtCurrency(overall.total_revenue)}
                           </td>
                           <td className="px-4 py-3" />

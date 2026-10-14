@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Ban,
   CheckSquare,
@@ -7,7 +8,6 @@ import {
   Eraser,
   Grid,
   Hand,
-  Layers,
   MousePointer2,
   Paintbrush,
   Palette,
@@ -15,7 +15,6 @@ import {
   RotateCcw,
   Settings,
   Shapes,
-  Sparkles,
   Trash2,
   Users,
   ZoomIn,
@@ -35,18 +34,18 @@ const STAGE_OFFSET_Y = 70
 const ZONE_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F43F5E']
 
 const STAGE_SHAPES = [
-  { id: 'RECTANGLE', label: 'Hình chữ nhật / Vuông', icon: '▭' },
-  { id: 'CIRCLE', label: 'Hình tròn / Ellipse', icon: '◯' },
-  { id: 'SEMI_CIRCLE', label: 'Hình bán nguyệt', icon: '⌒' },
-  { id: 'T_STAGE', label: 'Sân khấu chữ T (Runway)', icon: '⊤' },
-  { id: 'DIAMOND', label: 'Hình thoi / Kim cương', icon: '◇' },
+  { id: 'RECTANGLE', label: 'Hình chữ nhật / Vuông' },
+  { id: 'CIRCLE', label: 'Hình tròn / Ellipse' },
+  { id: 'SEMI_CIRCLE', label: 'Hình bán nguyệt' },
+  { id: 'T_STAGE', label: 'Sân khấu chữ T (Runway)' },
+  { id: 'DIAMOND', label: 'Hình thoi / Kim cương' },
 ]
 
 const CANVAS_THEMES = [
-  { id: '#0F172A', label: 'Dark Navy', color: '#0F172A' },
-  { id: '#090D16', label: 'Pure Dark', color: '#090D16' },
-  { id: '#1E293B', label: 'Studio Slate', color: '#1E293B' },
-  { id: '#F8FAFC', label: 'Light Canvas', color: '#F8FAFC', light: true },
+  { id: '#0F172A', label: 'Xanh đen', color: '#0F172A' },
+  { id: '#090D16', label: 'Đen tuyền', color: '#090D16' },
+  { id: '#1E293B', label: 'Xám than', color: '#1E293B' },
+  { id: '#F8FAFC', label: 'Nền sáng', color: '#F8FAFC', light: true },
 ]
 
 const TOOLS = [
@@ -56,6 +55,18 @@ const TOOLS = [
   { id: 'ERASE', label: 'Xóa', icon: Eraser, shortcut: 'E' },
   { id: 'DISABLE', label: 'Vô hiệu', icon: Ban, shortcut: 'D' },
 ]
+
+function isLightColor(hex) {
+  if (!hex || typeof hex !== 'string') return false
+  const clean = hex.replace('#', '').trim()
+  if (clean.length < 6) return false
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return false
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 170
+}
 
 function newLocalId() {
   return crypto.randomUUID()
@@ -76,7 +87,7 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
       <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-6 shadow-2xl space-y-4 text-content">
         <h3 className="text-base font-extrabold text-content">{title || 'Đổi tên'}</h3>
         <div>
@@ -188,9 +199,11 @@ function seatKey(x, y) {
   return `${x},${y}`
 }
 
-function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--color-panel-soft)', label = 'SÂN KHẤU', position = 'TOP') {
-  const fillColor = color || 'var(--color-panel-soft)'
-  const strokeColor = 'rgba(255,255,255,0.3)'
+function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--color-panel-soft)', label = 'SÂN KHẤU', position = 'TOP', isLight = false) {
+  const fillColor = color || (isLight ? '#2563EB' : 'var(--color-panel-soft)')
+  const strokeColor = isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,0.3)'
+  const isFillLight = isLightColor(fillColor)
+  const textColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
 
   if (shape === 'CIRCLE') {
     const rx = w / 2
@@ -200,8 +213,8 @@ function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--co
     return (
       <g>
         <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
-        <ellipse cx={cx} cy={cy} rx={Math.max(2, rx - 8)} ry={Math.max(2, ry - 8)} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="4 4" />
-        <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize={13} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+        <ellipse cx={cx} cy={cy} rx={Math.max(2, rx - 8)} ry={Math.max(2, ry - 8)} fill="none" stroke={isFillLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)'} strokeWidth={1} strokeDasharray="4 4" />
+        <text x={cx} y={cy + 4} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" style={{ userSelect: 'none', pointerEvents: 'none' }}>
           {label}
         </text>
       </g>
@@ -215,7 +228,7 @@ function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--co
     return (
       <g>
         <path d={`M ${x} ${y + h} A ${rx} ${ry} 0 0 1 ${x + w} ${y + h} Z`} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
-        <text x={cx} y={y + h / 2 + 6} textAnchor="middle" fill="white" fontSize={13} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+        <text x={cx} y={y + h / 2 + 6} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" style={{ userSelect: 'none', pointerEvents: 'none' }}>
           {label}
         </text>
       </g>
@@ -230,7 +243,7 @@ function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--co
     return (
       <g>
         <path d={d} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
-        <text x={x + w / 2} y={y + topH / 2 + 4} textAnchor="middle" fill="white" fontSize={12} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+        <text x={x + w / 2} y={y + topH / 2 + 4} textAnchor="middle" fill={textColor} fontSize={12} fontWeight="800" style={{ userSelect: 'none', pointerEvents: 'none' }}>
           {label}
         </text>
       </g>
@@ -244,7 +257,7 @@ function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--co
     return (
       <g>
         <polygon points={points} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
-        <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize={13} fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+        <text x={cx} y={cy + 4} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" style={{ userSelect: 'none', pointerEvents: 'none' }}>
           {label}
         </text>
       </g>
@@ -255,17 +268,18 @@ function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--co
   return (
     <g>
       <rect x={x} y={y} width={w} height={h} fill={fillColor} rx={Math.min(w, h) > 20 ? 12 : 4} stroke={strokeColor} strokeWidth={2} />
-      {(position === 'TOP' || position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill="rgba(255,255,255,0.3)" />}
-      {position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill="rgba(255,255,255,0.3)" />}
-      {position === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill="rgba(255,255,255,0.3)" />}
-      {position === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill="rgba(255,255,255,0.3)" />}
+      {(position === 'TOP' || position === 'CUSTOM') && <rect x={x} y={y + h - 4} width={w} height={4} fill={isFillLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.3)'} />}
+      {position === 'BOTTOM' && <rect x={x} y={y} width={w} height={4} fill={isFillLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.3)'} />}
+      {position === 'LEFT' && <rect x={x + w - 4} y={y} width={4} height={h} fill={isFillLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.3)'} />}
+      {position === 'RIGHT' && <rect x={x} y={y} width={4} height={h} fill={isFillLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.3)'} />}
       <text
         x={x + w / 2}
         y={y + h / 2 + 5}
         textAnchor="middle"
-        fill="white"
+        fill={textColor}
         fontSize={13}
-        fontWeight="bold"
+        fontWeight="800"
+        letterSpacing="1"
         style={{ userSelect: 'none', pointerEvents: 'none' }}
         transform={position === 'LEFT' || position === 'RIGHT' || (position === 'CUSTOM' && h > w) ? `rotate(-90 ${x + w / 2} ${y + h / 2})` : undefined}
       >
@@ -300,6 +314,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [seats, setSeats] = useState([])
   const [loading, setLoading] = useState(Boolean(seatMapId))
   const [canvasBg, setCanvasBg] = useState('#0F172A')
+  const isLightCanvas = useMemo(() => isLightColor(canvasBg), [canvasBg])
   const [sidebarTab, setSidebarTab] = useState('STAGE') // STAGE | ZONES | GRID | THEMES
 
   const [renameModalState, setRenameModalState] = useState({ isOpen: false, title: '', initialValue: '', onSave: null })
@@ -336,6 +351,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   const seatsRef = useRef(seats)
   seatsRef.current = seats
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [])
 
   useEffect(() => {
     if (!seatMapId) {
@@ -1246,13 +1269,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const visibleTools = TOOLS.filter((t) => !(t.freeformOnly && layoutType === 'GRID'))
 
   if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+    return createPortal(
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-sm text-muted">Đang tải sơ đồ ghế...</p>
         </div>
-      </div>
+      </div>,
+      document.body,
     )
   }
 
@@ -1266,8 +1290,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           ? 'copy'
           : 'default'
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-content">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex flex-col bg-background text-content">
       <RenameModal
         {...renameModalState}
         onClose={() => setRenameModalState({ isOpen: false, title: '', initialValue: '', onSave: null })}
@@ -1278,9 +1302,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl px-3 py-1.5 text-sm font-semibold text-muted transition hover:bg-panel-soft hover:text-content"
+          className="rounded-xl px-3 py-1.5 text-sm font-bold text-white transition hover:bg-white/10 hover:text-white"
         >
-          ← Đóng
+          ← Quay lại
         </button>
         <div className="h-6 w-px bg-border-soft/20" />
         <input
@@ -1321,9 +1345,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   key={tab.id}
                   type="button"
                   onClick={() => setSidebarTab(tab.id)}
-                  className={`flex flex-col items-center gap-1 py-2 text-[10px] font-bold rounded-lg transition-all ${
-                    active ? 'bg-tertiary text-white shadow-sm' : 'text-subtle hover:text-content hover:bg-panel-soft'
-                  }`}
+                  className={`flex flex-col items-center gap-1 py-2 text-[10px] font-bold rounded-lg transition-all ${active ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black' : 'text-subtle hover:text-content hover:bg-panel-soft'
+                    }`}
                 >
                   <IconComp className="size-4" />
                   <span>{tab.label}</span>
@@ -1336,51 +1359,51 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             {/* TAB 1: SÂN KHẤU & PRESETS */}
             {sidebarTab === 'STAGE' && (
               <div className="space-y-4">
-                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
-                    <Shapes className="size-3.5 text-tertiary" /> Cấu hình sân khấu
+                <section className="rounded-xl border border-[#C99A47]/30 p-3.5 bg-[#C99A47]/5 space-y-3.5">
+                  <p className="text-xs font-bold uppercase tracking-wide text-white">
+                    Cấu hình sân khấu
                   </p>
-                  <label className="text-xs text-subtle block">
+                  <label className="text-sm text-subtle block">
                     Tên hiển thị
                     <input
                       type="text"
                       value={stageConfig.label}
                       onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
-                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm font-bold text-content outline-none focus:border-primary"
+                      className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base font-bold text-content outline-none focus:border-primary"
                     />
                   </label>
 
-                  <label className="text-xs text-subtle block">
+                  <label className="text-sm text-subtle block">
                     Hình dạng khối sân khấu
                     <select
                       value={stageConfig.shape || 'RECTANGLE'}
                       onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
-                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
+                      className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
                     >
                       {STAGE_SHAPES.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.icon} {s.label}
+                          {s.label}
                         </option>
                       ))}
                     </select>
                   </label>
 
                   <div>
-                    <label className="text-xs text-subtle block mb-1">Màu sắc sân khấu</label>
-                    <div className="flex items-center gap-2">
+                    <label className="text-sm text-subtle block mb-1.5">Màu sắc sân khấu</label>
+                    <div className="flex items-center gap-2.5">
                       <input
                         type="color"
                         value={stageConfig.color || '#3B82F6'}
                         onChange={(e) => setStageConfig((c) => ({ ...c, color: e.target.value }))}
-                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                        className="h-9 w-11 cursor-pointer rounded border-0 bg-transparent p-0"
                       />
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#64748B'].map((hex) => (
                           <button
                             key={hex}
                             type="button"
                             onClick={() => setStageConfig((c) => ({ ...c, color: hex }))}
-                            className="size-5 rounded-full border border-white/20 transition-transform hover:scale-110"
+                            className="size-6 rounded-full border border-white/20 transition-transform hover:scale-110"
                             style={{ backgroundColor: hex }}
                           />
                         ))}
@@ -1388,12 +1411,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     </div>
                   </div>
 
-                  <label className="text-xs text-subtle block">
+                  <label className="text-sm text-subtle block">
                     Vị trí
                     <select
                       value={stageConfig.position}
                       onChange={(e) => setStageConfig((c) => ({ ...c, position: e.target.value }))}
-                      className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
+                      className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
                     >
                       <option value="TOP">Bên trên</option>
                       <option value="BOTTOM">Bên dưới</option>
@@ -1406,76 +1429,89 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
                   {stageConfig.position === 'CUSTOM' && (
                     <div className="grid grid-cols-3 gap-2 pt-1">
-                      <label className="text-[11px] text-subtle">
+                      <label className="text-xs text-subtle">
                         Ngang
-                        <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                        <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
                       </label>
-                      <label className="text-[11px] text-subtle">
+                      <label className="text-xs text-subtle">
                         Dọc
-                        <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                        <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
                       </label>
-                      <label className="text-[11px] text-subtle">
+                      <label className="text-xs text-subtle">
                         Xoay (°)
-                        <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1 py-1 text-xs text-content outline-none focus:border-primary" />
+                        <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
                       </label>
                     </div>
                   )}
+
+                  {/* Các nút thêm vật thể phụ */}
+                  <div className="space-y-2 pt-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'AUX_STAGE', label: 'Sân khấu phụ', x: 300, y: 300, w: 180, h: 40 }])}
+                        className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-tertiary" /> Sân phụ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'SCREEN', label: 'Màn hình LED', x: 300, y: 300, w: 120, h: 20 }])}
+                        className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-tertiary" /> Màn hình
+                      </button>
+                    </div>
+                    {auxElements.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        {auxElements.map(a => (
+                          <div key={a.id} className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-surface border border-border-soft/30 text-content shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <input
+                                type="text"
+                                value={a.label}
+                                onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
+                                className="bg-transparent font-bold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
+                              />
+                              <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title="Xóa" className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </section>
 
                 {/* Mẫu có sẵn */}
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
-                    <Sparkles className="size-3.5 text-tertiary" /> Mẫu thiết kế nhanh
+                  <p className="text-xs font-bold uppercase tracking-wide text-white">
+                    Mẫu thiết kế nhanh
                   </p>
                   <div className="grid grid-cols-1 gap-2">
-                    <button type="button" onClick={() => applyPreset('THEATER')} className="flex items-center justify-between rounded-xl border border-border-soft/30 bg-surface p-2.5 text-xs font-semibold text-content hover:border-tertiary transition">
-                      <span>🎭 Nhà hát / Hội trường</span>
-                      <span className="text-[10px] text-muted">Vuông + 200 ghế</span>
-                    </button>
-                    <button type="button" onClick={() => applyPreset('T_STAGE')} className="flex items-center justify-between rounded-xl border border-border-soft/30 bg-surface p-2.5 text-xs font-semibold text-content hover:border-tertiary transition">
-                      <span>🎤 Concert Sân khấu T</span>
-                      <span className="text-[10px] text-muted">Sân T + Đứng + Ghế</span>
-                    </button>
-                    <button type="button" onClick={() => applyPreset('FESTIVAL')} className="flex items-center justify-between rounded-xl border border-border-soft/30 bg-surface p-2.5 text-xs font-semibold text-content hover:border-tertiary transition">
-                      <span>🔥 Festival Hỗn hợp</span>
-                      <span className="text-[10px] text-muted">Bán nguyệt + Vùng đứng</span>
-                    </button>
-                  </div>
-                </section>
-
-                {/* Aux elements */}
-                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Vật thể phụ khác</p>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
                     <button
                       type="button"
-                      onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'AUX_STAGE', label: 'Sân khấu phụ', x: 300, y: 300, w: 180, h: 40 }])}
-                      className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
+                      onClick={() => applyPreset('THEATER')}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
                     >
-                      <Plus className="w-3.5 h-3.5 text-tertiary" /> Sân phụ
+                      <span className="text-base font-bold text-white">Nhà hát / Hội trường</span>
+                      <span className="text-xs text-muted">Vuông + 200 ghế</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'SCREEN', label: 'Màn hình LED', x: 300, y: 300, w: 120, h: 20 }])}
-                      className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
+                      onClick={() => applyPreset('T_STAGE')}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
                     >
-                      <Plus className="w-3.5 h-3.5 text-tertiary" /> Màn hình
+                      <span className="text-base font-bold text-white">Concert Sân khấu T</span>
+                      <span className="text-xs text-muted">Sân T + Đứng + Ghế</span>
                     </button>
-                  </div>
-                  <div className="space-y-1.5">
-                    {auxElements.map(a => (
-                      <div key={a.id} className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-surface border border-border-soft/30 text-content shadow-sm">
-                        <div className="flex items-center justify-between">
-                          <input
-                            type="text"
-                            value={a.label}
-                            onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
-                            className="bg-transparent font-bold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
-                          />
-                          <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title="Xóa" className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
-                        </div>
-                      </div>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={() => applyPreset('FESTIVAL')}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
+                    >
+                      <span className="text-base font-bold text-white">Festival Hỗn hợp</span>
+                      <span className="text-xs text-muted">Bán nguyệt + Vùng đứng</span>
+                    </button>
                   </div>
                 </section>
               </div>
@@ -1485,12 +1521,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             {sidebarTab === 'ZONES' && (
               <div className="space-y-4">
                 {/* Vùng đứng không ghế */}
-                <section className="rounded-xl border border-tertiary/30 p-3.5 bg-tertiary/5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wide text-tertiary flex items-center gap-1.5">
-                      <Users className="size-3.5" /> Vùng đứng (Không ghế)
+                <section className="rounded-xl border border-[#C99A47]/30 p-3.5 bg-[#C99A47]/5 space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-white">
+                      Vùng đứng (Không ghế)
                     </p>
-                    <button type="button" onClick={addStandingArea} className="org-btn-primary text-xs py-1 px-2.5">
+                    <button
+                      type="button"
+                      onClick={addStandingArea}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-3 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
+                    >
                       + Thêm vùng đứng
                     </button>
                   </div>
@@ -1545,11 +1585,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
                 {/* Khu vực ghế ngồi */}
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
-                      <Layers className="size-3.5 text-tertiary" /> Khu vực vé (Ghế ngồi)
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-white">
+                      Khu vực vé (Ghế ngồi)
                     </p>
-                    <button type="button" onClick={addZone} className="text-xs font-bold text-primary hover:underline">
+                    <button
+                      type="button"
+                      onClick={addZone}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-3 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
+                    >
                       + Thêm khu vực
                     </button>
                   </div>
@@ -1564,11 +1608,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         <div
                           key={zone.localId}
                           onClick={() => setActiveZoneId(isActive ? null : zone.localId)}
-                          className={`flex items-center justify-between rounded-xl border p-2.5 transition cursor-pointer ${
-                            isActive
-                              ? 'border-tertiary bg-tertiary/10 shadow-sm'
-                              : 'border-border-soft/30 bg-surface hover:border-border-soft/60'
-                          }`}
+                          className={`flex items-center justify-between rounded-xl border p-2.5 transition cursor-pointer ${isActive
+                            ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/25 text-white shadow-sm ring-1 ring-[#C99A47]/40'
+                            : 'border-border-soft/30 bg-surface hover:border-border-soft/60'
+                            }`}
                         >
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             <input
@@ -1619,10 +1662,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             {sidebarTab === 'GRID' && (
               <div className="space-y-4">
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
-                    <Grid className="size-3.5 text-tertiary" /> Loại Layout & Tạo lưới
+                  <p className="text-xs font-bold uppercase tracking-wide text-white">
+                    Loại Layout & Tạo lưới
                   </p>
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {[
                       ['GRID', 'Lưới cố định'],
                       ['FREEFORM', 'Vẽ tự do'],
@@ -1632,11 +1675,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         key={type}
                         type="button"
                         onClick={() => setLayoutType(type)}
-                        className={`rounded-xl px-2 py-2 text-xs font-bold transition-all ${
-                          layoutType === type
-                            ? 'bg-tertiary text-white shadow-sm'
-                            : 'bg-panel-soft text-subtle hover:bg-panel-soft/80'
-                        }`}
+                        className={`rounded-xl px-2 py-2 text-xs font-bold transition-all border ${layoutType === type
+                          ? 'border-[#C99A47] text-[#E6C17A] bg-[#C99A47]/10 shadow-sm'
+                          : 'border-border-soft/30 bg-panel-soft text-subtle hover:bg-panel-soft/80 hover:text-content hover:border-border-soft/60'
+                          }`}
                       >
                         {label}
                       </button>
@@ -1646,7 +1688,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   {layoutType === 'GRID' && (
                     <div className="space-y-2 pt-2 border-t border-border-soft/20">
                       <div className="grid grid-cols-2 gap-2">
-                        <label className="text-xs text-subtle">
+                        <label className="text-sm font-semibold text-white block">
                           Số Hàng
                           <input
                             type="number"
@@ -1654,10 +1696,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             max={50}
                             value={gridConfig.rows}
                             onChange={(e) => setGridConfig((g) => ({ ...g, rows: Number(e.target.value) }))}
-                            className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
+                            className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-base font-bold text-white outline-none focus:border-primary"
                           />
                         </label>
-                        <label className="text-xs text-subtle">
+                        <label className="text-sm font-semibold text-white block">
                           Số Cột
                           <input
                             type="number"
@@ -1665,11 +1707,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             max={100}
                             value={gridConfig.cols}
                             onChange={(e) => setGridConfig((g) => ({ ...g, cols: Number(e.target.value) }))}
-                            className="mt-1 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-sm text-content outline-none focus:border-primary"
+                            className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-base font-bold text-white outline-none focus:border-primary"
                           />
                         </label>
                       </div>
-                      <button type="button" onClick={generateGrid} className="org-btn-primary w-full text-xs">
+                      <button
+                        type="button"
+                        onClick={generateGrid}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[#C99A47]/50 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 hover:border-[#E6C17A] py-2.5 px-3 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
+                      >
+                        <RotateCcw className="size-3.5" />
                         Tạo lại lưới ghế ({gridConfig.rows * gridConfig.cols} ghế)
                       </button>
                     </div>
@@ -1677,7 +1724,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 </section>
 
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Thao tác nhanh ghế</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-white">Thao tác nhanh ghế</p>
                   <div className="grid grid-cols-1 gap-2">
                     <button
                       type="button"
@@ -1710,28 +1757,53 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             {sidebarTab === 'THEMES' && (
               <div className="space-y-4">
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted flex items-center gap-1.5">
-                    <Palette className="size-3.5 text-tertiary" /> Màu nền Canvas
+                  <p className="text-xs font-bold uppercase tracking-wide text-white">
+                    Màu nền Canvas
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CANVAS_THEMES.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setCanvasBg(t.color)}
-                        className={`flex items-center gap-2 rounded-xl border p-2.5 text-xs font-semibold transition ${
-                          canvasBg === t.color ? 'border-tertiary ring-2 ring-tertiary/20' : 'border-border-soft/30'
-                        }`}
-                        style={{ backgroundColor: t.color, color: t.light ? '#0F172A' : '#FFFFFF' }}
-                      >
-                        <div className="size-4 rounded-full border border-white/20" style={{ backgroundColor: t.color }} />
-                        <span>{t.label}</span>
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-1 gap-2">
+                    {CANVAS_THEMES.map((t) => {
+                      const isSelected = canvasBg === t.color
+                      return (
+                        <label
+                          key={t.id}
+                          className={`flex items-center justify-between rounded-xl border px-3 py-2.5 transition cursor-pointer ${isSelected
+                              ? 'border-[#E6C17A] bg-[#C99A47]/10 text-white shadow-sm ring-1 ring-[#C99A47]/40'
+                              : 'border-border-soft/30 bg-surface text-subtle hover:border-border-soft/60 hover:text-content hover:bg-panel-soft/30'
+                            }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="radio"
+                              name="canvasTheme"
+                              value={t.color}
+                              checked={isSelected}
+                              onChange={() => setCanvasBg(t.color)}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`size-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${isSelected
+                                  ? 'border-[#E6C17A] bg-[#C99A47]/20'
+                                  : 'border-border-soft/60 bg-transparent'
+                                }`}
+                            >
+                              {isSelected && (
+                                <div className="size-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-xs" />
+                              )}
+                            </div>
+                            <span className="text-sm font-semibold">{t.label}</span>
+                          </div>
+                          <div
+                            className="size-4 rounded-full border border-white/20 shrink-0"
+                            style={{ backgroundColor: t.color }}
+                            title={`Mã màu: ${t.color}`}
+                          />
+                        </label>
+                      )
+                    })}
                   </div>
 
                   <div className="pt-2 border-t border-border-soft/20 flex items-center justify-between">
-                    <span className="text-xs text-subtle">Màu tự chọn:</span>
+                    <span className="text-sm font-semibold text-white">Màu tự chọn:</span>
                     <input
                       type="color"
                       value={canvasBg}
@@ -1742,16 +1814,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 </section>
 
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-content">
+                  <label className="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-white">
                     <input
                       type="checkbox"
                       checked={snapEnabled}
                       onChange={(e) => setSnapEnabled(e.target.checked)}
-                      className="rounded border-border-soft/40 bg-panel-soft accent-primary"
+                      className="size-4 rounded border-border-soft/40 bg-panel-soft accent-[#C99A47]"
                     />
-                    Căn chỉnh Lưới Snap (Snap to Grid)
+                    Căn chỉnh Lưới Snap
                   </label>
-                  <p className="text-[11px] leading-relaxed text-subtle">
+                  <p className="text-xs leading-relaxed text-subtle">
                     Tự động hít vị trí ghế & vật thể theo ô lưới khi kéo thả.
                   </p>
                 </section>
@@ -1763,8 +1835,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         {/* Main Canvas Container */}
         <main className="relative flex flex-1 flex-col overflow-hidden">
           {/* Floating Toolbar */}
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-2xl border border-border-soft/40 bg-surface/90 p-1.5 shadow-xl backdrop-blur-md">
-            <div className="flex items-center gap-1 border-r border-border-soft/30 pr-2">
+          <div className={`absolute top-4 left-4 z-10 flex items-center gap-2 rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md transition-colors ${
+            isLightCanvas
+              ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
+              : 'border-border-soft/40 bg-surface/90 text-content'
+          }`}>
+            <div className={`flex items-center gap-1 border-r pr-2 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
               {visibleTools.map((t) => {
                 const IconComp = t.icon
                 const isActive = tool === t.id
@@ -1774,11 +1850,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     type="button"
                     onClick={() => setTool(t.id)}
                     title={`${t.label} (${t.shortcut})`}
-                    className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all ${
-                      isActive
-                        ? 'bg-tertiary text-white shadow-md'
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all ${isActive
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
+                      : isLightCanvas
+                        ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                         : 'text-subtle hover:bg-panel-soft hover:text-content'
-                    }`}
+                      }`}
                   >
                     <IconComp className="size-4" />
                     <span className="hidden md:inline">{t.label}</span>
@@ -1787,22 +1864,30 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               })}
             </div>
 
-            {/* Quick Actions: Undo, Select All, Copy, Paste */}
-            <div className="flex items-center gap-1 border-r border-border-soft/30 pr-2">
+            {/* Quick Actions: Hoàn tác, Chọn hết, Sao chép, Dán */}
+            <div className={`flex items-center gap-1 border-r pr-2 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
               <button
                 type="button"
                 onClick={undo}
                 title="Hoàn tác (Ctrl+Z)"
-                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
+                  isLightCanvas
+                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                    : 'text-subtle hover:bg-panel-soft hover:text-content'
+                }`}
               >
                 <RotateCcw className="size-4" />
-                <span className="hidden lg:inline">Undo</span>
+                <span className="hidden lg:inline">Hoàn tác</span>
               </button>
               <button
                 type="button"
                 onClick={selectAll}
                 title="Chọn tất cả ghế (Ctrl+A)"
-                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
+                  isLightCanvas
+                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                    : 'text-subtle hover:bg-panel-soft hover:text-content'
+                }`}
               >
                 <CheckSquare className="size-4" />
                 <span className="hidden lg:inline">Chọn hết</span>
@@ -1811,26 +1896,36 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 type="button"
                 onClick={copySelected}
                 title="Sao chép (Ctrl+C)"
-                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
+                  isLightCanvas
+                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                    : 'text-subtle hover:bg-panel-soft hover:text-content'
+                }`}
               >
                 <Copy className="size-4" />
-                <span className="hidden lg:inline">Copy</span>
+                <span className="hidden lg:inline">Sao chép</span>
               </button>
               <button
                 type="button"
                 onClick={pasteCopied}
                 title="Dán (Ctrl+V)"
-                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition-all"
+                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
+                  isLightCanvas
+                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                    : 'text-subtle hover:bg-panel-soft hover:text-content'
+                }`}
               >
                 <ClipboardPaste className="size-4" />
-                <span className="hidden lg:inline">Paste</span>
+                <span className="hidden lg:inline">Dán</span>
               </button>
             </div>
 
             {/* Quick Paint zone selector */}
             {(tool === 'PAINT' || tool === 'SELECT') && zones.length > 0 && (
               <div className="flex items-center gap-1.5 pl-1">
-                <span className="text-[11px] font-bold text-subtle hidden lg:inline">Tô khu vực:</span>
+                <span className={`text-sm font-extrabold hidden lg:inline ${isLightCanvas ? 'text-slate-800' : 'text-subtle'}`}>
+                  Tô khu vực:
+                </span>
                 <div className="flex items-center gap-1">
                   {zones.map((z) => (
                     <button
@@ -1841,8 +1936,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         if (selectedIds.size > 0) applyZoneToSelected(z.localId)
                       }}
                       title={z.name}
-                      className={`size-6 rounded-full border-2 transition-transform ${
-                        activeZoneId === z.localId ? 'scale-115 border-white shadow-md' : 'border-transparent opacity-80 hover:opacity-100'
+                      className={`size-6 rounded-full border-2 transition-transform ${activeZoneId === z.localId
+                        ? isLightCanvas ? 'scale-115 border-slate-900 shadow-md ring-2 ring-[#C99A47]' : 'scale-115 border-white shadow-md'
+                        : isLightCanvas ? 'border-slate-400/50 shadow-xs opacity-90 hover:opacity-100 hover:scale-105' : 'border-transparent opacity-80 hover:opacity-100'
                       }`}
                       style={{ backgroundColor: z.color }}
                     />
@@ -1856,16 +1952,22 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           {selectedShapeId && (() => {
             if (selectedShapeId === 'STAGE') {
               return (
-                <div className="absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border border-primary/40 bg-surface/95 p-3 shadow-2xl backdrop-blur-md">
+                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
+                  isLightCanvas
+                    ? 'border-primary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
+                    : 'border-primary/40 bg-surface/95 text-content'
+                }`}>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">⚡ Chỉnh sửa Sân khấu</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Sân khấu</span>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={stageConfig.label}
                         onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
                         placeholder="Nhập tên sân khấu..."
-                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-content outline-none focus:border-primary w-48 shadow-inner"
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${
+                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                         autoFocus
                       />
                       <input
@@ -1878,13 +1980,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       <select
                         value={stageConfig.shape || 'RECTANGLE'}
                         onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
-                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-xs font-bold text-content outline-none focus:border-primary"
+                        className={`rounded-xl border px-2 py-1.5 text-xs font-bold outline-none focus:border-primary ${
+                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                       >
                         {STAGE_SHAPES.map((s) => (
-                          <option key={s.id} value={s.id}>{s.icon} {s.label}</option>
+                          <option key={s.id} value={s.id}>{s.label}</option>
                         ))}
                       </select>
-                      <button type="button" onClick={() => setSelectedShapeId(null)} className="text-muted hover:text-content text-xs font-bold px-1.5 py-1">✕</button>
+                      <button type="button" onClick={() => setSelectedShapeId(null)} className={`text-xs font-bold px-1.5 py-1 ${isLightCanvas ? 'text-slate-500 hover:text-slate-900' : 'text-muted hover:text-content'}`}>✕</button>
                     </div>
                   </div>
                 </div>
@@ -1894,26 +1998,34 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             const standingItem = standingAreas.find((a) => a.id === selectedShapeId)
             if (standingItem) {
               return (
-                <div className="absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border border-tertiary/40 bg-surface/95 p-3 shadow-2xl backdrop-blur-md">
+                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
+                  isLightCanvas
+                    ? 'border-tertiary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
+                    : 'border-tertiary/40 bg-surface/95 text-content'
+                }`}>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary">⚡ Chỉnh sửa Vùng đứng</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Vùng đứng</span>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={standingItem.name}
                         onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, name: e.target.value } : a)))}
                         placeholder="Tên vùng đứng..."
-                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-content outline-none focus:border-tertiary w-44 shadow-inner"
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-tertiary w-44 shadow-inner ${
+                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                         autoFocus
                       />
-                      <label className="text-[10px] font-bold text-subtle flex items-center gap-1">
+                      <label className={`text-[10px] font-bold flex items-center gap-1 ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
                         Sức chứa:
                         <input
                           type="number"
                           min={1}
                           value={standingItem.capacity}
                           onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, capacity: Number(e.target.value) } : a)))}
-                          className="w-16 rounded-xl border border-border-soft/40 bg-panel-soft px-2 py-1 text-xs font-bold text-content outline-none focus:border-tertiary"
+                          className={`w-16 rounded-xl border px-2 py-1 text-xs font-bold outline-none focus:border-tertiary ${
+                            isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                          }`}
                         />
                       </label>
                       <input
@@ -1924,7 +2036,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         title="Màu đại diện"
                       />
                       <button type="button" onClick={() => deleteStandingArea(standingItem.id)} className="text-error hover:bg-error/10 p-1.5 rounded-lg transition" title="Xóa vùng đứng"><Trash2 className="size-3.5" /></button>
-                      <button type="button" onClick={() => setSelectedShapeId(null)} className="text-muted hover:text-content text-xs font-bold px-1.5 py-1">✕</button>
+                      <button type="button" onClick={() => setSelectedShapeId(null)} className={`text-xs font-bold px-1.5 py-1 ${isLightCanvas ? 'text-slate-500 hover:text-slate-900' : 'text-muted hover:text-content'}`}>✕</button>
                     </div>
                   </div>
                 </div>
@@ -1934,20 +2046,26 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             const auxItem = auxElements.find((a) => a.id === selectedShapeId)
             if (auxItem) {
               return (
-                <div className="absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border border-border-soft/40 bg-surface/95 p-3 shadow-2xl backdrop-blur-md">
+                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
+                  isLightCanvas
+                    ? 'border-slate-300 bg-white/95 text-slate-800 shadow-slate-900/15'
+                    : 'border-border-soft/40 bg-surface/95 text-content'
+                }`}>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted">⚡ Chỉnh sửa Vật thể phụ</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Vật thể phụ</span>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={auxItem.label}
                         onChange={(e) => setAuxElements((prev) => prev.map((a) => (a.id === auxItem.id ? { ...a, label: e.target.value } : a)))}
                         placeholder="Tên vật thể..."
-                        className="rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-1.5 text-xs font-bold text-content outline-none focus:border-primary w-48 shadow-inner"
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${
+                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                         autoFocus
                       />
                       <button type="button" onClick={() => setAuxElements((prev) => prev.filter((a) => a.id !== auxItem.id))} className="text-error hover:bg-error/10 p-1.5 rounded-lg transition" title="Xóa"><Trash2 className="size-3.5" /></button>
-                      <button type="button" onClick={() => setSelectedShapeId(null)} className="text-muted hover:text-content text-xs font-bold px-1.5 py-1">✕</button>
+                      <button type="button" onClick={() => setSelectedShapeId(null)} className={`text-xs font-bold px-1.5 py-1 ${isLightCanvas ? 'text-slate-500 hover:text-slate-900' : 'text-muted hover:text-content'}`}>✕</button>
                     </div>
                   </div>
                 </div>
@@ -1958,29 +2076,33 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           })()}
 
           {/* Floating Zoom Controls */}
-          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-2xl border border-border-soft/40 bg-surface/90 p-1.5 shadow-xl backdrop-blur-md">
+          <div className={`absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md transition-colors ${
+            isLightCanvas
+              ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
+              : 'border-border-soft/40 bg-surface/90 text-content'
+          }`}>
             <button
               type="button"
               onClick={() => setZoom((z) => Math.min(2.5, z + 0.15))}
-              className="rounded-xl p-2 text-subtle hover:bg-panel-soft hover:text-content transition"
+              className={`rounded-xl p-2 transition font-bold ${isLightCanvas ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950' : 'text-subtle hover:bg-panel-soft hover:text-content'}`}
               title="Phóng to"
             >
               <ZoomIn className="size-4" />
             </button>
-            <span className="px-2 text-xs font-bold text-content">{Math.round(zoom * 100)}%</span>
+            <span className={`px-2 text-xs font-black ${isLightCanvas ? 'text-slate-900' : 'text-content'}`}>{Math.round(zoom * 100)}%</span>
             <button
               type="button"
               onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))}
-              className="rounded-xl p-2 text-subtle hover:bg-panel-soft hover:text-content transition"
+              className={`rounded-xl p-2 transition font-bold ${isLightCanvas ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950' : 'text-subtle hover:bg-panel-soft hover:text-content'}`}
               title="Thu nhỏ"
             >
               <ZoomOut className="size-4" />
             </button>
-            <div className="h-4 w-px bg-border-soft/30 mx-1" />
+            <div className={`h-4 w-px mx-1 ${isLightCanvas ? 'bg-slate-300' : 'bg-border-soft/30'}`} />
             <button
               type="button"
               onClick={() => { setZoom(1); setPan({ x: 40, y: 80 }); }}
-              className="rounded-xl px-2.5 py-1 text-xs font-bold text-subtle hover:bg-panel-soft hover:text-content transition"
+              className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${isLightCanvas ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950' : 'text-subtle hover:bg-panel-soft hover:text-content'}`}
             >
               100%
             </button>
@@ -1988,15 +2110,19 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
           {/* Selection Action Bar for Seats */}
           {selectedIds.size > 0 && (
-            <div className="absolute top-4 right-4 z-10 flex items-center gap-3 rounded-2xl border border-tertiary/30 bg-surface/95 px-4 py-2 shadow-2xl backdrop-blur-md">
-              <span className="text-xs font-bold text-content">
-                Đã chọn <span className="text-tertiary font-extrabold">{selectedIds.size}</span> ghế
+            <div className={`absolute top-4 right-4 z-10 flex items-center gap-3 rounded-2xl border px-4 py-2 shadow-2xl backdrop-blur-md transition-colors ${
+              isLightCanvas
+                ? 'border-[#C99A47] bg-white/95 text-slate-800 shadow-slate-900/15'
+                : 'border-tertiary/30 bg-surface/95 text-content'
+            }`}>
+              <span className={`text-xs font-bold ${isLightCanvas ? 'text-slate-800' : 'text-content'}`}>
+                Đã chọn <span className={`${isLightCanvas ? 'text-[#C99A47]' : 'text-primary'} font-extrabold`}>{selectedIds.size}</span> ghế
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={disableSelected}
-                  className="flex items-center gap-1 rounded-xl border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-bold text-warning hover:bg-warning/20 transition"
+                  className="flex items-center gap-1 rounded-xl border border-warning/40 bg-warning/15 px-3 py-1.5 text-xs font-bold text-amber-700 dark:text-warning hover:bg-warning/25 transition"
                 >
                   <Ban className="size-3.5" />
                   Vô hiệu
@@ -2004,7 +2130,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={deleteSelected}
-                  className="flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/20 transition"
+                  className="flex items-center gap-1 rounded-xl border border-error/40 bg-error/15 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-error hover:bg-error/25 transition"
                 >
                   <Trash2 className="size-3.5" />
                   Xóa
@@ -2012,7 +2138,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-xs font-bold text-subtle hover:text-content px-2"
+                  className={`text-xs font-bold px-2 ${isLightCanvas ? 'text-slate-600 hover:text-slate-950' : 'text-subtle hover:text-content'}`}
                 >
                   Bỏ chọn
                 </button>
@@ -2025,12 +2151,18 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             className="relative flex-1 overflow-hidden"
             style={{
               backgroundColor: canvasBg,
-              backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
+              backgroundImage: isLightCanvas
+                ? 'radial-gradient(circle, rgba(15, 23, 42, 0.18) 1.2px, transparent 1.2px)'
+                : 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
               backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
             }}
             onWheel={handleWheel}
           >
-            <div className="pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 rounded-xl bg-surface/90 border border-border-soft/30 px-3 py-1.5 text-[11px] font-medium text-subtle shadow-lg backdrop-blur">
+            <div className={`pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-medium shadow-lg backdrop-blur transition-colors ${
+              isLightCanvas
+                ? 'border-slate-300/80 bg-white/95 text-slate-700 shadow-slate-900/10'
+                : 'border-border-soft/30 bg-surface/90 text-subtle'
+            }`}>
               <Hand className="size-3.5 text-tertiary" />
               Click khối để sửa tên trực tiếp · Giữ <b>Alt</b> + kéo chuột để di chuyển
             </div>
@@ -2076,7 +2208,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
                       transform={stageConfig.rotation ? `rotate(${stageConfig.rotation}, ${x + w / 2}, ${y + h / 2})` : undefined}
                     >
-                      {renderStageShapeBody(x, y, w, h, stageConfig.shape, stageConfig.color, stageConfig.label, stageConfig.position)}
+                      {renderStageShapeBody(x, y, w, h, stageConfig.shape, stageConfig.color, stageConfig.label, stageConfig.position, isLightCanvas)}
 
                       {isSelected && (
                         <>
@@ -2134,7 +2266,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         x={x + w / 2}
                         y={y + h / 2 - 6}
                         textAnchor="middle"
-                        fill="white"
+                        fill={isLightCanvas ? '#0F172A' : 'white'}
                         fontSize={13}
                         fontWeight="bold"
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
@@ -2145,7 +2277,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         x={x + w / 2}
                         y={y + h / 2 + 12}
                         textAnchor="middle"
-                        fill="rgba(255,255,255,0.85)"
+                        fill={isLightCanvas ? '#334155' : 'rgba(255,255,255,0.85)'}
                         fontSize={11}
                         fontWeight="600"
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
@@ -2188,12 +2320,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
                     transform={a.rotation ? `rotate(${a.rotation}, ${a.x + a.w / 2}, ${a.y + a.h / 2})` : undefined}
                   >
-                    <rect x={a.x} y={a.y} width={a.w} height={a.h} fill="var(--color-panel-soft)" rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke="var(--color-border-soft)" strokeWidth={2} />
+                    <rect x={a.x} y={a.y} width={a.w} height={a.h} fill={isLightCanvas ? '#E2E8F0' : 'var(--color-panel-soft)'} rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke={isLightCanvas ? '#94A3B8' : 'var(--color-border-soft)'} strokeWidth={2} />
                     <text
                       x={a.x + a.w / 2}
                       y={a.y + a.h / 2 + 5}
                       textAnchor="middle"
-                      fill="var(--color-content)"
+                      fill={isLightCanvas ? '#0F172A' : 'var(--color-content)'}
                       fontSize={12}
                       fontWeight="bold"
                       style={{ userSelect: 'none', pointerEvents: 'none' }}
@@ -2229,8 +2361,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 {/* Seats */}
                 {seats.map((seat) => {
                   const zone = zones.find((z) => z.localId === seat.zoneLocalId)
-                  const fill = seat.isDisabled ? '#EF4444' : zone ? zone.color : '#72787c'
+                  const fill = seat.isDisabled ? '#EF4444' : zone ? zone.color : (isLightCanvas ? '#CBD5E1' : '#72787c')
                   const isSelected = selectedIds.has(seat.localId)
+                  const isFillLight = isLightColor(fill)
+                  const seatTextColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
+
                   return (
                     <g
                       key={seat.localId}
@@ -2243,17 +2378,24 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         height={SEAT_H}
                         rx={6}
                         fill={fill}
-                        stroke={isSelected ? '#3B82F6' : seat.isDisabled ? '#ffffff50' : 'rgba(255,255,255,0.1)'}
+                        stroke={isSelected
+                          ? '#2563EB'
+                          : seat.isDisabled
+                            ? (isLightCanvas ? '#DC2626' : '#ffffff50')
+                            : isLightCanvas
+                              ? 'rgba(15, 23, 42, 0.3)'
+                              : 'rgba(255, 255, 255, 0.12)'
+                        }
                         strokeWidth={isSelected ? 3 : 1}
-                        opacity={seat.isDisabled ? 0.35 : 1}
+                        opacity={seat.isDisabled ? (isLightCanvas ? 0.45 : 0.35) : 1}
                       />
                       <text
                         x={14}
                         y={18}
                         textAnchor="middle"
-                        fontSize={8}
-                        fill="white"
-                        fontWeight="700"
+                        fontSize={8.5}
+                        fill={seatTextColor}
+                        fontWeight="800"
                         style={{ pointerEvents: 'none', userSelect: 'none' }}
                       >
                         {seat.rowLabel}{seat.seatNumber}
@@ -2281,7 +2423,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           </div>
         </main>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -2394,7 +2537,7 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
 
   const zoneColorById = useMemo(() => {
     const m = new Map()
-    ;(zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
+      ; (zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
     return m
   }, [zones])
 
@@ -2416,10 +2559,12 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
 
     return (
       <g transform={seatMap?.config?.stageRotation ? `rotate(${seatMap.config.stageRotation}, ${x + w / 2}, ${y + h / 2})` : undefined}>
-        {renderStageShapeBody(x, y, w, h, stageShape, stageColor, label, stagePos)}
+        {renderStageShapeBody(x, y, w, h, stageShape, stageColor, label, stagePos, isLightPreview)}
       </g>
     )
   }
+
+  const isLightPreview = isLightColor(canvasBg)
 
   return (
     <div
@@ -2427,7 +2572,9 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
       className="rounded-xl border border-border-soft/30 overflow-hidden w-full"
       style={{
         backgroundColor: canvasBg,
-        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
+        backgroundImage: isLightPreview
+          ? 'radial-gradient(circle, rgba(15, 23, 42, 0.18) 1.2px, transparent 1.2px)'
+          : 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
         backgroundSize: `${20 * scale}px ${20 * scale}px`,
         width: '100%',
         height
@@ -2447,7 +2594,7 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
                 height={a.h}
                 rx={12}
                 fill={a.color || '#EF4444'}
-                fillOpacity={0.25}
+                fillOpacity={isLightPreview ? 0.35 : 0.25}
                 stroke={a.color || '#EF4444'}
                 strokeWidth={2}
                 strokeDasharray="6 4"
@@ -2456,9 +2603,9 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
                 x={a.x - minX + a.w / 2}
                 y={a.y - minY + a.h / 2 - 6}
                 textAnchor="middle"
-                fill="white"
+                fill={isLightPreview ? '#0F172A' : 'white'}
                 fontSize={13}
-                fontWeight="bold"
+                fontWeight="800"
                 style={{ userSelect: 'none', pointerEvents: 'none' }}
               >
                 {a.name || 'Vùng đứng'}
@@ -2467,9 +2614,9 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
                 x={a.x - minX + a.w / 2}
                 y={a.y - minY + a.h / 2 + 12}
                 textAnchor="middle"
-                fill="rgba(255,255,255,0.85)"
+                fill={isLightPreview ? '#334155' : 'rgba(255,255,255,0.85)'}
                 fontSize={11}
-                fontWeight="600"
+                fontWeight="700"
                 style={{ userSelect: 'none', pointerEvents: 'none' }}
               >
                 Sức chứa: {a.capacity || 0} người
@@ -2480,14 +2627,23 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
           {/* Auxiliary Elements */}
           {seatMap?.config?.auxiliaryElements?.map((a) => (
             <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${a.x - minX + a.w / 2}, ${a.y - minY + a.h / 2})` : undefined}>
-              <rect x={a.x - minX} y={a.y - minY} width={a.w} height={a.h} fill="var(--color-panel-soft)" rx={Math.min(a.w, a.h) > 20 ? 8 : 4} stroke="var(--color-border-soft)" strokeWidth={2} />
+              <rect
+                x={a.x - minX}
+                y={a.y - minY}
+                width={a.w}
+                height={a.h}
+                fill={isLightPreview ? '#E2E8F0' : 'var(--color-panel-soft)'}
+                rx={Math.min(a.w, a.h) > 20 ? 8 : 4}
+                stroke={isLightPreview ? '#94A3B8' : 'var(--color-border-soft)'}
+                strokeWidth={2}
+              />
               <text
                 x={a.x - minX + a.w / 2}
                 y={a.y - minY + a.h / 2 + 5}
                 textAnchor="middle"
-                fill="var(--color-content)"
+                fill={isLightPreview ? '#0F172A' : 'var(--color-content)'}
                 fontSize={12}
-                fontWeight="bold"
+                fontWeight="800"
                 style={{ userSelect: 'none', pointerEvents: 'none' }}
               >
                 {a.label}
@@ -2500,7 +2656,10 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
             const x = (s.x_position ?? s.x) - minX
             const y = (s.y_position ?? s.y) - minY
             const isDisabled = s.is_disabled ?? s.isDisabled
-            const fill = isDisabled ? '#EF4444' : zoneColorById.get(s.zone_id ?? s.zoneLocalId) ?? '#72787c'
+            const fill = isDisabled ? '#EF4444' : (zoneColorById.get(s.zone_id ?? s.zoneLocalId) ?? (isLightPreview ? '#CBD5E1' : '#72787c'))
+            const isFillLight = isLightColor(fill)
+            const seatTextColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
+
             return (
               <g key={s.id || s.localId} transform={`translate(${x},${y})`}>
                 <rect
@@ -2508,17 +2667,17 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
                   height={28}
                   rx={6}
                   fill={fill}
-                  stroke={isDisabled ? '#ffffff50' : 'rgba(255,255,255,0.1)'}
+                  stroke={isDisabled ? (isLightPreview ? '#DC2626' : '#ffffff50') : isLightPreview ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255,255,255,0.1)'}
                   strokeWidth={1}
-                  opacity={isDisabled ? 0.35 : 1}
+                  opacity={isDisabled ? (isLightPreview ? 0.45 : 0.35) : 1}
                 />
                 <text
                   x={14}
                   y={18}
                   textAnchor="middle"
-                  fontSize={8}
-                  fill="white"
-                  fontWeight="700"
+                  fontSize={8.5}
+                  fill={seatTextColor}
+                  fontWeight="800"
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
                 >
                   {s.row_label ?? s.rowLabel}{s.seat_number ?? s.seatNumber}

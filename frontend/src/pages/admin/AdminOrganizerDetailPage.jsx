@@ -83,30 +83,7 @@ export function AdminOrganizerDetailPage() {
   }
 
   return (
-    <Page
-      title={organizer.organization_name}
-      description="Toàn bộ thông tin hồ sơ Organizer, chủ tài khoản, gói dịch vụ, thanh toán, yêu cầu đăng ký và sự kiện."
-      actions={
-        <div className="flex flex-wrap items-center gap-3">
-          <Link to="/admin/organizers" className="admin-secondary">
-            <ArrowLeft className="size-4" /> Quay lại
-          </Link>
-          <button
-            type="button"
-            disabled={statusMutation.isPending}
-            onClick={() => setStatusConfirmOpen(true)}
-            className={
-              organizer.status === 'ACTIVE'
-                ? 'admin-primary border-none bg-error text-white hover:bg-error/90 disabled:opacity-50'
-                : 'admin-primary disabled:opacity-50'
-            }
-          >
-            {organizer.status === 'ACTIVE' ? <AlertTriangle className="size-4" /> : <ShieldCheck className="size-4" />}
-            {nextStatus === 'ACTIVE' ? 'Kích hoạt lại' : 'Tạm ngưng'}
-          </button>
-        </div>
-      }
-    >
+    <Page backLink="/admin/organizers">
       <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <Panel>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -115,11 +92,11 @@ export function AdminOrganizerDetailPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-xl font-extrabold text-content">{organizer.organization_name}</h2>
+                <h2 className="text-xl font-extrabold text-white [html.light_&]:text-[#0D1B2A]">{organizer.organization_name}</h2>
                 <Status value={organizer.status} />
                 {organizer.plan_name ? <Badge tone="blue">{organizer.plan_name}</Badge> : <Badge tone="gray">Chưa có gói</Badge>}
               </div>
-              <p className="mt-3 text-sm leading-6 text-subtle">{organizer.description || 'Organizer chưa cập nhật mô tả.'}</p>
+              <p className="mt-3 text-sm leading-6 text-slate-300 [html.light_&]:text-[#536b88]">{organizer.description || 'Organizer chưa cập nhật mô tả.'}</p>
             </div>
           </div>
 
@@ -132,7 +109,7 @@ export function AdminOrganizerDetailPage() {
         </Panel>
 
         <Panel>
-          <h3 className="text-sm font-extrabold uppercase tracking-wider text-subtle">Chủ tài khoản</h3>
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Chủ tài khoản</h3>
           <div className="mt-4">
             <UserCell
               name={organizer.owner_name || organizer.owner_email}
@@ -159,7 +136,7 @@ export function AdminOrganizerDetailPage() {
 
       <section className="mt-5 grid gap-4 xl:grid-cols-2">
         <Panel>
-          <h3 className="text-sm font-extrabold uppercase tracking-wider text-subtle">Gói dịch vụ hiện tại</h3>
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Gói dịch vụ hiện tại</h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Info label="Tên gói" value={organizer.plan_name || 'Chưa đăng ký gói'} />
             <Info label="Giá gói" value={organizer.plan_price != null ? formatCurrency(organizer.plan_price) : 'Chưa có'} />
@@ -169,18 +146,18 @@ export function AdminOrganizerDetailPage() {
         </Panel>
 
         <Panel>
-          <h3 className="text-sm font-extrabold uppercase tracking-wider text-subtle">Kênh thanh toán</h3>
-          <div className="mt-4 space-y-3">
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Kênh thanh toán</h3>
+          <div className="mt-4 space-y-1">
             {(data.payment_channels || []).length === 0 && <p className="text-sm text-subtle">Chưa cấu hình kênh thanh toán.</p>}
             {(data.payment_channels || []).map((channel) => (
-              <div key={channel.id} className="rounded-xl border border-border-soft/30 bg-panel-soft p-3">
+              <div key={channel.id} className="py-3 border-b border-white/10 last:border-b-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-bold text-content">{channel.provider || 'PAYOS'}</p>
+                  <p className="font-bold text-white [html.light_&]:text-[#0D1B2A]">{channel.provider || 'PAYOS'}</p>
                   <Badge tone={channel.status === 'ACTIVE' ? 'green' : 'amber'}>{channel.status}</Badge>
                 </div>
-                <p className="mt-2 text-sm text-subtle">{channel.bank_name || 'Chưa có ngân hàng'} - {channel.bank_account_holder || 'Chưa có chủ tài khoản'}</p>
-                <p className="text-xs text-subtle">Số TK: {maskAccount(channel.bank_account_number)}</p>
-                <p className="text-xs text-subtle">API key: {channel.has_api_key ? 'Đã cấu hình' : 'Chưa cấu hình'} · Checksum: {channel.has_checksum_key ? 'Đã cấu hình' : 'Chưa cấu hình'}</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-300 [html.light_&]:text-[#1B365D]">{channel.bank_name || 'Chưa có ngân hàng'} - {channel.bank_account_holder || 'Chưa có chủ tài khoản'}</p>
+                <p className="mt-0.5 text-xs text-slate-400">Số TK: {maskAccount(channel.bank_account_number)}</p>
+                <p className="mt-0.5 text-xs text-slate-400">API key: {channel.has_api_key ? 'Đã cấu hình' : 'Chưa cấu hình'} · Checksum: {channel.has_checksum_key ? 'Đã cấu hình' : 'Chưa cấu hình'}</p>
               </div>
             ))}
           </div>
@@ -188,7 +165,7 @@ export function AdminOrganizerDetailPage() {
       </section>
 
       <Panel className="mt-5">
-        <h3 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-subtle">Toàn bộ sự kiện</h3>
+        <h3 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Toàn bộ sự kiện</h3>
         {(data.events || []).length === 0 ? (
           <p className="text-sm text-subtle">Organizer chưa tạo sự kiện nào.</p>
         ) : (
@@ -212,7 +189,7 @@ export function AdminOrganizerDetailPage() {
 
       <section className="mt-5 grid gap-4 xl:grid-cols-2">
         <Panel>
-          <h3 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-subtle">Lịch sử gói dịch vụ</h3>
+          <h3 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Lịch sử gói dịch vụ</h3>
           <Timeline
             empty="Chưa có lịch sử gói dịch vụ."
             items={(data.subscription_history || []).map((item) => ({
@@ -226,19 +203,19 @@ export function AdminOrganizerDetailPage() {
         </Panel>
 
         <Panel>
-          <h3 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-subtle">Lịch sử yêu cầu Organizer</h3>
-          <div className="space-y-3">
+          <h3 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Lịch sử yêu cầu Organizer</h3>
+          <div className="space-y-1">
             {(data.request_history || []).length === 0 && <p className="text-sm text-subtle">Chưa có lịch sử yêu cầu.</p>}
             {(data.request_history || []).map((request) => (
-              <div key={request.id} className="rounded-xl border border-border-soft/30 bg-panel-soft p-3">
+              <div key={request.id} className="py-3 border-b border-white/10 last:border-b-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-bold text-content">{request.organization_name}</p>
+                  <p className="font-bold text-white [html.light_&]:text-[#0D1B2A]">{request.organization_name}</p>
                   <Badge tone={request.status === 'APPROVED' ? 'green' : request.status === 'REJECTED' ? 'red' : 'amber'}>
                     {REQUEST_STATUS_LABEL[request.status] || request.status}
                   </Badge>
                 </div>
-                <p className="mt-1 text-xs text-subtle">{request.request_type} · {formatDateTime(request.created_at)}</p>
-                <p className="mt-2 text-sm text-subtle">{request.review_note || 'Không có ghi chú duyệt.'}</p>
+                <p className="mt-1 text-xs text-slate-400">{request.request_type} · {formatDateTime(request.created_at)}</p>
+                <p className="mt-2 text-sm text-slate-300 [html.light_&]:text-[#1B365D]">{request.review_note || 'Không có ghi chú duyệt.'}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {request.legal_document_url && <DocLink href={request.legal_document_url} label="Đăng ký kinh doanh" />}
                   {request.business_license_url && <DocLink href={request.business_license_url} label="Giấy phép" />}
@@ -266,9 +243,9 @@ export function AdminOrganizerDetailPage() {
 
 function Info({ label, value, strong = false }) {
   return (
-    <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-3">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-      <p className={`mt-1 break-words text-sm ${strong ? 'font-extrabold text-success' : 'font-semibold text-content'}`}>
+    <div className="rounded-xl border border-white/10 bg-[#121c38]/60 p-3 [html.light_&]:border-border-soft/40 [html.light_&]:bg-panel-soft">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</p>
+      <p className={`mt-1 break-words text-sm ${strong ? 'font-extrabold text-success' : 'font-bold text-white [html.light_&]:text-[#0D1B2A]'}`}>
         {value || 'Chưa cập nhật'}
       </p>
     </div>
@@ -278,10 +255,10 @@ function Info({ label, value, strong = false }) {
 function MiniStat({ label, value, highlight = false }) {
   return (
     <Panel className="p-4">
-      <p className={`text-xl font-extrabold ${highlight ? 'text-success' : 'text-content'}`}>
+      <p className={`text-xl font-extrabold ${highlight ? 'text-success' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>
         {typeof value === 'string' ? value : Number(value || 0).toLocaleString('vi-VN')}
       </p>
-      <p className="mt-1 text-xs font-semibold text-subtle">{label}</p>
+      <p className="mt-1 text-xs font-bold text-slate-300 [html.light_&]:text-[#1B365D]">{label}</p>
     </Panel>
   )
 }
