@@ -356,7 +356,7 @@ export function EventDetailPage() {
           </article>
 
           {/* Lịch diễn Bento Card */}
-          <section className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
+          <section id="booking-section" className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-8 py-5">
               <h2 className="font-display text-2xl font-black text-primary drop-shadow-md">

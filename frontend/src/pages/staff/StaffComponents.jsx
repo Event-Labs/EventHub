@@ -7,11 +7,10 @@ import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 export function StaffPage({ title, description, action, children, className = '' }) {
   return (
     <div className={className}>
-      {(title || description || action) && (
+      {(title || action) && (
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             {title && <h1 className="font-display text-3xl font-black tracking-tight">{renderCosmicTitle(title)}</h1>}
-            {description && <p className="mt-1.5 text-[15px] text-slate-400">{description}</p>}
           </div>
           {action}
         </div>
@@ -39,19 +38,29 @@ export function StaffPanel({ children, className = '' }) {
  */
 export function StaffTable({ headers, rows }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-xs">
-          <thead className="border-b border-white/10 bg-[#172242] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+    <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
             <tr>
-              {headers.map((h) => (
-                <th
-                  key={h}
-                  className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400"
-                >
-                  {h}
-                </th>
-              ))}
+              {headers.map((h, colIndex) => {
+                const isObj = typeof h === 'object' && h !== null
+                const label = isObj ? h.label : h
+                const isCenter = isObj
+                  ? h.align === 'center'
+                  : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                return (
+                  <th
+                    key={label || colIndex}
+                    className={`px-4 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap ${
+                      isCenter ? 'text-center' : ''
+                    }`}
+                  >
+                    {label}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -60,11 +69,29 @@ export function StaffTable({ headers, rows }) {
                 key={i}
                 className="transition-colors hover:bg-white/[0.02]"
               >
-                {row.map((cell, j) => (
-                  <td key={j} className="px-4 py-3.5 align-middle text-slate-200">
-                    {cell}
-                  </td>
-                ))}
+                {row.map((cell, j) => {
+                  const header = headers[j]
+                  const isObj = typeof header === 'object' && header !== null
+                  const label = isObj ? header.label : header
+                  const isCenter = isObj
+                    ? header.align === 'center'
+                    : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                  return (
+                    <td
+                      key={j}
+                      className={`px-4 py-3.5 align-middle text-slate-200 text-sm ${
+                        isCenter ? 'text-center' : ''
+                      }`}
+                    >
+                      {isCenter ? (
+                        <div className="flex items-center justify-center gap-1.5">{cell}</div>
+                      ) : (
+                        cell
+                      )}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
@@ -80,9 +107,9 @@ export function StaffTable({ headers, rows }) {
 export function StaffSearch({ placeholder = 'Tìm kiếm...' }) {
   return (
     <div className="glass-panel relative flex h-[44px] items-center rounded-full border-white/10 px-4 shadow-inner">
-      <Search className="size-5 shrink-0 text-slate-400" />
+      <Search className="size-5 shrink-0 text-subtle" />
       <input
-        className="ml-3 w-full bg-transparent text-[15px] font-medium text-white outline-none placeholder:text-slate-500"
+        className="ml-3 w-full bg-transparent text-[15px] font-normal text-content outline-none placeholder:text-muted"
         placeholder={placeholder}
       />
     </div>
@@ -121,7 +148,7 @@ export function Insight({ children }) {
         <div className="glass-panel grid size-12 shrink-0 place-items-center rounded-[18px] border-ai/30 bg-ai/20 shadow-inner">
           <Sparkles className="size-6 text-ai drop-shadow-[0_0_8px_rgba(236,72,153,0.6)]" />
         </div>
-        <p className="text-[15px] leading-relaxed text-slate-300 font-medium pt-1">
+        <p className="text-[15px] leading-relaxed text-subtle font-medium pt-1">
           <span className="font-black text-ai drop-shadow-sm block text-lg mb-1">Gợi ý AI: </span>
           {children}
         </p>

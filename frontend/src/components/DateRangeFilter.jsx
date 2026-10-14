@@ -360,30 +360,30 @@ export function DateRangeFilter({
 
   return (
     <div ref={containerRef} className="relative">
-      <span className="block text-sm font-semibold text-subtle">Khoảng thời gian</span>
+      <span className="block text-base font-bold text-white mb-1.5">Khoảng thời gian</span>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="mt-2 flex h-10 min-w-72 items-center justify-between gap-3 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-left text-sm font-semibold text-content transition hover:border-tertiary/50"
+        className="mt-1 flex h-10 min-w-72 items-center justify-between gap-3 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:border-[#E6C17A]/50"
       >
         <span className="flex min-w-0 items-center gap-2">
-          <CalendarRange className="size-4 shrink-0 text-tertiary" />
-          <span className="shrink-0 text-tertiary">{activeLabel}</span>
-          <span className="min-w-0 truncate text-subtle">{activeRange.label}</span>
+          <CalendarRange className="size-4 shrink-0 text-[#E6C17A]" />
+          <span className="shrink-0 text-[#E6C17A] font-bold">{activeLabel}</span>
+          <span className="min-w-0 truncate text-[#F5EBDD]/90">{activeRange.label}</span>
           {comparisonRange && (
-            <span className="hidden shrink-0 text-subtle lg:inline">
+            <span className="hidden shrink-0 text-slate-400 lg:inline">
               so với {comparisonLabel}
             </span>
           )}
         </span>
-        <ChevronDown className={`size-4 shrink-0 text-subtle transition ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`size-4 shrink-0 text-white/60 transition ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && createPortal(
         <div
           ref={popupRef}
-          className="fixed z-[9999] max-h-[min(620px,calc(100vh-2rem))] overflow-hidden rounded-xl border border-border-soft/40 bg-surface shadow-2xl shadow-black/40"
+          className="fixed z-[9999] max-h-[min(620px,calc(100vh-2rem))] overflow-hidden rounded-2xl border border-white/20 bg-[#0b1329] text-white shadow-2xl shadow-black/95"
           style={{
             left: popupStyle.left,
             top: popupStyle.top,
@@ -391,7 +391,7 @@ export function DateRangeFilter({
           }}
         >
           <div className="grid md:grid-cols-[220px_1fr]">
-            <div className="date-range-filter-scroll max-h-[420px] overflow-y-auto overscroll-contain border-b border-border-soft/30 py-1 md:border-b-0 md:border-r">
+            <div className="date-range-filter-scroll max-h-[420px] overflow-y-auto overscroll-contain border-b border-white/10 bg-[#070d1e] py-1 md:border-b-0 md:border-r">
               {DATE_RANGE_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -399,28 +399,28 @@ export function DateRangeFilter({
                   onClick={() => handlePresetClick(option.value)}
                   className={`flex h-9 w-full items-center justify-between px-3 text-left text-sm font-semibold transition ${
                     draftValue === option.value
-                      ? 'bg-tertiary/15 text-tertiary'
-                      : 'text-content hover:bg-panel-soft hover:text-tertiary'
+                      ? 'bg-gradient-to-r from-[#C99A47]/25 to-[#E6C17A]/20 text-[#E6C17A] font-bold border-l-2 border-[#E6C17A]'
+                      : 'text-slate-200 hover:bg-white/10 hover:text-[#F5EBDD]'
                   }`}
                 >
                   <span>{option.label}</span>
-                  {draftValue === option.value && <Check className="size-4" />}
+                  {draftValue === option.value && <Check className="size-4 text-[#E6C17A]" />}
                 </button>
               ))}
 
-              <div className="my-1 border-t border-border-soft/30" />
+              <div className="my-1 border-t border-white/10" />
               <div className="flex h-10 items-center justify-between px-3">
-                <span className="text-sm font-bold text-content">So sánh</span>
+                <span className="text-sm font-bold text-white">So sánh</span>
                 <button
                   type="button"
                   onClick={() => setDraftCompareEnabled((current) => !current)}
                   className={`relative h-6 w-11 rounded-full transition ${
-                    draftCompareEnabled ? 'bg-tertiary' : 'bg-border-soft/50'
+                    draftCompareEnabled ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A]' : 'bg-white/20'
                   }`}
                   aria-pressed={draftCompareEnabled}
                 >
                   <span
-                    className={`absolute top-1 grid size-4 place-items-center rounded-full bg-white text-[10px] text-tertiary transition ${
+                    className={`absolute top-1 grid size-4 place-items-center rounded-full bg-white text-[10px] text-[#0D1B2A] font-bold transition ${
                       draftCompareEnabled ? 'left-6' : 'left-1'
                     }`}
                   >
@@ -436,26 +436,26 @@ export function DateRangeFilter({
                   onClick={() => setDraftCompareMode(option.value)}
                   className={`flex min-h-9 w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold transition ${
                     draftCompareMode === option.value
-                      ? 'bg-tertiary/15 text-tertiary'
-                      : 'text-content hover:bg-panel-soft hover:text-tertiary'
+                      ? 'bg-gradient-to-r from-[#C99A47]/25 to-[#E6C17A]/20 text-[#E6C17A] font-bold border-l-2 border-[#E6C17A]'
+                      : 'text-slate-200 hover:bg-white/10 hover:text-[#F5EBDD]'
                   }`}
                 >
                   <span>{option.label}</span>
-                  {draftCompareMode === option.value && <Check className="size-4" />}
+                  {draftCompareMode === option.value && <Check className="size-4 text-[#E6C17A]" />}
                 </button>
               ))}
             </div>
 
-            <div className="p-5">
-              <div className="mb-4 rounded-xl border border-border-soft/30 bg-panel-soft px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-subtle">Đang chọn</p>
-                <p className="mt-1 text-sm font-bold text-content">{draftLabel}</p>
-                <p className="mt-0.5 text-sm text-subtle">{draftRange.label}</p>
+            <div className="p-5 bg-[#0b1329]">
+              <div className="mb-4 rounded-xl border border-white/10 bg-[#121c38] px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#E6C17A]">Đang chọn</p>
+                <p className="mt-1 text-sm font-bold text-white">{draftLabel}</p>
+                <p className="mt-0.5 text-sm text-[#F5EBDD]/80">{draftRange.label}</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <label>
-                  <span className="block text-xs font-bold uppercase tracking-wider text-subtle">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-white mb-1.5">
                     Ngày bắt đầu
                   </span>
                   <input
@@ -466,11 +466,11 @@ export function DateRangeFilter({
                       setDraftFrom(event.target.value)
                       setDraftTo(draftRange.toInput)
                     }}
-                    className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                    className="h-10 w-full rounded-xl border border-white/20 bg-[#121c38] px-3 text-sm text-[#F5EBDD] outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]"
                   />
                 </label>
                 <label>
-                  <span className="block text-xs font-bold uppercase tracking-wider text-subtle">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-white mb-1.5">
                     Ngày kết thúc
                   </span>
                   <input
@@ -481,22 +481,22 @@ export function DateRangeFilter({
                       setDraftFrom(draftRange.fromInput)
                       setDraftTo(event.target.value)
                     }}
-                    className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                    className="h-10 w-full rounded-xl border border-white/20 bg-[#121c38] px-3 text-sm text-[#F5EBDD] outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]"
                   />
                 </label>
               </div>
 
               {draftCompareEnabled && (
-                <div className="mt-5 border-t border-border-soft/30 pt-4">
-                  <p className="mb-3 text-sm font-bold text-content">So sánh</p>
-                  <div className="mb-4 rounded-xl border border-border-soft/30 bg-panel-soft px-4 py-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-subtle">Kỳ so sánh</p>
-                    <p className="mt-1 text-sm font-bold text-content">{draftComparisonLabel}</p>
-                    <p className="mt-0.5 text-sm text-subtle">{draftComparisonRange.label}</p>
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  <p className="mb-3 text-sm font-bold text-white">So sánh</p>
+                  <div className="mb-4 rounded-xl border border-white/10 bg-[#121c38] px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#E6C17A]">Kỳ so sánh</p>
+                    <p className="mt-1 text-sm font-bold text-white">{draftComparisonLabel}</p>
+                    <p className="mt-0.5 text-sm text-[#F5EBDD]/80">{draftComparisonRange.label}</p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label>
-                      <span className="block text-xs font-bold uppercase tracking-wider text-subtle">
+                      <span className="block text-xs font-bold uppercase tracking-wider text-white mb-1.5">
                         Ngày bắt đầu
                       </span>
                       <input
@@ -507,11 +507,11 @@ export function DateRangeFilter({
                           setDraftCompareFrom(event.target.value)
                           setDraftCompareTo(draftComparisonRange.toInput)
                         }}
-                        className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                        className="h-10 w-full rounded-xl border border-white/20 bg-[#121c38] px-3 text-sm text-[#F5EBDD] outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]"
                       />
                     </label>
                     <label>
-                      <span className="block text-xs font-bold uppercase tracking-wider text-subtle">
+                      <span className="block text-xs font-bold uppercase tracking-wider text-white mb-1.5">
                         Ngày kết thúc
                       </span>
                       <input
@@ -522,25 +522,25 @@ export function DateRangeFilter({
                           setDraftCompareFrom(draftComparisonRange.fromInput)
                           setDraftCompareTo(event.target.value)
                         }}
-                        className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                        className="h-10 w-full rounded-xl border border-white/20 bg-[#121c38] px-3 text-sm text-[#F5EBDD] outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]"
                       />
                     </label>
                   </div>
                 </div>
               )}
 
-              <div className="mt-5 flex justify-end gap-2 border-t border-border-soft/30 pt-4">
+              <div className="mt-5 flex justify-end gap-2 border-t border-white/10 pt-4 bg-[#0b1329]">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-lg px-4 py-2 text-sm font-bold text-subtle transition hover:bg-panel-soft hover:text-content"
+                  className="rounded-xl px-4 py-2 text-sm font-bold text-[#F5EBDD]/80 transition hover:bg-white/10 hover:text-white"
                 >
                   Hủy
                 </button>
                 <button
                   type="button"
                   onClick={applySelection}
-                  className="rounded-lg bg-tertiary px-4 py-2 text-sm font-bold text-white transition hover:bg-orange-600"
+                  className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-2 text-sm font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 hover:shadow-[#C99A47]/50 active:scale-95"
                 >
                   Áp dụng
                 </button>

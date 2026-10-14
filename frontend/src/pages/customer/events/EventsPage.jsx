@@ -135,14 +135,14 @@ export function EventsPage() {
       >
         <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.72fr)_minmax(180px,0.85fr)_minmax(330px,1.35fr)]">
           <label className="space-y-2">
-            <span className="text-sm font-semibold text-muted">Từ khóa</span>
+            <span className="text-sm font-semibold text-white">Từ khóa</span>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
               <input
                 value={draft.keyword}
                 onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
                 placeholder="Tìm sự kiện..."
-                className="h-12 w-full rounded-md border border-border-soft bg-surface py-3 pl-10 pr-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-12 w-full rounded-md border border-white/15 bg-[#0d172e] py-3 pl-10 pr-3 font-normal text-white placeholder:text-white/50 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </label>

@@ -34,6 +34,7 @@ const EVENT_CARD_SELECT = `
   venue_summary.address_line,
   price_summary.min_price,
   price_summary.max_price,
+  e.require_attendee_info,
   CASE WHEN fav_user.id IS NOT NULL AND e.id = ANY(COALESCE(fav_user.favorite_event_ids, '{}')) THEN true ELSE false END AS is_favorited
 `;
 
@@ -222,6 +223,8 @@ class EventsRepository {
           'end_time', es.end_time,
           'checkin_start_time', es.checkin_start_time,
           'status', es.status,
+          'seat_map_id', es.seat_map_id,
+          'has_seat_map', (es.seat_map_id IS NOT NULL),
           'venue', json_build_object(
             'id', v.id,
             'name', v.name,
@@ -292,7 +295,47 @@ class EventsRepository {
       LIMIT 1
     `;
     const { rows } = await db.query(query, [userId, identifier]);
-    return rows[0];
+    if (rows[0]) return rows[0];
+
+    // Fallback: match by title, slug prefix, or key words
+    if (identifier && typeof identifier === 'string') {
+      const cleanTitle = identifier.replace(/[-_]+/g, ' ').trim();
+      const noAcc = cleanTitle
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .toLowerCase();
+      const words = noAcc.split(/\s+/).filter((w) => w.length > 2);
+      const w1 = words[0] || '';
+      const w2 = words[words.length - 1] || '';
+
+      const lookupQuery = `
+        SELECT e.id
+        FROM events e
+        WHERE ${PUBLIC_EVENT_WHERE}
+          AND (
+            e.slug ILIKE $1 || '%'
+            OR lower(e.title) = lower($1)
+            OR lower(e.title) ILIKE '%' || lower($2) || '%'
+            OR (e.slug ILIKE '%' || $3 || '%' AND e.slug ILIKE '%' || $4 || '%')
+          )
+        ORDER BY
+          CASE
+            WHEN lower(e.title) = lower($1) THEN 0
+            WHEN e.slug ILIKE $1 || '%' THEN 1
+            WHEN lower(e.title) ILIKE '%' || lower($2) || '%' THEN 2
+            ELSE 3
+          END ASC
+        LIMIT 1
+      `;
+      const lookupRes = await db.query(lookupQuery, [identifier, cleanTitle, w1, w2]);
+      if (lookupRes.rows[0]) {
+        const fallbackRes = await db.query(query, [userId, lookupRes.rows[0].id]);
+        return fallbackRes.rows[0] || null;
+      }
+    }
+
+    return null;
   }
 
   async findSessionSeats(sessionId, ticketTypeId = null) {
