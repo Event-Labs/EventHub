@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Armchair, Eye, Pencil, RotateCcw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { Armchair, ArrowLeft, Eye, Pencil, RotateCcw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   Badge,
   ConfirmModal,
@@ -15,9 +16,23 @@ import { SeatMapEditor } from './SeatMapEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
-function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82F6', label = 'SÂN KHẤU', position = 'TOP') {
+function isLightColor(hex) {
+  if (!hex || typeof hex !== 'string') return false
+  const clean = hex.replace('#', '').trim()
+  if (clean.length < 6) return false
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return false
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 170
+}
+
+function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82F6', label = 'SÂN KHẤU', position = 'TOP', isLight = false) {
   const fillColor = color || '#3B82F6'
-  const strokeColor = 'rgba(255,255,255,0.4)'
+  const strokeColor = isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,0.4)'
+  const isFillLight = isLightColor(fillColor)
+  const textColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
 
   if (shape === 'CIRCLE') {
     const rx = w / 2
@@ -27,8 +42,8 @@ function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82
     return (
       <g>
         <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={fillColor} opacity={0.9} stroke={strokeColor} strokeWidth={3} />
-        <ellipse cx={cx} cy={cy} rx={Math.max(2, rx - 8)} ry={Math.max(2, ry - 8)} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="4 4" />
-        <text x={cx} y={cy + 4} textAnchor="middle" fill="#FFFFFF" fontSize={13} fontWeight="bold" style={{ userSelect: 'none' }}>
+        <ellipse cx={cx} cy={cy} rx={Math.max(2, rx - 8)} ry={Math.max(2, ry - 8)} fill="none" stroke={isFillLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)'} strokeWidth={1} strokeDasharray="4 4" />
+        <text x={cx} y={cy + 4} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" style={{ userSelect: 'none' }}>
           {label}
         </text>
       </g>
@@ -42,7 +57,7 @@ function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82
     return (
       <g>
         <path d={`M ${x} ${y + h} A ${rx} ${ry} 0 0 1 ${x + w} ${y + h} Z`} fill={fillColor} opacity={0.9} stroke={strokeColor} strokeWidth={3} />
-        <text x={cx} y={y + h / 2 + 6} textAnchor="middle" fill="#FFFFFF" fontSize={13} fontWeight="bold" style={{ userSelect: 'none' }}>
+        <text x={cx} y={y + h / 2 + 6} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" style={{ userSelect: 'none' }}>
           {label}
         </text>
       </g>
@@ -57,7 +72,7 @@ function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82
     return (
       <g>
         <path d={d} fill={fillColor} opacity={0.9} stroke={strokeColor} strokeWidth={3} />
-        <text x={x + w / 2} y={y + topH / 2 + 4} textAnchor="middle" fill="#FFFFFF" fontSize={13} fontWeight="bold" style={{ userSelect: 'none' }}>
+        <text x={x + w / 2} y={y + topH / 2 + 4} textAnchor="middle" fill={textColor} fontSize={12} fontWeight="800" style={{ userSelect: 'none' }}>
           {label}
         </text>
       </g>
@@ -71,7 +86,7 @@ function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82
     return (
       <g>
         <polygon points={points} fill={fillColor} opacity={0.9} stroke={strokeColor} strokeWidth={3} />
-        <text x={cx} y={cy + 4} textAnchor="middle" fill="#FFFFFF" fontSize={13} fontWeight="bold" style={{ userSelect: 'none' }}>
+        <text x={cx} y={cy + 4} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" style={{ userSelect: 'none' }}>
           {label}
         </text>
       </g>
@@ -82,7 +97,7 @@ function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82
   return (
     <g>
       <rect x={x} y={y} width={w} height={h} rx={8} fill={fillColor} opacity={0.9} stroke={strokeColor} strokeWidth={2} />
-      <text x={x + w / 2} y={y + h / 2 + 5} textAnchor="middle" fill="#FFFFFF" fontSize={13} fontWeight="bold" letterSpacing="1" style={{ userSelect: 'none' }}>
+      <text x={x + w / 2} y={y + h / 2 + 5} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" letterSpacing="1" style={{ userSelect: 'none' }}>
         {label}
       </text>
     </g>
@@ -160,7 +175,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
 
   // Read sm.config camelCase and snake_case properties exactly like SeatMapEditor
   const canvasBg = seatMap?.config?.canvasBg || seatMap?.config?.canvas_theme || '#0F172A'
-  
+
   const stagePosition = seatMap?.config?.stagePosition || seatMap?.config?.stage_position || 'TOP'
   const stageShape = seatMap?.config?.stageShape || seatMap?.config?.stage_shape || 'RECTANGLE'
   const stageColor = seatMap?.config?.stageColor || seatMap?.config?.stage_color || '#3B82F6'
@@ -281,8 +296,8 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
 
   if (!open) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="flex max-h-[92vh] w-full max-w-[1150px] flex-col overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4">
@@ -462,7 +477,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                   {/* Grid Background Lines */}
                   <defs>
                     <pattern id="preview-grid" width="34" height="36" patternUnits="userSpaceOnUse">
-                      <path d="M 34 0 L 0 0 0 36" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                      <path d="M 34 0 L 0 0 0 36" fill="none" stroke={isLightCanvas ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.03)'} strokeWidth="1" />
                     </pattern>
                   </defs>
                   <rect x={boxX} y={boxY} width={boxW} height={boxH} fill="url(#preview-grid)" />
@@ -479,6 +494,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                         stageColor,
                         stageLabel,
                         stagePosition,
+                        isLightCanvas,
                       )}
                     </g>
                   )}
@@ -500,7 +516,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                           height={h}
                           rx={12}
                           fill={fillColor}
-                          fillOpacity={0.25}
+                          fillOpacity={isLightCanvas ? 0.35 : 0.25}
                           stroke={fillColor}
                           strokeWidth={2}
                           strokeDasharray="6 4"
@@ -509,9 +525,9 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                           x={x + w / 2}
                           y={y + h / 2 - 6}
                           textAnchor="middle"
-                          fill="white"
+                          fill={isLightCanvas ? '#0F172A' : 'white'}
                           fontSize={13}
-                          fontWeight="bold"
+                          fontWeight="800"
                           style={{ userSelect: 'none', pointerEvents: 'none' }}
                         >
                           {name || 'Vùng đứng'}
@@ -520,9 +536,9 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                           x={x + w / 2}
                           y={y + h / 2 + 12}
                           textAnchor="middle"
-                          fill="rgba(255,255,255,0.85)"
+                          fill={isLightCanvas ? '#334155' : 'rgba(255,255,255,0.85)'}
                           fontSize={11}
-                          fontWeight="600"
+                          fontWeight="700"
                           style={{ userSelect: 'none', pointerEvents: 'none' }}
                         >
                           Sức chứa: {capacity || 0} người
@@ -542,18 +558,18 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                         y={a.y}
                         width={a.w}
                         height={a.h}
-                        fill="rgba(30, 41, 59, 0.8)"
+                        fill={isLightCanvas ? '#E2E8F0' : 'rgba(30, 41, 59, 0.8)'}
                         rx={Math.min(a.w, a.h) > 20 ? 8 : 4}
-                        stroke="rgba(255,255,255,0.2)"
+                        stroke={isLightCanvas ? '#94A3B8' : 'rgba(255,255,255,0.2)'}
                         strokeWidth={2}
                       />
                       <text
                         x={a.x + a.w / 2}
                         y={a.y + a.h / 2 + 5}
                         textAnchor="middle"
-                        fill="#FFFFFF"
+                        fill={isLightCanvas ? '#0F172A' : '#FFFFFF'}
                         fontSize={12}
-                        fontWeight="bold"
+                        fontWeight="800"
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
                       >
                         {a.label || a.type || 'Vật thể'}
@@ -566,8 +582,9 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                     const zoneId = seat.zone_id || seat.zoneLocalId
                     const zone = zoneMap.get(zoneId)
                     const isDisabled = seat.is_disabled || seat.isDisabled
-                    const seatColor = isDisabled ? '#EF4444' : zone ? zone.color : '#72787c'
-                    
+                    const seatColor = isDisabled ? '#EF4444' : zone ? zone.color : (isLightCanvas ? '#CBD5E1' : '#72787c')
+                    const isSeatFillLight = isLightColor(seatColor)
+
                     const posX = Number(seat.x_position ?? seat.x) || 0
                     const posY = Number(seat.y_position ?? seat.y) || 0
                     const rowLabel = seat.row_label || seat.rowLabel || ''
@@ -585,18 +602,18 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                           height={28}
                           rx={6}
                           fill={seatColor}
-                          opacity={isDisabled ? 0.5 : 0.9}
-                          stroke={isDisabled ? '#991B1B' : 'rgba(255,255,255,0.3)'}
+                          opacity={isDisabled ? 0.5 : 1}
+                          stroke={isDisabled ? '#DC2626' : isLightCanvas ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255,255,255,0.3)'}
                           strokeWidth={1.5}
-                          className="transition-all duration-150 group-hover:opacity-100 group-hover:stroke-white"
+                          className="transition-all duration-150 group-hover:opacity-100 group-hover:stroke-primary"
                         />
                         <text
                           x={14}
                           y={17}
                           textAnchor="middle"
-                          fill="#FFFFFF"
+                          fill={isSeatFillLight ? '#0D1B2A' : '#FFFFFF'}
                           fontSize={9}
-                          fontWeight="bold"
+                          fontWeight="800"
                           style={{ userSelect: 'none', pointerEvents: 'none' }}
                         >
                           {fullSeatLabel || seatNum}
@@ -638,7 +655,8 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -747,9 +765,10 @@ export function OrganizerVenueSeatMapsPage() {
         <button
           type="button"
           onClick={() => navigate('/organizer/venues')}
-          className="text-sm font-semibold text-muted hover:text-content transition-colors"
+          className="group inline-flex items-center gap-2 text-sm font-bold text-white hover:text-white/80 transition-all cursor-pointer drop-shadow-sm"
         >
-          ← Quay lại địa điểm
+          <ArrowLeft className="size-4 text-white transition-transform duration-200 group-hover:-translate-x-1" />
+          <span className="text-white">Quay lại địa điểm</span>
         </button>
         <button type="button" onClick={() => openEditor(null)} className="org-btn-primary">
           + Tạo sơ đồ mới
@@ -773,7 +792,7 @@ export function OrganizerVenueSeatMapsPage() {
             <span key="seats" className="whitespace-nowrap font-mono">{getSeatMapTotalSeats(sm)}</span>,
             <span key="zones" className="whitespace-nowrap">{getSeatMapZoneCount(sm)}</span>,
             <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-            <div key="actions" className="flex items-center gap-2 whitespace-nowrap">
+            <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">
               <TableActionButton
                 icon={Eye}
                 tone="default"
