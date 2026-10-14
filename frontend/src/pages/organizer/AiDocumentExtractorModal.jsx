@@ -370,6 +370,12 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   <div>
                     <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">Tên sự kiện</span>
                     <p className="text-base font-bold text-white mt-0.5">{extractedResult.data.title}</p>
+                    {extractedResult.data.require_attendee_information && (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-sky-500/10 border border-sky-500/20 text-xs text-sky-300 mt-2">
+                        <span className="size-1.5 rounded-full bg-sky-400 shrink-0" />
+                        <span>Có yêu cầu thu thập thông tin người tham dự</span>
+                      </div>
+                    )}
                   </div>
 
                   {extractedResult.data.short_description && (
@@ -385,25 +391,39 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-neutral-800/80">
                     <div className="flex items-start gap-2">
                       <Clock className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-[11px] text-neutral-400">Thời gian & Check-in</span>
-                        <p className="text-xs font-semibold text-white">
-                          {extractedResult.data.sessions?.[0]?.start_date || 'Chưa rõ ngày'}
-                          {extractedResult.data.sessions?.[0]?.start_time ? (
-                            ` | ${extractedResult.data.sessions[0].start_time}${extractedResult.data.sessions[0].end_time ? ` - ${extractedResult.data.sessions[0].end_time}` : ''}`
-                          ) : (
-                            <span className="text-amber-300 font-normal ml-1">· Chưa có giờ trong tài liệu</span>
-                          )}
-                        </p>
-                        {extractedResult.data.sessions?.[0]?.checkin_start_time ? (
-                          <p className="text-[11px] text-indigo-300 mt-0.5">
-                            Giờ check-in: <strong>{extractedResult.data.sessions[0].checkin_start_time}</strong>
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-neutral-400 mt-0.5">
-                            Giờ check-in: <span className="text-neutral-500 italic">Chưa có trong tài liệu</span>
-                          </p>
-                        )}
+                      <div className="space-y-2 w-full">
+                        <span className="text-[11px] text-neutral-400">
+                          Thời gian & Lịch trình ({extractedResult.data.sessions?.length || 1} phiên)
+                        </span>
+                        {(extractedResult.data.sessions && extractedResult.data.sessions.length > 0
+                          ? extractedResult.data.sessions
+                          : [extractedResult.data.session || {}]
+                        ).map((s, idx) => (
+                          <div key={idx} className="space-y-0.5 border-b border-neutral-800/50 pb-1.5 last:border-b-0 last:pb-0">
+                            {(extractedResult.data.sessions?.length > 1 || s.session_name) && (
+                              <p className="text-[11px] font-bold text-indigo-300">
+                                {s.session_name || `Phiên ${idx + 1}`}
+                              </p>
+                            )}
+                            <p className="text-xs font-semibold text-white">
+                              {s.start_date || 'Chưa rõ ngày'}
+                              {s.start_time ? (
+                                ` | ${s.start_time}${s.end_time ? ` - ${s.end_time}` : ''}`
+                              ) : (
+                                <span className="text-amber-300 font-normal ml-1">· Chưa có giờ trong tài liệu</span>
+                              )}
+                            </p>
+                            {s.checkin_start_time ? (
+                              <p className="text-[11px] text-indigo-300/80">
+                                Check-in: <strong>{s.checkin_start_time}</strong>
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-neutral-500 italic">
+                                Check-in: Chưa có trong tài liệu
+                              </p>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
 
