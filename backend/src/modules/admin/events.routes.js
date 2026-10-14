@@ -27,6 +27,10 @@ router.get('/review-criteria/:id', eventsAdminController.getReviewCriteriaById);
 router.put('/review-criteria/:id', eventsAdminController.updateReviewCriteria);
 router.delete('/review-criteria/:id', eventsAdminController.deleteReviewCriteria);
 
+// Document inline preview proxy & text extraction
+router.get('/documents/preview', eventsAdminController.previewDocument);
+router.get('/documents/extract-text', eventsAdminController.extractDocumentText);
+
 // Get event details for review
 router.get('/:eventId', eventsAdminController.getEventDetail);
 
