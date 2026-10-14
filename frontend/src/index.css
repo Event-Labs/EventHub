@@ -137,6 +137,23 @@ html.light *::-webkit-scrollbar-track {
   background: rgba(203, 213, 225, 0.42);
 }
 
+/* ── No Scrollbar Utilities ── */
+.no-scrollbar::-webkit-scrollbar,
+textarea.no-scrollbar::-webkit-scrollbar,
+textarea.no-scrollbar::-webkit-scrollbar-thumb,
+textarea.no-scrollbar::-webkit-scrollbar-track {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+.no-scrollbar,
+textarea.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 button,
 a,
 input,

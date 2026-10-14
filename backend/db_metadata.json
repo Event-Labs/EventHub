@@ -1,0 +1,567 @@
+{
+  "tables": [
+    "ai_chat_histories",
+    "announcements",
+    "event_categories",
+    "event_feedbacks",
+    "event_sessions",
+    "event_staffs",
+    "events",
+    "notifications",
+    "order_items",
+    "orders",
+    "organizer_payment_channels",
+    "organizer_requests",
+    "organizer_subscriptions",
+    "organizers",
+    "payment_orders",
+    "platform_policy_configs",
+    "platform_policy_documents",
+    "promo_codes",
+    "refund_requests",
+    "roles",
+    "seat_maps",
+    "seat_types",
+    "seat_zones",
+    "seats",
+    "session_seats",
+    "subscription_payment_orders",
+    "subscriptions",
+    "system_settings",
+    "ticket_holds",
+    "ticket_type_seats",
+    "ticket_types",
+    "tickets",
+    "user_behavior_logs",
+    "user_roles",
+    "users",
+    "venues"
+  ],
+  "foreign_keys": [
+    {
+      "table_name": "ai_chat_histories",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "announcements",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "announcements",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "event_feedbacks",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "event_feedbacks",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "event_sessions",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "event_sessions",
+      "column_name": "seat_map_id",
+      "foreign_table_name": "seat_maps",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "event_sessions",
+      "column_name": "venue_id",
+      "foreign_table_name": "venues",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "event_staffs",
+      "column_name": "assigned_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "event_staffs",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "event_staffs",
+      "column_name": "staff_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "events",
+      "column_name": "approved_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "events",
+      "column_name": "category_id",
+      "foreign_table_name": "event_categories",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "events",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "order_items",
+      "column_name": "order_id",
+      "foreign_table_name": "orders",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "order_items",
+      "column_name": "session_seat_id",
+      "foreign_table_name": "session_seats",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "order_items",
+      "column_name": "ticket_type_id",
+      "foreign_table_name": "ticket_types",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "created_by_staff_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "promo_code_id",
+      "foreign_table_name": "promo_codes",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "organizer_payment_channels",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "organizer_requests",
+      "column_name": "reviewed_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "organizer_requests",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "organizer_subscriptions",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "organizer_subscriptions",
+      "column_name": "subscription_id",
+      "foreign_table_name": "subscriptions",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "organizers",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "payment_orders",
+      "column_name": "order_id",
+      "foreign_table_name": "orders",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "payment_orders",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "payment_orders",
+      "column_name": "payment_channel_id",
+      "foreign_table_name": "organizer_payment_channels",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "platform_policy_configs",
+      "column_name": "created_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "platform_policy_configs",
+      "column_name": "updated_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "platform_policy_documents",
+      "column_name": "policy_config_id",
+      "foreign_table_name": "platform_policy_configs",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "platform_policy_documents",
+      "column_name": "uploaded_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "promo_codes",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "promo_codes",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "refund_requests",
+      "column_name": "customer_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "refund_requests",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "refund_requests",
+      "column_name": "order_id",
+      "foreign_table_name": "orders",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "refund_requests",
+      "column_name": "organizer_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "refund_requests",
+      "column_name": "processed_by_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "refund_requests",
+      "column_name": "ticket_id",
+      "foreign_table_name": "tickets",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "seat_maps",
+      "column_name": "venue_id",
+      "foreign_table_name": "venues",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "seat_zones",
+      "column_name": "seat_map_id",
+      "foreign_table_name": "seat_maps",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "seats",
+      "column_name": "seat_map_id",
+      "foreign_table_name": "seat_maps",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "seats",
+      "column_name": "seat_type_id",
+      "foreign_table_name": "seat_types",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "seats",
+      "column_name": "zone_id",
+      "foreign_table_name": "seat_zones",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "session_seats",
+      "column_name": "event_session_id",
+      "foreign_table_name": "event_sessions",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "session_seats",
+      "column_name": "held_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "session_seats",
+      "column_name": "order_id",
+      "foreign_table_name": "orders",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "session_seats",
+      "column_name": "seat_id",
+      "foreign_table_name": "seats",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "subscription_payment_orders",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "subscription_payment_orders",
+      "column_name": "subscription_id",
+      "foreign_table_name": "subscriptions",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "ticket_holds",
+      "column_name": "order_id",
+      "foreign_table_name": "orders",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "ticket_holds",
+      "column_name": "session_seat_id",
+      "foreign_table_name": "session_seats",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "ticket_holds",
+      "column_name": "ticket_type_id",
+      "foreign_table_name": "ticket_types",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "ticket_holds",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "ticket_type_seats",
+      "column_name": "seat_id",
+      "foreign_table_name": "seats",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "ticket_type_seats",
+      "column_name": "ticket_type_id",
+      "foreign_table_name": "ticket_types",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "ticket_types",
+      "column_name": "event_session_id",
+      "foreign_table_name": "event_sessions",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "tickets",
+      "column_name": "checked_in_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "tickets",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "tickets",
+      "column_name": "event_session_id",
+      "foreign_table_name": "event_sessions",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "tickets",
+      "column_name": "order_item_id",
+      "foreign_table_name": "order_items",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "tickets",
+      "column_name": "session_seat_id",
+      "foreign_table_name": "session_seats",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "tickets",
+      "column_name": "ticket_type_id",
+      "foreign_table_name": "ticket_types",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "user_behavior_logs",
+      "column_name": "event_id",
+      "foreign_table_name": "events",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "user_behavior_logs",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "user_roles",
+      "column_name": "role_id",
+      "foreign_table_name": "roles",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "user_roles",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "users",
+      "column_name": "locked_by",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "venues",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "venues",
+      "column_name": "organizer_id",
+      "foreign_table_name": "organizers",
+      "foreign_column_name": "id",
+      "is_nullable": "YES"
+    }
+  ]
+}
