@@ -10,32 +10,32 @@ Nhiệm vụ của bạn là kiểm tra, soát lỗi và đánh giá sự kiện
    - CHỈ XẾP VÀO VI PHẠM KHIÊU DÂM KHI: Có nội dung đồi trụy rõ ràng, hình ảnh khỏa thân/bộ phận nhạy cảm lộ liễu, hành vi quan hệ tình dục công khai, hoặc nội dung gạ gẫm mại dâm/kích dục bất hợp pháp.
    - Nghiêm cấm cờ bạc trái phép, lừa đảo tài chính (Ponzi, cam kết x100 lợi nhuận không rủi ro), bạo lực cực đoan.
 
-2. NGUYÊN TẮC ĐỀ XUẤT CẢI THIỆN (EFFECTIVE & VALUABLE SUGGESTIONS):
+2. TÍNH NHẤT QUÁN & XÁC THỰC CHỦ ĐỀ SỰ KIỆN (EVENT_COHERENCE):
+   - BẮT BUỘC SUY LUẬN CHỦ ĐỀ SỰ KIỆN: Đọc Tiêu đề, Thể loại, Mô tả và Hình ảnh để suy ra chủ đề cốt lõi của sự kiện.
+   - ĐỐI CHIẾU CHÉO TÍNH LIÊN QUAN: Tất cả Tiêu đề, Mô tả, Hình ảnh, Vé, Lịch trình và Tài liệu đính kèm BẮT BUỘC PHẢI LIÊN QUAN CHẶT CHẼ đến cùng một chủ đề sự kiện cụ thể.
+   - NGHIÊM CẤM LẠC ĐỀ & NGỤY TẠO: Nghiêm cấm sự kiện âm nhạc/hội thảo nhưng tài liệu đính kèm là cuốn từ vựng ngoại ngữ N5, giáo trình, bài tập. Vi phạm -> BẮT BUỘC REJECT.
+
+3. ĐIỀU KHOẢN NHÀ TỔ CHỨC & BẢN CHẤT GIẤY PHÉP PHÁP LÝ (TERMS_ORGANIZER & LEGAL_PERMIT_AUTHENTICITY):
+   - Mọi sự kiện bắt buộc phải có Giấy phép tổ chức sự kiện / Tài liệu pháp lý đính kèm hợp lệ (Giấy phép biểu diễn, ĐKKD, Hợp đồng thuê địa điểm, Quyết định phê duyệt).
+   - BẢN CHẤT PHÁP LÝ BẮT BUỘC: Tài liệu đính kèm bắt buộc phải là văn bản pháp lý chính thống. Tuyệt đối nghiêm cấm tải lên tài liệu học tập, sách vở, cuốn từ vựng ngoại ngữ (như từ vựng tiếng Nhật N5, ôn thi tiếng Anh...), giáo trình, đề thi, bài tập, truyện tranh, tài liệu cá nhân.
+   - NẾU TÀI LIỆU LÀ SÁCH, TỪ VỰNG HOẶC PHI PHÁP LÝ -> BẮT BUỘC xếp vào "critical_violations" (TERMS_ORGANIZER / LEGAL_PERMIT_AUTHENTICITY) và ra quyết định REJECT!
+
+4. NGUYÊN TẮC ĐỀ XUẤT CẢI THIỆN (EFFECTIVE & VALUABLE SUGGESTIONS):
    - KHÔNG SPAM GỢI Ý THỪA THÃI: Hệ thống nền tảng đã tự động chuẩn hóa kích thước/tỷ lệ ảnh và tối ưu CDN, do đó TUYỆT ĐỐI KHÔNG đưa ra các gợi ý hiển nhiên như "thay đổi kích thước ảnh", "chỉnh lại độ phân giải ảnh".
    - CHỈ ĐỀ XUẤT KHI THỰC SỰ CẦN THIẾT & CÓ GIÁ TRỊ THỰC TẾ:
      + Khi phát hiện thiếu thông tin quan trọng (ví dụ: chưa có Hotline hỗ trợ, chưa có quy định check-in vé, lịch trình thiếu mốc giờ cụ thể).
      + Khi có lỗi chính tả cụ thể trong tiêu đề/mô tả hoặc chữ trên ảnh bị mâu thuẫn ngày giờ với bài đăng.
      + Khi bài viết mô tả quá sơ sài, thiếu đề mục phân đoạn rõ ràng hoặc chưa có ảnh minh họa.
-   - Lời khuyên phải rõ ràng, có chiều sâu giúp Nhà tổ chức nâng cao chất lượng sự kiện thực sự.
 
-3. SOÁT LỖI TIÊU ĐỀ & MÔ TẢ (CONTENT & SPELLING):
+5. SOÁT LỖI TIÊU ĐỀ & MÔ TẢ (CONTENT & SPELLING):
    - Soát lỗi chính tả (telex, dấu câu, sai từ) trong Tiêu đề, Mô tả ngắn và Mô tả chi tiết. Liệt kê lỗi chính tả vào "spelling_grammar_issues" kèm từ đúng đề xuất.
    - Kiểm tra tiêu đề: Đảm bảo không giật tít lừa đảo, phóng đại sai lệch.
 
-4. KIỂM DUYỆT TẤT CẢ HÌNH ẢNH & OCR (BẮT BUỘC TRẢ VỀ IMAGE_REVIEW CHO TỪNG ẢNH):
-   - Phân tích tất cả ảnh dựa trên mục 'KẾT QUẢ PHÂN TÍCH HÌNH ẢNH TỪ AI VISION':
-     + Poster chính (MAIN_POSTER - bắt buộc)
-     + Banner bìa (COVER_BANNER - bắt buộc)
-     + Các ảnh trong mô tả (DESCRIPTION_IMAGE_1, DESCRIPTION_IMAGE_2... - tùy chọn)
-     + Tài liệu giấy phép (PERMIT_DOCUMENT_1...)
-   - BẮT BUỘC trả về đầy đủ mảng 'image_review.items' với từng ảnh: 'source', 'status' (VALID/WARNING/VIOLATION/MISSING), 'analysis', 'issues', 'suggestion'.
-   - Tuyệt đối không để trống 'image_review' nếu có kết quả phân tích hình ảnh từ AI Vision.
+6. KIỂM DUYỆT TẤT CẢ HÌNH ẢNH & OCR:
+   - Duyệt từng ảnh: Poster chính (bắt buộc), Banner bìa (bắt buộc), Các ảnh mô tả (tùy chọn), Giấy phép đính kèm.
+   - Đánh giá tính phù hợp với chủ đề sự kiện, kiểm tra OCR chữ trên ảnh.
 
-5. ĐIỀU KHOẢN NHÀ TỔ CHỨC & GIẤY PHÉP PHÁP LÝ (TERMS_ORGANIZER):
-   - Mọi sự kiện bắt buộc phải có Giấy phép tổ chức sự kiện / Tài liệu pháp lý đính kèm hợp lệ.
-   - NẾU "KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM" -> BẮT BUỘC xếp vào "critical_violations" (TERMS_ORGANIZER) và ra quyết định "REJECT" hoặc "NEEDS_REVIEW".
-
-6. LỊCH TRÌNH, VÉ & HOÀN TIỀN:
+7. LỊCH TRÌNH, VÉ & HOÀN TIỀN:
    - Lịch trình phiên: Logic thời gian hợp lý, không chồng lấn.
    - Vé & Thanh toán: Rõ ràng quyền lợi, không giao dịch ngoài hệ thống.
    - Hoàn tiền: Đảm bảo minh bạch theo quy định EventHub.
@@ -357,6 +357,186 @@ Giấy phép tổ chức hội thảo đào tạo được cấp bởi cơ quan 
                     "suggestions": [
                         "Chỉnh sửa các lỗi chính tả trong tiêu đề và bài viết mô tả.",
                         "Bổ sung thêm danh sách Diễn giả và Hotline hỗ trợ người tham dự trong phần mô tả chi tiết."
+                    ]
+                }, ensure_ascii=False)}
+            ]
+        },
+
+        # --- MẪU 4: TÀI LIỆU LẠC ĐỀ / CUỐN TỪ VỰNG TIẾNG NHẬT N5 (REJECT) ---
+        {
+            "messages": [
+                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                {"role": "user", "content": """Tên sự kiện: Đêm Nhạc Hội Indie Acoustic Chill Night
+Thể loại / Định dạng: OFFLINE
+Mô tả ngắn: Đêm nhạc giao lưu các ban nhạc trẻ tại Hà Nội.
+Mô tả chi tiết: Thưởng thức những giai điệu acoustic mộc mạc và sâu lắng cùng các nghệ sĩ indie được yêu thích.
+Hình ảnh sự kiện đã đăng:
+- Ảnh đại diện chính (Main Poster): ĐÃ CÓ (Đã tải lên)
+- Ảnh bìa (Cover Banner): ĐÃ CÓ (Đã tải lên)
+- Ảnh trong bài viết mô tả: CHƯA CÓ
+Thời gian tổng thể: 2026-11-20 19:30 đến 2026-11-20 22:30
+Hồ sơ Giấy phép & Tài liệu đính kèm:
+1 tài liệu đính kèm:
+  + [Tài liệu #1] "tai-lieu-n5.pdf" (application/pdf)
+Lịch trình (Sessions): Phiên 1 [Biểu diễn chính]: 2026-11-20 19:30 - 2026-11-20 22:30
+Cơ cấu vé (Tickets): Vé Tiêu Chuẩn: 120.000 VNĐ (150 vé)
+Chính sách hoàn tiền sự kiện: Cho phép hoàn vé trước 3 ngày (Tỷ lệ: 100%)
+
+=== KẾT QUẢ PHÂN TÍCH TÀI LIỆU & HÌNH ẢNH TỪ HỆ THỐNG ===
+[Ảnh đại diện chính (Main Poster)]:
+Poster đêm nhạc acoustic với hình cây đàn guitar và ánh đèn vàng ấm cúng.
+
+[Ảnh bìa (Cover Banner)]:
+Banner sân khấu ca nhạc với thông tin ngày giờ biểu diễn.
+
+[Tài liệu giấy phép (tai-lieu-n5.pdf)]:
+[VI PHẠM TÀI LIỆU PHÁP LÝ / LẠC ĐỀ]: Tệp PDF 'tai-lieu-n5.pdf' không phải giấy phép sự kiện mà là Tài liệu học tập/Từ vựng/Giáo trình. Nội dung trích xuất: 'Bài 1: Watashi (Tôi), Anata (Bạn), Sensei (Giáo viên), Nihongo (Tiếng Nhật), N5 Vocabulary list, Kanji, Hiragana, Katakana...'."""},
+                {"role": "assistant", "content": json.dumps({
+                    "decision": "REJECT",
+                    "risk_score": 90,
+                    "quality_score": 40,
+                    "summary": "Sự kiện bị từ chối do tài liệu đính kèm là cuốn từ vựng tiếng Nhật N5, hoàn toàn không phải giấy phép tổ chức hay hợp đồng địa điểm của sự kiện.",
+                    "content_review": {
+                        "title_status": "VALID",
+                        "title_analysis": "Tiêu đề đêm nhạc acoustic rõ ràng, phù hợp.",
+                        "description_status": "VALID",
+                        "description_analysis": "Mô tả sự kiện ca nhạc acoustic đầy đủ.",
+                        "spelling_grammar_issues": []
+                    },
+                    "image_review": {
+                        "overall_image_verdict": "VIOLATION",
+                        "items": [
+                            {
+                                "source": "MAIN_POSTER",
+                                "status": "VALID",
+                                "analysis": "Ảnh poster phong cách acoustic đúng chủ đề âm nhạc.",
+                                "issues": [],
+                                "suggestion": ""
+                            },
+                            {
+                                "source": "COVER_BANNER",
+                                "status": "VALID",
+                                "analysis": "Ảnh bìa sân khấu âm nhạc phù hợp.",
+                                "issues": [],
+                                "suggestion": ""
+                            },
+                            {
+                                "source": "PERMIT_DOCUMENT_1",
+                                "status": "VIOLATION",
+                                "analysis": "Nội dung tệp là cuốn từ vựng tiếng Nhật N5, không có bất kỳ giá trị pháp lý hay thẩm quyền tổ chức sự kiện âm nhạc nào.",
+                                "issues": ["Tài liệu đính kèm là tài liệu học tập/từ vựng ngoại ngữ, không phải Giấy phép tổ chức sự kiện hay Hợp đồng địa điểm."],
+                                "suggestion": "Bắt buộc tải lên Giấy phép biểu diễn hoặc Hợp đồng thuê địa điểm hợp lệ của sự kiện."
+                            }
+                        ]
+                    },
+                    "compliant_checks": [
+                        "Đã có ảnh đại diện chính (Poster) đúng chủ đề âm nhạc",
+                        "Đã có ảnh bìa (Cover Banner) hiển thị chuyên nghiệp",
+                        "Chính sách hoàn vé minh bạch và cơ cấu vé rõ ràng"
+                    ],
+                    "critical_violations": [
+                        {
+                            "policy_code": "EVENT_COHERENCE",
+                            "issue": "Nội dung tài liệu đính kèm hoàn toàn không liên quan đến chủ đề sự kiện (Sự kiện đêm nhạc nhưng đính kèm tài liệu học từ vựng tiếng Nhật N5).",
+                            "highlighted_text": "Tài liệu #1: tai-lieu-n5.pdf"
+                        },
+                        {
+                            "policy_code": "TERMS_ORGANIZER",
+                            "issue": "Tài liệu đính kèm không phải văn bản pháp lý hợp lệ. Nghiêm cấm dùng tài liệu học tập, từ vựng hoặc văn bản phi pháp lý để đối phó quy định giấy phép.",
+                            "highlighted_text": "tai-lieu-n5.pdf"
+                        }
+                    ],
+                    "warnings": [],
+                    "suggestions": [
+                        "Vui lòng thay thế tệp 'tai-lieu-n5.pdf' bằng Giấy phép biểu diễn từ cơ quan có thẩm quyền hoặc Hợp đồng thuê mặt bằng/địa điểm tổ chức đêm nhạc."
+                    ]
+                }, ensure_ascii=False)}
+            ]
+        },
+        # --- MẪU 5: SỰ KIỆN FAN MEETING QUỐC TẾ — POSTER CHUẨN MỰC & OCR TIẾNG VIỆT (APPROVE) ---
+        {
+            "messages": [
+                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                {"role": "user", "content": """Tên sự kiện: HOMIES - FORCEBOOK FAN MEETING IN HO CHI MINH
+Thể loại / Định dạng: OFFLINE
+Mô tả ngắn: Buổi gặp gỡ và giao lưu độc quyền cùng bộ đôi diễn viên Force & Book tại TP. Hồ Chí Minh.
+Mô tả chi tiết: Sự kiện âm nhạc và giao lưu fan meeting chính thức của cặp đôi nghệ sĩ ForceBook. Khán giả sẽ được tham gia các hoạt động tương tác trực tiếp, thưởng thức các tiết mục biểu diễn độc quyền và nhận quà lưu niệm chính hãng từ ban tổ chức.
+Hình ảnh sự kiện đã đăng:
+- Ảnh đại diện chính (Main Poster): ĐÃ CÓ (Đã tải lên)
+- Ảnh bìa (Cover Banner): ĐÃ CÓ (Đã tải lên)
+- Ảnh trong bài viết mô tả: CHƯA CÓ (Tùy chọn - không bắt buộc)
+Thời gian: 2026-11-20 18:00 đến 2026-11-20 22:00
+Giấy phép / Tài liệu đính kèm:
+  + [Tài liệu #1] "Giay-Phep-Bieu-Dien-So-VHTT-TPHCM.pdf" (application/pdf)
+Lịch trình (Sessions): Phiên 1 [Giao lưu & Biểu diễn]: 18:30 - 21:30
+Cơ cấu vé (Tickets): Vé Standard: 800.000 VNĐ (500 vé), Vé VIP (Hi-touch + Photo): 2.500.000 VNĐ (200 vé)
+Chính sách hoàn tiền: Áp dụng chính sách hoàn vé tiêu chuẩn của EventHub.
+
+=== KẾT QUẢ PHÂN TÍCH TÀI LIỆU & HÌNH ẢNH TỪ HỆ THỐNG ===
+[Ảnh đại diện chính (Main Poster)]:
+Poster tông màu cam vàng ấm áp, hiển thị hình ảnh hai nghệ sĩ nam Force và Book trong trang phục vest lịch lãm. Chữ OCR trên ảnh: Tiêu đề 'HOMIES - FORCEBOOK FAN MEETING IN HO CHI MINH', thời gian tổ chức 20/11/2026 tại Nhà thi đấu Nguyễn Du, logo đơn vị tổ chức và nhà tài trợ. Bố cục sắc nét, phù hợp hoàn hảo với chủ đề giao lưu nghệ sĩ, không chứa yếu tố nhạy cảm hay vi phạm quy định.
+
+[Ảnh bìa (Cover Banner)]:
+Banner ngang khổ rộng thiết kế đồng bộ với poster chính, chữ nổi bật tên chương trình và bộ đôi nghệ sĩ trên phông nền đồ họa hiện đại.
+
+[Tài liệu giấy phép (Giay-Phep-Bieu-Dien-So-VHTT-TPHCM.pdf)]:
+[VĂN BẢN ĐỌC TỪ TỆP PDF 'Giay-Phep-Bieu-Dien-So-VHTT-TPHCM.pdf']:
+UBND THÀNH PHỐ HỒ CHÍ MINH - SỞ VĂN HÓA VÀ THỂ THAO
+Số: 456/GP-SVHTT
+QUYẾT ĐỊNH
+Về việc chấp thuận tổ chức chương trình biểu diễn nghệ thuật và giao lưu giao lưu văn hóa quốc tế 'HOMIES - FORCEBOOK FAN MEETING'.
+Thời gian: Ngày 20 tháng 11 năm 2026. Địa điểm: Nhà thi đấu Nguyễn Du, Quận 1, TP. Hồ Chí Minh.
+Dấu mộc đỏ và chữ ký của Phó Giám đốc Sở Văn hóa và Thể thao TP. Hồ Chí Minh.
+=== KẾT THÚC PHÂN TÍCH TÀI LIỆU & HÌNH ẢNH ==="""},
+                {"role": "assistant", "content": json.dumps({
+                    "decision": "APPROVE",
+                    "risk_score": 5,
+                    "quality_score": 95,
+                    "summary": "Sự kiện chuẩn bị hồ sơ xuất sắc: Poster và Banner chuyên nghiệp, thông tin ngày giờ khớp OCR trên ảnh, Giấy phép biểu diễn từ Sở VH&TT TP.HCM hợp lệ.",
+                    "content_review": {
+                        "title_status": "VALID",
+                        "title_analysis": "Tiêu đề chuẩn mực, nêu rõ tên nghệ sĩ và địa điểm tổ chức.",
+                        "description_status": "VALID",
+                        "description_analysis": "Mô tả chi tiết quyền lợi người tham gia, lịch trình rõ ràng.",
+                        "spelling_grammar_issues": []
+                    },
+                    "image_review": {
+                        "overall_image_verdict": "SAFE",
+                        "items": [
+                            {
+                                "source": "MAIN_POSTER",
+                                "status": "VALID",
+                                "analysis": "Poster chụp hai nghệ sĩ chỉn chu, chữ tiêu đề và ngày giờ 20/11/2026 khớp thông tin bài đăng, hình ảnh sắc nét và hoàn toàn an toàn.",
+                                "issues": [],
+                                "suggestion": ""
+                            },
+                            {
+                                "source": "COVER_BANNER",
+                                "status": "VALID",
+                                "analysis": "Ảnh bìa ngang hiển thị logo và tên sự kiện rõ ràng, bố cục cân đối và màu sắc bắt mắt.",
+                                "issues": [],
+                                "suggestion": ""
+                            },
+                            {
+                                "source": "PERMIT_DOCUMENT_1",
+                                "status": "VALID",
+                                "analysis": "Giấy phép biểu diễn số 456/GP-SVHTT do Sở Văn hóa & Thể thao TP.HCM cấp phép đúng địa điểm và thời gian tổ chức sự kiện.",
+                                "issues": [],
+                                "suggestion": ""
+                            }
+                        ]
+                    },
+                    "compliant_checks": [
+                        "Đã có ảnh đại diện chính (Poster) đúng chủ đề sự kiện",
+                        "Đã có ảnh bìa (Cover Banner) hiển thị chuyên nghiệp",
+                        "Đã có Giấy phép biểu diễn chính thức từ cơ quan nhà nước có thẩm quyền",
+                        "Thông tin ngày giờ và địa điểm trên poster khớp với bài đăng",
+                        "Chính sách vé và hoàn tiền minh bạch"
+                    ],
+                    "critical_violations": [],
+                    "warnings": [],
+                    "suggestions": [
+                        "Gợi ý bổ sung sơ đồ ghế ngồi chi tiết trong phần mô tả để người mua vé VIP và Standard dễ chọn chỗ."
                     ]
                 }, ensure_ascii=False)}
             ]
