@@ -1,12 +1,24 @@
 import {
+  ArrowLeft,
+  BarChart3,
+  Building2,
+  Calendar,
   CheckCircle2,
+  CircleDollarSign,
+  Clock,
   Eye,
+  Layers,
   Lock,
   MoreVertical,
   Plus,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
+  UserCheck,
+  Users,
+  UserX,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { Badge, StatusBadge, resolveStatusConfig } from '@/components/StatusBadge.jsx'
@@ -18,6 +30,8 @@ import { TableActionButton } from '@/components/TableActionButton.jsx'
 export function Page({
   title,
   description,
+  backLink,
+  backLabel = 'Quay lại',
   action,
   actionClassName,
   actionIcon: ActionIcon = Plus,
@@ -27,11 +41,22 @@ export function Page({
 }) {
   return (
     <>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-black tracking-tight">
-            {renderCosmicTitle(title)}
-          </h1>
+          {backLink && (
+            <Link
+              to={backLink}
+              className="inline-flex items-center gap-2 text-base font-bold text-white hover:text-white/80 transition-colors w-fit"
+            >
+              <ArrowLeft className="size-5" />
+              <span>{backLabel}</span>
+            </Link>
+          )}
+          {title && (
+            <h1 className="font-display text-3xl font-black tracking-tight">
+              {renderCosmicTitle(title)}
+            </h1>
+          )}
         </div>
         {actions}
         {!actions && action && (
@@ -55,9 +80,9 @@ export function Page({
 export function AttentionSection({ items }) {
   if (!items?.length) return null
   return (
-    <div className="glass-panel mb-6 rounded-[32px] border-warning/20 bg-warning/5 p-6 shadow-[0_8px_32px_rgba(245,158,11,0.1)]">
+    <div className="mb-6 rounded-[32px] border border-amber-500/40 bg-[#0f172a] p-6 shadow-xl shadow-amber-500/10 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-50/80">
       <div className="mb-4 flex items-center gap-3">
-        <div className="glass-panel grid size-9 place-items-center rounded-xl border-warning/30 bg-warning/20 shadow-inner">
+        <div className="grid size-9 place-items-center rounded-xl border border-warning/30 bg-warning/20 shadow-inner">
           <span className="text-sm">⚠️</span>
         </div>
         <p className="text-sm font-black uppercase tracking-widest text-warning">
@@ -68,14 +93,14 @@ export function AttentionSection({ items }) {
         {items.map(([label, count, severity]) => (
           <div
             key={label}
-            className={`glass-panel flex items-center justify-between rounded-[20px] px-5 py-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${severity === 'critical'
-                ? 'border-error/20 bg-error/10 shadow-[inset_0_0_15px_rgba(239,68,68,0.15)] hover:border-error/40'
-                : 'border-warning/20 bg-warning/10 shadow-[inset_0_0_15px_rgba(245,158,11,0.15)] hover:border-warning/40'
+            className={`flex items-center justify-between rounded-[20px] px-5 py-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${severity === 'critical'
+                ? 'border border-rose-500/40 bg-rose-950/40 hover:border-rose-400'
+                : 'border border-amber-500/30 bg-[#16233f] hover:border-amber-400 shadow-md'
               }`}
           >
-            <span className="text-sm font-bold uppercase tracking-wider text-slate-300">{label}</span>
+            <span className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</span>
             <span
-              className={`text-2xl font-black drop-shadow-md ${severity === 'critical' ? 'text-error' : 'text-warning'}`}
+              className={`text-2xl font-black drop-shadow-md ${severity === 'critical' ? 'text-rose-400' : 'text-amber-400'}`}
             >
               {count}
             </span>
@@ -87,36 +112,60 @@ export function AttentionSection({ items }) {
 }
 
 /**
- * KpiGrid – KPI metric cards grid
+ * KpiGrid – KPI metric cards grid (Text và data, không có icon bên)
  */
-export function KpiGrid({ items }) {
-  const gridClass = items.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-5'
+export function KpiGrid({ items, className = '' }) {
+  const gridClass = items.length === 4 ? 'xl:grid-cols-4' : items.length === 3 ? 'sm:grid-cols-3' : 'xl:grid-cols-5'
   return (
-    <div className={`grid gap-4 sm:grid-cols-2 ${gridClass}`}>
-      {items.map(([label, value, change]) => (
-        <Panel key={label} className="flex flex-col gap-3 group transition-all duration-300 hover:border-primary/40 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)]">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary transition-colors">
-            {label}
-          </p>
-          <p className="text-3xl font-black text-white drop-shadow-sm">{value}</p>
-          {change && (
-            <span
-              className={`self-start rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${change.toLowerCase().includes('urgent')
-                  ? 'border-error/30 bg-error/20 text-error shadow-[0_0_10px_rgba(239,68,68,0.2)]'
-                  : 'border-success/30 bg-success/20 text-success shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                }`}
-            >
-              {change}
-            </span>
-          )}
-        </Panel>
-      ))}
+    <div className={`grid gap-4 sm:grid-cols-2 ${gridClass} ${className}`}>
+      {items.map((item) => {
+        const [label, value, change, _Icon, _bg, _color, sub] = Array.isArray(item)
+          ? item
+          : [item.label, item.value, item.change, null, null, null, item.sub]
+
+        const strVal = String(value ?? '')
+        const textSize =
+          strVal.length > 10
+            ? 'text-lg sm:text-xl'
+            : strVal.length > 6
+            ? 'text-xl sm:text-2xl'
+            : 'text-2xl sm:text-3xl'
+
+        return (
+          <div
+            key={label}
+            className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+          >
+            <div>
+              <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
+              <p className={`mt-2 font-black text-white tracking-tight font-display drop-shadow-sm leading-tight break-words [html.light_&]:text-[#0D1B2A] ${textSize}`}>
+                {value}
+              </p>
+            </div>
+            {change ? (
+              <div className="mt-3">
+                <span
+                  className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
+                    String(change).toLowerCase().includes('urgent')
+                      ? 'border-error/30 bg-error/20 text-error'
+                      : 'border-success/30 bg-success/20 text-success'
+                  }`}
+                >
+                  {change}
+                </span>
+              </div>
+            ) : sub ? (
+              <p className="mt-2 truncate text-[12px] font-medium text-muted">{sub}</p>
+            ) : null}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 /**
- * Panel – dark-themed card surface
+ * Panel – card surface
  */
 export function Panel({ children, className = '' }) {
   return (
@@ -140,7 +189,7 @@ export function Insight({ title = 'AI Insight', text }) {
         </div>
         <div>
           <h3 className="font-black text-ai text-lg drop-shadow-sm">{title}</h3>
-          <p className="mt-1 text-[15px] leading-relaxed text-slate-300 font-medium">{text}</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-subtle font-medium">{text}</p>
         </div>
       </div>
     </section>
@@ -153,18 +202,18 @@ export function Insight({ title = 'AI Insight', text }) {
 export function FilterBar({ labels }) {
   return (
     <Panel className="my-5 flex flex-wrap items-center gap-4 py-4 px-6">
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+      <span className="text-[10px] font-black uppercase tracking-widest text-subtle">
         Lọc theo
       </span>
       {labels.map((label) => (
         <select
           key={label}
-          className="h-9 rounded-xl border border-white/10 bg-slate-900/50 px-4 text-[13px] font-medium text-white outline-none focus:border-primary/50 transition-colors cursor-pointer appearance-none shadow-inner"
+          className="h-9 rounded-xl border border-white/10 bg-slate-900/50 px-4 text-[13px] font-medium text-content outline-none focus:border-primary/50 transition-colors cursor-pointer appearance-none shadow-inner"
         >
           <option>{label}</option>
         </select>
       ))}
-      <button className="ml-auto text-[13px] font-bold text-slate-400 hover:text-primary transition-colors">
+      <button className="ml-auto text-[13px] font-bold text-subtle hover:text-primary transition-colors">
         Xóa bộ lọc
       </button>
     </Panel>
@@ -178,17 +227,27 @@ export function Table({ headers, rows, compact = false, tableClassName = 'min-w-
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
       <div className="w-full overflow-x-auto">
-        <table className={`w-full text-left text-xs ${tableClassName}`}>
+        <table className={`w-full text-left text-sm ${tableClassName}`}>
           <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
             <tr>
-              {headers.map((header) => (
-                <th
-                  key={header}
-                  className="px-4 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap last:w-[120px] last:min-w-[120px]"
-                >
-                  {header}
-                </th>
-              ))}
+              {headers.map((header, colIndex) => {
+                const isObj = typeof header === 'object' && header !== null
+                const label = isObj ? header.label : header
+                const isCenter = isObj
+                  ? header.align === 'center'
+                  : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                return (
+                  <th
+                    key={label || colIndex}
+                    className={`px-4 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap last:w-[120px] last:min-w-[120px] ${
+                      isCenter ? 'text-center' : ''
+                    } ${isObj && header.className ? header.className : ''}`}
+                  >
+                    {label}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -197,14 +256,29 @@ export function Table({ headers, rows, compact = false, tableClassName = 'min-w-
                 key={index}
                 className="transition-colors hover:bg-white/[0.02]"
               >
-                {row.map((cell, cellIndex) => (
-                  <td
-                    key={cellIndex}
-                    className={`px-4 ${compact ? 'py-2.5' : 'py-3.5'} align-middle text-slate-200`}
-                  >
-                    {cell}
-                  </td>
-                ))}
+                {row.map((cell, cellIndex) => {
+                  const header = headers[cellIndex]
+                  const isObj = typeof header === 'object' && header !== null
+                  const label = isObj ? header.label : header
+                  const isCenter = isObj
+                    ? header.align === 'center'
+                    : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+
+                  return (
+                    <td
+                      key={cellIndex}
+                      className={`px-4 ${compact ? 'py-2.5' : 'py-3.5'} align-middle text-slate-200 text-sm ${
+                        isCenter ? 'text-center' : ''
+                      }`}
+                    >
+                      {isCenter ? (
+                        <div className="flex items-center justify-center gap-1.5">{cell}</div>
+                      ) : (
+                        cell
+                      )}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
@@ -231,7 +305,7 @@ export function UserCell({ name, email, image, onClick, className = '' }) {
         fallbackClassName="text-sm"
       />
       <div className="min-w-0">
-        <p className="font-bold text-content truncate">{name}</p>
+        <p className="text-sm font-bold text-content truncate">{name}</p>
         <p className="text-xs text-subtle truncate">{email}</p>
       </div>
     </div>

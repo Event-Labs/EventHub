@@ -1,24 +1,24 @@
 import { CheckCircle2, ClipboardCheck, X } from 'lucide-react'
 
-export function Modal({ open, title, children, footer, onClose, maxWidth = 'max-w-lg' }) {
+export function Modal({ open, title, children, footer, onClose, maxWidth = 'max-w-lg', footerClassName = '' }) {
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <section className={`w-full ${maxWidth} max-h-[92vh] overflow-hidden rounded-2xl border border-white/15 bg-[#0b1329] text-white shadow-2xl shadow-black/90`}>
-        <header className="flex items-center justify-between gap-4 border-b border-white/10 bg-[#111c3a] px-6 py-4">
-          <h3 className="min-w-0 truncate font-display text-xl font-black text-white">{title}</h3>
+      <section className={`flex flex-col w-full ${maxWidth} max-h-[90vh] overflow-hidden rounded-2xl border border-white/15 bg-[#0b1329] text-white shadow-2xl shadow-black/90 [html.light_&]:border-slate-200 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-slate-300/50`}>
+        <header className="shrink-0 flex items-center justify-between gap-4 border-b border-white/10 bg-[#111c3a] px-6 py-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+          <h3 className="min-w-0 truncate font-display text-xl font-black text-white [html.light_&]:text-[#0D1B2A]">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white [html.light_&]:text-slate-500 [html.light_&]:hover:bg-slate-200/60 [html.light_&]:hover:text-slate-800"
           >
             <X className="size-4" />
           </button>
         </header>
-        <div className="max-h-[calc(92vh-8rem)] overflow-y-auto px-6 py-5 bg-[#0b1329]">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 bg-[#0b1329] [html.light_&]:bg-white">{children}</div>
         {footer && (
-          <footer className="flex flex-col-reverse gap-3 border-t border-white/10 bg-[#111c3a] px-6 py-4 sm:flex-row sm:justify-end">
+          <footer className={`shrink-0 flex flex-col-reverse gap-3 border-t border-white/10 bg-[#111c3a] px-6 py-4 sm:flex-row sm:items-center sm:justify-end [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50 ${footerClassName}`}>
             {footer}
           </footer>
         )}

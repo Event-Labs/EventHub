@@ -10,9 +10,11 @@ import * as THREE from 'three'
  * 3. 5 spherical 3D planets physically rotating around their tilted axes
  *    (Blue gas giant, Peach moon, Purple swirl planet, Pink moon, Striped giant)
  */
-export function CosmicSpaceBackground() {
+export function CosmicSpaceBackground({ active = true }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
+  const activeRef = useRef(active)
+  activeRef.current = active
 
   useEffect(() => {
     const container = containerRef.current
@@ -386,7 +388,7 @@ export function CosmicSpaceBackground() {
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate)
 
-      if (!isVisible) return
+      if (!isVisible || !activeRef.current) return
 
       const delta = clock.getDelta()
       const time = clock.getElapsedTime()

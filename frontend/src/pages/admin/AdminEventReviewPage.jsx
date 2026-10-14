@@ -559,7 +559,7 @@ export function AdminEventReviewPage() {
                     value={notes[event.id] ?? ''}
                     onChange={(e) => setNote(event.id, e.target.value)}
                   />
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center gap-2">
                     {/* Hide — only for PUBLISHED */}
                     {event.status === 'PUBLISHED' && (
                       <TableActionButton

@@ -831,7 +831,7 @@ export function AdminEventReviewDetailPage() {
                 </h3>
                 {event.description ? (
                   <div
-                    className="prose prose-sm prose-invert max-w-none text-slate-300"
+                    className="prose prose-sm prose-invert max-w-none text-slate-300 break-words [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto"
                     dangerouslySetInnerHTML={{ __html: typeof event.description === 'string' ? event.description : '' }}
                   />
                 ) : (

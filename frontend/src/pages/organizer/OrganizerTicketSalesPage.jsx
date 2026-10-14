@@ -618,7 +618,7 @@ export function OrganizerTicketSalesPage() {
                 </div>
                 <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                   <div className="w-full max-h-[420px] overflow-auto">
-                    <table className="w-full min-w-[600px] text-xs">
+                    <table className="w-full min-w-[600px] text-sm">
                       <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                         <tr>
                           <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
@@ -632,16 +632,16 @@ export function OrganizerTicketSalesPage() {
                         {byTicketType.map((tt) => (
                           <tr key={tt.ticket_type_id} className="hover:bg-white/[0.02] transition-colors">
                             <td className="px-4 py-3.5">
-                              <p className="font-semibold text-content">{tt.ticket_type_name}</p>
+                              <p className="text-sm font-semibold text-content">{tt.ticket_type_name}</p>
                               <p className="text-xs text-subtle">{fmtCurrency(tt.unit_price)}/vé</p>
                             </td>
-                            <td className="px-4 py-3.5 text-right text-subtle">
+                            <td className="px-4 py-3.5 text-right text-sm text-subtle">
                               {Number(tt.capacity).toLocaleString('vi-VN')}
                             </td>
-                            <td className="px-4 py-3.5 text-right font-semibold text-content">
+                            <td className="px-4 py-3.5 text-right text-sm font-semibold text-content">
                               {Number(tt.sold_quantity).toLocaleString('vi-VN')}
                             </td>
-                            <td className="px-4 py-3.5 text-right font-semibold text-success">
+                            <td className="px-4 py-3.5 text-right text-sm font-semibold text-success">
                               {fmtShort(tt.revenue)}
                             </td>
                             <td className="px-4 py-3.5 text-right">
@@ -652,14 +652,14 @@ export function OrganizerTicketSalesPage() {
                       </tbody>
                       <tfoot>
                         <tr className="border-t border-white/10 bg-[#172242]/70">
-                          <td className="px-4 py-3 font-bold text-white">Tổng cộng</td>
-                          <td className="px-4 py-3 text-right font-bold text-subtle">
+                          <td className="px-4 py-3 font-bold text-white text-sm">Tổng cộng</td>
+                          <td className="px-4 py-3 text-right font-bold text-subtle text-sm">
                             {byTicketType.reduce((s, tt) => s + Number(tt.capacity), 0).toLocaleString('vi-VN')}
                           </td>
-                          <td className="px-4 py-3 text-right font-bold text-content">
+                          <td className="px-4 py-3 text-right font-bold text-content text-sm">
                             {Number(overall.total_tickets_sold).toLocaleString('vi-VN')}
                           </td>
-                          <td className="px-4 py-3 text-right font-bold text-success">
+                          <td className="px-4 py-3 text-right font-bold text-success text-sm">
                             {fmtCurrency(overall.total_revenue)}
                           </td>
                           <td className="px-4 py-3" />
