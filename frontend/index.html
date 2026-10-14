@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&family=Poppins:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
     <title>EventHub - Event Operations And Management Platform</title>
     <script>
+      const isPortalRoute = /^\/(admin|organizer|staff)(\/|$)/.test(window.location.pathname);
       const getStoredUser = () => {
         const rawUser = localStorage.getItem('eventhub-user') || sessionStorage.getItem('eventhub-user');
         if (!rawUser) return null;
@@ -20,7 +21,7 @@
 
       const user = getStoredUser();
       const accountKey = user?.id || user?.user_id || user?._id || user?.email;
-      const theme = accountKey ? localStorage.getItem(`eventhub-theme:${String(accountKey).toLowerCase()}`) : 'dark';
+      const theme = (isPortalRoute && accountKey) ? localStorage.getItem(`eventhub-theme:${String(accountKey).toLowerCase()}`) : 'dark';
       document.documentElement.classList.toggle('light', theme === 'light');
     </script>
   </head>

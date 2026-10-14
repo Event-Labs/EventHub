@@ -87,7 +87,7 @@ export function RegisterPage() {
     if (success) {
         return (
             <AuthShell>
-                <div className="glass-panel mx-auto w-full max-w-lg rounded-lg p-7 shadow-2xl text-center">
+                <div className="force-dark glass-panel mx-auto w-full max-w-lg rounded-lg p-7 shadow-2xl text-center">
                     <AuthLogo />
                     <div className="mb-6 mt-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success">
                         <Mail className="size-10" />
@@ -115,7 +115,7 @@ export function RegisterPage() {
 
     return (
         <AuthShell>
-            <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-xl rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+            <div className="force-dark glass-panel relative overflow-hidden mx-auto w-full max-w-xl rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                 <div className="text-center">
                     <h1 className="font-display text-3xl font-extrabold text-white">
