@@ -129,8 +129,12 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
       setGeocoding(true)
       try {
         const result = await reverseGeocode(lat, lng)
-        skipSearch.current = true
-        applyGeocode(result, lat, lng)
+        if (result) {
+          skipSearch.current = true
+          applyGeocode(result, lat, lng)
+        } else {
+          setForm((f) => ({ ...f, latitude: lat, longitude: lng }))
+        }
       } catch (err) {
         console.error(err)
         setForm((f) => ({ ...f, latitude: lat, longitude: lng }))
