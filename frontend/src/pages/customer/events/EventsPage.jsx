@@ -134,8 +134,8 @@ export function EventsPage() {
         onSubmit={submitFilters}
       >
         <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.72fr)_minmax(180px,0.85fr)_minmax(330px,1.35fr)]">
-          <label className="space-y-2">
-            <span className="text-sm font-semibold text-white">Từ khóa</span>
+          <label className="flex flex-col gap-2.5">
+            <span className="text-base font-semibold text-white">Từ khóa</span>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
               <input
@@ -165,8 +165,8 @@ export function EventsPage() {
             disabled={categoriesQuery.isLoading}
           />
 
-          <div className="space-y-2">
-            <span className="flex items-center gap-2 text-sm font-semibold text-muted">
+          <div className="flex flex-col gap-2.5">
+            <span className="flex items-center gap-2 text-base font-semibold text-white">
               Thời gian
             </span>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -203,8 +203,8 @@ export function EventsPage() {
             value={draft.max_price}
             onChange={(value) => setDraft({ ...draft, max_price: value })}
           />
-          <label className="space-y-2">
-            <span className="text-sm font-semibold text-muted">Sắp xếp</span>
+          <label className="flex flex-col gap-2.5">
+            <span className="text-base font-semibold text-white">Sắp xếp</span>
             <select
               value={draft.sort_by}
               onChange={(event) => setDraft({ ...draft, sort_by: event.target.value, sort_order: event.target.value === 'created_at' ? 'desc' : 'asc' })}
@@ -289,15 +289,15 @@ function Input({ label, value, onChange, className = '', ...props }) {
       {...props}
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className={`h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 ${className}`}
+      className={`h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content [color-scheme:dark] outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 ${className}`}
     />
   )
 
   if (!label) return control
 
   return (
-    <label className="space-y-2">
-      <span className="text-sm font-semibold text-muted">{label}</span>
+    <label className="flex flex-col gap-2.5">
+      <span className="text-base font-semibold text-white">{label}</span>
       {control}
     </label>
   )
@@ -305,8 +305,8 @@ function Input({ label, value, onChange, className = '', ...props }) {
 
 function Select({ label, value, onChange, options, icon: Icon, disabled = false }) {
   return (
-    <label className="space-y-2">
-      <span className="text-sm font-semibold text-muted">{label}</span>
+    <label className="flex flex-col gap-2.5">
+      <span className="text-base font-semibold text-white">{label}</span>
       <div className="relative">
         {Icon && <Icon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" />}
         <select
