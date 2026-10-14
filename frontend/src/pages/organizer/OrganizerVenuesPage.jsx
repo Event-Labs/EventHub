@@ -49,7 +49,7 @@ function buildAddressQuery(form) {
     .join(', ')
 }
 
-function VenueFormModal({ open, editVenue, onClose, onSaved }) {
+export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   const toast = useToast()
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
@@ -280,12 +280,13 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
         }
       }
 
+      let savedVenue = null
       if (editVenue?.id) {
-        await updateVenue(editVenue.id, payload)
+        savedVenue = await updateVenue(editVenue.id, payload)
       } else {
-        await createVenue(payload)
+        savedVenue = await createVenue(payload)
       }
-      onSaved()
+      onSaved(savedVenue)
       onClose()
     } catch (err) {
       console.error(err)
