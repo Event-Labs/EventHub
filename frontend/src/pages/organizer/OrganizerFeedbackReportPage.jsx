@@ -88,15 +88,15 @@ export function OrganizerFeedbackReportPage() {
         )}
         {events.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
-            <span className="shrink-0 text-sm font-semibold text-white">Chọn sự kiện</span>
+            <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
             <div className="relative w-full sm:w-[420px]">
               <select
-                className="h-10 w-full appearance-none rounded-xl border border-border-soft/40 bg-panel-soft pl-3 pr-9 text-sm font-medium text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 value={eventId}
                 onChange={(e) => setEventId(e.target.value)}
               >
                 {events.map((event) => (
-                  <option key={event.id} value={event.id} className="bg-slate-900 text-white">
+                  <option key={event.id} value={event.id} className="bg-[#0b1329] text-white">
                     {event.title}
                     {event.average_rating != null
                       ? ` — ★ ${event.average_rating} (${event.feedback_count})`
@@ -104,7 +104,7 @@ export function OrganizerFeedbackReportPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
             </div>
           </div>
         )}
