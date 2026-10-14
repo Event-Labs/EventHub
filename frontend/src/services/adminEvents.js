@@ -84,5 +84,20 @@ export async function resetAdminDefaultReviewCriteria() {
   return response.data.data
 }
 
+export async function fetchDocumentPreviewBlob(url) {
+  const response = await http.get('/admin/events/documents/preview', {
+    params: { url },
+    responseType: 'blob',
+  })
+  return response.data
+}
+
+export async function extractDocumentText(url) {
+  const response = await http.get('/admin/events/documents/extract-text', {
+    params: { url },
+  })
+  return response.data.data
+}
+
 
 

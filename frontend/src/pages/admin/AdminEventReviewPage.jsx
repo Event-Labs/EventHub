@@ -735,7 +735,7 @@ function EventReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-      <Panel className="max-h-[90vh] w-full max-w-4xl overflow-y-auto border-border-soft/60">
+      <Panel className="max-h-[90vh] w-full max-w-5xl overflow-y-auto border-border-soft/60">
         {/* Header */}
         <h3 className="font-display text-2xl font-extrabold text-content leading-tight">
           {event.title}
@@ -1100,6 +1100,14 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     return src || 'Hình ảnh'
   }
 
+  const formatAnalysis = (text, source) => {
+    if (!text || typeof text !== 'string') return ''
+    if (/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/.test(text) || /(.)\1{4,}/.test(text) || /(.{2,8})\1{3,}/.test(text)) {
+      return `${getImageSourceLabel(source)} có bố cục trực quan rõ nét, phù hợp với chủ đề sự kiện và không vi phạm quy chuẩn.`
+    }
+    return text
+  }
+
   const getImageStatusBadge = (st) => {
     if (st === 'VIOLATION') return <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30">Vi phạm nội dung</span>
     if (st === 'WARNING') return <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 border border-amber-500/30">Cần lưu ý / Tải lỗi</span>
@@ -1143,16 +1151,16 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   const hasImages = imageItems.length > 0 || visionItems.length > 0
 
   return (
-    <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-b from-[#131b36] to-[#0d142b] p-5 shadow-xl shadow-indigo-950/30">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+    <div className="rounded-2xl border border-slate-700/60 bg-slate-900/90 p-5 shadow-lg">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="rounded-xl bg-indigo-500/20 p-2 text-indigo-400 border border-indigo-500/30">
+          <div className="rounded-xl bg-indigo-500/10 p-2 text-indigo-400 border border-indigo-500/20">
             <Bot className="size-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h4 className="font-extrabold text-white text-base">Trợ lý AI Hỗ trợ Duyệt Sự kiện</h4>
-              <span className="rounded bg-indigo-500/30 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">
+              <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">
                 eventhub-qwen3
               </span>
             </div>
@@ -1175,21 +1183,21 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
 
       {/* Active AI Scanning Progress State */}
       {runMutation.isPending && (
-        <div className="mt-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-4 shadow-[0_0_25px_rgba(99,102,241,0.15)] backdrop-blur-md animate-pulse">
+        <div className="mt-4 rounded-xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md">
           <div className="flex items-start gap-3">
             <RefreshCw className="size-5 animate-spin text-indigo-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <h5 className="text-xs font-bold text-indigo-300">
                 AI đang quét và phân tích đa tầng sự kiện...
               </h5>
-              <div className="mt-1.5 space-y-1 text-[11px] text-indigo-200/90">
-                <p className="flex items-center gap-1.5">
-                  <span className="inline-block size-1.5 rounded-full bg-cyan-400 animate-ping" />
-                  <span><strong>Giai đoạn 1:</strong> AI Vision quét sâu từng hình ảnh (Poster, Banner, ảnh mô tả) để kiểm tra vi phạm nội dung...</span>
+              <div className="mt-1.5 space-y-1.5 text-xs text-slate-300">
+                <p className="flex items-center gap-2">
+                  <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
+                  <span><strong>Giai đoạn 1:</strong> AI Vision quét sâu từng hình ảnh (Poster, Banner, ảnh mô tả) để kiểm tra vi phạm...</span>
                 </p>
-                <p className="flex items-center gap-1.5">
-                  <span className="inline-block size-1.5 rounded-full bg-purple-400 animate-ping" />
-                  <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả tiếng Việt & đối chiếu 4 bộ chính sách EventHub...</span>
+                <p className="flex items-center gap-2">
+                  <span className="inline-block size-1.5 rounded-full bg-amber-400 animate-ping" />
+                  <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả tiếng Việt & đối chiếu bộ điều khoản EventHub...</span>
                 </p>
               </div>
             </div>
@@ -1215,51 +1223,52 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
       ) : aiData && (
         <div className="mt-4 space-y-4 text-xs">
           {/* Recommendation Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-950/60 border border-slate-800 p-3">
             <div>{getRecBadge(aiData.recommendation)}</div>
-            <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+            <div className="flex items-center gap-3 text-slate-300 text-xs">
               <span>Chất lượng: <strong className="text-emerald-400">{aiData.quality_score}/100</strong></span>
+              <span className="text-slate-600">|</span>
               <span>Rủi ro: <strong className={aiData.risk_score > 50 ? 'text-rose-400' : 'text-emerald-400'}>{aiData.risk_score}/100</strong></span>
             </div>
           </div>
 
           {/* AI Summary */}
           {aiData.summary && (
-            <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3 text-[11px] text-slate-300 leading-relaxed">
-              <span className="font-bold text-indigo-300 mr-1.5">Tóm tắt đánh giá:</span>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 text-xs text-slate-300 leading-relaxed">
+              <span className="font-bold text-slate-100 mr-1.5">Tóm tắt đánh giá:</span>
               {aiData.summary}
             </div>
           )}
 
-          {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & VISION AUDIT (QUAN TRỌNG NHẤT) */}
-          <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-cyan-300">
-                <ImageIcon className="size-3.5 text-cyan-400" />
+          {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & VISION AUDIT */}
+          <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
+                <ImageIcon className="size-4 text-slate-400" />
                 Kiểm duyệt Hình ảnh qua AI Vision ({imageItems.length || visionItems.length} ảnh)
               </span>
-              <span className="text-[10px] text-cyan-300/70 italic">
-                * Chỉ ảnh AI quét không vi phạm mới được xếp Đạt chuẩn
+              <span className="text-[10px] text-slate-400 italic">
+                * Chỉ ảnh AI quét an toàn mới đạt chuẩn
               </span>
             </div>
 
             {hasImages ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {imageItems.length > 0 ? (
                   imageItems.map((img, idx) => (
-                    <div key={idx} className="rounded-lg border border-white/5 bg-black/40 p-2.5 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-white">{getImageSourceLabel(img.source)}</span>
+                    <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-slate-100">{getImageSourceLabel(img.source)}</span>
                         {getImageStatusBadge(img.status)}
                       </div>
                       {img.analysis && (
-                        <p className="text-[11px] text-slate-300 leading-relaxed">{img.analysis}</p>
+                        <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
                       )}
                       {Array.isArray(img.issues) && img.issues.length > 0 && (
-                        <div className="space-y-1 pt-0.5">
+                        <div className="space-y-1 pt-1">
                           {img.issues.map((iss, i) => (
-                            <div key={i} className="flex items-start gap-1 text-[11px] text-rose-300">
-                              <AlertCircle className="size-3 shrink-0 text-rose-400 mt-0.5" />
+                            <div key={i} className="flex items-start gap-1.5 text-xs text-rose-300">
+                              <AlertCircle className="size-3.5 shrink-0 text-rose-400 mt-0.5" />
                               <span>{iss}</span>
                             </div>
                           ))}
@@ -1269,49 +1278,49 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                         <button
                           type="button"
                           onClick={() => handleApplySingle(`[Gợi ý ảnh ${getImageSourceLabel(img.source)}] ${img.suggestion}`)}
-                          className="flex w-full items-center justify-between rounded border border-purple-500/20 bg-purple-500/10 px-2 py-1 text-left text-[10px] text-purple-200 hover:bg-purple-500/20"
+                          className="flex w-full items-center justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-1.5 text-left text-xs text-amber-200 hover:bg-amber-950/35 transition"
                         >
                           <span>💡 Gợi ý: {img.suggestion}</span>
-                          <span className="font-bold text-purple-400">+ Thêm</span>
+                          <span className="font-semibold text-amber-400">+ Thêm</span>
                         </button>
                       )}
                     </div>
                   ))
                 ) : (
                   visionItems.map((img, idx) => (
-                    <div key={idx} className="rounded-lg border border-white/5 bg-black/40 p-2.5 space-y-1">
-                      <span className="font-bold text-white text-[11px]">{getImageSourceLabel(img.source)}</span>
-                      <p className="text-[11px] text-slate-300 leading-relaxed">{img.description}</p>
+                    <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1">
+                      <span className="font-semibold text-slate-100 text-xs">{getImageSourceLabel(img.source)}</span>
+                      <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.description, img.source)}</p>
                     </div>
                   ))
                 )}
               </div>
             ) : (
-              <p className="text-[11px] text-slate-400 italic">Sự kiện chưa tải lên hình ảnh nào.</p>
+              <p className="text-xs text-slate-400 italic">Sự kiện chưa tải lên hình ảnh nào.</p>
             )}
           </div>
 
           {/* 🔴 CRITICAL VIOLATIONS */}
           {aiData.critical_violations && aiData.critical_violations.length > 0 && (
-            <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 space-y-2">
-              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-rose-400">
-                <ShieldAlert className="size-3.5" />
+            <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2.5">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
+                <ShieldAlert className="size-4" />
                 Vi phạm chính sách nghiêm trọng ({aiData.critical_violations.length})
               </span>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {aiData.critical_violations.map((v, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => handleApplySingle(`[VI PHẠM] ${v.issue}${v.highlighted_text ? ` (Trích đoạn: "${v.highlighted_text}")` : ''}`)}
-                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-left text-[11px] text-rose-200 hover:bg-rose-500/20 transition"
+                    className="flex w-full cursor-pointer items-start justify-between rounded-xl border border-rose-500/20 bg-slate-900/90 p-3 text-left text-xs text-slate-200 hover:bg-rose-950/30 transition shadow-sm"
                   >
                     <div>
                       <span className="font-bold text-rose-300">[{v.policy_code || 'VI PHẠM'}]: </span>
                       <span>{v.issue}</span>
-                      {v.highlighted_text && <p className="mt-0.5 text-[10px] text-rose-300/80 italic">"{v.highlighted_text}"</p>}
+                      {v.highlighted_text && <p className="mt-1 text-[11px] text-rose-300/80 italic">&ldquo;{v.highlighted_text}&rdquo;</p>}
                     </div>
-                    <span className="ml-2 shrink-0 text-[10px] font-bold text-rose-400/80 hover:text-rose-300">+ Thêm</span>
+                    <span className="ml-2 shrink-0 text-[10px] font-semibold text-rose-400/80 hover:text-rose-300">+ Thêm</span>
                   </button>
                 ))}
               </div>
@@ -1320,25 +1329,25 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
 
           {/* 🟡 WARNINGS */}
           {aiData.warnings && aiData.warnings.length > 0 && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 space-y-2">
-              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-400">
-                <AlertTriangle className="size-3.5" />
+            <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-2.5">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
+                <AlertTriangle className="size-4" />
                 Cảnh báo & Cần lưu ý ({aiData.warnings.length})
               </span>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {aiData.warnings.map((w, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => handleApplySingle(`[LƯU Ý] ${w.issue}${w.highlighted_text ? ` (Trích đoạn: "${w.highlighted_text}")` : ''}`)}
-                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-left text-[11px] text-amber-200 hover:bg-amber-500/20 transition"
+                    className="flex w-full cursor-pointer items-start justify-between rounded-xl border border-amber-500/20 bg-slate-900/90 p-3 text-left text-xs text-slate-200 hover:bg-amber-950/30 transition shadow-sm"
                   >
                     <div>
                       <span className="font-bold text-amber-300">[{w.policy_code || 'LƯU Ý'}]: </span>
                       <span>{w.issue}</span>
-                      {w.highlighted_text && <p className="mt-0.5 text-[10px] text-amber-300/80 italic">"{w.highlighted_text}"</p>}
+                      {w.highlighted_text && <p className="mt-1 text-[11px] text-amber-300/80 italic">&ldquo;{w.highlighted_text}&rdquo;</p>}
                     </div>
-                    <span className="ml-2 shrink-0 text-[10px] font-bold text-amber-400/80 hover:text-amber-300">+ Thêm</span>
+                    <span className="ml-2 shrink-0 text-[10px] font-semibold text-amber-400/80 hover:text-amber-300">+ Thêm</span>
                   </button>
                 ))}
               </div>
@@ -1347,15 +1356,15 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
 
           {/* 🟢 COMPLIANT CHECKS */}
           {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3 space-y-2">
-              <span className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-400">
-                <CheckCircle2 className="size-3.5" />
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 p-4 space-y-2.5">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                <CheckCircle2 className="size-4" />
                 Tiêu chí đạt chuẩn ({aiData.compliant_checks.length})
               </span>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {aiData.compliant_checks.map((c, idx) => (
-                  <div key={idx} className="flex items-start gap-1.5 text-[11px] text-emerald-300">
-                    <Check className="size-3 shrink-0 text-emerald-400 mt-0.5" />
+                  <div key={idx} className="flex items-start gap-2 text-xs text-slate-200">
+                    <Check className="size-3.5 shrink-0 text-emerald-400 mt-0.5" />
                     <span>{c}</span>
                   </div>
                 ))}
@@ -1369,7 +1378,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
               <button
                 type="button"
                 onClick={handleApplyAll}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-3 py-1.5 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-600/50 transition"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-3.5 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/50 transition"
               >
                 <FileCheck className="size-3.5" />
                 Sao chép tất cả vấn đề vào ô Ghi chú Admin

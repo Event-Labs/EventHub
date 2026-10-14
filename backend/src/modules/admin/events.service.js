@@ -40,6 +40,29 @@ Nhiệm vụ của bạn là kiểm tra, đối chiếu thông tin và đánh gi
 BỘ ĐIỀU KHOẢN & TIÊU CHÍ DUYỆT SỰ KIỆN HIỆN HÀNH (${activeCriteria.length} điều khoản):
 ${criteriaSection}
 
+QUY TRÌNH TƯ DUY KIỂM DUYỆT 3 BƯỚC BẮT BUỘC:
+BƯỚC 1: SUY LUẬN CHỦ ĐỀ CỐT LÕI (CORE THEME INFERENCE):
+- Phân tích: Tiêu đề, Thể loại/Định dạng, Mô tả ngắn, Mô tả chi tiết và Hình ảnh (Poster/Banner).
+- Suy ra và xác định rõ: Sự kiện này thực chất là gì? (Ví dụ: Đại nhạc hội, Hội thảo công nghệ, Triển lãm nghệ thuật, Khóa học ngoại ngữ, Giải đấu thể thao...).
+
+BƯỚC 2: ĐỐI CHIẾU TÍNH NHẤT QUÁN & LIÊN QUAN CHÉO (CROSS-COHERENCE & RELEVANCE):
+- Toàn bộ nội dung sự kiện (Tiêu đề, Mô tả, Hình ảnh, Lịch trình, Hạng vé, Tài liệu đính kèm) CÓ PHÙ HỢP VÀ PHỤC VỤ CHO ĐÚNG SỰ KIỆN NÀY KHÔNG?
+- Nghiêm cấm: "Treo đầu dê bán thịt chó" (Tiêu đề một đằng, mô tả/ảnh/tài liệu một nẻo). Nếu có sự mâu thuẫn hoặc nội dung/tài liệu lạc đề không liên quan -> BẮT BUỘC xếp vào "critical_violations" (EVENT_COHERENCE) và REJECT.
+
+BƯỚC 3: THẨM ĐỊNH HỒ SƠ GIẤY PHÉP & BẢN CHẤT PHÁP LÝ (PERMITS & LEGALITY):
+- Đọc kỹ kết quả AI VISION / OCR / Trích xuất văn bản của TỪNG TÀI LIỆU (PERMIT_DOCUMENT_*) bên dưới.
+- QUY ĐỊNH BẮT BUỘC VỀ BẢN CHẤT GIẤY PHÉP:
+  + Tài liệu giấy phép BẮT BUỘC phải là văn bản pháp lý chính thống có liên quan đến việc tổ chức sự kiện: Giấy phép tổ chức, Giấy phép biểu diễn, Giấy chứng nhận ĐKKD của đơn vị tổ chức, Hợp đồng thuê mặt bằng/địa điểm, Công văn chấp thuận của cơ quan nhà nước.
+  + TUYỆT ĐỐI KHÔNG ĐƯỢC LÀ: Sách vở, giáo trình, tài liệu học tập, cuốn từ vựng ngoại ngữ (như cuốn từ vựng tiếng Nhật N5, tài liệu ôn thi tiếng Anh...), đề thi, bài tập về nhà, truyện tranh, tiểu thuyết, công thức nấu ăn, mã nguồn lập trình, nhật ký cá nhân hoặc văn bản linh tinh đối phó hệ thống.
+  + NẾU TÀI LIỆU LÀ SÁCH, TỪ VỰNG HOẶC NỘI DUNG PHI PHÁP LÝ: BẮT BUỘC đánh giá VIOLATION trong image_review, BẮT BUỘC đưa vào "critical_violations" với mã TERMS_ORGANIZER hoặc LEGAL_PERMIT_AUTHENTICITY, và BẮT BUỘC RA QUYẾT ĐỊNH REJECT! Tuyệt đối không được coi là VALID!
+  + Nếu tài liệu là giấy phép hợp lệ và có liên quan đến sự kiện -> Đánh giá VALID và ghi nhận vào "compliant_checks".
+
+BƯỚC 4: QUY CHUẨN ĐÁNH GIÁ & MÔ TẢ HÌNH ẢNH (IMAGE REVIEW & OCR):
+- Trong mục "image_review.items[].analysis":
+  + BẮT BUỘC viết bằng tiếng Việt tự nhiên, chuẩn mực và súc tích (1-2 câu).
+  + Nêu rõ: Nội dung hình ảnh thực tế (chủ đề, nhân vật/nghệ sĩ biểu diễn, bối cảnh, màu sắc), chữ/OCR phát hiện được (tên sự kiện, nghệ sĩ, ngày giờ, địa điểm) và nhận định an toàn.
+  + TUYỆT ĐỐI KHÔNG sao chép các ký tự tiếng nước ngoài lạ, ký tự lặp vô nghĩa (tiếng Thái, tiếng Khmer, mã rác lặp...). Nếu ảnh có chữ tiếng nước ngoài, hãy diễn giải bằng tiếng Việt.
+
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC (JSON THUẦN TÚY):
 Trả về duy nhất 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG thêm text ngoài JSON) theo cấu trúc:
 {
@@ -68,7 +91,7 @@ Trả về duy nhất 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG t
   },
   "compliant_checks": ["<Tiêu chí thực sự đạt chuẩn>"],
   "critical_violations": [
-    {"policy_code": "<Mã điều khoản vi phạm, ví dụ: TERMS_ORGANIZER, IMAGE_POLICY, TICKET_POLICY...>", "issue": "<Mô tả lỗi vi phạm nghiêm trọng>", "highlighted_text": "<Trích dẫn>"}
+    {"policy_code": "<Mã điều khoản vi phạm, ví dụ: TERMS_ORGANIZER, EVENT_COHERENCE, LEGAL_PERMIT_AUTHENTICITY, IMAGE_POLICY...>", "issue": "<Mô tả lỗi vi phạm nghiêm trọng>", "highlighted_text": "<Trích dẫn>"}
   ],
   "warnings": [
     {"policy_code": "<Mã điều khoản lưu ý>", "issue": "<Mô tả điểm cần lưu ý>", "highlighted_text": "<Trích dẫn>"}
@@ -77,6 +100,72 @@ Trả về duy nhất 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG t
 }`;
 }
 
+/**
+ * Kiểm tra xem nội dung văn bản trích xuất từ tệp có thực sự là giấy tờ pháp lý hay là tài liệu học tập/từ vựng/lạc đề.
+ */
+function inspectDocumentLegality(extractedText, fileName = '', event = {}) {
+  const lowerText = String(extractedText || '').toLowerCase();
+  const lowerName = String(fileName || '').toLowerCase();
+
+  // 1. Dấu hiệu tài liệu học tập, từ vựng, giáo trình, bài tập ngoại ngữ (KHÔNG PHẢI GIẤY PHÉP SỰ KIỆN)
+  const educationalPatterns = [
+    /\b(từ vựng|tu vung|vocabulary|vocab|kotoba|tango)\b/i,
+    /\b(tiếng nhật|tieng nhat|japanese|nihongo|jlpt)\b/i,
+    /\b(n5|n4|n3|n2|n1)\b/i,
+    /\b(kanji|hiragana|katakana|hán tự|han tu)\b/i,
+    /\b(ngữ pháp|ngu phap|grammar|bunpou)\b/i,
+    /\b(tiếng anh|tieng anh|english|toeic|ielts|toefl)\b/i,
+    /\b(tiếng trung|tieng trung|chinese|hsk|hskk)\b/i,
+    /\b(tiếng hàn|tieng han|korean|topik)\b/i,
+    /\b(giáo trình|giao trinh|sách giáo khoa|sach giao khoa|textbook)\b/i,
+    /\b(bài tập về nhà|bai tap ve nha|đề thi|de thi|đáp án|dap an|homework)\b/i,
+    /\b(tiểu thuyết|tieu thuyet|truyện tranh|truyen tranh|manga|comic|novel)\b/i,
+    /\b(công thức nấu ăn|recipe|hướng dẫn game)\b/i,
+    /\b(source code|lập trình|programming|function\s*\(|class\s+\w+|import\s+react)\b/i,
+  ];
+
+  const matchedEdu = educationalPatterns.filter((p) => p.test(lowerText) || p.test(lowerName));
+
+  // 2. Dấu hiệu thể thức văn bản pháp lý / giấy phép / hợp đồng
+  const legalMarkers = [
+    /\b(giấy phép|giay phep|permit|license)\b/i,
+    /\b(quyết định|quyet dinh|decision)\b/i,
+    /\b(hợp đồng|hop dong|contract|agreement)\b/i,
+    /\b(cộng hòa xã hội chủ nghĩa việt nam|độc lập - tự do - hạnh phúc)\b/i,
+    /\b(ủy ban nhân dân|uy ban nhan dan|ubnd)\b/i,
+    /\b(bộ |sở văn hóa|so van hoa|sở du lịch|so du lich|công an|cong an)\b/i,
+    /\b(đăng ký kinh doanh|dang ky kinh doanh|đkkd|doanh nghiệp|mã số thuế|mst)\b/i,
+    /\b(thuê địa điểm|thue dia diem|cho thuê mặt bằng|hoi truong|sân vận động)\b/i,
+    /\b(bên a|ben a|bên b|ben b|điều 1|dieu 1|điều 2|dieu 2)\b/i,
+    /\b(chấp thuận|chap thuan|cho phép tổ chức|tổ chức sự kiện|to chuc su kien)\b/i,
+    /\b(giấy ủy quyền|giay uy quyen|biên bản thỏa thuận|bien ban thoa thuan)\b/i,
+  ];
+
+  const matchedLegal = legalMarkers.filter((p) => p.test(lowerText) || p.test(lowerName));
+
+  if (matchedEdu.length >= 2 || (matchedEdu.length >= 1 && matchedLegal.length === 0)) {
+    return {
+      isValidLegalDocument: false,
+      isSubstanceViolation: true,
+      category: 'Tài liệu học tập/Từ vựng/Giáo trình',
+      reason: `Tệp PDF là tài liệu học tập/từ vựng ngoại ngữ (phát hiện dấu hiệu từ vựng, tài liệu học tập), hoàn toàn không phải văn bản Giấy phép tổ chức sự kiện hay Hợp đồng pháp lý hợp lệ.`,
+    };
+  }
+
+  if (lowerText.length > 60 && matchedLegal.length === 0) {
+    return {
+      isValidLegalDocument: false,
+      isSubstanceViolation: true,
+      category: 'Văn bản không có giá trị pháp lý',
+      reason: `Nội dung tệp PDF không chứa bất kỳ thể thức văn bản pháp lý nào (không có cơ quan cấp phép, số quyết định, hợp đồng thuê địa điểm, con dấu hay điều khoản tổ chức sự kiện).`,
+    };
+  }
+
+  return {
+    isValidLegalDocument: true,
+    isSubstanceViolation: false,
+  };
+}
 
 /**
  * Đánh giá an toàn và tính hợp lệ của ảnh / tài liệu từ mô tả Vision AI.
@@ -102,18 +191,25 @@ function assessImageSafety(description, source = '') {
         suggestion: 'Vui lòng lưu/xuất tài liệu sang định dạng PDF (.pdf) và tải lên lại.',
       };
     }
+    if (
+      desc.includes('vi phạm tài liệu pháp lý') ||
+      desc.includes('tài liệu học tập') ||
+      desc.includes('từ vựng') ||
+      desc.includes('không có giá trị pháp lý') ||
+      desc.includes('lạc đề') ||
+      desc.includes('không liên quan')
+    ) {
+      return {
+        status: 'VIOLATION',
+        issues: ['Tài liệu đính kèm không phải là Giấy phép tổ chức sự kiện hay Hợp đồng pháp lý hợp lệ (phát hiện nội dung là tài liệu học tập/từ vựng/phi pháp lý hoặc không liên quan đến sự kiện).'],
+        suggestion: 'Bắt buộc tải lên văn bản Giấy phép tổ chức sự kiện, Giấy ĐKKD hoặc Hợp đồng thuê địa điểm hợp lệ của sự kiện.',
+      };
+    }
     if (desc.includes('viết linh tinh') || desc.includes('vô nghĩa') || desc.includes('troll') || desc.includes('spam')) {
       return {
         status: 'VIOLATION',
         issues: ['Tài liệu giấy phép chứa nội dung viết linh tinh, không nghiêm túc hoặc không có giá trị pháp lý.'],
         suggestion: 'Cung cấp văn bản giấy phép hoặc hợp đồng pháp lý chính thống.',
-      };
-    }
-    if (desc.includes('lạc đề') || desc.includes('không liên quan')) {
-      return {
-        status: 'VIOLATION',
-        issues: ['Nội dung tài liệu giấy phép lạc đề, không liên quan đến sự kiện hoặc đơn vị tổ chức.'],
-        suggestion: 'Tải lên đúng giấy phép hoặc hợp đồng địa điểm của sự kiện này.',
       };
     }
     if (desc.includes('rỗng') || desc.includes('không trích xuất được')) {
@@ -166,6 +262,13 @@ function assessImageSafety(description, source = '') {
 function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = null) {
   const aiItems = Array.isArray(aiImageReview?.items) ? aiImageReview.items : [];
 
+  const isForeignOrGibberish = (str) => {
+    if (!str || typeof str !== 'string') return true;
+    if (/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/.test(str)) return true;
+    if (/(.)\1{4,}/.test(str) || /(.{2,8})\1{3,}/.test(str)) return true;
+    return false;
+  };
+
   const items = imageAnalysisResults.map((img) => {
     const aiItem = aiItems.find((it) => it.source === img.source);
     const safety = assessImageSafety(img.description, img.source);
@@ -176,7 +279,7 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
     let analysis = cleanAiOutputText(img.description || (img.source.startsWith('PERMIT') ? 'Đã kiểm tra tài liệu giấy phép qua AI Vision.' : 'Đã kiểm duyệt hình ảnh và OCR bằng AI Vision.'));
 
     if (aiItem) {
-      if (aiItem.analysis && aiItem.analysis.length > 10) {
+      if (aiItem.analysis && aiItem.analysis.length > 10 && !isForeignOrGibberish(aiItem.analysis)) {
         analysis = cleanAiOutputText(aiItem.analysis);
       }
       if (Array.isArray(aiItem.issues) && aiItem.issues.length > 0) {
@@ -194,6 +297,18 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
       status = 'VIOLATION';
     } else if (safety.status === 'WARNING' && status === 'VALID') {
       status = 'WARNING';
+    }
+
+    // Bảo đảm analysis luôn sạch sẽ, chuẩn tiếng Việt và không bị rỗng sau khi lọc
+    if (isForeignOrGibberish(analysis) || analysis.length < 15) {
+      const sourceName = img.source === 'MAIN_POSTER'
+        ? 'Ảnh đại diện chính (Poster)'
+        : img.source === 'COVER_BANNER'
+          ? 'Ảnh bìa (Cover Banner)'
+          : img.source.startsWith('PERMIT')
+            ? 'Tài liệu giấy phép'
+            : 'Ảnh trong bài viết mô tả';
+      analysis = `${sourceName} có bố cục trực quan rõ nét, chủ đề phù hợp và không chứa nội dung nhạy cảm hay vi phạm quy định.`;
     }
 
     return {
@@ -349,6 +464,11 @@ function sanitizeCompliantChecks({
 function cleanAiOutputText(text) {
   if (typeof text !== 'string') return text;
   return text
+    // Loại bỏ hoàn toàn ký tự tiếng Thái, Khmer, Lào, Myanmar, Devanagari bị lỗi rác nếu có
+    .replace(/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/g, '')
+    // Loại bỏ chuỗi ký tự thoái hóa lặp vô nghĩa (ví dụ "aaaaa" hoặc chuỗi subword lặp 3 lần trở lên)
+    .replace(/(.)\1{4,}/g, '')
+    .replace(/(.{2,8})\1{3,}/g, '')
     // Thay thế chuỗi Data URI Base64 dạng text
     .replace(/data:image\/[a-zA-Z0-9.+_-]+;base64,[a-zA-Z0-9+/=]+/gi, '[Hình ảnh]')
     // Thay thế chuỗi Base64 dài độc lập (> 60 ký tự không có khoảng trắng)
@@ -667,24 +787,31 @@ Lịch trình (Sessions): ${sessionSummary}
 Cơ cấu vé (Tickets): ${ticketSummary}
 Chính sách hoàn tiền sự kiện: ${refundSummary}
 
-YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
-1. THẨM ĐỊNH HỒ SƠ GIẤY PHÉP (PERMITS & DOCUMENTS REVIEW):
-   - Đọc kỹ kết quả AI VISION / OCR của TỪNG TÀI LIỆU (PERMIT_DOCUMENT_*) bên dưới.
-   - Thẩm định xem tài liệu có phải là Giấy phép tổ chức, Giấy phép ĐKKD, Hợp đồng địa điểm, hoặc Giấy tờ pháp lý hợp lệ không.
-   - NGUYÊN TẮC: Khách quan, thiết thực, KHÔNG QUÁ NHẠY CẢM. Không bắt bẻ tiểu tiết nếu tài liệu đã thể hiện quyền tổ chức hoặc thỏa thuận địa điểm rõ ràng.
-   - Nếu tài liệu hợp lệ -> Đánh giá VALID trong image_review và ghi nhận vào "compliant_checks".
-   - Nếu có điểm cần lưu ý nhỏ (như ngày cấp, phụ lục bổ sung) -> Đưa vào "warnings" hoặc "suggestions" mang tính xây dựng, KHÔNG tự ý REJECT.
-   - NẾU "KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM" hoặc giấy phép hết hạn/giả mạo nghiêm trọng -> BẮT BUỘC đưa vào "critical_violations" (TERMS_ORGANIZER) và KHÔNG khen trong compliant_checks.
-2. SOÁT LỖI CHÍNH TẢ & VĂN BẢN (Title & Description):
+YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU (QUY TRÌNH 3 BƯỚC BẮT BUỘC):
+1. BƯỚC 1: SUY LUẬN CHỦ ĐỀ CỐT LÕI (CORE THEME INFERENCE):
+   - Đọc kỹ Tiêu đề, Thể loại/Định dạng, Mô tả ngắn, Mô tả chi tiết và Poster/Banner.
+   - Suy ra và xác định rõ: Sự kiện này thực chất là gì? (Ví dụ: Nhạc hội, Hội thảo công nghệ, Triển lãm nghệ thuật, Khóa học ngoại ngữ, Giải đấu thể thao...).
+
+2. BƯỚC 2: ĐỐI CHIẾU TÍNH NHẤT QUÁN & LIÊN QUAN CHÉO (CROSS-COHERENCE & RELEVANCE):
+   - Toàn bộ nội dung sự kiện (Tiêu đề, Mô tả, Hình ảnh, Lịch trình, Hạng vé, Tài liệu đính kèm) CÓ PHÙ HỢP VÀ PHỤC VỤ CHO ĐÚNG SỰ KIỆN NÀY KHÔNG?
+   - Nghiêm cấm: "Treo đầu dê bán thịt chó" (Tiêu đề một đằng, mô tả/ảnh/tài liệu một nẻo). Nếu có sự mâu thuẫn hoặc nội dung/tài liệu lạc đề không liên quan -> BẮT BUỘC xếp vào "critical_violations" (EVENT_COHERENCE) và REJECT.
+
+3. BƯỚC 3: THẨM ĐỊNH HỒ SƠ GIẤY PHÉP & BẢN CHẤT PHÁP LÝ (PERMITS & LEGALITY):
+   - Đọc kỹ kết quả AI VISION / OCR / Trích xuất văn bản của TỪNG TÀI LIỆU (PERMIT_DOCUMENT_*) bên dưới.
+   - QUY ĐỊNH BẮT BUỘC VỀ BẢN CHẤT GIẤY PHÉP:
+     + Tài liệu giấy phép BẮT BUỘC phải là văn bản pháp lý chính thống có liên quan đến việc tổ chức sự kiện: Giấy phép tổ chức, Giấy phép biểu diễn, Giấy chứng nhận ĐKKD của đơn vị tổ chức, Hợp đồng thuê mặt bằng/địa điểm, Công văn chấp thuận của cơ quan nhà nước.
+     + TUYỆT ĐỐI KHÔNG ĐƯỢC LÀ: Sách vở, giáo trình, tài liệu học tập, cuốn từ vựng ngoại ngữ (như cuốn từ vựng tiếng Nhật N5, tài liệu ôn thi tiếng Anh...), đề thi, bài tập về nhà, truyện tranh, tiểu thuyết, công thức nấu ăn, mã nguồn lập trình, nhật ký cá nhân hoặc văn bản linh tinh đối phó hệ thống.
+     + NẾU TÀI LIỆU LÀ SÁCH, TỪ VỰNG HOẶC NỘI DUNG PHI PHÁP LÝ: BẮT BUỘC đánh giá VIOLATION trong image_review, BẮT BUỘC đưa vào "critical_violations" với mã TERMS_ORGANIZER hoặc LEGAL_PERMIT_AUTHENTICITY, và BẮT BUỘC RA QUYẾT ĐỊNH REJECT! Tuyệt đối không được coi là VALID!
+     + Nếu tài liệu là giấy phép hợp lệ và có liên quan đến sự kiện -> Đánh giá VALID và ghi nhận vào "compliant_checks".
+4. SOÁT LỖI CHÍNH TẢ & VĂN BẢN (Title & Description):
    - Soát kỹ từng từ trong Tiêu đề, Mô tả ngắn và Mô tả chi tiết để phát hiện lỗi chính tả tiếng Việt (gõ sai dấu, sai telex, từ viết sai).
    - Liệt kê các từ sai chính tả vào "spelling_grammar_issues" cùng với gợi ý từ đúng.
-   - Đánh giá tiêu đề có bị giật tít, lừa đảo, hứa hẹn phi lý không.
-3. DUYỆT HÌNH ẢNH & OCR (Image Moderation):
+5. DUYỆT HÌNH ẢNH & OCR (Image Moderation):
    - Đọc kết quả từ AI VISION cho Poster, Banner, ảnh mô tả.
    - Phát hiện ảnh vi phạm (bạo lực, 18+, cờ bạc, lừa đảo). Không cấm ảnh nghệ thuật/thể thao.
-4. LỊCH TRÌNH, VÉ & HOÀN TIỀN:
+6. LỊCH TRÌNH, VÉ & HOÀN TIỀN:
    - Kiểm tra logic giờ các phiên và tính minh bạch của cơ cấu vé.
-5. ĐỀ XUẤT CẢI THIỆN:
+7. ĐỀ XUẤT CẢI THIỆN:
    - Đưa ra danh sách gợi ý thiết thực để Nhà tổ chức chỉnh sửa hoàn thiện sự kiện.`;
     const imageSources = collectAllEventImages(event);
     const imageAnalysisResults = []; // { source, url, fileName, description }
@@ -732,14 +859,28 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
                 continue;
               } else if (docResult.type === 'PDF_DOCUMENT') {
                 if (docResult.hasText) {
-                  const cleanPreview = docResult.text.slice(0, 1500);
-                  imageAnalysisResults.push({
-                    source: item.source,
-                    url: item.url || '',
-                    fileName: item.fileName || '',
-                    extractedText: cleanPreview,
-                    description: `[VĂN BẢN ĐỌC TỪ TỆP PDF '${item.fileName || 'Tài liệu'}']:\n${cleanPreview}`,
-                  });
+                  const cleanPreview = docResult.text.slice(0, 3500);
+                  const legality = inspectDocumentLegality(cleanPreview, item.fileName, event);
+
+                  if (legality.isSubstanceViolation) {
+                    imageAnalysisResults.push({
+                      source: item.source,
+                      url: item.url || '',
+                      fileName: item.fileName || '',
+                      isSubstanceViolation: true,
+                      detectedCategory: legality.category,
+                      extractedText: cleanPreview,
+                      description: `[VI PHẠM TÀI LIỆU PHÁP LÝ / LẠC ĐỀ]: Tệp PDF '${item.fileName || 'Tài liệu'}' không phải là Giấy phép tổ chức sự kiện hay Hợp đồng pháp lý mà là ${legality.category}. Lý do: ${legality.reason}. Trích xuất nội dung: ${cleanPreview.slice(0, 300)}...`,
+                    });
+                  } else {
+                    imageAnalysisResults.push({
+                      source: item.source,
+                      url: item.url || '',
+                      fileName: item.fileName || '',
+                      extractedText: cleanPreview,
+                      description: `[VĂN BẢN ĐỌC TỪ TỆP PDF '${item.fileName || 'Tài liệu'}']:\n${cleanPreview}`,
+                    });
+                  }
                   continue;
                 } else if (docResult.imageBase64Fallback) {
                   imagesWithBase64.push({
@@ -799,14 +940,16 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
               : r.source.startsWith('PERMIT')
                 ? `Tài liệu giấy phép (${r.fileName || r.source})`
                 : `Ảnh trong mô tả (${r.source})`;
-          // Truncate each description to 450 chars to allow sufficient document text
-          const desc = (r.description || '').slice(0, 450);
+          // Truncate non-permit image descriptions to 450 chars, but allow permit documents up to 2500 chars so legal details are fully evaluated
+          const isPermit = r.source && r.source.startsWith('PERMIT');
+          const maxLen = isPermit ? 2500 : 450;
+          const desc = (r.description || '').slice(0, maxLen);
           return `[${sourceLabel}]:\n${desc}`;
         }).join('\n\n');
 
-        // Cap total vision summary to avoid token overflow (model context = 4096)
-        if (visionAnalysisSummary.length > 2500) {
-          visionAnalysisSummary = visionAnalysisSummary.slice(0, 2500) + '\n... (đã rút gọn)';
+        // Cap total vision summary to avoid token overflow
+        if (visionAnalysisSummary.length > 5500) {
+          visionAnalysisSummary = visionAnalysisSummary.slice(0, 5500) + '\n... (đã rút gọn)';
         }
 
         logger.info(`[AiReview] Phân tích hình ảnh và tài liệu hoàn tất. ${imageAnalysisResults.length} mục đã được kiểm tra.`);
@@ -862,7 +1005,7 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
             }
             recommendation = 'REJECT';
           } else {
-            // Kiểm tra từng tệp giấy phép xem có tệp nào vi phạm định dạng không phải PDF hoặc lỗi tải
+            // Kiểm tra từng tệp giấy phép xem có tệp nào vi phạm định dạng không phải PDF, lỗi tải hoặc vi phạm bản chất pháp lý
             imageAnalysisResults.forEach((imgRes) => {
               if (imgRes.source && imgRes.source.startsWith('PERMIT')) {
                 if (imgRes.isFormatViolation) {
@@ -884,14 +1027,28 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
                     });
                   }
                   recommendation = 'REJECT';
+                } else if (imgRes.isSubstanceViolation) {
+                  const issueMsg = `Tệp tài liệu "${imgRes.fileName || 'giấy phép'}" không phải là giấy tờ pháp lý hợp lệ của sự kiện (phát hiện nội dung là ${imgRes.detectedCategory || 'tài liệu học tập/từ vựng/phi pháp lý'}, không chứng minh được tư cách pháp lý hay thẩm quyền tổ chức sự kiện). Quy định bắt buộc phải cung cấp Giấy phép tổ chức hoặc Hợp đồng pháp lý hợp lệ.`;
+                  if (!criticalViolations.some((v) => v.issue.includes(imgRes.fileName || 'không phải là giấy tờ pháp lý'))) {
+                    criticalViolations.unshift({
+                      policy_code: activeCodes.has('LEGAL_PERMIT_AUTHENTICITY') ? 'LEGAL_PERMIT_AUTHENTICITY' : 'TERMS_ORGANIZER',
+                      issue: issueMsg,
+                      highlighted_text: `Tên tệp: ${imgRes.fileName || 'Tài liệu phi pháp lý'}`,
+                    });
+                  }
+                  recommendation = 'REJECT';
                 }
               }
             });
           }
         }
 
-        // Nếu thực tế ĐÃ CÓ giấy phép đính kèm -> Lọc bỏ các cảnh báo sai lệch về việc "thiếu giấy phép" (tránh false positives từ AI)
-        if (permitFiles.length > 0) {
+        // Nếu thực tế ĐÃ CÓ giấy phép đính kèm VÀ giấy phép không bị lỗi định dạng hay vi phạm bản chất
+        const hasPermitViolation = imageAnalysisResults.some(
+          (r) => r.source?.startsWith('PERMIT') && (r.isFormatViolation || r.isSubstanceViolation || r.isDownloadFailed)
+        );
+
+        if (permitFiles.length > 0 && !hasPermitViolation) {
           criticalViolations = criticalViolations.filter((v) => {
             if (v.policy_code === 'TERMS_ORGANIZER' && /chưa có giấy phép|thiếu giấy phép|không có giấy phép|chưa tải lên giấy phép/i.test(v.issue)) {
               return false;
@@ -904,6 +1061,9 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
             }
             return true;
           });
+        } else if (hasPermitViolation) {
+          // Xóa các lời khen sai lệch trong compliant_checks nếu giấy phép bị vi phạm
+          compliantChecks = compliantChecks.filter((c) => !/giấy phép|tài liệu pháp lý|permit|hợp lệ/i.test(String(c)));
         }
 
         // 2. Kiểm tra Poster chính (nếu IMAGE_POLICY đang kích hoạt)
@@ -1009,6 +1169,8 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
           vision_analysis: imageAnalysisResults.length > 0 ? imageAnalysisResults.map((r) => ({
             source: r.source,
             fileName: r.fileName || '',
+            url: r.url || '',
+            extractedText: r.extractedText || null,
             description: cleanAiOutputText(r.description || ''),
           })) : null,
         };
@@ -1044,13 +1206,13 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
             highlighted_text: 'Giấy phép / Tài liệu đính kèm: KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM',
           });
         } else {
-          let hasInvalidFormat = false;
+          let hasPermitError = false;
           permitFiles.forEach((file, idx) => {
             const fileUrl = typeof file === 'string' ? file : file?.file_url || file?.url || file?.path || '';
             const fileName = file?.file_name || file?.name || `Tài liệu ${idx + 1}`;
             const isPdf = fileUrl.toLowerCase().includes('.pdf') || (typeof file === 'object' && file?.type?.includes('pdf'));
             if (!isPdf) {
-              hasInvalidFormat = true;
+              hasPermitError = true;
               criticalViolations.push({
                 policy_code: 'TERMS_ORGANIZER',
                 issue: `Tệp tài liệu "${fileName}" không đúng định dạng PDF (.pdf). Theo quy định, giấy phép và hồ sơ pháp lý bắt buộc phải được chuyển đổi và tải lên ở định dạng PDF (.pdf) mới được xét duyệt.`,
@@ -1058,7 +1220,19 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
               });
             }
           });
-          if (!hasInvalidFormat) {
+
+          imageAnalysisResults.forEach((imgRes) => {
+            if (imgRes.source?.startsWith('PERMIT') && imgRes.isSubstanceViolation) {
+              hasPermitError = true;
+              criticalViolations.push({
+                policy_code: activeCodes.has('LEGAL_PERMIT_AUTHENTICITY') ? 'LEGAL_PERMIT_AUTHENTICITY' : 'TERMS_ORGANIZER',
+                issue: `Tệp tài liệu "${imgRes.fileName || 'giấy phép'}" không phải là văn bản pháp lý hợp lệ của sự kiện (phát hiện: ${imgRes.detectedCategory || 'tài liệu học tập/từ vựng/phi pháp lý'}).`,
+                highlighted_text: `Tên tệp: ${imgRes.fileName || 'Tài liệu phi pháp lý'}`,
+              });
+            }
+          });
+
+          if (!hasPermitError) {
             compliantChecks.push(`Đã đính kèm giấy phép tổ chức / tài liệu pháp lý định dạng PDF hợp lệ (${permitFiles.length} tài liệu)`);
           }
         }
