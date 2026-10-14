@@ -39,10 +39,12 @@ import {
   fetchAdminAutoReviewSettings,
   updateAdminAutoReviewSettings,
   runAdminBatchAutoReview,
+  fetchAdminReviewCriteria,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, ImagePlaceholder, Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
+import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -109,11 +111,19 @@ export function AdminEventReviewPage() {
 
   // AI Auto-review settings state & queries
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
 
   const { data: autoReviewData, isLoading: isSettingsLoading } = useQuery({
     queryKey: ['admin-auto-review-settings'],
     queryFn: fetchAdminAutoReviewSettings,
   })
+
+  const { data: criteriaList = [] } = useQuery({
+    queryKey: ['admin-review-criteria'],
+    queryFn: () => fetchAdminReviewCriteria(),
+  })
+
+  const activeCriteriaCount = criteriaList.filter((c) => c.is_active).length
 
   const autoReviewSettings = autoReviewData?.settings || {
     auto_review_enabled: false,
@@ -464,6 +474,21 @@ export function AdminEventReviewPage() {
               <Sliders className="size-4 text-indigo-400" />
               <span>Cài đặt tự động</span>
             </button>
+
+            {/* Criteria Management Button */}
+            <button
+              type="button"
+              onClick={() => setIsCriteriaOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 px-3.5 py-2 text-xs font-black text-indigo-300 shadow-md transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-900/50 hover:text-white"
+            >
+              <ShieldCheck className="size-4 text-indigo-400" />
+              <span>Điều khoản duyệt AI</span>
+              {criteriaList.length > 0 && (
+                <span className="rounded-full bg-indigo-500/30 px-2 py-0.5 text-[10px] font-black text-indigo-200 border border-indigo-500/40">
+                  {activeCriteriaCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -654,7 +679,17 @@ export function AdminEventReviewPage() {
         settings={autoReviewSettings}
         isLoading={updateSettingsMutation.isPending}
         onSave={(newSettings) => updateSettingsMutation.mutate(newSettings)}
+        onOpenCriteria={() => {
+          setIsSettingsOpen(false)
+          setIsCriteriaOpen(true)
+        }}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* AI Review Criteria Management Modal */}
+      <AdminReviewCriteriaModal
+        isOpen={isCriteriaOpen}
+        onClose={() => setIsCriteriaOpen(false)}
       />
     </Page>
   )
@@ -1372,6 +1407,7 @@ function AiAutoReviewSettingsModal({
   settings,
   isLoading,
   onSave,
+  onOpenCriteria,
   onClose,
 }) {
   const [formState, setFormState] = useState({
@@ -1432,6 +1468,26 @@ function AiAutoReviewSettingsModal({
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+          {/* Link to Criteria Management */}
+          {onOpenCriteria && (
+            <div className="flex items-center justify-between rounded-xl border border-indigo-500/30 bg-indigo-950/40 p-3.5">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="size-4 text-indigo-400" />
+                <div>
+                  <p className="text-xs font-bold text-white">Quản lý Bộ Điều khoản & Tiêu chí Duyệt AI</p>
+                  <p className="text-[11px] text-slate-400">Thêm, sửa, xóa các quy tắc kiểm tra (Giấy phép PDF, Hình ảnh, Giá vé...)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenCriteria}
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition"
+              >
+                Cấu hình điều khoản
+              </button>
+            </div>
+          )}
+
           {/* Main Master Toggle */}
           <div className={`rounded-xl border p-4 transition ${
             formState.auto_review_enabled
