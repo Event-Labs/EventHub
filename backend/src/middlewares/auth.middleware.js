@@ -11,6 +11,8 @@ const protect = async (req, res, next) => {
         req.headers.authorization.toLowerCase().startsWith('bearer')
     ) {
         token = req.headers.authorization.split(' ')[1];
+    } else if (req.query && typeof req.query.token === 'string') {
+        token = req.query.token;
     }
 
     if (!token) {
