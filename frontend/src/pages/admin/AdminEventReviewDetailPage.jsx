@@ -723,7 +723,7 @@ export function AdminEventReviewDetailPage() {
   const isPendingReview = event?.status === 'PENDING_REVIEW'
   const customScrollbar = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
 
-  const totalIssuesCount = (aiData.critical_violations?.length || 0) + (aiData.warnings?.length || 0)
+  const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
 
   return (
     <div className="flex h-[calc(100vh-130px)] flex-col overflow-hidden bg-slate-950 rounded-[32px] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.3)]">
