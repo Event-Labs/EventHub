@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { AlertTriangle, CalendarDays, Edit, Eye, Globe, Plus, RefreshCw, Search, X } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Edit, Eye, Globe, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react'
 import {
   Badge,
   OrganizerPage,
@@ -9,6 +9,7 @@ import {
 } from './OrganizerComponents.jsx'
 import {
   cancelOrganizerEvent,
+  deleteOrganizerDraftEvent,
   fetchOrganizerEvents,
   publishOrganizerEvent,
 } from '@/services/organizerEvents.js'
@@ -185,6 +186,75 @@ function CancelConfirmModal({ event, onConfirm, onClose, loading, error }) {
 }
 
 // ---------------------------------------------------------------------------
+// Delete Draft Confirm Modal
+// ---------------------------------------------------------------------------
+function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-error/15">
+            <Trash2 className="size-5 text-error" />
+          </span>
+          <div>
+            <h3 className="text-lg font-extrabold text-content">Xác nhận xóa bản nháp</h3>
+            <p className="mt-1 text-sm text-subtle">Hành động này sẽ xóa vĩnh viễn và không thể hoàn tác.</p>
+          </div>
+        </div>
+
+        {/* Event info */}
+        <div className="mt-4 rounded-xl border border-border-soft/40 bg-panel-soft p-4">
+          <p className="text-sm font-semibold text-content">{event.title}</p>
+          <p className="mt-1 text-xs text-subtle">
+            Ngày diễn ra: {formatEventDate(event.start_time)}
+          </p>
+          <div className="mt-2">
+            <Badge tone="gray">Bản nháp</Badge>
+          </div>
+        </div>
+
+        {/* Warning */}
+        <div className="mt-4 rounded-xl border border-error/30 bg-error/[0.07] p-3 text-sm text-error">
+          <p className="font-semibold">⚠️ Cảnh báo:</p>
+          <ul className="mt-1 list-inside list-disc space-y-1 text-xs">
+            <li>Bản nháp sự kiện sẽ bị xóa vĩnh viễn khỏi danh sách.</li>
+            <li>Tất cả thông tin cấu hình, suất diễn và vé tạm thời sẽ không thể khôi phục.</li>
+          </ul>
+        </div>
+
+        {/* Buttons */}
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+          >
+            Hủy bỏ
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 rounded-xl bg-error px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-error/80 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Đang xóa...
+              </span>
+            ) : (
+              'Xóa vĩnh viễn'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 export function OrganizerEventsPage() {
@@ -205,6 +275,10 @@ export function OrganizerEventsPage() {
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelLoading, setCancelLoading] = useState(false)
   const [cancelError, setCancelError] = useState('')
+
+  // Delete draft modal state
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const toastShownRef = useRef('')
 
@@ -285,6 +359,30 @@ export function OrganizerEventsPage() {
       toast.error(message)
     } finally {
       setCancelLoading(false)
+    }
+  }
+
+  // ---- Delete draft handlers ----
+  const openDeleteModal = (event) => setDeleteTarget(event)
+
+  const closeDeleteModal = () => {
+    if (deleteLoading) return
+    setDeleteTarget(null)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleteLoading) return
+    setDeleteLoading(true)
+    try {
+      await deleteOrganizerDraftEvent(deleteTarget.id)
+      setDeleteTarget(null)
+      toast.success(`Đã xóa vĩnh viễn bản nháp "${deleteTarget.title}".`)
+      await loadEvents()
+    } catch (err) {
+      console.error(err)
+      toast.error(getApiMessage(err, 'Không thể xóa bản nháp sự kiện.'))
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -421,6 +519,13 @@ export function OrganizerEventsPage() {
                   icon={AlertTriangle}
                   tone="danger"
                 />
+              ) : event.status === 'DRAFT' ? (
+                <TableActionButton
+                  onClick={() => openDeleteModal(event)}
+                  title="Xóa bản nháp"
+                  icon={Trash2}
+                  tone="danger"
+                />
               ) : (
                 <span className="size-8 block" />
               )}
@@ -447,6 +552,16 @@ export function OrganizerEventsPage() {
           onClose={closeCancelModal}
           loading={cancelLoading}
           error={cancelError}
+        />
+      )}
+
+      {/* Delete draft confirm modal */}
+      {deleteTarget && (
+        <DeleteDraftConfirmModal
+          event={deleteTarget}
+          onConfirm={confirmDelete}
+          onClose={closeDeleteModal}
+          loading={deleteLoading}
         />
       )}
     </OrganizerPage>

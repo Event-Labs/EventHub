@@ -633,6 +633,7 @@ function Step1EventInfo({
           setFormData((prev) => ({
             ...prev,
             title: generated.title || prev.title,
+            category_id: generated.category_id || prev.category_id,
             short_description: generated.short_description || prev.short_description,
             description: generated.description || generated.content_html || prev.description,
             tags: Array.from(new Set([...prev.tags, ...(generated.tags || [])])),
@@ -646,18 +647,27 @@ function Step1EventInfo({
 
 
 function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
-  // Quy định: Thời gian tối thiểu tạo sự kiện là 3 tuần (21 ngày) tính từ hôm nay
-  const minDateObj = useMemo(() => {
+  const todayStr = useMemo(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }, [])
+
+  const minDateFormatted = useMemo(() => {
     const d = new Date()
     d.setDate(d.getDate() + 21)
-    return d
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
   }, [])
-  const minEventDate = useMemo(() => {
-    return `${minDateObj.getFullYear()}-${String(minDateObj.getMonth() + 1).padStart(2, '0')}-${String(minDateObj.getDate()).padStart(2, '0')}`
-  }, [minDateObj])
-  const minDateFormatted = useMemo(() => {
-    return `${String(minDateObj.getDate()).padStart(2, '0')}/${String(minDateObj.getMonth() + 1).padStart(2, '0')}/${minDateObj.getFullYear()}`
-  }, [minDateObj])
+
+  const isWithin10Days = (dateStr) => {
+    if (!dateStr) return false
+    const target = new Date(dateStr)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    target.setHours(0, 0, 0, 0)
+    const diffTime = target.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays <= 10
+  }
 
   const [expandedSessions, setExpandedSessions] = useState(() => {
     return formData.sessions.reduce((acc, s) => ({ ...acc, [s.id || s.clientKey]: true }), {})
@@ -820,19 +830,16 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
 
                   {isExpanded && (
                     <div className="p-6 pt-4 border-t border-border-soft/30 bg-panel-soft/10">
-                      {/* Ngày diễn ra (Chỉ 1 ô chọn ngày duy nhất - tối thiểu 3 tuần) */}
+                      {/* Ngày diễn ra (Chỉ 1 ô chọn ngày duy nhất) */}
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
                           <label className="text-[13px] text-subtle font-medium">
                             Ngày diễn ra sự kiện*
                           </label>
-                          <span className="text-[11px] font-semibold text-tertiary bg-tertiary/10 px-2 py-0.5 rounded">
-                            Tối thiểu sau 3 tuần ({minDateFormatted})
-                          </span>
                         </div>
                         <input
                           type="date"
-                          min={minEventDate}
+                          min={todayStr}
                           className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none font-medium"
                           value={session.start_date || ''}
                           onChange={(e) => {
@@ -844,9 +851,14 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             })
                           }}
                         />
-                        <p className="mt-1.5 text-xs text-muted">
-                          Quy định hệ thống: Thời gian tổ chức sự kiện phải cách thời điểm tạo tối thiểu 3 tuần (từ ngày <strong>{minDateFormatted}</strong> trở đi) để đảm bảo thời gian xét duyệt và mở bán vé.
-                        </p>
+                        {isWithin10Days(session.start_date) && (
+                          <div className="mt-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5 leading-relaxed">
+                            <Icon name="warning" className="text-base shrink-0 mt-0.5" />
+                            <span>
+                              Hệ thống có thể sẽ mất khoảng từ 3 đến 4 ngày hoặc có thể hơn để duyệt sự bạn, hãy đảm bảo rằng điều đó sẽ không ảnh hưởng đến kế hoạch diễn ra sự kiện sắp tới của bạn. Hãy đảm bảo rằng bạn đã có kế hoạch và sẵn sàng nếu sự kiện được duyệt trễ hơn dự kiện.
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Giờ bắt đầu và Giờ kết thúc */}
@@ -897,40 +909,6 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                         />
                         <p className="mt-1 text-xs text-muted">Thời gian mở cửa đón khách trước giờ bắt đầu phiên sự kiện.</p>
                       </div>
-
-                      {(() => {
-                        if (!session.start_date || !session.start_time) return null
-                        const startMs = new Date(`${session.start_date}T${session.start_time}`).getTime()
-                        const nowMs = Date.now()
-                        const daysDiff = (startMs - nowMs) / (24 * 60 * 60 * 1000)
-                        if (daysDiff < 21) {
-                          return (
-                            <div className="mb-4 p-4 rounded-xl border border-error/40 bg-error/10 text-error text-xs space-y-1.5 shadow-sm">
-                              <div className="flex items-center gap-1.5 font-bold text-sm">
-                                <Icon name="error" className="text-base text-error" />
-                                <span>Chưa đủ điều kiện thời gian tối thiểu 3 tuần ({Math.max(0, Math.round(daysDiff * 10) / 10)} / 21 ngày)</span>
-                              </div>
-                              <p className="leading-relaxed">
-                                Quy định hệ thống: <strong>Thời gian bắt đầu sự kiện phải cách thời điểm tạo tối thiểu 3 tuần (21 ngày)</strong> để Ban quản trị kiểm duyệt hồ sơ, hợp đồng và tiến hành mở bán vé. Vui lòng chọn ngày diễn ra từ ngày <strong>{minDateFormatted}</strong> trở đi.
-                              </p>
-                            </div>
-                          )
-                        }
-                        if (daysDiff >= 21 && daysDiff <= 25) {
-                          return (
-                            <div className="mb-4 p-4 rounded-xl border border-warning/40 bg-warning/10 text-warning text-xs space-y-1.5 shadow-sm">
-                              <div className="flex items-center gap-1.5 font-bold">
-                                <Icon name="warning" className="text-sm text-warning" />
-                                <span>Lưu ý thời gian duyệt sự kiện ({Math.round(daysDiff * 10) / 10} ngày tới):</span>
-                              </div>
-                              <p className="leading-relaxed">
-                                Phiên này cách thời điểm hiện tại {Math.round(daysDiff * 10) / 10} ngày (vừa đủ mức tối thiểu 3 tuần). Hãy nhanh chóng hoàn thiện hồ sơ và gửi duyệt sớm nhất để kịp tiến độ mở bán.
-                              </p>
-                            </div>
-                          )
-                        }
-                        return null
-                      })()}
 
                       <div>
                         <div className="flex justify-between items-center mb-2">
@@ -3649,18 +3627,22 @@ export function CreateEventPage() {
   const handleApplyAiDraft = (aiData) => {
     if (!aiData) return
 
-    // Find best matching venue from organizer's venues
-    let defaultVenueId = venues[0]?.id || ''
-    if (venues && venues.length > 0) {
-      const vName = (aiData.venue_name || '').toLowerCase()
-      const vCity = (aiData.province || '').toLowerCase()
-      const matched = venues.find(
-        (v) =>
-          (vName && v.name?.toLowerCase().includes(vName)) ||
-          (vCity && (v.city || '').toLowerCase().includes(vCity))
-      )
-      if (matched) {
-        defaultVenueId = matched.id
+    // Find best matching venue from organizer's venues (do not default to venues[0] if unmatched)
+    let defaultVenueId = ''
+    if (aiData.venue_id) {
+      defaultVenueId = aiData.venue_id
+    } else if (venues && venues.length > 0) {
+      const vName = (aiData.venue_name || '').trim().toLowerCase()
+      if (vName) {
+        const matched = venues.find(
+          (v) =>
+            v.name?.trim().toLowerCase() === vName ||
+            v.name?.trim().toLowerCase().includes(vName) ||
+            vName.includes(v.name?.trim().toLowerCase())
+        )
+        if (matched) {
+          defaultVenueId = matched.id
+        }
       }
     }
 
@@ -3672,15 +3654,15 @@ export function CreateEventPage() {
       clientKey: sKey,
       session_name: extractedSession.session_name || 'Phiên sự kiện',
       start_date: sessionDate,
-      start_time: extractedSession.start_time || '09:00',
+      start_time: extractedSession.start_time || '',
       end_date: sessionDate,
-      end_time: extractedSession.end_time || '17:00',
+      end_time: extractedSession.end_time || '',
       venue_id: defaultVenueId,
-      seat_map_id: null,
-      seating_type: 'GENERAL',
+      seat_map_id: aiData.seat_map_id || null,
+      seating_type: aiData.seat_map_id ? (aiData.seating_type || 'ASSIGNED_SEATS') : 'GENERAL',
       zone_assignments: [],
       checkin_start_date: sessionDate,
-      checkin_start_time: extractedSession.start_time || '09:00',
+      checkin_start_time: extractedSession.checkin_start_time || '',
     }
 
     const rawTickets = Array.isArray(aiData.ticket_types) ? aiData.ticket_types : []
@@ -3690,10 +3672,12 @@ export function CreateEventPage() {
       name: tt.name || 'Vé Tiêu Chuẩn',
       description: tt.description || '',
       price: tt.price !== null && tt.price !== undefined ? Number(tt.price) : 0,
-      quantity: tt.quantity_total ? Number(tt.quantity_total) : 100,
+      quantity: (tt.quantity_total !== null && tt.quantity_total !== undefined && Number(tt.quantity_total) > 0) ? Number(tt.quantity_total) : '',
       is_seated: false,
       zone_id: null,
     }))
+
+    const isRefundable = Boolean(aiData.refund_policy?.allow_refund ?? aiData.refund_policy?.allow_refunds)
 
     setFormData((prev) => ({
       ...prev,
@@ -3707,7 +3691,8 @@ export function CreateEventPage() {
       ticketTypes: mappedTicketTypes.length > 0 ? mappedTicketTypes : prev.ticketTypes,
       refund_policy: {
         ...prev.refund_policy,
-        allow_refunds: Boolean(aiData.refund_policy?.allow_refunds),
+        allow_refund: isRefundable,
+        allow_refunds: isRefundable,
         deadline_days: Number(aiData.refund_policy?.deadline_days) || 7,
       },
     }))
@@ -3746,12 +3731,9 @@ export function CreateEventPage() {
           return `${sName}: Thời gian bắt đầu hoặc kết thúc không hợp lệ.`
         }
 
-        const minEventMs = Date.now() + 21 * 24 * 60 * 60 * 1000 - 60000
         const isDraftOrNew = !routeEventId || ['DRAFT', 'HIDDEN'].includes(eventStatus)
-        if (isDraftOrNew && startTime.getTime() < minEventMs) {
-          const minD = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
-          const minDateStr = `${String(minD.getDate()).padStart(2, '0')}/${String(minD.getMonth() + 1).padStart(2, '0')}/${minD.getFullYear()}`
-          return `${sName}: Thời gian tổ chức sự kiện phải cách thời điểm hiện tại tối thiểu 3 tuần (từ ngày ${minDateStr} trở đi) để đảm bảo thời gian xét duyệt và mở bán vé.`
+        if (isDraftOrNew && startTime.getTime() < Date.now()) {
+          return `${sName}: Thời gian bắt đầu sự kiện không thể ở trong quá khứ.`
         }
         if (endTime <= startTime) {
           return `${sName}: Giờ kết thúc (${s.end_time}) phải diễn ra sau giờ bắt đầu (${s.start_time}).`
@@ -4560,6 +4542,15 @@ export function CreateEventPage() {
         isOpen={isAiDocModalOpen}
         onClose={() => setIsAiDocModalOpen(false)}
         onApply={handleApplyAiDraft}
+        venues={venues}
+        onVenuesUpdated={async () => {
+          try {
+            const vns = await fetchOrganizerVenues()
+            setVenues(vns || [])
+          } catch (e) {
+            console.error('Failed to refresh organizer venues:', e)
+          }
+        }}
       />
     </div>
   )

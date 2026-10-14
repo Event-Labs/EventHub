@@ -523,6 +523,26 @@ class OrganizerEventsRepository {
     return rows[0] ?? null;
   }
 
+  /**
+   * Xóa bản nháp sự kiện — chỉ cho phép xóa khi status = DRAFT
+   */
+  async deleteDraftEvent(eventId, organizerId) {
+    const { rows } = await db.query(
+      `
+      UPDATE events
+      SET deleted_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $1
+        AND organizer_id = $2
+        AND status = 'DRAFT'
+        AND deleted_at IS NULL
+      RETURNING id, title, status
+      `,
+      [eventId, organizerId],
+    );
+    return rows[0] ?? null;
+  }
+
   async createSession(eventId, data) {
     const { rows } = await db.query(
       `

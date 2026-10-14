@@ -149,8 +149,11 @@ export function AiEventContentGeneratorModal({
       return
     }
 
+    const matchedCat = categories.find((c) => c.name === categoryName || c.id === categoryName)
+
     onApply({
       title: customTitle.trim() || selectedTitle,
+      category_id: matchedCat?.id || undefined,
       short_description: shortDesc.trim(),
       description: contentHtml,
       tags: selectedTags,

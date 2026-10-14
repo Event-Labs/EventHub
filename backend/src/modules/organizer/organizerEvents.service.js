@@ -627,6 +627,24 @@ class OrganizerEventsService {
     return mapEvent(event);
   }
 
+  async deleteDraftEvent(userId, eventId) {
+    const organizerId = await this.resolveOrganizerId(userId);
+    const event = await organizerEventsRepository.findEventById(eventId, organizerId);
+    if (!event) {
+      throw new AppError('Không tìm thấy sự kiện', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    if (event.status !== 'DRAFT') {
+      throw new AppError('Chỉ có thể xóa sự kiện ở trạng thái bản nháp.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const deleted = await organizerEventsRepository.deleteDraftEvent(eventId, organizerId);
+    if (!deleted) {
+      throw new AppError('Không thể xóa bản nháp sự kiện này', 400, ErrorCodes.INVALID_INPUT);
+    }
+    return deleted;
+  }
+
   async addSession(userId, eventId, payload) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);
