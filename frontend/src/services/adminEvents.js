@@ -59,4 +59,30 @@ export async function runAdminBatchAutoReview() {
   return response.data.data
 }
 
+export async function fetchAdminReviewCriteria(params = {}) {
+  const response = await http.get('/admin/events/review-criteria', { params })
+  return response.data.data
+}
+
+export async function createAdminReviewCriteria(payload) {
+  const response = await http.post('/admin/events/review-criteria', payload)
+  return response.data.data
+}
+
+export async function updateAdminReviewCriteria(id, payload) {
+  const response = await http.put(`/admin/events/review-criteria/${id}`, payload)
+  return response.data.data
+}
+
+export async function deleteAdminReviewCriteria(id) {
+  const response = await http.delete(`/admin/events/review-criteria/${id}`)
+  return response.data.data
+}
+
+export async function resetAdminDefaultReviewCriteria() {
+  const response = await http.post('/admin/events/review-criteria/reset-defaults')
+  return response.data.data
+}
+
+
 

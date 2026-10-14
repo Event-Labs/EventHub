@@ -38,6 +38,7 @@ import {
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Badge, ImagePlaceholder } from './AdminComponents.jsx'
+import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -543,6 +544,7 @@ export function AdminEventReviewDetailPage() {
 
   const [confirmState, setConfirmState] = useState(null)
   const [previewDoc, setPreviewDoc] = useState(null)
+  const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1058,7 +1060,14 @@ export function AdminEventReviewDetailPage() {
                       eventhub-qwen3
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">Đối chiếu 4 bộ chính sách EventHub</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsCriteriaOpen(true)}
+                    className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 underline transition cursor-pointer"
+                  >
+                    <ShieldCheck className="size-3" />
+                    <span>Cấu hình điều khoản AI</span>
+                  </button>
                 </div>
               </div>
 
@@ -1324,6 +1333,11 @@ export function AdminEventReviewDetailPage() {
       <DocumentPreviewModal
         doc={previewDoc}
         onClose={() => setPreviewDoc(null)}
+      />
+
+      <AdminReviewCriteriaModal
+        isOpen={isCriteriaOpen}
+        onClose={() => setIsCriteriaOpen(false)}
       />
     </div>
   )

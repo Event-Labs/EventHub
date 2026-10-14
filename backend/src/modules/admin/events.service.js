@@ -3,6 +3,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const eventsAdminRepository = require('./events.repository');
 const systemSettingsRepository = require('./systemSettings.repository');
+const reviewCriteriaRepository = require('./reviewCriteria.repository');
 const notificationsService = require('../notifications/notifications.service');
 const ollamaClient = require('../../infrastructure/ai/ollama.client');
 const { collectAllEventImages, fetchImageAsBase64, extractImagesFromHtml, fetchDocumentContent } = require('../../common/utils/htmlImageParser.util');
@@ -11,36 +12,33 @@ const REVIEWABLE_STATUSES  = new Set(['PENDING_REVIEW']);
 const HIDEABLE_STATUSES    = new Set(['PUBLISHED', 'COMPLETED']);
 const UNHIDEABLE_STATUSES  = new Set(['HIDDEN']);
 
-const AI_REVIEW_SYSTEM_PROMPT = `Bạn là Chuyên gia Kiểm duyệt & Thẩm định Toàn diện Sự kiện của nền tảng EventHub.
-Nhiệm vụ của bạn là kiểm tra, đối chiếu thông tin và đánh giá sự kiện KHÁCH QUAN, CHUẨN XÁC, THẤU ĐÁO VÀ HỢP LÝ.
+function buildAiReviewSystemPrompt(activeCriteria = []) {
+  let criteriaSection = '';
+  if (Array.isArray(activeCriteria) && activeCriteria.length > 0) {
+    criteriaSection = activeCriteria.map((c, idx) => {
+      const severityText = c.severity === 'CRITICAL'
+        ? 'BẮT BUỘC / QUAN TRỌNG NHẤT (Nếu vi phạm -> BẮT BUỘC xếp vào "critical_violations" và đề xuất REJECT)'
+        : c.severity === 'WARNING'
+          ? 'CẢNH BÁO / LƯU Ý (Xếp vào "warnings", đề xuất NEEDS_REVIEW nếu cần điều chỉnh)'
+          : 'KHUYẾN NGHỊ / GỢI Ý (Xếp vào "suggestions" để BTC hoàn thiện)';
+      return `${idx + 1}. [${c.code}] ${c.title} — (${severityText}):\n   ${c.rule_content.split('\n').join('\n   ')}`;
+    }).join('\n\n');
+  } else {
+    criteriaSection = `1. [TERMS_ORGANIZER] GIẤY PHÉP TỔ CHỨC & PHÁP LÝ (CRITICAL): Bắt buộc có tệp PDF (.pdf) hợp lệ. Cấm cam kết x100 lợi nhuận, cấm Ponzi/cờ bạc.
+2. [PAYMENT_POLICY] KÊNH THANH TOÁN (CRITICAL): Mọi giao dịch qua EventHub. Nghiêm cấm chuyển khoản STK cá nhân, né sàn qua Zalo/Telegram.
+3. [REFUND_POLICY] CHÍNH SÁCH HOÀN TIỀN (WARNING): Hoãn/hủy sự kiện phải hoàn tiền. Cấm quy định "hủy show không hoàn tiền".
+4. [TICKET_POLICY] CHÍNH SÁCH VÉ & ĐỊA ĐIỂM (CRITICAL): Giá vé >= 0, quyền lợi rõ ràng. Địa chỉ cụ thể, cấm giấu địa chỉ bí mật.
+5. [SESSION_SCHEDULE] LỊCH TRÌNH CÁC PHIÊN (CRITICAL): Giờ kết thúc sau giờ bắt đầu, không nằm trong quá khứ.
+6. [IMAGE_POLICY] KIỂM DUYỆT HÌNH ẢNH & AN TOÀN ĐÚNG NGỮ CẢNH (CRITICAL): Poster & Banner bắt buộc. Cấm 18+ đồi trụy, bạo lực máu me. Không cấm ảnh nghệ thuật/bơi lội.
+7. [CONTENT_SPELLING] SOÁT LỖI CHÍNH TẢ & VĂN BẢN (WARNING): Soát lỗi dấu/telex tiếng Việt. Tiêu đề không giật tít, mô tả rõ ràng.
+8. [VALUABLE_SUGGESTIONS] GỢI Ý CẢI THIỆN CÓ GIÁ TRỊ (INFO): Không spam gợi ý chỉnh kích thước ảnh. Gợi ý hotline, check-in, phân đoạn.`;
+  }
 
-BỘ ĐIỀU KHOẢN & QUY ĐỊNH NỀN TẢNG (PLATFORM POLICIES & TERMS):
-1. GIẤY PHÉP & HỒ SƠ PHÁP LÝ (TERMS_ORGANIZER) — QUY ĐỊNH BẮT BUỘC:
-   - YÊU CẦU 1 — ĐỊNH DẠNG TỆP BẮT BUỘC LÀ PDF (.PDF):
-     + Tất cả giấy phép và hồ sơ pháp lý đính kèm BẮT BUỘC phải là tệp PDF (.pdf).
-     + Nếu tệp tải lên là Word (.docx, .doc), ảnh (.jpg, .png), file nén, hoặc bất kỳ định dạng nào khác không phải PDF -> BẮT BUỘC xếp vào "critical_violations" (REJECT) và yêu cầu Organizer chuyển đổi sang PDF (.pdf) trước khi xét duyệt.
-   
-   - YÊU CẦU 2 — THẨM ĐỊNH NỘI DUNG TỆP PDF (KHÔNG PHẢI CỨ CÓ FILE LÀ ĐẠT):
-     + Đọc kỹ toàn bộ nội dung văn bản trích xuất từ tệp PDF (PERMIT_DOCUMENT_*).
-     + NỘI DUNG RỖNG / LỖI MỞ TỆP: Nếu file PDF rỗng hoặc không có văn bản pháp lý hợp lệ -> Xếp vào "critical_violations" (REJECT).
-     + VIẾT LINH TINH / TROLL / KÝ TỰ VÔ NGHĨA: Nếu nội dung chứa ký tự gõ bừa (asdf, 123...), đùa cợt, lặp từ vô nghĩa, không có thông tin pháp lý -> Xếp vào "critical_violations" (REJECT).
-     + LẠC ĐỀ / KHÔNG ĐÚNG VỚI SỰ KIỆN: Nếu nội dung file PDF nói về chủ đề khác (ví dụ: tài liệu học tập, công thức nấu ăn, hợp đồng bán hàng của tổ chức khác không liên quan...) không liên quan gì đến sự kiện hoặc nhà tổ chức -> Xếp vào "critical_violations" (REJECT).
-     + HỢP LỆ (VALID): Chỉ khi tài liệu là Giấy phép biểu diễn/tổ chức do cơ quan thẩm quyền cấp, Quyết định thành lập / ĐKKD của đơn vị tổ chức, Hợp đồng thuê địa điểm/mặt bằng, hoặc Văn bản ủy quyền có thông tin khớp hoặc liên quan đúng đến sự kiện/đơn vị tổ chức -> Đánh giá HỢP LỆ (VALID) và ghi nhận vào "compliant_checks".
+  return `Bạn là Chuyên gia Kiểm duyệt & Thẩm định Toàn diện Sự kiện của nền tảng EventHub.
+Nhiệm vụ của bạn là kiểm tra, đối chiếu thông tin và đánh giá sự kiện KHÁCH QUAN, CHUẨN XÁC, THẤU ĐÁO VÀ HỢP LÝ dựa trên BỘ ĐIỀU KHOẢN VÀ TIÊU CHÍ ĐANG ĐƯỢC KÍCH HOẠT DƯỚI ĐÂY.
 
-2. NỘI DUNG & CHÍNH TẢ (CONTENT & SPELLING):
-   - Soát lỗi chính tả tiếng Việt trong Tiêu đề, Mô tả ngắn và Mô tả chi tiết (gõ sai dấu, sai telex, từ viết sai).
-   - Liệt kê các từ viết sai và từ đúng gợi ý vào "content_review.spelling_grammar_issues".
-   - Đánh giá tiêu đề và mô tả không được chứa nội dung giật tít lừa đảo, cờ bạc, cam kết lợi nhuận phi pháp.
-
-3. HÌNH ẢNH & OCR (IMAGE_POLICY):
-   - Poster chính (Thumbnail) và Cover Banner là bắt buộc; Ảnh trong mô tả là tùy chọn.
-   - Phân tích kết quả AI Vision cho từng ảnh: phát hiện ảnh khiêu dâm/18+, bạo lực máu me, cờ bạc, ma túy.
-   - Không đánh đồng ảnh nghệ thuật, bơi lội, thể thao, sân khấu với nội dung vi phạm.
-
-4. LỊCH TRÌNH, CƠ CẤU VÉ & CHÍNH SÁCH HOÀN TIỀN (TICKET_POLICY & REFUND_POLICY):
-   - Lịch trình các phiên (Sessions) phải có logic thời gian: giờ kết thúc sau giờ bắt đầu.
-   - Cơ cấu vé (Tickets) minh bạch về tên loại vé, giá tiền (không âm) và số lượng.
-   - Chính sách hoàn tiền rõ ràng.
+BỘ ĐIỀU KHOẢN & TIÊU CHÍ DUYỆT SỰ KIỆN HIỆN HÀNH (${activeCriteria.length} điều khoản):
+${criteriaSection}
 
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC (JSON THUẦN TÚY):
 Trả về duy nhất 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG thêm text ngoài JSON) theo cấu trúc:
@@ -70,13 +68,15 @@ Trả về duy nhất 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG t
   },
   "compliant_checks": ["<Tiêu chí thực sự đạt chuẩn>"],
   "critical_violations": [
-    {"policy_code": "TERMS_ORGANIZER | IMAGE_POLICY | REFUND_POLICY | PAYMENT_POLICY | TICKET_POLICY", "issue": "<Mô tả lỗi vi phạm nghiêm trọng>", "highlighted_text": "<Trích dẫn>"}
+    {"policy_code": "<Mã điều khoản vi phạm, ví dụ: TERMS_ORGANIZER, IMAGE_POLICY, TICKET_POLICY...>", "issue": "<Mô tả lỗi vi phạm nghiêm trọng>", "highlighted_text": "<Trích dẫn>"}
   ],
   "warnings": [
-    {"policy_code": "TERMS_ORGANIZER | IMAGE_POLICY | REFUND_POLICY | PAYMENT_POLICY | TICKET_POLICY", "issue": "<Mô tả điểm cần lưu ý>", "highlighted_text": "<Trích dẫn>"}
+    {"policy_code": "<Mã điều khoản lưu ý>", "issue": "<Mô tả điểm cần lưu ý>", "highlighted_text": "<Trích dẫn>"}
   ],
   "suggestions": ["<Lời khuyên cải thiện thực sự có giá trị cho BTC>"]
 }`;
+}
+
 
 /**
  * Đánh giá an toàn và tính hợp lệ của ảnh / tài liệu từ mô tả Vision AI.
@@ -587,6 +587,10 @@ class EventsAdminService {
     let recommendation = 'APPROVE';
     let warnings = [];
 
+    // Tải bộ điều khoản kiểm duyệt đang kích hoạt từ database
+    const activeCriteria = await reviewCriteriaRepository.findActive();
+    const activeCodes = new Set(activeCriteria.map((c) => c.code));
+
     // Strip HTML and large base64 strings from description for clean, compact prompt
     const cleanDescription = String(event.description || '')
       .replace(/data:image\/[^;]+;base64,[^\s"'>]+/gi, '[Hình ảnh đính kèm]')
@@ -818,8 +822,9 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
       const eventPromptWithVision = eventPromptText + imageSection;
 
       // 2. Call Ollama Chat API with EventHub Policy System Prompt
+      const systemPrompt = buildAiReviewSystemPrompt(activeCriteria);
       const messages = [
-        { role: 'system', content: AI_REVIEW_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: eventPromptWithVision }
       ];
 
@@ -845,42 +850,44 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
           ? parsedJson.suggestions
           : [];
 
-        // 1. Kiểm tra giấy phép và định dạng PDF bắt buộc
-        if (permitFiles.length === 0) {
-          if (!criticalViolations.some((v) => /giấy phép|pháp lý|permit/i.test(v.issue))) {
-            criticalViolations.unshift({
-              policy_code: 'TERMS_ORGANIZER',
-              issue: 'Sự kiện thiếu Giấy phép tổ chức / tài liệu pháp lý đính kèm bắt buộc.',
-              highlighted_text: 'Giấy phép / Tài liệu đính kèm: KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM',
+        // 1. Kiểm tra giấy phép và định dạng PDF bắt buộc (nếu TERMS_ORGANIZER đang kích hoạt)
+        if (activeCodes.has('TERMS_ORGANIZER')) {
+          if (permitFiles.length === 0) {
+            if (!criticalViolations.some((v) => /giấy phép|pháp lý|permit/i.test(v.issue))) {
+              criticalViolations.unshift({
+                policy_code: 'TERMS_ORGANIZER',
+                issue: 'Sự kiện thiếu Giấy phép tổ chức / tài liệu pháp lý đính kèm bắt buộc.',
+                highlighted_text: 'Giấy phép / Tài liệu đính kèm: KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM',
+              });
+            }
+            recommendation = 'REJECT';
+          } else {
+            // Kiểm tra từng tệp giấy phép xem có tệp nào vi phạm định dạng không phải PDF hoặc lỗi tải
+            imageAnalysisResults.forEach((imgRes) => {
+              if (imgRes.source && imgRes.source.startsWith('PERMIT')) {
+                if (imgRes.isFormatViolation) {
+                  const issueMsg = `Tệp tài liệu "${imgRes.fileName || 'giấy phép'}" không đúng định dạng PDF (.pdf) (phát hiện: ${imgRes.detectedFormat || 'khác'}). Theo quy định, tài liệu pháp lý bắt buộc phải là tệp PDF (.pdf).`;
+                  if (!criticalViolations.some((v) => v.issue.includes(imgRes.fileName || 'không đúng định dạng PDF'))) {
+                    criticalViolations.unshift({
+                      policy_code: 'TERMS_ORGANIZER',
+                      issue: issueMsg,
+                      highlighted_text: `Tên tệp: ${imgRes.fileName || 'Không phải PDF'}`,
+                    });
+                  }
+                  recommendation = 'REJECT';
+                } else if (imgRes.isDownloadFailed) {
+                  const issueMsg = `Không thể tải tệp giấy phép "${imgRes.fileName || 'tài liệu'}" từ máy chủ lưu trữ. Vui lòng kiểm tra lại đường dẫn tệp.`;
+                  if (!criticalViolations.some((v) => v.issue.includes(imgRes.fileName || 'Không thể tải tệp'))) {
+                    criticalViolations.unshift({
+                      policy_code: 'TERMS_ORGANIZER',
+                      issue: issueMsg,
+                    });
+                  }
+                  recommendation = 'REJECT';
+                }
+              }
             });
           }
-          recommendation = 'REJECT';
-        } else {
-          // Kiểm tra từng tệp giấy phép xem có tệp nào vi phạm định dạng không phải PDF hoặc lỗi tải
-          imageAnalysisResults.forEach((imgRes) => {
-            if (imgRes.source && imgRes.source.startsWith('PERMIT')) {
-              if (imgRes.isFormatViolation) {
-                const issueMsg = `Tệp tài liệu "${imgRes.fileName || 'giấy phép'}" không đúng định dạng PDF (.pdf) (phát hiện: ${imgRes.detectedFormat || 'khác'}). Theo quy định, tài liệu pháp lý bắt buộc phải là tệp PDF (.pdf).`;
-                if (!criticalViolations.some((v) => v.issue.includes(imgRes.fileName || 'không đúng định dạng PDF'))) {
-                  criticalViolations.unshift({
-                    policy_code: 'TERMS_ORGANIZER',
-                    issue: issueMsg,
-                    highlighted_text: `Tên tệp: ${imgRes.fileName || 'Không phải PDF'}`,
-                  });
-                }
-                recommendation = 'REJECT';
-              } else if (imgRes.isDownloadFailed) {
-                const issueMsg = `Không thể tải tệp giấy phép "${imgRes.fileName || 'tài liệu'}" từ máy chủ lưu trữ. Vui lòng kiểm tra lại đường dẫn tệp.`;
-                if (!criticalViolations.some((v) => v.issue.includes(imgRes.fileName || 'Không thể tải tệp'))) {
-                  criticalViolations.unshift({
-                    policy_code: 'TERMS_ORGANIZER',
-                    issue: issueMsg,
-                  });
-                }
-                recommendation = 'REJECT';
-              }
-            }
-          });
         }
 
         // Nếu thực tế ĐÃ CÓ giấy phép đính kèm -> Lọc bỏ các cảnh báo sai lệch về việc "thiếu giấy phép" (tránh false positives từ AI)
@@ -899,22 +906,24 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
           });
         }
 
-        // 2. Kiểm tra Poster chính
-        if (!hasThumbnail && !criticalViolations.concat(yellowWarnings).some((v) => /thumbnail|ảnh đại diện|poster/i.test(v.issue))) {
-          yellowWarnings.push({
-            policy_code: 'IMAGE_POLICY',
-            issue: 'Sự kiện chưa có ảnh đại diện chính (Main Poster). Vui lòng tải lên ảnh đại diện để sự kiện hiển thị trực quan.',
-            highlighted_text: 'Ảnh đại diện chính (Thumbnail): CHƯA CÓ',
-          });
-        }
+        // 2. Kiểm tra Poster chính (nếu IMAGE_POLICY đang kích hoạt)
+        if (activeCodes.has('IMAGE_POLICY')) {
+          if (!hasThumbnail && !criticalViolations.concat(yellowWarnings).some((v) => /thumbnail|ảnh đại diện|poster/i.test(v.issue))) {
+            yellowWarnings.push({
+              policy_code: 'IMAGE_POLICY',
+              issue: 'Sự kiện chưa có ảnh đại diện chính (Main Poster). Vui lòng tải lên ảnh đại diện để sự kiện hiển thị trực quan.',
+              highlighted_text: 'Ảnh đại diện chính (Thumbnail): CHƯA CÓ',
+            });
+          }
 
-        // 3. Kiểm tra Cover Banner
-        if (!hasBanner && !criticalViolations.concat(yellowWarnings).some((v) => /banner|ảnh bìa/i.test(v.issue))) {
-          yellowWarnings.push({
-            policy_code: 'IMAGE_POLICY',
-            issue: 'Sự kiện chưa có ảnh bìa (Cover Banner). Cần bổ sung ảnh bìa để trang sự kiện được đẹp mắt và chuyên nghiệp hơn.',
-            highlighted_text: 'Ảnh bìa (Cover Banner): CHƯA CÓ',
-          });
+          // 3. Kiểm tra Cover Banner
+          if (!hasBanner && !criticalViolations.concat(yellowWarnings).some((v) => /banner|ảnh bìa/i.test(v.issue))) {
+            yellowWarnings.push({
+              policy_code: 'IMAGE_POLICY',
+              issue: 'Sự kiện chưa có ảnh bìa (Cover Banner). Cần bổ sung ảnh bìa để trang sự kiện được đẹp mắt và chuyên nghiệp hơn.',
+              highlighted_text: 'Ảnh bìa (Cover Banner): CHƯA CÓ',
+            });
+          }
         }
 
         // 4. Lọc bỏ cảnh báo không hợp lý về ảnh:
@@ -991,6 +1000,12 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
           flat_warnings: warnings,
           content_review: parsedJson.content_review || null,
           image_review: finalImageReview,
+          applied_criteria: activeCriteria.map((c) => ({
+            code: c.code,
+            title: c.title,
+            category: c.category,
+            severity: c.severity,
+          })),
           vision_analysis: imageAnalysisResults.length > 0 ? imageAnalysisResults.map((r) => ({
             source: r.source,
             fileName: r.fileName || '',
@@ -1020,131 +1035,143 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
       let compliantChecks = [];
       const suggestions = [];
 
-      // 1. Kiểm tra Giấy phép tổ chức (Permits)
-      if (permitFiles.length === 0) {
-        criticalViolations.push({
-          policy_code: 'TERMS_ORGANIZER',
-          issue: 'Sự kiện thiếu Giấy phép tổ chức sự kiện hoặc tài liệu pháp lý đính kèm. Theo quy định EventHub, sự kiện thiếu giấy tờ pháp lý sẽ KHÔNG được phê duyệt.',
-          highlighted_text: 'Giấy phép / Tài liệu đính kèm: KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM',
-        });
-      } else {
-        let hasInvalidFormat = false;
-        permitFiles.forEach((file, idx) => {
-          const fileUrl = typeof file === 'string' ? file : file?.file_url || file?.url || file?.path || '';
-          const fileName = file?.file_name || file?.name || `Tài liệu ${idx + 1}`;
-          const isPdf = fileUrl.toLowerCase().includes('.pdf') || (typeof file === 'object' && file?.type?.includes('pdf'));
-          if (!isPdf) {
-            hasInvalidFormat = true;
-            criticalViolations.push({
-              policy_code: 'TERMS_ORGANIZER',
-              issue: `Tệp tài liệu "${fileName}" không đúng định dạng PDF (.pdf). Theo quy định, giấy phép và hồ sơ pháp lý bắt buộc phải được chuyển đổi và tải lên ở định dạng PDF (.pdf) mới được xét duyệt.`,
-              highlighted_text: `Tên tệp: ${fileName}`,
-            });
-          }
-        });
-        if (!hasInvalidFormat) {
-          compliantChecks.push(`Đã đính kèm giấy phép tổ chức / tài liệu pháp lý định dạng PDF hợp lệ (${permitFiles.length} tài liệu)`);
-        }
-      }
-
-      // 2. Kiểm tra hình ảnh
-      if (!hasThumbnail) {
-        yellowWarnings.push({
-          policy_code: 'IMAGE_POLICY',
-          issue: 'Sự kiện chưa có ảnh đại diện chính (Main Poster). Vui lòng tải lên ảnh đại diện để sự kiện hiển thị trực quan.',
-          highlighted_text: 'Ảnh đại diện chính (Thumbnail): CHƯA CÓ',
-        });
-      }
-      if (!hasBanner) {
-        yellowWarnings.push({
-          policy_code: 'IMAGE_POLICY',
-          issue: 'Sự kiện chưa có ảnh bìa (Cover Banner). Cần bổ sung ảnh bìa để trang sự kiện được đẹp mắt và chuyên nghiệp hơn.',
-          highlighted_text: 'Ảnh bìa (Cover Banner): CHƯA CÓ',
-        });
-      }
-      if (!hasDescImages) {
-        suggestions.push('Gợi ý bổ sung thêm hình ảnh minh họa bên trong phần mô tả chi tiết để người xem dễ hình dung và tăng tính hấp dẫn cho sự kiện.');
-      }
-
-      // 3. Kiểm tra thông tin cơ bản
-      if (!event.title || event.title.trim().length < 5) {
-        yellowWarnings.push({ policy_code: 'TICKET_POLICY', issue: 'Tiêu đề sự kiện quá ngắn hoặc chưa có (tối thiểu 5 ký tự).' });
-      }
-      if (!event.short_description) {
-        yellowWarnings.push({ policy_code: 'TICKET_POLICY', issue: 'Sự kiện chưa có phần mô tả ngắn tóm tắt.' });
-      }
-      if (!event.description || event.description.trim().length < 30) {
-        yellowWarnings.push({ policy_code: 'TICKET_POLICY', issue: 'Nội dung mô tả chi tiết sự kiện quá ngắn (dưới 30 ký tự).' });
-      }
-
-      // 4. Kiểm tra Lịch các phiên (Sessions & Timing Logic)
-      if (sessionList.length === 0) {
-        yellowWarnings.push({ policy_code: 'TICKET_POLICY', issue: 'Sự kiện chưa thiết lập lịch trình các phiên diễn ra (Sessions).' });
-      } else {
-        let hasSessionTimingError = false;
-        sessionList.forEach((s, idx) => {
-          if (s.start_time && s.end_time) {
-            const sStart = new Date(s.start_time).getTime();
-            const sEnd = new Date(s.end_time).getTime();
-            if (sEnd <= sStart) {
-              hasSessionTimingError = true;
+      // 1. Kiểm tra Giấy phép tổ chức (Permits) (nếu TERMS_ORGANIZER đang kích hoạt)
+      if (activeCodes.has('TERMS_ORGANIZER')) {
+        if (permitFiles.length === 0) {
+          criticalViolations.push({
+            policy_code: 'TERMS_ORGANIZER',
+            issue: 'Sự kiện thiếu Giấy phép tổ chức sự kiện hoặc tài liệu pháp lý đính kèm. Theo quy định EventHub, sự kiện thiếu giấy tờ pháp lý sẽ KHÔNG được phê duyệt.',
+            highlighted_text: 'Giấy phép / Tài liệu đính kèm: KHÔNG CÓ GIẤY PHÉP ĐÍNH KÈM',
+          });
+        } else {
+          let hasInvalidFormat = false;
+          permitFiles.forEach((file, idx) => {
+            const fileUrl = typeof file === 'string' ? file : file?.file_url || file?.url || file?.path || '';
+            const fileName = file?.file_name || file?.name || `Tài liệu ${idx + 1}`;
+            const isPdf = fileUrl.toLowerCase().includes('.pdf') || (typeof file === 'object' && file?.type?.includes('pdf'));
+            if (!isPdf) {
+              hasInvalidFormat = true;
               criticalViolations.push({
-                policy_code: 'TICKET_POLICY',
-                issue: `Phiên ${idx + 1} "${s.session_name || 'Phiên'}" có thời gian kết thúc trước hoặc trùng thời gian bắt đầu (${s.start_time} - ${s.end_time}).`,
+                policy_code: 'TERMS_ORGANIZER',
+                issue: `Tệp tài liệu "${fileName}" không đúng định dạng PDF (.pdf). Theo quy định, giấy phép và hồ sơ pháp lý bắt buộc phải được chuyển đổi và tải lên ở định dạng PDF (.pdf) mới được xét duyệt.`,
+                highlighted_text: `Tên tệp: ${fileName}`,
               });
             }
+          });
+          if (!hasInvalidFormat) {
+            compliantChecks.push(`Đã đính kèm giấy phép tổ chức / tài liệu pháp lý định dạng PDF hợp lệ (${permitFiles.length} tài liệu)`);
           }
-        });
-        if (!hasSessionTimingError) {
-          compliantChecks.push(`Lịch trình ${sessionList.length} phiên sự kiện được sắp xếp logic, thời gian bắt đầu và kết thúc hợp lý`);
         }
       }
 
-      // 5. Kiểm tra Cơ cấu loại vé (Ticket Types & Pricing)
-      if (ticketList.length === 0) {
-        yellowWarnings.push({ policy_code: 'TICKET_POLICY', issue: 'Sự kiện chưa có hạng vé nào được mở bán.' });
-      } else {
-        let hasTicketError = false;
-        ticketList.forEach((t) => {
-          if (Number(t.price) < 0) {
-            hasTicketError = true;
-            criticalViolations.push({
-              policy_code: 'TICKET_POLICY',
-              issue: `Hạng vé "${t.name}" có mức giá không hợp lệ (giá âm: ${t.price} VNĐ).`,
-            });
+      // 2. Kiểm tra hình ảnh (nếu IMAGE_POLICY đang kích hoạt)
+      if (activeCodes.has('IMAGE_POLICY')) {
+        if (!hasThumbnail) {
+          yellowWarnings.push({
+            policy_code: 'IMAGE_POLICY',
+            issue: 'Sự kiện chưa có ảnh đại diện chính (Main Poster). Vui lòng tải lên ảnh đại diện để sự kiện hiển thị trực quan.',
+            highlighted_text: 'Ảnh đại diện chính (Thumbnail): CHƯA CÓ',
+          });
+        }
+        if (!hasBanner) {
+          yellowWarnings.push({
+            policy_code: 'IMAGE_POLICY',
+            issue: 'Sự kiện chưa có ảnh bìa (Cover Banner). Cần bổ sung ảnh bìa để trang sự kiện được đẹp mắt và chuyên nghiệp hơn.',
+            highlighted_text: 'Ảnh bìa (Cover Banner): CHƯA CÓ',
+          });
+        }
+        if (!hasDescImages) {
+          suggestions.push('Gợi ý bổ sung thêm hình ảnh minh họa bên trong phần mô tả chi tiết để người xem dễ hình dung và tăng tính hấp dẫn cho sự kiện.');
+        }
+      }
+
+      // 3. Kiểm tra thông tin cơ bản & nội dung (nếu CONTENT_SPELLING đang kích hoạt)
+      if (activeCodes.has('CONTENT_SPELLING')) {
+        if (!event.title || event.title.trim().length < 5) {
+          yellowWarnings.push({ policy_code: 'CONTENT_SPELLING', issue: 'Tiêu đề sự kiện quá ngắn hoặc chưa có (tối thiểu 5 ký tự).' });
+        }
+        if (!event.short_description) {
+          yellowWarnings.push({ policy_code: 'CONTENT_SPELLING', issue: 'Sự kiện chưa có phần mô tả ngắn tóm tắt.' });
+        }
+        if (!event.description || event.description.trim().length < 30) {
+          yellowWarnings.push({ policy_code: 'CONTENT_SPELLING', issue: 'Nội dung mô tả chi tiết sự kiện quá ngắn (dưới 30 ký tự).' });
+        }
+      }
+
+      // 4. Kiểm tra Lịch các phiên (Sessions & Timing Logic) (nếu SESSION_SCHEDULE đang kích hoạt)
+      if (activeCodes.has('SESSION_SCHEDULE')) {
+        if (sessionList.length === 0) {
+          yellowWarnings.push({ policy_code: 'SESSION_SCHEDULE', issue: 'Sự kiện chưa thiết lập lịch trình các phiên diễn ra (Sessions).' });
+        } else {
+          let hasSessionTimingError = false;
+          sessionList.forEach((s, idx) => {
+            if (s.start_time && s.end_time) {
+              const sStart = new Date(s.start_time).getTime();
+              const sEnd = new Date(s.end_time).getTime();
+              if (sEnd <= sStart) {
+                hasSessionTimingError = true;
+                criticalViolations.push({
+                  policy_code: 'SESSION_SCHEDULE',
+                  issue: `Phiên ${idx + 1} "${s.session_name || 'Phiên'}" có thời gian kết thúc trước hoặc trùng thời gian bắt đầu (${s.start_time} - ${s.end_time}).`,
+                });
+              }
+            }
+          });
+          if (!hasSessionTimingError) {
+            compliantChecks.push(`Lịch trình ${sessionList.length} phiên sự kiện được sắp xếp logic, thời gian bắt đầu và kết thúc hợp lý`);
           }
-          if (Number(t.quantity) <= 0) {
-            yellowWarnings.push({
-              policy_code: 'TICKET_POLICY',
-              issue: `Hạng vé "${t.name}" có số lượng vé bằng 0.`,
-            });
+        }
+      }
+
+      // 5. Kiểm tra Cơ cấu loại vé (Ticket Types & Pricing) (nếu TICKET_POLICY đang kích hoạt)
+      if (activeCodes.has('TICKET_POLICY')) {
+        if (ticketList.length === 0) {
+          yellowWarnings.push({ policy_code: 'TICKET_POLICY', issue: 'Sự kiện chưa có hạng vé nào được mở bán.' });
+        } else {
+          let hasTicketError = false;
+          ticketList.forEach((t) => {
+            if (Number(t.price) < 0) {
+              hasTicketError = true;
+              criticalViolations.push({
+                policy_code: 'TICKET_POLICY',
+                issue: `Hạng vé "${t.name}" có mức giá không hợp lệ (giá âm: ${t.price} VNĐ).`,
+              });
+            }
+            if (Number(t.quantity) <= 0) {
+              yellowWarnings.push({
+                policy_code: 'TICKET_POLICY',
+                issue: `Hạng vé "${t.name}" có số lượng vé bằng 0.`,
+              });
+            }
+          });
+          if (!hasTicketError) {
+            compliantChecks.push(`Cơ cấu loại vé (${ticketList.length} loại vé) minh bạch về giá bán và số lượng`);
           }
-        });
-        if (!hasTicketError) {
-          compliantChecks.push(`Cơ cấu loại vé (${ticketList.length} loại vé) minh bạch về giá bán và số lượng`);
         }
       }
 
       // 6. Kiểm tra thời gian tổng thể
-      if (event.start_time && event.end_time) {
+      if (activeCodes.has('SESSION_SCHEDULE') && event.start_time && event.end_time) {
         const start = new Date(event.start_time).getTime();
         const end = new Date(event.end_time).getTime();
         if (end <= start) {
-          criticalViolations.push({ policy_code: 'TICKET_POLICY', issue: 'Thời gian kết thúc tổng thể sự kiện phải diễn ra sau thời gian bắt đầu.' });
+          criticalViolations.push({ policy_code: 'SESSION_SCHEDULE', issue: 'Thời gian kết thúc tổng thể sự kiện phải diễn ra sau thời gian bắt đầu.' });
         }
         if (start < Date.now() - 24 * 3600 * 1000) {
-          criticalViolations.push({ policy_code: 'TICKET_POLICY', issue: 'Thời gian bắt đầu sự kiện nằm trong quá khứ.' });
+          criticalViolations.push({ policy_code: 'SESSION_SCHEDULE', issue: 'Thời gian bắt đầu sự kiện nằm trong quá khứ.' });
         }
       }
 
-      // 7. Kiểm tra từ khóa cấm / gian lận
-      const textContent = `${event.title || ''} ${event.short_description || ''} ${cleanDescription}`.toLowerCase();
-      const sensitiveWords = ['lừa đảo', 'cờ bạc', 'bạo lực', 'vũ khí', 'hàng cấm', 'chuyển khoản stk', 'crypto x100', 'bao lỗ 100%'];
-      sensitiveWords.forEach((word) => {
-        if (textContent.includes(word)) {
-          criticalViolations.push({ policy_code: 'TERMS_ORGANIZER', issue: `Phát hiện nội dung có nguy cơ vi phạm chính sách / từ khóa cấm: "${word}".` });
-        }
-      });
+      // 7. Kiểm tra từ khóa cấm / gian lận (nếu PAYMENT_POLICY đang kích hoạt)
+      if (activeCodes.has('PAYMENT_POLICY')) {
+        const textContent = `${event.title || ''} ${event.short_description || ''} ${cleanDescription}`.toLowerCase();
+        const sensitiveWords = ['lừa đảo', 'cờ bạc', 'bạo lực', 'vũ khí', 'hàng cấm', 'chuyển khoản stk', 'crypto x100', 'bao lỗ 100%'];
+        sensitiveWords.forEach((word) => {
+          if (textContent.includes(word)) {
+            criticalViolations.push({ policy_code: 'PAYMENT_POLICY', issue: `Phát hiện nội dung có nguy cơ vi phạm chính sách / từ khóa cấm: "${word}".` });
+          }
+        });
+      }
 
       // Xây dựng fallback image_review có kiểm duyệt an toàn từ kết quả AI Vision đã quét ở Stage 1 (nếu có)
       const fallbackImageReview = imageAnalysisResults.length > 0
@@ -1187,6 +1214,12 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
         flat_warnings: warnings,
         content_review: null,
         image_review: fallbackImageReview,
+        applied_criteria: activeCriteria.map((c) => ({
+          code: c.code,
+          title: c.title,
+          category: c.category,
+          severity: c.severity,
+        })),
         vision_analysis: imageAnalysisResults.length > 0 ? imageAnalysisResults.map((r) => ({
           source: r.source,
           fileName: r.fileName || '',
@@ -1409,6 +1442,56 @@ YÊU CẦU THẨM ĐỊNH & ĐÁNH GIÁ ĐA CHIỀU:
       },
       organizerEmail ? { email: organizerEmail } : {},
     );
+  }
+
+  // ============================================================
+  // AI REVIEW CRITERIA / POLICIES CRUD
+  // ============================================================
+  async listReviewCriteria(filter = {}) {
+    return reviewCriteriaRepository.findAll(filter);
+  }
+
+  async getReviewCriteriaById(id) {
+    const item = await reviewCriteriaRepository.findById(id);
+    if (!item) {
+      throw new AppError('Điều khoản kiểm duyệt không tồn tại', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    return item;
+  }
+
+  async createReviewCriteria(adminId, payload) {
+    const existing = await reviewCriteriaRepository.findByCode(payload.code);
+    if (existing) {
+      throw new AppError(`Mã điều khoản "${payload.code}" đã tồn tại. Vui lòng chọn mã khác.`, 409, ErrorCodes.RESOURCE_ALREADY_EXISTS);
+    }
+    return reviewCriteriaRepository.create(payload, adminId);
+  }
+
+  async updateReviewCriteria(adminId, id, payload) {
+    const item = await reviewCriteriaRepository.findById(id);
+    if (!item) {
+      throw new AppError('Điều khoản kiểm duyệt không tồn tại', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    if (payload.code && payload.code.trim().toUpperCase() !== item.code) {
+      const existing = await reviewCriteriaRepository.findByCode(payload.code);
+      if (existing && existing.id !== id) {
+        throw new AppError(`Mã điều khoản "${payload.code}" đã được sử dụng bởi điều khoản khác.`, 409, ErrorCodes.RESOURCE_ALREADY_EXISTS);
+      }
+    }
+    return reviewCriteriaRepository.update(id, payload, adminId);
+  }
+
+  async deleteReviewCriteria(id) {
+    const item = await reviewCriteriaRepository.findById(id);
+    if (!item) {
+      throw new AppError('Điều khoản kiểm duyệt không tồn tại', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    const deleted = await reviewCriteriaRepository.delete(id);
+    return { success: deleted, id };
+  }
+
+  async resetDefaultReviewCriteria(adminId) {
+    return reviewCriteriaRepository.resetDefaults(adminId);
   }
 }
 
