@@ -2263,7 +2263,7 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
           <p className="rounded-xl border border-white/10 bg-slate-950/40 py-8 text-center text-sm font-semibold text-slate-400">Đang tải voucher...</p>
         )}
         {!promosQuery.isLoading && organizerPromos.length === 0 && (
-          <p className="rounded-xl border border-dashed border-white/10 bg-slate-950/40 py-8 text-center text-sm font-semibold text-slate-400">Sự kiện này chưa có mã giảm giá công khai</p>
+          <p className="py-6 text-center text-sm italic text-slate-400">Sự kiện này chưa có mã giảm giá công khai</p>
         )}
         {organizerPromos.map((promo) => {
           const checked = tempSelected?.id === promo.id || (tempSelected?.code && String(tempSelected.code).toUpperCase() === String(promo.code).toUpperCase())

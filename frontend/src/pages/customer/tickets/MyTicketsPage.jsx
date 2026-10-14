@@ -107,7 +107,7 @@ export function MyTicketsPage() {
                 setPage(1)
               }}
               className={`min-w-0 whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition-all ${status === item.value
-                ? 'bg-primary/25 text-primary border border-primary/40 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-md shadow-[#C99A47]/30'
                 : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
                 }`}
             >
@@ -146,7 +146,7 @@ export function MyTicketsPage() {
               type="button"
               onClick={() => handlePageChange(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-primary hover:bg-primary/20 hover:text-primary hover:shadow-[0_0_12px_rgba(6,182,212,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
+              className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
               aria-label="Trang trước"
             >
               <ChevronLeft className="size-5" />
@@ -157,8 +157,8 @@ export function MyTicketsPage() {
                 type="button"
                 onClick={() => handlePageChange(pageNumber)}
                 className={`size-10 rounded-full text-sm font-extrabold transition-all ${page === pageNumber
-                  ? 'bg-primary text-slate-950 font-black shadow-[0_0_18px_rgba(6,182,212,0.6)] scale-105'
-                  : 'border border-white/20 bg-slate-800 text-white hover:border-primary hover:bg-primary/20 hover:text-primary hover:shadow-[0_0_12px_rgba(6,182,212,0.35)]'
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_0_18px_rgba(201,154,71,0.6)] scale-105'
+                  : 'border border-white/20 bg-slate-800 text-white hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)]'
                   }`}
                 aria-current={page === pageNumber ? 'page' : undefined}
                 aria-label={`Trang ${pageNumber}`}
@@ -170,7 +170,7 @@ export function MyTicketsPage() {
               type="button"
               onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-primary hover:bg-primary/20 hover:text-primary hover:shadow-[0_0_12px_rgba(6,182,212,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
+              className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
               aria-label="Trang sau"
             >
               <ChevronRight className="size-5" />
@@ -209,13 +209,13 @@ function TicketCard({ ticket }) {
           ? 'border-amber-500/40 shadow-[0_8px_32px_0_rgba(245,158,11,0.18)] hover:border-amber-500/70 hover:shadow-[0_8px_32px_0_rgba(245,158,11,0.35)] hover:-translate-y-1'
           : isExpired
             ? 'border-white/5 opacity-55 grayscale hover:opacity-85 hover:grayscale-0 hover:border-white/20'
-            : 'border-white/10 opacity-75 hover:opacity-100 hover:border-primary/30'
+            : 'border-white/10 opacity-75 hover:opacity-100 hover:border-[#E6C17A]/30'
         }`}
     >
       {/* Nền radial glow: Vé hợp lệ hoặc chờ hoàn tiền luôn hiện màu sẵn */}
       <div
         className={`absolute inset-0 -z-10 transition-opacity duration-300 ${isValid
-          ? 'bg-[radial-gradient(circle_at_50%_100%,_var(--color-primary)_0%,_transparent_65%)] opacity-20 group-hover:opacity-35'
+          ? 'bg-[radial-gradient(circle_at_50%_100%,_rgba(201,154,71,0.25)_0%,_transparent_65%)] opacity-20 group-hover:opacity-35'
           : isRefundPending
             ? 'bg-[radial-gradient(circle_at_50%_100%,_rgba(245,158,11,0.3)_0%,_transparent_65%)] opacity-25 group-hover:opacity-40'
             : 'opacity-0'
@@ -230,7 +230,7 @@ function TicketCard({ ticket }) {
             </span>
             <span className={`font-mono text-[11px] font-bold ${isVibrant ? 'text-slate-300' : 'text-slate-500'}`}>{ticket.ticket_code}</span>
           </div>
-          <h2 className={`mt-4 line-clamp-2 font-display text-xl font-black leading-tight transition-colors ${isVibrant ? 'text-white group-hover:text-primary' : 'text-slate-300 group-hover:text-white'
+          <h2 className={`mt-4 line-clamp-2 font-display text-xl font-black leading-tight transition-colors ${isVibrant ? 'text-white group-hover:text-[#E6C17A]' : 'text-slate-300 group-hover:text-white'
             }`}>
             {ticket.event.title}
           </h2>
