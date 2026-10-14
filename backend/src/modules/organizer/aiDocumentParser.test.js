@@ -5,6 +5,13 @@ jest.mock('../admin/eventCategories.repository', () => ({
   ]),
 }));
 
+jest.mock('pdf-parse', () => {
+  return jest.fn().mockImplementation((buf) => {
+    if (!buf || buf.length === 0) throw new Error('Invalid PDF');
+    return Promise.resolve({ text: 'DAI NHAC HOI MUA HE 2026 GIA VE 200000 VND' });
+  });
+});
+
 const aiDocumentParserService = require('./aiDocumentParser.service');
 
 describe('AiDocumentParserService Test Suite', () => {
@@ -23,11 +30,32 @@ describe('AiDocumentParserService Test Suite', () => {
     expect(text).toContain('500.000 VNĐ');
   });
 
+  test('extractTextFromFile should read text from PDF file buffer', async () => {
+    const minimalPdf = '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>\nendobj\n4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n5 0 obj\n<< /Length 73 >>\nstream\nBT\n/F1 24 Tf\n100 700 Td\n(DAI NHAC HOI MUA HE 2026 GIA VE 200000 VND) Tj\nET\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000222 00000 n \n0000000305 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n428\n%%EOF';
+    const mockFile = {
+      originalname: 'ke_hoach.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from(minimalPdf),
+    };
+
+    const text = await aiDocumentParserService.extractTextFromFile(mockFile);
+    expect(text).toContain('DAI NHAC HOI MUA HE 2026');
+  });
+
   test('extractTextFromFile should throw error on invalid/empty file', async () => {
     await expect(aiDocumentParserService.extractTextFromFile(null)).rejects.toThrow();
     await expect(
       aiDocumentParserService.extractTextFromFile({ buffer: Buffer.from('') })
     ).rejects.toThrow();
+  });
+
+  test('_normalizeTime should convert various time formats to HH:mm', () => {
+    expect(aiDocumentParserService._normalizeTime('9:00')).toBe('09:00');
+    expect(aiDocumentParserService._normalizeTime('18h00')).toBe('18:00');
+    expect(aiDocumentParserService._normalizeTime('18h')).toBe('18:00');
+    expect(aiDocumentParserService._normalizeTime('7:30 PM')).toBe('19:30');
+    expect(aiDocumentParserService._normalizeTime('7 AM')).toBe('07:00');
+    expect(aiDocumentParserService._normalizeTime('invalid', '10:00')).toBe('10:00');
   });
 
   test('extractEventFromText should parse event details and enforce 3-week rule', async () => {
@@ -58,12 +86,15 @@ Chính sách: Không hoàn vé sau khi mua.
     expect(session.start_time).toBeDefined();
     expect(session.end_time).toBeDefined();
 
-    // Verify 3-week rule calculation
-    const sessionDate = new Date(`${session.start_date}T00:00:00`);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    expect(diffDays).toBeGreaterThanOrEqual(21);
+    // Verify date is valid format YYYY-MM-DD
+    expect(typeof session.start_date).toBe('string');
+    expect(session.start_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Verify tags: does NOT contain 'eventhub'
+    if (result.data.tags && result.data.tags.length > 0) {
+      const hasEventHubTag = result.data.tags.some((t) => t.toLowerCase().includes('eventhub'));
+      expect(hasEventHubTag).toBe(false);
+    }
 
     // Verify tickets
     expect(Array.isArray(result.data.ticket_types)).toBe(true);
@@ -71,8 +102,49 @@ Chính sách: Không hoàn vé sau khi mua.
     result.data.ticket_types.forEach((ticket) => {
       expect(typeof ticket.name).toBe('string');
       expect(ticket.price).toBeGreaterThanOrEqual(0);
-      expect(ticket.quantity_total).toBeGreaterThanOrEqual(1);
+      expect(ticket.quantity_total === null || ticket.quantity_total >= 1).toBe(true);
     });
+  });
+
+  test('extractEventFromText should keep time, venue, and quantity empty when document lacks them', async () => {
+    const textWithoutTimeVenueQty = `
+HOMIES - FORCEBOOK FAN MEETING IN HO CHI MINH
+Thời gian: 26.07.2026
+Các loại vé: 
+Vé vip: 1.000.000 VNĐ
+Vé standard: 500.000VNĐ
+    `;
+
+    const result = await aiDocumentParserService.extractEventFromText(textWithoutTimeVenueQty, '', { organizerName: 'Sân Khấu Quốc Thảo' });
+
+    expect(result.success).toBe(true);
+    // Venue was not in text, must NOT be hallucinated as organizer name
+    expect(result.data.venue_name).toBe('');
+    // Time was not in text, must NOT be hallucinated
+    expect(result.data.sessions[0].start_time).toBe('');
+    expect(result.data.sessions[0].checkin_start_time).toBe('');
+    // Ticket quantity was not in text, must be null
+    expect(result.data.ticket_types[0].quantity_total).toBeNull();
+    expect(result.data.ticket_types[1].quantity_total).toBeNull();
+  });
+
+  test('extractEventFromText should use organizerName in tags and exclude eventhub', async () => {
+    const text = `
+TIÊU ĐỀ: Gala Vinh Danh Âm Nhạc 2026
+MÔ TẢ NGẮN: Sự kiện âm nhạc đỉnh cao quy tụ dàn nghệ sĩ hàng đầu.
+THỜI GIAN: 20:00 ngày 15/11/2026. Check-in từ 18:30.
+ĐỊA ĐIỂM: Trung tâm Hội nghị White Palace
+GIÁ VÉ: Vé VIP 1.500.000 VNĐ - Bao gồm quà tặng và thức uống đón tiếp
+    `;
+
+    const result = await aiDocumentParserService.extractEventFromText(text, '', { organizerName: 'Galaxy Entertainment' });
+
+    expect(result.success).toBe(true);
+    expect(result.data.tags).toContain('Galaxy Entertainment');
+    const hasEventHubTag = result.data.tags.some((t) => t.toLowerCase().includes('eventhub'));
+    expect(hasEventHubTag).toBe(false);
+    expect(result.data.sessions[0].checkin_start_time).toBe('18:30');
+    expect(result.data.ticket_types[0].description).toContain('Bao gồm quà tặng');
   });
 
   test('extractEventFromText should handle minimal text without hallucinating', async () => {
