@@ -256,8 +256,12 @@ export function HomePage() {
     favoriteMutation.mutate(event)
   }
 
+  useEffect(() => {
+    document.documentElement.classList.remove('light')
+  }, [])
+
   return (
-    <div className="overflow-hidden text-content bg-transparent relative">
+    <div className="force-dark overflow-hidden text-content bg-transparent relative">
       <section className="relative min-h-[100dvh] w-full flex flex-col justify-start items-center overflow-hidden pt-24 sm:pt-28 pb-12 snap-start shrink-0 bg-transparent">
         <SeamlessVideoBackground />
 
