@@ -7,7 +7,6 @@ const logger = require('../../core/logger');
 const PRIMARY_MODEL = process.env.OLLAMA_EXTRACTION_MODEL || 'qwen3-eventhub-Q4_K_M.gguf';
 const FALLBACK_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'qwen3-eventhub-Q4_K_M.gguf';
 const TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
-const MIN_WEEKS_DAYS = 21; // Tối thiểu 3 tuần
 
 class AiDocumentParserService {
   /**
@@ -27,8 +26,19 @@ class AiDocumentParserService {
 
     if (mime === 'application/pdf' || ext === 'pdf') {
       try {
-        const parsed = await pdfParse(file.buffer);
-        rawText = parsed.text || '';
+        if (typeof pdfParse === 'function') {
+          const parsed = await pdfParse(file.buffer);
+          rawText = parsed.text || '';
+        } else if (pdfParse && pdfParse.PDFParse) {
+          const parser = new pdfParse.PDFParse({ data: file.buffer });
+          const parsed = await parser.getText();
+          rawText = parsed.text || '';
+          if (typeof parser.destroy === 'function') {
+            await parser.destroy();
+          }
+        } else {
+          throw new Error('Thư viện pdf-parse không khả dụng');
+        }
       } catch (err) {
         logger.error(`[AiDocumentParser] Lỗi đọc PDF: ${err.message}`);
         throw new Error(`Không thể đọc nội dung file PDF: ${err.message}`);
@@ -65,11 +75,11 @@ class AiDocumentParserService {
   }
 
   /**
-   * Tính toán ngày tối thiểu (hôm nay + 22 ngày)
+   * Tính toán ngày gợi ý tối thiểu (ngày mai)
    */
   getSuggestedMinDate() {
     const d = new Date();
-    d.setDate(d.getDate() + MIN_WEEKS_DAYS + 1);
+    d.setDate(d.getDate() + 1);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
@@ -80,9 +90,12 @@ class AiDocumentParserService {
    * Phân tích văn bản và trích xuất dữ liệu sự kiện
    * @param {string} text - Nội dung tài liệu
    * @param {string} userNote - Ghi chú thêm từ BTC nếu có
+   * @param {object} options - Tùy chọn bổ sung (organizerName, ...)
    * @returns {Promise<object>}
    */
-  async extractEventFromText(text, userNote = '') {
+  async extractEventFromText(text, userNote = '', options = {}) {
+    const organizerName = (options && options.organizerName) ? String(options.organizerName).trim() : '';
+
     // 1. Lấy danh sách categories từ database để AI gán đúng ID
     let categories = [];
     try {
@@ -107,10 +120,6 @@ class AiDocumentParserService {
     // 1.1 Phân tích bóc tách các mục định sẵn trong tài liệu (nếu có nhãn TIÊU ĐỀ, MÔ TẢ, v.v.)
     const detectedSections = this._extractDocumentSections(cleanedText);
 
-    // Tối ưu hóa tốc độ theo Giải pháp 1 (Hybrid Extraction):
-    // 1. Regex bóc tách và lưu trữ 100% Ground Truth nguyên văn các trường văn bản dài (title, short_desc, description, additional_terms) trong 0.0001s.
-    // 2. Khi gửi sang Ollama, chỉ gửi phần thông tin cô đọng (ngày giờ, địa điểm, hạng vé) để AI chỉ tập trung trích xuất metadata.
-    // 3. Ra lệnh AI để rỗng các trường văn bản dài đã có để AI chỉ phải sinh ~100 tokens, giúp giảm thời gian từ 50s xuống ~10s.
     const hasStructuredDesc = Boolean(detectedSections.description);
     const hasStructuredShortDesc = Boolean(detectedSections.short_description);
     const hasStructuredTerms = Boolean(detectedSections.additional_terms);
@@ -144,16 +153,21 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
    - "title": Tên chính thức của sự kiện.
    - "category_id": ID phù hợp nhất lấy từ danh mục hệ thống ở trên.
    - "short_description": ${hasStructuredShortDesc ? 'Để chuỗi rỗng "" (hệ thống đã lưu trữ sẵn 100% nguyên văn từ tài liệu).' : 'Tóm tắt 1 - 2 câu mở đầu (tối đa 300 ký tự).'}
-   - "description": ${hasStructuredDesc ? 'Để chuỗi rỗng "" (hệ thống đã lưu trữ sẵn 100% nguyên văn từ tài liệu để tối ưu tốc độ).' : 'Nội dung chi tiết của sự kiện theo HTML (<p>, <ul>, <li>).'}
-   - "venue_name", "address_line", "province": Địa chỉ tổ chức được ghi trong tài liệu (để chuỗi rỗng "" nếu không có).
+   - "description": ${hasStructuredDesc ? 'Để chuỗi rỗng "" (hệ thống đã lưu trữ sẵn 100% nguyên văn từ tài liệu để tối ưu tốc độ).' : 'Nội dung chi tiết của sự kiện theo HTML (<p>, <ul>, <li>, <strong>).'}
+   - "venue_name": Tên địa điểm cụ thể (ví dụ: "Trung tâm Hội nghị ABC", "Nhà hát Bến Thành"). NẾU TÀI LIỆU KHÔNG GHI ĐỊA ĐIỂM CỤ THỂ, BẮT BUỘC ĐỂ CHUỖI RỖNG "". TUYỆT ĐỐI KHÔNG tự bịa và TUYỆT ĐỐI KHÔNG lấy tên nhà tổ chức${organizerName ? ` ("${organizerName}")` : ''} để làm địa điểm nếu tài liệu không đề cập.
+   - "address_line": Địa chỉ chi tiết nếu có trong tài liệu. Nếu không có để chuỗi rỗng "".
+   - "province": Tỉnh/Thành phố nếu tài liệu có ghi (ví dụ: "Thành phố Hồ Chí Minh", "Hà Nội").
    - "session":
-     * "start_date": Ngày diễn ra sự kiện theo định dạng YYYY-MM-DD.
-     * "start_time": Giờ bắt đầu theo định dạng HH:mm.
-     * "end_time": Giờ kết thúc theo định dạng HH:mm.
-   - "ticket_types": Mảng chứa ĐẦY ĐỦ các hạng vé với tên và giá tiền VNĐ chính xác [{ "name": string, "price": number, "quantity_total": number, "description": string }]. Nếu tài liệu không nói về vé, hãy để [].
+     * "start_date": Ngày diễn ra sự kiện theo định dạng YYYY-MM-DD. Lấy chính xác ngày ghi trong tài liệu.
+     * "start_time": Giờ bắt đầu theo định dạng HH:mm. NẾU TÀI LIỆU KHÔNG GHI GIỜ BẮT ĐẦU, BẮT BUỘC ĐỂ "". TUYỆT ĐỐI KHÔNG TỰ BỊA GIỜ.
+     * "end_time": Giờ kết thúc theo định dạng HH:mm. NẾU TÀI LIỆU KHÔNG GHI GIỜ KẾT THÚC, BẮT BUỘC ĐỂ "". TUYỆT ĐỐI KHÔNG TỰ BỊA GIỜ.
+     * "checkin_start_time": Giờ bắt đầu check-in / đón khách theo định dạng HH:mm. NẾU TÀI LIỆU KHÔNG GHI GIỜ CHECK-IN, BẮT BUỘC ĐỂ "".
+   - "ticket_types": Mảng chứa ĐẦY ĐỦ các hạng vé với tên, giá tiền VNĐ chính xác, số lượng và mô tả quyền lợi [{ "name": string, "price": number, "quantity_total": number | null, "description": string }].
+     * "quantity_total": Số lượng vé tương ứng. NẾU TÀI LIỆU KHÔNG GHI RÕ SỐ LƯỢNG VÉ, BẮT BUỘC ĐỂ null. TUYỆT ĐỐI KHÔNG ĐIỀN 100 HAY BẤT KỲ SỐ NÀO NẾU TÀI LIỆU KHÔNG NÊU.
+     * "description": Mô tả quyền lợi của vé. Nếu không có để "".
    - "refund_policy": { "allow_refunds": boolean, "deadline_days": number } (nếu ghi vé không hoàn trả hoặc non-refundable thì allow_refunds là false).
    - "additional_terms": ${hasStructuredTerms ? 'Để chuỗi rỗng "" (hệ thống đã lưu trữ sẵn 100% nguyên văn).' : 'Các điều khoản riêng nếu có.'}
-   - "tags": Mảng các từ khóa liên quan đến sự kiện.
+   - "tags": Mảng các từ khóa liên quan đến sự kiện. TUYỆT ĐỐI KHÔNG chứa tag "EventHub" hay "eventhub". BẮT BUỘC bao gồm tên nhà tổ chức${organizerName ? ` ("${organizerName}")` : ''} trong danh sách tags.
 4. Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc mẫu, không giải thích thêm:
 
 === CẤU TRÚC JSON MẪU BẮT BUỘC ===
@@ -170,7 +184,8 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
   "session": {
     "start_date": "",
     "start_time": "",
-    "end_time": ""
+    "end_time": "",
+    "checkin_start_time": ""
   },
   "ticket_types": [],
   "refund_policy": {
@@ -178,7 +193,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     "deadline_days": 7
   },
   "additional_terms": "",
-  "tags": ["EventHub", "Sự kiện"]
+  "tags": [${organizerName ? `"${organizerName}", ` : ''}"Sự kiện"]
 }`;
 
     let parsedData = null;
@@ -237,11 +252,11 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     if (!parsedData) {
       usedModel = 'heuristic-regex-extractor';
       warnings.push(`AI Engine tạm thời không phản hồi. Hệ thống đã kích hoạt bộ trích xuất dự phòng.`);
-      parsedData = this._heuristicExtraction(text, categories, detectedSections);
+      parsedData = this._heuristicExtraction(text, categories, detectedSections, options);
     }
 
     // 4. Chuẩn hóa và làm sạch dữ liệu (Data Sanitization & Business Rules)
-    const sanitized = this._sanitizeAndValidate(parsedData, categories, warnings, text, detectedSections);
+    const sanitized = this._sanitizeAndValidate(parsedData, categories, warnings, text, detectedSections, options);
 
     return {
       success: true,
@@ -303,15 +318,15 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
   /**
    * Bộ lọc quy tắc dự phòng khi Ollama offline
    */
-  _heuristicExtraction(text, categories = [], sections = {}) {
+  _heuristicExtraction(text, categories = [], sections = {}, options = {}) {
     const rawLines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
     
     // Loại bỏ tiền tố nhãn nếu có
     const cleanLine = (line) =>
-      line.replace(/^(TIÊU ĐỀ|TÊN SỰ KIỆN|TITLE|MÔ TẢ NGẮN|MÔ TẢ|DESCRIPTION)\s*[:：\-–]\s*/i, '').trim();
+      line.replace(/^(TIÊU ĐỀ|TÊN SỰ KIỆN|TITLE|MÔ TẢ NGẮN|MÔ TẢ|DESCRIPTION|ĐỊA ĐIỂM|NƠI TỔ CHỨC|VENUE|THỜI GIAN|TIME)\s*[:：\-–]\s*/i, '').trim();
 
     const title = sections.title
-      ? sections.title
+      ? cleanLine(sections.title)
       : (rawLines[0] ? cleanLine(rawLines[0]).slice(0, 150) : 'Sự kiện mới từ tài liệu');
 
     // Tìm ngày (dd/mm/yyyy hoặc yyyy-mm-dd hoặc dd.mm.yyyy)
@@ -325,8 +340,9 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     }
 
     // Tìm giờ (HH:mm)
-    let startTime = '09:00';
-    let endTime = '17:00';
+    let startTime = '';
+    let endTime = '';
+    let checkinTime = '';
     const timeMatches = [...text.matchAll(/(\b\d{1,2})[:h](\d{2})\b/gi)];
     if (timeMatches.length >= 1) {
       startTime = `${String(timeMatches[0][1]).padStart(2, '0')}:${timeMatches[0][2]}`;
@@ -335,20 +351,47 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       endTime = `${String(timeMatches[1][1]).padStart(2, '0')}:${timeMatches[1][2]}`;
     }
 
-    // Tìm giá vé
+    const checkinMatch = text.match(/(?:check[\s\-]?in|đón khách|mở cửa|đón tiếp)[^\d\n\r]*?(\d{1,2})[:h](\d{2})/i);
+    if (checkinMatch) {
+      checkinTime = `${String(checkinMatch[1]).padStart(2, '0')}:${checkinMatch[2]}`;
+    }
+
+    // Tìm địa điểm
+    let venueName = '';
+    let addressLine = '';
+    const venueMatch = text.match(/(?:Địa điểm|Nơi tổ chức|Venue|Địa chỉ)\s*[:：\-–]\s*([^\n\r]+)/i);
+    if (venueMatch) {
+      const fullLoc = cleanLine(venueMatch[1]).trim();
+      const parts = fullLoc.split(/[,-]\s*/);
+      if (parts.length > 1) {
+        venueName = parts[0].trim();
+        addressLine = parts.slice(1).join(', ').trim();
+      } else {
+        venueName = fullLoc;
+      }
+    }
+
+    // Tìm giá vé kèm mô tả
     const ticketTypes = [];
-    const priceRegex = /([A-Za-z0-9\sÀ-ỹ]+?)\s*[:\-–]\s*(\d{1,3}(?:[\.,]\d{3})*|\d+)\s*(?:vnđ|vnd|đ|k)/gi;
+    const priceRegex = /(?:[•\-\*\+]|\d+[\.\)])?\s*([A-Za-z0-9\sÀ-ỹ]+?)\s*[:\-–]\s*(\d{1,3}(?:[\.,]\d{3})*|\d+)\s*(?:vnđ|vnd|đ|k)(?:\s*[\(\-–:]\s*([^\n\)]+)\)?)?/gi;
     let pMatch;
     while ((pMatch = priceRegex.exec(text)) !== null) {
-      const rawName = cleanLine(pMatch[1]).trim();
+      const rawName = cleanLine(pMatch[1]).replace(/^[•\-\*\+]\s*/, '').trim();
       const rawPrice = pMatch[2].replace(/[\.,]/g, '');
       const priceNum = Number(rawPrice);
-      if (rawName.length < 40 && !isNaN(priceNum) && priceNum >= 0) {
+      const desc = pMatch[3] ? pMatch[3].trim() : '';
+      if (rawName.length > 1 && rawName.length < 50 && !isNaN(priceNum) && priceNum >= 0 && !ticketTypes.some((t) => t.name.toLowerCase() === rawName.toLowerCase())) {
+        let quantityNum = null;
+        const qtyMatch = pMatch[0].match(/(\d+)\s*(?:vé|chỗ|suất|slot)/i) ||
+                         text.match(new RegExp(`${rawName}[^\\n]*?(\\d+)\\s*(?:vé|chỗ|suất|slot)`, 'i'));
+        if (qtyMatch) {
+          quantityNum = Number(qtyMatch[1]);
+        }
         ticketTypes.push({
           name: rawName,
           price: priceNum,
-          quantity_total: 100,
-          description: '',
+          quantity_total: quantityNum,
+          description: desc,
         });
       }
     }
@@ -357,7 +400,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       ticketTypes.push({
         name: 'Vé Tiêu Chuẩn',
         price: 0,
-        quantity_total: 100,
+        quantity_total: null,
         description: 'Hạng vé chung tham gia sự kiện',
       });
     }
@@ -379,15 +422,22 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       ? this._formatDocumentToHtml(sections.description)
       : this._formatDocumentToHtml(text, title, shortDesc);
 
+    const organizerName = (options && options.organizerName) ? String(options.organizerName).trim() : '';
+    const tags = [];
+    if (organizerName) {
+      tags.push(organizerName);
+    }
+    tags.push('Sự kiện');
+
     return {
       title,
       category_id: matchedCategory,
       short_description: shortDesc,
       description: descriptionHtml,
       additional_terms: sections.additional_terms || '',
-      tags: ['Sự kiện', 'EventHub'],
-      venue_name: '',
-      address_line: '',
+      tags,
+      venue_name: venueName,
+      address_line: addressLine,
       ward: '',
       district: '',
       province: '',
@@ -395,13 +445,14 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         start_date: foundDate,
         start_time: startTime,
         end_time: endTime,
+        checkin_start_time: checkinTime,
       },
       ticket_types: ticketTypes,
       refund_policy: {
         allow_refunds: !/không\s*hoàn\s*(?:vé|tiền)|không\s*được\s*hoàn\s*trả|non-refundable/i.test(text),
         deadline_days: 7,
       },
-      missing_fields: ['venue_name', 'address_line'],
+      missing_fields: venueName ? [] : ['venue_name'],
     };
   }
 
@@ -627,9 +678,37 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
   }
 
   /**
+   * Chuẩn hóa giờ sang định dạng HH:mm
+   */
+  _normalizeTime(timeStr, defaultTime = '') {
+    if (!timeStr || typeof timeStr !== 'string') return defaultTime;
+    const clean = timeStr.trim();
+    if (!clean) return defaultTime;
+    const ampmMatch = clean.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+    if (ampmMatch) {
+      let h = parseInt(ampmMatch[1], 10);
+      const m = ampmMatch[2] ? parseInt(ampmMatch[2], 10) : 0;
+      const isPM = ampmMatch[3].toUpperCase() === 'PM';
+      if (isPM && h < 12) h += 12;
+      if (!isPM && h === 12) h = 0;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    const match = clean.match(/(\d{1,2})[:h](\d{2})/i) || clean.match(/^(\d{1,2})h?$/i);
+    if (match) {
+      let h = parseInt(match[1], 10);
+      let m = match[2] ? parseInt(match[2], 10) : 0;
+      if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+    }
+    return defaultTime;
+  }
+
+  /**
    * Chuẩn hóa và áp dụng quy tắc nghiệp vụ EventHub
    */
-  _sanitizeAndValidate(raw, categories = [], warnings = [], originalText = '', sections = {}) {
+  _sanitizeAndValidate(raw, categories = [], warnings = [], originalText = '', sections = {}, options = {}) {
     const data = { ...raw };
 
     const cleanPrefix = (str) =>
@@ -644,12 +723,21 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       data.title = cleanPrefix(data.title).slice(0, 200) || 'Sự kiện mới từ tài liệu';
     }
 
-    // 2. Danh mục
-    const validCat = categories.find((c) => c.id === data.category_id);
+    // 2. Danh mục: Ưu tiên so khớp ID, tên/slug, hoặc từ khóa trong văn bản
+    let validCat = categories.find((c) => String(c.id).toLowerCase() === String(data.category_id).toLowerCase());
+    if (!validCat) {
+      const target = String(data.category_id || '').toLowerCase().trim();
+      validCat = categories.find((c) => c.name.toLowerCase() === target || (c.slug && c.slug.toLowerCase() === target));
+    }
+    if (!validCat) {
+      const searchText = `${data.title} ${originalText}`.toLowerCase();
+      validCat = categories.find((c) => searchText.includes(c.name.toLowerCase()));
+    }
     if (!validCat && categories.length > 0) {
-      data.category_id = categories[0]?.id || '';
+      validCat = categories[0];
       warnings.push('Danh mục chưa xác định rõ trong tài liệu, đã đặt mặc định.');
     }
+    data.category_id = validCat?.id || '';
 
     // 3. Tóm tắt & Mô tả đầy đủ (Thông tin sự kiện)
     if (sections && sections.short_description) {
@@ -687,11 +775,35 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     }
 
     // 4. Địa điểm
-    data.venue_name = String(data.venue_name || '').trim();
-    data.address_line = String(data.address_line || '').trim();
+    let venueName = String(data.venue_name || '').trim();
+    let addressLine = String(data.address_line || '').trim();
     data.ward = String(data.ward || '').trim();
     data.district = String(data.district || '').trim();
     data.province = String(data.province || '').trim();
+
+    // KIỂM TRA GROUND TRUTH: Nếu AI trích xuất venue_name nhưng tên này HOÀN TOÀN KHÔNG XUẤT HIỆN trong văn bản gốc
+    // (hoặc AI nhầm tên nhà tổ chức thành tên địa điểm), loại bỏ hallucination này!
+    if (venueName) {
+      const lowerOriginal = (originalText || '').toLowerCase();
+      const lowerVenue = venueName.toLowerCase();
+      const lowerOrg = (options?.organizerName ? String(options.organizerName).trim() : '').toLowerCase();
+
+      const isFakeFromOrg = lowerOrg && lowerVenue === lowerOrg && !lowerOriginal.includes(lowerOrg);
+      const isHallucinated = !lowerOriginal.includes(lowerVenue) && !lowerOriginal.includes(lowerVenue.replace(/\s+/g, ' '));
+
+      if (isFakeFromOrg || isHallucinated) {
+        logger.warn(`[AiDocumentParser] Phát hiện địa điểm hallucination "${venueName}" không có trong tài liệu gốc. Đã xóa bỏ.`);
+        venueName = '';
+        addressLine = '';
+      }
+    }
+
+    if (!venueName) {
+      warnings.push('Chưa tìm thấy địa điểm cụ thể trong tài liệu. Vui lòng chọn hoặc tạo địa điểm mới.');
+    }
+
+    data.venue_name = venueName;
+    data.address_line = addressLine;
 
     // Chuẩn hóa tên tỉnh thành về chuẩn hành chính Việt Nam
     const normProv = (data.province || '').toLowerCase();
@@ -732,49 +844,93 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       }
     }
 
-    // 5. Phiên sự kiện & Kiểm tra quy tắc 3 tuần
-    const minValidDate = this.getSuggestedMinDate();
+    // 5. Phiên sự kiện: Giữ nguyên ngày diễn ra chính xác từ tài liệu (bỏ ràng buộc 21 ngày)
     let startDate = data.session?.start_date;
-
     const isValidFormat = startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate);
-    let isFarEnough = false;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
 
     if (isValidFormat) {
       const parsedDate = new Date(`${startDate}T00:00:00`);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
       const diffDays = Math.ceil((parsedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays >= MIN_WEEKS_DAYS) {
-        isFarEnough = true;
+      if (diffDays < 0) {
+        warnings.push(`Ngày sự kiện trong tài liệu (${startDate}) đã diễn ra trong quá khứ. Vui lòng chọn ngày trong tương lai.`);
+      } else if (diffDays <= 10) {
+        warnings.push(
+          'Hệ thống có thể sẽ mất khoảng từ 3 đến 4 ngày hoặc có thể hơn để duyệt sự bạn, hãy đảm bảo rằng điều đó sẽ không ảnh hưởng đến kế hoạch diễn ra sự kiện sắp tới của bạn. Hãy đảm bảo rằng bạn đã có kế hoạch và sẵn sàng nếu sự kiện được duyệt trễ hơn dự kiện.'
+        );
       }
+    } else {
+      startDate = this.getSuggestedMinDate();
+      warnings.push(`Chưa tìm thấy ngày diễn ra sự kiện trong tài liệu, hệ thống đã gợi ý ngày ${startDate}.`);
     }
 
-    if (!isFarEnough) {
-      warnings.push(
-        `Ngày sự kiện trong tài liệu (${startDate || 'chưa có'}) không đáp ứng quy định tối thiểu 3 tuần trước ngày tổ chức. Hệ thống đã gợi ý ngày hợp lệ là ${minValidDate}.`
-      );
-      startDate = minValidDate;
-    }
+    // Kiểm tra xem trong tài liệu gốc có đề cập đến giờ giấc hay không
+    const hasAnyTimeInDoc = /(?:\b\d{1,2}[:h]\d{2}\b|\b\d{1,2}\s*(?:giờ|h)\b|\b\d{1,2}\s*(?:am|pm)\b)/i.test(originalText);
 
-    const startTime = data.session?.start_time || '09:00';
-    const endTime = data.session?.end_time || '17:00';
+    let startTime = '';
+    let endTime = '';
+    let checkinTime = '';
+
+    if (hasAnyTimeInDoc) {
+      startTime = this._normalizeTime(data.session?.start_time, '');
+      endTime = this._normalizeTime(data.session?.end_time, '');
+
+      // Đảm bảo endTime diễn ra sau startTime nếu cùng ngày
+      if (startTime && endTime && endTime <= startTime) {
+        const [sh, sm] = startTime.split(':').map(Number);
+        const newEh = Math.min(23, sh + 2);
+        endTime = `${String(newEh).padStart(2, '0')}:${String(sm).padStart(2, '0')}`;
+        if (endTime <= startTime) {
+          endTime = '23:59';
+        }
+      }
+
+      // Chỉ lấy checkinTime nếu tài liệu có đề cập đến checkin/đón khách
+      const hasCheckinMention = /(?:check[\s\-]?in|đón khách|mở cửa|đón tiếp)/i.test(originalText);
+      if (hasCheckinMention) {
+        checkinTime = this._normalizeTime(data.session?.checkin_start_time, '');
+        if (!checkinTime && startTime) {
+          const [sh, sm] = startTime.split(':').map(Number);
+          const totalMin = Math.max(0, sh * 60 + sm - 30);
+          const chH = Math.floor(totalMin / 60);
+          const chM = totalMin % 60;
+          checkinTime = `${String(chH).padStart(2, '0')}:${String(chM).padStart(2, '0')}`;
+        }
+      }
+    } else {
+      logger.info('[AiDocumentParser] Tài liệu không chứa thông tin giờ giấc. Giữ trống start_time, end_time, checkin_start_time.');
+      warnings.push('Chưa tìm thấy giờ bắt đầu / kết thúc và check-in trong tài liệu. Vui lòng tự bổ sung ở Bước 2.');
+    }
 
     data.sessions = [
       {
         start_date: startDate,
         start_time: startTime,
         end_time: endTime,
+        checkin_start_time: checkinTime,
       },
     ];
 
     // 6. Hạng vé (ticket_types)
     const rawTickets = Array.isArray(data.ticket_types) ? data.ticket_types : [];
     const validTickets = [];
+    const hasAnyQtyMention = /(?:\b\d+\s*(?:vé|chỗ|suất|slot|tickets?)\b)/i.test(originalText);
 
     rawTickets.forEach((t, idx) => {
       const name = String(t.name || '').trim() || `Hạng vé ${idx + 1}`;
       const price = Math.max(0, Math.round(Number(t.price) || 0));
-      const quantity = Math.max(1, Math.round(Number(t.quantity_total) || 100));
+
+      let quantity = null;
+      if (t.quantity_total !== null && t.quantity_total !== undefined && !isNaN(Number(t.quantity_total))) {
+        const qNum = Math.round(Number(t.quantity_total));
+        // Nếu trong tài liệu gốc KHÔNG hề có bất kỳ số lượng vé nào (ví dụ user chỉ ghi giá vé),
+        // thì số 100 hay bất kỳ số nào do AI sinh ra đều là tự bịa!
+        if (qNum > 0 && hasAnyQtyMention) {
+          quantity = qNum;
+        }
+      }
+
       validTickets.push({
         name,
         price,
@@ -787,10 +943,12 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       validTickets.push({
         name: 'Vé Tiêu Chuẩn',
         price: 0,
-        quantity_total: 100,
+        quantity_total: null,
         description: 'Hạng vé chung tham gia sự kiện',
       });
       warnings.push('Tài liệu chưa có thông tin giá vé. Hệ thống đã khởi tạo 1 hạng vé mặc định.');
+    } else if (validTickets.some((t) => t.quantity_total === null)) {
+      warnings.push('Một số hạng vé chưa có số lượng trong tài liệu. Vui lòng nhập số lượng vé khi chỉnh sửa.');
     }
 
     data.ticket_types = validTickets;
@@ -801,6 +959,21 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       allow_refunds: isNonRefundableInText ? false : Boolean(data.refund_policy?.allow_refunds),
       deadline_days: Number(data.refund_policy?.deadline_days) || 7,
     };
+
+    // 8. Tags: Không cần tag eventhub, lấy tên nhà tổ chức gắn cho tags
+    const organizerName = (options && options.organizerName) ? String(options.organizerName).trim() : '';
+    let rawTags = Array.isArray(data.tags) ? data.tags : [];
+    let cleanTags = rawTags
+      .map((t) => String(t || '').trim())
+      .filter((t) => t.length > 0 && !/^eventhub$/i.test(t));
+
+    if (organizerName && !cleanTags.some((t) => t.toLowerCase() === organizerName.toLowerCase())) {
+      cleanTags.unshift(organizerName);
+    }
+    if (cleanTags.length === 0) {
+      cleanTags = organizerName ? [organizerName, 'Sự kiện'] : ['Sự kiện'];
+    }
+    data.tags = cleanTags;
 
     return data;
   }
