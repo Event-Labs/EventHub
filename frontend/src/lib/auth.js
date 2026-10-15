@@ -80,23 +80,68 @@ export function getRememberLoginPreference() {
   return localStorage.getItem(REMEMBER_LOGIN_KEY) !== 'false'
 }
 
-export function getUserRoles(user) {
+export function parseJwtPayload(token) {
+  if (!token || typeof token !== 'string') return null
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const decoded = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    )
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
+export function getUserRoles(user = getStoredUser()) {
+  const token = getAuthToken()
+  const jwtPayload = parseJwtPayload(token)
+
   const rawRoles = [
     user?.role,
     user?.role?.name,
+    user?.role_name,
+    user?.roleName,
     ...(Array.isArray(user?.roles) ? user.roles : []),
+    ...(Array.isArray(jwtPayload?.roles) ? jwtPayload.roles : []),
+    jwtPayload?.role,
+    jwtPayload?.role_name,
+    jwtPayload?.roleName,
   ].filter(Boolean)
 
-  return rawRoles
-    .map((role) => (typeof role === 'string' ? role : role?.name || role?.code))
-    .filter(Boolean)
-    .map((role) => role.toLowerCase())
+  return Array.from(
+    new Set(
+      rawRoles
+        .map((role) => (typeof role === 'string' ? role : role?.name || role?.code))
+        .filter(Boolean)
+        .map((role) => role.toLowerCase()),
+    ),
+  )
 }
 
-export function isAdminUser(user) {
+export function isAdminUser(user = getStoredUser()) {
   return getUserRoles(user).some((role) =>
     ['admin', 'super_admin', 'superadmin', 'administrator'].includes(role),
   )
+}
+
+export function getRoleDefaultPath(user = getStoredUser()) {
+  if (isAdminUser(user)) {
+    return '/admin'
+  }
+  const roles = getUserRoles(user)
+  if (roles.includes('organizer')) {
+    return '/organizer'
+  }
+  if (roles.includes('staff')) {
+    return '/staff'
+  }
+  return '/'
 }
 
 export function getPostLoginPath(user, redirectPath = '/') {
@@ -122,3 +167,4 @@ export function getPostLoginPath(user, redirectPath = '/') {
 
   return redirectPath || '/'
 }
+
