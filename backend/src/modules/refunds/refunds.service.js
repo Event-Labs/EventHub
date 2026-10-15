@@ -427,8 +427,8 @@ class RefundsService {
 
         await client.query('COMMIT');
 
-        // Notify customer of successful refund
-        try {
+        // Notify customer of successful refund asynchronously in background (no delay for HTTP response)
+        setImmediate(() => {
           notificationsService
             .createAndDispatch(
               {
@@ -441,9 +441,7 @@ class RefundsService {
               { email: refund.customer_email },
             )
             .catch((err) => logger.warn(`[NOTIFY_REFUND_SUCCESS_FAIL] ${err.message}`));
-        } catch (e) {
-          // ignore
-        }
+        });
 
         return this.mapRefund(updated);
       }

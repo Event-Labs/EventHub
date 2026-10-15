@@ -36,12 +36,21 @@ function statusMeta(ticket) {
     return { label: 'Đã hủy', className: 'bg-slate-500/15 text-slate-400 border border-slate-500/20' }
   }
   if (ticket.status === 'REFUNDED') {
-    return { label: 'Đã hoàn', className: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' }
+    return { label: 'Đã hoàn', className: 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.25)]' }
   }
   if (ticket.status === 'REFUND_PENDING') {
     return { label: 'Chờ hoàn tiền', className: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]' }
   }
   return { label: 'Hợp lệ', className: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.25)]' }
+}
+
+const STATUS_RANK = {
+  VALID: 1,          // 1. Ưu tiên vé hợp lệ lên đầu
+  REFUND_PENDING: 2, // 2. Chờ hoàn tiền
+  USED: 3,           // 3. Đã dùng
+  EXPIRED: 4,        // 4. Hết hạn
+  CANCELLED: 5,      // 5. Đã hủy
+  REFUNDED: 6,       // 6. Vé đã hoàn đưa xuống dưới
 }
 
 function venueLine(ticket) {
@@ -74,10 +83,37 @@ export function MyTicketsPage() {
     enabled: isAuthenticated,
   })
 
-  const tickets = useMemo(() => [...(ticketsQuery.data || [])].sort((a, b) => {
-    const difference = new Date(b.order?.created_at || b.created_at || 0) - new Date(a.order?.created_at || a.created_at || 0)
-    return difference || String(b.id).localeCompare(String(a.id))
-  }), [ticketsQuery.data])
+  const tickets = useMemo(() => {
+    const list = [...(ticketsQuery.data || [])]
+    return list.sort((a, b) => {
+      // 1. Phân loại theo độ ưu tiên trạng thái (VALID lên đầu, REFUNDED đưa xuống dưới)
+      const rankA = STATUS_RANK[a.status] ?? 99
+      const rankB = STATUS_RANK[b.status] ?? 99
+      if (rankA !== rankB) {
+        return rankA - rankB
+      }
+
+      // 2. Trong cùng nhóm trạng thái (đặc biệt là vé hợp lệ):
+      // Sắp xếp theo thời gian sự kiện gần nhất (session start_time)
+      const timeA = a.session?.start_time ? new Date(a.session.start_time).getTime() : 0
+      const timeB = b.session?.start_time ? new Date(b.session.start_time).getTime() : 0
+
+      if (timeA && timeB && timeA !== timeB) {
+        // Vé hợp lệ: sự kiện diễn ra sớm nhất (gần nhất) lên trước
+        if (a.status === 'VALID') {
+          return timeA - timeB
+        }
+        // Các vé khác: sự kiện gần nhất (mới nhất) lên trước
+        return timeB - timeA
+      }
+
+      // 3. Fallback: Thời gian đặt vé gần nhất
+      const orderA = new Date(a.order?.created_at || a.created_at || 0).getTime()
+      const orderB = new Date(b.order?.created_at || b.created_at || 0).getTime()
+      return orderB - orderA || String(b.id).localeCompare(String(a.id))
+    })
+  }, [ticketsQuery.data])
+
   const totalPages = Math.max(1, Math.ceil(tickets.length / TICKETS_PER_PAGE))
   const paginatedTickets = tickets.slice((page - 1) * TICKETS_PER_PAGE, page * TICKETS_PER_PAGE)
 
@@ -89,7 +125,7 @@ export function MyTicketsPage() {
   if (!isAuthenticated) return null
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="force-dark mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       {/* Header & Filter Bar aligned to the right */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <SectionHeader
@@ -126,10 +162,28 @@ export function MyTicketsPage() {
       )}
 
       {!ticketsQuery.isLoading && !ticketsQuery.isError && tickets.length === 0 && (
-        <div className="grid min-h-[360px] place-items-center">
-          <p className="text-center text-sm italic text-muted">
-            hiện chưa có vé nào......
-          </p>
+        <div className="grid min-h-[340px] place-items-center py-12">
+          <div className="flex flex-col items-center gap-4 text-center px-4">
+            <div className="grid size-16 place-items-center rounded-full border border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] shadow-[0_0_20px_rgba(201,154,71,0.15)]">
+              <Ticket className="size-7 opacity-80" />
+            </div>
+            <p
+              className="text-base italic font-medium leading-relaxed max-w-lg select-none"
+              style={{ color: '#e2e8f0' }}
+            >
+              {status === 'ALL' ? (
+                'Hiện chưa có vé sự kiện nào.'
+              ) : (
+                <>
+                  Hiện không có vé sự kiện nào thuộc mục{' '}
+                  <span className="font-bold not-italic" style={{ color: '#E6C17A' }}>
+                    &ldquo;{FILTERS.find((f) => f.value === status)?.label || status}&rdquo;
+                  </span>
+                  .
+                </>
+              )}
+            </p>
+          </div>
         </div>
       )}
 
@@ -197,6 +251,7 @@ function TicketCard({ ticket }) {
   // Các vé hợp lệ hoặc chờ hoàn tiền thì hiện màu sẵn, vé hết hạn/hủy thì không còn màu
   const isValid = ticket.status === 'VALID'
   const isRefundPending = ticket.status === 'REFUND_PENDING'
+  const isRefunded = ticket.status === 'REFUNDED'
   const isVibrant = isValid || isRefundPending
   const isExpired = ticket.status === 'EXPIRED' || ticket.status === 'CANCELLED'
 
@@ -207,18 +262,22 @@ function TicketCard({ ticket }) {
         ? 'border-primary/40 shadow-[0_8px_32px_0_rgba(6,182,212,0.18)] hover:border-primary/70 hover:shadow-[0_8px_32px_0_rgba(6,182,212,0.35)] hover:-translate-y-1'
         : isRefundPending
           ? 'border-amber-500/40 shadow-[0_8px_32px_0_rgba(245,158,11,0.18)] hover:border-amber-500/70 hover:shadow-[0_8px_32px_0_rgba(245,158,11,0.35)] hover:-translate-y-1'
-          : isExpired
-            ? 'border-white/5 opacity-55 grayscale hover:opacity-85 hover:grayscale-0 hover:border-white/20'
-            : 'border-white/10 opacity-75 hover:opacity-100 hover:border-[#E6C17A]/30'
+          : isRefunded
+            ? 'border-purple-500/30 opacity-80 hover:opacity-100 hover:border-purple-400/60 hover:shadow-[0_8px_32px_0_rgba(168,85,247,0.25)]'
+            : isExpired
+              ? 'border-white/5 opacity-55 grayscale hover:opacity-85 hover:grayscale-0 hover:border-white/20'
+              : 'border-white/10 opacity-75 hover:opacity-100 hover:border-[#E6C17A]/30'
         }`}
     >
-      {/* Nền radial glow: Vé hợp lệ hoặc chờ hoàn tiền luôn hiện màu sẵn */}
+      {/* Nền radial glow */}
       <div
         className={`absolute inset-0 -z-10 transition-opacity duration-300 ${isValid
           ? 'bg-[radial-gradient(circle_at_50%_100%,_rgba(201,154,71,0.25)_0%,_transparent_65%)] opacity-20 group-hover:opacity-35'
           : isRefundPending
             ? 'bg-[radial-gradient(circle_at_50%_100%,_rgba(245,158,11,0.3)_0%,_transparent_65%)] opacity-25 group-hover:opacity-40'
-            : 'opacity-0'
+            : isRefunded
+              ? 'bg-[radial-gradient(circle_at_50%_100%,_rgba(168,85,247,0.25)_0%,_transparent_65%)] opacity-20 group-hover:opacity-35'
+              : 'opacity-0'
           }`}
       />
 
@@ -269,7 +328,9 @@ function TicketCard({ ticket }) {
           ? 'border border-primary/30 bg-primary/15 text-primary shadow-[0_0_15px_rgba(6,182,212,0.25)]'
           : isRefundPending
             ? 'border border-amber-500/30 bg-amber-500/15 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
-            : 'border border-white/5 bg-white/5 text-slate-400 shadow-none'
+            : isRefunded
+              ? 'border border-purple-500/30 bg-purple-500/15 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.25)]'
+              : 'border border-white/5 bg-white/5 text-slate-400 shadow-none'
           }`}>
           <Clock3 className="size-4 shrink-0" />
           <span className="truncate">{'Mua lúc '}{formatDateTime(ticket.order?.created_at)}</span>

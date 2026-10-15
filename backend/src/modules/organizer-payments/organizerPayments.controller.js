@@ -46,6 +46,17 @@ class OrganizerPaymentsController {
       next(error);
     }
   }
+
+  async getEgressGateway(req, res, next) {
+    try {
+      const organizerEgressService = require('../egress/organizerEgress.service');
+      const organizerId = await organizerPaymentsService.getOrganizerId(req.user.sub);
+      const egress = await organizerEgressService.ensureEgressGateway(organizerId);
+      res.json(ApiResponse.success(egress));
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new OrganizerPaymentsController();

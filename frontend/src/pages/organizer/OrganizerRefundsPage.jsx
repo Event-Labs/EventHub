@@ -152,7 +152,7 @@ export function OrganizerRefundsPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121b33] [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/95 [html.light_&]:shadow-md">
           {refundsQuery.isLoading ? (
             <div className="p-8 text-center text-sm text-slate-400 [html.light_&]:text-[#536b88]">Đang tải danh sách yêu cầu hoàn vé...</div>
           ) : filteredList.length === 0 ? (
@@ -165,20 +165,20 @@ export function OrganizerRefundsPage() {
             <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl">
               <div className="w-full overflow-x-auto">
                 <table className="w-full min-w-[880px] text-left text-sm">
-                  <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
+                  <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white [html.light_&]:border-b-[#C99A47]/20 [html.light_&]:bg-[#F5EBDD]/70 [html.light_&]:text-[#1B365D]">
                     <tr>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Mã YC / Ngày</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vé / Người mua</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Số tiền hoàn</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Lý do</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Thao tác</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Mã YC / Ngày</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Sự kiện</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Vé / Người mua</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Số tiền hoàn</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Lý do</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Trạng thái</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap text-center">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                  <tbody className="divide-y divide-white/5 font-medium text-slate-300 [html.light_&]:divide-slate-200 [html.light_&]:text-[#1B365D]">
                     {filteredList.map((item) => (
-                      <tr key={item.id} className="hover:bg-white/[0.02]">
+                      <tr key={item.id} className="hover:bg-white/[0.02] [html.light_&]:hover:bg-[#F5EBDD]/40">
                         <td className="whitespace-nowrap px-3.5 py-3">
                           <p className="font-mono text-sm font-bold text-primary [html.light_&]:text-[#C99A47]">#{item.id.slice(0, 8)}</p>
                           <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88] mt-0.5">{formatDateTime(item.created_at)}</p>
