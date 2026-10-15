@@ -22,7 +22,25 @@ def main():
     all_samples.extend(generate_review_samples())
     all_samples.extend(generate_content_samples())
     
-    print(f"Aggregating {len(all_samples)} training samples...")
+    # Merge real-world customer conversations collected by backend
+    collected_path = os.path.join(settings.data_dir, "collected_chat_logs.jsonl")
+    if os.path.exists(collected_path):
+        collected_count = 0
+        with open(collected_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if "messages" in data and len(data["messages"]) >= 2:
+                        all_samples.append({"messages": data["messages"]})
+                        collected_count += 1
+                except Exception as e:
+                    pass
+        print(f"Loaded {collected_count} real-world customer interaction samples from {collected_path}")
+
+    print(f"Aggregating {len(all_samples)} total training samples...")
     
     with open(settings.dataset_path, 'w', encoding='utf-8') as f:
         for sample in all_samples:

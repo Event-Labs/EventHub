@@ -301,10 +301,10 @@ function VenueFormModal({ open, editVenue, onClose, onSaved }) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="flex max-h-[90vh] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content">
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
-          <h2 className="text-lg font-bold text-content">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4">
+          <h2 className="text-xl font-black text-white">
             {editVenue ? 'Sửa địa điểm' : 'Thêm địa điểm'}
           </h2>
           <button type="button" onClick={onClose} className="text-2xl leading-none text-muted hover:text-content transition-colors">
@@ -489,17 +489,17 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030818]/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="flex max-h-[90vh] w-full max-w-[850px] flex-col overflow-hidden rounded-2xl bg-surface border border-border-soft/30 shadow-2xl text-content">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-[850px] flex-col overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-soft/20 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary border border-tertiary/20">
               <MapPin className="size-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-content">{venue.name}</h2>
-              <p className="text-xs text-subtle">Chi tiết địa điểm tổ chức</p>
+              <h2 className="text-xl font-black text-white">{venue.name}</h2>
+              <p className="text-xs text-slate-300">Chi tiết địa điểm tổ chức</p>
             </div>
           </div>
           <button
@@ -797,9 +797,9 @@ export function OrganizerVenuesPage() {
     >
       <div className="mb-5">
         <div className="relative w-72 max-w-full">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
           <input
-            className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft pl-10 pr-3 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted"
+            className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-white/50"
             placeholder="Tìm theo tên, thành phố..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

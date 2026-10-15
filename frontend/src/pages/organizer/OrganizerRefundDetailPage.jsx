@@ -72,6 +72,9 @@ function resolveBankBin(bankInput) {
 }
 
 function getStatusBadge(status) {
+  if (status === 'PENDING') {
+    return <StatusBadge status={status} label="Chờ duyệt" tone="amber" />
+  }
   return <StatusBadge status={status} />
 }
 

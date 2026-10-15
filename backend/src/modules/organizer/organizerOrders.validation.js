@@ -30,7 +30,7 @@ const listAttendeesSchema = z.object({
 });
 
 const financialSummarySchema = z.object({
-  eventId: z.string().uuid(),
+  eventId: z.string().uuid().optional().nullable(),
   dateFrom: z
     .string()
     .trim()

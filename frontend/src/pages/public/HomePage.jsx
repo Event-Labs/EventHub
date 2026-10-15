@@ -327,12 +327,12 @@ export function HomePage() {
           >
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-5 -translate-y-1/2 text-cyan-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-5 -translate-y-1/2 text-white" />
                 <input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   placeholder="Tìm kiếm sự kiện, danh mục, địa điểm..."
-                  className="w-full rounded-full border border-cyan-500/25 bg-slate-900/60 py-4 pl-12 pr-4 text-content outline-none backdrop-blur-xl transition duration-300 focus:border-cyan-400 focus:bg-slate-900/90 shadow-[0_0_20px_rgba(6,182,212,0.12)] focus:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
+                  className="w-full rounded-full border border-cyan-500/25 bg-slate-900/60 py-4 pl-12 pr-4 font-normal text-white placeholder:text-white/50 outline-none backdrop-blur-xl transition duration-300 focus:border-cyan-400 focus:bg-slate-900/90 shadow-[0_0_20px_rgba(6,182,212,0.12)] focus:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
                 />
               </div>
               <button
