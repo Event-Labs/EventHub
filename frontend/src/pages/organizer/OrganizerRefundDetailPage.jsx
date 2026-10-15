@@ -230,9 +230,11 @@ export function OrganizerRefundDetailPage() {
     mutationFn: (payload) => processOrganizerRefund(refundId, payload),
     onSuccess: (data) => {
       toast.success(data?.message || 'Xử lý yêu cầu hoàn tiền thành công!')
-      queryClient.invalidateQueries({ queryKey: ['organizer-refund-detail', refundId] })
+      // Optimistically update the cache with the new status
+      queryClient.setQueryData(['organizer-refund-detail', refundId], (prev) => {
+        return prev ? { ...prev, ...data, status: 'REFUNDED' } : data
+      })
       queryClient.invalidateQueries({ queryKey: ['organizer-refunds'] })
-      refetch()
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || err.message || 'Không thể xử lý yêu cầu hoàn tiền.')
@@ -397,10 +399,10 @@ export function OrganizerRefundDetailPage() {
               <div className="flex items-center gap-3 z-10">
                 <div
                   className={`size-8 rounded-full flex items-center justify-center font-bold text-xs ${item.status === 'REFUNDED'
-                      ? 'bg-emerald-500 text-slate-950'
-                      : item.status === 'REJECTED'
-                        ? 'bg-red-500 text-white'
-                        : 'bg-primary text-slate-950 ring-4 ring-primary/20 animate-pulse [html.light_&]:bg-[#C99A47] [html.light_&]:text-[#0D1B2A] [html.light_&]:ring-[#C99A47]/30'
+                    ? 'bg-emerald-500 text-slate-950'
+                    : item.status === 'REJECTED'
+                      ? 'bg-red-500 text-white'
+                      : 'bg-primary text-slate-950 ring-4 ring-primary/20 animate-pulse [html.light_&]:bg-[#C99A47] [html.light_&]:text-[#0D1B2A] [html.light_&]:ring-[#C99A47]/30'
                     }`}
                 >
                   {item.status === 'REFUNDED' ? (
@@ -431,10 +433,10 @@ export function OrganizerRefundDetailPage() {
               <div className="flex items-center gap-3 z-10">
                 <div
                   className={`size-8 rounded-full flex items-center justify-center font-bold text-xs ${item.status === 'REFUNDED'
-                      ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
-                      : item.status === 'REJECTED'
-                        ? 'bg-red-500 text-white'
-                        : 'bg-white/10 text-slate-500 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-400'
+                    ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
+                    : item.status === 'REJECTED'
+                      ? 'bg-red-500 text-white'
+                      : 'bg-white/10 text-slate-500 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-400'
                     }`}
                 >
                   {item.status === 'REFUNDED' ? (
@@ -471,9 +473,6 @@ export function OrganizerRefundDetailPage() {
                     <ShieldCheck className="size-4 text-primary [html.light_&]:text-[#C99A47]" />
                     Quyết định xử lý <span className="text-red-400">*</span>
                   </h2>
-                  <span className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                    Vui lòng chọn quyết định trước để hiển thị biểu mẫu xử lý tương ứng
-                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -481,14 +480,14 @@ export function OrganizerRefundDetailPage() {
                   <div
                     onClick={() => setDecision('APPROVE')}
                     className={`cursor-pointer rounded-xl border p-4 transition-all flex items-start gap-3.5 ${decision === 'APPROVE'
-                        ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500 shadow-lg shadow-emerald-500/10 [html.light_&]:bg-emerald-50/80 [html.light_&]:border-emerald-500 [html.light_&]:ring-emerald-500'
-                        : 'border-white/10 bg-[#141e36] hover:border-white/20 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
+                      ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500 shadow-lg shadow-emerald-500/10 [html.light_&]:bg-emerald-50/80 [html.light_&]:border-emerald-500 [html.light_&]:ring-emerald-500'
+                      : 'border-white/10 bg-[#141e36] hover:border-white/20 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
                       }`}
                   >
                     <div
                       className={`mt-0.5 size-5 rounded-full border flex items-center justify-center shrink-0 ${decision === 'APPROVE'
-                          ? 'border-emerald-500 bg-emerald-500 text-slate-950'
-                          : 'border-slate-500 [html.light_&]:border-slate-300'
+                        ? 'border-emerald-500 bg-emerald-500 text-slate-950'
+                        : 'border-slate-500 [html.light_&]:border-slate-300'
                         }`}
                     >
                       {decision === 'APPROVE' && <Check className="size-3 stroke-[3]" />}
@@ -512,14 +511,14 @@ export function OrganizerRefundDetailPage() {
                   <div
                     onClick={() => setDecision('REJECT')}
                     className={`cursor-pointer rounded-xl border p-4 transition-all flex items-start gap-3.5 ${decision === 'REJECT'
-                        ? 'border-red-500 bg-red-500/10 ring-2 ring-red-500 shadow-lg shadow-red-500/10 [html.light_&]:bg-red-50/80 [html.light_&]:border-red-500 [html.light_&]:ring-red-500'
-                        : 'border-white/10 bg-[#141e36] hover:border-white/20 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
+                      ? 'border-red-500 bg-red-500/10 ring-2 ring-red-500 shadow-lg shadow-red-500/10 [html.light_&]:bg-red-50/80 [html.light_&]:border-red-500 [html.light_&]:ring-red-500'
+                      : 'border-white/10 bg-[#141e36] hover:border-white/20 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
                       }`}
                   >
                     <div
                       className={`mt-0.5 size-5 rounded-full border flex items-center justify-center shrink-0 ${decision === 'REJECT'
-                          ? 'border-red-500 bg-red-500 text-white'
-                          : 'border-slate-500 [html.light_&]:border-slate-300'
+                        ? 'border-red-500 bg-red-500 text-white'
+                        : 'border-slate-500 [html.light_&]:border-slate-300'
                         }`}
                     >
                       {decision === 'REJECT' && <X className="size-3 stroke-[3]" />}
@@ -550,9 +549,6 @@ export function OrganizerRefundDetailPage() {
                     <h2 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] uppercase tracking-wider">
                       Chọn phương thức thực hiện hoàn tiền <span className="text-red-400">*</span>
                     </h2>
-                    <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88] mt-1">
-                      Chọn cổng thanh toán PayOS tự động hoặc chuyển khoản trực tiếp qua ngân hàng
-                    </p>
                   </div>
 
                   {/* METHOD SELECTION CARDS */}
@@ -561,8 +557,8 @@ export function OrganizerRefundDetailPage() {
                     <div
                       onClick={() => setRefundMethod('PAYOS')}
                       className={`relative flex flex-col justify-between p-4 rounded-xl border cursor-pointer transition-all ${refundMethod === 'PAYOS'
-                          ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10 ring-2 ring-primary [html.light_&]:border-[#C99A47] [html.light_&]:bg-[#C99A47]/10 [html.light_&]:ring-[#C99A47]'
-                          : 'border-white/10 bg-[#141e36] hover:border-white/25 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
+                        ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10 ring-2 ring-primary [html.light_&]:border-[#C99A47] [html.light_&]:bg-[#C99A47]/10 [html.light_&]:ring-[#C99A47]'
+                        : 'border-white/10 bg-[#141e36] hover:border-white/25 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
                         }`}
                     >
                       <div className="space-y-2">
@@ -602,8 +598,8 @@ export function OrganizerRefundDetailPage() {
                     <div
                       onClick={() => setRefundMethod('MANUAL_BANK_TRANSFER')}
                       className={`relative flex flex-col justify-between p-4 rounded-xl border cursor-pointer transition-all ${refundMethod === 'MANUAL_BANK_TRANSFER'
-                          ? 'border-amber-400 bg-amber-400/10 shadow-lg shadow-amber-400/10 ring-2 ring-amber-400 [html.light_&]:border-amber-500 [html.light_&]:bg-amber-50/80 [html.light_&]:ring-amber-500'
-                          : 'border-white/10 bg-[#141e36] hover:border-white/25 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
+                        ? 'border-amber-400 bg-amber-400/10 shadow-lg shadow-amber-400/10 ring-2 ring-amber-400 [html.light_&]:border-amber-500 [html.light_&]:bg-amber-50/80 [html.light_&]:ring-amber-500'
+                        : 'border-white/10 bg-[#141e36] hover:border-white/25 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]/40'
                         }`}
                     >
                       <div className="space-y-2">
@@ -740,8 +736,8 @@ export function OrganizerRefundDetailPage() {
                             type="button"
                             onClick={() => setManualStep(1)}
                             className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg transition ${manualStep === 1
-                                ? 'bg-amber-400 text-slate-950 font-black'
-                                : 'bg-white/5 text-slate-300 hover:text-white [html.light_&]:bg-slate-100 [html.light_&]:text-slate-600 [html.light_&]:hover:text-slate-900'
+                              ? 'bg-amber-400 text-slate-950 font-black'
+                              : 'bg-white/5 text-slate-300 hover:text-white [html.light_&]:bg-slate-100 [html.light_&]:text-slate-600 [html.light_&]:hover:text-slate-900'
                               }`}
                           >
                             Bước 1: Chuyển tiền
@@ -751,8 +747,8 @@ export function OrganizerRefundDetailPage() {
                             type="button"
                             onClick={() => setManualStep(2)}
                             className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg transition ${manualStep === 2
-                                ? 'bg-amber-400 text-slate-950 font-black'
-                                : 'bg-white/5 text-slate-300 hover:text-white [html.light_&]:bg-slate-100 [html.light_&]:text-slate-600 [html.light_&]:hover:text-slate-900'
+                              ? 'bg-amber-400 text-slate-950 font-black'
+                              : 'bg-white/5 text-slate-300 hover:text-white [html.light_&]:bg-slate-100 [html.light_&]:text-slate-600 [html.light_&]:hover:text-slate-900'
                               }`}
                           >
                             Bước 2: Đối soát

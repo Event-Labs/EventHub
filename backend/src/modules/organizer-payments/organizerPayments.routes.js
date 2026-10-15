@@ -12,5 +12,6 @@ router.post('/channel', organizerPaymentsController.saveChannel);
 router.post('/channel/test', organizerPaymentsController.testConnection);
 router.post('/channel/payout', organizerPaymentsController.savePayoutChannel);
 router.post('/channel/payout/test', organizerPaymentsController.testPayoutConnection);
+router.get('/egress', organizerPaymentsController.getEgressGateway);
 
 module.exports = router;
