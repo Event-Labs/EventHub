@@ -432,14 +432,6 @@ function Step1EventInfo({
               <Icon name="info" className="text-tertiary" />
               Thông tin cơ bản
             </h3>
-            <button
-              type="button"
-              onClick={() => setIsAiModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110 active:scale-95"
-            >
-              <Sparkles className="size-4 animate-pulse" />
-              ✨ Tạo nội dung với AI
-            </button>
           </div>
           <div className="space-y-6">
             <div>
@@ -3646,36 +3638,49 @@ export function CreateEventPage() {
       }
     }
 
-    const sKey = newClientKey()
-    const extractedSession = aiData.sessions?.[0] || {}
-    const sessionDate = extractedSession.start_date || ''
+    const rawSessions = Array.isArray(aiData.sessions) && aiData.sessions.length > 0
+      ? aiData.sessions
+      : (aiData.session ? [aiData.session] : [{}])
 
-    const mappedSession = {
-      clientKey: sKey,
-      session_name: extractedSession.session_name || 'Phiên sự kiện',
-      start_date: sessionDate,
-      start_time: extractedSession.start_time || '',
-      end_date: sessionDate,
-      end_time: extractedSession.end_time || '',
-      venue_id: defaultVenueId,
-      seat_map_id: aiData.seat_map_id || null,
-      seating_type: aiData.seat_map_id ? (aiData.seating_type || 'ASSIGNED_SEATS') : 'GENERAL',
-      zone_assignments: [],
-      checkin_start_date: sessionDate,
-      checkin_start_time: extractedSession.checkin_start_time || '',
-    }
+    const mappedSessions = rawSessions.map((s, idx) => {
+      const sKey = newClientKey()
+      const sessionDate = s.start_date || ''
+      return {
+        clientKey: sKey,
+        session_name: s.session_name || (rawSessions.length > 1 ? `Phiên ${idx + 1}` : 'Phiên sự kiện'),
+        start_date: sessionDate,
+        start_time: s.start_time || '',
+        end_date: s.end_date || sessionDate,
+        end_time: s.end_time || '',
+        venue_id: defaultVenueId,
+        seat_map_id: aiData.seat_map_id || null,
+        seating_type: aiData.seat_map_id ? (aiData.seating_type || 'ASSIGNED_SEATS') : 'GENERAL',
+        zone_assignments: [],
+        checkin_start_date: s.checkin_start_date || sessionDate,
+        checkin_start_time: s.checkin_start_time || '',
+      }
+    })
 
-    const rawTickets = Array.isArray(aiData.ticket_types) ? aiData.ticket_types : []
-    const mappedTicketTypes = rawTickets.map((tt) => ({
-      clientKey: newClientKey(),
-      session_key: sKey,
-      name: tt.name || 'Vé Tiêu Chuẩn',
-      description: tt.description || '',
-      price: tt.price !== null && tt.price !== undefined ? Number(tt.price) : 0,
-      quantity: (tt.quantity_total !== null && tt.quantity_total !== undefined && Number(tt.quantity_total) > 0) ? Number(tt.quantity_total) : '',
-      is_seated: false,
-      zone_id: null,
-    }))
+    const rawTickets = Array.isArray(aiData.ticket_types) && aiData.ticket_types.length > 0
+      ? aiData.ticket_types
+      : [{ name: 'Vé Tiêu Chuẩn', price: 0, quantity_total: null, description: '' }]
+
+    // Replicate tickets across all sessions so each session satisfies Step 3 validation
+    const mappedTicketTypes = []
+    mappedSessions.forEach((sess) => {
+      rawTickets.forEach((tt) => {
+        mappedTicketTypes.push({
+          clientKey: newClientKey(),
+          session_key: sess.clientKey,
+          name: tt.name || 'Vé Tiêu Chuẩn',
+          description: tt.description || '',
+          price: tt.price !== null && tt.price !== undefined && tt.price !== '' ? Number(tt.price) : 0,
+          quantity: (tt.quantity_total !== null && tt.quantity_total !== undefined && Number(tt.quantity_total) > 0) ? Number(tt.quantity_total) : '',
+          is_seated: false,
+          zone_id: null,
+        })
+      })
+    })
 
     const isRefundable = Boolean(aiData.refund_policy?.allow_refund ?? aiData.refund_policy?.allow_refunds)
 
@@ -3687,8 +3692,11 @@ export function CreateEventPage() {
       description: aiData.description || prev.description,
       additional_terms: aiData.additional_terms || prev.additional_terms,
       tags: Array.isArray(aiData.tags) && aiData.tags.length > 0 ? aiData.tags : prev.tags,
-      sessions: [mappedSession],
+      sessions: mappedSessions.length > 0 ? mappedSessions : prev.sessions,
       ticketTypes: mappedTicketTypes.length > 0 ? mappedTicketTypes : prev.ticketTypes,
+      require_attendee_info: aiData.require_attendee_information !== undefined
+        ? Boolean(aiData.require_attendee_information)
+        : prev.require_attendee_info,
       refund_policy: {
         ...prev.refund_policy,
         allow_refund: isRefundable,
