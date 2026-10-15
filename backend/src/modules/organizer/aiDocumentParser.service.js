@@ -552,6 +552,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     const checkinMatch = text.match(/(?:check[\s\-]?in|đón khách|mở cửa|đón tiếp)[^\d\n\r]*?(\d{1,2})[:h](\d{2})/i);
     if (checkinMatch) {
+
       checkinTime = `${String(checkinMatch[1]).padStart(2, '0')}:${checkinMatch[2]}`;
     }
 
