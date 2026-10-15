@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck } from 'lucide-react'
 import {
   fetchNotifications,
@@ -9,7 +9,7 @@ import {
   markNotificationRead,
 } from '@/services/notifications.js'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
-import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated, updateStoredUser } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getStoredUser, getStoredUserKey, getUserRoles, isAdminUser, isAuthenticated, updateStoredUser } from '@/lib/auth.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
@@ -101,8 +101,8 @@ function dedupeNavNotifications(items) {
 
 export function AppLayout() {
   const queryClient = useQueryClient()
-  const [loggedIn, setLoggedIn] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null)
+  const [loggedIn, setLoggedIn] = useState(() => isAuthenticated())
+  const [currentUser, setCurrentUser] = useState(() => (isAuthenticated() ? getStoredUser() : null))
   const [open, setOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const navigate = useNavigate()
@@ -154,19 +154,20 @@ export function AppLayout() {
   }
 
   const currentUserRoles = getUserRoles(currentUser)
+  const hasAdminRole = isAdminUser(currentUser)
   const hasOrganizerRole = currentUserRoles.includes('organizer')
   const hasStaffRole = currentUserRoles.includes('staff')
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'nav'],
     queryFn: () => fetchNotifications({ limit: 5 }),
-    enabled: loggedIn,
+    enabled: loggedIn && !hasAdminRole,
   })
 
   const staffEventsQuery = useQuery({
     queryKey: ['staff-events', 'nav'],
     queryFn: fetchAssignedStaffEvents,
-    enabled: loggedIn && hasStaffRole,
+    enabled: loggedIn && hasStaffRole && !hasAdminRole,
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
@@ -265,6 +266,27 @@ export function AppLayout() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  if (hasAdminRole) {
+    if (pathname === '/') {
+      return <Navigate to="/admin" replace />
+    }
+    if (
+      pathname.startsWith('/booking') ||
+      pathname === '/my-tickets' ||
+      pathname.startsWith('/tickets') ||
+      pathname === '/favorites' ||
+      pathname === '/feedback'
+    ) {
+      return <Navigate to="/admin" replace />
+    }
+    if (pathname === '/organizer-request' || pathname.startsWith('/organizer-request/')) {
+      return <Navigate to="/admin/organizer-requests" replace />
+    }
+    if (pathname === '/profile') {
+      return <Navigate to="/admin/profile" replace />
+    }
+  }
+
   return (
     <div className="force-dark flex min-h-screen flex-col text-content bg-transparent relative">
       <CosmicStarryBackground />
@@ -290,6 +312,7 @@ export function AppLayout() {
             />
             {centerNavItems.map(([label, to, requiresAuth]) => {
               if (requiresAuth && !loggedIn) return null;
+              if (requiresAuth && hasAdminRole) return null;
               return (
                 <NavLink
                   key={label}
@@ -321,6 +344,14 @@ export function AppLayout() {
             </div>
           ) : (
             <div ref={userActionsRef} className="relative flex items-center gap-3">
+              {hasAdminRole && (
+                <NavLink
+                  to="/admin"
+                  className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
+                >
+                  Trang quản trị
+                </NavLink>
+              )}
               {canOpenOrganizerPortal && (
                 <NavLink
                   to="/organizer"
@@ -433,7 +464,7 @@ export function AppLayout() {
                   <div className="py-1">
                     <NavLink
                       className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
-                      to="/profile"
+                      to={hasAdminRole ? "/admin/profile" : "/profile"}
                       onClick={() => setOpen(false)}
                     >
                       Hồ sơ cá nhân
@@ -441,6 +472,15 @@ export function AppLayout() {
                   </div>
 
                   <div className="border-t border-border-soft py-1">
+                    {hasAdminRole && (
+                      <NavLink
+                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
+                        to="/admin"
+                        onClick={() => setOpen(false)}
+                      >
+                        Quay lại trang quản trị
+                      </NavLink>
+                    )}
                     {canOpenOrganizerPortal && (
                       <NavLink
                         className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
@@ -459,7 +499,7 @@ export function AppLayout() {
                         Quay lại trang nhân sự
                       </NavLink>
                     )}
-                    {!canOpenOrganizerPortal && (
+                    {!canOpenOrganizerPortal && !hasAdminRole && (
                       <NavLink
                         className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
                         to="/organizer-request"
@@ -524,7 +564,7 @@ export function AppLayout() {
         </div>
       </footer>
       <ActiveHoldFloatingBar />
-      <CustomerAiAssistantWidget enabled={true} />
+      <CustomerAiAssistantWidget key={getStoredUserKey(currentUser) || 'guest'} enabled={loggedIn && !hasAdminRole} />
     </div>
   )
 }

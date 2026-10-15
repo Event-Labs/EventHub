@@ -1,15 +1,16 @@
 import { Eye, Lock, Mail, Phone, User } from 'lucide-react'
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { authService } from '@/services/auth.service.js'
 import { AuthLogo, AuthShell, Field } from './LoginPage.jsx'
 import { GoogleLogin } from '@react-oauth/google'
-import { getPostLoginPath, setAuthSession } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getPostLoginPath, getStoredUser, setAuthSession } from '@/lib/auth.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function RegisterPage() {
     const toast = useToast()
+    const navigate = useNavigate()
     const [form, setForm] = useState({
         full_name: '',
         email: '',
@@ -20,6 +21,18 @@ export function RegisterPage() {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
     const [loading, setLoading] = useState(false)
+
+    useEffect(() => {
+        const token = getAuthToken()
+        if (!token) return
+
+        try {
+            const user = getStoredUser()
+            navigate(getPostLoginPath(user, '/'), { replace: true })
+        } catch {
+            clearAuthSession()
+        }
+    }, [navigate])
 
     const handleRegister = async (e) => {
         e.preventDefault()
