@@ -394,7 +394,7 @@ export function TicketDetailPage() {
                   <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase backdrop-blur-md ${ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
                     ? 'bg-amber-500/25 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-500/40'
                     : ticket.status === 'REFUNDED'
-                      ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-emerald-500/30'
+                      ? 'bg-purple-500/20 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.25)] border border-purple-500/40'
                       : ticket.status === 'EXPIRED' || ticket.status === 'CANCELLED' || ticket.status === 'USED'
                         ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
                         : isEntryEligible
@@ -444,7 +444,7 @@ export function TicketDetailPage() {
                     <p className={`font-black text-sm uppercase tracking-wider drop-shadow-[0_0_10px_currentColor] ${ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
                       ? 'text-amber-400'
                       : ticket.status === 'REFUNDED'
-                        ? 'text-emerald-400'
+                        ? 'text-purple-400'
                         : 'text-slate-400'
                       }`}>
                       {ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
@@ -981,7 +981,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
         )
       case 'REFUNDED':
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-1 text-xs font-bold text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/15 px-3.5 py-1 text-xs font-bold text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)]">
             <CheckCircle2 className="size-3.5" /> Đã hoàn tiền thành công
           </span>
         )
@@ -1015,7 +1015,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
       <div className="relative z-10 w-full max-w-lg max-h-[88vh] flex flex-col rounded-[24px] border border-white/10 bg-[#0f172a] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Fixed Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-slate-900/90 backdrop-blur-md shrink-0">
-          <h3 className="text-base font-bold text-white tracking-wide">Chi tiết hoàn tiền vé</h3>
+          <h3 className="text-lg font-bold text-white tracking-wide">Chi tiết hoàn tiền vé</h3>
           <button
             type="button"
             onClick={onClose}
@@ -1031,11 +1031,11 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
           {/* Status & Amount highlight banner */}
           <div className="flex items-center justify-between gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
             <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái hoàn tiền</p>
+              <p className="text-[11px] font-bold text-white uppercase tracking-wider">Trạng thái hoàn tiền</p>
               <div className="mt-1.5">{getStatusBadge()}</div>
             </div>
             <div className="text-right">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Số tiền hoàn</p>
+              <p className="text-[11px] font-bold text-white uppercase tracking-wider">Số tiền hoàn</p>
               <p className="mt-1 text-xl font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
                 {formatCurrency(refundAmount)}
               </p>

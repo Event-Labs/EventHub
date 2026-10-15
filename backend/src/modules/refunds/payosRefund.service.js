@@ -7,32 +7,9 @@ try {
 
 const crypto = require('crypto');
 const logger = require('../../core/logger');
+const organizerEgressService = require('../egress/organizerEgress.service');
 
 const PAYOS_BASE_URL = process.env.PAYOS_BASE_URL || 'https://api-merchant.payos.vn';
-
-let cachedServerIp = null;
-let lastServerIpTime = 0;
-
-async function getServerIp() {
-  const now = Date.now();
-  if (cachedServerIp && now - lastServerIpTime < 300000) {
-    return cachedServerIp;
-  }
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal }).finally(() => clearTimeout(timeout));
-    const data = await res.json();
-    if (data?.ip) {
-      cachedServerIp = data.ip;
-      lastServerIpTime = now;
-      return cachedServerIp;
-    }
-  } catch (e) {
-    // fallback
-  }
-  return cachedServerIp || '171.231.199.214';
-}
 
 // VietQR Bank BIN mappings (NAPAS 24/7)
 const VIETQR_BANK_BINS = {
@@ -212,6 +189,35 @@ class PayOSRefundService {
       };
     }
 
+    // 1b. Resolve Dedicated Egress Gateway for Organizer
+    const organizerId = refundRequest?.organizer_id || channel?.organizer_id;
+    let egressGateway = null;
+    if (organizerId) {
+      try {
+        egressGateway = await organizerEgressService.ensureEgressGateway(organizerId);
+        const readyCheck = await organizerEgressService.verifyGatewayReady(organizerId);
+        if (!readyCheck.ready) {
+          logger.warn(
+            `[PAYOS_REFUND] Egress gateway not ready for organizerId=${organizerId}: ${readyCheck.reason}`
+          );
+          return {
+            success: false,
+            error: `Cổng Chi hộ chưa sẵn sàng: ${readyCheck.message || 'Chưa cấu hình Gateway IP tĩnh chuyên dụng cho Ban tổ chức'}. Vui lòng chọn phương thức "Chuyển khoản thủ công".`,
+            errorCode: readyCheck.reason || 'EGRESS_GATEWAY_NOT_READY',
+          };
+        }
+      } catch (egressErr) {
+        logger.error(
+          `[PAYOS_REFUND] Error resolving egress for organizerId=${organizerId}: ${egressErr.message}`
+        );
+        return {
+          success: false,
+          error: `Không thể xác định Gateway mạng của Ban tổ chức (${egressErr.message}). Vui lòng chọn phương thức "Chuyển khoản thủ công".`,
+          errorCode: 'EGRESS_RESOLUTION_FAILED',
+        };
+      }
+    }
+
     // 2. Check for mock/simulation in test or configured environment
     if (options.mockSuccess || process.env.PAYOS_MOCK_REFUND === 'true') {
       const mockTxId = `MOCK_PAYOS_RF_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -294,12 +300,17 @@ class PayOSRefundService {
 
       let response;
       try {
-        response = await fetch(endpoint, {
+        const outboundDispatcher = organizerId ? await organizerEgressService.getOutboundDispatcher(organizerId) : null;
+        const fetchOptions = {
           method: 'POST',
           headers,
           body: JSON.stringify(requestBody),
           signal: controller.signal,
-        });
+        };
+        if (outboundDispatcher) {
+          fetchOptions.dispatcher = outboundDispatcher;
+        }
+        response = await fetch(endpoint, fetchOptions);
       } finally {
         clearTimeout(timeoutId);
       }
@@ -339,8 +350,8 @@ class PayOSRefundService {
           errorDesc.toLowerCase().includes('ip') ||
           (response.status === 403 && (String(json.code) === '403' || String(json.code) === 'IP_BLOCKED'))
         ) {
-          const currentIp = await getServerIp();
-          errorDesc = `Cổng PayOS từ chối lệnh chi do IP máy chủ chưa được thêm vào IP Whitelist (${json.desc || errorDesc || 'Địa chỉ IP không được phép truy cập'}). Hệ thống đã lấy chính xác bộ khóa Kênh chi (Client ID: ${activeClientId?.slice(0, 8)}...). Vui lòng vào my.payos.vn > Kênh chi > Cài đặt > thêm địa chỉ IP "${currentIp}" vào danh sách "IP Whitelist", hoặc chọn phương thức "Chuyển khoản thủ công".`;
+          const realIp = await organizerEgressService.getRealPublicIp();
+          errorDesc = `Cổng PayOS từ chối lệnh chi do IP chưa được thêm vào IP Whitelist (${json.desc || errorDesc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound thực tế của máy chủ là: "${realIp}". Vui lòng vào my.payos.vn > Kênh chi > Cài đặt > thêm chính xác địa chỉ IP "${realIp}" vào danh sách "IP Whitelist" (xóa bỏ IP 198.51.100.1 nếu có), hoặc chọn phương thức "Chuyển khoản thủ công".`;
         } else if (
           response.status === 404 ||
           errorDesc.toLowerCase().includes('endpoint not found') ||

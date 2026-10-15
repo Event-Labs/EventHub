@@ -7,32 +7,9 @@ try {
 
 const organizerPaymentsRepository = require('./organizerPayments.repository');
 const organizerEventsRepository = require('../organizer/organizerEvents.repository');
+const organizerEgressService = require('../egress/organizerEgress.service');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
-
-let cachedServerIp = null;
-let lastServerIpTime = 0;
-
-async function getServerIp() {
-  const now = Date.now();
-  if (cachedServerIp && now - lastServerIpTime < 300000) {
-    return cachedServerIp;
-  }
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal }).finally(() => clearTimeout(timeout));
-    const data = await res.json();
-    if (data?.ip) {
-      cachedServerIp = data.ip;
-      lastServerIpTime = now;
-      return cachedServerIp;
-    }
-  } catch (e) {
-    // fallback
-  }
-  return cachedServerIp || '171.231.199.214';
-}
 
 class OrganizerPaymentsService {
   async getOrganizerId(userId) {
@@ -46,8 +23,9 @@ class OrganizerPaymentsService {
   async getChannel(userId) {
     const organizerId = await this.getOrganizerId(userId);
     const channel = await organizerPaymentsRepository.findChannelByOrganizerId(organizerId);
-    const server_ip = await getServerIp();
-    return channel ? { ...channel, server_ip } : { server_ip };
+    const egress = await organizerEgressService.ensureEgressGateway(organizerId);
+    const server_ip = egress?.egress_ip || null;
+    return channel ? { ...channel, server_ip, egress } : { server_ip, egress };
   }
 
   async saveChannel(userId, payload) {
@@ -201,6 +179,7 @@ class OrganizerPaymentsService {
 
       if (res.ok && (json.code === '00' || json.code === '0' || json.code === 0)) {
         await organizerPaymentsRepository.updatePayoutStatus(organizerId, 'ACTIVE');
+        await organizerEgressService.updateStatus(organizerId, 'ACTIVE');
         return {
           success: true,
           balance: json.data?.balance,
@@ -222,9 +201,9 @@ class OrganizerPaymentsService {
         json.desc?.toLowerCase().includes('địa chỉ ip') ||
         json.desc?.toLowerCase().includes('ip')
       ) {
-        const publicIp = await getServerIp();
+        const realIp = await organizerEgressService.getRealPublicIp();
         throw new AppError(
-          `Cổng PayOS từ chối do IP máy chủ chưa được thêm vào IP Whitelist (${json.desc || 'Địa chỉ IP không được phép truy cập'}). Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm IP "${publicIp}" vào danh sách "IP Whitelist".`,
+          `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${json.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound thực tế của máy chủ là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist" (xóa bỏ IP mock 198.51.100.1 nếu có).`,
           400,
           ErrorCodes.PAYMENT_PROVIDER_ERROR,
         );

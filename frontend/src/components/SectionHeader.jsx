@@ -12,7 +12,11 @@ export function SectionHeader({ eyebrow, title, description, action }) {
         <h2 className="font-display text-3xl font-black tracking-tight">
           {renderCosmicTitle(title)}
         </h2>
-        {description && <p className="mt-2 text-slate-400">{description}</p>}
+        {description && (
+          <p className="mt-2 text-slate-400" style={{ color: '#94a3b8' }}>
+            {description}
+          </p>
+        )}
       </div>
       {action}
     </div>
