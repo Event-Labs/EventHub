@@ -94,7 +94,12 @@ class AuthController {
 
             const { user, accessToken, refreshToken } = result;
 
-            res.cookie('refresh_token', refreshToken, this.cookieOptions);
+            const cookieOptions = { ...this.cookieOptions };
+            if (validatedData.remember === false) {
+                delete cookieOptions.maxAge;
+            }
+
+            res.cookie('refresh_token', refreshToken, cookieOptions);
             res.status(200).json(ApiResponse.success({ user, accessToken }, 'Login successful'));
         } catch (err) {
             next(err);
@@ -103,11 +108,16 @@ class AuthController {
 
     verifyLoginOtp = async (req, res, next) => {
         try {
-            const { challengeId, otp } = adminOtpSchema.parse(req.body);
+            const { challengeId, otp, remember } = adminOtpSchema.parse(req.body);
             const deviceInfo = getDeviceInfo(req);
             const { user, accessToken, refreshToken } = await authService.verifyLoginOtp(challengeId, otp, deviceInfo);
 
-            res.cookie('refresh_token', refreshToken, this.cookieOptions);
+            const cookieOptions = { ...this.cookieOptions };
+            if (remember === false) {
+                delete cookieOptions.maxAge;
+            }
+
+            res.cookie('refresh_token', refreshToken, cookieOptions);
             res.status(200).json(ApiResponse.success({ user, accessToken }, 'Login OTP verified'));
         } catch (err) {
             next(err);
@@ -118,7 +128,7 @@ class AuthController {
 
     googleLogin = async (req, res, next) => {
         try {
-            const { credential } = googleLoginSchema.parse(req.body);
+            const { credential, remember } = googleLoginSchema.parse(req.body);
             const deviceInfo = getDeviceInfo(req);
 
             const result = await authService.googleLogin(credential, deviceInfo);
@@ -135,7 +145,12 @@ class AuthController {
 
             const { user, accessToken, refreshToken } = result;
 
-            res.cookie('refresh_token', refreshToken, this.cookieOptions);
+            const cookieOptions = { ...this.cookieOptions };
+            if (remember === false) {
+                delete cookieOptions.maxAge;
+            }
+
+            res.cookie('refresh_token', refreshToken, cookieOptions);
             res.status(200).json(ApiResponse.success({ user, accessToken }, 'Google Login successful'));
         } catch (err) {
             next(err);

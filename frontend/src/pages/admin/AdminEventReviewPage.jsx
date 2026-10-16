@@ -22,6 +22,7 @@ import {
   Settings,
   Sliders,
   Play,
+  Square,
   Zap,
   Info,
   X,
@@ -39,6 +40,9 @@ import {
   fetchAdminAutoReviewSettings,
   updateAdminAutoReviewSettings,
   runAdminBatchAutoReview,
+  runAdminSingleAutoReview,
+  cancelAdminAutoReview,
+  fetchAdminAutoReviewScanStatus,
   fetchAdminReviewCriteria,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -118,6 +122,12 @@ export function AdminEventReviewPage() {
     queryFn: fetchAdminAutoReviewSettings,
   })
 
+  const { data: scanStatus } = useQuery({
+    queryKey: ['admin-auto-review-scan-status'],
+    queryFn: fetchAdminAutoReviewScanStatus,
+    refetchInterval: (query) => (query.state.data?.isRunning ? 2000 : 8000),
+  })
+
   const { data: criteriaList = [] } = useQuery({
     queryKey: ['admin-review-criteria'],
     queryFn: () => fetchAdminReviewCriteria(),
@@ -193,18 +203,44 @@ export function AdminEventReviewPage() {
     },
   })
 
-  const batchAutoReviewMutation = useMutation({
-    mutationFn: runAdminBatchAutoReview,
+  const runSingleAutoReviewMutation = useMutation({
+    mutationFn: runAdminSingleAutoReview,
     onSuccess: (res) => {
-      const { total_processed, approved_count, rejected_count, needs_review_count } = res
-      toast.success(
-        `Hoàn tất quét tự động ${total_processed} sự kiện: ${approved_count} đã duyệt, ${rejected_count} đã từ chối, ${needs_review_count} cần admin kiểm tra.`
-      )
+      if (res.cancelled) {
+        toast.info(res.message || 'Tiến trình quét đã được dừng theo yêu cầu.')
+      } else if (res.processed === 0) {
+        toast.info(res.message || 'Không có sự kiện nào cần quét lúc này.')
+      } else {
+        const title = res.eventTitle ? `"${res.eventTitle}"` : 'Sự kiện'
+        if (res.action === 'APPROVED') {
+          toast.success(`Hệ thống AI đã tự động phê duyệt sự kiện ${title}.`)
+        } else if (res.action === 'REJECTED') {
+          toast.error(`Hệ thống AI đã tự động từ chối sự kiện ${title}.`)
+        } else if (res.action === 'PRE_REVIEWED') {
+          toast.success(`Đã hoàn tất quét review trước cho ${title}. Kết quả đã sẵn sàng để Admin kiểm tra.`)
+        } else {
+          toast.info(`AI đã thẩm định ${title}: Cần Admin xem xét thêm (Needs Review).`)
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['admin-events'] })
       queryClient.invalidateQueries({ queryKey: ['admin-auto-review-settings'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể thực hiện quét tự động hàng loạt.'))
+      toast.error(getApiMessage(err, 'Không thể thực hiện quét duyệt sự kiện.'))
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
+    },
+  })
+
+  const cancelAutoReviewMutation = useMutation({
+    mutationFn: cancelAdminAutoReview,
+    onSuccess: (res) => {
+      toast.success(res.message || 'Đã gửi lệnh dừng tiến trình quét AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể hủy tiến trình quét.'))
     },
   })
 
@@ -381,6 +417,8 @@ export function AdminEventReviewPage() {
   const setNote = (eventId, value) =>
     setNotes((prev) => ({ ...prev, [eventId]: value }))
 
+  const isScanning = Boolean(scanStatus?.isRunning || runSingleAutoReviewMutation.isPending)
+
   return (
     <Page
       title="Duyệt Sự kiện"
@@ -391,9 +429,11 @@ export function AdminEventReviewPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3.5">
             <div className={`mt-0.5 grid size-11 shrink-0 place-items-center rounded-xl border shadow-inner ${
-              autoReviewSettings.auto_review_enabled
-                ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
-                : 'border-border-soft/60 bg-panel text-subtle'
+              isScanning
+                ? 'border-amber-400/50 bg-gradient-to-br from-amber-500/30 to-rose-600/30 text-amber-300 shadow-amber-500/20'
+                : autoReviewSettings.auto_review_enabled
+                  ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
+                  : 'border-border-soft/60 bg-panel text-subtle'
             }`}>
               <Bot className="size-6" />
             </div>
@@ -409,7 +449,7 @@ export function AdminEventReviewPage() {
                 {autoReviewSettings.auto_review_enabled ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-400 shadow-sm shadow-emerald-500/20">
                     <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
-                    ĐANG BẬT (TỰ ĐỘNG)
+                    {autoReviewSettings.auto_approve_enabled ? 'ĐANG BẬT (QUÉT 15P + TỰ ĐỘNG DUYỆT)' : 'ĐANG BẬT (QUÉT 15P REVIEW TRƯỚC)'}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-500/30 bg-zinc-500/10 px-2.5 py-0.5 text-xs font-bold text-zinc-400">
@@ -419,10 +459,10 @@ export function AdminEventReviewPage() {
                 )}
               </div>
               <p className="mt-1 text-xs text-subtle max-w-2xl leading-relaxed">
-                Tự động quét nội dung, thẩm định giấy phép đính kèm & hình ảnh, tự động phê duyệt nếu đạt chuẩn hoặc từ chối và gửi hướng dẫn khắc phục chi tiết cho Organizer.
+                Chu kỳ 15 phút quét đúng 1 sự kiện: Tự động phê duyệt nếu đạt chuẩn khi bật tự duyệt; hoặc quét review trước lưu kết quả thẩm định để Admin xem xét nếu tắt tự duyệt.
               </p>
 
-              {/* Stats badges */}
+              {/* Stats badges & Live Scanning status */}
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
                 <span className="inline-flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft/60 px-2.5 py-1 text-subtle">
                   Chờ duyệt: <strong className="text-amber-400">{autoReviewStats.pending_count}</strong>
@@ -433,6 +473,13 @@ export function AdminEventReviewPage() {
                 <span className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-950/20 px-2.5 py-1 text-rose-300">
                   AI Tự động từ chối: <strong className="text-rose-400">{autoReviewStats.auto_rejected_count}</strong>
                 </span>
+
+                {isScanning && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-2.5 py-1 text-amber-200 font-semibold animate-pulse">
+                    <RefreshCw className="size-3 animate-spin text-amber-400" />
+                    Đang quét 1 sự kiện: {scanStatus?.eventTitle ? `"${scanStatus.eventTitle}"` : 'Đang xử lý...'}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -454,16 +501,40 @@ export function AdminEventReviewPage() {
               <span>{autoReviewSettings.auto_review_enabled ? 'Bật tự động' : 'Tắt tự động'}</span>
             </button>
 
-            {/* Batch Run Button */}
-            <button
-              type="button"
-              disabled={batchAutoReviewMutation.isPending || autoReviewStats.pending_count === 0}
-              onClick={() => batchAutoReviewMutation.mutate()}
-              className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-gradient-to-r from-indigo-600 to-indigo-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-indigo-600/30 transition duration-200 hover:-translate-y-0.5 hover:from-indigo-500 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Play className={`size-4 ${batchAutoReviewMutation.isPending ? 'animate-spin' : ''}`} />
-              <span>{batchAutoReviewMutation.isPending ? 'Đang chạy...' : 'Quét duyệt tất cả'}</span>
-            </button>
+            {/* AI Run Button / Cancel Button */}
+            {isScanning ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={cancelAutoReviewMutation.isPending}
+                  onClick={() => {
+                    runSingleAutoReviewMutation.reset()
+                    cancelAutoReviewMutation.mutate()
+                    queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-4 py-2 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 hover:shadow-rose-600/30 active:scale-95 disabled:opacity-50"
+                  title="Dừng và hủy ngay tiến trình quét AI đang chạy"
+                >
+                  <Square className="size-3.5 fill-white text-white animate-pulse" />
+                  <span>{cancelAutoReviewMutation.isPending ? 'Đang dừng...' : 'Hủy tiến trình quét'}</span>
+                </button>
+                <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 bg-amber-500/20 px-2.5 py-1.5 rounded-xl border border-amber-500/30">
+                  <RefreshCw className="size-3 animate-spin text-amber-400" />
+                  Đang chạy AI...
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={runSingleAutoReviewMutation.isPending || autoReviewStats.pending_count === 0}
+                onClick={() => runSingleAutoReviewMutation.mutate()}
+                className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-gradient-to-r from-indigo-600 to-indigo-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-indigo-600/30 transition duration-200 hover:-translate-y-0.5 hover:from-indigo-500 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Thẩm định duy nhất 01 sự kiện đang chờ duyệt (mỗi lần chạy chỉ review 1 sự kiện)"
+              >
+                <Play className="size-4" />
+                <span>Quét duyệt AI (1 sự kiện)</span>
+              </button>
+            )}
 
             {/* Settings Button */}
             <button
@@ -1052,14 +1123,32 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     retry: false,
   })
 
+  const cancelMutation = useMutation({
+    mutationFn: cancelAdminAutoReview,
+    onSuccess: (res) => {
+      toast.success(res.message || 'Đã gửi lệnh dừng tiến trình quét AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-ai-review', eventId] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể hủy tiến trình quét.'))
+    },
+  })
+
   const runMutation = useMutation({
     mutationFn: () => runAdminAiReview(event),
     onSuccess: (data) => {
-      toast.success('Đã hoàn thành phân tích sự kiện bằng AI!')
-      queryClient.setQueryData(['admin-ai-review', eventId], data)
+      if (data?.cancelled) {
+        toast.info(data.message || 'Tiến trình quét đã được dừng theo yêu cầu.')
+      } else {
+        toast.success('Đã hoàn thành phân tích sự kiện bằng AI!')
+        queryClient.setQueryData(['admin-ai-review', eventId], data)
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Không thể chạy phân tích AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
   })
 
@@ -1170,15 +1259,32 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => runMutation.mutate()}
-          disabled={runMutation.isPending || reviewQuery.isLoading}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
-        >
-          <RefreshCw className={`size-3.5 ${runMutation.isPending ? 'animate-spin' : ''}`} />
-          {runMutation.isPending ? 'Đang phân tích...' : aiData ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
-        </button>
+        {runMutation.isPending ? (
+          <button
+            type="button"
+            onClick={() => {
+              runMutation.reset()
+              cancelMutation.mutate()
+              queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
+            }}
+            disabled={cancelMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-4 py-2 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 hover:shadow-rose-600/30 active:scale-95 disabled:opacity-50"
+            title="Dừng và hủy ngay tiến trình quét AI đang chạy"
+          >
+            <Square className="size-3.5 fill-white text-white animate-pulse" />
+            <span>{cancelMutation.isPending ? 'Đang dừng...' : 'Hủy tiến trình quét'}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => runMutation.mutate()}
+            disabled={runMutation.isPending || reviewQuery.isLoading}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
+          >
+            <RefreshCw className={`size-3.5 ${runMutation.isPending ? 'animate-spin' : ''}`} />
+            {aiData ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
+          </button>
+        )}
       </div>
 
       {/* Active AI Scanning Progress State */}
@@ -1187,9 +1293,15 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           <div className="flex items-start gap-3">
             <RefreshCw className="size-5 animate-spin text-indigo-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
-              <h5 className="text-xs font-bold text-indigo-300">
-                AI đang quét và phân tích đa tầng sự kiện...
-              </h5>
+              <div className="flex items-center justify-between">
+                <h5 className="text-xs font-bold text-indigo-300">
+                  AI đang quét và phân tích đa tầng sự kiện...
+                </h5>
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg">
+                  <span className="size-1.5 rounded-full bg-rose-400 animate-ping" />
+                  Có thể bấm "Hủy tiến trình quét" ở trên để dừng
+                </span>
+              </div>
               <div className="mt-1.5 space-y-1.5 text-xs text-slate-300">
                 <p className="flex items-center gap-2">
                   <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
@@ -1200,6 +1312,9 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                   <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả tiếng Việt & đối chiếu bộ điều khoản EventHub...</span>
                 </p>
               </div>
+              <p className="mt-2 text-[10px] text-slate-400 italic">
+                Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút "Hủy tiến trình quét" màu đỏ ở trên nếu bạn muốn dừng ngay lập tức.
+              </p>
             </div>
           </div>
         </div>
@@ -1506,7 +1621,7 @@ function AiAutoReviewSettingsModal({
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <label className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>Kích hoạt AI Tự động Đánh giá & Duyệt</span>
+                  <span>Kích hoạt AI Quét Thẩm định (Chu kỳ 15 phút / 1 sự kiện)</span>
                   {formState.auto_review_enabled && (
                     <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
                       Đang kích hoạt
@@ -1514,7 +1629,7 @@ function AiAutoReviewSettingsModal({
                   )}
                 </label>
                 <p className="text-xs text-slate-400">
-                  Khi bật, sự kiện gửi duyệt sẽ được AI quét toàn diện (giấy phép, ảnh, nội dung, lịch trình, giá vé).
+                  Cứ sau mỗi 15 phút, hệ thống tự động quét đúng 1 sự kiện đang chờ duyệt (hoặc Admin có thể bấm nút chạy thủ công bất cứ lúc nào).
                 </p>
               </div>
               <input
@@ -1544,7 +1659,8 @@ function AiAutoReviewSettingsModal({
                 />
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Tự động chuyển sự kiện sang trạng thái <strong>ĐÃ DUYỆT (COMPLETED)</strong> khi không có vi phạm và điểm chất lượng đạt chuẩn.
+                • <strong>BẬT</strong>: Sự kiện đạt chuẩn sẽ tự động chuyển sang <strong>ĐÃ DUYỆT (APPROVED)</strong>.<br />
+                • <strong>TẮT</strong>: Cứ sau 15p AI chỉ quét review trước cho Admin và đưa ra kết quả, giữ nguyên sự kiện ở trạng thái Chờ duyệt để Admin kiểm tra và quyết định.
               </p>
             </div>
 

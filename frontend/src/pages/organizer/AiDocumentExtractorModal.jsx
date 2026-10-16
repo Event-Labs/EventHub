@@ -18,15 +18,29 @@ import {
   HelpCircle,
   Tag,
   Check,
+  Paperclip,
+  ShieldCheck,
+  FileCheck,
 } from 'lucide-react'
 import { extractEventFromDocument } from '@/services/organizerEvents.js'
+import { uploadOrganizerDocument, uploadPolicyDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { VenueFormModal } from './OrganizerVenuesPage.jsx'
 import { SeatMapEditor } from './SeatMapEditor.jsx'
 
+function formatFileSize(bytes) {
+  if (!bytes || isNaN(bytes)) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i] || 'B'}`
+}
+
 export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = [], onVenuesUpdated }) {
   const toast = useToast()
   const fileInputRef = useRef(null)
+  const aiPermitInputRef = useRef(null)
+  const aiPolicyInputRef = useRef(null)
 
   // Input states
   const [activeTab, setActiveTab] = useState('file') // 'file' | 'text'
@@ -38,6 +52,12 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
   const [isProcessing, setIsProcessing] = useState(false)
   const [processStep, setProcessStep] = useState(1) // 1: reading, 2: ai extracting, 3: validating
   const [extractedResult, setExtractedResult] = useState(null)
+
+  // Quick Step 4 Document attachments states
+  const [aiPermitFiles, setAiPermitFiles] = useState([])
+  const [isUploadingPermit, setIsUploadingPermit] = useState(false)
+  const [aiPolicyDoc, setAiPolicyDoc] = useState(null)
+  const [isUploadingPolicy, setIsUploadingPolicy] = useState(false)
 
   // Quick Venue creation & Seat Map flow states
   const [isVenueModalOpen, setIsVenueModalOpen] = useState(false)
@@ -141,12 +161,128 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
     }
   }
 
+  // --- Quick Step 4 Document Upload Handlers ---
+  const handleAiPermitChange = async (e) => {
+    const rawFiles = Array.from(e.target.files || [])
+    if (!rawFiles.length) return
+
+    const invalidFiles = rawFiles.filter((f) => {
+      const ext = f.name.split('.').pop()?.toLowerCase()
+      return ext !== 'pdf' && f.type !== 'application/pdf'
+    })
+
+    if (invalidFiles.length > 0) {
+      toast.error(`Chỉ cho phép tải lên file định dạng PDF (.pdf). Đã bỏ qua ${invalidFiles.length} file không hợp lệ.`)
+    }
+
+    const files = rawFiles.filter((f) => {
+      const ext = f.name.split('.').pop()?.toLowerCase()
+      return ext === 'pdf' || f.type === 'application/pdf'
+    })
+
+    if (!files.length) {
+      if (aiPermitInputRef.current) aiPermitInputRef.current.value = ''
+      return
+    }
+
+    try {
+      setIsUploadingPermit(true)
+      const uploadedList = []
+      for (const file of files) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`File "${file.name}" vượt quá dung lượng tối đa 10MB`)
+          continue
+        }
+        const res = await uploadOrganizerDocument(file)
+        uploadedList.push({
+          id: `permit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: res.file_name || file.name,
+          url: res.url,
+          size: res.file_size || file.size,
+          type: res.mime_type || file.type || 'application/pdf',
+          uploaded_at: new Date().toISOString(),
+        })
+      }
+
+      setAiPermitFiles((prev) => [...prev, ...uploadedList])
+      if (uploadedList.length > 0) {
+        toast.success(`Đã tải lên thành công ${uploadedList.length} giấy phép (PDF)!`)
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error(err?.message || 'Không thể tải lên tài liệu pháp lý.')
+    } finally {
+      setIsUploadingPermit(false)
+      if (aiPermitInputRef.current) aiPermitInputRef.current.value = ''
+    }
+  }
+
+  const handleRemoveAiPermit = (permitId) => {
+    setAiPermitFiles((prev) => prev.filter((f) => f.id !== permitId))
+    toast.info('Đã xóa tài liệu khỏi danh sách.')
+  }
+
+  const handleAiPolicyChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (ext !== 'pdf' && file.type !== 'application/pdf') {
+      toast.error('Chỉ cho phép tải lên file chính sách định dạng PDF (.pdf)')
+      if (aiPolicyInputRef.current) aiPolicyInputRef.current.value = ''
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Kích thước file không được vượt quá 10MB')
+      if (aiPolicyInputRef.current) aiPolicyInputRef.current.value = ''
+      return
+    }
+
+    try {
+      setIsUploadingPolicy(true)
+      const res = await uploadPolicyDocument(file)
+      setAiPolicyDoc({
+        url: res.url,
+        file_name: res.file_name || file.name,
+        file_size: res.file_size || file.size,
+      })
+      toast.success('Đã tải lên file chính sách sự kiện (PDF)!')
+    } catch (err) {
+      console.error(err)
+      toast.error(err?.message || 'Không thể tải lên file chính sách.')
+    } finally {
+      setIsUploadingPolicy(false)
+      if (aiPolicyInputRef.current) aiPolicyInputRef.current.value = ''
+    }
+  }
+
+  const handleRemoveAiPolicy = () => {
+    setAiPolicyDoc(null)
+    toast.info('Đã xóa file chính sách.')
+  }
+
   const handleApplyToDraft = () => {
     if (!extractedResult || !extractedResult.data) return
     const appliedData = { ...extractedResult.data }
     if (matchedVenue) {
       appliedData.venue_id = matchedVenue.id
       appliedData.venue_name = matchedVenue.name
+    }
+    if (!appliedData.refund_policy) {
+      appliedData.refund_policy = {}
+    }
+    if (aiPermitFiles.length > 0) {
+      appliedData.permit_files = aiPermitFiles
+      appliedData.refund_policy.permit_files = aiPermitFiles
+    }
+    if (aiPolicyDoc?.url) {
+      appliedData.policy_file_url = aiPolicyDoc.url
+      appliedData.policy_file_name = aiPolicyDoc.file_name
+      appliedData.policy_file_size = aiPolicyDoc.file_size
+      appliedData.refund_policy.policy_file_url = aiPolicyDoc.url
+      appliedData.refund_policy.policy_file_name = aiPolicyDoc.file_name
+      appliedData.refund_policy.policy_file_size = aiPolicyDoc.file_size
     }
     onApply(appliedData)
     onClose()
@@ -162,6 +298,8 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
     setNewlyCreatedVenue(null)
     setIsSeatMapPromptOpen(false)
     setIsSeatMapEditorOpen(false)
+    setAiPermitFiles([])
+    setAiPolicyDoc(null)
   }
 
   // --- Quick Venue & Seat Map Handlers ---
@@ -506,6 +644,175 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                       </div>
                     </div>
                   )}
+
+                  {/* Quick Step 4 Documents Section */}
+                  <div className="pt-3 border-t border-neutral-800/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs text-neutral-300 font-semibold">
+                        <Paperclip className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Đính kèm hồ sơ & chính sách (Bước 4)</span>
+                      </div>
+                      <span className="text-[10px] text-neutral-400">
+                        Chỉ chấp nhận file <strong className="text-amber-400 font-mono">.pdf</strong>
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-neutral-400 leading-tight">
+                      Bạn có thể tải sẵn 2 file này tại đây, khi bấm &quot;Áp dụng&quot; hệ thống sẽ tự động import vào Bước 4 mà không cần tải lại.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Document 1: Giấy phép tổ chức sự kiện */}
+                      <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between space-y-2">
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              Giấy phép tổ chức
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium shrink-0">
+                              Bắt buộc (Bước 4)
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-neutral-400 leading-tight">
+                            Giấy phép biểu diễn, hợp đồng địa điểm...
+                          </p>
+                        </div>
+
+                        <input
+                          ref={aiPermitInputRef}
+                          type="file"
+                          multiple
+                          accept=".pdf,application/pdf"
+                          onChange={handleAiPermitChange}
+                          className="hidden"
+                        />
+
+                        {aiPermitFiles.length > 0 && (
+                          <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                            {aiPermitFiles.map((f) => (
+                              <div
+                                key={f.id}
+                                className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px]"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <FileText className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                  <span className="truncate text-neutral-300 font-medium" title={f.name}>
+                                    {f.name}
+                                  </span>
+                                  <span className="text-[10px] text-neutral-400 shrink-0">
+                                    ({formatFileSize(f.size)})
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAiPermit(f.id)}
+                                  className="text-neutral-400 hover:text-red-400 p-1 shrink-0 transition-colors cursor-pointer"
+                                  title="Xóa file"
+                                >
+                                  <CloseIcon className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div>
+                          <button
+                            type="button"
+                            disabled={isUploadingPermit}
+                            onClick={() => aiPermitInputRef.current?.click()}
+                            className="w-full py-2 px-2.5 rounded-lg border border-dashed border-neutral-700 hover:border-amber-500/50 hover:bg-neutral-800/60 text-[11px] text-neutral-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isUploadingPermit ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                                <span>Đang tải lên PDF...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-3 h-3 text-amber-400" />
+                                <span>{aiPermitFiles.length > 0 ? '+ Thêm file PDF khác' : 'Tải file Giấy phép (.pdf)'}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Document 2: Tài liệu chính sách đính kèm */}
+                      <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between space-y-2">
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1">
+                              <FileCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              Tài liệu chính sách
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700/60 font-medium shrink-0">
+                              Không bắt buộc
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-neutral-400 leading-tight">
+                            Quy định tham gia, chính sách hoàn vé bổ sung...
+                          </p>
+                        </div>
+
+                        <input
+                          ref={aiPolicyInputRef}
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          onChange={handleAiPolicyChange}
+                          className="hidden"
+                        />
+
+                        {aiPolicyDoc ? (
+                          <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px]">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <FileText className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                              <span className="truncate text-neutral-300 font-medium" title={aiPolicyDoc.file_name}>
+                                {aiPolicyDoc.file_name}
+                              </span>
+                              <span className="text-[10px] text-neutral-400 shrink-0">
+                                ({formatFileSize(aiPolicyDoc.file_size)})
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleRemoveAiPolicy}
+                              className="text-neutral-400 hover:text-red-400 p-1 shrink-0 transition-colors cursor-pointer"
+                              title="Xóa file"
+                            >
+                              <CloseIcon className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-neutral-400 italic py-1 text-center">
+                            Chưa có file (Có thể bỏ qua)
+                          </div>
+                        )}
+
+                        <div>
+                          <button
+                            type="button"
+                            disabled={isUploadingPolicy}
+                            onClick={() => aiPolicyInputRef.current?.click()}
+                            className="w-full py-2 px-2.5 rounded-lg border border-dashed border-neutral-700 hover:border-blue-500/50 hover:bg-neutral-800/60 text-[11px] text-neutral-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isUploadingPolicy ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                <span>Đang tải lên PDF...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-3 h-3 text-blue-400" />
+                                <span>{aiPolicyDoc ? 'Thay đổi file chính sách' : 'Tải file Chính sách (.pdf)'}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-3 bg-neutral-950/40 rounded-xl border border-neutral-800/60 text-xs text-neutral-400">
@@ -652,11 +959,21 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </button>
                 <button
                   type="button"
+                  disabled={isUploadingPermit || isUploadingPolicy}
                   onClick={handleApplyToDraft}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:from-neutral-800 disabled:to-neutral-800 disabled:text-neutral-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <span>Áp dụng vào bản nháp & Chỉnh sửa</span>
-                  <ArrowRight className="w-4 h-4" />
+                  {isUploadingPermit || isUploadingPolicy ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Đang tải tệp lên...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Áp dụng vào bản nháp & Chỉnh sửa</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </>
             ) : (

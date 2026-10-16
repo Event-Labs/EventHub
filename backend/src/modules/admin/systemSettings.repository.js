@@ -112,6 +112,44 @@ class SystemSettingsRepository {
     `);
     return rows;
   }
+
+  /**
+   * Lấy duy nhất 01 sự kiện đang chờ duyệt để xử lý (Single Event Review)
+   * @param {object} options
+   * @param {boolean} options.onlyUnreviewed - Nếu true, chỉ lấy sự kiện chưa từng có kết quả review AI (chế độ review trước)
+   * @returns {Promise<{id: string, title: string, created_at: string, ai_reviewed_at: string|null}|null>}
+   */
+  async getNextPendingEventForReview({ onlyUnreviewed = false } = {}) {
+    try {
+      if (onlyUnreviewed) {
+        const { rows } = await db.query(`
+          SELECT id, title, created_at, ai_reviewed_at, ai_recommendation
+          FROM events
+          WHERE status = 'PENDING_REVIEW'
+            AND deleted_at IS NULL
+            AND (ai_reviewed_at IS NULL OR ai_recommendation IS NULL)
+          ORDER BY created_at ASC
+          LIMIT 1
+        `);
+        return rows[0] || null;
+      }
+
+      const { rows } = await db.query(`
+        SELECT id, title, created_at, ai_reviewed_at, ai_recommendation
+        FROM events
+        WHERE status = 'PENDING_REVIEW'
+          AND deleted_at IS NULL
+        ORDER BY
+          CASE WHEN ai_reviewed_at IS NULL OR ai_recommendation IS NULL THEN 0 ELSE 1 END,
+          created_at ASC
+        LIMIT 1
+      `);
+      return rows[0] || null;
+    } catch (err) {
+      logger.error(`[SystemSettingsRepository] getNextPendingEventForReview error: ${err.message}`);
+      return null;
+    }
+  }
 }
 
 module.exports = new SystemSettingsRepository();
