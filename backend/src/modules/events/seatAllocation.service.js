@@ -4,9 +4,21 @@ const {
   isAvailableSeat,
   sortSeats,
   positionValue,
+  physicalNeighborInfo,
   seatId,
   rowId,
 } = require('./seatingRules');
+
+function isSliceTrulyAdjacent(slice, physicalRow) {
+  if (!slice || slice.length <= 1) return true;
+  for (let j = 1; j < slice.length; j++) {
+    const neighbor = physicalNeighborInfo(slice[j - 1], slice[j], physicalRow);
+    if (!neighbor.adjacent) {
+      return false;
+    }
+  }
+  return true;
+}
 
 class SeatAllocationService {
   /**
@@ -44,6 +56,7 @@ class SeatAllocationService {
     const rules = normalizeRules(rawRules);
     const quantity = Math.max(1, parseInt(options.quantity, 10) || 1);
     const preferredRow = this.cleanRowLabel(options.preferredRow);
+    const excludeRow = this.cleanRowLabel(options.excludeRow);
     const isCenterPreferred = /(?:trung|giữa|giua|center)/i.test(options.preferredRow || '') || Boolean(options.isCenterPreferred);
     const requestedTicketTypeId = options.ticketTypeId || null;
 
@@ -138,30 +151,54 @@ class SeatAllocationService {
     }
 
     // STRATEGY A: User specified a preferred row (e.g. "Hàng C")
-    if (preferredRow && rowMap.has(preferredRow)) {
+    if (preferredRow && rowMap.has(preferredRow) && (!excludeRow || preferredRow !== excludeRow)) {
       const rowSeats = rowMap.get(preferredRow);
       const physicalRow = physicalRowMap.get(preferredRow);
-      const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref);
+      // First try to find strictly contiguous adjacent seats in the preferred row
+      const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true);
       if (candidate) {
         selectedCandidate = candidate;
         isPreferredRow = true;
-      } else if (!rules.require_adjacent_seats && !rules.disallow_single_seat_left && rowSeats.length >= quantity) {
-        // Can take non-contiguous seats if event rules allow it
-        const slice = rowSeats.slice(0, quantity);
-        if (testCandidate(slice).valid) {
-          selectedCandidate = slice;
-          isPreferredRow = true;
-          note = `Các ghế ở hàng ${preferredRow} hiện không còn liền kề nhau nhưng vẫn thuộc cùng hàng theo yêu cầu của bạn.`;
+      } else {
+        // If preferred row does not have enough contiguous seats, search other rows for contiguous seats first!
+        const otherRows = [...rowMap.keys()]
+          .filter(r => r !== preferredRow && (!excludeRow || r !== excludeRow))
+          .sort((a, b) => this._rowDistance(a, preferredRow) - this._rowDistance(b, preferredRow));
+
+        for (const rowName of otherRows) {
+          const altSeats = rowMap.get(rowName);
+          const altPhysicalRow = physicalRowMap.get(rowName);
+          const altCandidate = this._findBestContiguousSlice(altSeats, quantity, testCandidate, altPhysicalRow, horizontalPref, true);
+          if (altCandidate) {
+            selectedCandidate = altCandidate;
+            isPreferredRow = false;
+            alternativeRow = rowName;
+            note = `Hàng ${preferredRow} không còn đủ ${quantity} ghế liền kề nhau, Eve đã chọn ${quantity} ghế liền kề ở hàng ${rowName} đẹp nhất cho bạn!`;
+            break;
+          }
+        }
+
+        // If no row has contiguous seats, fall back to non-contiguous in preferred row if event rules allow
+        if (!selectedCandidate && !rules.require_adjacent_seats && !rules.disallow_single_seat_left && rowSeats.length >= quantity) {
+          const fallbackCandidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, false);
+          if (fallbackCandidate) {
+            selectedCandidate = fallbackCandidate;
+            isPreferredRow = true;
+            note = `Các ghế ở hàng ${preferredRow} hiện không còn liền kề nhau nhưng vẫn thuộc cùng hàng theo yêu cầu của bạn.`;
+          }
         }
       }
     }
 
-    // STRATEGY B: Try other rows
+    // STRATEGY B: No preferred row or preferred row search failed
     if (!selectedCandidate) {
       // Sort rows by preference/proximity
       const allRowNames = [...rowMap.keys()];
       if (preferredRow && rowMap.has(preferredRow)) {
         allRowNames.sort((a, b) => this._rowDistance(a, preferredRow) - this._rowDistance(b, preferredRow));
+      } else if (excludeRow && rowMap.has(excludeRow)) {
+        // Sort candidate rows by proximity to excludeRow so adjacent rows (e.g. Row G next to Row F) are tested first
+        allRowNames.sort((a, b) => this._rowDistance(a, excludeRow) - this._rowDistance(b, excludeRow));
       } else if (isCenterPreferred && allRowNames.length > 0) {
         // Sort by proximity to median center row
         allRowNames.sort();
@@ -173,21 +210,41 @@ class SeatAllocationService {
         allRowNames.sort();
       }
 
+      // Pass 1: Try strictly contiguous slices in candidate rows
       for (const rowName of allRowNames) {
-        if (preferredRow && rowName === preferredRow) continue; // already tested
+        if (preferredRow && rowName === preferredRow) continue; // already tested in Strategy A
+        if (excludeRow && rowName === excludeRow) continue; // skip excluded row when user asks for a different row
         const rowSeats = rowMap.get(rowName);
         const physicalRow = physicalRowMap.get(rowName);
-        const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref);
+        const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true);
         if (candidate) {
           selectedCandidate = candidate;
           isPreferredRow = false;
           alternativeRow = rowName;
-          if (preferredRow) {
+          if (excludeRow) {
+            note = `Eve đã đổi sang hàng ghế ${rowName} theo yêu cầu của bạn nè!`;
+          } else if (preferredRow) {
             note = `Hàng ${preferredRow} không còn đủ ${quantity} ghế thỏa mãn quy định sự kiện, Eve đã chọn hàng ${rowName} đẹp nhất cho bạn!`;
           } else if (isCenterPreferred) {
             note = `Eve đã ưu tiên chọn các vị trí chính giữa hàng ${rowName} với góc nhìn trung tâm trực diện sân khấu nhất cho bạn!`;
           }
           break;
+        }
+      }
+
+      // Pass 2: If no strictly contiguous slice found in any row and event allows non-adjacent seats
+      if (!selectedCandidate && !rules.require_adjacent_seats && !rules.disallow_single_seat_left) {
+        for (const rowName of allRowNames) {
+          const rowSeats = rowMap.get(rowName);
+          const physicalRow = physicalRowMap.get(rowName);
+          const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, false);
+          if (candidate) {
+            selectedCandidate = candidate;
+            isPreferredRow = (rowName === preferredRow);
+            alternativeRow = (rowName !== preferredRow) ? rowName : null;
+            note = `Do sự kiện gần kín chỗ và không còn ${quantity} ghế liền kề nhau trên cùng hàng, Eve đã chọn các ghế gần nhau nhất ở hàng ${rowName} cho bạn.`;
+            break;
+          }
         }
       }
     }
@@ -297,9 +354,10 @@ class SeatAllocationService {
 
   /**
    * Helper: Find the best contiguous slice in rowSeats that passes the validation callback.
+   * Prioritizes slices that are physically adjacent side-by-side.
    * Prioritizes slices closest to the center of the physical row by default (or left/right if preferred).
    */
-  _findBestContiguousSlice(rowSeats, quantity, validator, allPhysicalRowSeats = null, preference = 'CENTER') {
+  _findBestContiguousSlice(rowSeats, quantity, validator, allPhysicalRowSeats = null, preference = 'CENTER', requireStrictContiguous = true) {
     if (!rowSeats || rowSeats.length < quantity) return null;
 
     // Determine the physical row bounds and midpoint
@@ -309,36 +367,52 @@ class SeatAllocationService {
     const maxPos = positionValue(sortedRef[sortedRef.length - 1]);
     const rowCenter = (minPos + maxPos) / 2;
 
-    const validCandidates = [];
+    const strictlyContiguousCandidates = [];
+    const nonContiguousCandidates = [];
 
     // Sliding window of size `quantity`
     for (let i = 0; i <= rowSeats.length - quantity; i++) {
       const slice = rowSeats.slice(i, i + quantity);
+      const isAdjacent = isSliceTrulyAdjacent(slice, sortedRef);
+      if (requireStrictContiguous && !isAdjacent) {
+        continue;
+      }
+
       const { valid } = validator(slice);
       if (valid) {
         const sliceCenter = (positionValue(slice[0]) + positionValue(slice[slice.length - 1])) / 2;
         const distFromCenter = Math.abs(sliceCenter - rowCenter);
-        validCandidates.push({
+        const item = {
           slice,
           sliceCenter,
-          distFromCenter
-        });
+          distFromCenter,
+          isAdjacent
+        };
+        if (isAdjacent) {
+          strictlyContiguousCandidates.push(item);
+        } else {
+          nonContiguousCandidates.push(item);
+        }
       }
     }
 
-    if (validCandidates.length === 0) return null;
+    const pool = strictlyContiguousCandidates.length > 0
+      ? strictlyContiguousCandidates
+      : (!requireStrictContiguous ? nonContiguousCandidates : []);
+
+    if (pool.length === 0) return null;
 
     // Rank candidates:
     if (preference === 'LEFT') {
-      validCandidates.sort((a, b) => a.sliceCenter - b.sliceCenter);
+      pool.sort((a, b) => a.sliceCenter - b.sliceCenter);
     } else if (preference === 'RIGHT') {
-      validCandidates.sort((a, b) => b.sliceCenter - a.sliceCenter);
+      pool.sort((a, b) => b.sliceCenter - a.sliceCenter);
     } else {
       // Default: CENTER (exact midpoint of stage/venue)
-      validCandidates.sort((a, b) => a.distFromCenter - b.distFromCenter);
+      pool.sort((a, b) => a.distFromCenter - b.distFromCenter);
     }
 
-    return validCandidates[0].slice;
+    return pool[0].slice;
   }
 }
 

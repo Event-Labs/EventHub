@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import { useNavigate, Link } from 'react-router-dom'
 import { fetchEventDetail } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
+import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
 
 function ActionMessage({ content, navigate, setInput }) {
   const actionRegex = /\[ACTION:([A-Z_]+):?([^\]]*)\]/g;
@@ -545,8 +546,16 @@ function ActionMessage({ content, navigate, setInput }) {
   );
 }
 
-const SESSIONS_STORAGE_KEY = 'eventhub_ai_chat_sessions';
-const ACTIVE_SESSION_STORAGE_KEY = 'eventhub_ai_active_session_id';
+const SESSIONS_STORAGE_KEY_PREFIX = 'eventhub_ai_chat_sessions_';
+const ACTIVE_SESSION_STORAGE_KEY_PREFIX = 'eventhub_ai_active_session_id_';
+
+function getSessionsStorageKey(userKey) {
+  return userKey ? `${SESSIONS_STORAGE_KEY_PREFIX}${userKey}` : null;
+}
+
+function getActiveSessionStorageKey(userKey) {
+  return userKey ? `${ACTIVE_SESSION_STORAGE_KEY_PREFIX}${userKey}` : null;
+}
 
 const DEFAULT_GREETING = {
   role: 'assistant',
@@ -564,9 +573,11 @@ function createNewSession() {
   };
 }
 
-function loadInitialSessions() {
+function loadInitialSessions(userKey) {
+  const storageKey = getSessionsStorageKey(userKey);
+  if (!storageKey) return [createNewSession()];
   try {
-    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -579,9 +590,11 @@ function loadInitialSessions() {
   return [createNewSession()];
 }
 
-function loadInitialActiveId(sessions) {
+function loadInitialActiveId(userKey, sessions) {
+  const storageKey = getActiveSessionStorageKey(userKey);
+  if (!storageKey) return sessions[0]?.id;
   try {
-    const activeId = localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+    const activeId = localStorage.getItem(storageKey);
     if (activeId && sessions.some(s => s.id === activeId)) {
       return activeId;
     }
@@ -590,9 +603,12 @@ function loadInitialActiveId(sessions) {
 }
 
 export function CustomerAiAssistantWidget({ enabled = true }) {
+  const currentUser = getStoredUser();
+  const userKey = getStoredUserKey(currentUser);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [sessions, setSessions] = useState(loadInitialSessions);
-  const [activeSessionId, setActiveSessionId] = useState(() => loadInitialActiveId(sessions));
+  const [sessions, setSessions] = useState(() => loadInitialSessions(userKey));
+  const [activeSessionId, setActiveSessionId] = useState(() => loadInitialActiveId(userKey, sessions));
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -601,6 +617,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   const [isPendingAutoSend, setIsPendingAutoSend] = useState(false);
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
+  const isTypingRef = useRef(false);
   const recognitionRef = useRef(null);
   const initialInputRef = useRef('');
   const silenceTimerRef = useRef(null);
@@ -608,6 +625,11 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   const handleSendMessageRef = useRef(null);
   const abortControllerRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Synchronize isTypingRef with isTyping state
+  useEffect(() => {
+    isTypingRef.current = isTyping;
+  }, [isTyping]);
 
   // Speech Recognition support check
   const isSpeechSupported = typeof window !== 'undefined' && Boolean(
@@ -631,6 +653,10 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   }, [input]);
 
   const startRecording = () => {
+    if (isTypingRef.current || isTyping) {
+      return;
+    }
+
     if (!isSpeechSupported) {
       setSpeechError('Trình duyệt hiện tại chưa hỗ trợ nhận diện giọng nói (khuyên dùng Chrome hoặc Edge).');
       return;
@@ -661,6 +687,11 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
       };
 
       recognition.onresult = (event) => {
+        // Nếu đã dừng ghi âm hoặc AI đang bận xử lý, tuyệt đối bỏ qua sự kiện trễ
+        if (!recognitionRef.current || isTypingRef.current) {
+          return;
+        }
+
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -676,6 +707,10 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
         const transcribed = (finalTranscript + interimTranscript).trim();
         if (transcribed) {
+          if (!recognitionRef.current || isTypingRef.current) {
+            return;
+          }
+
           const fullText = initialInputRef.current ? `${initialInputRef.current}${transcribed}` : transcribed;
 
           // Cập nhật DOM trực tiếp không có độ trễ (Zero-delay synchronous update)
@@ -705,6 +740,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
           silenceTimerRef.current = setTimeout(() => {
             setIsPendingAutoSend(false);
             silenceTimerRef.current = null;
+            if (isTypingRef.current) return;
             const textToSend = latestFullTextRef.current.trim();
             if (textToSend) {
               stopRecording();
@@ -754,15 +790,25 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     }
     setIsPendingAutoSend(false);
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
+      const rec = recognitionRef.current;
       recognitionRef.current = null;
+      try {
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+        rec.onstart = null;
+        rec.abort();
+      } catch (e) {
+        try {
+          rec.stop();
+        } catch (err) {}
+      }
     }
     setIsRecording(false);
   };
 
   const toggleRecording = () => {
+    if (isTypingRef.current || isTyping) return;
     if (isRecording) {
       stopRecording();
     } else {
@@ -771,23 +817,28 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   };
 
   const stopAiGeneration = () => {
+    stopRecording();
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    isTypingRef.current = false;
     setIsTyping(false);
+
+    // Xóa sạch dữ liệu ô nhập và bộ đệm để tránh gửi dư âm sau khi bấm dừng
+    setInput('');
+    latestFullTextRef.current = '';
+    initialInputRef.current = '';
+    if (textareaRef.current) {
+      textareaRef.current.value = '';
+      textareaRef.current.style.height = '44px';
+      textareaRef.current.style.overflowY = 'hidden';
+    }
   };
 
   useEffect(() => {
     return () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
-      }
+      stopRecording();
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -798,21 +849,43 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0] || createNewSession();
   const messages = activeSession.messages || [DEFAULT_GREETING];
 
-  // Save sessions to localStorage
+  // Clean up legacy un-scoped storage keys once
   useEffect(() => {
     try {
-      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+      localStorage.removeItem('eventhub_ai_chat_sessions');
+      localStorage.removeItem('eventhub_ai_active_session_id');
     } catch (e) {}
-  }, [sessions]);
+  }, []);
 
-  // Save activeSessionId to localStorage
+  // When userKey changes (e.g. account switch), reload sessions for that specific user
   useEffect(() => {
+    if (!userKey) {
+      setSessions([createNewSession()]);
+      setActiveSessionId(null);
+      return;
+    }
+    const loaded = loadInitialSessions(userKey);
+    setSessions(loaded);
+    setActiveSessionId(loadInitialActiveId(userKey, loaded));
+  }, [userKey]);
+
+  // Save sessions to user-scoped localStorage
+  useEffect(() => {
+    const storageKey = getSessionsStorageKey(userKey);
+    if (!storageKey) return;
     try {
-      if (activeSessionId) {
-        localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, activeSessionId);
-      }
+      localStorage.setItem(storageKey, JSON.stringify(sessions));
     } catch (e) {}
-  }, [activeSessionId]);
+  }, [sessions, userKey]);
+
+  // Save activeSessionId to user-scoped localStorage
+  useEffect(() => {
+    const storageKey = getActiveSessionStorageKey(userKey);
+    if (!storageKey || !activeSessionId) return;
+    try {
+      localStorage.setItem(storageKey, activeSessionId);
+    } catch (e) {}
+  }, [activeSessionId, userKey]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -822,7 +895,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     scrollToBottom();
   }, [messages, isTyping, showHistoryDrawer]);
 
-  if (!enabled) return null;
+  if (!enabled || !isAuthenticated()) return null;
 
   const handleCreateNewChat = () => {
     const newSession = createNewSession();
@@ -853,21 +926,25 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   };
 
   const handleSendMessage = async (textOverride) => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    setIsPendingAutoSend(false);
+    stopRecording();
 
-    if (isRecording) {
-      stopRecording();
-    }
+    if (isTypingRef.current || isTyping) return;
 
-    const userMessage = typeof textOverride === 'string' ? textOverride.trim() : input.trim();
-    if (!userMessage || isTyping) return;
+    const userMessage = typeof textOverride === 'string' 
+      ? textOverride.trim() 
+      : (input.trim() || latestFullTextRef.current.trim());
 
+    if (!userMessage) return;
+
+    // Xóa triệt để và đồng bộ nội dung nhập trên cả React state, refs và DOM textarea
     setInput('');
     latestFullTextRef.current = '';
+    initialInputRef.current = '';
+    if (textareaRef.current) {
+      textareaRef.current.value = '';
+      textareaRef.current.style.height = '44px';
+      textareaRef.current.style.overflowY = 'hidden';
+    }
 
     // Determine updated title if still default
     const isFirstUserMessage = !activeSession.messages.some(m => m.role === 'user');
@@ -891,6 +968,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     }));
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    isTypingRef.current = true;
     setIsTyping(true);
 
     try {
@@ -900,12 +978,14 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
       const response = await sendChatMessage(userMessage, apiHistory, { signal: abortController.signal });
 
+      const assistantText = response?.content || 'Eve đã tiếp nhận thông tin của bạn!';
+
       setSessions(prev => prev.map(s => {
         if (s.id === activeSession.id) {
           return {
             ...s,
             updatedAt: Date.now(),
-            messages: [...updatedMessagesWithUser, { role: 'assistant', content: response.content }]
+            messages: [...updatedMessagesWithUser, { role: 'assistant', content: assistantText }]
           };
         }
         return s;
@@ -930,16 +1010,22 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         return;
       }
 
+      const serverMessage = error?.response?.data?.message || error?.response?.data?.error;
+      const fallbackMsg = serverMessage && !serverMessage.toLowerCase().includes('network error')
+        ? `Dạ hệ thống thông báo: ${serverMessage}. Bạn vui lòng thử lại nhé! 🥺`
+        : 'Xin lỗi, kết nối mạng tạm thời bị gián đoạn. Bạn vui lòng kiểm tra kết nối internet và thử lại nhé! 🔄';
+
       setSessions(prev => prev.map(s => {
         if (s.id === activeSession.id) {
           return {
             ...s,
-            messages: [...updatedMessagesWithUser, { role: 'assistant', content: 'Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.' }]
+            messages: [...updatedMessagesWithUser, { role: 'assistant', content: fallbackMsg }]
           };
         }
         return s;
       }));
     } finally {
+      isTypingRef.current = false;
       setIsTyping(false);
       abortControllerRef.current = null;
     }
@@ -949,6 +1035,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
   const handleSend = (e) => {
     e?.preventDefault();
+    if (isTypingRef.current || isTyping) return;
     handleSendMessage();
   };
 
@@ -1154,17 +1241,20 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
             <button
               type="button"
               onClick={toggleRecording}
-              className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-all cursor-pointer ${
-                isRecording
-                  ? isPendingAutoSend
-                    ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-pulse'
-                    : 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse'
-                  : 'border border-slate-700 bg-[#131d38] text-slate-300 hover:text-cyan-300 hover:border-cyan-500/50 hover:bg-[#18254b]'
+              disabled={isTyping}
+              className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-all ${
+                isTyping
+                  ? 'border border-slate-800 bg-[#10172d] text-slate-600 opacity-40 cursor-not-allowed'
+                  : isRecording
+                    ? isPendingAutoSend
+                      ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-pulse cursor-pointer'
+                      : 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse cursor-pointer'
+                    : 'border border-slate-700 bg-[#131d38] text-slate-300 hover:text-cyan-300 hover:border-cyan-500/50 hover:bg-[#18254b] cursor-pointer'
               }`}
-              title={isRecording ? 'Dừng thu âm' : 'Nhập bằng giọng nói (Tiếng Việt)'}
+              title={isTyping ? 'Đang đợi AI trả lời...' : isRecording ? 'Dừng thu âm' : 'Nhập bằng giọng nói (Tiếng Việt)'}
             >
               {isRecording ? <Square className="size-4 fill-white" /> : <Mic className="size-5" />}
-              {isRecording && (
+              {isRecording && !isTyping && (
                 <span className={`absolute -inset-1 rounded-xl animate-ping -z-10 ${
                   isPendingAutoSend ? 'bg-amber-500/30' : 'bg-rose-500/30'
                 }`} />
@@ -1187,7 +1277,9 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSend();
+                    if (!isTyping && !isTypingRef.current) {
+                      handleSend();
+                    }
                   }
                 }}
                 placeholder={isRecording ? 'Đang lắng nghe... Nói vào micro...' : 'Hỏi về sự kiện, giá vé...'}

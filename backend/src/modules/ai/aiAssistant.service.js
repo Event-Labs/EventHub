@@ -200,35 +200,177 @@ function extractPhoneNumber(text) {
   return '';
 }
 
+const VIETNAMESE_WORD_TO_NUM = {
+  'mot': 1, 'hai': 2, 'ba': 3, 'bon': 4, 'tu': 4, 'nam': 5,
+  'sau': 6, 'bay': 7, 'tam': 8, 'chin': 9, 'muoi': 10,
+  'cap': 2, 'doi': 2
+};
+
+function parseQuantityFromText(text, prevQuantity = null) {
+  if (!text) return null;
+  const norm = normalizeText(text);
+
+  // 1. Explicit target TOTAL expressions (HIGHEST PRIORITY):
+  // 'tong cong la 3 ve', 'tong cong 3 ve', 'tong la 3 ve', 'tong 3 ve', 'tat ca 3 ve', 'thanh 3 ve', 'doi thanh 3 ve'
+  const totalDigitMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat)?\b/i);
+  if (totalDigitMatch) {
+    return parseInt(totalDigitMatch[1], 10);
+  }
+
+  const totalWordMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat)?\b/i);
+  if (totalWordMatch && VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]]) {
+    return VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]];
+  }
+
+  // 2. Relative ADDITION / REDUCTION when previous quantity is known:
+  // 'them 1 ve nua', 'dat them 1 ve', 'mua them 2 ve', 'lay them 1'
+  const addMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(\d+)\s*(?:ve|cho|ghe|ticket|suat)?(?:\s*nua)?\b/i);
+  if (addMatch) {
+    const addCount = parseInt(addMatch[1], 10);
+    if (prevQuantity && prevQuantity > 0) {
+      return prevQuantity + addCount;
+    }
+  }
+
+  const addWordMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat)?(?:\s*nua)?\b/i);
+  if (addWordMatch && VIETNAMESE_WORD_TO_NUM[addWordMatch[1]]) {
+    const addCount = VIETNAMESE_WORD_TO_NUM[addWordMatch[1]];
+    if (prevQuantity && prevQuantity > 0) {
+      return prevQuantity + addCount;
+    }
+  }
+
+  const subMatch = norm.match(/(?:bot|giam|huy\s*bot)\s+(\d+)\s*(?:ve|cho|ghe|ticket|suat)?\b/i);
+  if (subMatch && prevQuantity && prevQuantity > 0) {
+    const subCount = parseInt(subMatch[1], 10);
+    return Math.max(1, prevQuantity - subCount);
+  }
+
+  // 3. Direct pairs with digit: "1 cap", "2 cap", "1 doi", "2 doi"
+  const capMatch = norm.match(/(\d+)\s*(?:cap|doi)\b/i);
+  if (capMatch) return parseInt(capMatch[1], 10) * 2;
+
+  // 4. Action verb or modification verb followed by digits: "dat 2", "mua 3", "lay 1", "doi sang 2", "doi thanh 2", "thanh 3"
+  const actionDigitMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi)\s+(\d+)\b/i);
+  if (actionDigitMatch) return parseInt(actionDigitMatch[1], 10);
+
+  // 5. Check digit + ticket unit: "1 ve", "2 ve", "3 cho", "4 ghe", "2 ticket", "1 suat"
+  const digitUnitMatch = norm.match(/(\d+)\s*(?:ve|cho|ghe|ticket|suat)\b/i);
+  if (digitUnitMatch) return parseInt(digitUnitMatch[1], 10);
+
+  // 6. Check numeral word + ticket unit: "mot ve", "hai ve", "ba ve", "bon ve", "nam ve"
+  const wordUnitMatch = norm.match(/\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat)\b/i);
+  if (wordUnitMatch && VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]]) {
+    return VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]];
+  }
+
+  // 7. Action verb or modification verb followed by numeral word: "dat mot", "mua hai", "doi sang hai"
+  const actionWordMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi)\s+(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\b/i);
+  if (actionWordMatch && VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]]) {
+    return VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]];
+  }
+
+  // 8. Check standalone pair words "cap", "doi", excluding modification verbs (doi sang/thanh/qua/lai/hang/ghe/loai)
+  if (/\b(?:1\s*cap|cap)\s*(?:ve)?\b/i.test(norm)) return 2;
+  if (/\b(?:1\s*doi|doi\s*ve|mot\s*doi)\b/i.test(norm) && !/\bdoi\s*(?:sang|thanh|qua|lai|hang|ghe|loai)\b/i.test(norm)) return 2;
+  if (/\bdoi\b/i.test(norm) && !/\bdoi\s*(?:sang|thanh|qua|lai|hang|ghe|loai|ve|cho)\b/i.test(norm) && /(?:mua|dat|lay)\s+doi\b/i.test(norm)) return 2;
+
+  return null;
+}
+
+const ROMAN_NUMERAL_MAP = {
+  '1': 'i', '2': 'ii', '3': 'iii', '4': 'iv', '5': 'v',
+  'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5'
+};
+
 function parseTicketsFromText(allUserText, ticketTypes) {
   if (!allUserText || !ticketTypes || ticketTypes.length === 0) return [];
   const detectedTickets = [];
   const normUserText = normalizeText(allUserText);
 
   for (const t of ticketTypes) {
-    let cleanName = normalizeText(t.name).replace(/\([^)]*\)/g, '').replace(/hang\s+/g, '').trim();
-    const tokens = cleanName.split(/\s+/).filter(w => w.length >= 2);
+    const rawNorm = normalizeText(t.name);
+    let cleanName = rawNorm.replace(/\([^)]*\)/g, '').replace(/\b(?:hang|loai|ve)\s+/g, '').trim();
+    const pNum = Number(t.price || 0);
+    const pK = pNum >= 1000 ? `${Math.round(pNum / 1000)}k` : '';
+
+    const candidates = new Set();
+    if (cleanName.length >= 2) candidates.add(cleanName);
+    if (rawNorm.length >= 3) candidates.add(rawNorm);
+
+    // Numbered zone abbreviations: "khu vuc 1" -> "khu 1", "kv 1", "kv1", "loai 1", "khu i", "kv i"
+    const numMatch = cleanName.match(/(\d+)/);
+    if (numMatch) {
+      const num = numMatch[1];
+      candidates.add(`khu ${num}`);
+      candidates.add(`khu vuc ${num}`);
+      candidates.add(`kv ${num}`);
+      candidates.add(`kv${num}`);
+      candidates.add(`loai ${num}`);
+      candidates.add(`hang ${num}`);
+
+      const roman = ROMAN_NUMERAL_MAP[num];
+      if (roman) {
+        candidates.add(`khu ${roman}`);
+        candidates.add(`khu vuc ${roman}`);
+        candidates.add(`kv ${roman}`);
+        candidates.add(`kv${roman}`);
+      }
+    }
+
+    // Check for roman numeral in name: "khu vuc i" -> "khu 1", "kv 1"
+    const romanMatch = cleanName.match(/\b(i{1,3}|iv|v)\b/);
+    if (romanMatch) {
+      const rom = romanMatch[1];
+      const digit = ROMAN_NUMERAL_MAP[rom];
+      if (digit) {
+        candidates.add(`khu ${digit}`);
+        candidates.add(`khu vuc ${digit}`);
+        candidates.add(`kv ${digit}`);
+        candidates.add(`kv${digit}`);
+      }
+    }
+
+    // Distinctive single tokens (only if not generic stop words like 'khu' or 'vuc')
+    const tokens = cleanName.split(/\s+/).filter(w => w.length >= 2 && !['khu', 'vuc', 'hang', 'loai', 've', 'zone', 'ticket'].includes(w));
+    for (const tok of tokens) {
+      const sharedWithOther = ticketTypes.some(other => other.id !== t.id && normalizeText(other.name).includes(tok));
+      if (!sharedWithOther) {
+        candidates.add(tok);
+      }
+    }
+
+    if (pK) candidates.add(pK);
+
     let matchedQty = 0;
 
-    const candidates = [cleanName, ...tokens].filter(kw => kw.length >= 3);
-    for (const kw of candidates) {
-      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re1 = new RegExp('(\\d+)\\s*(?:ve\\s*)?(?:hang\\s*)?' + escaped, 'i');
-      const m1 = normUserText.match(re1);
-      if (m1) {
-        matchedQty = parseInt(m1[1], 10);
+    for (const cand of candidates) {
+      const escaped = cand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Pattern A: "<number|word> [ve] [hang] <candidate>" e.g. "2 ve khu vuc 1", "1 ve vip", "2 ve 50k", "mot ve thuong"
+      const reA = new RegExp('(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|cap|doi)\\b)\\s*(?:v[eé]|ve)?\\s*(?:h[aà]ng|hang|lo[aạ]i|loai)?\\s*' + escaped + '\\b', 'i');
+      const mA = normUserText.match(reA);
+      if (mA) {
+        if (mA[1]) matchedQty = parseInt(mA[1], 10);
+        else if (mA[2]) matchedQty = VIETNAMESE_WORD_TO_NUM[mA[2].toLowerCase()] || 1;
         break;
       }
-      const re2 = new RegExp(escaped + '\\s*(?:hang\\s*)?(\\d+)', 'i');
-      const m2 = normUserText.match(re2);
-      if (m2) {
-        matchedQty = parseInt(m2[1], 10);
+
+      // Pattern B: "<candidate> [hang] <number|word>" e.g. "khu vuc 1 2 ve", "vip 2 ve"
+      const reB = new RegExp(escaped + '\\s*(?:h[aà]ng|hang|lo[aạ]i|loai)?\\s*(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|cap|doi)\\b)\\s*(?:v[eé]|ve)?', 'i');
+      const mB = normUserText.match(reB);
+      if (mB) {
+        if (mB[1]) matchedQty = parseInt(mB[1], 10);
+        else if (mB[2]) matchedQty = VIETNAMESE_WORD_TO_NUM[mB[2].toLowerCase()] || 1;
         break;
       }
-      const re3 = new RegExp('(\\d+)\\s+' + escaped, 'i');
-      const m3 = normUserText.match(re3);
-      if (m3) {
-        matchedQty = parseInt(m3[1], 10);
+
+      // Pattern C: "<number|word> <candidate>" e.g. "2 vip"
+      const reC = new RegExp('\\b(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|cap|doi)\\b)\\s+' + escaped + '\\b', 'i');
+      const mC = normUserText.match(reC);
+      if (mC) {
+        if (mC[1]) matchedQty = parseInt(mC[1], 10);
+        else if (mC[2]) matchedQty = VIETNAMESE_WORD_TO_NUM[mC[2].toLowerCase()] || 1;
         break;
       }
     }
@@ -241,6 +383,79 @@ function parseTicketsFromText(allUserText, ticketTypes) {
   return detectedTickets;
 }
 
+function findLastBookingProposal(cleanHistory, allEventTickets = []) {
+  if (!Array.isArray(cleanHistory) || cleanHistory.length === 0) return null;
+  for (let i = cleanHistory.length - 1; i >= 0; i--) {
+    const msg = cleanHistory[i];
+    if (msg.role !== 'assistant') continue;
+
+    // 1. Check structured action object (if available in direct calls)
+    if (msg.action?.type === 'PROPOSE_BOOKING' && msg.action.data) {
+      const tickets = msg.action.data.tickets || [];
+      const t0 = tickets[0];
+      const totalQty = msg.action.data.quantity || tickets.reduce((s, t) => s + (t.quantity || 0), 0) || t0?.quantity || 1;
+      return {
+        event_slug: msg.action.data.event_slug,
+        ticket_type_id: t0?.ticket_type_id,
+        ticket_type_name: t0?.ticket_type_name,
+        quantity: totalQty,
+        seats: t0?.seats || [],
+        tickets,
+        totalAmount: msg.action.data.total_amount || msg.action.data.totalAmount
+      };
+    }
+
+    // 2. Check [ACTION:BOOKING_PROPOSAL:...] embedded tag in msg.content (sent by frontend client)
+    if (typeof msg.content === 'string') {
+      const actionMatch = msg.content.match(/\[ACTION:BOOKING_PROPOSAL:([^\]]+)\]/i);
+      if (actionMatch) {
+        try {
+          const raw = actionMatch[1].trim();
+          const decoded = raw.startsWith('%7B') || raw.includes('%22') ? decodeURIComponent(raw) : raw;
+          const data = JSON.parse(decoded);
+          const seats = data.seats || [];
+          const s0 = seats[0];
+          const ticketTypeId = s0?.ticketTypeId || s0?.ticket_type_id || data.items?.[0]?.ticket_type_id || data.items?.[0]?.ticketTypeId || null;
+          const ticketTypeName = s0?.ticketTypeName || s0?.ticket_type_name || data.items?.[0]?.ticketType?.name || null;
+          const qty = data.quantity || seats.length || (data.items?.reduce((s, it) => s + (it.quantity || 0), 0)) || 1;
+          const seatLabels = seats.map(s => (typeof s === 'string' ? s : (s?.label || ''))).filter(Boolean);
+
+          return {
+            event_slug: data.eventId || data.event_slug || null,
+            ticket_type_id: ticketTypeId,
+            ticket_type_name: ticketTypeName,
+            quantity: qty,
+            seats: seatLabels,
+            totalAmount: data.totalAmount
+          };
+        } catch (e) {
+          logger.warn(`[findLastBookingProposal] Error parsing action proposal: ${e.message}`);
+        }
+      }
+    }
+
+    // 3. Fallback: Parse from assistant text content
+    if (msg.content && /(?:đề xuất đặt vé|thẻ đề xuất|vị trí ghế|loại vé)/i.test(msg.content)) {
+      const normContent = normalizeText(msg.content);
+      for (const t of allEventTickets) {
+        if (normContent.includes(normalizeText(t.name))) {
+          const seatMatch = msg.content.match(/(?:ghế(?:\s*đề\s*xuất)?|vị\s*trí(?:\s*ghế)?)\s*[:：]\s*([A-Za-z0-9,\s]+)/i);
+          const seats = seatMatch ? seatMatch[1].split(/[\s,]+/).filter(s => /^[A-Za-z]\d+$/.test(s)) : [];
+          return {
+            event_slug: null,
+            ticket_type_id: t.id,
+            ticket_type_name: t.name,
+            quantity: seats.length > 0 ? seats.length : 1,
+            seats,
+            tickets: [{ ticket_type_id: t.id, ticket_type_name: t.name, quantity: seats.length || 1, seats }]
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function extractAttendeesFromText(text, userProfile = null) {
   if (!text) return [];
   const attendees = [];
@@ -248,7 +463,9 @@ function extractAttendeesFromText(text, userProfile = null) {
 
   // 1. Check if user explicitly asked to use their own profile info
   const normText = normalizeText(text);
-  const hasUseMyInfo = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi/i.test(normText);
+  const hasUseMyInfo = /(?:dung|lay|su\s*dung|giong|nhu)\s+(?:thong\s*tin\s*cua\s*(?:toi|minh|em|anh)|thong\s*tin\s*tai\s*khoan|tai\s*khoan|profile|info)/i.test(normText) ||
+    /(?:thong\s*tin\s*(?:cua\s*)?(?:toi|minh)|lay\s*(?:info|profile)|tu\s*di\s*mot\s*minh|di\s*mot\s*minh|minh\s*di\s*mot\s*minh|cho\s*chinh\s*toi|cho\s*chinh\s*minh)/i.test(normText);
+
   if (hasUseMyInfo && userProfile?.email) {
     attendees.push({
       name: userProfile.full_name || 'Khách hàng',
@@ -681,6 +898,7 @@ const TOOLS = [
           sessionId: { type: 'string', description: '(Tùy chọn) ID hoặc số thứ tự của suất diễn (suất 1, 2...).' },
           quantity: { type: 'integer', description: 'Số lượng vé muốn đặt (mặc định 1 nếu khách không nói rõ).' },
           preferredRow: { type: 'string', description: '(Tùy chọn) Hàng ghế ưu tiên nếu sự kiện có sơ đồ ghế (VD: "C", "D", "A"...).' },
+          excludeRow: { type: 'string', description: '(Tùy chọn) Hàng ghế cần LOẠI TRỪ khi khách yêu cầu đổi sang hàng ghế khác (VD: "F", "A"...).' },
           ticketTypeId: { type: 'string', description: '(Tùy chọn) ID của loại vé muốn đặt.' },
           ticketTypeName: { type: 'string', description: '(Tùy chọn) Tên loại vé khách muốn (nếu sự kiện vé tự do hoặc muốn loại vé cụ thể).' },
           tickets: {
@@ -910,8 +1128,11 @@ class AiAssistantService {
         const hasSingleSession = sessions.length <= 1;
 
         const userMsgNorm = normalizeText(context.message || '');
-        const isDetailInquiry = /(thong tin|chi tiet|gioi thieu|noi dung|ve cai gi|co gi hay|o dau|khi nao|may gio|ngay nao|dia diem|dien gia|nghe si|ca si|gia ve|ve bao nhieu)/i.test(userMsgNorm);
-        const isBookingExplicit = /(toi muon dat ve|muon dat ve|dat ve|mua ve|chon ghe|book ve|mua ve su kien|vao dat ve)/i.test(userMsgNorm) && !isDetailInquiry;
+        const hasBookingActionWords = /(?:dat|mua|lay|book|booking|order|giu cho|cho minh|cho toi|cho em|cho anh|dang ky|can)\s*(?:giup|ho|ngay|luon|nhanh)?\s*(?:\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|ghe|cho|ticket|suat)?/i.test(userMsgNorm) ||
+          /^(?:dat|mua|lay|book|order)\b/i.test(userMsgNorm);
+
+        const isDetailInquiry = /(thong tin|chi tiet|gioi thieu|noi dung|ve cai gi|co gi hay|o dau|khi nao|may gio|ngay nao|dia diem|dien gia|nghe si|ca si|gia ve|ve bao nhieu)/i.test(userMsgNorm) && !hasBookingActionWords;
+        const isBookingExplicit = hasBookingActionWords;
 
         const eventDesc = stripHtml(result.description || result.short_description || '');
         const venueSummary = result.venue?.summary || [result.venue?.name, result.venue?.address_line, result.venue?.city].filter(Boolean).join(', ') || 'Chưa cập nhật địa điểm';
@@ -927,19 +1148,8 @@ class AiAssistantService {
 - Đặc điểm chỗ ngồi: ${hasSeatMap ? 'Sự kiện CÓ SƠ ĐỒ CHỖ NGỒI (khách sẽ tự do chọn vị trí khi đặt vé).' : 'Vé tự do (không có sơ đồ ghế).'}
 Sau đó, hãy vui vẻ hỏi khách: "Bạn có muốn Eve hỗ trợ đặt vé sự kiện này không ạ? 🥰".
 TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag khi khách chỉ đang hỏi thông tin sự kiện!`;
-        } else if (hasSeatMap) {
-          if (hasSingleSession) {
-            instruction = `Khách hàng muốn ĐẶT VÉ sự kiện "${result.title}". Sự kiện này CÓ SƠ ĐỒ CHỖ NGỒI và chỉ có 1 suất diễn duy nhất. BẠN KHÔNG ĐƯỢC HỎI loại vé hay số lượng vé. Hãy nói vui vẻ: "Dạ sự kiện này có sơ đồ chỗ ngồi, Eve mở sơ đồ ghế để bạn tự do chọn vị trí và vé ưng ý nhất nhé! 🎭✨" và dán CHÍNH XÁC đoạn mã sau vào cuối câu trả lời: \n[ACTION:BOOKING:${result.slug}:${sessions[0]?.id || ''}]`;
-          } else {
-            instruction = `Khách hàng muốn ĐẶT VÉ sự kiện "${result.title}". Sự kiện CÓ SƠ ĐỒ CHỖ NGỒI. BẠN KHÔNG ĐƯỢC HỎI loại vé hay số lượng vé. Hãy gửi thông tin các suất diễn và hỏi khách: "Sự kiện có sơ đồ chỗ ngồi, bạn muốn chọn suất diễn nào để Eve mở sơ đồ ghế cho bạn chọn ạ? 🥰"`;
-          }
         } else {
-          const reqAttendeeText = result.require_attendee_info ? 'Sự kiện này CÓ YÊU CẦU thông tin người tham gia check-in vé.' : 'Sự kiện này KHÔNG YÊU CẦU thông tin người tham gia.';
-          if (hasSingleSession) {
-            instruction = `Sự kiện "${result.title}" KHÔNG CÓ sơ đồ chỗ ngồi (vé tự do) và chỉ có 1 suất diễn. ${reqAttendeeText} Hãy trình bày các loại vé và hỏi khách muốn đặt loại vé nào và số lượng bao nhiêu ạ.`;
-          } else {
-            instruction = `Sự kiện "${result.title}" KHÔNG CÓ sơ đồ chỗ ngồi. ${reqAttendeeText} Hãy trình bày các suất diễn và các loại vé, rồi hỏi khách muốn tham dự suất diễn nào, loại vé nào và số lượng bao nhiêu ạ.`;
-          }
+          instruction = `Khách hàng muốn ĐẶT VÉ sự kiện "${result.title}". Hãy hỗ trợ khách đặt vé chu đáo và thân thiện.`;
         }
 
         return {
@@ -1183,21 +1393,33 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         let sessionId = getArg(args.sessionId);
         let quantity = parseInt(getArg(args.quantity), 10) || 1;
         let preferredRow = getArg(args.preferredRow) || '';
+        let excludeRow = getArg(args.excludeRow) || '';
         let ticketTypeId = getArg(args.ticketTypeId) || null;
         let ticketTypeName = getArg(args.ticketTypeName) || '';
 
         const userProfile = context.userProfile || null;
         const history = context.history || [];
         const currentMessage = context.message || '';
+        const normCurrent = normalizeText(currentMessage);
+
+        const isChangeRowRequest = /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(currentMessage) ||
+          /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(normCurrent) ||
+          /(?:hàng\s*khác|hang\s*khac)/i.test(normCurrent);
+
+        const isSeatAdjustmentRequest = (
+          /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai)/i.test(currentMessage) ||
+          /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai)/i.test(normCurrent) ||
+          isChangeRowRequest
+        );
 
         const userMessages = [
           currentMessage,
           ...history.filter(m => m.role === 'user').map(m => m.content || '')
         ].join('\n');
 
-        // Extract preferredRow from user text if not passed in tool args
-        if (!preferredRow) {
-          const rowMatch = userMessages.match(/(?:hàng\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
+        // Extract preferredRow from CURRENT user text if not passed in tool args and not asking for a different row
+        if (!preferredRow && !isChangeRowRequest) {
+          const rowMatch = currentMessage.match(/(?:hàng\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
           if (rowMatch) preferredRow = rowMatch[1];
         }
 
@@ -1286,10 +1508,94 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           }
         }
 
-        // Always check userMessages for tickets directly: if text has more or complete ticket types, use the full list!
-        const fromText = parseTicketsFromText(userMessages, allEventTickets);
-        if (fromText.length > 0 && fromText.length >= requestedTickets.length) {
-          requestedTickets = fromText;
+        const lastProp = findLastBookingProposal(history, allEventTickets);
+        const prevPropQty = lastProp?.quantity || null;
+
+        if (!excludeRow && isChangeRowRequest && lastProp?.seats?.length > 0) {
+          const firstSeat = typeof lastProp.seats[0] === 'string' ? lastProp.seats[0] : (lastProp.seats[0]?.label || '');
+          if (firstSeat) {
+            excludeRow = firstSeat.charAt(0).toUpperCase();
+          }
+        }
+        if (isChangeRowRequest) {
+          preferredRow = '';
+        }
+
+        const parsedQFromCurrent = parseQuantityFromText(currentMessage, prevPropQty);
+        if (parsedQFromCurrent && parsedQFromCurrent > 0) {
+          quantity = parsedQFromCurrent;
+        } else if (prevPropQty && (!args.quantity || parseInt(args.quantity, 10) === 1)) {
+          quantity = prevPropQty;
+        }
+
+        // 1. Check if current message specifies tickets directly
+        const fromCurrent = parseTicketsFromText(currentMessage, allEventTickets);
+        if (fromCurrent.length > 0) {
+          requestedTickets = fromCurrent;
+        }
+
+        // 2. Check if current message explicitly mentions a ticket tier by name or price
+        for (const t of allEventTickets) {
+          const normName = normalizeText(t.name).replace(/\([^)]*\)/g, '').trim();
+          const pNum = Number(t.price);
+          const pK = `${Math.round(pNum / 1000)}k`;
+          const priceRegex = new RegExp(`\\b${pK}\\b|\\b${pNum}\\b`, 'i');
+          if ((normName.length >= 3 && normCurrent.includes(normName)) || priceRegex.test(normCurrent)) {
+            ticketTypeId = t.id;
+            break;
+          }
+        }
+
+        if (!ticketTypeId && ticketTypeName) {
+          const norm = normalizeText(ticketTypeName);
+          const found = allEventTickets.find(t => normalizeText(t.name).includes(norm));
+          if (found) {
+            ticketTypeId = found.id;
+          }
+        }
+
+        // Check if user specifically requested to switch to a different zone / tier:
+        const wantsDifferentTierInTool = /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(currentMessage) ||
+          /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang|loai\s*ve|loai|vung)\s*khac\b/i.test(normCurrent) ||
+          /(?:đổi\s*khu|đổi\s*khu\s*vực|chuyển\s*khu|chuyển\s*khu\s*vực|khu\s*vực\s*khác|loại\s*vé\s*khác|hạng\s*vé\s*khác|loại\s*khác|hạng\s*khác)/i.test(currentMessage) ||
+          /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normCurrent);
+
+        if (wantsDifferentTierInTool && allEventTickets.length > 1) {
+          const prevTierId = lastProp?.ticket_type_id;
+          const candidateOther = allEventTickets.filter(t => (!prevTierId || String(t.id) !== String(prevTierId)) && t.is_seated !== false);
+          const otherTiers = candidateOther.length > 0 ? candidateOther : allEventTickets.filter(t => !prevTierId || String(t.id) !== String(prevTierId));
+          if (otherTiers.length > 0) {
+            ticketTypeId = otherTiers[0].id;
+            ticketTypeName = otherTiers[0].name;
+            requestedTickets = [{ ticket: otherTiers[0], quantity }];
+          }
+          // Do not inherit row from previous zone when switching zones
+          const rowInCurrent = currentMessage.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
+          preferredRow = rowInCurrent ? rowInCurrent[1] : '';
+        } else if (!wantsDifferentTierInTool && (isChangeRowRequest || isSeatAdjustmentRequest) && !ticketTypeId && lastProp?.ticket_type_id) {
+          // Preserve previous tier when user is adjusting seats or changing rows
+          const prevMatched = allEventTickets.find(t => String(t.id) === String(lastProp.ticket_type_id));
+          if (prevMatched) {
+            ticketTypeId = prevMatched.id;
+            ticketTypeName = prevMatched.name;
+            requestedTickets = [{ ticket: prevMatched, quantity }];
+          }
+        }
+
+        // If ticketTypeId was specified (or changed in current turn), bind requestedTickets to this tier
+        if (ticketTypeId) {
+          const matchedT = allEventTickets.find(t => String(t.id) === String(ticketTypeId));
+          if (matchedT && requestedTickets.length <= 1) {
+            requestedTickets = [{ ticket: matchedT, quantity }];
+          }
+        }
+
+        // 3. Only if no tickets were determined from current message or explicit args, check conversation history:
+        if (requestedTickets.length === 0) {
+          const fromText = parseTicketsFromText(userMessages, allEventTickets);
+          if (fromText.length > 0) {
+            requestedTickets = fromText;
+          }
         }
 
         // If requestedTickets is present, recalculate total quantity
@@ -1302,21 +1608,15 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         const isAttendeesComplete = !requireAttendeeInfo || (collectedAttendees.length >= quantity);
 
         // Resolve ticket tier / cheapest preference:
-        const wantsCheapest = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(userMessages);
-
-        if (!ticketTypeId && ticketTypeName) {
-          const norm = normalizeText(ticketTypeName);
-          const found = allEventTickets.find(t => normalizeText(t.name).includes(norm));
-          if (found) {
-            ticketTypeId = found.id;
-          }
-        }
+        const normUserMsgs = normalizeText(userMessages);
+        const wantsCheapest = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(userMessages) ||
+          /(?:re\s*nhat|tiet\s*kiem\s*nhat|loai\s*re|ve\s*re|gia\s*thap\s*nhat|loai\s*nao\s*cung\s*duoc|sao\s*cung\s*duoc|tuy\s*ban|bat\s*ky|thap\s*tien)/i.test(normUserMsgs);
 
         if (!ticketTypeId && allEventTickets.length > 0 && requestedTickets.length <= 1) {
-          // Check if user specifically requested a ticket tier by name
+          // Check if user specifically requested a ticket tier by name in userMessages
           for (const t of allEventTickets) {
             const normName = normalizeText(t.name).replace(/\([^)]*\)/g, '').trim();
-            if (normName.length >= 3 && normalizeText(userMessages).includes(normName)) {
+            if (normName.length >= 3 && normUserMsgs.includes(normName)) {
               ticketTypeId = t.id;
               break;
             }
@@ -1331,6 +1631,20 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
                 break;
               }
             }
+          }
+          // If still no ticket tier specified, default to the cheapest tier!
+          if (!ticketTypeId) {
+            const sortedByPrice = [...allEventTickets].sort((a, b) => Number(a.price) - Number(b.price));
+            ticketTypeId = sortedByPrice[0]?.id;
+          }
+        }
+
+        // Release any previous holds for this user before new allocation
+        if (userId) {
+          try {
+            await eventsService.releaseSeatHolds(userId, { event_id: detail.id, session_seat_ids: [] });
+          } catch (relErr) {
+            // ignore release error
           }
         }
 
@@ -1362,6 +1676,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
                 {
                   quantity: rt.quantity,
                   preferredRow,
+                  excludeRow,
                   ticketTypeId: rt.ticket.id,
                   isCenterPreferred,
                   horizontalPreference,
@@ -1384,7 +1699,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
               remainingSessionSeats = remainingSessionSeats.filter(s => !usedIds.has(s.session_seat_id));
             }
           } else {
-            const singleTargetTier = requestedTickets[0]?.ticket?.id || ticketTypeId;
+            const singleTargetTier = ticketTypeId || requestedTickets[0]?.ticket?.id;
             const singleQty = requestedTickets[0]?.quantity || quantity;
             const singleAlloc = seatAllocationService.allocateSeats(
               allSessionSeats,
@@ -1393,6 +1708,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
               {
                 quantity: singleQty,
                 preferredRow,
+                excludeRow,
                 ticketTypeId: singleTargetTier,
                 cheapestOnly: wantsCheapest || !singleTargetTier,
                 isCenterPreferred,
@@ -1584,16 +1900,23 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
   }
 
   async chat(userId, messageOrPayload, maybeHistory = []) {
-    let message = typeof messageOrPayload === 'string' ? messageOrPayload : (messageOrPayload?.message || '');
-    const cleanHistory = (Array.isArray(maybeHistory) && maybeHistory.length > 0)
-      ? maybeHistory
-      : (messageOrPayload?.history || []);
+    try {
+      let message = typeof messageOrPayload === 'string' ? messageOrPayload : (messageOrPayload?.message || '');
+      const rawHistory = (Array.isArray(maybeHistory) && maybeHistory.length > 0)
+        ? maybeHistory
+        : (messageOrPayload?.history || []);
+      const cleanHistory = Array.isArray(rawHistory)
+        ? rawHistory.filter(m => m && typeof m === 'object' && typeof m.role === 'string').map(m => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')
+          }))
+        : [];
 
-    // Extract any phone number provided by the user in the current message or chat history
-    const allUserMessages = [
-      message,
-      ...cleanHistory.filter(m => m.role === 'user').map(m => m.content || '')
-    ].join('\n');
+      // Extract any phone number provided by the user in the current message or chat history
+      const allUserMessages = [
+        message,
+        ...cleanHistory.filter(m => m.role === 'user').map(m => m.content || '')
+      ].join('\n');
 
     const userChatPhone = extractPhoneNumber(allUserMessages);
 
@@ -1836,26 +2159,56 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
     const allUserNorm = normalizeText(allUserMessages);
     const hasSaidUseMyInfo = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi|thong\s+tin\s+nhu\s+tren/i.test(allUserNorm);
 
-    // Calculate ordered tickets and quantities from conversation:
+    // 1. Detect user intents from current message early:
+    const wantsDifferentTier = /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(message) ||
+      /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang|loai\s*ve|loai|vung)\s*khac\b/i.test(normMsg) ||
+      /(?:đổi\s*khu|đổi\s*khu\s*vực|chuyển\s*khu|chuyển\s*khu\s*vực|khu\s*vực\s*khác|loại\s*vé\s*khác|hạng\s*vé\s*khác|loại\s*khác|hạng\s*khác)/i.test(message) ||
+      /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normMsg);
+
+    const isChangeRowRequest = /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(message) ||
+      /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(normMsg) ||
+      /(?:hàng\s*khác|hang\s*khac)/i.test(normMsg);
+
+    const isSeatAdjustmentRequest = (
+      /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai)/i.test(message) ||
+      /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai)/i.test(normMsg) ||
+      wantsDifferentTier ||
+      isChangeRowRequest
+    );
+
+    const isAutonomousBookingRequest = (
+      /(?:đặt|đạt|dat|mua|lấy|lay|chọn|chon|đổi|doi|chuyển|chuyen|book|booking|order|giữ\s*chỗ|giu\s*cho|cho\s*mình|cho\s*minh|cho\s*tôi|cho\s*toi|cho\s*em|cho\s*anh|lấy\s*hộ|lay\s*ho|lấy\s*giúp|lay\s*giup|cần|can|muốn\s*đặt|muon\s*dat|muốn\s*mua|muon\s*mua|đăng\s*ký|dang\s*ky)\s*(?:giúp\s*tôi|giup\s*toi|giúp\s*mình|giup\s*minh|hộ\s*tôi|ho\s*toi|hộ\s*mình|ho\s*minh|luôn|luon|ngay|lại|lai|sang)?\s*(?:\d+|một|mot|hai|ba|bốn|bon|năm|nam|cặp|cap|đôi|doi)?\s*(?:vé|ve|chỗ|cho|ghế|ghe|ticket|suất|suat)?/i.test(message) ||
+      /(?:dat|mua|lay|book|booking|order|giu cho|cho minh|cho toi)\s*(\d+|mot|hai|ba|bon|nam|cap|doi|ve|cho|ghe|ticket)/i.test(normMsg)
+    ) && !/(?:tự\s*chọn|tu\s*chon|sơ\s*đồ\s*ghế|so\s*do\s*ghe|mở\s*sơ\s*đồ|mo\s*so\s*do|cho\s*tôi\s*tự\s*chọn|cho\s*toi\s*tu\s*chon|tự\s*vào\s*chọn|tu\s*vao\s*chon)/i.test(normMsg);
+
+    const isManualSeatMapRequest = /(?:tự\s*chọn|tu\s*chon|sơ\s*đồ\s*ghế|so\s*do\s*ghe|mở\s*sơ\s*đồ|mo\s*so\s*do|cho\s*tôi\s*tự\s*chọn|cho\s*toi\s*tu\s*chon|tự\s*vào\s*chọn|tu\s*vao\s*chon)/i.test(normMsg);
+
+    // 2. Extract last proposal from history:
     const ticketTypesList = eventDetail?.ticket_types || [];
+    const lastProposal = findLastBookingProposal(cleanHistory, ticketTypesList);
+    const prevProposalQty = lastProposal?.quantity || null;
+    const firstSeat = lastProposal?.seats?.[0];
+    const firstSeatLabel = typeof firstSeat === 'string' ? firstSeat : (firstSeat?.label || '');
+    const prevRow = firstSeatLabel ? firstSeatLabel.charAt(0).toUpperCase() : null;
+    const excludeRow = isChangeRowRequest ? prevRow : null;
+
+    const ticketsFromCurrentMsg = parseTicketsFromText(message, ticketTypesList);
     const detectedTickets = parseTicketsFromText(allUserMessages, ticketTypesList);
-    const hasChosenTickets = detectedTickets.length > 0;
-    const totalOrderQty = hasChosenTickets 
-      ? detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0)
-      : 0;
 
     const collectedAttendees = extractAttendeesFromText(allUserMessages, userProfile);
-    const hasEnoughAttendees = !requireAttendeeInfo || (hasChosenTickets && collectedAttendees.length >= totalOrderQty);
 
     const seatedOrderQty = (() => {
-      if (detectedTickets.length > 0) return detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
-      const qtyMatch = allUserMessages.match(/(\d+)\s*(?:v[eé]|chỗ|ghế|ticket)/i);
-      if (qtyMatch) {
-        const q = parseInt(qtyMatch[1], 10);
-        if (q > 0) return q;
+      if (ticketsFromCurrentMsg.length > 0) return ticketsFromCurrentMsg.reduce((sum, dt) => sum + dt.quantity, 0);
+      const parsedQInMsg = parseQuantityFromText(message, prevProposalQty);
+      if (parsedQInMsg && parsedQInMsg > 0) return parsedQInMsg;
+      if (wantsDifferentTier || isSeatAdjustmentRequest) {
+        if (prevProposalQty && prevProposalQty > 0) return prevProposalQty;
       }
+      if (detectedTickets.length > 0) return detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
+      const parsedQ = parseQuantityFromText(allUserMessages);
+      if (parsedQ && parsedQ > 0) return parsedQ;
       if (collectedAttendees.length > 0) return collectedAttendees.length;
-      return 1;
+      return prevProposalQty || 1;
     })();
 
     // Detect candidate ticket tiers & prices for active event:
@@ -1870,8 +2223,13 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
     const sortedCandidateTickets = [...targetCandidateTickets].sort((a, b) => Number(a.price) - Number(b.price));
     const cheapestTicket = sortedCandidateTickets[0] || null;
 
-    const wantsCheapestInMsg = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(message);
-    const wantsCheapestAll = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(allUserMessages);
+    const normAllUser = normalizeText(allUserMessages);
+
+    const wantsCheapestInMsg = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(message) ||
+      /(?:re\s*nhat|tiet\s*kiem\s*nhat|loai\s*re|ve\s*re|gia\s*thap\s*nhat|loai\s*nao\s*cung\s*duoc|sao\s*cung\s*duoc|tuy\s*ban|bat\s*ky|thap\s*tien)/i.test(normMsg);
+
+    const wantsCheapestAll = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(allUserMessages) ||
+      /(?:re\s*nhat|tiet\s*kiem\s*nhat|loai\s*re|ve\s*re|gia\s*thap\s*nhat|loai\s*nao\s*cung\s*duoc|sao\s*cung\s*duoc|tuy\s*ban|bat\s*ky|thap\s*tien)/i.test(normAllUser);
 
     // Detect if user specifically mentioned any ticket tier by name or price in current message or in history:
     let matchedTierInMsg = null;
@@ -1882,95 +2240,136 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
       const pK = `${Math.round(pNum / 1000)}k`;
       const priceRegex = new RegExp(`\\b${pK}\\b|\\b${pNum}\\b`, 'i');
 
-      if ((normName.length >= 3 && normalizeText(message).includes(normName)) || priceRegex.test(message)) {
+      if ((normName.length >= 3 && normMsg.includes(normName)) || priceRegex.test(normMsg)) {
         matchedTierInMsg = t;
       }
-      if ((normName.length >= 3 && normalizeText(allUserMessages).includes(normName)) || priceRegex.test(allUserMessages)) {
+      if ((normName.length >= 3 && normAllUser.includes(normName)) || priceRegex.test(normAllUser)) {
         matchedTierAll = t;
       }
     }
 
-    // Detect autonomous booking intent or seat adjustment intent in current user message:
-    const isSeatAdjustmentRequest = /(?:lệch|bị\s*lệch|chính\s*giữa|ở\s*giữa|giữa\s*hàng|đổi\s*ghế|đổi\s*hàng|đổi\s*sang|chuyển\s*sang|chọn\s*lại|hàng\s*khác)/i.test(message);
-    const isAutonomousBookingRequest = /(?:đặt|đạt|dat|mua|lấy|chọn|đổi|chuyển)\s*(?:giúp\s*tôi|giúp\s*mình|hộ\s*tôi|hộ\s*mình|luôn|ngay|lại|sang)?\s*(?:\d+\s*(?:vé|chỗ|ghế)|vé|ghế)?/i.test(message) &&
-      !/(?:tự\s*chọn|sơ\s*đồ\s*ghế|mở\s*sơ\s*đồ|cho\s*tôi\s*tự\s*chọn|tự\s*vào\s*chọn)/i.test(message);
+    const requestedQty = parseQuantityFromText(message, prevProposalQty) || ((wantsDifferentTier || isSeatAdjustmentRequest) ? prevProposalQty : null);
 
-    const isManualSeatMapRequest = /(?:tự\s*chọn|sơ\s*đồ\s*ghế|mở\s*sơ\s*đồ|cho\s*tôi\s*tự\s*chọn|tự\s*vào\s*chọn)/i.test(message);
-
-    let requestedQty = null;
-    const qtyMatch = message.match(/(\d+)\s*(?:v[eé]|chỗ|ghế|ticket)/i) || message.match(/(?:đặt|đạt|dat|mua|lấy)\s*(\d+)/i);
-    if (qtyMatch) {
-      requestedQty = parseInt(qtyMatch[1], 10);
-    }
     let requestedRow = null;
-    const rowMatch = message.match(/(?:hàng\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
-    if (rowMatch) {
-      const candidateRow = rowMatch[1].toUpperCase();
-      if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP)/i.test(candidateRow)) {
-        requestedRow = candidateRow;
+    if (!wantsDifferentTier && !isChangeRowRequest) {
+      const rowMatch = message.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i) ||
+        normMsg.match(/(?:hang\s*(?:ghe\s*)?|day\s*(?:ghe\s*)?|row\s*)([a-z\d]+)/i) ||
+        normMsg.match(/(?:doi\s*sang|chuyen\s*sang|lay\s*hang|chon\s*hang|hang)\s+([a-z\d])\b/i);
+
+      if (rowMatch) {
+        const candidateRow = rowMatch[1].toUpperCase();
+        if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM)/i.test(candidateRow)) {
+          requestedRow = candidateRow;
+        }
+      }
+    } else if (!isChangeRowRequest) {
+      const rowInCurrent = message.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
+      if (rowInCurrent) {
+        const candidateRow = rowInCurrent[1].toUpperCase();
+        if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM)/i.test(candidateRow)) {
+          requestedRow = candidateRow;
+        }
       }
     }
-    const isCenterInMsg = /(?:trung\s*tâm|ở\s*giữa|khu\s*vực\s*giữa|hàng\s*ghế\s*trung\s*tâm|chính\s*giữa)/i.test(message);
+    const isCenterInMsg = /(?:trung\s*tâm|ở\s*giữa|khu\s*vực\s*giữa|hàng\s*ghế\s*trung\s*tâm|chính\s*giữa)/i.test(message) ||
+      /(?:trung\s*tam|o\s*giua|khu\s*vuc\s*giua|hang\s*ghe\s*trung\s*tam|chinh\s*giua|hang\s*giua|center)/i.test(normMsg);
 
     // If user previously asked to book and is now replying with a tier or price or "loại rẻ nhất":
-    const hasBookingContext = /(?:đặt|đạt|dat|mua|lấy|chọn)\s*(?:giúp|hộ|vé|ghế)?/i.test(allUserMessages);
+    const hasBookingContext = /(?:đặt|đạt|dat|mua|lấy|lay|chọn|chon|book|order)\s*(?:giúp|giup|hộ|ho|vé|ve|ghế|ghe)?/i.test(normAllUser);
     const isTierOrPriceResponse = Boolean(matchedTierInMsg || wantsCheapestInMsg) && hasBookingContext;
 
-    const effQty = hasChosenTickets ? totalOrderQty : (requestedQty || seatedOrderQty || 1);
+    // Determine current effective target tier and tickets (CURRENT message takes strict priority over history)
+    const isChangeTierInquiry = /(?:xem|hỏi|có\s*những|có\s*các)\s*(?:loại\s*vé|hạng\s*vé|khu\s*vực|giá\s*vé)/i.test(message) &&
+      !matchedTierInMsg && !wantsCheapestInMsg && !wantsDifferentTier && !isAutonomousBookingRequest;
+
+    let effDetectedTickets = [];
+    let effTargetTier = null;
+
+    if (ticketsFromCurrentMsg.length > 0) {
+      effDetectedTickets = ticketsFromCurrentMsg;
+      effTargetTier = ticketsFromCurrentMsg[0]?.ticket;
+    } else if (matchedTierInMsg) {
+      effTargetTier = matchedTierInMsg;
+      const q = requestedQty || seatedOrderQty || 1;
+      effDetectedTickets = [{ ticket: matchedTierInMsg, quantity: q }];
+    } else if (wantsDifferentTier && targetCandidateTickets.length > 1) {
+      // User specifically requested to switch to a different zone / tier:
+      const prevTierId = lastProposal?.ticket_type_id;
+      const candidateOther = targetCandidateTickets.filter(t => (!prevTierId || String(t.id) !== String(prevTierId)));
+      const otherTiers = candidateOther.length > 0 ? candidateOther : targetCandidateTickets;
+      effTargetTier = otherTiers[0] || targetCandidateTickets[0];
+      const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
+      effDetectedTickets = [{ ticket: effTargetTier, quantity: q }];
+    } else if (wantsCheapestInMsg) {
+      effTargetTier = cheapestTicket;
+      const q = requestedQty || seatedOrderQty || 1;
+      effDetectedTickets = [{ ticket: cheapestTicket, quantity: q }];
+    } else if (!wantsDifferentTier && (isChangeRowRequest || isSeatAdjustmentRequest) && lastProposal?.ticket_type_id) {
+      // Preserve previous tier when user is adjusting seats or changing row
+      const prevMatchedTier = targetCandidateTickets.find(t => String(t.id) === String(lastProposal.ticket_type_id));
+      if (prevMatchedTier) {
+        effTargetTier = prevMatchedTier;
+        const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
+        effDetectedTickets = [{ ticket: prevMatchedTier, quantity: q }];
+      }
+    } else if (detectedTickets.length > 0) {
+      effDetectedTickets = detectedTickets;
+      effTargetTier = detectedTickets[0]?.ticket;
+    } else {
+      effTargetTier = matchedTierAll || (wantsCheapestAll ? cheapestTicket : cheapestTicket);
+      if (effTargetTier) {
+        const q = requestedQty || seatedOrderQty || 1;
+        effDetectedTickets = [{ ticket: effTargetTier, quantity: q }];
+      }
+    }
+
+    const effQty = requestedQty || (ticketsFromCurrentMsg.length > 0 ? ticketsFromCurrentMsg.reduce((s, t) => s + t.quantity, 0) : null) || (effDetectedTickets.length > 0 ? effDetectedTickets.reduce((s, t) => s + t.quantity, 0) : null) || seatedOrderQty || 1;
+    const hasChosenTickets = effDetectedTickets.length > 0;
+    const totalOrderQty = hasChosenTickets ? effDetectedTickets.reduce((sum, dt) => sum + dt.quantity, 0) : 0;
+    const hasEnoughAttendees = !requireAttendeeInfo || (hasChosenTickets && collectedAttendees.length >= totalOrderQty);
+
     const hasSpecificPlacement = Boolean(requestedRow || isCenterInMsg || isSeatAdjustmentRequest);
-    const hasSpecificTier = Boolean(matchedTierAll || hasChosenTickets);
+    const hasSpecificTier = Boolean(effTargetTier || matchedTierAll || hasChosenTickets);
 
     const isBookingFlowActive = Boolean(
       activeEvent &&
       !isManualSeatMapRequest &&
-      (isAutonomousBookingRequest || hasChosenTickets || isSeatAdjustmentRequest || isTierOrPriceResponse || /(?:đặt luôn|đặt vé|chọn vé)/i.test(message))
+      (isAutonomousBookingRequest || hasChosenTickets || isSeatAdjustmentRequest || isTierOrPriceResponse || /(?:đặt luôn|đặt vé|chọn vé|dat luon|dat ve|chon ve)/i.test(message))
     );
 
-    if (isBookingFlowActive) {
-      if (hasMultiplePriceTiers && !hasSpecificPlacement && !hasSpecificTier && !wantsCheapestAll) {
-        // Customer has NOT chosen a row, nor a specific tier/zone, and did NOT specify cheapest tier.
-        // Rule: Must ask customer which ticket tier they want, and recommend the cheapest tier!
-        messages.push({
-          role: 'system',
-          content: `Bạn là Eve, trợ lý ảo thông minh của EventHub. Hãy phản hồi trực tiếp cho khách hàng bằng giọng điệu thân thiện, chu đáo (xưng "Eve", gọi khách là "bạn" và dùng emoji phù hợp).
-Khách hàng muốn đặt ${effQty} vé sự kiện "${activeEvent.title}" nhưng chưa chọn hạng vé cụ thể.
-Sự kiện này có ${targetCandidateTickets.length} hạng vé với các mức giá:
-${targetCandidateTickets.map(t => `- **${t.name}**: ${Number(t.price).toLocaleString('vi-VN')} VNĐ`).join('\n')}
+    if (isBookingFlowActive && !isChangeTierInquiry) {
+      // Customer specified row, tier, cheapest, or asked to book!
+      const hasMultipleDetected = effDetectedTickets.length > 1;
+      const ticketsArg = hasMultipleDetected ? effDetectedTickets.map(dt => ({
+        ticketTypeId: dt.ticket.id,
+        ticketTypeName: dt.ticket.name,
+        quantity: dt.quantity
+      })) : null;
 
-Hãy giới thiệu ngắn gọn các hạng vé trên và hỏi khách muốn đặt loại vé nào.
-Đồng thời, hãy gợi ý thân thiện: "Nếu bạn muốn tiết kiệm chi phí, bạn có thể chọn hạng **${cheapestTicket?.name}** với giá chỉ **${Number(cheapestTicket?.price || 0).toLocaleString('vi-VN')} VNĐ** nhé!".
-LƯU Ý QUAN TRỌNG:
-- Trả lời trực tiếp câu thoại cho khách hàng.
-- TUYỆT ĐỐI KHÔNG lặp lại chỉ dẫn của hệ thống này.
-- TUYỆT ĐỐI KHÔNG nói "Tôi hiểu rồi", KHÔNG nói "Tôi sẽ thực hiện như sau", KHÔNG nhắc tới "TOOL" hay "proposeSmartBooking".`
-        });
-      } else {
-        // Customer specified row, tier, or cheapest (or event has single price tier):
-        const hasMultipleDetected = detectedTickets.length > 1;
-        const ticketsArg = hasMultipleDetected ? detectedTickets.map(dt => ({
-          ticketTypeId: dt.ticket.id,
-          ticketTypeName: dt.ticket.name,
-          quantity: dt.quantity
-        })) : null;
+      const ticketsParam = ticketsArg ? `, tickets: ${JSON.stringify(ticketsArg)}` : '';
+      const targetTier = !hasMultipleDetected ? effTargetTier : null;
+      const tierParam = targetTier ? `, ticketTypeId: "${targetTier.id}", ticketTypeName: "${targetTier.name}"` : '';
+      const tierDesc = hasMultipleDetected
+        ? `, Các loại vé: ${effDetectedTickets.map(dt => `${dt.quantity} vé "${dt.ticket.name}" (${Number(dt.ticket.price).toLocaleString('vi-VN')} VNĐ)`).join(', ')}`
+        : (targetTier ? `, Hạng vé: "${targetTier.name}" (${Number(targetTier.price).toLocaleString('vi-VN')} VNĐ)` : '');
+      const excludeRowParam = excludeRow ? `, excludeRow: "${excludeRow}"` : '';
+      const rowParam = requestedRow ? `, preferredRow: "${requestedRow}"` : (isCenterInMsg ? ', preferredRow: "trung tâm"' : '');
+      const rowDesc = requestedRow ? `, Ưu tiên hàng: ${requestedRow}` : (excludeRow ? `, Đổi hàng khác (không lấy hàng ${excludeRow})` : (isCenterInMsg ? ', Ưu tiên hàng ghế trung tâm' : ''));
 
-        const ticketsParam = ticketsArg ? `, tickets: ${JSON.stringify(ticketsArg)}` : '';
-        const targetTier = !hasMultipleDetected 
-          ? (detectedTickets[0]?.ticket || matchedTierAll || (wantsCheapestAll ? cheapestTicket : (!hasMultiplePriceTiers ? cheapestTicket : null)))
-          : null;
-        const tierParam = targetTier ? `, ticketTypeId: "${targetTier.id}", ticketTypeName: "${targetTier.name}"` : '';
-        const tierDesc = hasMultipleDetected
-          ? `, Các loại vé: ${detectedTickets.map(dt => `${dt.quantity} vé "${dt.ticket.name}" (${Number(dt.ticket.price).toLocaleString('vi-VN')} VNĐ)`).join(', ')}`
-          : (targetTier ? `, Hạng vé: "${targetTier.name}" (${Number(targetTier.price).toLocaleString('vi-VN')} VNĐ)` : (wantsCheapestAll ? `, Loại vé rẻ nhất` : ''));
-        const rowParam = requestedRow ? `, preferredRow: "${requestedRow}"` : (isCenterInMsg ? ', preferredRow: "trung tâm"' : '');
-        const rowDesc = requestedRow ? `, Ưu tiên hàng: ${requestedRow}` : (isCenterInMsg ? ', Ưu tiên hàng ghế trung tâm' : '');
-
-        messages.push({
-          role: 'system',
-          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng yêu cầu đặt vé tự động hoặc điều chỉnh ghế cho sự kiện "${activeEvent.title}" (Số lượng: ${effQty} vé${rowDesc}${tierDesc}).
-${wantsCheapestAll ? `Khách yêu cầu loại vé rẻ nhất -> Hệ thống chọn hạng vé rẻ nhất: "${cheapestTicket?.name}" (${Number(cheapestTicket?.price || 0).toLocaleString('vi-VN')} VNĐ).` : ''}
-Bạn BẮT BUỘC PHẢI GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: ${effQty}${ticketsParam}${rowParam}${tierParam} }) để hệ thống phân bổ lại ghế tối ưu và tạo Đề Xuất Đặt Vé cho khách duyệt! TUYỆT ĐỐI không bảo khách tự mở sơ đồ chọn ghế khi khách đã nhờ đặt!`
-        });
-      }
+      messages.push({
+        role: 'system',
+        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng yêu cầu đặt vé tự động hoặc điều chỉnh ghế cho sự kiện "${activeEvent.title}" (Số lượng: ${effQty} vé${rowDesc}${tierDesc}).
+${!hasSpecificTier && hasMultiplePriceTiers && !matchedTierInMsg && !wantsCheapestInMsg ? `Khách chưa chọn hạng vé cụ thể -> Hệ thống tự động chọn hạng vé tiết kiệm nhất: "${cheapestTicket?.name}" (${Number(cheapestTicket?.price || 0).toLocaleString('vi-VN')} VNĐ). Sau khi gọi tool, bạn hãy giới thiệu rõ đã chọn trước hạng vé này cho khách và gợi ý khách có thể đổi sang các hạng khác nếu muốn nhé!` : ''}
+Bạn BẮT BUỘC PHẢI GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: ${effQty}${ticketsParam}${rowParam}${excludeRowParam}${tierParam} }) để hệ thống phân bổ lại ghế tối ưu và tạo Đề Xuất Đặt Vé cho khách duyệt! TUYỆT ĐỐI không bảo khách tự mở sơ đồ chọn ghế khi khách đã nhờ đặt!`
+      });
+    } else if (activeEvent && isChangeTierInquiry && targetCandidateTickets.length > 1) {
+      messages.push({
+        role: 'system',
+        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn tham khảo hoặc đổi loại vé cho sự kiện "${activeEvent.title}".
+Danh sách các hạng vé hiện có:
+${targetCandidateTickets.map(t => `- Hạng vé: "${t.name}" - Giá: ${Number(t.price).toLocaleString('vi-VN')} VNĐ`).join('\n')}
+Bạn hãy liệt kê các hạng vé và mức giá trên một cách thân thiện và hỏi khách muốn đổi sang hạng vé nào để Eve hỗ trợ đặt cho bạn ngay nhé!`
+      });
     } else if (activeEvent && isManualSeatMapRequest) {
       messages.push({
         role: 'system',
@@ -2106,17 +2505,65 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         }
       }
 
-      let response = await ollamaClient.chat(messages, { tools: activeTools });
+      let response = null;
+      try {
+        response = await ollamaClient.chat(messages, { tools: activeTools });
+      } catch (chatErr) {
+        logger.warn(`[AgentLoop] ollamaClient.chat with tools error: ${chatErr.message}`);
+        if (activeTools.length > 0) {
+          try {
+            logger.info(`[AgentLoop] Retrying ollamaClient.chat without tools...`);
+            response = await ollamaClient.chat(messages, { tools: [] });
+          } catch (retryErr) {
+            logger.error(`[AgentLoop] Retry without tools also failed: ${retryErr.message}`);
+          }
+        }
+      }
+
+      if (!response) {
+        // Fallback: If Ollama is completely unreachable or timed out
+        if (toolExecutionContext.lastGeneratedActionTag) {
+          finalContent = `Eve đã tạo đề xuất đặt vé thành công cho bạn rồi nhé! Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+          break;
+        } else if (isBookingFlowActive && activeEvent) {
+          try {
+            logger.info(`[AgentLoop] Directly triggering proposeSmartBooking as AI model fallback...`);
+            await this.executeTool(userId, 'proposeSmartBooking', {
+              eventId: activeEvent.slug,
+              sessionId: sessionList[0]?.id || '',
+              quantity: effQty,
+              preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
+              excludeRow,
+              ticketTypeId: effTargetTier?.id,
+              ticketTypeName: effTargetTier?.name
+            }, toolExecutionContext);
+            if (toolExecutionContext.lastGeneratedActionTag) {
+              finalContent = `Eve đã tạo Đề xuất Đặt vé thành công cho bạn nè! 🎉 Bạn vui lòng kiểm tra thông tin trên thẻ đề xuất bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé!\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+              break;
+            }
+          } catch (fbErr) {
+            logger.error(`[AgentLoop] Direct fallback proposeSmartBooking error: ${fbErr.message}`);
+          }
+        }
+
+        finalContent = "Dạ hiện tại hệ thống AI đang hơi bận một chút 🥺. Bạn hãy thử nhắn lại một lần nữa hoặc tải lại trang web nhé! Eve luôn sẵn sàng hỗ trợ bạn!";
+        break;
+      }
+
       let toolCalls = response.tool_calls || [];
 
       // Fallback: If model returned empty content with tools enabled, re-run without tools
       if (!response.content && toolCalls.length === 0 && activeTools.length > 0) {
         logger.info(`[AgentLoop] Model returned empty with tools, retrying without tools...`);
-        response = await ollamaClient.chat(messages, { tools: [] });
-        toolCalls = response.tool_calls || [];
+        try {
+          response = await ollamaClient.chat(messages, { tools: [] });
+          toolCalls = response.tool_calls || [];
+        } catch (emptyRetryErr) {
+          logger.warn(`[AgentLoop] Retrying empty content without tools error: ${emptyRetryErr.message}`);
+        }
       }
 
-      logger.info(`[AgentLoop] Content: "${(response.content || '').substring(0, 200)}"`);
+      logger.info(`[AgentLoop] Content: "${(response?.content || '').substring(0, 200)}"`);
       logger.info(`[AgentLoop] Tool calls: ${JSON.stringify(toolCalls.map(tc => tc.function?.name || 'unknown'))}`);
 
       // If model made tool calls → execute them and loop again
@@ -2124,7 +2571,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         // Push assistant message WITH tool_calls for Ollama's chat template
         messages.push({
           role: 'assistant',
-          content: response.content || '',
+          content: response?.content || '',
           tool_calls: toolCalls
         });
 
@@ -2149,7 +2596,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
       }
 
       // No tool calls → model is done, this is the final response
-      finalContent = response.content || '';
+      finalContent = response?.content || '';
       logger.info(`[AgentLoop] Finished. Final content length: ${finalContent.length}`);
       break;
     }
@@ -2196,18 +2643,16 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
     // automatically execute generatePrefillBookingAction deterministically!
     let effectiveSeatedQty = seatedOrderQty || 1;
     if (!toolExecutionContext.lastGeneratedActionTag && activeEvent) {
-      const needsToAskTier = hasMultiplePriceTiers && !hasSpecificPlacement && !hasSpecificTier && !wantsCheapestAll;
-      if (isBookingFlowActive && !needsToAskTier) {
-        const effAutoQty = requestedQty || seatedOrderQty || 1;
-        const hasMultipleDetected = detectedTickets.length > 1;
-        const ticketsArg = hasMultipleDetected ? detectedTickets.map(dt => ({
+      const needsToAskTier = hasMultiplePriceTiers && !hasSpecificPlacement && !hasSpecificTier && !wantsCheapestAll && !matchedTierInMsg;
+      if (isBookingFlowActive && !needsToAskTier && !isChangeTierInquiry) {
+        const effAutoQty = effQty;
+        const hasMultipleDetected = effDetectedTickets.length > 1;
+        const ticketsArg = hasMultipleDetected ? effDetectedTickets.map(dt => ({
           ticketTypeId: dt.ticket.id,
           ticketTypeName: dt.ticket.name,
           quantity: dt.quantity
         })) : undefined;
-        const targetTier = !hasMultipleDetected 
-          ? (detectedTickets[0]?.ticket || matchedTierAll || (wantsCheapestAll ? cheapestTicket : (!hasMultiplePriceTiers ? cheapestTicket : null)))
-          : null;
+        const targetTier = !hasMultipleDetected ? effTargetTier : null;
 
         logger.info(`[AgentLoop] Auto-triggering proposeSmartBooking because user requested autonomous booking but model skipped tool call.`);
         await this.executeTool(userId, 'proposeSmartBooking', {
@@ -2284,7 +2729,14 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
       role: 'assistant',
       content: finalContent
     };
+  } catch (fatalErr) {
+    logger.error(`[AiAssistant] Unhandled error in chat(): ${fatalErr.message}\n${fatalErr.stack}`);
+    return {
+      role: 'assistant',
+      content: 'Dạ Eve vừa gặp một chút gián đoạn kỹ thuật khi xử lý yêu cầu. Bạn hãy nhắn lại hoặc tải lại trang web (F5) để Eve phục vụ bạn tốt nhất nhé! 🥰'
+    };
   }
+}
 
   /**
    * Log meaningful conversation turns into ai/datasets/collected_chat_logs.jsonl for future model fine-tuning.
@@ -2462,4 +2914,14 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
   }
 }
 
-module.exports = new AiAssistantService();
+const serviceInstance = new AiAssistantService();
+serviceInstance.findMatchingPublishedEvent = findMatchingPublishedEvent;
+serviceInstance.parseTicketsFromText = parseTicketsFromText;
+serviceInstance.extractAttendeesFromText = extractAttendeesFromText;
+serviceInstance.extractPhoneNumber = extractPhoneNumber;
+serviceInstance.getPublishedEventsCache = getPublishedEventsCache;
+serviceInstance.normalizeText = normalizeText;
+serviceInstance.parseQuantityFromText = parseQuantityFromText;
+serviceInstance.findLastBookingProposal = findLastBookingProposal;
+
+module.exports = serviceInstance;
