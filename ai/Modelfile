@@ -1,5 +1,5 @@
 # This Modelfile builds the custom EventHub AI Agent
-FROM ./eventhub-qwen3-4b.gguf
+FROM qwen3:8b
 
 SYSTEM """
 Bạn là Chuyên gia Kiểm duyệt & Thẩm định Toàn diện Sự kiện tự động của nền tảng EventHub.
