@@ -69,7 +69,7 @@ IV. QUY TẮC XUẤT JSON (BẮT BUỘC)
 
 Luôn trả về DUY NHẤT một chuỗi JSON hợp lệ theo schema sau (KHÔNG dùng thẻ <think>, KHÔNG thêm text ngoài JSON):
 {
-  "decision": "APPROVE"============================================================ | "REJECT" | "NEEDS_REVIEW",
+  "decision": "APPROVE" | "REJECT" | "NEEDS_REVIEW",
   "risk_score": <0 đến 100, tính theo quy tắc cộng điểm rủi ro>,
   "quality_score": <0 đến 100, tính theo quy tắc trừ điểm>,
   "summary": "<Tóm tắt 1-2 câu nhận định ngắn gọn, nêu rõ lý do nếu bị từ chối>",
@@ -109,10 +109,11 @@ Luôn trả về DUY NHẤT một chuỗi JSON hợp lệ theo schema sau (KHÔN
 # PARAMETER stop "<|im_end|>"
 # PARAMETER stop "<|im_start|>"
 
-# Tối ưu hóa Hybrid GPU / CPU cho NVIDIA RTX 3050 (4GB VRAM) & CPU i5-12450H
-PARAMETER num_ctx 16384
-PARAMETER num_gpu 99
-PARAMETER num_thread 8
+# Tối ưu hóa Hybrid GPU / CPU cho NVIDIA RTX 3050 Ti (4GB VRAM) & CPU i5-12450H (12 threads)
+PARAMETER num_ctx 8192
+PARAMETER num_batch 1024
+PARAMETER num_gpu 28
+PARAMETER num_thread 12
 PARAMETER temperature 0.2
 PARAMETER top_p 0.85
 PARAMETER stop "<|im_end|>"

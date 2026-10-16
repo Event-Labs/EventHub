@@ -532,7 +532,7 @@ export function AdminEventReviewPage() {
                 title="Thẩm định duy nhất 01 sự kiện đang chờ duyệt (mỗi lần chạy chỉ review 1 sự kiện)"
               >
                 <Play className="size-4" />
-                <span>Quét duyệt AI (1 sự kiện)</span>
+                <span>Quét duyệt AI</span>
               </button>
             )}
 
