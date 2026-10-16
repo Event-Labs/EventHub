@@ -14,10 +14,13 @@ const eventsListAdminController = require('./events.list.controller');
 // List pending review events
 router.get('/pending', eventsListAdminController.listPendingReview);
 
-// AI Auto-Review Settings & Batch Trigger
+// AI Auto-Review Settings, Single Run, Batch Run, Cancel & Scan Status
 router.get('/settings/auto-review', eventsAdminController.getAutoReviewSettings);
 router.patch('/settings/auto-review', eventsAdminController.updateAutoReviewSettings);
+router.post('/auto-review/single', eventsAdminController.runSingleAutoReview);
 router.post('/auto-review/batch', eventsAdminController.runBatchAutoReview);
+router.post('/auto-review/cancel', eventsAdminController.cancelAutoReview);
+router.get('/auto-review/scan-status', eventsAdminController.getAutoReviewScanStatus);
 
 // AI Review Criteria Management (Điều khoản duyệt sự kiện)
 router.get('/review-criteria', eventsAdminController.listReviewCriteria);

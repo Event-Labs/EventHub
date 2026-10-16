@@ -12,6 +12,7 @@ const logger = require('./core/logger');
 const { connectRedis } = require('./infrastructure/redis/redis.client');
 const { pool } = require('./infrastructure/database/db.client');
 const { startNotificationScheduler } = require('./modules/notifications/notifications.scheduler');
+const { startAutoReviewScheduler } = require('./modules/admin/autoReview.scheduler');
 
 const startServer = async () => {
     try {
@@ -26,6 +27,7 @@ const startServer = async () => {
         const server = app.listen(env.PORT, () => {
             logger.info(`Server running in ${env.NODE_ENV} mode on ${env.APP_URL}`);
             startNotificationScheduler();
+            startAutoReviewScheduler();
         });
 
         // Handle graceful shutdown

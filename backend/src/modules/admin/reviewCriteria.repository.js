@@ -4,14 +4,12 @@ const logger = require('../../core/logger');
 const DEFAULT_REVIEW_CRITERIA = [
   {
     code: 'TERMS_ORGANIZER',
-    title: 'Giấy phép tổ chức & Hồ sơ pháp lý bắt buộc (PDF)',
+    title: 'Tuân thủ pháp luật, Tư cách Nhà tổ chức & Trách nhiệm xã hội',
     category: 'LEGAL',
     severity: 'CRITICAL',
     order_index: 1,
-    rule_content: `Mọi sự kiện bắt buộc phải có Giấy phép tổ chức sự kiện / Hồ sơ pháp lý hợp lệ đính kèm (Giấy phép biểu diễn từ Sở Văn hóa & Thể thao, UBND; Quyết định thành lập; Giấy chứng nhận ĐKKD; hoặc Hợp đồng thuê mặt bằng/địa điểm tổ chức).
-Quy định định dạng tệp: Tất cả tệp tài liệu pháp lý bắt buộc phải là định dạng PDF (.pdf). Nếu tệp tải lên là Word (.doc, .docx), ảnh (.jpg, .png), tệp nén hoặc định dạng khác -> BẮT BUỘC xếp vào "critical_violations" (TERMS_ORGANIZER) và ra quyết định REJECT.
-Thẩm định bản chất văn bản & Chống ngụy tạo: Tài liệu tải lên BẮT BUỘC phải là văn bản pháp lý chính thống. TUYỆT ĐỐI NGHIÊM CẤM tải lên tài liệu học tập, sách vở, cuốn từ vựng ngoại ngữ (như từ vựng tiếng Nhật N5, tài liệu ôn thi tiếng Anh...), giáo trình, đề thi, bài tập về nhà, tiểu thuyết, truyện tranh, nhật ký cá nhân hoặc văn bản linh tinh đối phó hệ thống. Nếu phát hiện tệp tài liệu là sách, từ vựng, tài liệu học tập hoặc nội dung phi pháp lý -> BẮT BUỘC xếp vào "critical_violations" (TERMS_ORGANIZER) và REJECT ngay lập tức vì hành vi ngụy tạo tài liệu pháp lý.
-Trách nhiệm & đạo đức NTC (Điều 4 TERMS_ORGANIZER): Nghiêm cấm hứa hẹn lợi nhuận tài chính phi thực tế ("x100 vốn", "lãi 30%/tháng", "bao lỗ 100%"), cấm Ponzi, cờ bạc, đa cấp biến tướng. Nghiêm cấm tạo đơn ảo, thao túng vé hoặc vi phạm bản quyền. Nếu vi phạm -> BẮT BUỘC REJECT ngay lập tức.`,
+    rule_content: `Trách nhiệm & đạo đức NTC (Điều 4 TERMS_ORGANIZER): Nghiêm cấm hứa hẹn lợi nhuận tài chính phi thực tế ("x100 vốn", "lãi 30%/tháng", "bao lỗ 100%"), cấm Ponzi, cờ bạc cá cược, đa cấp biến tướng. Nghiêm cấm tạo đơn ảo, thao túng vé hoặc vi phạm bản quyền. Mọi sự kiện có dấu hiệu lừa dối khách hàng BẮT BUỘC xếp vào "critical_violations" (TERMS_ORGANIZER) và ra quyết định REJECT ngay lập tức.
+Về tài liệu hồ sơ: Hệ thống backend đã có ràng buộc kỹ thuật kiểm tra tệp PDF. AI KHÔNG yêu cầu bắt buộc mọi sự kiện đều phải nộp giấy phép nhà nước (các sự kiện nội bộ, workshop, hội thảo chia sẻ, giao lưu cộng đồng không bắt buộc giấy phép). Tuyệt đối không từ chối sự kiện chỉ vì không có giấy phép nếu các nội dung khác đều trong sạch, an toàn.`,
   },
   {
     code: 'EVENT_COHERENCE',
@@ -20,21 +18,21 @@ Trách nhiệm & đạo đức NTC (Điều 4 TERMS_ORGANIZER): Nghiêm cấm h�
     severity: 'CRITICAL',
     order_index: 2,
     rule_content: `Quy trình suy luận chủ đề cốt lõi (Core Event Inference): Trước khi thẩm định, AI bắt buộc phải phân tích và suy ra chủ đề cốt lõi của sự kiện dựa trên Tiêu đề, Thể loại/Định dạng, Mô tả ngắn, Mô tả chi tiết và Poster/Banner (Ví dụ: Nhạc hội, Hội thảo công nghệ, Triển lãm nghệ thuật, Giải chạy Marathon, Khóa học ngoại ngữ, Workshop kỹ năng...).
-Nguyên tắc liên quan đồng bộ (Cross-Relevance Integrity): Tất cả các thành phần cấu thành sự kiện (Tiêu đề, Mô tả, Hình ảnh, Hạng vé, Lịch trình phiên và Hồ sơ giấy phép) BẮT BUỘC PHẢI LIÊN QUAN CHẶT CHẼ ĐẾN NHAU và phục vụ cho đúng chủ đề sự kiện đó.
+Nguyên tắc liên quan đồng bộ (Cross-Relevance Integrity): Tất cả các thành phần cấu thành sự kiện (Tiêu đề, Mô tả, Hình ảnh, Hạng vé, Lịch trình phiên và Hồ sơ đính kèm nếu có) BẮT BUỘC PHẢI LIÊN QUAN CHẶT CHẼ ĐẾN NHAU và phục vụ cho đúng chủ đề sự kiện đó.
 Hành vi nghiêm cấm (Treo đầu dê bán thịt chó & Lạc đề):
 + Nghiêm cấm sự kiện tiêu đề một đằng nhưng mô tả, hình ảnh hoặc vé lại về một chủ đề hoàn toàn khác.
-+ Nghiêm cấm tài liệu đính kèm (giấy phép) không liên quan đến nội dung, tên sự kiện hoặc đơn vị tổ chức (ví dụ: Sự kiện biểu diễn âm nhạc nhưng tải lên tài liệu từ vựng tiếng Nhật N5, tài liệu giáo trình, hoặc giấy tờ của sự kiện khác).
-+ Nếu phát hiện bất kỳ sự mâu thuẫn chủ đề hoặc tài liệu/hình ảnh lạc đề không liên quan -> BẮT BUỘC xếp vào "critical_violations" (EVENT_COHERENCE) và ra quyết định REJECT.`,
++ Nếu phát hiện bất kỳ sự mâu thuẫn chủ đề hoặc lừa đảo mạo danh -> BẮT BUỘC xếp vào "critical_violations" (EVENT_COHERENCE) và ra quyết định REJECT.`,
   },
   {
     code: 'LEGAL_PERMIT_AUTHENTICITY',
-    title: 'Xác thực bản chất pháp lý & Thẩm quyền của tài liệu đính kèm',
+    title: 'Thẩm định tính chân thực của tài liệu đính kèm (nếu có)',
     category: 'LEGAL',
     severity: 'CRITICAL',
     order_index: 3,
-    rule_content: `Đặc điểm nhận diện văn bản pháp lý hợp lệ: Văn bản pháp lý sự kiện phải có các dấu hiệu thể thức văn bản hành chính hoặc thương mại (Quốc hiệu/Tiêu ngữ, Tên cơ quan ban hành hoặc Tên doanh nghiệp tổ chức, Số quyết định/Số hợp đồng, Ngày ban hành/Ký kết, Chữ ký và Con dấu pháp nhân, Điều khoản thỏa thuận tổ chức hoặc thuê địa điểm).
-Kiểm tra tính chính danh: Đơn vị được cấp phép hoặc bên thuê địa điểm trong tài liệu phải trùng khớp với Nhà tổ chức hoặc có giấy ủy quyền hợp lệ. Tên sự kiện, thời gian hoặc địa điểm diễn ra trong tài liệu phải tương thích với bài đăng.
-Tài liệu vô hiệu / Ngụy tạo: Tệp tải lên nếu chỉ là danh sách từ vựng, tài liệu học bài, văn bản sao chép vô nghĩa, hoặc hợp đồng giả mạo -> BẮT BUỘC coi là hành vi đối phó/gian lận hồ sơ -> BẮT BUỘC xếp vào "critical_violations" (LEGAL_PERMIT_AUTHENTICITY) và ra quyết định REJECT.`,
+    rule_content: `Đối với các sự kiện có đính kèm tài liệu: Nếu Nhà tổ chức chủ động đính kèm giấy tờ pháp lý hoặc tài liệu giới thiệu, AI kiểm tra tính chân thực và an toàn nội dung.
+Tài liệu vi phạm nghiêm trọng: Nếu tệp đính kèm chứa mã độc, nội dung lừa đảo, giả mạo con dấu/chữ ký cơ quan nhà nước một cách trắng trợn hoặc tài liệu spam độc hại -> BẮT BUỘC xếp vào "critical_violations" (LEGAL_PERMIT_AUTHENTICITY) và ra quyết định REJECT.
+Tài liệu thông thường: Nếu tệp là tài liệu giới thiệu sự kiện, slide thuyết trình, đề cương hoặc hợp đồng/thỏa thuận thuê địa điểm -> Đánh giá hợp lệ, KHÔNG bắt lỗi vì không phải văn bản hành chính nhà nước.
+Nếu sự kiện không có tài liệu đính kèm: Bỏ qua tiêu chí này, hoàn toàn không trừ điểm.`,
   },
   {
     code: 'EVENT_REALISM_FEASIBILITY',
@@ -133,6 +131,47 @@ Chỉ gợi ý khi thực sự hữu ích và có giá trị thực tế:
 + Khi lịch trình sơ sài: Đề xuất bổ sung mốc giờ chi tiết cho từng tiết mục, danh sách Diễn giả, Nghệ sĩ khách mời hoặc sơ đồ khu vực chỗ ngồi.
 + Khi văn bản có lỗi chính tả hoặc mâu thuẫn chữ trên ảnh: Nhắc nhở Nhà tổ chức chỉnh sửa lại cho đồng nhất và chuyên nghiệp.`,
   },
+  {
+    code: 'AGE_RESTRICTION_RATING',
+    title: 'Quy định giới hạn độ tuổi, Phân loại khán giả & Bảo vệ trẻ vị thành niên',
+    category: 'CONTENT',
+    severity: 'WARNING',
+    order_index: 13,
+    rule_content: `Phân loại độ tuổi bắt buộc: Các sự kiện tổ chức tại quán bar/pub/lounge, sự kiện có phục vụ thức uống có cồn/bia rượu, nhạc hội EDM đêm muộn (kết thúc sau 22:00), hoặc các talkshow/hội thảo có chủ đề người lớn (18+) BẮT BUỘC phải công khai quy định giới hạn độ tuổi (ví dụ: "Dành riêng cho khán giả từ 18 tuổi trở lên", "Yêu cầu xuất trình CCCD tại cửa").
+Sự kiện gia đình & Trẻ em: Đối với sự kiện thiếu nhi, giải trí gia đình, workshop trải nghiệm phải ghi rõ độ tuổi tối thiểu phù hợp và quy định phụ huynh giám hộ đi kèm (ví dụ: "Trẻ dưới 12 tuổi phải có người lớn đi cùng").
+Xử lý mâu thuẫn: Nếu sự kiện diễn ra tại quán Bar hoặc ban đêm nhưng ghi "phù hợp mọi lứa tuổi" hoặc hoàn toàn không có cảnh báo độ tuổi -> BẮT BUỘC đưa vào "warnings" (AGE_RESTRICTION_RATING) và đề xuất Ban tổ chức bổ sung quy định độ tuổi trước khi mở bán vé.`,
+  },
+  {
+    code: 'ANTI_FINANCIAL_FRAUD_MLM',
+    title: 'Chống hội thảo lừa đảo tài chính, Tiền ảo không phép & Đa cấp biến tướng',
+    category: 'LEGAL',
+    severity: 'CRITICAL',
+    order_index: 14,
+    rule_content: `Dấu hiệu lừa đảo tài chính & Ponzi: Nghiêm cấm tuyệt đối các sự kiện kêu gọi đầu tư sinh lời bất thường, cam kết lợi nhuận không rủi ro ("cam kết x2, x10 tài khoản", "lãi suất 30%/tháng", "thu nhập thụ động nghìn đô sau 3 ngày", "bí mật làm giàu không cần vốn").
+Tiền ảo, Forex & Sàn giao dịch phi pháp: Cấm tổ chức các hội thảo quảng bá sàn giao dịch quyền chọn nhị phân (BO), sàn Forex trái phép tại Việt Nam, phát hành đồng coin/token ảo chưa được Nhà nước cấp phép, hoặc các dự án đầu tư đào tiền ảo trá hình.
+Mô hình đa cấp bất chính: Cấm các hội thảo tuyển dụng tuyến dưới, bán hàng đa cấp biến tướng không có Giấy chứng nhận đăng ký hoạt động bán hàng đa cấp từ Cục Cạnh tranh và Bảo vệ người tiêu dùng (Bộ Công Thương).
+Mức độ xử lý: Nếu phát hiện bất kỳ dấu hiệu nào thuộc các hành vi trên -> BẮT BUỘC xếp vào "critical_violations" (ANTI_FINANCIAL_FRAUD_MLM) và ra quyết định REJECT!`,
+  },
+  {
+    code: 'CHECKIN_SECURITY_RULES',
+    title: 'Quy chuẩn kiểm soát vé, Check-in an ninh & Vật dụng bị cấm',
+    category: 'TICKETS',
+    severity: 'WARNING',
+    order_index: 15,
+    rule_content: `Quy trình check-in vé: Bài viết mô tả hoặc thông tin vé sự kiện nên nêu rõ hình thức kiểm soát vé (quét mã QR Code trên ứng dụng EventHub, vé điện tử PDF gửi qua Email, hoặc đổi vé cứng/vòng tay tại quầy) và giấy tờ cần mang theo (CCCD/VNeID).
+Danh mục vật dụng cấm (Prohibited Items): Đối với các sự kiện âm nhạc, lễ hội ngoài trời, thể thao đông người (từ 500 người trở lên), Nhà tổ chức cần thông báo danh mục đồ cấm mang vào khán đài (vũ khí, vật sắc nhọn, pháo sáng, chất dễ cháy nổ, đồ uống có cồn bên ngoài, flycam/thiết bị bay không người lái).
+Nhắc nhở cải thiện: Nếu sự kiện đông người nhưng hoàn toàn thiếu hướng dẫn check-in và an ninh -> Đưa vào "suggestions" hoặc "warnings" để nhắc nhở Ban tổ chức bổ sung giúp người tham gia chuẩn bị chu đáo.`,
+  },
+  {
+    code: 'SPONSOR_BRAND_AUTHENTICITY',
+    title: 'Minh bạch Nhà tài trợ, Đơn vị bảo trợ truyền thông & Chống mạo danh',
+    category: 'LEGAL',
+    severity: 'WARNING',
+    order_index: 16,
+    rule_content: `Tính chân thực của đối tác tài trợ: Khi bài đăng hoặc Poster/Banner liệt kê các thương hiệu lớn làm "Nhà tài trợ Kim Cương/Vàng" hoặc "Đơn vị bảo trợ truyền thông" (như Đài truyền hình VTV, HTV, Báo Tuổi Trẻ, các tập đoàn lớn), thông tin này phải có cơ sở xác thực hoặc có thư xác nhận bảo trợ trong hồ sơ đính kèm.
+Nghiêm cấm mạo danh & Treo đầu dê: Nghiêm cấm việc tùy tiện cắt dán logo các cơ quan ban ngành Nhà nước, Bộ Ngoại giao, UNESCO, VTV... vào ấn phẩm truyền thông sự kiện nhằm tạo lòng tin giả dối để bán vé khi chưa được cho phép chính thức.
+Xử lý vi phạm: Nếu phát hiện dấu hiệu mạo danh bảo trợ của cơ quan Nhà nước hoặc tổ chức uy tín -> BẮT BUỘC đưa vào "critical_violations" (SPONSOR_BRAND_AUTHENTICITY) và REJECT. Nếu nghi vấn chưa rõ ràng -> Xếp vào "warnings" yêu cầu kiểm tra lại văn bản thỏa thuận.`,
+  },
 ];
 
 class ReviewCriteriaRepository {
@@ -157,21 +196,16 @@ class ReviewCriteriaRepository {
           ON event_review_criteria(is_active, order_index);
       `);
 
-      // Seed defaults if empty
-      const { rows } = await db.query('SELECT COUNT(*)::int AS count FROM event_review_criteria');
-      if (rows[0]?.count === 0) {
-        logger.info('[ReviewCriteriaRepository] Table is empty, seeding default criteria...');
-        for (const item of DEFAULT_REVIEW_CRITERIA) {
-          await db.query(
-            `
-            INSERT INTO event_review_criteria (code, title, category, severity, rule_content, is_active, order_index)
-            VALUES ($1, $2, $3, $4, $5, true, $6)
-            ON CONFLICT (code) DO NOTHING
-            `,
-            [item.code, item.title, item.category, item.severity, item.rule_content, item.order_index]
-          );
-        }
-        logger.info(`[ReviewCriteriaRepository] Successfully seeded ${DEFAULT_REVIEW_CRITERIA.length} default criteria.`);
+      // Seed all default criteria (chèn nếu chưa có, giữ nguyên nếu đã có)
+      for (const item of DEFAULT_REVIEW_CRITERIA) {
+        await db.query(
+          `
+          INSERT INTO event_review_criteria (code, title, category, severity, rule_content, is_active, order_index)
+          VALUES ($1, $2, $3, $4, $5, true, $6)
+          ON CONFLICT (code) DO NOTHING
+          `,
+          [item.code, item.title, item.category, item.severity, item.rule_content, item.order_index]
+        );
       }
     } catch (err) {
       logger.warn(`[ReviewCriteriaRepository] ensureTable warning: ${err.message}`);
