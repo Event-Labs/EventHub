@@ -152,7 +152,7 @@ export function LoginPage() {
 
   return (
     <AuthShell>
-      <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+      <div className="force-dark glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
         <div className="text-center">
           <h1 className="font-display text-3xl font-extrabold text-white">
@@ -323,8 +323,12 @@ export function AuthLogo() {
 }
 
 export function AuthShell({ children }) {
+  useEffect(() => {
+    document.documentElement.classList.remove('light')
+  }, [])
+
   return (
-    <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 sm:py-12">
+    <div className="force-dark relative flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 sm:py-12">
       <div className="relative z-10 w-full">{children}</div>
     </div>
   )

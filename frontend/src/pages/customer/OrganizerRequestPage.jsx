@@ -3,7 +3,7 @@ import { Building2, Camera, CheckCircle2, Clock3, History, Loader2, UserCircle, 
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
-import { getStoredUserKey, getUserRoles, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
+import { getStoredUserKey, getUserRoles, isAdminUser, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import {
   fetchMyOrganizerRequests,
   submitOrganizerRequest,
@@ -320,6 +320,10 @@ export function OrganizerRequestPage() {
   useEffect(() => {
     if (!isAuthenticated) {
       navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
+      return
+    }
+    if (isAdminUser()) {
+      navigate('/admin/organizer-requests', { replace: true })
     }
   }, [isAuthenticated, location.pathname, navigate])
 

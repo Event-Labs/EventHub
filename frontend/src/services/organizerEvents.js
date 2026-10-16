@@ -64,6 +64,11 @@ export async function cancelOrganizerEvent(eventId) {
   return response.data.data
 }
 
+export async function deleteOrganizerDraftEvent(eventId) {
+  const response = await http.delete(`/organizer/events/${eventId}`)
+  return response.data.data
+}
+
 export async function fetchLatestAiContentGeneration(eventId = null) {
   try {
     const response = await http.get('/organizer/events/ai-content-generation/latest', {

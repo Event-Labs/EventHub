@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck } from 'lucide-react'
 import {
   fetchNotifications,
@@ -9,7 +9,7 @@ import {
   markNotificationRead,
 } from '@/services/notifications.js'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
-import { clearAuthSession, getAuthToken, getStoredUser, getUserRoles, isAuthenticated, updateStoredUser } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, getStoredUser, getStoredUserKey, getUserRoles, isAdminUser, isAuthenticated, updateStoredUser } from '@/lib/auth.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
@@ -63,7 +63,7 @@ const footerSections = [
 ]
 
 const navLinkClass = ({ isActive }) =>
-  `relative z-10 px-3 py-2 text-sm font-bold transition ${isActive ? 'text-primary' : 'text-subtle hover:text-primary'
+  `relative z-10 px-3 py-2 text-sm font-bold transition ${isActive ? 'text-[#E6C17A]' : 'text-subtle hover:text-[#E6C17A]'
   }`
 
 function isStaffInvitationNotification(notification) {
@@ -101,8 +101,8 @@ function dedupeNavNotifications(items) {
 
 export function AppLayout() {
   const queryClient = useQueryClient()
-  const [loggedIn, setLoggedIn] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null)
+  const [loggedIn, setLoggedIn] = useState(() => isAuthenticated())
+  const [currentUser, setCurrentUser] = useState(() => (isAuthenticated() ? getStoredUser() : null))
   const [open, setOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const navigate = useNavigate()
@@ -132,6 +132,10 @@ export function AppLayout() {
   }, [])
 
   useEffect(() => {
+    document.documentElement.classList.remove('light')
+  }, [pathname])
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (userActionsRef.current && !userActionsRef.current.contains(event.target)) {
         setOpen(false)
@@ -150,19 +154,20 @@ export function AppLayout() {
   }
 
   const currentUserRoles = getUserRoles(currentUser)
+  const hasAdminRole = isAdminUser(currentUser)
   const hasOrganizerRole = currentUserRoles.includes('organizer')
   const hasStaffRole = currentUserRoles.includes('staff')
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'nav'],
     queryFn: () => fetchNotifications({ limit: 5 }),
-    enabled: loggedIn,
+    enabled: loggedIn && !hasAdminRole,
   })
 
   const staffEventsQuery = useQuery({
     queryKey: ['staff-events', 'nav'],
     queryFn: fetchAssignedStaffEvents,
-    enabled: loggedIn && hasStaffRole,
+    enabled: loggedIn && hasStaffRole && !hasAdminRole,
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
@@ -261,11 +266,32 @@ export function AppLayout() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  if (hasAdminRole) {
+    if (pathname === '/') {
+      return <Navigate to="/admin" replace />
+    }
+    if (
+      pathname.startsWith('/booking') ||
+      pathname === '/my-tickets' ||
+      pathname.startsWith('/tickets') ||
+      pathname === '/favorites' ||
+      pathname === '/feedback'
+    ) {
+      return <Navigate to="/admin" replace />
+    }
+    if (pathname === '/organizer-request' || pathname.startsWith('/organizer-request/')) {
+      return <Navigate to="/admin/organizer-requests" replace />
+    }
+    if (pathname === '/profile') {
+      return <Navigate to="/admin/profile" replace />
+    }
+  }
+
   return (
-    <div className="flex min-h-screen flex-col text-content bg-transparent relative">
+    <div className="force-dark flex min-h-screen flex-col text-content bg-transparent relative">
       <CosmicStarryBackground />
       <div className="pointer-events-none fixed inset-0 z-50 transition-opacity duration-300 mouse-glow-overlay" />
-      <header className="fixed top-4 left-0 right-0 z-50 mx-auto w-[96%] max-w-7xl rounded-full border border-border-soft bg-panel/70 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300">
+      <header className="force-dark fixed top-4 left-0 right-0 z-50 mx-auto w-[96%] max-w-7xl rounded-full border border-border-soft bg-panel/70 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300">
         <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center gap-3">
             <img
@@ -277,7 +303,7 @@ export function AppLayout() {
 
           <nav ref={navRef} className="relative hidden items-center justify-center gap-1 md:flex">
             <span
-              className="absolute bottom-0 h-0.5 rounded-full bg-primary transition-all duration-300 ease-out"
+              className="absolute bottom-0 h-0.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-[0_0_10px_rgba(201,154,71,0.6)] transition-all duration-300 ease-out"
               style={{
                 left: navIndicator.left,
                 width: navIndicator.width,
@@ -286,6 +312,7 @@ export function AppLayout() {
             />
             {centerNavItems.map(([label, to, requiresAuth]) => {
               if (requiresAuth && !loggedIn) return null;
+              if (requiresAuth && hasAdminRole) return null;
               return (
                 <NavLink
                   key={label}
@@ -302,7 +329,7 @@ export function AppLayout() {
           {!loggedIn ? (
             <div className="flex items-center gap-3">
               <NavLink
-                className="rounded-md px-4 py-2 text-sm font-bold text-subtle hover:text-primary"
+                className="rounded-md px-4 py-2 text-sm font-bold text-subtle hover:text-[#E6C17A]"
                 to="/login"
               >
                 Đăng nhập
@@ -317,10 +344,18 @@ export function AppLayout() {
             </div>
           ) : (
             <div ref={userActionsRef} className="relative flex items-center gap-3">
+              {hasAdminRole && (
+                <NavLink
+                  to="/admin"
+                  className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
+                >
+                  Trang quản trị
+                </NavLink>
+              )}
               {canOpenOrganizerPortal && (
                 <NavLink
                   to="/organizer"
-                  className="hidden rounded-full border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:border-primary hover:bg-primary hover:text-[#081126] sm:inline-flex"
+                  className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
                 >
                   Trang tổ chức
                 </NavLink>
@@ -328,14 +363,14 @@ export function AppLayout() {
               {canOpenStaffPortal && (
                 <NavLink
                   to="/staff"
-                  className="hidden rounded-full border border-primary/40 px-4 py-2 text-sm font-extrabold text-primary transition hover:border-primary hover:bg-primary hover:text-[#081126] sm:inline-flex"
+                  className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
                 >
                   Trang nhân sự
                 </NavLink>
               )}
               <button
                 type="button"
-                className="relative grid size-10 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-primary"
+                className="relative grid size-10 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
                 onClick={() => {
                   setNotificationOpen((value) => !value)
                   setOpen(false)
@@ -345,13 +380,13 @@ export function AppLayout() {
               >
                 <Bell className="size-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute right-1 top-1 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-extrabold text-[#081126]">
+                  <span className="absolute right-1 top-1 grid min-w-5 place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-1 text-[10px] font-extrabold text-[#081126] shadow-sm">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
               <button
-                className="grid size-10 place-items-center overflow-hidden rounded-full border border-primary/40 bg-primary text-[#081126] transition hover:border-primary hover:bg-white"
+                className="grid size-10 place-items-center overflow-hidden rounded-full border border-[#C99A47]/40 bg-[#C99A47] text-[#081126] transition hover:border-[#E6C17A] hover:bg-white"
                 onClick={() => {
                   setOpen((value) => !value)
                   setNotificationOpen(false)
@@ -379,7 +414,7 @@ export function AppLayout() {
                       <button
                         type="button"
                         onClick={() => markAllMutation.mutate()}
-                        className="grid size-9 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-primary"
+                        className="grid size-9 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
                         title="Đánh dấu tất cả đã đọc"
                       >
                         <CheckCheck className="size-4" />
@@ -402,11 +437,11 @@ export function AppLayout() {
                           setNotificationOpen(false)
                           navigate(getNotificationTarget(notification))
                         }}
-                        className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${notification.is_read ? '' : 'bg-primary/10'
+                        className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${notification.is_read ? '' : 'bg-[#C99A47]/10'
                           }`}
                       >
                         <div className="flex items-start gap-3">
-                          {!notification.is_read && <span className="mt-2 size-2 rounded-full bg-primary" />}
+                          {!notification.is_read && <span className="mt-2 size-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A]" />}
                           <div className="min-w-0 flex-1">
                             <p className="line-clamp-1 text-sm font-bold text-white">{getNotificationDisplay(notification).title}</p>
                             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{getNotificationDisplay(notification).content}</p>
@@ -418,7 +453,7 @@ export function AppLayout() {
                   <Link
                     to="/notifications"
                     onClick={() => setNotificationOpen(false)}
-                    className="block border-t border-border-soft px-4 py-3 text-center text-sm font-bold text-primary hover:bg-panel-soft"
+                    className="block border-t border-border-soft px-4 py-3 text-center text-sm font-bold text-[#E6C17A] hover:bg-panel-soft"
                   >
                     Xem tất cả
                   </Link>
@@ -428,8 +463,8 @@ export function AppLayout() {
                 <div className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl">
                   <div className="py-1">
                     <NavLink
-                      className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
-                      to="/profile"
+                      className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
+                      to={hasAdminRole ? "/admin/profile" : "/profile"}
                       onClick={() => setOpen(false)}
                     >
                       Hồ sơ cá nhân
@@ -437,9 +472,18 @@ export function AppLayout() {
                   </div>
 
                   <div className="border-t border-border-soft py-1">
+                    {hasAdminRole && (
+                      <NavLink
+                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
+                        to="/admin"
+                        onClick={() => setOpen(false)}
+                      >
+                        Quay lại trang quản trị
+                      </NavLink>
+                    )}
                     {canOpenOrganizerPortal && (
                       <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
+                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
                         to="/organizer"
                         onClick={() => setOpen(false)}
                       >
@@ -448,16 +492,16 @@ export function AppLayout() {
                     )}
                     {canOpenStaffPortal && (
                       <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-primary hover:bg-panel-soft hover:text-white"
+                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
                         to="/staff"
                         onClick={() => setOpen(false)}
                       >
                         Quay lại trang nhân sự
                       </NavLink>
                     )}
-                    {!canOpenOrganizerPortal && (
+                    {!canOpenOrganizerPortal && !hasAdminRole && (
                       <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-primary"
+                        className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
                         to="/organizer-request"
                         onClick={() => setOpen(false)}
                       >
@@ -520,7 +564,7 @@ export function AppLayout() {
         </div>
       </footer>
       <ActiveHoldFloatingBar />
-      <CustomerAiAssistantWidget enabled={true} />
+      <CustomerAiAssistantWidget key={getStoredUserKey(currentUser) || 'guest'} enabled={loggedIn && !hasAdminRole} />
     </div>
   )
 }

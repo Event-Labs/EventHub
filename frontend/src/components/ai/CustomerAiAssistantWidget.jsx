@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
-import { MessageSquare, X, Send, Loader2, Bot, User, Sparkles, Menu, Plus, Trash2, Clock, ChevronLeft } from 'lucide-react'
+import { MessageSquare, X, Send, Loader2, Bot, User, Sparkles, Menu, Plus, Trash2, Clock, ChevronLeft, Mic, Square } from 'lucide-react'
 import { sendChatMessage } from '@/services/aiAssistant.js'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate, Link } from 'react-router-dom'
 import { fetchEventDetail } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
+import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
 
-function ActionMessage({ content, navigate }) {
+function ActionMessage({ content, navigate, setInput }) {
   const actionRegex = /\[ACTION:([A-Z_]+):?([^\]]*)\]/g;
   const parts = [];
   let lastIndex = 0;
@@ -224,6 +225,109 @@ function ActionMessage({ content, navigate }) {
   };
 
 
+  const handleProposalConfirm = async (proposal) => {
+    if (!proposal) return;
+    try {
+      const attendees = {};
+      let runningSlotsLength = 0;
+      const attendeeList = proposal.attendees || [];
+      const totalQuantity = proposal.quantity || 1;
+
+      (proposal.items || []).forEach(item => {
+        for (let i = 0; i < item.quantity; i++) {
+          const slotId = `${item.ticketType?.id || item.ticket_type_id}-${i}-${runningSlotsLength}`;
+          const slotAttendee = attendeeList[runningSlotsLength] || {};
+          attendees[slotId] = {
+            name: slotAttendee.name || (!proposal.requireAttendeeInfo ? proposal.buyer?.name : ''),
+            email: slotAttendee.email || (!proposal.requireAttendeeInfo ? proposal.buyer?.email : '')
+          };
+          runningSlotsLength++;
+        }
+      });
+
+      let eventDetail = null;
+      try {
+        eventDetail = await fetchEventDetail(proposal.eventSlug || proposal.eventId);
+      } catch {}
+
+      const cart = {
+        eventId: proposal.eventId,
+        eventTitle: proposal.eventTitle,
+        eventSlug: proposal.eventSlug,
+        eventStartTime: proposal.eventStartTime,
+        eventEndTime: proposal.eventEndTime,
+        venueSummary: proposal.venueSummary,
+        selectedSession: proposal.session,
+        availableTicketTypes: eventDetail?.ticket_types || [],
+        seatingRules: proposal.rulesApplied || eventDetail?.seating_rules || {},
+        additionalTerms: eventDetail?.additional_terms || '',
+        refundPolicy: eventDetail?.refund_policy || null,
+        requireAttendeeInfo: Boolean(proposal.requireAttendeeInfo),
+        buyer: proposal.buyer || {},
+        attendees,
+        prefilledAttendees: Array.from({ length: totalQuantity }, (_, idx) => ({
+          name: attendeeList[idx]?.name || '',
+          email: attendeeList[idx]?.email || ''
+        })),
+        selectedSeatIds: proposal.selectedSeatIds || [],
+        items: proposal.items || [],
+        holdExpiresAt: proposal.holdExpiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        hold_expires_at: proposal.holdExpiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        hasSeatMap: proposal.hasSeatMap
+      };
+
+      try {
+        window.sessionStorage.setItem('eventhub-booking-draft', JSON.stringify(cart));
+      } catch (e) {
+        console.warn('Could not save draft to sessionStorage', e);
+      }
+
+      if (proposal.requireAttendeeInfo && !proposal.isAttendeesComplete) {
+        navigate('/booking/attendees', { state: { cart } });
+      } else {
+        navigate('/booking/review', { state: { cart } });
+      }
+    } catch (err) {
+      console.error('Error confirming proposal:', err);
+    }
+  };
+
+  const handleProposalManualSeat = async (proposal) => {
+    if (!proposal) return;
+    try {
+      let eventDetail = null;
+      try {
+        eventDetail = await fetchEventDetail(proposal.eventSlug || proposal.eventId);
+      } catch {}
+
+      const cart = {
+        eventId: proposal.eventId,
+        eventTitle: proposal.eventTitle,
+        eventSlug: proposal.eventSlug,
+        eventStartTime: proposal.eventStartTime,
+        eventEndTime: proposal.eventEndTime,
+        venueSummary: proposal.venueSummary,
+        selectedSession: proposal.session,
+        availableTicketTypes: eventDetail?.ticket_types || [],
+        seatingRules: proposal.rulesApplied || eventDetail?.seating_rules || {},
+        additionalTerms: eventDetail?.additional_terms || '',
+        requireAttendeeInfo: Boolean(proposal.requireAttendeeInfo),
+        buyer: proposal.buyer || {},
+        selectedSeatIds: proposal.selectedSeatIds || [],
+        items: proposal.items || [],
+        hasSeatMap: true
+      };
+
+      try {
+        window.sessionStorage.setItem('eventhub-booking-draft', JSON.stringify(cart));
+      } catch (e) {}
+
+      navigate('/booking/seats', { state: { cart } });
+    } catch (err) {
+      console.error('Error opening manual seat map:', err);
+    }
+  };
+
   // Auto-navigation for PREFILL_BOOKING action
   const prefillAction = parts.find(p => p.type === 'action' && p.action === 'PREFILL_BOOKING');
   const prefillKey = prefillAction ? prefillAction.args.join(',') : null;
@@ -244,6 +348,163 @@ function ActionMessage({ content, navigate }) {
       {parts.map((part, i) => {
         if (part.type === 'text') {
           return <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>;
+        }
+
+        if (part.action === 'BOOKING_PROPOSAL') {
+          let proposal = null;
+          try {
+            proposal = JSON.parse(decodeURIComponent(part.args[0] || ''));
+          } catch (e) {
+            console.error('Could not parse BOOKING_PROPOSAL payload', e);
+          }
+
+          if (!proposal) return null;
+
+          const seatsList = proposal.seats || [];
+          const hasSeatList = seatsList.length > 0;
+          const attendeeCount = (proposal.attendees || []).length;
+          const isComplete = proposal.isAttendeesComplete;
+
+          return (
+            <div key={i} className="mt-3 overflow-hidden rounded-2xl border border-cyan-500/40 bg-gradient-to-b from-[#0b2038] via-[#091728] to-[#06101c] p-4 text-white shadow-xl backdrop-blur-md transition-all">
+              {/* Header Badge */}
+              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                    Đề xuất đặt vé thông minh
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
+                  {proposal.hasSeatMap ? 'Tạm giữ chỗ' : 'Sẵn sàng đặt'}
+                </span>
+              </div>
+
+              {/* Event & Session Details */}
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="font-bold text-sm text-white line-clamp-1">{proposal.eventTitle}</div>
+                {proposal.session?.name && (
+                  <div className="text-slate-300 flex items-center gap-1.5">
+                    <span>🎭 {proposal.session.name}</span>
+                    {proposal.session.start_time && (
+                      <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString('vi-VN')})</span>
+                    )}
+                  </div>
+                )}
+                {proposal.venueSummary && (
+                  <div className="text-slate-400 line-clamp-1">📍 {proposal.venueSummary}</div>
+                )}
+
+                {/* Seat Badges or Ticket Types */}
+                <div className="pt-1.5">
+                  <div className="text-[11px] text-slate-400 mb-1">
+                    {proposal.hasSeatMap ? 'Vị trí ghế đề xuất:' : 'Hạng vé:'}
+                  </div>
+                  {hasSeatList ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {seatsList.map((s, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/50 bg-cyan-500/15 px-2.5 py-1 text-xs font-bold text-cyan-200 shadow-sm"
+                        >
+                          <span>🪑 {s.label}</span>
+                          {s.ticketTypeName && (
+                            <span className="text-[10px] text-cyan-300/80 font-normal">({s.ticketTypeName})</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {(proposal.items && proposal.items.length > 0) ? (
+                        proposal.items.map((it, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between text-xs bg-emerald-950/40 border border-emerald-500/25 px-2.5 py-1.5 rounded-lg text-emerald-200"
+                          >
+                            <span className="font-semibold">🎟️ {it.quantity} vé {it.ticketType?.name || ''}</span>
+                            <span className="font-bold text-emerald-300">
+                              {Number((it.ticketType?.price || 0) * (it.quantity || 1)).toLocaleString('vi-VN')} đ
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-emerald-300 font-semibold">
+                          🎟️ {proposal.quantity} vé
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Organizer note / alternative row note */}
+                {proposal.note && (
+                  <div className="rounded-lg bg-blue-950/60 border border-blue-500/30 p-2 text-[11px] text-blue-200">
+                    ℹ️ {proposal.note}
+                  </div>
+                )}
+
+                {/* Attendee Status if required */}
+                {proposal.requireAttendeeInfo && (
+                  <div className={`rounded-lg p-2 text-[11px] border ${
+                    isComplete 
+                      ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+                      : 'bg-amber-950/40 border-amber-500/30 text-amber-200'
+                  }`}>
+                    {isComplete ? (
+                      <div>✅ Đã đủ thông tin người tham gia ({attendeeCount}/{proposal.quantity} người)</div>
+                    ) : (
+                      <div>⚠️ Cần bổ sung thông tin {proposal.quantity - attendeeCount} người tham gia còn lại (nhắn Eve trong chat)</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Total Price */}
+                <div className="flex items-baseline justify-between pt-2 border-t border-slate-700/60 mt-2">
+                  <span className="text-slate-400">Tổng thanh toán:</span>
+                  <span className="text-base font-black text-emerald-400">
+                    {Number(proposal.totalAmount || 0).toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-3.5 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => handleProposalConfirm(proposal)}
+                  className="w-full rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg hover:from-cyan-400 hover:to-blue-500 transition-all flex items-center justify-center gap-2 cursor-pointer group"
+                >
+                  <span>✓ Xác nhận & Đi tới Thanh toán</span>
+                  <span className="transition-transform group-hover:translate-x-1">➔</span>
+                </button>
+
+                <div className="flex items-center justify-between text-[11px] px-1 text-slate-400">
+                  {proposal.hasSeatMap ? (
+                    <button
+                      type="button"
+                      onClick={() => handleProposalManualSeat(proposal)}
+                      className="hover:text-cyan-300 underline transition-colors cursor-pointer"
+                    >
+                      🪑 Tôi muốn tự chọn trên sơ đồ
+                    </button>
+                  ) : <span />}
+                  
+                  {setInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInput(proposal.hasSeatMap ? 'Đổi sang hàng ghế ' : 'Tôi muốn đổi sang vé ');
+                      }}
+                      className="hover:text-amber-300 underline transition-colors cursor-pointer"
+                    >
+                      {proposal.hasSeatMap ? '✏️ Đổi hàng ghế khác' : '✏️ Đổi loại vé / số lượng'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
         }
 
         if (part.action === 'BOOKING') {
@@ -285,8 +546,16 @@ function ActionMessage({ content, navigate }) {
   );
 }
 
-const SESSIONS_STORAGE_KEY = 'eventhub_ai_chat_sessions';
-const ACTIVE_SESSION_STORAGE_KEY = 'eventhub_ai_active_session_id';
+const SESSIONS_STORAGE_KEY_PREFIX = 'eventhub_ai_chat_sessions_';
+const ACTIVE_SESSION_STORAGE_KEY_PREFIX = 'eventhub_ai_active_session_id_';
+
+function getSessionsStorageKey(userKey) {
+  return userKey ? `${SESSIONS_STORAGE_KEY_PREFIX}${userKey}` : null;
+}
+
+function getActiveSessionStorageKey(userKey) {
+  return userKey ? `${ACTIVE_SESSION_STORAGE_KEY_PREFIX}${userKey}` : null;
+}
 
 const DEFAULT_GREETING = {
   role: 'assistant',
@@ -304,9 +573,11 @@ function createNewSession() {
   };
 }
 
-function loadInitialSessions() {
+function loadInitialSessions(userKey) {
+  const storageKey = getSessionsStorageKey(userKey);
+  if (!storageKey) return [createNewSession()];
   try {
-    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -319,9 +590,11 @@ function loadInitialSessions() {
   return [createNewSession()];
 }
 
-function loadInitialActiveId(sessions) {
+function loadInitialActiveId(userKey, sessions) {
+  const storageKey = getActiveSessionStorageKey(userKey);
+  if (!storageKey) return sessions[0]?.id;
   try {
-    const activeId = localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+    const activeId = localStorage.getItem(storageKey);
     if (activeId && sessions.some(s => s.id === activeId)) {
       return activeId;
     }
@@ -330,34 +603,289 @@ function loadInitialActiveId(sessions) {
 }
 
 export function CustomerAiAssistantWidget({ enabled = true }) {
+  const currentUser = getStoredUser();
+  const userKey = getStoredUserKey(currentUser);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [sessions, setSessions] = useState(loadInitialSessions);
-  const [activeSessionId, setActiveSessionId] = useState(() => loadInitialActiveId(sessions));
+  const [sessions, setSessions] = useState(() => loadInitialSessions(userKey));
+  const [activeSessionId, setActiveSessionId] = useState(() => loadInitialActiveId(userKey, sessions));
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechError, setSpeechError] = useState(null);
+  const [isPendingAutoSend, setIsPendingAutoSend] = useState(false);
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
+  const isTypingRef = useRef(false);
+  const recognitionRef = useRef(null);
+  const initialInputRef = useRef('');
+  const silenceTimerRef = useRef(null);
+  const latestFullTextRef = useRef('');
+  const handleSendMessageRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Synchronize isTypingRef with isTyping state
+  useEffect(() => {
+    isTypingRef.current = isTyping;
+  }, [isTyping]);
+
+  // Speech Recognition support check
+  const isSpeechSupported = typeof window !== 'undefined' && Boolean(
+    window.SpeechRecognition || window.webkitSpeechRecognition
+  );
+
+  // Auto-resize textarea to fit text fluidly without scrollbar flicker
+  useEffect(() => {
+    if (textareaRef.current) {
+      if (!input.trim()) {
+        textareaRef.current.style.height = '44px';
+        textareaRef.current.style.overflowY = 'hidden';
+      } else {
+        textareaRef.current.style.height = 'auto';
+        const scrollH = textareaRef.current.scrollHeight;
+        const newHeight = Math.min(Math.max(scrollH, 44), 120);
+        textareaRef.current.style.height = `${newHeight}px`;
+        textareaRef.current.style.overflowY = scrollH > 120 ? 'auto' : 'hidden';
+      }
+    }
+  }, [input]);
+
+  const startRecording = () => {
+    if (isTypingRef.current || isTyping) {
+      return;
+    }
+
+    if (!isSpeechSupported) {
+      setSpeechError('Trình duyệt hiện tại chưa hỗ trợ nhận diện giọng nói (khuyên dùng Chrome hoặc Edge).');
+      return;
+    }
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    setIsPendingAutoSend(false);
+
+    try {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'vi-VN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      const baseText = input ? input.trim() + ' ' : '';
+      initialInputRef.current = baseText;
+      latestFullTextRef.current = baseText;
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setSpeechError(null);
+        textareaRef.current?.focus();
+      };
+
+      recognition.onresult = (event) => {
+        // Nếu đã dừng ghi âm hoặc AI đang bận xử lý, tuyệt đối bỏ qua sự kiện trễ
+        if (!recognitionRef.current || isTypingRef.current) {
+          return;
+        }
+
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          const text = res[0].transcript;
+          if (res.isFinal) {
+            finalTranscript += text + ' ';
+          } else {
+            interimTranscript += text;
+          }
+        }
+
+        const transcribed = (finalTranscript + interimTranscript).trim();
+        if (transcribed) {
+          if (!recognitionRef.current || isTypingRef.current) {
+            return;
+          }
+
+          const fullText = initialInputRef.current ? `${initialInputRef.current}${transcribed}` : transcribed;
+
+          // Cập nhật DOM trực tiếp không có độ trễ (Zero-delay synchronous update)
+          if (textareaRef.current) {
+            textareaRef.current.value = fullText;
+            textareaRef.current.style.height = 'auto';
+            const scrollH = textareaRef.current.scrollHeight;
+            const newHeight = Math.min(Math.max(scrollH, 44), 120);
+            textareaRef.current.style.height = `${newHeight}px`;
+            textareaRef.current.style.overflowY = scrollH > 120 ? 'auto' : 'hidden';
+            textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+            try {
+              textareaRef.current.setSelectionRange(fullText.length, fullText.length);
+            } catch (e) {}
+          }
+
+          setInput(fullText);
+          latestFullTextRef.current = fullText;
+
+          // Xóa timer trước đó nếu người dùng đang tiếp tục nói
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+          setIsPendingAutoSend(true);
+
+          // Tự động kích hoạt gửi sau 2 giây ngừng nói
+          silenceTimerRef.current = setTimeout(() => {
+            setIsPendingAutoSend(false);
+            silenceTimerRef.current = null;
+            if (isTypingRef.current) return;
+            const textToSend = latestFullTextRef.current.trim();
+            if (textToSend) {
+              stopRecording();
+              if (handleSendMessageRef.current) {
+                handleSendMessageRef.current(textToSend);
+              }
+            }
+          }, 2000);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('[SpeechRecognition] error:', event.error);
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+        setIsPendingAutoSend(false);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setSpeechError('Vui lòng cấp quyền micro cho trình duyệt để sử dụng nhận diện giọng nói.');
+        } else if (event.error === 'network') {
+          setSpeechError('Lỗi kết nối dịch vụ giọng nói. Vui lòng thử lại!');
+        }
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        if (!silenceTimerRef.current) {
+          setIsRecording(false);
+          setIsPendingAutoSend(false);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      setIsRecording(false);
+      setIsPendingAutoSend(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    setIsPendingAutoSend(false);
+    if (recognitionRef.current) {
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      try {
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+        rec.onstart = null;
+        rec.abort();
+      } catch (e) {
+        try {
+          rec.stop();
+        } catch (err) {}
+      }
+    }
+    setIsRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (isTypingRef.current || isTyping) return;
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  const stopAiGeneration = () => {
+    stopRecording();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    isTypingRef.current = false;
+    setIsTyping(false);
+
+    // Xóa sạch dữ liệu ô nhập và bộ đệm để tránh gửi dư âm sau khi bấm dừng
+    setInput('');
+    latestFullTextRef.current = '';
+    initialInputRef.current = '';
+    if (textareaRef.current) {
+      textareaRef.current.value = '';
+      textareaRef.current.style.height = '44px';
+      textareaRef.current.style.overflowY = 'hidden';
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopRecording();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Find active session or fallback to first
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0] || createNewSession();
   const messages = activeSession.messages || [DEFAULT_GREETING];
 
-  // Save sessions to localStorage
+  // Clean up legacy un-scoped storage keys once
   useEffect(() => {
     try {
-      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+      localStorage.removeItem('eventhub_ai_chat_sessions');
+      localStorage.removeItem('eventhub_ai_active_session_id');
     } catch (e) {}
-  }, [sessions]);
+  }, []);
 
-  // Save activeSessionId to localStorage
+  // When userKey changes (e.g. account switch), reload sessions for that specific user
   useEffect(() => {
+    if (!userKey) {
+      setSessions([createNewSession()]);
+      setActiveSessionId(null);
+      return;
+    }
+    const loaded = loadInitialSessions(userKey);
+    setSessions(loaded);
+    setActiveSessionId(loadInitialActiveId(userKey, loaded));
+  }, [userKey]);
+
+  // Save sessions to user-scoped localStorage
+  useEffect(() => {
+    const storageKey = getSessionsStorageKey(userKey);
+    if (!storageKey) return;
     try {
-      if (activeSessionId) {
-        localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, activeSessionId);
-      }
+      localStorage.setItem(storageKey, JSON.stringify(sessions));
     } catch (e) {}
-  }, [activeSessionId]);
+  }, [sessions, userKey]);
+
+  // Save activeSessionId to user-scoped localStorage
+  useEffect(() => {
+    const storageKey = getActiveSessionStorageKey(userKey);
+    if (!storageKey || !activeSessionId) return;
+    try {
+      localStorage.setItem(storageKey, activeSessionId);
+    } catch (e) {}
+  }, [activeSessionId, userKey]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -367,7 +895,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     scrollToBottom();
   }, [messages, isTyping, showHistoryDrawer]);
 
-  if (!enabled) return null;
+  if (!enabled || !isAuthenticated()) return null;
 
   const handleCreateNewChat = () => {
     const newSession = createNewSession();
@@ -397,12 +925,26 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     }
   };
 
-  const handleSend = async (e) => {
-    e?.preventDefault();
-    if (!input.trim() || isTyping) return;
+  const handleSendMessage = async (textOverride) => {
+    stopRecording();
 
-    const userMessage = input.trim();
+    if (isTypingRef.current || isTyping) return;
+
+    const userMessage = typeof textOverride === 'string' 
+      ? textOverride.trim() 
+      : (input.trim() || latestFullTextRef.current.trim());
+
+    if (!userMessage) return;
+
+    // Xóa triệt để và đồng bộ nội dung nhập trên cả React state, refs và DOM textarea
     setInput('');
+    latestFullTextRef.current = '';
+    initialInputRef.current = '';
+    if (textareaRef.current) {
+      textareaRef.current.value = '';
+      textareaRef.current.style.height = '44px';
+      textareaRef.current.style.overflowY = 'hidden';
+    }
 
     // Determine updated title if still default
     const isFirstUserMessage = !activeSession.messages.some(m => m.role === 'user');
@@ -424,6 +966,9 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
       }
       return s;
     }));
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    isTypingRef.current = true;
     setIsTyping(true);
 
     try {
@@ -431,31 +976,67 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         ? []
         : messages.map(m => ({ role: m.role, content: m.content }));
 
-      const response = await sendChatMessage(userMessage, apiHistory);
+      const response = await sendChatMessage(userMessage, apiHistory, { signal: abortController.signal });
+
+      const assistantText = response?.content || 'Eve đã tiếp nhận thông tin của bạn!';
 
       setSessions(prev => prev.map(s => {
         if (s.id === activeSession.id) {
           return {
             ...s,
             updatedAt: Date.now(),
-            messages: [...updatedMessagesWithUser, { role: 'assistant', content: response.content }]
+            messages: [...updatedMessagesWithUser, { role: 'assistant', content: assistantText }]
           };
         }
         return s;
       }));
     } catch (error) {
+      const isCanceled = error?.name === 'CanceledError' || 
+                         error?.code === 'ERR_CANCELED' || 
+                         error?.message === 'canceled' ||
+                         abortController.signal.aborted;
+
+      if (isCanceled) {
+        setSessions(prev => prev.map(s => {
+          if (s.id === activeSession.id) {
+            return {
+              ...s,
+              updatedAt: Date.now(),
+              messages: [...updatedMessagesWithUser, { role: 'assistant', content: '_⏹️ Đã dừng phản hồi theo yêu cầu của bạn._' }]
+            };
+          }
+          return s;
+        }));
+        return;
+      }
+
+      const serverMessage = error?.response?.data?.message || error?.response?.data?.error;
+      const fallbackMsg = serverMessage && !serverMessage.toLowerCase().includes('network error')
+        ? `Dạ hệ thống thông báo: ${serverMessage}. Bạn vui lòng thử lại nhé! 🥺`
+        : 'Xin lỗi, kết nối mạng tạm thời bị gián đoạn. Bạn vui lòng kiểm tra kết nối internet và thử lại nhé! 🔄';
+
       setSessions(prev => prev.map(s => {
         if (s.id === activeSession.id) {
           return {
             ...s,
-            messages: [...updatedMessagesWithUser, { role: 'assistant', content: 'Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.' }]
+            messages: [...updatedMessagesWithUser, { role: 'assistant', content: fallbackMsg }]
           };
         }
         return s;
       }));
     } finally {
+      isTypingRef.current = false;
       setIsTyping(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  handleSendMessageRef.current = handleSendMessage;
+
+  const handleSend = (e) => {
+    e?.preventDefault();
+    if (isTypingRef.current || isTyping) return;
+    handleSendMessage();
   };
 
   return (
@@ -612,14 +1193,14 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                   {msg.role === 'user' ? (
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
                   ) : (
-                    <ActionMessage content={msg.content} navigate={navigate} />
+                    <ActionMessage content={msg.content} navigate={navigate} setInput={setInput} />
                   )}
                 </div>
               </div>
             ))}
             
             {isTyping && (
-              <div className="flex max-w-[85%] self-start items-end gap-2">
+              <div className="flex max-w-[85%] self-start items-end gap-2 animate-in fade-in">
                 <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[#152042] border border-slate-700 text-primary">
                   <Bot className="size-4" />
                 </div>
@@ -638,32 +1219,108 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
         {/* Input Form */}
         <div className="border-t border-slate-800 bg-[#0d162e] p-3">
-          <form onSubmit={handleSend} className="flex items-end gap-2">
-            <div className="relative flex-1">
+          {/* Speech Recognition Error Alert */}
+          {speechError && (
+            <div className="mb-2.5 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-950/70 px-3 py-2 text-xs text-amber-200 animate-in fade-in">
+              <div className="flex items-center gap-1.5">
+                <span>⚠️</span>
+                <span>{speechError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSpeechError(null)}
+                className="text-amber-400 hover:text-white ml-2 text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSend} className="flex items-center gap-2">
+            {/* Mic / Voice Recording Button */}
+            <button
+              type="button"
+              onClick={toggleRecording}
+              disabled={isTyping}
+              className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-all ${
+                isTyping
+                  ? 'border border-slate-800 bg-[#10172d] text-slate-600 opacity-40 cursor-not-allowed'
+                  : isRecording
+                    ? isPendingAutoSend
+                      ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-pulse cursor-pointer'
+                      : 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse cursor-pointer'
+                    : 'border border-slate-700 bg-[#131d38] text-slate-300 hover:text-cyan-300 hover:border-cyan-500/50 hover:bg-[#18254b] cursor-pointer'
+              }`}
+              title={isTyping ? 'Đang đợi AI trả lời...' : isRecording ? 'Dừng thu âm' : 'Nhập bằng giọng nói (Tiếng Việt)'}
+            >
+              {isRecording ? <Square className="size-4 fill-white" /> : <Mic className="size-5" />}
+              {isRecording && !isTyping && (
+                <span className={`absolute -inset-1 rounded-xl animate-ping -z-10 ${
+                  isPendingAutoSend ? 'bg-amber-500/30' : 'bg-rose-500/30'
+                }`} />
+              )}
+            </button>
+
+            <div className="relative flex-1 flex items-center">
               <textarea
+                ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  latestFullTextRef.current = e.target.value;
+                  if (silenceTimerRef.current) {
+                    clearTimeout(silenceTimerRef.current);
+                    silenceTimerRef.current = null;
+                    setIsPendingAutoSend(false);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSend();
+                    if (!isTyping && !isTypingRef.current) {
+                      handleSend();
+                    }
                   }
                 }}
-                placeholder="Hỏi về sự kiện, giá vé..."
-                className="w-full resize-none rounded-xl border border-slate-700 bg-[#131d38] py-3 pl-4 pr-3 text-sm text-slate-100 placeholder-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary focus:bg-[#162244]"
+                placeholder={isRecording ? 'Đang lắng nghe... Nói vào micro...' : 'Hỏi về sự kiện, giá vé...'}
+                className={`no-scrollbar w-full resize-none rounded-xl border bg-[#131d38] py-2.5 pl-3.5 pr-3 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:bg-[#162244] transition-all leading-normal ${
+                  isRecording 
+                    ? 'border-rose-500/60 focus:border-rose-400 focus:ring-rose-500/40 ring-1 ring-rose-500/20' 
+                    : 'border-slate-700/80 hover:border-slate-600 focus:border-primary focus:ring-primary/40'
+                }`}
                 rows={1}
-                style={{ minHeight: '44px', maxHeight: '120px' }}
+                style={{
+                  height: '44px',
+                  minHeight: '44px',
+                  maxHeight: '120px',
+                  overflowY: 'hidden',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}
               />
             </div>
-            <button
-              type="submit"
-              disabled={!input.trim() || isTyping}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-[#081126] font-bold transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              <Send className="size-5" />
-            </button>
+            {isTyping ? (
+              <button
+                type="button"
+                onClick={stopAiGeneration}
+                className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-rose-500 text-white font-bold transition-all hover:bg-rose-600 active:scale-95 shadow-[0_0_15px_rgba(244,63,94,0.5)] cursor-pointer"
+                title="Dừng tiến trình AI"
+              >
+                <Square className="size-4 fill-white" />
+                <span className="absolute -inset-1 rounded-xl bg-rose-500/30 animate-ping -z-10" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-[#081126] font-bold transition-all hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+                title="Gửi tin nhắn"
+              >
+                <Send className="size-4.5 -ml-0.5" />
+              </button>
+            )}
           </form>
-          <div className="mt-2 text-center text-[11px] text-slate-400">
+          <div className="mt-2 text-center text-[11px] text-slate-400/80">
             AI có thể mắc lỗi. Vui lòng kiểm tra lại thông tin quan trọng.
           </div>
         </div>

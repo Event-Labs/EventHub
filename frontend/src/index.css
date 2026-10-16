@@ -137,6 +137,23 @@ html.light *::-webkit-scrollbar-track {
   background: rgba(203, 213, 225, 0.42);
 }
 
+/* ── No Scrollbar Utilities ── */
+.no-scrollbar::-webkit-scrollbar,
+textarea.no-scrollbar::-webkit-scrollbar,
+textarea.no-scrollbar::-webkit-scrollbar-thumb,
+textarea.no-scrollbar::-webkit-scrollbar-track {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+.no-scrollbar,
+textarea.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 button,
 a,
 input,
@@ -229,6 +246,156 @@ html.light select optgroup {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* ── AI Gold Button with Single Seamless Constant-Speed LED Border ── */
+@keyframes ai-led-travel-glow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes ai-led-travel-core {
+  0% {
+    stroke-dashoffset: 7;
+  }
+  100% {
+    stroke-dashoffset: -93;
+  }
+}
+
+.ai-led-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  isolation: isolate;
+  box-shadow: 0 0 16px rgba(201, 154, 71, 0.35), 0 0 32px rgba(201, 154, 71, 0.15);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-led-btn:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 0 28px rgba(201, 154, 71, 0.7), 0 0 45px rgba(230, 193, 122, 0.45);
+}
+
+.ai-led-btn:active {
+  transform: scale(0.97);
+}
+
+.ai-led-content {
+  position: relative;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #C99A47 0%, #E6C17A 100%);
+  color: #0D1B2A !important;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.65rem 1.35rem;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+  user-select: none;
+  transition: filter 0.2s ease;
+}
+
+.ai-led-btn:hover .ai-led-content {
+  filter: brightness(1.06);
+}
+
+.ai-led-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  pointer-events: none;
+  overflow: visible;
+  border-radius: 14px;
+}
+
+.ai-led-svg rect {
+  x: 1px;
+  y: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  rx: 13px;
+  ry: 13px;
+  fill: none;
+}
+
+.ai-led-track {
+  stroke: rgba(201, 154, 71, 0.45);
+  stroke-width: 1.5px;
+}
+
+.ai-led-beam-glow {
+  stroke: #FFF2C2;
+  stroke-width: 3.5px;
+  stroke-linecap: round;
+  stroke-dasharray: 32 68;
+  filter: drop-shadow(0 0 5px #F59E0B) drop-shadow(0 0 10px #FBBF24);
+  animation: ai-led-travel-glow 3s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.ai-led-beam-core {
+  stroke: #FFFFFF;
+  stroke-width: 1.75px;
+  stroke-linecap: round;
+  stroke-dasharray: 18 82;
+  filter: drop-shadow(0 0 3px #FFFFFF);
+  animation: ai-led-travel-core 3s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+/* ── Create Event Page: Solid Deep Dark Form Cards & Inputs ── */
+.create-event-content section,
+.create-event-content .bg-surface {
+  background-color: #0b1528 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.create-event-content .bg-panel-soft {
+  background-color: #132238 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.create-event-content input,
+.create-event-content select,
+.create-event-content textarea {
+  background-color: #132238 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.create-event-content input:focus,
+.create-event-content select:focus,
+.create-event-content textarea:focus {
+  border-color: #C99A47 !important;
+  box-shadow: 0 0 0 2px rgba(201, 154, 71, 0.25) !important;
+}
+
+/* Gold Section Header Icons #C99A47 */
+.create-event-content h2 .material-symbols-outlined,
+.create-event-content h3 .material-symbols-outlined,
+.create-event-content h4 .material-symbols-outlined,
+.create-event-content .section-icon-gold {
+  color: #C99A47 !important;
 }
 
 .admin-secondary,
@@ -1627,11 +1794,13 @@ html.light .direct-booking-page [class*="text-slate-500"] {
     transform: translate(-50%, -50%) scale(0.98);
     filter: brightness(1);
   }
+
   50% {
     opacity: 0.88;
     transform: translate(-50%, -50%) scale(1.03);
     filter: brightness(1.12);
   }
+
   100% {
     opacity: 0.52;
     transform: translate(-50%, -50%) scale(0.98);
@@ -1650,10 +1819,12 @@ html.light .direct-booking-page [class*="text-slate-500"] {
     opacity: 0.25;
     transform: translate3d(0, 0, 0);
   }
+
   50% {
     opacity: 0.48;
     transform: translate3d(14px, -6px, 0);
   }
+
   100% {
     opacity: 0.25;
     transform: translate3d(0, 0, 0);
@@ -1671,10 +1842,12 @@ html.light .direct-booking-page [class*="text-slate-500"] {
     opacity: 0.28;
     transform: translate3d(-50%, 0, 0) rotate(-0.4deg);
   }
+
   50% {
     opacity: 0.55;
     transform: translate3d(-50%, 0, 0) rotate(0.6deg);
   }
+
   100% {
     opacity: 0.28;
     transform: translate3d(-50%, 0, 0) rotate(-0.4deg);
@@ -1991,3 +2164,181 @@ html.light .fixed.inset-0.bg-black\/80 {
 html.light svg text {
   fill: #1B365D !important;
 }
+
+/* ── STRICT DARK MODE ENFORCEMENT FOR HOME PAGE, NAVBAR, LOGIN, REGISTER ── */
+.force-dark,
+html.light .force-dark {
+  --color-primary: #06b6d4 !important;
+  --color-secondary: #3b82f6 !important;
+  --color-tertiary: #1d4ed8 !important;
+  --color-ai: #a855f7 !important;
+  --color-success: #10b981 !important;
+  --color-warning: #f59e0b !important;
+  --color-error: #ef4444 !important;
+  --color-neutral: #9ca3af !important;
+  --color-background: #030712 !important;
+  --color-surface: rgba(15, 23, 42, 0.4) !important;
+  --color-panel: rgba(15, 23, 42, 0.6) !important;
+  --color-panel-soft: rgba(30, 41, 59, 0.5) !important;
+  --color-border-soft: rgba(255, 255, 255, 0.08) !important;
+  --color-content: #f8fafc !important;
+  --color-subtle: #94a3b8 !important;
+  --color-muted: #64748b !important;
+  color-scheme: dark !important;
+  color: #f8fafc !important;
+}
+
+/* Preserve dark body background when inside force-dark pages */
+html.light body:has(.force-dark) {
+  background-color: #030712 !important;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(6, 182, 212, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 40% at 85% 25%, rgba(37, 99, 235, 0.15) 0%, transparent 55%),
+    radial-gradient(ellipse 65% 45% at 15% 55%, rgba(14, 52, 100, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 50% at 40% 95%, rgba(6, 182, 212, 0.07) 0%, transparent 60%) !important;
+  color: #f8fafc !important;
+}
+
+/* Navbar (Header) dark mode preservation */
+html.light header.force-dark,
+html.light .force-dark header {
+  background-color: rgba(15, 23, 42, 0.7) !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important;
+  color: #f8fafc !important;
+}
+
+html.light header.force-dark a,
+html.light .force-dark header a {
+  color: #94a3b8 !important;
+}
+
+html.light header.force-dark a:hover,
+html.light .force-dark header a:hover {
+  color: #06b6d4 !important;
+}
+
+html.light header.force-dark a.text-primary,
+html.light header.force-dark a[aria-current="page"],
+html.light .force-dark header a.text-primary,
+html.light .force-dark header a[aria-current="page"] {
+  color: #06b6d4 !important;
+}
+
+html.light header.force-dark .bg-primary,
+html.light .force-dark header .bg-primary {
+  background-color: #06b6d4 !important;
+}
+
+html.light header.force-dark .border-primary\/40,
+html.light .force-dark header .border-primary\/40 {
+  border-color: rgba(6, 182, 212, 0.4) !important;
+}
+
+/* Headings and Typography in force-dark */
+html.light .force-dark h1,
+html.light .force-dark h2,
+html.light .force-dark h3,
+html.light .force-dark h4,
+html.light .force-dark h5,
+html.light .force-dark h6 {
+  color: #ffffff !important;
+}
+
+html.light .force-dark .text-white,
+html.light .force-dark [class*="text-white/"] {
+  color: #ffffff !important;
+}
+
+html.light .force-dark .text-slate-100 { color: #f1f5f9 !important; }
+html.light .force-dark .text-slate-200 { color: #e2e8f0 !important; }
+html.light .force-dark .text-slate-300 { color: #cbd5e1 !important; }
+html.light .force-dark .text-slate-400 { color: #94a3b8 !important; }
+html.light .force-dark .text-slate-500 { color: #64748b !important; }
+html.light .force-dark .text-muted { color: #64748b !important; }
+html.light .force-dark .text-subtle { color: #94a3b8 !important; }
+html.light .force-dark .text-primary { color: #06b6d4 !important; }
+
+/* Keep gradient on hero titles */
+html.light .force-dark h1 .text-transparent,
+html.light .force-dark h1 [class*="bg-clip-text"],
+html.light .force-dark .font-display span.text-transparent {
+  background: linear-gradient(to right, #06b6d4, #a5f3fc, #60a5fa) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  color: transparent !important;
+  filter: none !important;
+}
+
+/* Glass panels & surfaces */
+html.light .force-dark .glass-panel,
+html.light .force-dark.glass-panel {
+  background-color: rgba(15, 23, 42, 0.4) !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  color: #f8fafc !important;
+}
+
+html.light .force-dark .glass-panel:hover,
+html.light .force-dark.glass-panel:hover {
+  border-color: rgba(6, 182, 212, 0.3) !important;
+  box-shadow: 0 8px 32px 0 rgba(6, 182, 212, 0.15) !important;
+}
+
+html.light .force-dark [class*="bg-slate-950"] {
+  background-color: rgba(2, 6, 23, 0.6) !important;
+  color: #f8fafc !important;
+}
+
+html.light .force-dark [class*="bg-slate-900"] {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  color: #f8fafc !important;
+}
+
+html.light .force-dark [class*="bg-sky-950"] {
+  background-color: rgba(8, 47, 73, 0.4) !important;
+  color: #f8fafc !important;
+}
+
+html.light .force-dark [class*="border-white/"] {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Inputs & Form controls in force-dark (Login, Register, Search) */
+html.light .force-dark .cosmic-input,
+html.light .force-dark .cosmic-textarea,
+html.light .force-dark .cosmic-select,
+html.light .force-dark input:not([type="checkbox"]):not([type="radio"]) {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+}
+
+html.light .force-dark .cosmic-input:focus,
+html.light .force-dark .cosmic-textarea:focus,
+html.light .force-dark .cosmic-select:focus,
+html.light .force-dark input:focus {
+  border-color: #06b6d4 !important;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25) !important;
+}
+
+html.light .force-dark .cosmic-input::placeholder,
+html.light .force-dark .cosmic-textarea::placeholder,
+html.light .force-dark input::placeholder {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Buttons in force-dark */
+html.light .force-dark .btn-gold-primary {
+  background: linear-gradient(135deg, #C99A47, #E6C17A) !important;
+  color: #0D1B2A !important;
+  border: none !important;
+}
+
+html.light .force-dark svg text {
+  fill: #f8fafc !important;
+}

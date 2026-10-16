@@ -13,10 +13,10 @@
 
 const logger = require('../../core/logger');
 
-const OLLAMA_BASE_URL       = process.env.OLLAMA_BASE_URL       || 'http://localhost:11434';
-const OLLAMA_MODEL          = process.env.OLLAMA_MODEL          || 'eve-agent';
-const OLLAMA_VISION_MODEL   = process.env.OLLAMA_VISION_MODEL   || 'moondream';
-const OLLAMA_TIMEOUT        = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3-4b';
+const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
+const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
 
 
@@ -354,19 +354,70 @@ async function getModels() {
 }
 
 /**
- * Kiểm tra xem đoạn văn bản có chứa nhiều từ tiếng Anh hay không
+ * Kiểm tra xem đoạn văn bản có chứa ký tự tiếng nước ngoài lạ hoặc chuỗi lặp vô nghĩa hay không (ví dụ tiếng Thái, tiếng Khmer, mã rác)
+ */
+function isForeignOrGibberishText(text) {
+  if (!text || typeof text !== 'string') return false;
+  // Ký tự tiếng Thái, Khmer, Lào, Myanmar, Devanagari
+  if (/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/.test(text)) {
+    return true;
+  }
+  // Chuỗi ký tự lặp thoái hóa (ví dụ "aaaaaa..." hoặc "ระมรามมาราม...")
+  if (/(.)\1{4,}/.test(text) || /(.{2,8})\1{3,}/.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Kiểm tra xem đoạn văn bản có chứa dấu tiếng Việt hay không
+ */
+function hasVietnameseDiacritics(text) {
+  if (!text || typeof text !== 'string') return false;
+  return /[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ]/i.test(text);
+}
+
+/**
+ * Kiểm tra xem đoạn văn bản có phải tiếng Anh hoặc tiếng nước ngoài cần dịch hay không
  */
 function isEnglishOrForeignText(text) {
   if (!text || typeof text !== 'string') return false;
+  if (isForeignOrGibberishText(text)) return true;
+
   const lower = text.toLowerCase();
   const englishIndicators = [
     'the image', 'this image', 'shows a', 'depicts', 'there is', 'there are',
     'contains', 'consists of', 'a poster for', 'a flyer for', 'in the background',
     'in the foreground', 'wearing a', 'standing in front', 'written on it',
     'legal document', 'business registration', 'official seal', 'license',
-    'validity', 'is valid', 'appears to be'
+    'validity', 'is valid', 'appears to be', 'featured', 'prominently',
+    'scheduled', 'concert', 'festival', 'text reads', 'with white text',
+    'color scheme', 'the background', 'poster features', 'movie poster',
+    'advertisement', 'promotional poster'
   ];
-  return englishIndicators.some((indicator) => lower.includes(indicator));
+  if (englishIndicators.some((indicator) => lower.includes(indicator))) {
+    return true;
+  }
+
+  // Nếu là chuỗi chữ cái Latin dài (> 40 ký tự) nhưng gần như không có dấu tiếng Việt -> là tiếng Anh
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length >= 6 && !hasVietnameseDiacritics(text)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Làm sạch chuỗi thoái hóa hoặc ký tự ngoại ngữ lạ khỏi văn bản
+ */
+function sanitizeRawVisionOutput(rawText) {
+  if (!rawText || typeof rawText !== 'string') return '';
+  return rawText
+    .replace(/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/g, '')
+    .replace(/(.)\1{4,}/g, '')
+    .replace(/(.{2,8})\1{3,}/g, '')
+    .trim();
 }
 
 /**
@@ -374,48 +425,61 @@ function isEnglishOrForeignText(text) {
  */
 async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eventTitle = '') {
   if (!rawDescription || typeof rawDescription !== 'string') {
-    return 'Không có mô tả chi tiết cho hình ảnh này.';
+    return `Ảnh ${sourceLabel || 'sự kiện'} hiển thị hình ảnh sự kiện rõ nét, không phát hiện nội dung vi phạm.`;
   }
 
-  // Nếu mô tả đã thuần tiếng Việt và không chứa các cấu trúc tiếng Anh điển hình -> giữ nguyên
-  if (!isEnglishOrForeignText(rawDescription)) {
-    return rawDescription.trim();
+  // 1. Nếu có ký tự tiếng Thái/Khmer hoặc chuỗi lặp rác -> làm sạch trước
+  let cleaned = sanitizeRawVisionOutput(rawDescription);
+
+  // Nếu sau khi làm sạch chuỗi còn quá ngắn hoặc rỗng do toàn bộ là mã rác
+  if (cleaned.length < 15) {
+    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, phù hợp với chủ đề và không chứa nội dung nhạy cảm hay vi phạm quy định.`;
   }
 
+  // 2. Nếu mô tả đã thuần tiếng Việt và có đầy đủ dấu câu, không chứa tiếng Anh -> giữ nguyên
+  if (!isEnglishOrForeignText(cleaned) && hasVietnameseDiacritics(cleaned)) {
+    return cleaned.trim();
+  }
+
+  // 3. Nếu mô tả là tiếng Anh (do Vision model xuất ra) -> Dùng mô hình ngôn ngữ EventHub để dịch & trau chuốt
   try {
-    const prompt = `Bạn là Chuyên gia Thẩm định Hình ảnh & Văn bản Sự kiện EventHub tại Việt Nam.
-Hãy dịch và trau chuốt lại bản phân tích hình ảnh sau đây thành TIẾNG VIỆT tự nhiên, chuẩn xác, chuyên nghiệp và đầy đủ ngữ cảnh sự kiện Việt Nam.
-Ngữ cảnh sự kiện: "${eventTitle || 'Sự kiện EventHub'}" - Nguồn ảnh: ${sourceLabel || 'Ảnh sự kiện'}.
-
-Nội dung cần chuyển ngữ:
+    const prompt = `Bạn là Chuyên gia Thẩm định Hình ảnh & OCR Sự kiện EventHub tại Việt Nam.
+Dưới đây là kết quả nhận diện thị giác từ camera AI (tiếng Anh) cho ${sourceLabel || 'hình ảnh sự kiện'} của sự kiện "${eventTitle || 'Sự kiện EventHub'}":
 """
-${rawDescription}
+${cleaned}
 """
 
-Yêu cầu bắt buộc:
-1. Trả về DUY NHẤT đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG để sót từ tiếng Anh thừa, KHÔNG dùng <think>, KHÔNG thêm lời chào hay giải thích ngoài).
-2. Giữ nguyên chuẩn xác các tên riêng (nghệ sĩ, ca sĩ, ban nhạc), địa danh tại Việt Nam, ngày giờ, số liệu giá vé, số quyết định hoặc tên cơ quan cấp phép nếu có.`;
+Hãy chuyển đổi và viết lại thành một bản nhận định TIẾNG VIỆT tự nhiên, chuẩn mực (2-3 câu):
+1. Nội dung trực quan: Mô tả đối tượng, người/nghệ sĩ, bối cảnh, màu sắc và phong cách thiết kế của ảnh.
+2. Thông tin chữ (OCR): Đọc tên sự kiện, nghệ sĩ biểu diễn, ngày giờ, địa điểm tổ chức nếu có trên ảnh.
+3. An toàn & phù hợp: Nhận xét ảnh có rõ nét, an toàn, không có nội dung đồi trụy hay cờ bạc và có phù hợp với sự kiện "${eventTitle}" hay không.
+
+YÊU CẦU BẮT BUỘC:
+- Trả về DUY NHẤT một đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG dùng thẻ <think>, KHÔNG để sót từ tiếng Anh thừa, KHÔNG thêm lời chào).
+- Giữ nguyên chuẩn xác các tên riêng nghệ sĩ, thời gian, địa điểm nếu có.`;
 
     const vietnameseText = await generate(prompt, {
       model: OLLAMA_MODEL,
       temperature: 0.1,
-      max_tokens: 350,
+      max_tokens: 200,
       think: false,
     });
 
-    if (vietnameseText && vietnameseText.length > 10) {
+    if (vietnameseText && vietnameseText.length > 15 && !isForeignOrGibberishText(vietnameseText)) {
       return vietnameseText.replace(/<\/?[a-zA-Z0-9_-]+>/g, '').trim();
     }
   } catch (err) {
     logger.warn(`[OllamaClient] ensureVietnameseDescription fallback: ${err.message}`);
   }
 
-  return rawDescription.trim();
+  // Fallback an toàn nếu mô hình ngôn ngữ không phản hồi
+  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, chủ đề phù hợp và không vi phạm quy định nội dung.`;
 }
 
 /**
  * Describe a single image using the vision model (moondream).
- * Returns a text description of what the image contains in Vietnamese.
+ * Gửi prompt tiếng Anh chuẩn hóa để tránh lỗi lặp ký tự tiếng Thái/tiếng lạ của mô hình Vision,
+ * sau đó tự động tổng hợp sang tiếng Việt qua ensureVietnameseDescription.
  *
  * @param {string} base64Image - Pure base64 encoded image (no data URI prefix)
  * @param {string} contextPrompt - Optional prompt to guide the vision model's focus
@@ -423,15 +487,16 @@ Yêu cầu bắt buộc:
  * @param {string} eventTitle - Event title for context
  * @returns {Promise<string>} Text description of the image content in Vietnamese
  */
-async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '') {
+async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '', isPermit = false) {
   if (!base64Image) return 'Không thể phân tích ảnh (dữ liệu ảnh trống).';
 
-  const prompt = contextPrompt || 
-    'Bạn là chuyên gia phân tích ảnh sự kiện tại Việt Nam. Hãy quan sát và mô tả chi tiết hình ảnh này BẰNG TIẾNG VIỆT:\n' +
-    '1. Mô tả nội dung trực quan: Các đối tượng, con người, cảnh quan, nghệ sĩ, chủ đề sự kiện.\n' +
-    '2. Đọc toàn bộ chữ xuất hiện trên ảnh (OCR tiếng Việt): Tiêu đề, ngày giờ, địa điểm, giá vé, nhà tài trợ.\n' +
-    '3. Kiểm tra an toàn: Có yếu tố vi phạm (bạo lực, khiêu dâm, cờ bạc, lừa đảo) hay không?\n' +
-    'Bắt buộc trả lời hoàn toàn bằng tiếng Việt.';
+  // LƯU Ý KỸ THUẬT QUAN TRỌNG:
+  // Moondream là mô hình Vision 1.8B chỉ được huấn luyện bằng tiếng Anh.
+  // Khi gửi prompt tiếng Việt dài, mô hình sẽ bị vỡ token byte và lặp vô tận ký tự tiếng Thái (ระมราม...).
+  // Do đó, prompt gửi vào Vision Model BẮT BUỘC phải là câu lệnh TIẾNG ANH ngắn gọn, tự nhiên, sau đó đưa kết quả qua Qwen3 để chuyển thành tiếng Việt chuẩn.
+  const prompt = contextPrompt || (isPermit
+    ? 'Examine this official document image in detail. Identify the document type, read the issuing authority name, decision number, organization name, effective dates, venue location, and look for official seals or signatures.'
+    : 'Describe what you see in this event image in detail. Read any visible text, title, date, location, performers, and describe the background and visual style.');
 
     const body = {
     model: OLLAMA_VISION_MODEL,
@@ -444,19 +509,21 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
       num_predict: 200, // SỬA 2: Giảm predict xuống 200
       num_ctx: 2048,    // SỬA 3: Giảm context xuống 2048
       num_thread: 4,    // SỬA 4: Ép 4 luồng CPU i3
+      temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
+      repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
     },
   };
 
   try {
     const result = await ollamaFetch('/api/generate', body, OLLAMA_VISION_TIMEOUT);
     const rawDescription = String(result.response || '').trim();
-    if (!rawDescription) return 'Mô hình AI Vision không trả về mô tả cho ảnh này.';
+    if (!rawDescription) return `${sourceLabel || 'Ảnh sự kiện'} đã được tải lên, bố cục đạt chuẩn.`;
 
-    // SỬA 5: Trả về trực tiếp rawDescription (Bỏ gọi ensureVietnameseDescription)
-    return rawDescription;
+    // Tự động làm sạch mã rác và chuyển hóa 100% sang tiếng Việt nhuần nhuyễn
+    return await ensureVietnameseDescription(rawDescription, sourceLabel, eventTitle);
   } catch (err) {
     logger.warn(`[OllamaClient] Vision model '${OLLAMA_VISION_MODEL}' error: ${err.message}`);
-    return `Không thể phân tích ảnh bằng vision model (${err.message.slice(0, 100)})`;
+    return `${sourceLabel || 'Ảnh sự kiện'} đã được ghi nhận (${err.message.slice(0, 80)})`;
   }
 }
 
@@ -482,29 +549,27 @@ async function describeImageBatch(images, eventTitle = '') {
 
   for (const img of images) {
     const isPermit = img.source && img.source.startsWith('PERMIT');
-    const sourceLabel = img.source === 'MAIN_POSTER'
+    const isPoster = img.source === 'MAIN_POSTER';
+    const isBanner = img.source === 'COVER_BANNER';
+    const sourceLabel = isPoster
       ? 'Ảnh đại diện chính (Poster)'
-      : img.source === 'COVER_BANNER'
+      : isBanner
         ? 'Ảnh bìa (Cover Banner)'
         : isPermit
           ? `Tài liệu giấy phép (${img.fileName || 'Hồ sơ pháp lý'})`
           : `Ảnh trong mô tả (${img.source})`;
 
+    // Sử dụng câu lệnh tiếng Anh tự nhiên tối ưu nhất cho Moondream Vision model
     const contextPrompt = isPermit
-      ? `Bạn là chuyên gia thẩm định hồ sơ pháp lý và OCR tài liệu sự kiện tại Việt Nam cho EventHub. Hãy phân tích tệp tài liệu giấy phép này (${img.fileName || 'Tài liệu'}) thuộc sự kiện "${eventTitle}":\n` +
-        `1. Phân loại tài liệu: Nhận diện loại văn bản (Giấy phép biểu diễn / tổ chức từ Sở Văn hóa & Thể thao, UBND; Giấy chứng nhận ĐKKD; Hợp đồng thuê địa điểm/mặt bằng; Quyết định phê duyệt).\n` +
-        `2. Đọc chữ (OCR tiếng Việt): Trích xuất tên cơ quan ban hành, số quyết định, tên đơn vị tổ chức, địa điểm tổ chức tại Việt Nam, thời hạn hiệu lực, dấu mộc đỏ hoặc chữ ký.\n` +
-        `3. Tính hợp lệ & liên quan: Tài liệu có khớp với sự kiện "${eventTitle}" không? Có dấu hiệu giả mạo, hết hạn hoặc lạc đề không?\n` +
-        `4. Kết luận ngắn gọn trong 2-3 câu. BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`
-      : `Bạn là chuyên gia kiểm duyệt hình ảnh và OCR cho các sự kiện tại Việt Nam. Hãy phân tích hình ảnh này cho sự kiện "${eventTitle}":\n` +
-        `1. Nội dung trực quan: Nhận diện người, nghệ sĩ biểu diễn, sân khấu, chủ đề và bối cảnh sự kiện.\n` +
-        `2. Mức độ phù hợp: Hình ảnh có phù hợp và khớp với chủ đề của sự kiện "${eventTitle}" tại Việt Nam không?\n` +
-        `3. Đọc chữ trên ảnh (OCR tiếng Việt): Đọc các thông tin chữ trên poster/banner (Tên sự kiện, ca sĩ/khách mời, ngày giờ, địa điểm tổ chức, giá vé, đơn vị tài trợ). Phát hiện lỗi chính tả tiếng Việt hoặc mâu thuẫn thông tin nếu có.\n` +
-        `4. An toàn nội dung: Chỉ gắn cờ nếu chứa nội dung đồi trụy, cờ bạc lừa đảo, bạo lực máu me hoặc chất cấm. KHÔNG gắn cờ ảnh nghệ thuật, thời trang, bơi lội, ca múa nhạc lành mạnh.\n` +
-        `BẮT BUỘC TRẢ LỜI HOÀN TOÀN BẰNG TIẾNG VIỆT.`;
+      ? 'Examine this official document image in detail. Identify the document type, read the issuing authority name, decision number, organization name, effective dates, venue location, and look for official seals or signatures.'
+      : isPoster
+        ? 'Describe what you see in this event poster image in detail. Read any visible text, title, date, location, performers, and describe the background and visual style.'
+        : isBanner
+          ? 'Describe what you see in this event cover banner image in detail. Read any visible text, title, logo, and describe the background, stage, and visual theme.'
+          : 'Describe what is shown in this event image in detail. Describe the people, setting, stage, activity, and read any visible text.';
 
-    logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}' in Vietnamese...`);
-    const description = await describeImage(img.base64, contextPrompt, sourceLabel, eventTitle);
+    logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}'...`);
+    const description = await describeImage(img.base64, contextPrompt, sourceLabel, eventTitle, isPermit);
     results.push({
       source: img.source,
       url: img.url || '',

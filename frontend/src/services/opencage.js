@@ -8,6 +8,7 @@ function getApiKey() {
  * Parse OpenCage result into form-compatible address fields.
  */
 export function parseOpenCageAddress(result) {
+    if (!result) return {}
     const components = result?.components || {}
     return {
         address_line: result?.formatted || '',
@@ -22,9 +23,15 @@ export function parseOpenCageAddress(result) {
  * Internal helper to call OpenCage API.
  */
 async function fetchOpenCage(query, limit, bias) {
+    const key = getApiKey()
+    if (!key) {
+        console.warn('[OpenCage] VITE_OPENCAGE_API_KEY chưa được cấu hình trong frontend/.env')
+        return []
+    }
+
     const params = new URLSearchParams({
         q: query,
-        key: getApiKey(),
+        key,
         language: 'vi',
         countrycode: 'vn',
         limit: String(limit),
@@ -65,17 +72,23 @@ export async function searchAddress(query, options = {}) {
  * Reverse geocode: lat/lng → address using OpenCage.
  * @param {number} lat
  * @param {number} lng
- * @returns {Promise<object>} single result object
+ * @returns {Promise<object|null>} single result object or null if key missing
  */
 export async function reverseGeocode(lat, lng) {
+    const key = getApiKey()
+    if (!key) {
+        console.warn('[OpenCage] VITE_OPENCAGE_API_KEY chưa được cấu hình trong frontend/.env')
+        return null
+    }
+
     const params = new URLSearchParams({
         q: `${lat},${lng}`,
-        key: getApiKey(),
+        key,
         language: 'vi',
     })
 
     const response = await fetch(`${OPENCAGE_BASE}?${params}`)
-    if (!response.ok) throw new Error('Không thể lấy địa chỉ từ tọa độ')
+    if (!response.ok) throw new Error(`Không thể lấy địa chỉ từ tọa độ (HTTP ${response.status})`)
     const data = await response.json()
     const result = data.results?.[0]
     if (!result) throw new Error('Không tìm thấy địa chỉ cho tọa độ này')
