@@ -59,6 +59,25 @@ export async function runAdminBatchAutoReview() {
   return response.data.data
 }
 
+export async function runAdminSingleAutoReview() {
+  const response = await http.post('/admin/events/auto-review/single')
+  return response.data.data
+}
+
+export async function cancelAdminAutoReview() {
+  const response = await http.post('/admin/events/auto-review/cancel')
+  return response.data.data
+}
+
+export async function fetchAdminAutoReviewScanStatus() {
+  try {
+    const response = await http.get('/admin/events/auto-review/scan-status')
+    return response.data.data
+  } catch (_err) {
+    return { isRunning: false, eventId: null, eventTitle: null }
+  }
+}
+
 export async function fetchAdminReviewCriteria(params = {}) {
   const response = await http.get('/admin/events/review-criteria', { params })
   return response.data.data
