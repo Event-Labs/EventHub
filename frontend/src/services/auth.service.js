@@ -6,13 +6,13 @@ export const authService = {
         return response.data
     },
 
-    verifyLoginOtp: async ({ challengeId, otp }) => {
-        const response = await http.post('/auth/verify-login-otp', { challengeId, otp })
+    verifyLoginOtp: async ({ challengeId, otp, remember = true }) => {
+        const response = await http.post('/auth/verify-login-otp', { challengeId, otp, remember })
         return response.data
     },
 
-    verifyAdminOtp: async ({ challengeId, otp }) => {
-        const response = await http.post('/auth/verify-admin-otp', { challengeId, otp })
+    verifyAdminOtp: async ({ challengeId, otp, remember = true }) => {
+        const response = await http.post('/auth/verify-admin-otp', { challengeId, otp, remember })
         return response.data
     },
 
@@ -21,8 +21,8 @@ export const authService = {
         return response.data
     },
 
-    googleLogin: async (credential) => {
-        const response = await http.post('/auth/google', { credential })
+    googleLogin: async (credential, remember = true) => {
+        const response = await http.post('/auth/google', { credential, remember })
         return response.data
     },
 
