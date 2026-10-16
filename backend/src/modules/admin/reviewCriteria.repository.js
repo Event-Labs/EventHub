@@ -25,14 +25,17 @@ Hành vi nghiêm cấm (Treo đầu dê bán thịt chó & Lạc đề):
   },
   {
     code: 'LEGAL_PERMIT_AUTHENTICITY',
-    title: 'Thẩm định tính chân thực của tài liệu đính kèm (nếu có)',
+    title: 'Thẩm định tính chân thực & pháp lý của tài liệu giấy phép đính kèm',
     category: 'LEGAL',
     severity: 'CRITICAL',
     order_index: 3,
-    rule_content: `Đối với các sự kiện có đính kèm tài liệu: Nếu Nhà tổ chức chủ động đính kèm giấy tờ pháp lý hoặc tài liệu giới thiệu, AI kiểm tra tính chân thực và an toàn nội dung.
-Tài liệu vi phạm nghiêm trọng: Nếu tệp đính kèm chứa mã độc, nội dung lừa đảo, giả mạo con dấu/chữ ký cơ quan nhà nước một cách trắng trợn hoặc tài liệu spam độc hại -> BẮT BUỘC xếp vào "critical_violations" (LEGAL_PERMIT_AUTHENTICITY) và ra quyết định REJECT.
-Tài liệu thông thường: Nếu tệp là tài liệu giới thiệu sự kiện, slide thuyết trình, đề cương hoặc hợp đồng/thỏa thuận thuê địa điểm -> Đánh giá hợp lệ, KHÔNG bắt lỗi vì không phải văn bản hành chính nhà nước.
-Nếu sự kiện không có tài liệu đính kèm: Bỏ qua tiêu chí này, hoàn toàn không trừ điểm.`,
+    rule_content: `Thẩm định tính chân thực & tính hợp pháp của tài liệu giấy phép đính kèm:
+1. Tài liệu giấy phép hợp lệ: Bắt buộc phải là văn bản hành chính nhà nước (giấy phép tổ chức, công văn chấp thuận của Sở/Bộ/UBND), giấy chứng nhận đăng ký kinh doanh/pháp nhân, hợp đồng thuê địa điểm, hoặc kế hoạch/đề án tổ chức sự kiện chính thức.
+2. Hành vi nghiêm cấm (Tài liệu linh tinh / ngụy tạo / đối phó):
+- NGHIÊM CẤM tải lên tài liệu linh tinh, không liên quan như: sách từ vựng ngoại ngữ (tiếng Nhật, Hàn, Anh...), bảng từ mới, bài tập về nhà, đề thi, giáo trình học tập, truyện tranh, công thức nấu ăn, ghi chú cá nhân linh tinh để đối phó.
+- NGHIÊM CẤM tài liệu chứa mã độc, lừa đảo, giả mạo con dấu/chữ ký cơ quan chức năng hoặc văn bản vô nghĩa rác.
+3. Xử lý vi phạm: Nếu phát hiện tệp tài liệu giấy phép là sách từ vựng, tài liệu học tập, bài tập, hoặc tài liệu linh tinh không có giá trị pháp lý -> BẮT BUỘC xếp vào "critical_violations" (LEGAL_PERMIT_AUTHENTICITY), trong "image_review" tệp này BẮT BUỘC có status là "VIOLATION" (TUYỆT ĐỐI KHÔNG để VALID), và BẮT BUỘC RA QUYẾT ĐỊNH REJECT!
+4. Lưu ý: Sự kiện quy mô nhỏ, meetup nội bộ không bắt buộc nộp giấy phép. Nhưng nếu đã nộp tệp thì tệp đó BẮT BUỘC phải hợp lệ, nghiêm cấm nộp tệp linh tinh.`,
   },
   {
     code: 'EVENT_REALISM_FEASIBILITY',

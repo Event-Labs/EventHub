@@ -14,11 +14,14 @@
 const logger = require('../../core/logger');
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3-4b';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
 const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
-const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 16384);
+const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 4096);
+const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 4);
+const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 512);
+const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 6;
 
 
 /**
@@ -114,6 +117,9 @@ async function generate(prompt, options = {}) {
       top_p: options.top_p ?? 0.9,
       num_predict: options.max_tokens ?? 2048,
       num_ctx: options.num_ctx ?? OLLAMA_NUM_CTX,
+      num_thread: options.num_thread ?? OLLAMA_NUM_THREAD,
+      num_batch: options.num_batch ?? OLLAMA_NUM_BATCH,
+      ...(options.num_gpu !== undefined ? { num_gpu: options.num_gpu } : (OLLAMA_NUM_GPU ? { num_gpu: OLLAMA_NUM_GPU } : {})),
     },
 
   };
@@ -175,11 +181,11 @@ async function chat(messages, options = {}) {
     options: {
       temperature: options.temperature ?? 0.25,
       top_p:       options.top_p       ?? 0.85,
-      num_predict: options.max_tokens  ?? 600,   // Đổi từ 1200 -> 600
-      num_ctx:     options.num_ctx      ?? 2048,  // Đổi từ 4096 -> 2048
-      num_thread:  options.num_thread   ?? 4,     // Thêm 4 luồng CPU
       num_predict: options.max_tokens  ?? 1200,
       num_ctx:     options.num_ctx      ?? OLLAMA_NUM_CTX,
+      num_thread:  options.num_thread   ?? OLLAMA_NUM_THREAD,
+      num_batch:   options.num_batch    ?? OLLAMA_NUM_BATCH,
+      ...(options.num_gpu !== undefined ? { num_gpu: options.num_gpu } : (OLLAMA_NUM_GPU ? { num_gpu: OLLAMA_NUM_GPU } : {})),
     },
   };
 
@@ -478,7 +484,7 @@ async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eve
 
   // Nếu sau khi làm sạch chuỗi còn quá ngắn hoặc rỗng do toàn bộ là mã rác
   if (cleaned.length < 15) {
-    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, phù hợp với chủ đề và không chứa nội dung nhạy cảm hay vi phạm quy định.`;
+    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, chủ đề phù hợp và đảm bảo chất lượng hình ảnh.`;
   }
 
   // 2. Nếu mô tả đã thuần tiếng Việt và có đầy đủ dấu câu, không chứa tiếng Anh -> giữ nguyên
@@ -497,7 +503,7 @@ ${cleaned}
 Hãy chuyển đổi và viết lại thành một bản nhận định TIẾNG VIỆT tự nhiên, chuẩn mực (2-3 câu):
 1. Nội dung trực quan: Mô tả đối tượng, người/nghệ sĩ, bối cảnh, màu sắc và phong cách thiết kế của ảnh.
 2. Thông tin chữ (OCR): Đọc tên sự kiện, nghệ sĩ biểu diễn, ngày giờ, địa điểm tổ chức nếu có trên ảnh.
-3. An toàn & phù hợp: Nhận xét ảnh có rõ nét, an toàn, không có nội dung đồi trụy hay cờ bạc và có phù hợp với sự kiện "${eventTitle}" hay không.
+3. Tính thẩm mỹ & phù hợp: Nhận xét hình ảnh có hiển thị rõ nét, bố cục có đạt chuẩn và phù hợp với sự kiện "${eventTitle}" hay không.
 
 YÊU CẦU BẮT BUỘC:
 - Trả về DUY NHẤT một đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG dùng thẻ <think>, KHÔNG để sót từ tiếng Anh thừa, KHÔNG thêm lời chào).
@@ -522,7 +528,7 @@ YÊU CẦU BẮT BUỘC:
   }
 
   // Fallback an toàn nếu mô hình ngôn ngữ không phản hồi
-  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, chủ đề phù hợp và không vi phạm quy định nội dung.`;
+  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, thiết kế phù hợp và đạt tiêu chuẩn chất lượng hình ảnh.`;
 }
 
 /**
@@ -559,14 +565,14 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
     prompt,
     images: [base64Image],
     stream: false,
-    keep_alive: '10m', // SỬA 1: Giữ model trong RAM, không để 0
+    keep_alive: 0, // Giải phóng ngay VRAM sau khi đọc ảnh xong để nhường trọn bộ nhớ cho text model
     options: {
-      temperature: 0.2,
-      num_predict: 200, // SỬA 2: Giảm predict xuống 200
-      num_ctx: 2048,    // SỬA 3: Giảm context xuống 2048
-      num_thread: 4,    // SỬA 4: Ép 4 luồng CPU i3
       temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
       repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
+      num_predict: 250,
+      num_ctx: 2048,
+      num_thread: OLLAMA_NUM_THREAD,
+      num_batch: 512,
     },
   };
 
@@ -658,4 +664,8 @@ module.exports = {
   describeImageBatch,
   OLLAMA_MODEL,
   OLLAMA_VISION_MODEL,
+  OLLAMA_NUM_CTX,
+  OLLAMA_NUM_THREAD,
+  OLLAMA_NUM_BATCH,
+  OLLAMA_NUM_GPU,
 };
