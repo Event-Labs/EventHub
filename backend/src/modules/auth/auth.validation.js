@@ -15,6 +15,7 @@ const registerSchema = z.object({
 const loginSchema = z.object({
     email: z.string().email('Địa chỉ email không hợp lệ'),
     password: z.string().min(1, 'Mật khẩu là bắt buộc'),
+    remember: z.boolean().optional(),
 });
 
 const forgotPasswordSchema = z.object({
@@ -37,11 +38,13 @@ const verifyEmailSchema = z.object({
 
 const googleLoginSchema = z.object({
     credential: z.string().min(1, 'Thông tin xác thực Google là bắt buộc'),
+    remember: z.boolean().optional(),
 });
 
 const adminOtpSchema = z.object({
     challengeId: z.string().min(1, 'Challenge ID is required'),
     otp: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
+    remember: z.boolean().optional(),
 });
 
 module.exports = {

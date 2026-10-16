@@ -2,6 +2,7 @@ const AUTH_TOKEN_KEY = 'eventhub-token'
 const AUTH_USER_KEY = 'eventhub-user'
 const AUTH_FLAG_KEY = 'eventhub-auth'
 const REMEMBER_LOGIN_KEY = 'eventhub-remember-login'
+const REMEMBERED_EMAIL_KEY = 'eventhub-remembered-email'
 
 function dispatchAuthEvent(detail) {
   window.dispatchEvent(new CustomEvent(AUTH_FLAG_KEY, { detail }))
@@ -34,13 +35,48 @@ export function isAuthenticated() {
   return Boolean(getAuthToken())
 }
 
-export function setAuthSession({ accessToken, user, remember = true }) {
+export function getRememberedEmail() {
+  return localStorage.getItem(REMEMBERED_EMAIL_KEY) || ''
+}
+
+export function setRememberedEmail(email) {
+  if (email && typeof email === 'string') {
+    localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim())
+  } else {
+    localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+  }
+}
+
+export function clearRememberedEmail() {
+  localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+}
+
+export function getRememberLoginPreference() {
+  const pref = localStorage.getItem(REMEMBER_LOGIN_KEY)
+  if (pref === 'false') return false
+  if (pref === 'true') return true
+  return true
+}
+
+export function setRememberLoginPreference(remember) {
+  localStorage.setItem(REMEMBER_LOGIN_KEY, remember ? 'true' : 'false')
+}
+
+export function setAuthSession({ accessToken, user, remember = true, email = null }) {
   clearAuthSession({ dispatch: false })
   const storage = remember ? localStorage : sessionStorage
   storage.setItem(AUTH_TOKEN_KEY, accessToken)
   storage.setItem(AUTH_USER_KEY, JSON.stringify(user))
   storage.setItem(AUTH_FLAG_KEY, 'true')
-  localStorage.setItem(REMEMBER_LOGIN_KEY, remember ? 'true' : 'false')
+  setRememberLoginPreference(remember)
+  if (remember) {
+    const emailToSave = email || user?.email
+    if (emailToSave) {
+      setRememberedEmail(emailToSave)
+    }
+  } else {
+    clearRememberedEmail()
+  }
   dispatchAuthEvent({ type: 'login', userKey: getStoredUserKey(user) })
 }
 
@@ -74,10 +110,6 @@ export function updateAuthToken(newAccessToken) {
     const storage = remember ? localStorage : sessionStorage
     storage.setItem(AUTH_TOKEN_KEY, newAccessToken)
   }
-}
-
-export function getRememberLoginPreference() {
-  return localStorage.getItem(REMEMBER_LOGIN_KEY) !== 'false'
 }
 
 export function getUserRoles(user) {

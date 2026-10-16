@@ -1,7 +1,18 @@
 import { Eye, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { clearAuthSession, getAuthToken, getPostLoginPath, getRememberLoginPreference, getStoredUser, setAuthSession } from '@/lib/auth.js'
+import {
+  clearAuthSession,
+  clearRememberedEmail,
+  getAuthToken,
+  getPostLoginPath,
+  getRememberedEmail,
+  getRememberLoginPreference,
+  getStoredUser,
+  setAuthSession,
+  setRememberedEmail,
+  setRememberLoginPreference,
+} from '@/lib/auth.js'
 import { authService } from '@/services/auth.service.js'
 import { GoogleLogin } from '@react-oauth/google'
 import { LockedAccountModal } from '@/components/LockedAccountModal'
@@ -13,8 +24,15 @@ export function LoginPage() {
   const toast = useToast()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [rememberLogin, setRememberLogin] = useState(getRememberLoginPreference)
+  const [form, setForm] = useState(() => ({
+    email: getRememberedEmail() || '',
+    password: '',
+  }))
+  const [rememberLogin, setRememberLogin] = useState(() => {
+    const rememberedEmail = getRememberedEmail()
+    if (rememberedEmail) return true
+    return getRememberLoginPreference()
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [lockModalOpen, setLockModalOpen] = useState(false)
@@ -23,6 +41,16 @@ export function LoginPage() {
   const [otp, setOtp] = useState('')
   const loginPendingRef = useRef(false)
   const otpPendingRef = useRef(false)
+
+  const handleRememberChange = (checked) => {
+    setRememberLogin(checked)
+    setRememberLoginPreference(checked)
+    if (!checked) {
+      clearRememberedEmail()
+    } else if (form.email) {
+      setRememberedEmail(form.email)
+    }
+  }
 
   useEffect(() => {
     const handleLockEvent = (e) => {
@@ -67,7 +95,11 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await authService.login(form)
+      const res = await authService.login({
+        email: form.email,
+        password: form.password,
+        remember: rememberLogin,
+      })
       if (res.data?.requiresTwoFactor) {
         setOtpStep(res.data)
         setOtp('')
@@ -75,7 +107,7 @@ export function LoginPage() {
         return
       }
       const { accessToken, user } = res.data
-      setAuthSession({ accessToken, user, remember: rememberLogin })
+      setAuthSession({ accessToken, user, remember: rememberLogin, email: form.email })
       toast.success('Đăng nhập thành công.')
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
@@ -105,9 +137,15 @@ export function LoginPage() {
       const res = await authService.verifyLoginOtp({
         challengeId: otpStep.challengeId,
         otp,
+        remember: rememberLogin,
       })
       const { accessToken, user } = res.data
-      setAuthSession({ accessToken, user, remember: rememberLogin })
+      setAuthSession({
+        accessToken,
+        user,
+        remember: rememberLogin,
+        email: form.email || otpStep?.email || user?.email,
+      })
       setOtpStep(null)
       setOtp('')
       toast.success('Xác thực OTP thành công.')
@@ -126,9 +164,9 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await authService.googleLogin(credentialResponse.credential)
+      const res = await authService.googleLogin(credentialResponse.credential, rememberLogin)
       const { accessToken, user } = res.data
-      setAuthSession({ accessToken, user, remember: rememberLogin })
+      setAuthSession({ accessToken, user, remember: rememberLogin, email: user?.email })
       toast.success('Đăng nhập Google thành công.')
       navigate(getPostLoginPath(user, searchParams.get('redirect') || '/'))
     } catch (err) {
@@ -262,12 +300,16 @@ export function LoginPage() {
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
               />
               <div className="flex items-center justify-between gap-3">
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted">
+                <label
+                  htmlFor="rememberLogin"
+                  className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white transition-colors select-none"
+                >
                   <input
+                    id="rememberLogin"
                     type="checkbox"
                     checked={rememberLogin}
-                    onChange={(event) => setRememberLogin(event.target.checked)}
-                    className="size-4 rounded border-border-soft bg-surface accent-tertiary"
+                    onChange={(event) => handleRememberChange(event.target.checked)}
+                    className="size-4.5 rounded border border-white/20 bg-slate-900/60 accent-[#C99A47] cursor-pointer transition-all focus:ring-2 focus:ring-[#C99A47]/40"
                   />
                   <span>Ghi nhớ đăng nhập</span>
                 </label>
