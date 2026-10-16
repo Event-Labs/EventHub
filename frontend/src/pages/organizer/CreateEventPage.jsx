@@ -438,7 +438,9 @@ function Step1EventInfo({
           </div>
           <div className="space-y-6">
             <div>
-              <label className="block text-[13px] font-medium mb-2 text-subtle">Tên sự kiện*</label>
+              <label className="block text-[13px] font-medium mb-2 text-subtle">
+                Tên sự kiện <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <input
                 className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 focus:border-tertiary outline-none transition"
                 placeholder="Ví dụ: Hội nghị Công nghệ Toàn cầu 2024"
@@ -448,7 +450,9 @@ function Step1EventInfo({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[13px] font-medium mb-2 text-subtle">Danh mục*</label>
+                <label className="block text-[13px] font-medium mb-2 text-subtle">
+                  Danh mục <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <select
                   className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none"
                   value={formData.category_id}
@@ -462,29 +466,10 @@ function Step1EventInfo({
               </div>
               <div>
                 <label className="block text-[13px] font-medium mb-2 text-subtle">Tags</label>
-                <div className="flex flex-wrap gap-2 items-center p-1.5 border border-border-soft/40 rounded-lg bg-panel-soft">
-                  {formData.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="flex items-center gap-1 px-2 py-1 bg-[#C99A47]/15 text-[#C99A47] rounded text-xs font-semibold"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((p) => ({
-                            ...p,
-                            tags: p.tags.filter((t) => t !== tag),
-                          }))
-                        }
-                      >
-                        <Icon name="close" className="text-[14px] hover:text-error" />
-                      </button>
-                    </span>
-                  ))}
+                <div className="relative">
                   <input
-                    className="border-none bg-transparent outline-none p-1 text-sm flex-1 min-w-[80px] text-content placeholder:text-muted"
-                    placeholder="Thêm tag..."
+                    className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content placeholder:text-muted focus:ring-2 focus:ring-secondary/30 focus:border-tertiary outline-none transition pr-14"
+                    placeholder="Nhập tag rồi nhấn Enter..."
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -494,7 +479,41 @@ function Step1EventInfo({
                       }
                     }}
                   />
+                  {tagInput.trim() && (
+                    <button
+                      type="button"
+                      onClick={addTag}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#C99A47] hover:underline px-1 py-0.5 cursor-pointer"
+                    >
+                      + Thêm
+                    </button>
+                  )}
                 </div>
+                {formData.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                    {formData.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#C99A47]/15 text-[#C99A47] border border-[#C99A47]/30 rounded-lg text-xs font-bold"
+                      >
+                        <span>#{tag}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((p) => ({
+                              ...p,
+                              tags: p.tags.filter((t) => t !== tag),
+                            }))
+                          }
+                          className="hover:text-error transition flex items-center justify-center cursor-pointer"
+                          title="Xóa tag"
+                        >
+                          <Icon name="close" className="text-[14px]" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -508,7 +527,9 @@ function Step1EventInfo({
           <div className="space-y-6">
             <div>
               <div className="flex justify-between mb-2">
-                <label className="text-[13px] font-medium text-subtle">Mô tả ngắn*</label>
+                <label className="text-[13px] font-medium text-subtle">
+                  Mô tả ngắn <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <span className="text-xs text-muted">{formData.short_description.length} / 500</span>
               </div>
               <textarea
@@ -521,7 +542,9 @@ function Step1EventInfo({
               />
             </div>
             <div>
-              <label className="block text-[13px] font-medium mb-2 text-subtle">* Thông tin sự kiện</label>
+              <label className="block text-[13px] font-medium mb-2 text-subtle">
+                Thông tin sự kiện <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <RichTextEditor
                 value={formData.description}
                 onChange={(val) => setFormData((p) => ({ ...p, description: val }))}
@@ -537,7 +560,9 @@ function Step1EventInfo({
           </h3>
           <div className="flex flex-col md:flex-row gap-6 h-auto md:h-[240px]">
             <div className="w-full md:w-1/3 flex flex-col">
-              <label className="block text-[13px] font-medium mb-2 text-subtle shrink-0">Ảnh đại diện (1:1)*</label>
+              <label className="block text-[13px] font-medium mb-2 text-subtle shrink-0">
+                Ảnh đại diện (1:1) <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <label className="flex-1 w-full rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-tertiary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.thumbnail_url ? (
                   <img src={formData.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" />
@@ -558,7 +583,9 @@ function Step1EventInfo({
               </label>
             </div>
             <div className="w-full md:w-2/3 flex flex-col">
-              <label className="block text-[13px] font-medium mb-2 text-subtle shrink-0">Ảnh bìa (16:9)*</label>
+              <label className="block text-[13px] font-medium mb-2 text-subtle shrink-0">
+                Ảnh bìa (16:9) <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <label className="flex-1 w-full rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-tertiary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.banner_url ? (
                   <img src={formData.banner_url} alt="Banner" className="w-full h-full object-cover" />
@@ -594,8 +621,8 @@ function Step1EventInfo({
                 <Icon name="image" className="text-muted" style={{ fontSize: 48 }} />
               </div>
             )}
-            <div className="absolute top-3 left-3 px-2 py-1 bg-panel-soft/80 backdrop-blur-md rounded text-[10px] font-bold uppercase text-subtle">
-              Xem trước
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0d1b2a] text-[11px] font-black uppercase tracking-wider shadow-[0_4px_16px_rgba(0,0,0,0.5)] border border-white/30 select-none">
+              <span>Xem trước</span>
             </div>
           </div>
           <div className="p-5">
@@ -767,11 +794,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                 <Icon name="event" className="text-[#C99A47]" />
                 Phiên sự kiện ({formData.sessions.length} phiên)
               </h2>
-              <p className="text-xs text-subtle mt-0.5">
-                Thiết lập thời gian và địa điểm tổ chức cho từng phiên
-              </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-4 shrink-0">
               {formData.sessions.length > 0 && (
                 <button
                   type="button"
@@ -780,17 +804,21 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                     if (allCollapsed) expandAllSessions()
                     else collapseAllSessions()
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-border-soft/40 bg-panel-soft text-xs font-semibold text-subtle hover:text-white hover:border-tertiary transition cursor-pointer"
+                  title={formData.sessions.every((s) => !expandedSessions[s.id || s.clientKey]) ? 'Mở rộng tất cả' : 'Thu gọn tất cả'}
+                  className="h-8.5 w-8.5 rounded-lg border border-border-soft/40 bg-panel-soft text-subtle hover:text-white hover:border-tertiary transition flex items-center justify-center cursor-pointer"
                 >
-                  {formData.sessions.every((s) => !expandedSessions[s.id || s.clientKey]) ? 'Mở rộng tất cả' : 'Thu gọn tất cả'}
+                  <Icon
+                    name={formData.sessions.every((s) => !expandedSessions[s.id || s.clientKey]) ? 'unfold_more' : 'unfold_less'}
+                    className="text-[20px]"
+                  />
                 </button>
               )}
               <button
                 type="button"
                 onClick={addSession}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 org-btn-primary text-xs font-semibold rounded-lg transition cursor-pointer"
+                className="flex items-center gap-1.5 !px-3.5 !py-1.5 org-btn-primary !text-xs font-bold rounded-full transition cursor-pointer"
               >
-                <Icon name="add" className="text-[16px]" />
+                <Icon name="add" className="text-[15px]" />
                 <span>Thêm phiên</span>
               </button>
             </div>
@@ -821,19 +849,17 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
               return (
                 <div
                   key={key}
-                  className={`border rounded-xl relative overflow-hidden shadow-sm transition-all ${
-                    isOverlapped ? 'border-error/80 ring-1 ring-error/30 bg-error/5' : 'border-border-soft/40 bg-panel-soft/30'
-                  }`}
+                  className={`border rounded-xl relative overflow-hidden shadow-sm transition-all ${isOverlapped ? 'border-error/80 ring-1 ring-error/30 bg-error/5' : 'border-border-soft/40 bg-panel-soft/30'
+                    }`}
                 >
                   <div
-                    className={`p-3 sm:px-4 py-2.5 flex items-center justify-between cursor-pointer select-none transition-colors ${
-                      isExpanded ? 'bg-panel-soft/70 border-b border-border-soft/40' : 'hover:bg-panel-soft/40'
-                    }`}
+                    className={`p-3 sm:px-4 py-2.5 flex items-center justify-between cursor-pointer select-none transition-colors ${isExpanded ? 'bg-panel-soft/70 border-b border-border-soft/40' : 'hover:bg-panel-soft/40'
+                      }`}
                     onClick={() => toggleSession(key)}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                      <div className="w-7 h-7 rounded-lg bg-tertiary/10 text-tertiary font-bold text-xs flex items-center justify-center shrink-0 border border-tertiary/25">
-                        #{index + 1}
+                      <div className="w-7 h-7 rounded-lg bg-[#C99A47]/10 text-[#C99A47] font-bold text-xs flex items-center justify-center shrink-0 border border-[#C99A47]/30">
+                        {index + 1}
                       </div>
                       <input
                         type="text"
@@ -841,23 +867,25 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                         placeholder={`Phiên ${index + 1}`}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => updateSession(key, 'session_name', e.target.value)}
-                        className="font-bold text-content text-sm bg-transparent border-b border-transparent focus:border-tertiary focus:outline-none focus:ring-0 px-1 py-0.5 max-w-[160px] sm:max-w-[240px] truncate"
+                        className="w-24 sm:w-28 shrink-0 font-bold text-content text-sm bg-transparent border-b border-transparent focus:border-tertiary focus:outline-none focus:ring-0 px-1 py-0.5 truncate"
                       />
-                      <div className="hidden sm:flex items-center gap-1.5 text-xs">
-                        {session.start_date && (
-                          <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-subtle font-medium flex items-center gap-1 text-[11px]">
-                            <Icon name="calendar_today" className="text-[12px] text-tertiary" />
-                            {session.start_date}
-                            {session.start_time && ` · ${session.start_time}${session.end_time ? ` - ${session.end_time}` : ''}`}
-                          </span>
-                        )}
-                        {sessionVenue && (
-                          <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-subtle font-medium flex items-center gap-1 text-[11px] truncate max-w-[170px]" title={sessionVenue.name}>
-                            <Icon name="location_on" className="text-[12px] text-tertiary" />
-                            {sessionVenue.name}
-                          </span>
-                        )}
-                      </div>
+                      {!isExpanded && (
+                        <div className="hidden sm:flex items-center gap-2 text-xs flex-1 min-w-0">
+                          {session.start_date && (
+                            <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-white font-semibold flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0">
+                              <Icon name="calendar_today" className="text-[13px] text-[#C99A47]" />
+                              {session.start_date}
+                              {session.start_time && ` · ${session.start_time}${session.end_time ? ` - ${session.end_time}` : ''}`}
+                            </span>
+                          )}
+                          {sessionVenue && (
+                            <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-white font-semibold flex items-center gap-1.5 text-xs truncate max-w-[180px] whitespace-nowrap shrink-0" title={sessionVenue.name}>
+                              <Icon name="location_on" className="text-[13px] text-[#C99A47]" />
+                              {sessionVenue.name}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {isOverlapped && (
@@ -890,7 +918,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="text-xs text-subtle font-semibold">
-                            Ngày diễn ra sự kiện*
+                            Ngày diễn ra sự kiện <span className="text-red-500 font-bold ml-0.5">*</span>
                           </label>
                         </div>
                         <input
@@ -920,7 +948,9 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                       {/* Giờ bắt đầu và Giờ kết thúc */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs text-subtle block mb-1 font-semibold">Giờ bắt đầu*</label>
+                          <label className="text-xs text-subtle block mb-1 font-semibold">
+                            Giờ bắt đầu <span className="text-red-500 font-bold ml-0.5">*</span>
+                          </label>
                           <input
                             type="time"
                             className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
@@ -929,7 +959,9 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-subtle block mb-1 font-semibold">Giờ kết thúc*</label>
+                          <label className="text-xs text-subtle block mb-1 font-semibold">
+                            Giờ kết thúc <span className="text-red-500 font-bold ml-0.5">*</span>
+                          </label>
                           <input
                             type="time"
                             className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
@@ -949,12 +981,14 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                       )}
 
                       {/* Giờ check-in và Chọn địa điểm trên cùng 1 hàng gọn gàng */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
                         <div>
-                          <label className="text-xs text-subtle block mb-1 font-semibold">Giờ check-in (Tùy chọn)</label>
+                          <div className="flex items-center justify-between min-h-[22px] mb-1">
+                            <label className="text-xs text-subtle block font-semibold">Giờ check-in (Tùy chọn)</label>
+                          </div>
                           <input
                             type="time"
-                            className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                            className="w-full h-10 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
                             value={session.checkin_start_time || ''}
                             onChange={(e) => {
                               const t = e.target.value
@@ -968,18 +1002,20 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                         </div>
 
                         <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <label className="text-xs text-subtle block font-semibold">Chọn địa điểm*</label>
+                          <div className="flex justify-between items-center min-h-[22px] mb-1">
+                            <label className="text-xs text-subtle block font-semibold">
+                              Chọn địa điểm <span className="text-red-500 font-bold ml-0.5">*</span>
+                            </label>
                             <button
                               type="button"
                               onClick={() => window.open('/organizer/venues', '_blank')}
-                              className="text-xs text-primary hover:underline font-semibold"
+                              className="text-xs text-[#C99A47] hover:text-[#E6C17A] font-semibold transition cursor-pointer"
                             >
                               + Tạo địa điểm mới
                             </button>
                           </div>
                           <select
-                            className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                            className="w-full h-10 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
                             value={session.venue_id || ''}
                             onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
                           >
@@ -1732,7 +1768,9 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                             <th className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Hình thức</th>
                             <th className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Sức chứa</th>
                             <th className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Tên loại vé & Mô tả</th>
-                            <th className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Giá vé (VND)*</th>
+                            <th className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">
+                              Giá vé (VND) <span className="text-red-500 font-bold ml-0.5">*</span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -2107,7 +2145,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                           <div>
                             <div className="flex items-center justify-between mb-1.5 min-h-[24px]">
                               <label className="block text-sm font-bold text-white">
-                                Tên loại vé <span className="text-error">*</span>
+                                Tên loại vé <span className="text-red-500 font-bold ml-0.5">*</span>
                               </label>
                             </div>
                             <div className="relative">
@@ -2128,7 +2166,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                           <div>
                             <div className="flex items-center justify-between mb-1.5 min-h-[24px]">
                               <label className="block text-sm font-bold text-white">
-                                Giá vé (VND) <span className="text-error">*</span>
+                                Giá vé (VND) <span className="text-red-500 font-bold ml-0.5">*</span>
                               </label>
                               <button
                                 type="button"
@@ -2156,7 +2194,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                           <div>
                             <div className="flex items-center justify-between mb-1.5 min-h-[24px]">
                               <label className="block text-sm font-bold text-white whitespace-nowrap">
-                                Số lượng vé <span className="text-error">*</span>
+                                Số lượng vé <span className="text-red-500 font-bold ml-0.5">*</span>
                               </label>
                             </div>
                             <div className="relative">
