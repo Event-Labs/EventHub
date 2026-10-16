@@ -665,12 +665,28 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
   }
 
   const [expandedSessions, setExpandedSessions] = useState(() => {
-    return formData.sessions.reduce((acc, s) => ({ ...acc, [s.id || s.clientKey]: true }), {})
+    return formData.sessions.reduce((acc, s) => ({ ...acc, [s.id || s.clientKey]: false }), {})
   })
 
   const sessionOverlapInfo = useMemo(() => checkSessionsOverlap(formData.sessions), [formData.sessions])
 
   const toggleSession = (key) => setExpandedSessions((p) => ({ ...p, [key]: !p[key] }))
+
+  const collapseAllSessions = () => {
+    const next = {}
+    formData.sessions.forEach((s) => {
+      next[s.id || s.clientKey] = false
+    })
+    setExpandedSessions(next)
+  }
+
+  const expandAllSessions = () => {
+    const next = {}
+    formData.sessions.forEach((s) => {
+      next[s.id || s.clientKey] = true
+    })
+    setExpandedSessions(next)
+  }
 
   const addSession = () => {
     const key = newClientKey()
@@ -745,55 +761,79 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
     <div className="grid grid-cols-12 gap-6 items-start">
       <div className="col-span-12 lg:col-span-8 space-y-4 pb-8">
         <section className="bg-surface rounded-xl border border-border-soft/30 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Icon name="calendar_today" className="text-[#C99A47]" />
-              <h2 className="text-[20px] font-semibold text-content">Lịch sự kiện</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-[18px] sm:text-[20px] font-semibold text-content flex items-center gap-2">
+                <Icon name="event" className="text-[#C99A47]" />
+                Phiên sự kiện ({formData.sessions.length} phiên)
+              </h2>
+              <p className="text-xs text-subtle mt-0.5">
+                Thiết lập thời gian và địa điểm tổ chức cho từng phiên
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={addSession}
-              className="flex items-center gap-2 px-4 py-2 text-primary font-medium text-sm hover:bg-tertiary/10 rounded-lg transition"
-            >
-              <Icon name="add" className="text-[18px]" />
-              Thêm phiên
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {formData.sessions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allCollapsed = formData.sessions.every((s) => !expandedSessions[s.id || s.clientKey])
+                    if (allCollapsed) expandAllSessions()
+                    else collapseAllSessions()
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-border-soft/40 bg-panel-soft text-xs font-semibold text-subtle hover:text-white hover:border-tertiary transition cursor-pointer"
+                >
+                  {formData.sessions.every((s) => !expandedSessions[s.id || s.clientKey]) ? 'Mở rộng tất cả' : 'Thu gọn tất cả'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={addSession}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 org-btn-primary text-xs font-semibold rounded-lg transition cursor-pointer"
+              >
+                <Icon name="add" className="text-[16px]" />
+                <span>Thêm phiên</span>
+              </button>
+            </div>
           </div>
 
           {sessionOverlapInfo && (
-            <div className="mb-6 p-4 rounded-xl border border-error/50 bg-error/10 text-error flex items-start gap-3 shadow-sm">
-              <Icon name="warning" className="text-xl shrink-0 mt-0.5" />
-              <div className="text-sm">
+            <div className="mb-4 p-3.5 rounded-xl border border-error/50 bg-error/10 text-error flex items-start gap-2.5 shadow-sm">
+              <Icon name="warning" className="text-lg shrink-0 mt-0.5" />
+              <div className="text-xs">
                 <div className="font-bold">Trùng lặp thời gian giữa các phiên sự kiện:</div>
-                <p className="mt-1 text-xs leading-relaxed text-error/90">
-                  Phiên <strong>"{sessionOverlapInfo.nameA}"</strong> và phiên <strong>"{sessionOverlapInfo.nameB}"</strong> có thời gian diễn ra trùng nhau. Mỗi phiên phải kết thúc trong cùng một ngày và các phiên không được diễn ra đồng thời. Vui lòng điều chỉnh thời gian để các phiên tách biệt.
+                <p className="mt-0.5 leading-relaxed text-error/90">
+                  Phiên <strong>"{sessionOverlapInfo.nameA}"</strong> và phiên <strong>"{sessionOverlapInfo.nameB}"</strong> có thời gian diễn ra trùng nhau. Mỗi phiên phải kết thúc trong cùng một ngày và các phiên không được diễn ra đồng thời.
                 </p>
               </div>
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-3">
             {formData.sessions.map((session, index) => {
               const key = session.id || session.clientKey
-              const isExpanded = expandedSessions[key]
+              const isExpanded = Boolean(expandedSessions[key])
               const isOverlapped = Boolean(
                 sessionOverlapInfo &&
                 (String(key) === String(sessionOverlapInfo.keyA) || String(key) === String(sessionOverlapInfo.keyB))
               )
+              const sessionVenue = venues.find((v) => v.id === session.venue_id)
 
               return (
                 <div
                   key={key}
-                  className={`border rounded-xl relative overflow-hidden mb-4 shadow-sm transition-all ${isOverlapped ? 'border-error/80 ring-1 ring-error/30 bg-error/5' : 'border-border-soft/40 bg-panel-soft/30'
-                    }`}
+                  className={`border rounded-xl relative overflow-hidden shadow-sm transition-all ${
+                    isOverlapped ? 'border-error/80 ring-1 ring-error/30 bg-error/5' : 'border-border-soft/40 bg-panel-soft/30'
+                  }`}
                 >
                   <div
-                    className="p-5 flex items-center justify-between cursor-pointer hover:bg-surface/70 transition-colors"
+                    className={`p-3 sm:px-4 py-2.5 flex items-center justify-between cursor-pointer select-none transition-colors ${
+                      isExpanded ? 'bg-panel-soft/70 border-b border-border-soft/40' : 'hover:bg-panel-soft/40'
+                    }`}
                     onClick={() => toggleSession(key)}
                   >
-                    <div className="flex items-center gap-3 w-1/2">
-                      <div className="text-tertiary flex items-center justify-center">
-                        <Icon name={isExpanded ? 'expand_less' : 'expand_more'} className="text-[24px]" />
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                      <div className="w-7 h-7 rounded-lg bg-tertiary/10 text-tertiary font-bold text-xs flex items-center justify-center shrink-0 border border-tertiary/25">
+                        #{index + 1}
                       </div>
                       <input
                         type="text"
@@ -801,10 +841,25 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                         placeholder={`Phiên ${index + 1}`}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => updateSession(key, 'session_name', e.target.value)}
-                        className="font-bold text-content text-[15px] bg-transparent border-b border-transparent focus:border-tertiary focus:outline-none focus:ring-0 px-2 py-1 w-full"
+                        className="font-bold text-content text-sm bg-transparent border-b border-transparent focus:border-tertiary focus:outline-none focus:ring-0 px-1 py-0.5 max-w-[160px] sm:max-w-[240px] truncate"
                       />
+                      <div className="hidden sm:flex items-center gap-1.5 text-xs">
+                        {session.start_date && (
+                          <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-subtle font-medium flex items-center gap-1 text-[11px]">
+                            <Icon name="calendar_today" className="text-[12px] text-tertiary" />
+                            {session.start_date}
+                            {session.start_time && ` · ${session.start_time}${session.end_time ? ` - ${session.end_time}` : ''}`}
+                          </span>
+                        )}
+                        {sessionVenue && (
+                          <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-subtle font-medium flex items-center gap-1 text-[11px] truncate max-w-[170px]" title={sessionVenue.name}>
+                            <Icon name="location_on" className="text-[12px] text-tertiary" />
+                            {sessionVenue.name}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {isOverlapped && (
                         <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-error/15 text-error flex items-center gap-1">
                           <Icon name="schedule" className="text-xs" /> Trùng giờ
@@ -814,28 +869,34 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeSession(key); }}
-                          className="text-muted hover:text-error transition p-2"
+                          className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition cursor-pointer"
                           title="Xóa phiên"
                         >
-                          <Icon name="delete" />
+                          <Icon name="delete" className="text-[18px]" />
                         </button>
                       )}
+                      <span className="p-1 text-subtle hover:text-tertiary transition rounded-lg">
+                        <Icon
+                          name="expand_more"
+                          className={`text-[22px] transition-transform duration-200 ${isExpanded ? 'rotate-180 text-tertiary' : ''}`}
+                        />
+                      </span>
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="p-6 pt-4 border-t border-border-soft/30 bg-panel-soft/10">
+                    <div className="p-4 sm:p-5 pt-3 border-t border-border-soft/30 bg-panel-soft/10 space-y-3">
                       {/* Ngày diễn ra (Chỉ 1 ô chọn ngày duy nhất) */}
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-[13px] text-subtle font-medium">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-subtle font-semibold">
                             Ngày diễn ra sự kiện*
                           </label>
                         </div>
                         <input
                           type="date"
                           min={todayStr}
-                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none font-medium"
+                          className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none font-medium"
                           value={session.start_date || ''}
                           onChange={(e) => {
                             const d = e.target.value
@@ -847,31 +908,31 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                           }}
                         />
                         {isWithin10Days(session.start_date) && (
-                          <div className="mt-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5 leading-relaxed">
-                            <Icon name="warning" className="text-base shrink-0 mt-0.5" />
+                          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-1.5 leading-relaxed">
+                            <Icon name="warning" className="text-sm shrink-0 mt-0.5" />
                             <span>
-                              Hệ thống có thể sẽ mất khoảng từ 3 đến 4 ngày hoặc có thể hơn để duyệt sự bạn, hãy đảm bảo rằng điều đó sẽ không ảnh hưởng đến kế hoạch diễn ra sự kiện sắp tới của bạn. Hãy đảm bảo rằng bạn đã có kế hoạch và sẵn sàng nếu sự kiện được duyệt trễ hơn dự kiện.
+                              Hệ thống có thể mất từ 3 đến 4 ngày để duyệt sự kiện của bạn.
                             </span>
                           </div>
                         )}
                       </div>
 
                       {/* Giờ bắt đầu và Giờ kết thúc */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[13px] text-subtle block mb-2 font-medium">Giờ bắt đầu*</label>
+                          <label className="text-xs text-subtle block mb-1 font-semibold">Giờ bắt đầu*</label>
                           <input
                             type="time"
-                            className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
+                            className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
                             value={session.start_time || ''}
                             onChange={(e) => updateSession(key, 'start_time', e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="text-[13px] text-subtle block mb-2 font-medium">Giờ kết thúc*</label>
+                          <label className="text-xs text-subtle block mb-1 font-semibold">Giờ kết thúc*</label>
                           <input
                             type="time"
-                            className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
+                            className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary focus:ring-1 focus:ring-secondary/30 outline-none"
                             value={session.end_time || ''}
                             onChange={(e) => updateSession(key, 'end_time', e.target.value)}
                           />
@@ -879,55 +940,57 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                       </div>
 
                       {isOverlapped && sessionOverlapInfo && (
-                        <div className="mb-4 p-3 rounded-xl border border-error/40 bg-error/10 text-error text-xs flex items-center gap-2">
-                          <Icon name="warning" className="text-base shrink-0" />
+                        <div className="p-2.5 rounded-lg border border-error/40 bg-error/10 text-error text-xs flex items-center gap-2">
+                          <Icon name="warning" className="text-sm shrink-0" />
                           <span>
                             Phiên này đang bị trùng thời gian với <strong>"{String(key) === String(sessionOverlapInfo.keyA) ? sessionOverlapInfo.nameB : sessionOverlapInfo.nameA}"</strong>. Các phiên không được diễn ra đồng thời.
                           </span>
                         </div>
                       )}
 
-                      {/* Giờ check-in (Tùy chọn - không chọn ngày) */}
-                      <div className="mb-4">
-                        <label className="text-[13px] text-subtle block mb-2 font-medium">Giờ check-in (Tùy chọn)</label>
-                        <input
-                          type="time"
-                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                          value={session.checkin_start_time || ''}
-                          onChange={(e) => {
-                            const t = e.target.value
-                            updateSessionFields(key, {
-                              checkin_start_time: t,
-                              checkin_start_date: t ? (session.start_date || '') : '',
-                            })
-                          }}
-                        />
-                        <p className="mt-1 text-xs text-muted">Thời gian mở cửa đón khách trước giờ bắt đầu phiên sự kiện.</p>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="text-[13px] text-subtle block font-medium">Chọn địa điểm*</label>
-                          <button
-                            type="button"
-                            onClick={() => window.open('/organizer/venues', '_blank')}
-                            className="text-[13px] text-primary hover:underline font-semibold"
-                          >
-                            + Tạo địa điểm mới
-                          </button>
+                      {/* Giờ check-in và Chọn địa điểm trên cùng 1 hàng gọn gàng */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-subtle block mb-1 font-semibold">Giờ check-in (Tùy chọn)</label>
+                          <input
+                            type="time"
+                            className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                            value={session.checkin_start_time || ''}
+                            onChange={(e) => {
+                              const t = e.target.value
+                              updateSessionFields(key, {
+                                checkin_start_time: t,
+                                checkin_start_date: t ? (session.start_date || '') : '',
+                              })
+                            }}
+                          />
+                          <p className="mt-1 text-[11px] text-muted">Thời gian mở cửa đón khách.</p>
                         </div>
-                        <select
-                          className="w-full h-11 px-4 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                          value={session.venue_id || ''}
-                          onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
-                        >
-                          <option value="">Chọn địa điểm</option>
-                          {venues.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.name}{v.city ? ` (${v.city})` : ''}
-                            </option>
-                          ))}
-                        </select>
+
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-xs text-subtle block font-semibold">Chọn địa điểm*</label>
+                            <button
+                              type="button"
+                              onClick={() => window.open('/organizer/venues', '_blank')}
+                              className="text-xs text-primary hover:underline font-semibold"
+                            >
+                              + Tạo địa điểm mới
+                            </button>
+                          </div>
+                          <select
+                            className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
+                            value={session.venue_id || ''}
+                            onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
+                          >
+                            <option value="">Chọn địa điểm</option>
+                            {venues.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.name}{v.city ? ` (${v.city})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -938,7 +1001,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
               <button
                 type="button"
                 onClick={addSession}
-                className="w-full py-8 border-2 border-dashed border-border-soft/40 rounded-xl text-subtle hover:border-tertiary hover:text-tertiary transition"
+                className="w-full py-6 border-2 border-dashed border-border-soft/40 rounded-xl text-subtle hover:border-tertiary hover:text-tertiary transition cursor-pointer"
               >
                 + Thêm phiên đầu tiên
               </button>
@@ -948,19 +1011,19 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
 
         {
           selectedVenue && (
-            <section className="bg-surface rounded-xl border border-border-soft/30 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
-              <div className="flex items-center gap-3 mb-6">
-                <Icon name="location_on" className="text-[#C99A47]" />
-                <h2 className="text-[20px] font-semibold text-content">Chi tiết địa điểm</h2>
+            <section className="bg-surface rounded-xl border border-border-soft/30 p-4 sm:p-5 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="location_on" className="text-[#C99A47] text-lg" />
+                <h2 className="text-base font-bold text-content">Chi tiết địa điểm</h2>
               </div>
-              <div className="p-6 bg-panel-soft rounded-xl border border-border-soft/30">
-                <h3 className="text-[20px] font-semibold text-content">{selectedVenue.name}</h3>
-                <p className="text-sm text-subtle flex items-center gap-1 mt-2">
-                  <Icon name="pin_drop" className="text-[16px]" />
+              <div className="p-3.5 bg-panel-soft rounded-lg border border-border-soft/30 space-y-1">
+                <h3 className="text-sm font-bold text-content">{selectedVenue.name}</h3>
+                <p className="text-xs text-subtle flex items-center gap-1">
+                  <Icon name="pin_drop" className="text-[14px]" />
                   {[selectedVenue.address_line, selectedVenue.district, selectedVenue.city].filter(Boolean).join(', ')}
                 </p>
                 {(selectedVenue.max_seats > 0 || selectedVenue.seat_count > 0) && (
-                  <p className="text-sm mt-2 text-subtle">
+                  <p className="text-xs text-subtle">
                     Sức chứa tối đa: <span className="font-bold text-content">{selectedVenue.max_seats || selectedVenue.seat_count} người</span> (Gồm ghế + khu vực đứng)
                   </p>
                 )}
@@ -1104,10 +1167,19 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
     initialDescription: '',
     onSave: null,
   })
-  const [collapsedTickets, setCollapsedTickets] = useState({})
+  const [collapsedTickets, setCollapsedTickets] = useState(() => {
+    const initial = {}
+    formData.ticketTypes.forEach((tt) => {
+      initial[tt.id || tt.clientKey] = true
+    })
+    return initial
+  })
 
   const toggleTicketCollapse = (key) => {
-    setCollapsedTickets((prev) => ({ ...prev, [key]: !prev[key] }))
+    setCollapsedTickets((prev) => {
+      const isCurrCollapsed = prev[key] !== false
+      return { ...prev, [key]: !isCurrCollapsed }
+    })
   }
 
   const collapseAllTickets = () => {
@@ -1118,11 +1190,18 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
         const key = tt.id || tt.clientKey
         next[key] = true
       })
-    setCollapsedTickets(next)
+    setCollapsedTickets((prev) => ({ ...prev, ...next }))
   }
 
   const expandAllTickets = () => {
-    setCollapsedTickets({})
+    const next = {}
+    formData.ticketTypes
+      .filter((tt) => String(tt.session_key) === String(sessionKey))
+      .forEach((tt) => {
+        const key = tt.id || tt.clientKey
+        next[key] = false
+      })
+    setCollapsedTickets((prev) => ({ ...prev, ...next }))
   }
 
   const sessions = formData.sessions
@@ -1857,6 +1936,19 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                 </h2>
               </div>
               <div className="flex items-center gap-2 self-start sm:self-auto">
+                {sessionTickets.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allCollapsed = sessionTickets.every((tt) => collapsedTickets[tt.id || tt.clientKey] !== false)
+                      if (allCollapsed) expandAllTickets()
+                      else collapseAllTickets()
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-border-soft/40 bg-panel-soft text-xs font-semibold text-subtle hover:text-white hover:border-tertiary transition cursor-pointer"
+                  >
+                    {sessionTickets.every((tt) => collapsedTickets[tt.id || tt.clientKey] !== false) ? 'Mở rộng tất cả' : 'Thu gọn tất cả'}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={addTicketType}
@@ -1904,7 +1996,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
             <div className="space-y-4">
               {sessionTickets.map((tt, index) => {
                 const key = tt.id || tt.clientKey
-                const isCollapsed = Boolean(collapsedTickets[key])
+                const isCollapsed = collapsedTickets[key] !== false
                 const ticketPrice = Number(tt.price || 0)
                 const ticketQty = Number(tt.quantity || 0)
                 const estRevenue = ticketPrice * ticketQty
@@ -1938,35 +2030,35 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                     {/* Header của vé (Bấm để thu gọn/mở rộng) */}
                     <div
                       onClick={() => toggleTicketCollapse(key)}
-                      className={`p-4 flex items-center justify-between cursor-pointer select-none transition-colors ${isCollapsed ? 'hover:bg-panel-soft/60' : 'bg-panel-soft/70 border-b border-border-soft/40'
+                      className={`px-4 py-2.5 flex items-center justify-between cursor-pointer select-none transition-colors ${isCollapsed ? 'hover:bg-panel-soft/60' : 'bg-panel-soft/70 border-b border-border-soft/40'
                         }`}
                     >
                       {/* Left: Thứ tự + Tên vé + Badges tóm tắt */}
-                      <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
-                        <div className="w-8 h-8 rounded-xl bg-tertiary/10 text-tertiary font-black text-xs flex items-center justify-center shrink-0 border border-tertiary/25">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                        <div className="w-7 h-7 rounded-lg bg-tertiary/10 text-tertiary font-bold text-xs flex items-center justify-center shrink-0 border border-tertiary/25">
                           #{index + 1}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className={`text-sm font-bold truncate max-w-[220px] sm:max-w-[320px] ${tt.name?.trim() ? 'text-content' : 'text-muted italic'}`}>
+                            <h4 className={`text-sm font-bold truncate max-w-[200px] sm:max-w-[300px] ${tt.name?.trim() ? 'text-content' : 'text-muted italic'}`}>
                               {tt.name?.trim() || 'Chưa đặt tên loại vé...'}
                             </h4>
                             {/* Badge giá */}
                             {isFree ? (
-                              <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-success/15 text-success border border-success/30">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-success/15 text-success border border-success/30">
                                 Miễn phí
                               </span>
                             ) : ticketPrice > 0 ? (
-                              <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-tertiary/10 text-tertiary border border-tertiary/25">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-tertiary/10 text-tertiary border border-tertiary/25">
                                 {formatPriceString(tt.price)} VND
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-panel-soft text-muted border border-border-soft/40">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-panel-soft text-muted border border-border-soft/40">
                                 Chưa đặt giá
                               </span>
                             )}
                             {/* Badge số lượng */}
-                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-panel-soft text-subtle border border-border-soft/40">
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-panel-soft text-subtle border border-border-soft/40">
                               {ticketQty.toLocaleString('vi-VN')} vé
                             </span>
                           </div>
@@ -2469,7 +2561,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
               type="file"
               multiple
               ref={permitFileInputRef}
-              accept=".pdf,.docx,.png,.jpg,.jpeg,.webp"
+              accept=".pdf"
               className="hidden"
               onChange={handlePermitFilesChange}
             />
@@ -2481,7 +2573,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                 Tải lên giấy phép & tài liệu sự kiện
               </p>
               <p className="text-xs text-muted mt-1">
-                Hỗ trợ định dạng PDF, Word (DOCX) hoặc hình ảnh (PNG, JPG) · Tối đa 10MB/file
+                Hỗ trợ định dạng PDF · Tối đa 10MB/file
               </p>
               <button
                 type="button"
@@ -2625,7 +2717,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                 <input
                   type="file"
                   ref={policyFileInputRef}
-                  accept=".pdf,.docx,.txt"
+                  accept=".pdf"
                   className="hidden"
                   onChange={handlePolicyFileChange}
                 />
@@ -2643,7 +2735,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                   ) : (
                     <>
                       <Icon name="attach_file" className="text-[16px] text-tertiary" />
-                      <span>{rp?.policy_file_url ? 'Thay đổi file' : 'Chọn file (.pdf, .docx, .txt)'}</span>
+                      <span>{rp?.policy_file_url ? 'Thay đổi file' : 'Chọn file (.pdf)'}</span>
                     </>
                   )}
                 </button>
@@ -2687,7 +2779,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
               </div>
             ) : (
               <p className="text-xs text-muted leading-relaxed">
-                Bạn có thể tải file chính sách chi tiết (PDF hoặc Word). Nếu chọn file <b>.txt</b>, nội dung văn bản sẽ tự động được điền vào ô điều khoản bên dưới.
+                Bạn có thể tải lên file chính sách chi tiết của sự kiện (định dạng PDF, không bắt buộc).
               </p>
             )}
           </div>
@@ -3428,6 +3520,30 @@ export function CreateEventPage() {
 
   const isEditMode = Boolean(routeEventId)
   const completeness = useMemo(() => calculateEventCompleteness(formData), [formData])
+  const pageTopRef = useRef(null)
+
+  const scrollToTop = useCallback(() => {
+    if (pageTopRef.current) {
+      pageTopRef.current.scrollIntoView({ behavior: 'auto', block: 'start' })
+      const scrollParent = pageTopRef.current.closest('.overflow-y-auto')
+      if (scrollParent) {
+        scrollParent.scrollTop = 0
+      }
+    }
+    const scrollContainers = document.querySelectorAll('.overflow-y-auto')
+    scrollContainers.forEach((el) => {
+      if (el.clientHeight > 200) el.scrollTop = 0
+    })
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }, [])
+
+  useEffect(() => {
+    scrollToTop()
+    const timer = setTimeout(scrollToTop, 60)
+    return () => clearTimeout(timer)
+  }, [currentStep, scrollToTop])
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -3496,45 +3612,56 @@ export function CreateEventPage() {
       zone_id: tt.zone_id || null,
     }))
 
-    setFormData({
-      title: event.title || '',
-      category_id: event.category_id || '',
-      tags: event.tags || [],
-      format: event.format || 'OFFLINE',
-      visibility: event.visibility || 'PUBLIC',
-      short_description: event.short_description || '',
-      description: event.description || '',
-      thumbnail_url: event.thumbnail_url || '',
-      banner_url: event.banner_url || '',
-      sessions,
-      ticketTypes,
-      seating_rules: {
-        require_adjacent_seats: Boolean(event.seating_rules?.require_adjacent_seats),
-        require_same_row: Boolean(event.seating_rules?.require_same_row),
-        disallow_single_seat_left: Boolean(event.seating_rules?.disallow_single_seat_left),
-        max_tickets_per_order: Number.isInteger(Number(event.seating_rules?.max_tickets_per_order)) && Number(event.seating_rules?.max_tickets_per_order) > 0
-          ? Number(event.seating_rules.max_tickets_per_order)
-          : 10,
-      },
-      refund_policy: {
-        allow_refund: Boolean(event.refund_policy?.allow_refund ?? event.refund_policy?.allow_refunds),
-        allow_refunds: Boolean(event.refund_policy?.allow_refund ?? event.refund_policy?.allow_refunds),
-        refund_rules: Array.isArray(event.refund_policy?.refund_rules) && event.refund_policy.refund_rules.length > 0
-          ? event.refund_policy.refund_rules
-          : [
-            { days_before: 7, refund_rate: 100 },
-            { days_before: 3, refund_rate: 50 },
-          ],
-        refund_notes: event.refund_policy?.refund_notes || '',
-        deadline_days: event.refund_policy?.deadline_days ?? 7,
-        policy_file_url: event.refund_policy?.policy_file_url || null,
-        policy_file_name: event.refund_policy?.policy_file_name || null,
-        policy_file_size: event.refund_policy?.policy_file_size || null,
-        permit_files: Array.isArray(event.refund_policy?.permit_files) ? event.refund_policy.permit_files : [],
-      },
-      additional_terms: event.additional_terms || '',
-      require_attendee_info: Boolean(event.require_attendee_info),
-      terms_accepted: Boolean(event.status && event.status !== 'DRAFT'),
+    setFormData((prev) => {
+      const incomingPermits = Array.isArray(event.refund_policy?.permit_files) && event.refund_policy.permit_files.length > 0
+        ? event.refund_policy.permit_files
+        : (prev.refund_policy?.permit_files || [])
+      const incomingPolicyUrl = event.refund_policy?.policy_file_url || prev.refund_policy?.policy_file_url || null
+      const incomingPolicyName = event.refund_policy?.policy_file_name || prev.refund_policy?.policy_file_name || null
+      const incomingPolicySize = event.refund_policy?.policy_file_size || prev.refund_policy?.policy_file_size || null
+
+      return {
+        ...prev,
+        title: event.title || prev.title,
+        category_id: event.category_id || prev.category_id,
+        tags: event.tags || prev.tags,
+        format: event.format || prev.format,
+        visibility: event.visibility || prev.visibility,
+        short_description: event.short_description || prev.short_description,
+        description: event.description || prev.description,
+        thumbnail_url: event.thumbnail_url || prev.thumbnail_url,
+        banner_url: event.banner_url || prev.banner_url,
+        sessions,
+        ticketTypes,
+        seating_rules: {
+          require_adjacent_seats: Boolean(event.seating_rules?.require_adjacent_seats ?? prev.seating_rules?.require_adjacent_seats),
+          require_same_row: Boolean(event.seating_rules?.require_same_row ?? prev.seating_rules?.require_same_row),
+          disallow_single_seat_left: Boolean(event.seating_rules?.disallow_single_seat_left ?? prev.seating_rules?.disallow_single_seat_left),
+          max_tickets_per_order: Number.isInteger(Number(event.seating_rules?.max_tickets_per_order)) && Number(event.seating_rules?.max_tickets_per_order) > 0
+            ? Number(event.seating_rules.max_tickets_per_order)
+            : (prev.seating_rules?.max_tickets_per_order || 10),
+        },
+        refund_policy: {
+          ...prev.refund_policy,
+          allow_refund: Boolean(event.refund_policy?.allow_refund ?? event.refund_policy?.allow_refunds ?? prev.refund_policy?.allow_refund),
+          allow_refunds: Boolean(event.refund_policy?.allow_refund ?? event.refund_policy?.allow_refunds ?? prev.refund_policy?.allow_refunds),
+          refund_rules: Array.isArray(event.refund_policy?.refund_rules) && event.refund_policy.refund_rules.length > 0
+            ? event.refund_policy.refund_rules
+            : (prev.refund_policy?.refund_rules || [
+              { days_before: 7, refund_rate: 100 },
+              { days_before: 3, refund_rate: 50 },
+            ]),
+          refund_notes: event.refund_policy?.refund_notes || prev.refund_policy?.refund_notes || '',
+          deadline_days: event.refund_policy?.deadline_days ?? prev.refund_policy?.deadline_days ?? 7,
+          permit_files: incomingPermits,
+          policy_file_url: incomingPolicyUrl,
+          policy_file_name: incomingPolicyName,
+          policy_file_size: incomingPolicySize,
+        },
+        additional_terms: event.additional_terms || prev.additional_terms || '',
+        require_attendee_info: event.require_attendee_info !== undefined ? Boolean(event.require_attendee_info) : prev.require_attendee_info,
+        terms_accepted: Boolean(event.status && event.status !== 'DRAFT'),
+      }
     })
   }, [])
 
@@ -3625,6 +3752,15 @@ export function CreateEventPage() {
 
     const isRefundable = Boolean(aiData.refund_policy?.allow_refund ?? aiData.refund_policy?.allow_refunds)
 
+    const incomingPermits = (Array.isArray(aiData.permit_files) && aiData.permit_files.length > 0)
+      ? aiData.permit_files
+      : (Array.isArray(aiData.refund_policy?.permit_files) && aiData.refund_policy.permit_files.length > 0)
+        ? aiData.refund_policy.permit_files
+        : []
+    const incomingPolicyUrl = aiData.policy_file_url || aiData.refund_policy?.policy_file_url || null
+    const incomingPolicyName = aiData.policy_file_name || aiData.refund_policy?.policy_file_name || null
+    const incomingPolicySize = aiData.policy_file_size || aiData.refund_policy?.policy_file_size || null
+
     setFormData((prev) => ({
       ...prev,
       title: aiData.title || prev.title,
@@ -3643,6 +3779,10 @@ export function CreateEventPage() {
         allow_refund: isRefundable,
         allow_refunds: isRefundable,
         deadline_days: Number(aiData.refund_policy?.deadline_days) || 7,
+        permit_files: incomingPermits.length > 0 ? incomingPermits : (prev.refund_policy?.permit_files || []),
+        policy_file_url: incomingPolicyUrl || prev.refund_policy?.policy_file_url || null,
+        policy_file_name: incomingPolicyName || prev.refund_policy?.policy_file_name || null,
+        policy_file_size: incomingPolicySize || prev.refund_policy?.policy_file_size || null,
       },
     }))
 
@@ -3754,10 +3894,6 @@ export function CreateEventPage() {
         if (!validation.valid) {
           return validation.error || 'Quy tắc hoàn vé không hợp lệ.'
         }
-      }
-      const hasPolicy = Boolean(formData.additional_terms?.trim() || formData.refund_policy?.policy_file_url)
-      if (!hasPolicy) {
-        return 'Vui lòng nhập điều khoản tham dự hoặc tải lên file chính sách sự kiện ở Bước 4.'
       }
       const permitFiles = formData.refund_policy?.permit_files || []
       if (!permitFiles.length) {
@@ -3983,6 +4119,9 @@ export function CreateEventPage() {
           description: formData.description,
           thumbnail_url: formData.thumbnail_url,
           banner_url: formData.banner_url,
+          refund_policy: formData.refund_policy,
+          additional_terms: formData.additional_terms,
+          require_attendee_info: formData.require_attendee_info,
         }
         if (eventId) {
           await updateOrganizerEvent(eventId, payload)
@@ -4042,11 +4181,17 @@ export function CreateEventPage() {
           sessions: sessionsPayload,
           ticket_types: ticketTypesPayload,
           seating_rules: formData.seating_rules,
+          refund_policy: formData.refund_policy,
+          additional_terms: formData.additional_terms,
+          require_attendee_info: formData.require_attendee_info,
         })
         await updateOrganizerEvent(eventId, {
           sessions: sessionsPayload,
           ticket_types: ticketTypesPayload,
           seating_rules: formData.seating_rules,
+          refund_policy: formData.refund_policy,
+          additional_terms: formData.additional_terms,
+          require_attendee_info: formData.require_attendee_info,
         })
         await syncZoneAssignments()
         const finalEvent = await fetchOrganizerEvent(eventId)
@@ -4267,7 +4412,7 @@ export function CreateEventPage() {
   }
 
   return (
-    <div className="pb-20 max-w-6xl mx-auto">
+    <div ref={pageTopRef} className="pb-20 max-w-6xl mx-auto">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="font-display text-3xl font-extrabold text-content">
