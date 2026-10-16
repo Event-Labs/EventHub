@@ -76,7 +76,7 @@ export function EventCard({
           openDetail()
         }
       }}
-      className="glass-panel group flex h-full cursor-pointer flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1"
+      className="glass-panel group flex h-full cursor-pointer flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 [transform:translateZ(0)] will-change-transform"
     >
       <div
         className={cn(
@@ -122,7 +122,7 @@ export function EventCard({
           </button>
         )}
       </div>
-      <div className="flex flex-1 flex-col space-y-4 p-5">
+      <div className="flex flex-1 flex-col space-y-4 p-5 [transform:translateZ(0)]">
         <div className="h-[84px]">
           <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white transition-colors group-hover:text-primary">
             {item.title}

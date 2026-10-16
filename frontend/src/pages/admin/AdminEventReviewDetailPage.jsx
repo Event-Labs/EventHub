@@ -27,6 +27,7 @@ import {
   Bot,
   Copy,
   Loader2,
+  Square,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -37,6 +38,8 @@ import {
   reviewAdminEvent,
   fetchAdminAiReview,
   runAdminAiReview,
+  cancelAdminAutoReview,
+  fetchAdminAutoReviewScanStatus,
   fetchDocumentPreviewBlob,
   extractDocumentText,
 } from '@/services/adminEvents.js'
@@ -593,18 +596,64 @@ export function AdminEventReviewDetailPage() {
     enabled: !!eventId,
   })
 
+  // Scan Status Query
+  const { data: scanStatus } = useQuery({
+    queryKey: ['admin-auto-review-scan-status'],
+    queryFn: fetchAdminAutoReviewScanStatus,
+    refetchInterval: (query) => (query.state.data?.isRunning ? 1500 : 6000),
+  })
+
+  const [isManuallyCancelled, setIsManuallyCancelled] = useState(false)
+
+  // Cancel AI Mutation
+  const cancelAiMutation = useMutation({
+    mutationFn: cancelAdminAutoReview,
+    onSuccess: (res) => {
+      toast.success(res.message || 'Đã gửi lệnh dừng tiến trình quét AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-ai-review', eventId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể hủy tiến trình quét.'))
+    },
+  })
+
   // Run AI Review Mutation
   const runAiMutation = useMutation({
     mutationFn: () => runAdminAiReview(event),
     onSuccess: (data) => {
-      toast.success('Đã hoàn thành phân tích sự kiện bằng AI!')
-      queryClient.setQueryData(['admin-ai-review', eventId], data)
+      if (isManuallyCancelled || data?.cancelled) {
+        toast.info(data?.message || 'Tiến trình quét đã được dừng theo yêu cầu.')
+      } else {
+        toast.success('Đã hoàn thành phân tích sự kiện bằng AI!')
+        queryClient.setQueryData(['admin-ai-review', eventId], data)
+      }
       queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
     onError: (err) => {
+      if (isManuallyCancelled) return
       toast.error(err.response?.data?.message || 'Không thể chạy phân tích AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
   })
+
+  const handleStartAi = () => {
+    setIsManuallyCancelled(false)
+    runAiMutation.mutate()
+  }
+
+  const handleCancelAi = () => {
+    setIsManuallyCancelled(true)
+    runAiMutation.reset()
+    cancelAiMutation.mutate()
+    queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
+  }
+
+  const isScanningThisEvent = Boolean(
+    !isManuallyCancelled && (runAiMutation.isPending || (scanStatus?.isRunning && (scanStatus?.eventId === eventId || !scanStatus?.eventId)))
+  )
 
   // -------------------------------------------------------------------------
   // Mutations
@@ -1102,32 +1151,47 @@ export function AdminEventReviewDetailPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => runAiMutation.mutate()}
-                disabled={runAiMutation.isPending || aiReviewQuery.isLoading}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
-              >
-                <RefreshCw className={`size-3.5 ${runAiMutation.isPending ? 'animate-spin' : ''}`} />
-                {runAiMutation.isPending
-                  ? 'Đang phân tích...'
-                  : rawAiReview
-                    ? 'Chạy lại AI'
-                    : 'Chạy AI Đánh giá'}
-              </button>
+              {isScanningThisEvent ? (
+                <button
+                  type="button"
+                  onClick={handleCancelAi}
+                  disabled={cancelAiMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-4 py-2 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 hover:shadow-rose-600/30 active:scale-95 disabled:opacity-50"
+                  title="Dừng và hủy ngay tiến trình quét AI đang chạy"
+                >
+                  <Square className="size-3.5 fill-white text-white animate-pulse" />
+                  <span>{cancelAiMutation.isPending ? 'Đang dừng...' : 'Hủy tiến trình quét'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStartAi}
+                  disabled={runAiMutation.isPending || aiReviewQuery.isLoading}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
+                >
+                  <RefreshCw className={`size-3.5 ${runAiMutation.isPending ? 'animate-spin' : ''}`} />
+                  {rawAiReview ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
+                </button>
+              )}
             </div>
 
             {/* Active AI Scanning Progress State */}
-            {runAiMutation.isPending && (
+            {isScanningThisEvent && (
               <div className="mb-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md">
                 <div className="flex items-start gap-3">
                   <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 mt-0.5">
                     <RefreshCw className="size-4 animate-spin" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-indigo-300">
-                      AI đang phân tích & kiểm duyệt sự kiện...
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-indigo-300">
+                        AI đang phân tích & kiểm duyệt sự kiện...
+                      </h4>
+                      <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg">
+                        <span className="size-1.5 rounded-full bg-rose-400 animate-ping" />
+                        Có thể bấm "Hủy tiến trình quét" ở trên để dừng
+                      </span>
+                    </div>
                     <div className="mt-2 space-y-1.5 text-xs text-slate-300">
                       <p className="flex items-center gap-2">
                         <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
@@ -1139,7 +1203,7 @@ export function AdminEventReviewDetailPage() {
                       </p>
                     </div>
                     <p className="mt-2 text-[10px] text-slate-400 italic">
-                      Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Vui lòng giữ nguyên màn hình...
+                      Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút "Hủy tiến trình quét" ở trên nếu bạn muốn dừng ngay lập tức.
                     </p>
                   </div>
                 </div>
@@ -1147,7 +1211,7 @@ export function AdminEventReviewDetailPage() {
             )}
 
             {/* Empty State: AI Review Not Run Yet */}
-            {!aiData && !runAiMutation.isPending && (
+            {!aiData && !isScanningThisEvent && (
               <div className="my-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-8 text-center backdrop-blur-sm">
                 <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
                   <Bot className="size-6" />
@@ -1158,7 +1222,7 @@ export function AdminEventReviewDetailPage() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => runAiMutation.mutate()}
+                  onClick={handleStartAi}
                   className="mt-5 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500"
                 >
                   <Sparkles className="size-4" />

@@ -69,6 +69,19 @@ class EventsAdminController {
       const data = await eventsAdminService.runAiReview(eventId);
       res.status(200).json(ApiResponse.success(data, 'AI review generated successfully'));
     } catch (err) {
+      if (
+        err.name === 'AbortError' ||
+        err.code === 'SCAN_CANCELLED' ||
+        err.statusCode === 499 ||
+        String(err.message || '').toLowerCase().includes('abort') ||
+        String(err.message || '').toLowerCase().includes('hủy') ||
+        String(err.message || '').toLowerCase().includes('dừng')
+      ) {
+        return res.status(200).json(ApiResponse.success({
+          cancelled: true,
+          message: 'Tiến trình quét AI đã được dừng theo yêu cầu của bạn.',
+        }, 'Tiến trình AI đã bị hủy.'));
+      }
       next(err);
     }
   };
@@ -94,7 +107,34 @@ class EventsAdminController {
   runBatchAutoReview = async (req, res, next) => {
     try {
       const data = await eventsAdminService.runBatchAutoReview(req.user.sub);
-      res.status(200).json(ApiResponse.success(data, 'Batch AI auto-review completed successfully'));
+      res.status(200).json(ApiResponse.success(data, 'AI auto-review completed successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  runSingleAutoReview = async (req, res, next) => {
+    try {
+      const data = await eventsAdminService.runSingleAutoReview(req.user.sub, 'MANUAL');
+      res.status(200).json(ApiResponse.success(data, 'Single AI auto-review completed successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  cancelAutoReview = async (req, res, next) => {
+    try {
+      const data = eventsAdminService.cancelActiveScan();
+      res.status(200).json(ApiResponse.success(data, data.message));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getAutoReviewScanStatus = async (req, res, next) => {
+    try {
+      const data = eventsAdminService.getActiveScanStatus();
+      res.status(200).json(ApiResponse.success(data, 'Current AI auto-review scan status'));
     } catch (err) {
       next(err);
     }
