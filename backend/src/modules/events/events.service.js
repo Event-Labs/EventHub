@@ -39,7 +39,12 @@ function mapCard(row) {
       summary: formatVenue(row),
     },
     organizer: row.organizer_id
-      ? { id: row.organizer_id, full_name: row.organizer_name }
+      ? {
+          id: row.organizer_id,
+          full_name: row.organizer_name,
+          organization_name: row.organizer_name,
+          avatar_url: row.organizer_avatar_url || null,
+        }
       : null,
     min_price: minPrice,
     max_price: maxPrice,
@@ -81,6 +86,10 @@ function mapDetail(row) {
 class EventsService {
   async getPublicCategories() {
     return eventsRepository.findPublicCategories();
+  }
+
+  async getPublicOrganizers() {
+    return eventsRepository.findPublicOrganizers();
   }
 
   async getPublicEvents(query, userId) {

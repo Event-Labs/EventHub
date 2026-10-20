@@ -27,6 +27,7 @@ import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
 import {
   clearBookingDraft,
   formatCountdown,
+  getResumeBookingPath,
   hasActiveSeatHold,
   readBookingDraft,
   saveBookingDraft,
@@ -358,7 +359,8 @@ function normalizeCart(cart) {
 
 function initialCartFromLocation(location) {
   const locationCart = normalizeCart(location.state?.cart)
-  const draftCart = readBookingDraft()
+  const targetEventId = locationCart?.eventId
+  const draftCart = readBookingDraft(targetEventId)
   let restoredCart = null
 
   if (locationCart) {
@@ -366,27 +368,31 @@ function initialCartFromLocation(location) {
       ? { ...draftCart, ...locationCart }
       : locationCart
   } else {
-    restoredCart = draftCart
+    restoredCart = readBookingDraft()
   }
 
   if (restoredCart) {
+    const isSameEventDraft = Boolean(draftCart && String(draftCart.eventId) === String(restoredCart.eventId))
     const expiresAt =
       restoredCart.holdExpiresAt ||
       restoredCart.hold_expires_at ||
-      draftCart?.holdExpiresAt ||
-      draftCart?.hold_expires_at
+      (isSameEventDraft ? (draftCart?.holdExpiresAt || draftCart?.hold_expires_at) : null)
+
     if (expiresAt) {
       if (secondsLeft(expiresAt) <= 0) {
         restoredCart.holdExpiresAt = null
         restoredCart.hold_expires_at = null
         restoredCart.selectedSeatIds = []
         restoredCart.items = []
-        clearBookingDraft()
+        clearBookingDraft(restoredCart.eventId)
       } else {
         restoredCart.holdExpiresAt = expiresAt
         restoredCart.hold_expires_at = expiresAt
         saveBookingDraft(restoredCart)
       }
+    } else {
+      restoredCart.holdExpiresAt = null
+      restoredCart.hold_expires_at = null
     }
   }
 
@@ -618,7 +624,12 @@ export function BookingSeatsPage() {
 
   useEffect(() => {
     if (!displayCart || !session) return
-    saveBookingDraft(displayCart)
+    const cartWithStep = {
+      ...displayCart,
+      currentStep: 1,
+      currentPath: '/booking/seats',
+    }
+    saveBookingDraft(cartWithStep)
   }, [displayCart, session])
 
   const effectiveBuyer = useMemo(() => ({
@@ -671,24 +682,42 @@ export function BookingSeatsPage() {
       const cleanAttendees = {}
       attendeeSlots.forEach((slot, idx) => {
         const existing = heldCart.attendees?.[slot.id]
-        const p = existing || prefilledList[idx] || (prefilledList.length === 1 && !collectAttendees ? prefilledList[0] : null)
-        const name = (p?.name || (!collectAttendees ? effectiveBuyer.name : '')).trim()
-        const email = (p?.email || (!collectAttendees ? effectiveBuyer.email : '')).trim()
-        cleanAttendees[slot.id] = { name, email }
+        if (collectAttendees) {
+          if (idx === 0) {
+            const p = existing || prefilledList[0]
+            const name = (p?.name || effectiveBuyer.name || '').trim()
+            const email = (p?.email || effectiveBuyer.email || '').trim()
+            cleanAttendees[slot.id] = { name, email }
+          } else {
+            const p = existing || prefilledList[idx]
+            const isCopyOfBuyer =
+              p?.name === effectiveBuyer.name &&
+              p?.email === effectiveBuyer.email &&
+              !prefilledList[idx]
+            const name = isCopyOfBuyer ? '' : (p?.name || '').trim()
+            const email = isCopyOfBuyer ? '' : (p?.email || '').trim()
+            cleanAttendees[slot.id] = { name, email }
+          }
+        } else {
+          const p = existing || prefilledList[idx] || (prefilledList.length === 1 ? prefilledList[0] : null)
+          const name = (p?.name || effectiveBuyer.name || '').trim()
+          const email = (p?.email || effectiveBuyer.email || '').trim()
+          cleanAttendees[slot.id] = { name, email }
+        }
       })
 
+      const targetStep = canFastForward ? 3 : 2
+      const targetPath = canFastForward ? '/booking/review' : '/booking/attendees'
       const finalCart = {
         ...heldCart,
         buyer: effectiveBuyer,
         attendees: cleanAttendees,
+        currentStep: targetStep,
+        currentPath: targetPath,
       }
       saveBookingDraft(finalCart)
 
-      if (canFastForward) {
-        navigate('/booking/review', { state: { cart: finalCart } })
-      } else {
-        navigate('/booking/attendees', { state: { cart: finalCart } })
-      }
+      navigate(targetPath, { state: { cart: finalCart } })
     } catch (err) {
       toast.error(getApiMessage(err, hasSeatMap ? 'Không thể giữ ghế bạn đã chọn. Vui lòng thử lại.' : 'Không thể giữ vé bạn đã chọn. Vui lòng thử lại.'))
       if (hasSeatMap) {
@@ -945,12 +974,28 @@ export function BookingAttendeesPage() {
     const initial = { ...(cart?.attendees || {}) }
     const prefilled = cart?.prefilledAttendees || []
     attendeeSlots.forEach((slot, idx) => {
-      if (!initial[slot.id]) {
-        const p = prefilled[idx] || prefilled[0]
-        const name = p?.name || cart?.buyer?.name || ''
-        const email = p?.email || cart?.buyer?.email || ''
-        if (name || email) {
-          initial[slot.id] = { name, email }
+      if (idx === 0) {
+        if (!initial[slot.id]?.name && !initial[slot.id]?.email) {
+          const p = prefilled[0]
+          const name = p?.name || cart?.buyer?.name || ''
+          const email = p?.email || cart?.buyer?.email || ''
+          if (name || email) {
+            initial[slot.id] = { name, email }
+          }
+        }
+      } else {
+        const p = prefilled[idx]
+        if (p?.name || p?.email) {
+          if (!initial[slot.id]?.name && !initial[slot.id]?.email) {
+            initial[slot.id] = { name: p.name || '', email: p.email || '' }
+          }
+        } else {
+          const cur = initial[slot.id]
+          const buyerName = cart?.buyer?.name
+          const buyerEmail = cart?.buyer?.email
+          if (cur && buyerName && cur.name === buyerName && cur.email === buyerEmail) {
+            initial[slot.id] = { name: '', email: '' }
+          }
         }
       }
     })
@@ -975,14 +1020,33 @@ export function BookingAttendeesPage() {
       let changed = false
       const next = { ...prev }
       const prefilled = cart?.prefilledAttendees || []
+      const effectiveBuyerName = cart?.buyer?.name || buyer.name || ''
+      const effectiveBuyerEmail = cart?.buyer?.email || buyer.email || ''
+
       attendeeSlots.forEach((slot, idx) => {
-        if (!next[slot.id] || (!next[slot.id].name && !next[slot.id].email)) {
-          const p = prefilled[idx] || prefilled[0]
-          const name = p?.name || cart?.buyer?.name || buyer.name || ''
-          const email = p?.email || cart?.buyer?.email || buyer.email || ''
-          if (name || email) {
-            next[slot.id] = { name, email }
-            changed = true
+        if (idx === 0) {
+          if (!next[slot.id] || (!next[slot.id].name && !next[slot.id].email)) {
+            const p = prefilled[0]
+            const name = p?.name || effectiveBuyerName
+            const email = p?.email || effectiveBuyerEmail
+            if (name || email) {
+              next[slot.id] = { name, email }
+              changed = true
+            }
+          }
+        } else {
+          const p = prefilled[idx]
+          if (p?.name || p?.email) {
+            if (!next[slot.id] || (!next[slot.id].name && !next[slot.id].email)) {
+              next[slot.id] = { name: p.name || '', email: p.email || '' }
+              changed = true
+            }
+          } else {
+            const cur = next[slot.id]
+            if (cur && effectiveBuyerName && cur.name === effectiveBuyerName && cur.email === effectiveBuyerEmail) {
+              next[slot.id] = { name: '', email: '' }
+              changed = true
+            }
           }
         }
       })
@@ -995,7 +1059,7 @@ export function BookingAttendeesPage() {
     const holdExpiresAt =
       cart.holdExpiresAt ||
       cart.hold_expires_at ||
-      readBookingDraft()?.holdExpiresAt ||
+      readBookingDraft(cart.eventId)?.holdExpiresAt ||
       new Date(Date.now() + 15 * 60 * 1000).toISOString()
     const updatedCart = {
       ...cart,
@@ -1004,6 +1068,8 @@ export function BookingAttendeesPage() {
       buyer,
       attendees,
       requireAttendeeInfo: collectAttendees,
+      currentStep: 2,
+      currentPath: '/booking/attendees',
     }
     if (!cart.holdExpiresAt) {
       setCart(updatedCart)
@@ -1061,7 +1127,14 @@ export function BookingAttendeesPage() {
         return
       }
     }
-    const nextCart = { ...cart, attendees: cleanAttendees, buyer: cleanBuyer, requireAttendeeInfo: collectAttendees }
+    const nextCart = {
+      ...cart,
+      attendees: cleanAttendees,
+      buyer: cleanBuyer,
+      requireAttendeeInfo: collectAttendees,
+      currentStep: 3,
+      currentPath: '/booking/review',
+    }
     saveBookingDraft(nextCart)
     navigate('/booking/review', { state: { cart: nextCart } })
   }
@@ -1155,6 +1228,16 @@ export function BookingReviewPage() {
   const [promoInput, setPromoInput] = useState(cart?.promoCode || '')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+
+  useEffect(() => {
+    if (!cart?.items?.length) return
+    const updatedCart = {
+      ...cart,
+      currentStep: 3,
+      currentPath: '/booking/review',
+    }
+    saveBookingDraft(updatedCart)
+  }, [cart?.eventId, cart?.items?.length])
 
   const promosQuery = useQuery({
     queryKey: ['available-event-promos', cart?.eventId],
@@ -1289,8 +1372,13 @@ export function BookingReviewPage() {
         navigate('/booking/seats', { state: { cart: nextCart } })
         return
       }
-      saveBookingDraft(nextCart)
-      navigate('/booking/payment', { state: { cart: nextCart } })
+      const paymentCart = {
+        ...nextCart,
+        currentStep: 4,
+        currentPath: '/booking/payment',
+      }
+      saveBookingDraft(paymentCart)
+      navigate('/booking/payment', { state: { cart: paymentCart } })
     } catch (err) {
       const message = getApiMessage(err, 'Không thể kiểm tra tình trạng vé/ghế. Vui lòng thử lại.')
       toast.error(message)
@@ -1535,12 +1623,29 @@ export function BookingPaymentPage() {
   const paymentSuccessHandledRef = useRef(false)
   const orderId = existingOrderId || checkout?.order?.id
 
+  useEffect(() => {
+    if (!cart?.items?.length) return
+    const paymentCart = {
+      ...cart,
+      orderId,
+      currentStep: 4,
+      currentPath: orderId ? `/booking/payment?orderId=${orderId}` : '/booking/payment',
+    }
+    saveBookingDraft(paymentCart)
+  }, [orderId, cart?.eventId, cart?.items?.length])
+
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
       toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       setCheckout(data)
-      const paymentCart = { ...cart, holdExpiresAt: data.order?.expired_at || cart?.holdExpiresAt }
+      const paymentCart = {
+        ...cart,
+        orderId: data.order?.id,
+        holdExpiresAt: data.order?.expired_at || cart?.holdExpiresAt,
+        currentStep: 4,
+        currentPath: `/booking/payment?orderId=${data.order?.id || ''}`,
+      }
       setCart(paymentCart)
       saveBookingDraft(paymentCart)
       navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart: paymentCart, checkout: data } })
@@ -1702,18 +1807,30 @@ function BookingShell({ step, cart, children }) {
   const toast = useToast()
   const [tick, setTick] = useState(0)
   const expiredHandledRef = useRef(false)
-  const draft = readBookingDraft()
+  const isSameEventDraft = Boolean(
+    cart?.eventId &&
+    String(readBookingDraft()?.eventId) === String(cart.eventId)
+  )
+  const draft = isSameEventDraft ? readBookingDraft(cart.eventId) : null
   const holdExpiresAtRaw =
     cart?.holdExpiresAt ||
     cart?.hold_expires_at ||
     draft?.holdExpiresAt ||
     draft?.hold_expires_at
+
+  const hasSeatsHeld = Boolean(
+    (cart?.selectedSeatIds && cart.selectedSeatIds.length > 0) ||
+    (cart?.items && cart.items.some((item) => Number(item.quantity || 0) > 0)) ||
+    hasActiveSeatHold(cart) ||
+    (isSameEventDraft && hasActiveSeatHold(draft))
+  )
+
   const holdExpiresAt =
-    holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) > 0
+    hasSeatsHeld && holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) > 0
       ? holdExpiresAtRaw
       : step >= 2 && !holdExpiresAtRaw
         ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
-        : holdExpiresAtRaw
+        : null
   const remaining = secondsLeft(holdExpiresAt)
 
   useEffect(() => {
@@ -1736,7 +1853,7 @@ function BookingShell({ step, cart, children }) {
     if (expiredHandledRef.current) return
     expiredHandledRef.current = true
 
-    clearBookingDraft()
+    clearBookingDraft(cart?.eventId)
     toast.warning('Thời gian giữ vé (15 phút) đã hết. Bạn vui lòng chọn lại ghế/vé.')
     navigate('/booking/seats', {
       replace: true,
@@ -1747,6 +1864,8 @@ function BookingShell({ step, cart, children }) {
           items: [],
           holdExpiresAt: null,
           hold_expires_at: null,
+          currentStep: 1,
+          currentPath: '/booking/seats',
         },
       },
     })
@@ -1762,7 +1881,14 @@ function BookingShell({ step, cart, children }) {
     const previousPath = previousPathByStep[step]
 
     if (previousPath) {
-      navigate(previousPath, { state: { cart } })
+      const prevStep = Math.max(1, step - 1)
+      const updatedCart = {
+        ...cart,
+        currentStep: prevStep,
+        currentPath: previousPath,
+      }
+      saveBookingDraft(updatedCart)
+      navigate(previousPath, { state: { cart: updatedCart } })
       return
     }
 
