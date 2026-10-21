@@ -529,8 +529,8 @@ export function OrganizerPaymentSettingsPage() {
                       <input
                         id="account-holder"
                         value={bankInfo.accountHolder}
-                        onChange={(e) => setBankInfo((prev) => ({ ...prev, accountHolder: e.target.value }))}
-                        className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        onChange={(e) => setBankInfo((prev) => ({ ...prev, accountHolder: e.target.value.toUpperCase() }))}
+                        className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 uppercase"
                         placeholder="Nhập tên chủ tài khoản"
                       />
                     </div>

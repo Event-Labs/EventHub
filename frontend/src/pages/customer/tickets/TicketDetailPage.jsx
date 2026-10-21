@@ -858,9 +858,9 @@ function RefundButton({ ticket, onRefundSubmitted }) {
                   <input
                     type="text"
                     required
-                    placeholder="Tên chủ tài khoản (viết hoa không dấu) *"
+                    placeholder="Tên chủ tài khoản *"
                     value={accountHolder}
-                    onChange={(e) => setAccountHolder(e.target.value)}
+                    onChange={(e) => setAccountHolder(e.target.value.toUpperCase())}
                     className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
                   />
                 </div>
