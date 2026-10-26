@@ -5,6 +5,8 @@ const ordersRepository = require('../orders/orders.repository');
 const payosClient = require('../../infrastructure/payos/payos.client');
 const paymentsRepository = require('./payments.repository');
 const ticketConfirmationEmail = require('../tickets/ticketConfirmationEmail.service');
+const organizerPaymentsService = require('../organizer-payments/organizerPayments.service');
+const fieldCrypto = require('../../core/security/fieldCrypto');
 const logger = require('../../core/logger');
 
 function isPayosPaid(paymentData, paymentOrder) {
@@ -61,8 +63,25 @@ class PaymentsService {
   }
 
   async createTicketOrderPayosLink({ paymentOrder, channel, orderItems, returnUrl, cancelUrl }) {
+    let resolvedChannel = channel;
+    const organizerId = channel?.organizer_id || paymentOrder?.organizer_id;
+    if (organizerId) {
+      try {
+        const creds = await organizerPaymentsService.getDecryptedCredentials(organizerId);
+        if (creds) {
+          resolvedChannel = {
+            client_id: creds.clientId,
+            api_key_encrypted: creds.apiKey,
+            checksum_key_encrypted: creds.checksumKey,
+          };
+        }
+      } catch (err) {
+        logger.error(`[PAYMENT_LINK] Failed to load decrypted credentials for organizer ${organizerId}: ${err.message}`);
+      }
+    }
+
     const paymentData = await payosClient.createPaymentLink({
-      channel,
+      channel: resolvedChannel,
       order: paymentOrder,
       items: orderItems.map((item) => ({
         name: item.ticket_type_name || 'Event ticket',
@@ -89,7 +108,17 @@ class PaymentsService {
       throw new AppError('Payment order not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    if (!payosClient.verifyWebhookData(data, payload.signature, paymentOrder.checksum_key_encrypted)) {
+    let checksumKey = paymentOrder.checksum_key_encrypted;
+    const organizerId = paymentOrder.organizer_id;
+    if (checksumKey && organizerId && fieldCrypto.isEncrypted(checksumKey)) {
+      try {
+        checksumKey = fieldCrypto.decrypt(checksumKey, organizerId, 'payos_checksum_key', { allowLegacy: true });
+      } catch (err) {
+        logger.error(`[PAYOS_WEBHOOK] Failed to decrypt checksum key for order ${providerOrderCode}: ${err.message}`);
+      }
+    }
+
+    if (!payosClient.verifyWebhookData(data, payload.signature, checksumKey)) {
       logger.warn(`[PAYOS_WEBHOOK] invalid signature providerOrderCode=${providerOrderCode}`);
       throw new AppError('Invalid PayOS webhook signature', 400, ErrorCodes.INVALID_INPUT);
     }
@@ -118,8 +147,24 @@ class PaymentsService {
       return null;
     }
 
+    let channelForPayos = paymentOrder;
+    const organizerId = paymentOrder.organizer_id;
+    if (organizerId) {
+      try {
+        const creds = await organizerPaymentsService.getDecryptedCredentials(organizerId);
+        if (creds) {
+          channelForPayos = {
+            client_id: creds.clientId,
+            api_key_encrypted: creds.apiKey,
+          };
+        }
+      } catch (err) {
+        logger.error(`[PAYMENT_SYNC] Failed to get decrypted credentials for organizer ${organizerId}: ${err.message}`);
+      }
+    }
+
     const paymentData = await payosClient.getPaymentLinkInformation({
-      channel: paymentOrder,
+      channel: channelForPayos,
       providerOrderCode: paymentOrder.provider_order_code,
     });
 
@@ -147,8 +192,24 @@ class PaymentsService {
       return null;
     }
 
+    let channelForPayos = paymentOrder;
+    const organizerId = paymentOrder.organizer_id;
+    if (organizerId) {
+      try {
+        const creds = await organizerPaymentsService.getDecryptedCredentials(organizerId);
+        if (creds) {
+          channelForPayos = {
+            client_id: creds.clientId,
+            api_key_encrypted: creds.apiKey,
+          };
+        }
+      } catch (err) {
+        logger.error(`[PAYMENT_SYNC_ANY] Failed to get decrypted credentials for organizer ${organizerId}: ${err.message}`);
+      }
+    }
+
     const paymentData = await payosClient.getPaymentLinkInformation({
-      channel: paymentOrder,
+      channel: channelForPayos,
       providerOrderCode: paymentOrder.provider_order_code,
     });
 

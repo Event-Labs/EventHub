@@ -1,5 +1,6 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const fieldCrypto = require('../../core/security/fieldCrypto');
 const authRepository = require('../auth/auth.repository');
 const organizersRepository = require('./organizers.repository');
 
@@ -52,7 +53,21 @@ class AdminOrganizersService {
         plan_price: item.plan_price !== null && item.plan_price !== undefined ? mapMoney(item.plan_price) : null,
       })),
       request_history: requestHistory,
-      payment_channels: paymentChannels,
+      payment_channels: paymentChannels.map((channel) => {
+        let masked = '****';
+        if (channel.bank_account_number) {
+          try {
+            const dec = fieldCrypto.decrypt(channel.bank_account_number, id, 'bank_account_number', { allowLegacy: true });
+            masked = fieldCrypto.maskTail(dec);
+          } catch {
+            masked = fieldCrypto.maskTail(channel.bank_account_number);
+          }
+        }
+        return {
+          ...channel,
+          bank_account_number: masked,
+        };
+      }),
     };
   }
 

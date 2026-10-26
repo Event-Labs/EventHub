@@ -1,3 +1,10 @@
+const net = require('net');
+const dns = require('dns');
+try {
+  if (typeof net.setDefaultAutoSelectFamily === 'function') net.setDefaultAutoSelectFamily(false);
+  if (typeof dns.setDefaultResultOrder === 'function') dns.setDefaultResultOrder('ipv4first');
+} catch (e) {}
+
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const securityMiddlewares = require('./middlewares/security.middleware');

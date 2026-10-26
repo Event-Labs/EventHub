@@ -56,7 +56,7 @@ class PaymentsRepository {
   async findPaymentOrderByProviderCode(providerOrderCode) {
     const { rows } = await db.query(
       `
-      SELECT po.*, opc.checksum_key_encrypted
+      SELECT po.*, opc.checksum_key_encrypted, COALESCE(po.organizer_id, opc.organizer_id) AS organizer_id
       FROM payment_orders po
       JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
       WHERE po.provider_order_code = $1
@@ -74,7 +74,8 @@ class PaymentsRepository {
         po.*,
         opc.client_id,
         opc.api_key_encrypted,
-        opc.checksum_key_encrypted
+        opc.checksum_key_encrypted,
+        COALESCE(po.organizer_id, opc.organizer_id) AS organizer_id
       FROM payment_orders po
       JOIN orders o ON o.id = po.order_id
       JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
@@ -95,7 +96,8 @@ class PaymentsRepository {
         po.*,
         opc.client_id,
         opc.api_key_encrypted,
-        opc.checksum_key_encrypted
+        opc.checksum_key_encrypted,
+        COALESCE(po.organizer_id, opc.organizer_id) AS organizer_id
       FROM payment_orders po
       JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
       WHERE po.order_id = $1
