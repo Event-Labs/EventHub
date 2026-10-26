@@ -1,10 +1,18 @@
+const net = require('net');
 const dns = require('dns');
-// Enforce IPv4-first DNS resolution for outbound HTTP/HTTPS requests (e.g. PayOS IP Whitelist)
+// Enforce IPv4-first DNS resolution and disable Happy Eyeballs dual-stack autoSelectFamily
+// to ensure outbound requests to PayOS strictly use the whitelisted IPv4 address.
 try {
-  dns.setDefaultResultOrder('ipv4first');
-} catch (e) {
-  // Ignore on Node versions that do not support it
-}
+  if (typeof net.setDefaultAutoSelectFamily === 'function') {
+    net.setDefaultAutoSelectFamily(false);
+  }
+} catch (e) {}
+
+try {
+  if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+  }
+} catch (e) {}
 
 const env = require('./config/env'); // Validates env on load
 const app = require('./app');

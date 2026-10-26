@@ -112,23 +112,10 @@ const PAYOS_PAYOUT_GUIDE_STEPS = [
   },
 ]
 
-const STORAGE_KEY = 'eventhub_payment_bank_info'
-
 function maskValue(value, visiblePrefix = 5) {
   if (!value) return '••••••••••'
   if (value.length <= visiblePrefix) return `${value}••••`
   return `${value.slice(0, visiblePrefix)}${'•'.repeat(6)}`
-}
-
-function loadStoredBankInfo() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch (err) {
-    console.error(err)
-    return null
-  }
 }
 
 export function OrganizerPaymentSettingsPage() {
@@ -159,13 +146,10 @@ export function OrganizerPaymentSettingsPage() {
   const [serverIp, setServerIp] = useState('')
   const [egressGateway, setEgressGateway] = useState(null)
 
-  const [bankInfo, setBankInfo] = useState(() => {
-    const stored = loadStoredBankInfo()
-    return {
-      bank: stored?.bank || '',
-      accountNumber: stored?.accountNumber || '',
-      accountHolder: stored?.accountHolder || '',
-    }
+  const [bankInfo, setBankInfo] = useState({
+    bank: '',
+    accountNumber: '',
+    accountHolder: '',
   })
 
   const [formData, setFormData] = useState({
@@ -180,10 +164,6 @@ export function OrganizerPaymentSettingsPage() {
   useEffect(() => {
     fetchChannel()
   }, [])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(bankInfo))
-  }, [bankInfo])
 
   useEffect(() => {
     if (step !== 4 || testState.status !== 'loading') return
@@ -203,7 +183,7 @@ export function OrganizerPaymentSettingsPage() {
         setFormData({ client_id: incoming.client_id || '', api_key: '', checksum_key: '' })
         setBankInfo({
           bank: incoming.bank_name || '',
-          accountNumber: incoming.bank_account_number || '',
+          accountNumber: incoming.bank_account_masked || '',
           accountHolder: incoming.bank_account_holder || '',
         })
 
@@ -236,7 +216,13 @@ export function OrganizerPaymentSettingsPage() {
 
   const validateStep2 = () => {
     if (!bankInfo.bank) return 'Vui lòng chọn ngân hàng.'
-    if (!bankInfo.accountNumber.trim()) return 'Vui lòng nhập số tài khoản.'
+    const rawAcc = bankInfo.accountNumber ? bankInfo.accountNumber.trim() : ''
+    const cleanAcc = rawAcc.replace(/[\s.\-_]/g, '')
+    if (!cleanAcc && !channel?.bank_account_masked) return 'Vui lòng nhập số tài khoản.'
+    const isMasked = cleanAcc.includes('*') || cleanAcc.includes('•')
+    if (cleanAcc && !isMasked && !/^[0-9A-Za-z]{4,30}$/.test(cleanAcc)) {
+      return 'Số tài khoản ngân hàng không hợp lệ (4-30 ký tự chữ hoặc số).'
+    }
     if (!bankInfo.accountHolder.trim()) return 'Vui lòng nhập tên chủ tài khoản.'
     return ''
   }
@@ -287,14 +273,17 @@ export function OrganizerPaymentSettingsPage() {
         }
       }
 
+      const rawAcc = bankInfo.accountNumber ? bankInfo.accountNumber.trim() : ''
+      const cleanAcc = rawAcc.replace(/[\s.\-_]/g, '')
+
       const payload = {
         client_id: formData.client_id.trim(),
         bank_name: bankInfo.bank.trim(),
-        bank_account_number: bankInfo.accountNumber.trim(),
+        bank_account_number: cleanAcc,
         bank_account_holder: bankInfo.accountHolder.trim(),
       }
 
-      if (!hasStoredCredentials || hasNewCredentialInput) {
+      if (formData.api_key.trim() && formData.checksum_key.trim()) {
         payload.api_key = formData.api_key.trim()
         payload.checksum_key = formData.checksum_key.trim()
       }
@@ -302,6 +291,7 @@ export function OrganizerPaymentSettingsPage() {
       await api.post('/organizer/payments/channel', payload)
       const res = await api.post('/organizer/payments/channel/test')
       setChannel(res.data?.data)
+      setFormData((prev) => ({ ...prev, api_key: '', checksum_key: '' }))
       setIsEditing(false)
       setTestState({ status: 'success', message: 'Kênh thanh toán đã được kết nối thành công.' })
       toast.success('Kênh thanh toán đã được kết nối thành công.')
@@ -347,15 +337,20 @@ export function OrganizerPaymentSettingsPage() {
         }
       }
 
-      await api.post('/organizer/payments/channel/payout', {
+      const payoutPayload = {
         use_inbound_for_payout: false,
         payout_client_id: payoutFormData.client_id.trim(),
-        payout_api_key: payoutFormData.api_key.trim() || undefined,
-        payout_checksum_key: payoutFormData.checksum_key.trim() || undefined,
-      })
+      }
+      if (payoutFormData.api_key.trim() && payoutFormData.checksum_key.trim()) {
+        payoutPayload.payout_api_key = payoutFormData.api_key.trim()
+        payoutPayload.payout_checksum_key = payoutFormData.checksum_key.trim()
+      }
+
+      await api.post('/organizer/payments/channel/payout', payoutPayload)
 
       const res = await api.post('/organizer/payments/channel/payout/test')
       const data = res.data?.data
+      setPayoutFormData((prev) => ({ ...prev, api_key: '', checksum_key: '' }))
       setPayoutTestState({
         status: 'success',
         message: res.data?.message || 'Kết nối Kênh chi PayOS thành công. Kênh chi đã kích hoạt.',
@@ -638,7 +633,8 @@ export function OrganizerPaymentSettingsPage() {
                         icon={KeyRound}
                         type="password"
                         value={formData.api_key}
-                        placeholder={hasStoredCredentials ? `Hiện tại: ${safeChannelMeta.connectionKey}` : 'Dán API Key'}
+                        badge={channel?.has_api_key ? 'Đã lưu' : null}
+                        placeholder={channel?.has_api_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán API Key'}
                         onChange={(value) => {
                           setConnectionTouched(true)
                           setFormData((prev) => ({ ...prev, api_key: value }))
@@ -650,7 +646,8 @@ export function OrganizerPaymentSettingsPage() {
                         icon={ShieldCheck}
                         type="password"
                         value={formData.checksum_key}
-                        placeholder={hasStoredCredentials ? `Hiện tại: ${safeChannelMeta.verificationKey}` : 'Dán Checksum Key'}
+                        badge={channel?.has_checksum_key ? 'Đã lưu' : null}
+                        placeholder={channel?.has_checksum_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Checksum Key'}
                         onChange={(value) => {
                           setConnectionTouched(true)
                           setFormData((prev) => ({ ...prev, checksum_key: value }))
@@ -732,7 +729,11 @@ export function OrganizerPaymentSettingsPage() {
                         type="button"
                         onClick={() => {
                           setError(null)
-                          setStep(3)
+                          if (testState.message?.toLowerCase().includes('ngân hàng')) {
+                            setStep(2)
+                          } else {
+                            setStep(3)
+                          }
                         }}
                         className="rounded-xl border border-error/35 bg-surface px-4 py-2 text-sm font-medium text-error hover:bg-error/10"
                       >
@@ -758,13 +759,13 @@ export function OrganizerPaymentSettingsPage() {
 
                   <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm text-content">
                     <p className="mb-2 font-bold text-primary">Kết nối Kênh thu đã lưu</p>
-                    <p><span className="font-medium text-muted">Ngân hàng:</span> {bankInfo.bank || 'Chưa lưu trên thiết bị này'}</p>
-                    <p><span className="font-medium text-muted">Số tài khoản:</span> {bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa lưu trên thiết bị này'}</p>
-                    <p><span className="font-medium text-muted">Chủ tài khoản:</span> {bankInfo.accountHolder || 'Chưa lưu trên thiết bị này'}</p>
+                    <p><span className="font-medium text-muted">Ngân hàng:</span> {channel?.bank_name || bankInfo.bank || 'Chưa thiết lập'}</p>
+                    <p><span className="font-medium text-muted">Số tài khoản:</span> {channel?.bank_account_masked || (bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa thiết lập')}</p>
+                    <p><span className="font-medium text-muted">Chủ tài khoản:</span> {channel?.bank_account_holder || bankInfo.accountHolder || 'Chưa thiết lập'}</p>
                     <div className="my-3 border-t border-border-soft/20" />
                     <p><span className="font-medium text-muted">Client ID:</span> {safeChannelMeta.merchantId}</p>
-                    <p><span className="font-medium text-muted">API Key:</span> {safeChannelMeta.connectionKey}</p>
-                    <p><span className="font-medium text-muted">Checksum Key:</span> {safeChannelMeta.verificationKey}</p>
+                    <p><span className="font-medium text-muted">API Key:</span> {channel?.has_api_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
+                    <p><span className="font-medium text-muted">Checksum Key:</span> {channel?.has_checksum_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
                   </div>
 
                   <div className="flex flex-wrap gap-3">
@@ -774,20 +775,8 @@ export function OrganizerPaymentSettingsPage() {
                         Cập nhật Kênh thu
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('payout')}
-                      className="org-btn-secondary flex items-center gap-2"
-                    >
-                      <ArrowUpRight className="size-4 text-primary" />
-                      Cài đặt Kênh chi (Payouts)
-                    </button>
                     <button type="button" onClick={() => navigate(returnTo || '/organizer/events')} className="org-btn-secondary">
                       {returnTo ? 'Quay lại sự kiện' : 'Đi tới Quản lý sự kiện'}
-                    </button>
-                    <button type="button" onClick={() => navigate('/organizer/events/create')} className="org-btn-primary">
-                      <CreditCard className="size-4" />
-                      Tạo sự kiện
                     </button>
                   </div>
                 </div>
@@ -1012,7 +1001,8 @@ export function OrganizerPaymentSettingsPage() {
                         icon={KeyRound}
                         type="password"
                         value={payoutFormData.api_key}
-                        placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.connectionKey}` : 'Dán API Key Kênh chi'}
+                        badge={channel?.has_payout_api_key ? 'Đã lưu' : null}
+                        placeholder={channel?.has_payout_api_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán API Key Kênh chi'}
                         onChange={(value) => setPayoutFormData((prev) => ({ ...prev, api_key: value }))}
                       />
                       <CredentialField
@@ -1021,7 +1011,8 @@ export function OrganizerPaymentSettingsPage() {
                         icon={ShieldCheck}
                         type="password"
                         value={payoutFormData.checksum_key}
-                        placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.verificationKey}` : 'Dán Checksum Key Kênh chi'}
+                        badge={channel?.has_payout_checksum_key ? 'Đã lưu' : null}
+                        placeholder={channel?.has_payout_checksum_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Checksum Key Kênh chi'}
                         onChange={(value) => setPayoutFormData((prev) => ({ ...prev, checksum_key: value }))}
                       />
                     </div>
@@ -1120,20 +1111,36 @@ function WizardFooter({ onBack, onNext, nextLabel = 'Tiếp tục' }) {
   )
 }
 
-function CredentialField({ id, label, value, onChange, placeholder, type = 'text', icon: Icon }) {
+function CredentialField({ id, label, value, onChange, placeholder, type = 'text', icon: Icon, badge }) {
   const [showPassword, setShowPassword] = useState(false)
   const isPasswordType = type === 'password'
   const actualType = isPasswordType && showPassword ? 'text' : type
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-content">{label}</label>
+      <div className="mb-1.5 flex items-center justify-between">
+        <label htmlFor={id} className="block text-sm font-semibold text-content">{label}</label>
+        {badge && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
+            <CheckCircle2 className="size-3" />
+            {badge}
+          </span>
+        )}
+      </div>
       <div className="relative">
         <input
           id={id}
           type={actualType}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          autoComplete="new-password"
+          onPaste={(e) => {
+            const pasted = e.clipboardData?.getData('text')
+            if (pasted) {
+              e.preventDefault()
+              onChange(pasted.trim())
+            }
+          }}
+          onChange={(e) => onChange(e.target.value.trim())}
           className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 pr-20 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
           placeholder={placeholder}
         />
