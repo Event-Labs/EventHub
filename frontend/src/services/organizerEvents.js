@@ -59,10 +59,51 @@ export async function publishOrganizerEvent(eventId) {
   return response.data.data
 }
 
-export async function cancelOrganizerEvent(eventId) {
-  const response = await http.post(`/organizer/events/${eventId}/cancel`)
+export async function cancelOrganizerEvent(eventId, payload = {}) {
+  const response = await http.post(`/organizer/events/${eventId}/cancel`, payload)
   return response.data.data
 }
+
+export async function submitCancellationRequest(eventId, payload) {
+  const response = await http.post(`/organizer/events/${eventId}/cancellation-requests`, payload)
+  return response.data.data
+}
+
+export async function withdrawCancellationRequest(eventId) {
+  const response = await http.post(`/organizer/events/${eventId}/cancellation-requests/withdraw`)
+  return response.data.data
+}
+
+export async function hideOrganizerEvent(eventId, reason = '') {
+  const response = await http.post(`/organizer/events/${eventId}/hide`, { reason })
+  return response.data.data
+}
+
+export async function unhideOrganizerEvent(eventId) {
+  const response = await http.post(`/organizer/events/${eventId}/unhide`)
+  return response.data.data
+}
+
+export async function pauseSalesOrganizerEvent(eventId, reason = '') {
+  const response = await http.post(`/organizer/events/${eventId}/sales/pause`, { reason })
+  return response.data.data
+}
+
+export async function resumeSalesOrganizerEvent(eventId) {
+  const response = await http.post(`/organizer/events/${eventId}/sales/resume`)
+  return response.data.data
+}
+
+export async function fetchRefundWorklist(eventId, params = {}) {
+  const response = await http.get(`/organizer/events/${eventId}/refund-worklist`, { params })
+  return response.data.data
+}
+
+export async function markRefundsSubmitted(eventId, payload) {
+  const response = await http.post(`/organizer/events/${eventId}/refund-worklist/mark-submitted`, payload)
+  return response.data.data
+}
+
 
 export async function deleteOrganizerDraftEvent(eventId) {
   const response = await http.delete(`/organizer/events/${eventId}`)

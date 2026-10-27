@@ -229,14 +229,35 @@ class OrganizerEventsRepository {
         e.format,
         e.tags,
         e.visibility,
-        e.status,
+        CASE
+          WHEN e.status = 'PUBLISHED' AND (e.end_time < now() OR (e.end_time IS NULL AND e.start_time < now() - interval '4 hours')) THEN 'COMPLETED'::event_status_enum
+          ELSE e.status
+        END AS status,
         e.approval_status,
+        e.display_state,
+        CASE
+          WHEN (e.end_time < now() OR (e.end_time IS NULL AND e.start_time < now() - interval '4 hours')) THEN 'ENDED'
+          ELSE e.sales_status
+        END AS sales_status,
+        e.sales_blocks,
+        e.pending_revision,
+        e.cancel_request,
+        e.refund_obligation_status,
+        e.version,
         e.start_time,
         e.end_time,
         e.category_id,
         c.name AS category_name,
         e.created_at,
-        e.updated_at
+        e.updated_at,
+        (
+          SELECT COUNT(DISTINCT oi.order_id)::int
+          FROM order_items oi
+          JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          JOIN orders o ON o.id = oi.order_id
+          WHERE es.event_id = e.id AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
+        ) AS paid_orders_count
       FROM events e
       LEFT JOIN event_categories c ON c.id = e.category_id
       WHERE e.organizer_id = $1 AND e.deleted_at IS NULL
@@ -252,6 +273,14 @@ class OrganizerEventsRepository {
       `
       SELECT
         e.*,
+        CASE
+          WHEN e.status = 'PUBLISHED' AND (e.end_time < now() OR (e.end_time IS NULL AND e.start_time < now() - interval '4 hours')) THEN 'COMPLETED'::event_status_enum
+          ELSE e.status
+        END AS status,
+        CASE
+          WHEN (e.end_time < now() OR (e.end_time IS NULL AND e.start_time < now() - interval '4 hours')) THEN 'ENDED'
+          ELSE e.sales_status
+        END AS sales_status,
         c.name AS category_name,
         c.slug AS category_slug,
         COALESCE(sessions.sessions, '[]'::json) AS sessions,
@@ -796,6 +825,83 @@ class OrganizerEventsRepository {
     } finally {
       client.release();
     }
+  }
+
+  async getTicketTypeCommitmentStats(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        tt.id AS ticket_type_id,
+        tt.name,
+        tt.quantity AS current_quota,
+        COALESCE(SUM(CASE WHEN t.status IN ('VALID', 'USED', 'REFUND_REQUESTED') THEN 1 ELSE 0 END), 0)::int AS issued_tickets_count,
+        COALESCE((
+          SELECT SUM(th.quantity)::int
+          FROM ticket_holds th
+          WHERE th.ticket_type_id = tt.id AND th.status = 'ACTIVE' AND th.expires_at > now()
+        ), 0)::int AS active_holds_count
+      FROM event_sessions es
+      JOIN ticket_types tt ON tt.event_session_id = es.id
+      LEFT JOIN tickets t ON t.ticket_type_id = tt.id
+      WHERE es.event_id = $1
+      GROUP BY tt.id, tt.name, tt.quantity
+      `,
+      [eventId],
+    );
+    return rows;
+  }
+
+  async getEventFinancialSummary(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PAID'), 0)::int AS paid_orders_count,
+        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PENDING' AND o.expired_at > now()), 0)::int AS pending_orders_count,
+        COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'PAID'), 0)::numeric AS total_paid_amount,
+        COALESCE(COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int AS issued_tickets_count,
+        COALESCE((
+          SELECT COUNT(DISTINCT th.id)
+          FROM ticket_holds th
+          JOIN ticket_types tt ON tt.id = th.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = e.id AND th.status = 'ACTIVE' AND th.expires_at > now()
+        ), 0)::int AS active_holds_count
+      FROM events e
+      LEFT JOIN event_sessions es ON es.event_id = e.id
+      LEFT JOIN ticket_types tt ON tt.event_session_id = es.id
+      LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
+      LEFT JOIN orders o ON o.id = oi.order_id
+      LEFT JOIN tickets t ON t.ticket_type_id = tt.id
+      WHERE e.id = $1
+      GROUP BY e.id
+      `,
+      [eventId],
+    );
+    return rows[0] || {
+      paid_orders_count: 0,
+      pending_orders_count: 0,
+      total_paid_amount: 0,
+      issued_tickets_count: 0,
+      active_holds_count: 0,
+    };
+  }
+
+  async getUnreconciledTransactionsCount(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM payment_orders po
+      JOIN orders o ON o.id = po.order_id
+      JOIN order_items oi ON oi.order_id = o.id
+      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      JOIN event_sessions es ON es.id = tt.event_session_id
+      WHERE es.event_id = $1
+        AND po.status IN ('PENDING', 'PROCESSING', 'UNKNOWN')
+        AND po.created_at > now() - interval '30 minutes'
+      `,
+      [eventId],
+    );
+    return rows[0]?.count || 0;
   }
 }
 
