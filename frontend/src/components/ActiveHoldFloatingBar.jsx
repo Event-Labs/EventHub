@@ -4,6 +4,7 @@ import { Clock, Ticket, ArrowRight, X } from 'lucide-react'
 import {
   clearBookingDraft,
   formatCountdown,
+  getResumeBookingPath,
   hasActiveSeatHold,
   readBookingDraft,
   secondsLeft,
@@ -37,10 +38,7 @@ export function ActiveHoldFloatingBar() {
   const totalSeats = (cart.selectedSeatIds?.length) || (cart.items?.reduce((s, i) => s + (i.quantity || 0), 0)) || 0
 
   const handleResume = () => {
-    // Determine the step to resume
-    const targetPath = cart.attendees && Object.keys(cart.attendees).length > 0
-      ? '/booking/review'
-      : '/booking/attendees'
+    const targetPath = getResumeBookingPath(cart)
     navigate(targetPath, { state: { cart } })
   }
 

@@ -55,28 +55,36 @@ ${criteriaSection}
 NGUYÊN TẮC CỐT LÕI VỀ KIỂM DUYỆT & ĐIỀU KHOẢN BẮT BUỘC:
 1. ĐIỀU KHOẢN BẮT BUỘC (CRITICAL MANDATORY):
    - BẤT KỲ SỰ KIỆN NÀO VI PHẠM DÙ CHỈ 1 ĐIỀU KHOẢN BẮT BUỘC -> BẮT BUỘC RA QUYẾT ĐỊNH "REJECT" (TUYỆT ĐỐI KHÔNG APPROVE / KHÔNG NEEDS_REVIEW).
-   - Bao gồm: Lừa đảo tài chính/Ponzi/cam kết x100 lợi nhuận, cờ bạc/tài xỉu, 18+ khiêu dâm đồi trụy, chuyển khoản cá nhân ngoài sàn EventHub, tuyên bố hủy show không hoàn tiền, thời gian sự kiện trong quá khứ, treo đầu dê bán thịt chó.
+   - Bao gồm: Lừa đảo tài chính/Ponzi/cam kết x100 lợi nhuận, cờ bạc/tài xỉu, 18+ khiêu dâm đồi trụy, chuyển khoản cá nhân ngoài sàn EventHub, tuyên bố hủy show không hoàn tiền, thời gian sự kiện trong quá khứ, treo đầu dê bán thịt chó, nộp tài liệu giấy phép giả mạo / sách từ vựng / linh tinh.
 
-2. LƯU Ý VỀ TỆP ĐÍNH KÈM (PDF):
-   - Ràng buộc định dạng PDF đã được Backend kiểm tra và xác thực hợp lệ khi tải lên. Do đó AI KHÔNG CẦN quan tâm hay bắt lỗi về định dạng file PDF.
-   - Nếu có tài liệu đính kèm: AI chỉ đọc nội dung để kiểm tra tính nhất quán, không chứa nội dung lừa đảo hay phi pháp.
-   - Không tự ý từ chối (REJECT) chỉ vì sự kiện chưa đính kèm giấy phép nếu là sự kiện thông thường, hội thảo nhỏ, meetup nội bộ hợp lệ.
+2. NGUYÊN TẮC VỀ TÀI LIỆU GIẤY PHÉP ĐÍNH KÈM (PERMIT DOCUMENTS):
+   - Ràng buộc định dạng PDF đã được Backend kiểm tra và xác thực hợp lệ khi tải lên. Do đó AI KHÔNG CẦN bắt lỗi về định dạng file PDF.
+   - QUY ĐỊNH CHẶT CHẼ VỀ NỘI DUNG TỆP: Nếu Nhà tổ chức nộp tài liệu giấy phép, AI BẮT BUỘC kiểm tra nội dung xem có đúng là giấy tờ pháp lý / công văn chấp thuận / hợp đồng thuê địa điểm / đề án tổ chức sự kiện hay không.
+   - NGHIÊM CẤM TÀI LIỆU RÁC / LINH TINH / ĐỐI PHÓ: Tuyệt đối cấm nộp sách từ vựng ngoại ngữ (tiếng Nhật, Hàn, Anh...), bảng từ mới, bài tập về nhà, đề thi, giáo trình học tập, truyện tranh, ghi chú cá nhân linh tinh để đối phó.
+   - XỬ LÝ VI PHẠM TÀI LIỆU BẮT BUỘC (CRITICAL): Nếu tệp là sách từ vựng, tài liệu học tập, hoặc tài liệu linh tinh không có giá trị pháp lý -> Trong "image_review" tệp này BẮT BUỘC có status là "VIOLATION" (TUYỆT ĐỐI KHÔNG xếp VALID), BẮT BUỘC thêm lỗi vào "critical_violations" với mã [LEGAL_PERMIT_AUTHENTICITY] hoặc [TERMS_ORGANIZER], và BẮT BUỘC RA QUYẾT ĐỊNH "REJECT" (TUYỆT ĐỐI KHÔNG APPROVE).
+   - Không tự ý từ chối (REJECT) chỉ vì sự kiện chưa đính kèm giấy phép nếu là sự kiện thông thường, hội thảo nhỏ, meetup nội bộ không yêu cầu giấy phép. Nhưng NẾU ĐÃ NỘP TỆP thì tệp đó BẮT BUỘC PHẢI HỢP LỆ VÀ ĐÚNG MỤC ĐÍCH.
 
-3. CƠ CHẾ TÍNH ĐIỂM CHUẨN XÁC & TRỪ ĐIỂM LINH HOẠT:
+3. NGUYÊN TẮC KIỂM DUYỆT HÌNH ẢNH & ĐỘ NHẠY CẢM VỚI 18+/KHIÊU DÂM:
+   - Đánh giá hình ảnh KHÁCH QUAN, ĐÚNG BẢN CHẤT, TUYỆT ĐỐI KHÔNG QUÁ NHẠY CẢM hay suy diễn quá đà với 18+/khiêu dâm.
+   - CHỈ gắn mác "VIOLATION" khi ảnh thực sự chứa nội dung khiêu dâm lộ liễu, khỏa thân toàn phần (nude 100%), lộ bộ phận sinh dục, quan hệ tình dục, bạo lực máu me ghê rợn, hoặc cờ bạc cá cược bất hợp pháp.
+   - TUYỆT ĐỐI KHÔNG gắn mác "VIOLATION" cho: ảnh sự kiện thông thường, trang phục biểu diễn sân khấu nghệ thuật, trang phục bơi/bikini trong sự kiện hồ bơi/bãi biển/thể thao lành mạnh, hoặc chỉ vì có từ ngữ nhận xét mang tính bình luận. Nếu trang phục có phần gợi cảm nhưng không đồi trụy thì chỉ xếp "VALID" hoặc tối đa là "WARNING" để Admin xem xét.
+   - ĐỒNG BỘ TUYỆT ĐỐI GIỮA KẾT QUẢ ĐÃ TRẢ VỀ VÀ QUYẾT ĐỊNH (CONSISTENCY):
+     * Nếu trong "image_review" có bất kỳ ảnh nào có status là "VIOLATION" -> BẮT BUỘC trong "critical_violations" phải liệt kê lỗi đó, "decision" BẮT BUỘC là "REJECT", "risk_score" BẮT BUỘC >= 75 và "quality_score" <= 45. TUYỆT ĐỐI KHÔNG ĐƯỢC "APPROVE" KHI ĐÃ CÓ ẢNH VI PHẠM!
+     * Nếu không có "VIOLATION" nhưng có ảnh status là "WARNING" -> "decision" BẮT BUỘC là "NEEDS_REVIEW".
+     * Chỉ ra quyết định "APPROVE" khi 100% hình ảnh đạt chuẩn "VALID", 0 vi phạm bắt buộc và rủi ro thấp.
+
+4. 3 ĐỀ XUẤT PHÊ DUYỆT CỐT LÕI (decision) & CƠ CHẾ TÍNH ĐIỂM:
+   - "REJECT": Có ít nhất 1 lỗi CRITICAL (hoặc ảnh VIOLATION), risk_score >= 65, quality_score < 50.
+   - "NEEDS_REVIEW": 0 lỗi CRITICAL, nhưng có từ 1-2 cảnh báo WARNING (hoặc ảnh WARNING), risk_score từ 30 đến 64, quality_score từ 50 đến 74.
+   - "APPROVE": 100% tuân thủ các điều khoản bắt buộc, 0 lỗi CRITICAL, rủi ro thấp (risk_score < 30 và quality_score >= 75).
    - THANG ĐIỂM CHẤT LƯỢNG (quality_score: 0 -> 100, Khởi điểm 100 điểm):
-     * Mỗi lỗi BẮT BUỘC (CRITICAL): Trừ -40 đến -50 điểm / lỗi. (Có lỗi bắt buộc thì quality_score tối đa chỉ còn 50).
-     * Mỗi cảnh báo LƯU Ý (WARNING): Trừ -10 đến -20 điểm / lỗi (thiếu hotline, chưa rõ quyền lợi vé, mô tả sơ sài...).
-     * Mỗi lỗi NHẸ / CHÍNH TẢ (INFO / SPELLING): Trừ -2 đến -5 điểm / lỗi (lỗi gõ telex, thiếu phân đoạn...).
-     * Công thức: quality_score = Max(0, 100 - Tổng điểm trừ).
+     * Mỗi lỗi BẮT BUỘC (CRITICAL): Trừ -40 đến -50 điểm / lỗi.
+     * Mỗi cảnh báo LƯU Ý (WARNING): Trừ -10 đến -20 điểm / lỗi.
+     * Mỗi lỗi nhẹ / chính tả: Trừ -2 đến -5 điểm / lỗi.
    - THANG ĐIỂM RỦI RO (risk_score: 0 -> 100, Khởi điểm 0 điểm):
-     * Mỗi lỗi BẮT BUỘC (CRITICAL): Cộng +70 đến +90 điểm rủi ro (lập tức vào vùng đỏ nguy hiểm).
-     * Mỗi cảnh báo LƯU Ý (WARNING): Cộng +15 đến +25 điểm rủi ro.
+     * Mỗi lỗi BẮT BUỘC (CRITICAL): Cộng +70 đến +90 điểm rủi ro.
+     * Mỗi cảnh báo LƯU Ý (WARNING): Cộng +15 đến +25 điểm rủi pro.
      * Mỗi lỗi nhẹ / chính tả: Cộng +2 đến +5 điểm rủi ro.
-     * Công thức: risk_score = Min(100, Tổng điểm rủi ro).
-   - QUYẾT ĐỊNH (decision):
-     * "REJECT": Có ít nhất 1 lỗi CRITICAL HOẶC risk_score >= 65 HOẶC quality_score < 50.
-     * "NEEDS_REVIEW": 0 lỗi CRITICAL, nhưng có từ 1-2 lỗi WARNING quan trọng (HOẶC risk_score từ 30 đến 64 HOẶC quality_score từ 50 đến 74).
-     * "APPROVE": 100% tuân thủ các điều khoản bắt buộc, 0 lỗi CRITICAL, rủi ro thấp (risk_score < 30 và quality_score >= 75).
 
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC (JSON THUẦN TÚY):
 Trả về DUY NHẤT 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG thêm text ngoài JSON) theo cấu trúc:
@@ -116,32 +124,89 @@ Trả về DUY NHẤT 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG t
 }
 
 /**
- * Kiểm tra xem nội dung văn bản trích xuất từ tệp có thực sự là tài liệu vi phạm pháp luật / lừa đảo hay không.
+ * Kiểm tra xem nội dung văn bản trích xuất từ tệp có thực sự là tài liệu hợp lệ, hay là tệp vi phạm/ngụy tạo/linh tinh.
  */
 function inspectDocumentLegality(extractedText, fileName = '', event = {}) {
-  const lowerText = String(extractedText || '').toLowerCase();
-  const lowerName = String(fileName || '').toLowerCase();
+  const cleanText = String(extractedText || '').trim();
+  const lowerText = cleanText.toLowerCase();
+  const normalizedName = String(fileName || '').replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g, ' ').toLowerCase();
 
-  // Dấu hiệu nội dung vi phạm pháp luật / lừa đảo / độc hại / cấm trong tài liệu
+  // 1. Vi phạm nghiêm trọng (lừa đảo, cờ bạc, 18+, vũ khí, chất cấm, cam kết phi thực tế)
   const severeViolationPatterns = [
-    /\b(lừa đảo|lua dao|scam|ponzi|đa cấp biến tướng)\b/i,
-    /\b(cờ bạc|co bac|tài xỉu|tai xiu|cá độ|betting|casino)\b/i,
-    /\b(khiêu dâm|khieu dam|18\+|porn|đồi trụy|gái gọi)\b/i,
-    /\b(vũ khí|vu khi|súng đạn|thuốc nổ|chất cấm|ma túy)\b/i,
-    /\b(cam kết x100|lợi nhuận 30%|bao lỗ 100%|tiền ảo lậu)\b/i,
+    /(lừa đảo|lua dao|scam|ponzi|đa cấp biến tướng)/i,
+    /(cờ bạc|co bac|tài xỉu|tai xiu|cá độ|betting|casino)/i,
+    /(khiêu dâm|khieu dam|18\+|porn|đồi trụy|gái gọi)/i,
+    /(vũ khí|vu khi|súng đạn|thuốc nổ|chất cấm|ma túy)/i,
+    /(cam kết x100|lợi nhuận 30%|bao lỗ 100%|tiền ảo lậu)/i,
   ];
-
-  const matchedSevere = severeViolationPatterns.filter((p) => p.test(lowerText) || p.test(lowerName));
+  const matchedSevere = severeViolationPatterns.filter((p) => p.test(lowerText) || p.test(normalizedName));
   if (matchedSevere.length > 0) {
     return {
       isValidLegalDocument: false,
       isSubstanceViolation: true,
       category: 'Nội dung tài liệu vi phạm pháp luật / lừa đảo',
-      reason: `Tài liệu đính kèm có dấu hiệu chứa nội dung vi phạm nghiêm trọng hoặc gian lận (${matchedSevere.join(', ')}).`,
+      reason: 'Tài liệu đính kèm có dấu hiệu chứa nội dung vi phạm pháp luật hoặc gian lận.',
     };
   }
 
-  // Các tài liệu thông thường (giới thiệu, syllabus, đề cương, hợp đồng, giấy phép...) đều hợp lệ
+  // 2. Tài liệu LINH TINH / NGỤY TẠO / SÁCH TỪ VỰNG / BÀI TẬP / HỌC TẬP KHÔNG LIÊN QUAN
+  const junkPatterns = [
+    /(sach\s*tu\s*vung|sachtuvung|tu\s*vung|tuvung|vocab|vocabulary|word\s*list|new\s*word|glossary|flashcard)/i,
+    /(minna\s*no\s*nihongo|tieng\s*nhat|tieng\s*han|tieng\s*trung|kanji|hiragana|katakana|jlpt|hsk|toeic|ielts)/i,
+    /(bai\s*tap|baitap|de\s*thi|dethi|trac\s*nghiem|giao\s*trinh|giaotrinh|mon\s*hoc|tieu\s*luan|do\s*an|luan\s*van)/i,
+    /(homework|exercise|lesson\s*\d+|unit\s*\d+|grammar|ngu\s*phap)/i,
+    /(truyen\s*tranh|manga|comic|game\s*guide|cong\s*thuc\s*nau|recipe|cheatsheet)/i,
+  ];
+
+  const matchedJunkName = junkPatterns.some((p) => p.test(normalizedName));
+  const matchedJunkText = junkPatterns.some((p) => p.test(lowerText));
+
+  // Dấu hiệu sách từ vựng / ngữ pháp / đối chiếu từ điển
+  const hasVocabListSigns = /(新出語|word\s*list|new\s*word|ことば|わたし|なまえ|にほん|かんこく|ちゅうごく|tên\s*\(bạn\)|đất nước\s*\(bạn\)|công việc\s*\(của bạn\)|người\s*\(nước nào\)|cho tôi hỏi 1 chút|thế à!|mấy tuổi|ngày mùng|tháng mấy)/i.test(cleanText);
+  const hasCjkWithVocabGloss = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(cleanText) &&
+    /(nghĩa|từ vựng|bài học|ngữ pháp|dịch nghĩa|người \(nước nào\)|xin lỗi\s*\.\.\.\s*cho tôi hỏi|giáo viên|nhân viên văn phòng)/i.test(lowerText);
+
+  if (matchedJunkName || matchedJunkText || hasVocabListSigns || hasCjkWithVocabGloss) {
+    return {
+      isValidLegalDocument: false,
+      isSubstanceViolation: true,
+      category: 'Tài liệu ngụy tạo / Sách từ vựng / Tài liệu học tập linh tinh',
+      reason: 'Tệp đính kèm là sách từ vựng / tài liệu học tập ngoại ngữ, hoàn toàn không phải giấy tờ pháp lý hay kế hoạch tổ chức sự kiện.',
+    };
+  }
+
+  // 3. Tệp rác / quá ngắn / vô nghĩa
+  if (cleanText.length < 35 || /(.)\1{10,}/.test(lowerText)) {
+    return {
+      isValidLegalDocument: false,
+      isSubstanceViolation: true,
+      category: 'Tài liệu rác / placeholder không hợp lệ',
+      reason: 'Tài liệu đính kèm quá ngắn hoặc chứa văn bản vô nghĩa, không có giá trị pháp lý.',
+    };
+  }
+
+  // 4. Kiểm tra xem văn bản có tính chất hành chính / pháp lý / sự kiện hay không
+  const legalEventKeywords = [
+    /(giấy phép|cấp phép|quyết định|công văn|chấp thuận|cho phép|đồng ý)/i,
+    /(ủy ban nhân dân|ubnd|sở văn hóa|bộ văn hóa|bộ thông tin|sở du lịch|cục nghệ thuật|công an|phòng cháy|pccc)/i,
+    /(đăng ký kinh doanh|đkkd|giấy chứng nhận|mã số doanh nghiệp|mã số thuế)/i,
+    /(hợp đồng|thỏa thuận|biên bản|cam kết|ủy quyền)/i,
+    /(kế hoạch tổ chức|phương án|đề án|chương trình sự kiện|kịch bản)/i,
+    /(nhà tổ chức|ban tổ chức|đơn vị tổ chức|địa điểm tổ chức|thời gian diễn ra)/i,
+    /(license|permit|approval|contract|agreement|event plan|proposal|organizer)/i,
+  ];
+  const hasAnyLegalEventSign = legalEventKeywords.some((p) => p.test(lowerText) || p.test(normalizedName));
+
+  if (!hasAnyLegalEventSign && cleanText.length > 60) {
+    return {
+      isValidLegalDocument: false,
+      isSubstanceViolation: true,
+      category: 'Tài liệu không có giá trị pháp lý sự kiện',
+      reason: 'Nội dung tệp không chứa bất kỳ thông tin pháp lý, quyết định chấp thuận, hợp đồng hay kế hoạch tổ chức sự kiện nào.',
+    };
+  }
+
+  // Các tài liệu hợp lệ (giấy phép, công văn, hợp đồng, kế hoạch sự kiện, đề án, giấy chứng nhận...)
   return {
     isValidLegalDocument: true,
     isSubstanceViolation: false,
@@ -149,10 +214,34 @@ function inspectDocumentLegality(extractedText, fileName = '', event = {}) {
 }
 
 /**
+ * Làm sạch các mệnh đề phủ định / khẳng định an toàn trong văn bản mô tả để tránh nhận diện sai (False Positive).
+ * Ví dụ: "không chứa nội dung nhạy cảm", "không có hình ảnh khiêu dâm", "hoàn toàn không có bạo lực", "no nudity"...
+ */
+function stripNegatedSafetyPhrases(text = '') {
+  let cleaned = String(text || '').toLowerCase();
+
+  // 1. Phủ định tiếng Việt: "không / chưa / chẳng / tuyệt đối không / hoàn toàn không / không hề / không có / không chứa / không mang / không phát hiện / không thấy / không vi phạm... [từ nhạy cảm]"
+  const viNegationPattern = /\b(không|chưa|chẳng|tuyệt đối không|hoàn toàn không|không hề|không có|không chứa|không mang|không phát hiện|không thấy|không vi phạm)\s+([^.,;:\n]{0,50}?\s+)?(nhạy cảm|khiêu dâm|đồi trụy|hở hang|khỏa thân|bạo lực|máu me|vũ khí|súng|dao|cờ bạc|lừa đảo|cá cược|18\+|porn|nsfw|nude)\b/gi;
+  cleaned = cleaned.replace(viNegationPattern, ' [an_toàn_hợp_lệ] ');
+
+  // 2. Mệnh đề khẳng định tính an toàn, phù hợp:
+  const safePattern = /\b(an toàn|lành mạnh|hợp lệ|đạt chuẩn|phù hợp|chất lượng tốt)\s*,?\s*(không\s+[^.,;:\n]{0,40})?/gi;
+  cleaned = cleaned.replace(safePattern, ' [an_toàn] ');
+
+  // 3. Phủ định tiếng Anh: "no nudity, safe for work, does not contain porn, without weapons..."
+  const enNegationPattern = /\b(no|not|without|never|free of|free from|does not contain|doesn't have|no visible)\s+([^.,;:\n]{0,40}?\s+)?(nudity|nude|nsfw|porn|erotic|violence|blood|weapon|gun|knife|gambling|scam)\b/gi;
+  cleaned = cleaned.replace(enNegationPattern, ' [safe_content] ');
+
+  return cleaned;
+}
+
+/**
  * Đánh giá an toàn và tính hợp lệ của ảnh / tài liệu từ mô tả Vision AI.
+ * Đảm bảo KHÔNG quá nhạy cảm với 18+/khiêu dâm (tránh gán oan vi phạm cho ảnh bình thường).
  */
 function assessImageSafety(description, source = '') {
-  const desc = String(description || '').toLowerCase();
+  const rawDesc = String(description || '').trim();
+  const desc = rawDesc.toLowerCase();
   const isPermit = typeof source === 'string' && source.startsWith('PERMIT');
 
   if (!desc || desc.length < 15 || desc.includes('không thể tải') || desc.includes('failed to load') || desc.includes('error')) {
@@ -163,14 +252,14 @@ function assessImageSafety(description, source = '') {
     };
   }
 
+  // Loại bỏ các cụm từ phủ định (ví dụ "không chứa nội dung nhạy cảm", "không có khiêu dâm") trước khi thẩm định
+  const sanitizedDesc = stripNegatedSafetyPhrases(desc);
+
   // Đánh giá riêng cho tài liệu đính kèm (Permits/Documents)
   if (isPermit) {
+    // 1. Vi phạm nghiêm trọng pháp luật
     if (
-      desc.includes('lừa đảo') ||
-      desc.includes('cờ bạc') ||
-      desc.includes('khiêu dâm') ||
-      desc.includes('vũ khí') ||
-      desc.includes('vi phạm nghiêm trọng')
+      /\b(lừa đảo tài chính|đa cấp lừa đảo|sòng bạc lậu|khiêu dâm đồi trụy|mua bán vũ khí trái phép)\b/i.test(sanitizedDesc)
     ) {
       return {
         status: 'VIOLATION',
@@ -178,7 +267,28 @@ function assessImageSafety(description, source = '') {
         suggestion: 'Kiểm tra và thay thế tệp tài liệu tuân thủ quy chuẩn của nền tảng.',
       };
     }
-    if (desc.includes('giả mạo') || desc.includes('fraudulent')) {
+    // 2. Tài liệu linh tinh / sách từ vựng / học tập / ngụy tạo giấy phép
+    if (
+      sanitizedDesc.includes('vi phạm nội dung tài liệu') ||
+      sanitizedDesc.includes('vi phạm tài liệu') ||
+      sanitizedDesc.includes('tài liệu ngụy tạo') ||
+      sanitizedDesc.includes('sách từ vựng') ||
+      sanitizedDesc.includes('tài liệu học tập') ||
+      /(sach\s*tu\s*vung|sachtuvung|tu\s*vung|tuvung|vocab|vocabulary|word\s*list|new\s*word)/i.test(sanitizedDesc) ||
+      /(minna\s*no\s*nihongo|tieng\s*nhat|tieng\s*han|tieng\s*trung|kanji|hiragana|katakana)/i.test(sanitizedDesc) ||
+      /(新出語|word\s*list|ことば|わたし|なまえ|にほん)/i.test(sanitizedDesc) ||
+      /(bai\s*tap|baitap|de\s*thi|dethi|trac\s*nghiem|giao\s*trinh|giaotrinh|mon\s*hoc|tieu\s*luan|do\s*an)/i.test(sanitizedDesc) ||
+      /(homework|exercise|grammar|ngu\s*phap|truyen\s*tranh|manga|comic|game\s*guide|recipe)/i.test(sanitizedDesc) ||
+      /(không phải là giấy phép|không có giá trị pháp lý|tài liệu không liên quan|tài liệu linh tinh)/i.test(sanitizedDesc)
+    ) {
+      return {
+        status: 'VIOLATION',
+        issues: ['Tài liệu giấy phép không hợp lệ (nội dung là sách từ vựng / tài liệu học tập linh tinh, không phải giấy tờ pháp lý hay kế hoạch tổ chức sự kiện).'],
+        suggestion: 'Bắt buộc tải lên đúng giấy phép tổ chức, văn bản chấp thuận của cơ quan ban ngành hoặc hợp đồng thuê địa điểm/tổ chức sự kiện.',
+      };
+    }
+    // 3. Nghi vấn giả mạo
+    if (/\b(giả mạo giấy tờ|làm giả con dấu|fraudulent document)\b/i.test(sanitizedDesc)) {
       return {
         status: 'WARNING',
         issues: ['Tài liệu đính kèm có dấu hiệu cần đối chiếu kỹ về tính xác thực.'],
@@ -192,22 +302,53 @@ function assessImageSafety(description, source = '') {
     };
   }
 
-  const violationKeywords = [
-    'nude', 'naked', 'nudity', 'nsfw', 'porn', 'erotic', 'breasts', 'penis', 'vagina', 'bikini', 'underwear',
-    'khỏa thân', 'hở hang', 'khiêu dâm', 'nhạy cảm',
-    'blood', 'gore', 'weapon', 'violence', 'gun', 'knife', 'bạo lực', 'máu me', 'vũ khí', 'súng', 'dao',
-    'gambling', 'casino', 'betting', 'cờ bạc', 'lừa đảo', 'cá cược'
+  // 1. VI PHẠM NGHIÊM TRỌNG (VIOLATION): Chỉ bắt khi THỰC SỰ là nội dung cấm rõ ràng
+  // - Khiêu dâm / Đồi trụy lộ liễu / Khỏa thân toàn phần (KHÔNG bắt nhầm ảnh bikini/đồ bơi lành mạnh hay từ "nhạy cảm"):
+  const explicitSexualPatterns = [
+    /\b(khỏa thân toàn phần|nude toàn thân|khiêu dâm lộ liễu|lộ bộ phận sinh dục|quan hệ tình dục|hành vi tình dục|hardcore porn|explicit nudity|full frontal nudity|ảnh sex|giao cấu)\b/i,
+    /\b(lộ ngực trần|lộ vùng kín|khiêu dâm thô thiển)\b/i
+  ];
+  // - Bạo lực đẫm máu ghê rợn:
+  const violentPatterns = [
+    /\b(bạo lực đẫm máu|máu me be bét|hành vi bạo lực kinh dị|đâm chém dã man|xác chết đẫm máu|gore|extreme violence)\b/i
+  ];
+  // - Cờ bạc cá cược phi pháp trên ảnh:
+  const gamblingPatterns = [
+    /\b(sòng bạc trái phép|đánh bạc online|tài xỉu cá cược lậu|cá độ bóng đá lậu|nạp rút tiền cá cược)\b/i
   ];
 
-  const matchedViolations = violationKeywords.filter((kw) => desc.includes(kw));
-  if (matchedViolations.length > 0) {
+  const hasExplicitSexual = explicitSexualPatterns.some((re) => re.test(sanitizedDesc));
+  const hasExtremeViolence = violentPatterns.some((re) => re.test(sanitizedDesc));
+  const hasGambling = gamblingPatterns.some((re) => re.test(sanitizedDesc));
+
+  if (hasExplicitSexual || hasExtremeViolence || hasGambling) {
+    const violationType = hasExplicitSexual
+      ? 'khiêu dâm / khỏa thân đồi trụy'
+      : hasExtremeViolence
+        ? 'bạo lực đẫm máu'
+        : 'cờ bạc cá cược';
     return {
       status: 'VIOLATION',
-      issues: [`Hình ảnh có dấu hiệu vi phạm chính sách nội dung (${matchedViolations.slice(0, 3).join(', ')}).`],
-      suggestion: 'Bắt buộc thay thế hình ảnh phù hợp và tuân thủ tiêu chuẩn cộng đồng EventHub.',
+      issues: [`Hình ảnh vi phạm chính sách nội dung nghiêm trọng (${violationType}).`],
+      suggestion: 'Bắt buộc gỡ bỏ và thay thế hình ảnh tuân thủ tiêu chuẩn cộng đồng EventHub.',
     };
   }
 
+  // 2. CẢNH BÁO / LƯU Ý (WARNING): Chỉ cảnh báo xem xét, KHÔNG từ chối tự động
+  // - Bán khỏa thân hoặc trang phục quá hở hang cần Admin xem xét ngữ cảnh:
+  const suggestivePatterns = [
+    /\b(bán khỏa thân|trang phục quá hở hang|nửa kín nửa hở|trang phục khêu gợi quá mức|suggestive nudity|topless)\b/i
+  ];
+  const hasSuggestive = suggestivePatterns.some((re) => re.test(sanitizedDesc));
+  if (hasSuggestive) {
+    return {
+      status: 'WARNING',
+      issues: ['Hình ảnh có yếu tố trang phục cần Admin xem xét tính phù hợp với thuần phong mỹ tục.'],
+      suggestion: 'Admin kiểm tra lại hình ảnh có phù hợp với ngữ cảnh sự kiện hay không.',
+    };
+  }
+
+  // Tất cả các ảnh sự kiện, nghệ sĩ, âm nhạc, tiệc hồ bơi, thể thao, hội thảo thông thường -> VALID
   return {
     status: 'VALID',
     issues: [],
@@ -230,48 +371,71 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
 
   const items = imageAnalysisResults.map((img) => {
     const aiItem = aiItems.find((it) => it.source === img.source);
+    const isPermit = Boolean(img.source && img.source.startsWith('PERMIT'));
     const safety = assessImageSafety(img.description, img.source);
 
     let status = safety.status;
     let issues = [...safety.issues];
     let suggestion = safety.suggestion;
-    let analysis = cleanAiOutputText(img.description || (img.source.startsWith('PERMIT') ? 'Đã kiểm tra tài liệu giấy phép qua AI Vision.' : 'Đã kiểm duyệt hình ảnh và OCR bằng AI Vision.'));
+    let analysis = cleanAiOutputText(img.description || (isPermit ? 'Đã kiểm tra tài liệu giấy phép qua AI Vision.' : 'Đã kiểm duyệt hình ảnh và OCR bằng AI Vision.'));
 
-    if (aiItem) {
-      if (aiItem.analysis && aiItem.analysis.length > 10 && !isForeignOrGibberish(aiItem.analysis)) {
-        analysis = cleanAiOutputText(aiItem.analysis);
-      }
-      if (Array.isArray(aiItem.issues) && aiItem.issues.length > 0) {
-        issues = Array.from(new Set([...issues, ...aiItem.issues.map(cleanAiOutputText)]));
-      }
-      if (aiItem.suggestion) {
-        suggestion = cleanAiOutputText(aiItem.suggestion);
-      }
-      if (aiItem.status === 'VIOLATION' || aiItem.status === 'WARNING') {
-        status = aiItem.status;
-      }
-    }
-
-    if (safety.status === 'VIOLATION') {
+    // BẮT BUỘC: Nếu tệp giấy phép bị phát hiện vi phạm bản chất / sách từ vựng / linh tinh
+    if (isPermit && img.isSubstanceViolation) {
       status = 'VIOLATION';
-    } else if (safety.status === 'WARNING' && status === 'VALID') {
-      status = 'WARNING';
-    }
+      const catReason = img.detectedCategory || 'sách từ vựng / tài liệu học tập ngoại ngữ / tài liệu rác linh tinh';
+      issues = [`Tài liệu giấy phép không hợp lệ: Phát hiện nội dung là ${catReason}, không phải giấy tờ pháp lý hay kế hoạch tổ chức sự kiện.`];
+      suggestion = 'Bắt buộc gỡ bỏ và tải lên đúng giấy phép tổ chức được cơ quan có thẩm quyền cấp, hoặc hợp đồng thuê địa điểm/tổ chức sự kiện.';
+      analysis = `[VI PHẠM TÀI LIỆU GIẤY PHÉP]: Tệp '${img.fileName || 'Tài liệu'}' không có giá trị pháp lý sự kiện (nội dung phát hiện là ${catReason}).`;
+    } else {
+      if (aiItem) {
+        if (aiItem.analysis && aiItem.analysis.length > 10 && !isForeignOrGibberish(aiItem.analysis)) {
+          analysis = cleanAiOutputText(aiItem.analysis);
+        }
+        if (Array.isArray(aiItem.issues) && aiItem.issues.length > 0) {
+          issues = Array.from(new Set([...issues, ...aiItem.issues.map(cleanAiOutputText)]));
+        }
+        if (aiItem.suggestion) {
+          suggestion = cleanAiOutputText(aiItem.suggestion);
+        }
+        if (aiItem.status === 'VIOLATION') {
+          // Kiểm chứng tính chính xác: LLM chỉ được gắn VIOLATION nếu thực sự có vi phạm an toàn
+          const aiSafety = assessImageSafety(`${aiItem.analysis || ''} ${(aiItem.issues || []).join(' ')}`, img.source);
+          if (safety.status === 'VIOLATION' || aiSafety.status === 'VIOLATION') {
+            status = 'VIOLATION';
+          } else {
+            // Nếu LLM quá nhạy cảm gán VIOLATION cho ảnh bình thường -> hạ xuống WARNING để Admin xem xét
+            status = 'WARNING';
+            if (issues.length === 0) {
+              issues.push('AI ghi nhận cần lưu ý thêm về nội dung.');
+            }
+          }
+        } else if (aiItem.status === 'WARNING') {
+          status = 'WARNING';
+        }
+      }
 
-    // Bảo đảm analysis luôn sạch sẽ, chuẩn tiếng Việt và không bị rỗng sau khi lọc
-    if (isForeignOrGibberish(analysis) || analysis.length < 15) {
-      const sourceName = img.source === 'MAIN_POSTER'
-        ? 'Ảnh đại diện chính (Poster)'
-        : img.source === 'COVER_BANNER'
-          ? 'Ảnh bìa (Cover Banner)'
-          : img.source.startsWith('PERMIT')
-            ? 'Tài liệu giấy phép'
-            : 'Ảnh trong bài viết mô tả';
-      analysis = `${sourceName} có bố cục trực quan rõ nét, chủ đề phù hợp và không chứa nội dung nhạy cảm hay vi phạm quy định.`;
+      if (safety.status === 'VIOLATION') {
+        status = 'VIOLATION';
+      } else if (safety.status === 'WARNING' && status === 'VALID') {
+        status = 'WARNING';
+      }
+
+      // Bảo đảm analysis luôn sạch sẽ, chuẩn tiếng Việt và không bị rỗng sau khi lọc
+      if (isForeignOrGibberish(analysis) || analysis.length < 15) {
+        const sourceName = img.source === 'MAIN_POSTER'
+          ? 'Ảnh đại diện chính (Poster)'
+          : img.source === 'COVER_BANNER'
+            ? 'Ảnh bìa (Cover Banner)'
+            : isPermit
+              ? 'Tài liệu giấy phép'
+              : 'Ảnh trong bài viết mô tả';
+        analysis = `${sourceName} có bố cục trực quan rõ nét, thiết kế phù hợp với chủ đề và đảm bảo tiêu chuẩn chất lượng.`;
+      }
     }
 
     return {
       source: img.source,
+      fileName: img.fileName || '',
       status,
       analysis,
       issues,
@@ -300,17 +464,19 @@ function sanitizeCompliantChecks({
   imageReview = null,
 }) {
   const allViolations = [...criticalViolations, ...yellowWarnings];
-
-  // 1. Kiểm tra giấy phép
-  const hasNoPermit = permitFiles.length === 0;
-  const hasPermitViolation = hasNoPermit || allViolations.some((v) =>
-    v.policy_code === 'TERMS_ORGANIZER' && /giấy phép|pháp lý|permit/i.test(v.issue)
-  );
-
-  // 2. Kiểm tra trạng thái duyệt thực tế của AI đối với từng ảnh:
-  // "Không phải cứ có ảnh post lên là đạt chuẩn. Chỉ khi AI quét nội dung không vi phạm mới được gọi là đạt."
   const imageItems = Array.isArray(imageReview?.items) ? imageReview.items : [];
 
+  // 1. Kiểm tra giấy phép
+  const permitItems = imageItems.filter((it) => it.source && it.source.startsWith('PERMIT'));
+  const hasPermitItemViolation = permitItems.some((it) => it.status !== 'VALID' || (Array.isArray(it.issues) && it.issues.length > 0));
+  const hasPermitViolationInList = allViolations.some((v) =>
+    /giấy phép|pháp lý|permit|sách từ vựng|tài liệu đính kèm|tài liệu/i.test(v.issue) ||
+    v.policy_code === 'LEGAL_PERMIT_AUTHENTICITY' ||
+    v.policy_code === 'INVALID_PERMIT_DOCUMENT'
+  );
+  const hasPermitViolation = (permitFiles.length === 0) || hasPermitItemViolation || hasPermitViolationInList;
+
+  // 2. Kiểm tra trạng thái duyệt thực tế của AI đối với từng ảnh:
   const posterItem = imageItems.find((it) => it.source === 'MAIN_POSTER');
   const isPosterVerifiedSafe = Boolean(
     hasThumbnail &&
@@ -355,7 +521,7 @@ function sanitizeCompliantChecks({
     if (!check || typeof check !== 'string') return false;
     const lower = check.toLowerCase();
 
-    // Nếu không có giấy phép hoặc có lỗi giấy phép -> CẤM khen giấy phép
+    // Nếu không có giấy phép hoặc có lỗi giấy phép -> CẤM khen giấy phép / tài liệu
     if (hasPermitViolation && (lower.includes('giấy phép') || lower.includes('pháp lý') || lower.includes('permit') || lower.includes('tài liệu'))) {
       return false;
     }
@@ -393,8 +559,13 @@ function sanitizeCompliantChecks({
     return true;
   });
 
-  // Nếu thực sự có giấy phép và không có lỗi giấy phép mà danh sách chưa có -> bổ sung
-  if (!hasPermitViolation && permitFiles.length > 0 && !filtered.some((c) => /giấy phép|pháp lý/i.test(c))) {
+  // Chỉ bổ sung nếu THỰC SỰ có giấy phép và 100% giấy phép được AI xác nhận VALID không có bất kỳ lỗi nào
+  const isPermitTrulyVerified = permitFiles.length > 0 &&
+    permitItems.length > 0 &&
+    permitItems.every((it) => it.status === 'VALID' && (!it.issues || it.issues.length === 0)) &&
+    !hasPermitViolation;
+
+  if (isPermitTrulyVerified && !filtered.some((c) => /giấy phép|pháp lý|tài liệu/i.test(c))) {
     filtered.push(`Đã đính kèm giấy phép tổ chức hợp lệ (${permitFiles.length} tài liệu)`);
   }
 
@@ -952,7 +1123,7 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
       const aiResponse = await ollamaClient.chat(messages, {
         temperature: 0.15,
         max_tokens: 900,
-        num_ctx: 16384,
+        num_ctx: ollamaClient.OLLAMA_NUM_CTX,
         signal: effectiveSignal,
       });
 
@@ -960,8 +1131,6 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
       const parsedJson = ollamaClient.extractJSON(aiResponse.content);
 
       if (parsedJson && (parsedJson.decision || parsedJson.recommendation)) {
-        recommendation = parsedJson.decision || parsedJson.recommendation;
-
         let criticalViolations = (Array.isArray(parsedJson.critical_violations) ? parsedJson.critical_violations : [])
           .filter((v) => v && v.issue && !/^<.*>$/i.test(v.issue.trim()));
         let yellowWarnings = (Array.isArray(parsedJson.warnings) ? parsedJson.warnings : [])
@@ -973,11 +1142,11 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
           ? parsedJson.suggestions
           : [];
 
-        // 1. Kiểm tra tài liệu đính kèm (nếu có): Chỉ bắt lỗi khi nội dung là tài liệu spam/phi pháp lý
+        // 1. Kiểm tra tài liệu đính kèm (nếu có): Bắt lỗi khi nội dung là tài liệu spam / sách từ vựng / phi pháp lý
         imageAnalysisResults.forEach((imgRes) => {
           if (imgRes.source && imgRes.source.startsWith('PERMIT') && imgRes.isSubstanceViolation) {
-            const issueMsg = `Tệp tài liệu "${imgRes.fileName || 'tài liệu'}" có dấu hiệu không liên quan đến sự kiện (phát hiện nội dung là ${imgRes.detectedCategory || 'tài liệu học tập/từ vựng/phi pháp lý'}).`;
-            if (!criticalViolations.some((v) => v.issue.includes(imgRes.fileName || 'không liên quan'))) {
+            const issueMsg = `Tài liệu giấy phép "${imgRes.fileName || 'tài liệu'}" không hợp lệ (phát hiện nội dung là ${imgRes.detectedCategory || 'sách từ vựng / tài liệu học tập / tài liệu rác linh tinh'}).`;
+            if (!criticalViolations.some((v) => v.issue.includes(imgRes.fileName || 'không hợp lệ'))) {
               criticalViolations.unshift({
                 policy_code: activeCodes.has('LEGAL_PERMIT_AUTHENTICITY') ? 'LEGAL_PERMIT_AUTHENTICITY' : 'TERMS_ORGANIZER',
                 issue: issueMsg,
@@ -986,10 +1155,6 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
             }
           }
         });
-
-        if (permitFiles.length > 0 && !imageAnalysisResults.some((r) => r.source?.startsWith('PERMIT') && r.isSubstanceViolation)) {
-          compliantChecks.push(`Đã đính kèm ${permitFiles.length} tài liệu hợp lệ`);
-        }
 
         // 2. Kiểm tra Poster chính (nếu IMAGE_POLICY đang kích hoạt)
         if (activeCodes.has('IMAGE_POLICY')) {
@@ -1012,20 +1177,14 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
         }
 
         // 4. Lọc bỏ cảnh báo không hợp lý về ảnh:
-        // - Ảnh trong mô tả là tùy chọn -> KHÔNG bao giờ coi việc thiếu ảnh mô tả là warning/violation
-        // - Chỉ lọc bỏ cảnh báo "thiếu ảnh" nếu thực tế đã có ảnh đó
-        // - GIỮ NGUYÊN các cảnh báo do Vision AI phát hiện (không khớp nội dung, chữ sai lệch, ảnh vi phạm...)
         yellowWarnings = yellowWarnings.filter((w) => {
           if (w.policy_code === 'IMAGE_POLICY') {
-            // Không cảnh báo thiếu ảnh trong mô tả
             if (/mô tả|bài viết/i.test(w.issue) && /thiếu|chưa có|không có|bổ sung ảnh/i.test(w.issue)) {
               return false;
             }
-            // Nếu đã có thumbnail/poster thì không cảnh báo thiếu thumbnail
             if (hasThumbnail && /chưa có ảnh đại diện|thiếu ảnh đại diện|chưa có thumbnail|thiếu poster|chưa có poster/i.test(w.issue)) {
               return false;
             }
-            // Nếu đã có banner thì không cảnh báo thiếu banner
             if (hasBanner && /chưa có ảnh bìa|thiếu ảnh bìa|chưa có banner/i.test(w.issue)) {
               return false;
             }
@@ -1040,16 +1199,80 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
           return true;
         });
 
-        // 5. RÀNG BUỘC CỐT LÕI: Vi phạm điều khoản BẮT BUỘC (CRITICAL) -> BẮT BUỘC REJECT (KHÔNG ĐƯỢC DUYỆT)
+        // 5. ĐỒNG BỘ KẾT QUẢ KIỂM DUYỆT HÌNH ẢNH & TÀI LIỆU VÀO CRITICAL VIOLATIONS & WARNINGS:
+        // Đảm bảo image_review luôn được kiểm chứng đa chiều giữa Vision quét thực tế và nhận định từ LLM
+        const finalImageReview = buildValidatedImageReview(imageAnalysisResults, parsedJson.image_review);
+
+        // Đưa tất cả vi phạm từ hình ảnh và tài liệu vào criticalViolations
+        const violatingImages = (finalImageReview.items || []).filter((it) => it.status === 'VIOLATION');
+        violatingImages.forEach((img) => {
+          const isPermitDoc = Boolean(img.source && img.source.startsWith('PERMIT'));
+          const sourceName = img.source === 'MAIN_POSTER'
+            ? 'Ảnh đại diện chính (Main Poster)'
+            : img.source === 'COVER_BANNER'
+              ? 'Ảnh bìa (Cover Banner)'
+              : isPermitDoc
+                ? 'Tài liệu giấy phép'
+                : `Ảnh mô tả (${img.source})`;
+          const issueMsg = (img.issues && img.issues.length > 0)
+            ? img.issues.join('; ')
+            : (isPermitDoc ? 'Tài liệu giấy phép đính kèm không hợp lệ hoặc chứa nội dung rác/linh tinh.' : 'Hình ảnh chứa nội dung vi phạm tiêu chuẩn cộng đồng EventHub.');
+          const policyCode = isPermitDoc
+            ? (activeCodes.has('LEGAL_PERMIT_AUTHENTICITY') ? 'LEGAL_PERMIT_AUTHENTICITY' : 'TERMS_ORGANIZER')
+            : 'IMAGE_POLICY';
+          const prefix = isPermitDoc ? '[Vi phạm tài liệu giấy phép]' : '[Vi phạm hình ảnh]';
+
+          if (!criticalViolations.some((v) => v.issue.includes(img.source) || (img.issues && img.issues[0] && v.issue.includes(img.issues[0])))) {
+            criticalViolations.unshift({
+              policy_code: policyCode,
+              issue: `${prefix} ${sourceName}: ${issueMsg}`,
+              highlighted_text: img.analysis ? img.analysis.slice(0, 160) : '',
+            });
+          }
+        });
+
+        // Đưa các ảnh/tài liệu có cảnh báo vào yellowWarnings
+        const warningImages = (finalImageReview.items || []).filter((it) => it.status === 'WARNING');
+        warningImages.forEach((img) => {
+          const isPermitDoc = Boolean(img.source && img.source.startsWith('PERMIT'));
+          const sourceName = img.source === 'MAIN_POSTER'
+            ? 'Ảnh đại diện chính (Main Poster)'
+            : img.source === 'COVER_BANNER'
+              ? 'Ảnh bìa (Cover Banner)'
+              : isPermitDoc
+                ? 'Tài liệu giấy phép'
+                : `Ảnh mô tả (${img.source})`;
+          const issueMsg = (img.issues && img.issues.length > 0)
+            ? img.issues.join('; ')
+            : (isPermitDoc ? 'Tài liệu giấy phép cần đối chiếu thêm.' : 'Hình ảnh cần đối chiếu thêm về chất lượng và tính phù hợp.');
+          const policyCode = isPermitDoc
+            ? (activeCodes.has('LEGAL_PERMIT_AUTHENTICITY') ? 'LEGAL_PERMIT_AUTHENTICITY' : 'TERMS_ORGANIZER')
+            : 'IMAGE_POLICY';
+          const prefix = isPermitDoc ? '[Lưu ý tài liệu giấy phép]' : '[Lưu ý hình ảnh]';
+
+          if (!criticalViolations.some((v) => v.issue.includes(img.source)) &&
+              !yellowWarnings.some((w) => w.issue.includes(img.source))) {
+            yellowWarnings.push({
+              policy_code: policyCode,
+              issue: `${prefix} ${sourceName}: ${issueMsg}`,
+              highlighted_text: img.analysis ? img.analysis.slice(0, 160) : '',
+            });
+          }
+        });
+
+        // 6. RÀNG BUỘC CỐT LÕI: ĐÁNH GIÁ 3 ĐỀ XUẤT (APPROVE / REJECT / NEEDS_REVIEW) DỰA THEO KẾT QUẢ THỰC TẾ
         if (criticalViolations.length > 0) {
+          // BẮT BUỘC: Có vi phạm điều khoản bắt buộc hoặc hình ảnh vi phạm nghiêm trọng -> TUYỆT ĐỐI REJECT (KHÔNG ĐƯỢC APPROVE)
           recommendation = 'REJECT';
         } else if (yellowWarnings.length > 0) {
+          // Có cảnh báo cần xem xét -> NEEDS_REVIEW
           recommendation = 'NEEDS_REVIEW';
         } else {
+          // Không có vi phạm và không có cảnh báo -> APPROVE
           recommendation = 'APPROVE';
         }
 
-        // 6. ĐÁNH GIÁ TRỪ ĐIỂM LINH HOẠT THEO MỨC ĐỘ NGHIÊM TRỌNG CỦA ĐIỀU KHOẢN VI PHẠM
+        // 7. ĐÁNH GIÁ TRỪ ĐIỂM LINH HOẠT THEO MỨC ĐỘ NGHIÊM TRỌNG CỦA ĐIỀU KHOẢN VI PHẠM
         let calculatedQuality = 100;
         calculatedQuality -= (criticalViolations.length * 45); // Mỗi vi phạm bắt buộc trừ 45 điểm
         calculatedQuality -= (yellowWarnings.length * 15);     // Mỗi cảnh báo lưu ý trừ 15 điểm
@@ -1074,38 +1297,47 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
         let finalQualityScore = Math.min(parsedQuality, calculatedQuality);
         let finalRiskScore = Math.max(parsedRisk, calculatedRisk);
 
-        // ÉP RÀNG BUỘC THEO ĐIỀU KHOẢN BẮT BUỘC & ĐIỂM SỐ:
-        if (criticalViolations.length > 0) {
-          // BẮT BUỘC: Khi vi phạm điều khoản bắt buộc -> TUYỆT ĐỐI KHÔNG ĐƯỢC DUYỆT (REJECT)
-          recommendation = 'REJECT';
-          finalQualityScore = Math.min(finalQualityScore, 50);
-          finalRiskScore = Math.max(finalRiskScore, 75);
-        } else if (yellowWarnings.length > 0) {
-          // Có cảnh báo lưu ý -> Cần Admin xem xét
-          recommendation = (finalRiskScore >= 35 || finalQualityScore < 75 || yellowWarnings.length >= 2)
-            ? 'NEEDS_REVIEW'
-            : (parsedJson.decision === 'APPROVE' ? 'APPROVE' : 'NEEDS_REVIEW');
-          finalQualityScore = Math.min(finalQualityScore, 85);
-          finalRiskScore = Math.max(finalRiskScore, 15);
+        // ÉP RÀNG BUỘC ĐỒNG BỘ ĐIỂM SỐ THEO ĐỀ XUẤT PHÊ DUYỆT:
+        if (recommendation === 'REJECT') {
+          // Đã REJECT do vi phạm bắt buộc thì điểm rủi ro BẮT BUỘC cao và chất lượng BẮT BUỘC thấp
+          finalRiskScore = Math.max(finalRiskScore, 80);
+          finalQualityScore = Math.min(finalQualityScore, 40);
+        } else if (recommendation === 'NEEDS_REVIEW') {
+          finalRiskScore = Math.max(finalRiskScore, 30);
+          finalQualityScore = Math.min(finalQualityScore, 75);
         } else {
-          // Không có vi phạm bắt buộc, không có cảnh báo -> Phê duyệt (APPROVE)
-          recommendation = 'APPROVE';
-          finalQualityScore = Math.min(100, Math.max(75, finalQualityScore));
-          finalRiskScore = Math.max(0, Math.min(25, finalRiskScore));
+          // Đã APPROVE thì điểm rủi ro BẮT BUỘC an toàn và chất lượng BẮT BUỘC cao
+          finalRiskScore = Math.min(finalRiskScore, 20);
+          finalQualityScore = Math.max(finalQualityScore, 85);
         }
 
         finalQualityScore = Math.max(0, Math.min(100, finalQualityScore));
         finalRiskScore = Math.max(0, Math.min(100, finalRiskScore));
 
-        // 7. Ảnh trong mô tả: Nếu chưa có -> thêm vào gợi ý (suggestions)
+        // 8. TÓM TẮT ĐÁNH GIÁ (SUMMARY) PHẢI ĐỒNG BỘ TUYỆT ĐỐI VỚI QUYẾT ĐỊNH:
+        let summary = parsedJson.summary || '';
+        if (recommendation === 'REJECT') {
+          if (!summary || /tuân thủ|hợp lệ|đạt chuẩn|phê duyệt/i.test(summary)) {
+            const firstViolations = criticalViolations.map((v) => v.issue).slice(0, 2).join('; ');
+            summary = `Sự kiện bị từ chối phê duyệt do vi phạm điều khoản bắt buộc (${firstViolations}).`;
+          }
+        } else if (recommendation === 'NEEDS_REVIEW') {
+          if (!summary || /tuân thủ tốt|đạt chuẩn|phê duyệt hoàn toàn/i.test(summary)) {
+            const firstWarnings = yellowWarnings.map((w) => w.issue).slice(0, 2).join('; ');
+            summary = `Sự kiện cần xem xét điều chỉnh một số điểm trước khi phê duyệt (${firstWarnings}).`;
+          }
+        } else {
+          if (!summary) {
+            summary = 'Sự kiện tuân thủ đầy đủ các chính sách và tiêu chuẩn của EventHub, đề xuất phê duyệt.';
+          }
+        }
+
+        // 9. Ảnh trong mô tả: Nếu chưa có -> thêm vào gợi ý (suggestions)
         if (!hasDescImages && !suggestions.some((s) => /mô tả|minh họa/i.test(s))) {
           suggestions.push('Gợi ý bổ sung thêm hình ảnh minh họa bên trong phần mô tả chi tiết để người xem dễ hình dung và tăng tính hấp dẫn cho sự kiện.');
         }
 
-        // Đảm bảo image_review luôn được kiểm chứng đa chiều giữa Vision quét thực tế và nhận định từ LLM
-        const finalImageReview = buildValidatedImageReview(imageAnalysisResults, parsedJson.image_review);
-
-        // Sanitize compliant checks để triệt tiêu mọi mâu thuẫn (CHỈ khen ảnh khi AI Vision thực sự quét và xác nhận đạt chuẩn)
+        // 10. Sanitize compliant checks để triệt tiêu mọi mâu thuẫn (CHỈ khen ảnh khi AI Vision thực sự quét và xác nhận đạt chuẩn)
         compliantChecks = sanitizeCompliantChecks({
           compliantChecks,
           criticalViolations,
@@ -1127,7 +1359,7 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
 
         // Store rich object into DB (xóa sạch toàn bộ URL thô / base64 khỏi tất cả các trường text)
         const rawSavedData = {
-          summary: parsedJson.summary || (recommendation === 'APPROVE' ? 'Sự kiện tuân thủ tốt các chính sách EventHub.' : (recommendation === 'REJECT' ? 'Sự kiện vi phạm điều khoản bắt buộc, không đủ điều kiện phê duyệt.' : 'Cần xem xét các lưu ý trước khi phê duyệt.')),
+          summary,
           risk_score: finalRiskScore,
           quality_score: finalQualityScore,
           compliant_checks: compliantChecks,
@@ -1325,6 +1557,51 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
         ? buildValidatedImageReview(imageAnalysisResults)
         : null;
 
+      if (fallbackImageReview) {
+        const fallbackViolatingImages = (fallbackImageReview.items || []).filter((it) => it.status === 'VIOLATION');
+        fallbackViolatingImages.forEach((img) => {
+          const sourceName = img.source === 'MAIN_POSTER'
+            ? 'Ảnh đại diện chính (Main Poster)'
+            : img.source === 'COVER_BANNER'
+              ? 'Ảnh bìa (Cover Banner)'
+              : img.source.startsWith('PERMIT')
+                ? 'Tài liệu giấy phép'
+                : `Ảnh mô tả (${img.source})`;
+          const issueMsg = (img.issues && img.issues.length > 0)
+            ? img.issues.join('; ')
+            : 'Hình ảnh chứa nội dung vi phạm tiêu chuẩn cộng đồng EventHub.';
+          if (!criticalViolations.some((v) => v.issue.includes(img.source))) {
+            criticalViolations.unshift({
+              policy_code: 'IMAGE_POLICY',
+              issue: `[Vi phạm hình ảnh] ${sourceName}: ${issueMsg}`,
+              highlighted_text: img.analysis ? img.analysis.slice(0, 120) : '',
+            });
+          }
+        });
+
+        const fallbackWarningImages = (fallbackImageReview.items || []).filter((it) => it.status === 'WARNING');
+        fallbackWarningImages.forEach((img) => {
+          const sourceName = img.source === 'MAIN_POSTER'
+            ? 'Ảnh đại diện chính (Main Poster)'
+            : img.source === 'COVER_BANNER'
+              ? 'Ảnh bìa (Cover Banner)'
+              : img.source.startsWith('PERMIT')
+                ? 'Tài liệu giấy phép'
+                : `Ảnh mô tả (${img.source})`;
+          const issueMsg = (img.issues && img.issues.length > 0)
+            ? img.issues.join('; ')
+            : 'Hình ảnh cần đối chiếu thêm về chất lượng và tính phù hợp.';
+          if (!criticalViolations.some((v) => v.issue.includes(img.source)) &&
+              !yellowWarnings.some((w) => w.issue.includes(img.source))) {
+            yellowWarnings.push({
+              policy_code: 'IMAGE_POLICY',
+              issue: `[Lưu ý hình ảnh] ${sourceName}: ${issueMsg}`,
+              highlighted_text: img.analysis ? img.analysis.slice(0, 120) : '',
+            });
+          }
+        });
+      }
+
       // Sanitize compliant checks để triệt tiêu mọi mâu thuẫn (CHỈ khen ảnh khi AI Vision thực sự quét và xác nhận đạt chuẩn)
       compliantChecks = sanitizeCompliantChecks({
         compliantChecks,
@@ -1350,16 +1627,16 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
 
       if (criticalViolations.length > 0) {
         recommendation = 'REJECT';
-        finalQualityScore = Math.min(finalQualityScore, 50);
-        finalRiskScore = Math.max(finalRiskScore, 75);
+        finalQualityScore = Math.min(finalQualityScore, 40);
+        finalRiskScore = Math.max(finalRiskScore, 80);
       } else if (yellowWarnings.length > 0) {
         recommendation = 'NEEDS_REVIEW';
         finalQualityScore = Math.min(finalQualityScore, 75);
         finalRiskScore = Math.max(finalRiskScore, 30);
       } else {
         recommendation = 'APPROVE';
-        finalQualityScore = Math.max(75, finalQualityScore);
-        finalRiskScore = Math.min(25, finalRiskScore);
+        finalQualityScore = Math.max(80, finalQualityScore);
+        finalRiskScore = Math.min(20, finalRiskScore);
         compliantChecks.push('Không phát hiện từ khóa vi phạm hoặc gian lận thanh toán');
       }
 

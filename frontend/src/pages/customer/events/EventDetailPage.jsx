@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
+import { getResumeBookingPath, hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -188,7 +188,7 @@ export function EventDetailPage() {
     setSelectedSessionId((current) => (String(current) === String(sessionId) ? null : sessionId))
   }
 
-  const activeDraft = readBookingDraft()
+  const activeDraft = readBookingDraft(event?.id)
   const isHoldingForThisEvent = Boolean(
     hasActiveSeatHold(activeDraft) &&
     event &&
@@ -234,11 +234,20 @@ export function EventDetailPage() {
       String(activeDraft?.selectedSession?.id) === String(selectedSession.id)
     )
 
-    const cartToPass = hasMatchingHold ? { ...baseCart, ...activeDraft } : baseCart
+    if (hasMatchingHold) {
+      const cartToPass = { ...baseCart, ...activeDraft }
+      const targetPath = getResumeBookingPath(cartToPass)
+      navigate(targetPath, {
+        state: {
+          cart: cartToPass,
+        },
+      })
+      return
+    }
 
     navigate('/booking/seats', {
       state: {
-        cart: cartToPass,
+        cart: baseCart,
       },
     })
   }

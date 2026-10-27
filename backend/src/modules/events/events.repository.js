@@ -28,6 +28,7 @@ const EVENT_CARD_SELECT = `
   c.slug AS category_slug,
   organizer.id AS organizer_id,
   COALESCE(organizer.organization_name, organizer_user.full_name) AS organizer_name,
+  COALESCE(organizer.organization_avatar_url, organizer_user.avatar_url) AS organizer_avatar_url,
   venue_summary.venue_name,
   venue_summary.city,
   venue_summary.district,
@@ -184,6 +185,25 @@ class EventsRepository {
     `;
     const { rows } = await db.query(query);
     return rows;
+  }
+
+  async findPublicOrganizers() {
+    const query = `
+      SELECT DISTINCT ON (o.id)
+        o.id,
+        COALESCE(o.organization_name, u.full_name, 'Ban tổ chức') AS name,
+        COALESCE(o.organization_avatar_url, u.avatar_url) AS avatar_url,
+        COUNT(e.id)::int AS event_count
+      FROM organizers o
+      LEFT JOIN users u ON u.id = o.user_id
+      LEFT JOIN events e ON e.organizer_id = o.id AND e.status = 'PUBLISHED' AND e.deleted_at IS NULL
+      WHERE o.status = 'ACTIVE'
+      GROUP BY o.id, o.organization_name, u.full_name, o.organization_avatar_url, u.avatar_url
+      ORDER BY o.id, event_count DESC
+      LIMIT 15
+    `;
+    const { rows } = await db.query(query);
+    return rows.sort((a, b) => b.event_count - a.event_count);
   }
 
   async findPublicEvents(filters) {

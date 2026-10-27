@@ -9,6 +9,7 @@ const router = express.Router();
 router.get('/', optionalAuth, eventsController.getPublicEvents);
 
 router.get('/categories', eventsController.getPublicCategories);
+router.get('/organizers', eventsController.getPublicOrganizers);
 router.get('/sessions/:sessionId/seats', eventsController.getSessionSeats);
 router.post('/availability/check', protect, eventsController.checkTicketAvailability);
 router.post('/availability/hold', protect, eventsController.holdSeats);

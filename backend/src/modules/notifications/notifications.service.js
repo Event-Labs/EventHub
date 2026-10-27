@@ -88,9 +88,9 @@ class NotificationsService {
     if (options.email) {
       await sendEmailSafely({
         email: options.email,
-        subject: payload.title,
-        message: payload.content,
-        html: `<p>${payload.content.replace(/\n/g, '<br />')}</p>`,
+        subject: options.subject || payload.title,
+        message: options.message || payload.content,
+        html: options.html || `<p>${payload.content.replace(/\n/g, '<br />')}</p>`,
       });
     }
 

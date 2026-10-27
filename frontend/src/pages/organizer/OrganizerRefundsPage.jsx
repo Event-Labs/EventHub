@@ -172,7 +172,7 @@ export function OrganizerRefundsPage() {
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Vé / Người mua</th>
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Số tiền hoàn</th>
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Lý do</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap">Trạng thái</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D] whitespace-nowrap text-center">Thao tác</th>
                     </tr>
                   </thead>
@@ -202,8 +202,10 @@ export function OrganizerRefundsPage() {
                             {item.reason}
                           </p>
                         </td>
-                        <td className="whitespace-nowrap px-3.5 py-3">
-                          {getStatusBadge(item.status)}
+                        <td className="whitespace-nowrap px-3.5 py-3 !text-left" style={{ textAlign: 'left' }}>
+                          <div className="flex items-center justify-start text-left">
+                            {getStatusBadge(item.status)}
+                          </div>
                         </td>
                         <td className="whitespace-nowrap px-3.5 py-3 text-center">
                           <div className="flex items-center justify-center">
