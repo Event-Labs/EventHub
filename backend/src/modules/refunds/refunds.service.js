@@ -6,6 +6,7 @@ const refundsRepository = require('./refunds.repository');
 const refundRuleEngine = require('./refundRuleEngine');
 const payosRefundService = require('./payosRefund.service');
 const notificationsService = require('../notifications/notifications.service');
+const { buildRefundConfirmationEmail } = require('./refundConfirmationEmail.service');
 
 class RefundsService {
   /**
@@ -429,6 +430,10 @@ class RefundsService {
 
         // Notify customer of successful refund asynchronously in background (no delay for HTTP response)
         setImmediate(() => {
+          const emailData = buildRefundConfirmationEmail(refund, updated, {
+            refundMethod: payload.refund_method,
+          });
+
           notificationsService
             .createAndDispatch(
               {
@@ -438,7 +443,12 @@ class RefundsService {
                 content: `Yêu cầu hoàn tiền vé ${refund.ticket_code || 'đơn ' + refund.order_code} đã hoàn tất. Số tiền: ${Number(updated.refund_amount).toLocaleString('vi-VN')} VND.`,
                 type: 'PAYMENT',
               },
-              { email: refund.customer_email },
+              {
+                email: refund.customer_email,
+                subject: emailData.subject,
+                message: emailData.text,
+                html: emailData.html,
+              },
             )
             .catch((err) => logger.warn(`[NOTIFY_REFUND_SUCCESS_FAIL] ${err.message}`));
         });
