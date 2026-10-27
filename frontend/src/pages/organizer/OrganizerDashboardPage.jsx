@@ -317,8 +317,8 @@ function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEna
             const fill = isHovered
               ? 'url(#barGradientHover)'
               : isHighest
-              ? 'url(#barGradientPeak)'
-              : 'url(#barGradientNormal)'
+                ? 'url(#barGradientPeak)'
+                : 'url(#barGradientNormal)'
 
             return (
               <g
@@ -1418,7 +1418,7 @@ export function OrganizerDashboardPage() {
                         </p>
                         <p className="mt-1 text-[11px] text-slate-400">
                           {financialSummary.intelligence.inventory_pacing?.days_until_event !== null &&
-                          financialSummary.intelligence.inventory_pacing?.days_until_event !== undefined
+                            financialSummary.intelligence.inventory_pacing?.days_until_event !== undefined
                             ? `Còn ${financialSummary.intelligence.inventory_pacing.days_until_event} ngày`
                             : 'Không giới hạn'}
                         </p>
