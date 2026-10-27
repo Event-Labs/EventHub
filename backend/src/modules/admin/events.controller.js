@@ -1,5 +1,6 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const eventsAdminService = require('./events.service');
+const eventBusinessRulesService = require('../events/eventBusinessRules.service');
 const { fetchDocumentContent } = require('../../common/utils/htmlImageParser.util');
 const {
   eventIdSchema,
@@ -48,6 +49,86 @@ class EventsAdminController {
       const { eventId } = eventIdSchema.parse(req.params);
       const data = await eventsAdminService.unhideEvent(req.user.sub, eventId);
       res.status(200).json(ApiResponse.success(data, 'Event restored successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  suspendEvent = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const data = await eventBusinessRulesService.suspendEvent(req.user.sub, eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã đình chỉ sự kiện thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  unsuspendEvent = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const data = await eventBusinessRulesService.unsuspendEvent(req.user.sub, eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã gỡ đình chỉ sự kiện thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  reviewRevision = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const { decision, note } = req.body || {};
+      if (!['APPROVE', 'REJECT'].includes(decision)) {
+        throw new AppError('Quyết định kiểm duyệt phải là APPROVE hoặc REJECT', 400, ErrorCodes.INVALID_INPUT);
+      }
+      const data = await eventBusinessRulesService.reviewRevision(req.user.sub, eventId, { decision, note });
+      res.status(200).json(ApiResponse.success(data, decision === 'APPROVE' ? 'Đã phê duyệt bản sửa đổi thành công' : 'Đã từ chối bản sửa đổi'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  approveCancellationRequest = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      if (req.body?.decision === 'REJECT') {
+        const note = req.body?.rejection_reason || req.body?.note || '';
+        const data = await eventBusinessRulesService.rejectCancellationRequest(req.user.sub, eventId, { note });
+        return res.status(200).json(ApiResponse.success(data, 'Đã từ chối yêu cầu hủy sự kiện'));
+      }
+      const data = await eventBusinessRulesService.approveCancellationRequest(req.user.sub, eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã phê duyệt yêu cầu hủy sự kiện và khởi tạo tiến trình hoàn tiền'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  rejectCancellationRequest = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const note = req.body?.rejection_reason || req.body?.note || '';
+      const data = await eventBusinessRulesService.rejectCancellationRequest(req.user.sub, eventId, { note });
+      res.status(200).json(ApiResponse.success(data, 'Đã từ chối yêu cầu hủy sự kiện'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  initiateForceCancel = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const data = await eventBusinessRulesService.initiateForceCancel(req.user.sub, eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã bắt đầu tiến trình hủy cưỡng chế sự kiện (đang trong thời gian chờ Cooling-off)'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  confirmForceCancel = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdSchema.parse(req.params);
+      const data = await eventBusinessRulesService.confirmForceCancel(req.user.sub, eventId);
+      res.status(200).json(ApiResponse.success(data, 'Đã xác nhận hủy cưỡng chế sự kiện thành công'));
     } catch (err) {
       next(err);
     }

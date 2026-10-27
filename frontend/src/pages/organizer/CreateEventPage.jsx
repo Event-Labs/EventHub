@@ -4182,6 +4182,16 @@ export function CreateEventPage() {
       return
     }
     setError('')
+
+    // Khi chỉnh sửa sự kiện đã công khai/đã duyệt, các bước chuyển trang không tự ý gọi API lưu cục bộ
+    // để tránh kích hoạt tạo Revision sớm trên backend. Toàn bộ thay đổi sẽ được gửi một lần khi bấm 'Lưu lại' ở bước cuối.
+    if (isEditMode && eventStatus !== 'DRAFT') {
+      const next = Math.min(currentStep + 1, 5)
+      setCurrentStep(next)
+      setMaxCompletedStep((prev) => Math.max(prev, next))
+      return
+    }
+
     setLoading(true)
     try {
       if (currentStep === 1) {
@@ -4309,7 +4319,7 @@ export function CreateEventPage() {
     setLoading(true)
     setError('')
     try {
-      await updateOrganizerEvent(eventId, {
+      const updateResult = await updateOrganizerEvent(eventId, {
         title: formData.title,
         category_id: formData.category_id,
         tags: formData.tags,
@@ -4325,17 +4335,29 @@ export function CreateEventPage() {
         require_attendee_info: formData.require_attendee_info,
         sessions: buildSessionsPayload(),
         ticket_types: buildTicketTypesPayload(),
+        version: formData.version,
       })
       await syncZoneAssignments()
-      navigate('/organizer/events', {
-        state: { message: 'Đã cập nhật sự kiện thành công.' },
-      })
+      if (updateResult?.pending_revision) {
+        navigate('/organizer/events', {
+          state: { message: 'Các thay đổi quan trọng đã được lưu thành Bản sửa đổi chờ Quản trị viên duyệt.' },
+        })
+      } else {
+        navigate('/organizer/events', {
+          state: { message: 'Đã cập nhật sự kiện thành công.' },
+        })
+      }
     } catch (err) {
       console.error('[CreateEventPage handleUpdateEvent Error]:', err)
-      if (err?.response?.data) {
-        console.error('[CreateEventPage handleUpdateEvent] Backend Response:', JSON.stringify(err.response.data, null, 2))
+      if (err?.response?.data?.code === 'EVENT_VERSION_CONFLICT') {
+        toast.error('Dữ liệu sự kiện đã thay đổi bởi phiên khác. Vui lòng làm mới trang trước khi cập nhật.')
+      } else if (err?.response?.data?.code === 'CRITICAL_CHANGE_REQUIRED') {
+        toast.error('Thay đổi quan trọng (thay đổi hình thức sự kiện hoặc phiên diễn có vé đã bán) bị từ chối.')
+      } else if (err?.response?.data?.code === 'QUOTA_BELOW_COMMITTED') {
+        toast.error('Không thể giảm số lượng vé thấp hơn tổng số vé đã thanh toán.')
+      } else {
+        toast.error(getApiMessage(err, 'Không thể cập nhật sự kiện.'))
       }
-      toast.error(getApiMessage(err, 'Không thể cập nhật sự kiện.'))
     } finally {
       setLoading(false)
     }

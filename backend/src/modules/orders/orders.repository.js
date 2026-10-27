@@ -4,6 +4,7 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
 const { validateSelectedSeats } = require('../events/seatingRules');
+const fieldCrypto = require('../../core/security/fieldCrypto');
 
 const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
@@ -167,6 +168,9 @@ class OrdersRepository {
           e.visibility,
           e.approval_status,
           e.deleted_at,
+          e.sales_status,
+          e.display_state,
+          e.sales_blocks,
           e.seating_rules,
           e.additional_terms,
           e.require_attendee_info
@@ -180,7 +184,7 @@ class OrdersRepository {
       );
 
       if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
-        throw new AppError('Th\u00f4ng tin v\u00e9 kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        throw new AppError('Thông tin vé không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
       const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
@@ -189,12 +193,43 @@ class OrdersRepository {
       if (
         !firstTicket ||
         firstTicket.event_id !== eventId ||
-        firstTicket.deleted_at ||
+        firstTicket.deleted_at
+      ) {
+        throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+      }
+
+      // Section 10.2: Point 2 - Order Creation / Checkout Checks
+      if (firstTicket.event_status === 'CANCELLED' || firstTicket.event_status === 'ENDED') {
+        throw new AppError('Sự kiện đã kết thúc hoặc đã bị hủy.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+      }
+
+      if (firstTicket.display_state === 'SUSPENDED_BY_ADMIN') {
+        throw new AppError('Sự kiện đang bị đình chỉ bởi Quản trị viên.', 403, ErrorCodes.SUSPENDED_BY_ADMIN);
+      }
+
+      const activeBlocks = Array.isArray(firstTicket.sales_blocks)
+        ? firstTicket.sales_blocks.filter((b) => b && !b.released_at)
+        : [];
+      if (firstTicket.sales_status === 'PAUSED' || activeBlocks.length > 0) {
+        const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
+        const reasons = activeBlocks
+          .map((b) => b.metadata?.note || b.note || b.metadata?.reason)
+          .filter((r) => r && !SYSTEM_CODES.includes(String(r).trim()))
+          .join(', ');
+        throw new AppError(
+          `Sự kiện đang tạm dừng bán vé${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
+          400,
+          ErrorCodes.SALES_PAUSED,
+        );
+      }
+
+      if (
+        firstTicket.sales_status !== 'ON_SALE' ||
         firstTicket.event_status !== 'PUBLISHED' ||
         firstTicket.visibility !== 'PUBLIC' ||
         firstTicket.approval_status !== 'APPROVED'
       ) {
-        throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
       }
 
       if (requireEventTermsAcceptance && String(firstTicket.additional_terms || '').trim() && !eventTermsAccepted) {
@@ -1741,8 +1776,125 @@ class OrdersRepository {
         throw new AppError('Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n h\u00e0ng.', 404, ErrorCodes.ORDER_NOT_FOUND);
       }
 
+      // Check event and order cancellation status (Section 6.10, BR-HE-07, BR-CE-13)
+      const eventQuery = await client.query(
+        `
+        SELECT e.id, e.title, e.status, e.organizer_id, org.user_id AS organizer_user_id
+        FROM orders ord
+        JOIN order_items oi ON oi.order_id = ord.id
+        JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
+        LEFT JOIN organizers org ON org.id = e.organizer_id
+        WHERE ord.id = $1
+        LIMIT 1
+        `,
+        [order.id],
+      );
+      const eventInfo = eventQuery.rows[0];
+      const isEventCancelled = (eventInfo && eventInfo.status === 'CANCELLED') || order.status_reason === 'EVENT_CANCELLED';
+
+      // Parse PayOS counterAccount data if present (Section 7.15, 7.26)
+      const dataPayload = rawPayload?.data || rawPayload || {};
+      const payerBankId = dataPayload.counterAccountBankId || dataPayload.counter_account_bank_id || null;
+      const rawAccNum = dataPayload.counterAccountNumber || dataPayload.counter_account_number || null;
+      const payerAccountName = dataPayload.counterAccountName || dataPayload.counter_account_name || null;
+      let encryptedAccNum = null;
+      if (rawAccNum) {
+        try {
+          encryptedAccNum = fieldCrypto.encrypt(rawAccNum, paymentOrder.organizer_id || 'platform', 'payer_account_number');
+        } catch (e) {
+          encryptedAccNum = null;
+        }
+      }
+
+      if (isEventCancelled) {
+        // Section 6.10: Late Callback for Cancelled Event
+        await client.query(
+          `
+          UPDATE payment_orders
+          SET status = 'PAID',
+              provider_transaction_id = $2,
+              raw_payload = $3::jsonb,
+              payer_bank_id = COALESCE($4, payer_bank_id),
+              payer_account_number = COALESCE($5, payer_account_number),
+              payer_account_name = COALESCE($6, payer_account_name),
+              paid_at = now(),
+              updated_at = now()
+          WHERE id = $1
+          `,
+          [
+            paymentOrder.id,
+            transactionId || String(providerOrderCode),
+            JSON.stringify(rawPayload || {}),
+            payerBankId,
+            encryptedAccNum,
+            payerAccountName,
+          ],
+        );
+
+        await client.query(
+          `
+          UPDATE orders
+          SET status = 'PAID',
+              status_reason = 'PAID_AFTER_EVENT_CANCELLED',
+              updated_at = now()
+          WHERE id = $1
+          `,
+          [order.id],
+        );
+
+        // Auto-create refund request (Section 6.10, rule 44)
+        const hasCounterAccount = Boolean(payerBankId && rawAccNum && payerAccountName);
+        const destinationSource = hasCounterAccount ? 'PAYER_ACCOUNT' : 'CUSTOMER_INPUT';
+        const readyAt = hasCounterAccount ? new Date() : null;
+        const refundCode = `RF_${order.order_code || order.id.slice(0, 8)}`;
+
+        await client.query(
+          `
+          INSERT INTO refund_requests (
+            order_id, event_id, customer_id, organizer_id,
+            refund_amount, reason, status, execution_mode,
+            refund_destination_source, ready_at, due_at,
+            refund_code, bank_name, bank_account_number, bank_account_name,
+            requested_at, created_at, updated_at
+          )
+          SELECT
+            $1, $2, $3, $4,
+            $5, 'EVENT_CANCELLED', 'APPROVED', 'ORGANIZER_MANUAL',
+            $6, $7, now() + interval '7 days',
+            $8, $9, $10, $11,
+            now(), now(), now()
+          WHERE NOT EXISTS (
+            SELECT 1 FROM refund_requests WHERE order_id = $1
+          )
+          `,
+          [
+            order.id,
+            eventInfo?.id || order.event_id,
+            order.user_id,
+            eventInfo?.organizer_user_id || null,
+            paymentOrder.amount,
+            destinationSource,
+            readyAt,
+            refundCode,
+            payerBankId,
+            encryptedAccNum,
+            payerAccountName,
+          ],
+        );
+
+        await client.query('COMMIT');
+        return {
+          alreadyPaid: false,
+          lateCancelledEvent: true,
+          order: { ...order, status: 'PAID', status_reason: 'PAID_AFTER_EVENT_CANCELLED' },
+          tickets: [],
+        };
+      }
+
       if (order.status !== 'PENDING') {
-        throw new AppError('Kh\u00f4ng th\u1ec3 x\u00e1c nh\u1eadn \u0111\u01a1n h\u00e0ng.', 400, ErrorCodes.INVALID_INPUT);
+        throw new AppError('Không thể xác nhận đơn hàng.', 400, ErrorCodes.INVALID_INPUT);
       }
 
       if (order.expired_at && new Date(order.expired_at).getTime() <= Date.now()) {
@@ -1778,7 +1930,7 @@ class OrdersRepository {
           `,
           [order.id],
         );
-        throw new AppError('Th\u1eddi gian gi\u1eef \u0111\u01a1n h\u00e0ng \u0111\u00e3 h\u1ebft.', 400, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+        throw new AppError('Thời gian giữ đơn hàng đã hết.', 400, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
       }
 
       await client.query(
@@ -1787,11 +1939,21 @@ class OrdersRepository {
         SET status = 'PAID',
             provider_transaction_id = $2,
             raw_payload = $3::jsonb,
+            payer_bank_id = COALESCE($4, payer_bank_id),
+            payer_account_number = COALESCE($5, payer_account_number),
+            payer_account_name = COALESCE($6, payer_account_name),
             paid_at = now(),
             updated_at = now()
         WHERE id = $1
         `,
-        [paymentOrder.id, transactionId || String(providerOrderCode), JSON.stringify(rawPayload || {})],
+        [
+          paymentOrder.id,
+          transactionId || String(providerOrderCode),
+          JSON.stringify(rawPayload || {}),
+          payerBankId,
+          encryptedAccNum,
+          payerAccountName,
+        ],
       );
       await client.query(
         `

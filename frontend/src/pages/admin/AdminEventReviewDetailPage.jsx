@@ -42,11 +42,18 @@ import {
   fetchAdminAutoReviewScanStatus,
   fetchDocumentPreviewBlob,
   extractDocumentText,
+  suspendAdminEvent,
+  unsuspendAdminEvent,
+  approveCancellationRequest,
+  initiateForceCancel,
+  confirmForceCancel,
+  reviewAdminEventRevision,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Badge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
+import { AdminSuspendModal } from './AdminSuspendModal.jsx'
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -569,6 +576,8 @@ export function AdminEventReviewDetailPage() {
   const [confirmState, setConfirmState] = useState(null)
   const [previewDoc, setPreviewDoc] = useState(null)
   const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
+  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false)
+  const [suspendLoading, setSuspendLoading] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -680,6 +689,21 @@ export function AdminEventReviewDetailPage() {
     },
   })
 
+  const [revisionNote, setRevisionNote] = useState('')
+
+  const reviewRevisionMutation = useMutation({
+    mutationFn: ({ decision, note }) => reviewAdminEventRevision(eventId, { decision, note }),
+    onSuccess: (_, vars) => {
+      toast.success(vars.decision === 'APPROVE' ? 'Đã phê duyệt bản sửa đổi thành công!' : 'Đã từ chối bản sửa đổi.')
+      setRevisionNote('')
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      navigate('/admin/events/review')
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể xử lý bản sửa đổi.'))
+    },
+  })
+
   // -------------------------------------------------------------------------
   // Render Loading/Error
   // -------------------------------------------------------------------------
@@ -759,6 +783,60 @@ export function AdminEventReviewDetailPage() {
 
   const onSubmitReview = (status) => {
     return handleSubmit((data) => {
+      if (event?.cancel_request?.status === 'PENDING') {
+        const isApprove = status === 'APPROVED'
+        setConfirmState({
+          title: isApprove ? 'Phê duyệt yêu cầu hủy sự kiện' : 'Từ chối yêu cầu hủy sự kiện',
+          subtitle: isApprove ? 'Chấp thuận hủy sự kiện và khởi tạo hoàn tiền.' : 'Bác bỏ yêu cầu hủy sự kiện từ Ban tổ chức.',
+          eventTitle: event?.title,
+          description: isApprove
+            ? 'Sự kiện sẽ chuyển sang trạng thái ĐÃ HỦY và hệ thống sẽ tự động tạo danh sách yêu cầu hoàn tiền cho toàn bộ đơn hàng đã thanh toán.'
+            : 'Yêu cầu hủy sự kiện sẽ bị từ chối. Sự kiện sẽ gỡ bỏ hạn chế bán vé do yêu cầu hủy và trở lại hoạt động bình thường.',
+          tone: isApprove ? 'danger' : 'neutral',
+          confirmText: isApprove ? 'Xác nhận duyệt hủy' : 'Từ chối yêu cầu',
+          cancelText: 'Hủy bỏ',
+          confirmColor: isApprove ? 'bg-error' : 'bg-subtle',
+          onConfirm: async () => {
+            try {
+              if (isApprove) {
+                await approveCancellationRequest(eventId, { decision: 'APPROVE', note: data.review_note?.trim() || null })
+                toast.success('Đã phê duyệt yêu cầu hủy sự kiện. Danh sách hoàn tiền đã được tạo.')
+              } else {
+                await approveCancellationRequest(eventId, { decision: 'REJECT', rejection_reason: data.review_note?.trim() || 'Admin từ chối yêu cầu hủy' })
+                toast.info('Đã từ chối yêu cầu hủy sự kiện.')
+              }
+              setConfirmState(null)
+              queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+              navigate('/admin/events/review')
+            } catch (err) {
+              toast.error(getApiMessage(err, 'Không thể xử lý yêu cầu hủy sự kiện.'))
+            }
+          }
+        })
+        return
+      }
+
+      if (event?.pending_revision) {
+        const decision = status === 'APPROVED' ? 'APPROVE' : 'REJECT'
+        setConfirmState({
+          title: decision === 'APPROVE' ? 'Phê duyệt sửa đổi sự kiện' : 'Từ chối bản sửa đổi',
+          subtitle: decision === 'APPROVE' ? 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.' : 'Giữ nguyên cấu hình sự kiện hiện tại.',
+          eventTitle: event?.title,
+          description: decision === 'APPROVE'
+            ? 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.'
+            : 'Bản đề xuất sửa đổi sẽ bị từ chối và lưu vào lịch sử kiểm duyệt. Cấu hình sự kiện hiện tại sẽ được giữ nguyên.',
+          tone: decision === 'APPROVE' ? 'success' : 'danger',
+          confirmText: decision === 'APPROVE' ? 'Phê duyệt sửa đổi' : 'Từ chối sửa đổi',
+          cancelText: 'Hủy bỏ',
+          confirmColor: decision === 'APPROVE' ? 'bg-success' : 'bg-error',
+          onConfirm: () => {
+            reviewRevisionMutation.mutate({ decision, note: data.review_note?.trim() || null })
+            setConfirmState(null)
+          }
+        })
+        return
+      }
+
       if (status === 'APPROVED') {
         setConfirmState({
           title: 'Xác nhận phê duyệt',
@@ -791,8 +869,109 @@ export function AdminEventReviewDetailPage() {
     })()
   }
 
-  const isPending = reviewMutation.isPending
-  const isPendingReview = event?.status === 'PENDING_REVIEW'
+  const handleApproveCancelRequest = async () => {
+    try {
+      await approveCancellationRequest(eventId, { decision: 'APPROVE' })
+      toast.success('Đã phê duyệt hủy sự kiện. Danh sách hoàn tiền đã được tạo tự động.')
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
+      navigate('/admin/events/review')
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể phê duyệt yêu cầu hủy.'))
+    }
+  }
+
+  const handleRejectCancelRequest = async () => {
+    const reason = window.prompt('Nhập lý do từ chối yêu cầu hủy sự kiện:')
+    if (!reason?.trim()) return
+    try {
+      await approveCancellationRequest(eventId, { decision: 'REJECT', rejection_reason: reason.trim() })
+      toast.info('Đã từ chối yêu cầu hủy sự kiện.')
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
+      navigate('/admin/events/review')
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể từ chối yêu cầu hủy.'))
+    }
+  }
+
+  const handleConfirmSuspend = async ({ reason, note }) => {
+    setSuspendLoading(true)
+    try {
+      await suspendAdminEvent(eventId, { reason, note })
+      toast.success('Đã đình chỉ sự kiện. Sự kiện đã bị ẩn và tạm dừng bán vé.')
+      setIsSuspendModalOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể đình chỉ sự kiện.'))
+    } finally {
+      setSuspendLoading(false)
+    }
+  }
+
+  const handleSuspendEvent = () => {
+    setIsSuspendModalOpen(true)
+  }
+
+  const handleUnsuspendEvent = () => {
+    setConfirmState({
+      title: 'Gỡ đình chỉ sự kiện',
+      subtitle: 'Khôi phục hiển thị và quyền mở bán vé.',
+      eventTitle: event?.title,
+      description: `Bạn có chắc chắn muốn gỡ lệnh đình chỉ cho sự kiện "${event?.title}"? Sự kiện sẽ được hiển thị trở lại và Ban tổ chức có thể tiếp tục mở bán vé bình thường.`,
+      tone: 'success',
+      confirmText: 'Xác nhận gỡ đình chỉ',
+      cancelText: 'Hủy bỏ',
+      onConfirm: async () => {
+        try {
+          await unsuspendAdminEvent(eventId)
+          toast.success('Đã hủy đình chỉ sự kiện.')
+          setConfirmState(null)
+          queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+          queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
+        } catch (err) {
+          toast.error(getApiMessage(err, 'Không thể hủy đình chỉ sự kiện.'))
+        }
+      },
+    })
+  }
+
+
+  const handleReviewRevision = (decision) => {
+    if (decision === 'APPROVE') {
+      setConfirmState({
+        title: 'Phê duyệt sửa đổi sự kiện',
+        subtitle: 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.',
+        eventTitle: event?.title,
+        description: 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.',
+        tone: 'success',
+        confirmText: 'Xác nhận duyệt sửa đổi',
+        cancelText: 'Hủy bỏ',
+        onConfirm: () => {
+          reviewRevisionMutation.mutate({ decision: 'APPROVE', note: revisionNote.trim() || null })
+          setConfirmState(null)
+        },
+      })
+    } else {
+      setConfirmState({
+        title: 'Từ chối bản sửa đổi',
+        subtitle: 'Giữ nguyên cấu hình sự kiện hiện tại.',
+        eventTitle: event?.title,
+        description: 'Bản đề xuất sửa đổi sẽ bị từ chối và lưu vào lịch sử kiểm duyệt. Cấu hình sự kiện hiện tại sẽ được giữ nguyên.',
+        tone: 'danger',
+        confirmText: 'Từ chối sửa đổi',
+        cancelText: 'Hủy bỏ',
+        onConfirm: () => {
+          reviewRevisionMutation.mutate({ decision: 'REJECT', note: revisionNote.trim() || null })
+          setConfirmState(null)
+        },
+      })
+    }
+  }
+
+  const isPending = reviewMutation.isPending || reviewRevisionMutation.isPending
+  const isPendingReview = event?.status === 'PENDING_REVIEW' || Boolean(event?.pending_revision) || event?.cancel_request?.status === 'PENDING'
   const customScrollbar = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
 
   const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
@@ -802,17 +981,49 @@ export function AdminEventReviewDetailPage() {
       {/* Top Header */}
       <div className="shrink-0 p-6 pb-2 relative z-20">
         <header className="flex h-16 items-center justify-between rounded-full border border-white/10 bg-slate-900/60 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 overflow-hidden">
             <button
               onClick={() => navigate('/admin/events/review')}
-              className="grid size-10 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white shadow-inner"
+              className="grid size-10 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white shadow-inner"
             >
               <ArrowLeft className="size-5" />
             </button>
-            <h1 className="font-display text-xl font-black text-white drop-shadow-sm truncate max-w-xl">
+            <h1 className="font-display text-lg font-black text-white drop-shadow-sm truncate max-w-md">
               {event.title}
             </h1>
             <Badge tone="blue">{event.status}</Badge>
+            {event.display_state === 'SUSPENDED_BY_ADMIN' && (
+              <Badge tone="red">Bị đình chỉ</Badge>
+            )}
+            {event.sales_status === 'PAUSED' && (
+              <Badge tone="amber">Tạm dừng bán vé</Badge>
+            )}
+            {event.cancel_request?.status === 'PENDING' && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                Yêu cầu hủy sự kiện
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {(event.display_state === 'VISIBLE' || event.display_state === 'PUBLIC' || !event.display_state) && event.status === 'PUBLISHED' && (
+              <button
+                type="button"
+                onClick={handleSuspendEvent}
+                className="rounded-full bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20"
+              >
+                Đình chỉ sự kiện
+              </button>
+            )}
+            {event.display_state === 'SUSPENDED_BY_ADMIN' && (
+              <button
+                type="button"
+                onClick={handleUnsuspendEvent}
+                className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
+              >
+                Mở lại đình chỉ
+              </button>
+            )}
           </div>
         </header>
       </div>
@@ -821,6 +1032,161 @@ export function AdminEventReviewDetailPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left Column: Event Details */}
         <div className={`overflow-y-auto p-6 ${customScrollbar} ${isPendingReview ? 'w-[58%] lg:w-[62%] rounded-bl-[32px]' : 'w-full max-w-5xl mx-auto rounded-b-[32px]'}`}>
+          {/* Cancellation Request Banner */}
+          {event.cancel_request?.status === 'PENDING' && (
+            <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-950/30 p-5 shadow-lg backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-300">
+                    <ShieldAlert className="size-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Yêu cầu hủy sự kiện từ Ban tổ chức</h3>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Sự kiện đã có vé bán ra. BTC đã cam kết nghĩa vụ hoàn tiền 100% cho người mua.
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-300 border border-rose-500/30">
+                  Chờ Admin duyệt
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-black/20 p-3.5 rounded-xl border border-white/5">
+                <div>
+                  <span className="text-slate-400 font-medium">Lý do hủy:</span>{' '}
+                  <strong className="text-white">
+                    {event.cancel_request.reason_code === 'FORCE_MAJEURE' ? 'Bất khả kháng (Thiên tai, dịch bệnh, pháp lý)' : 'Lý do từ Ban tổ chức (Kế hoạch, lịch trình, tài chính)'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium">Phương thức hoàn tiền:</span>{' '}
+                  <strong className="text-white">
+                    {event.cancel_request.refund_mode === 'MODE_A' ? 'Tự động qua payOS' : 'Chuyển khoản thủ công VietQR'}
+                  </strong>
+                </div>
+                <div className="md:col-span-2">
+                  <span className="text-slate-400 font-medium">Giải trình chi tiết:</span>
+                  <p className="mt-1 text-slate-200 bg-white/5 p-2 rounded-lg italic">
+                    "{event.cancel_request.reason_note || event.cancel_request.note || event.cancel_request.reason || 'Không có giải trình chi tiết'}"
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={handleRejectCancelRequest}
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10"
+                >
+                  Từ chối yêu cầu hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApproveCancelRequest}
+                  className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-rose-500"
+                >
+                  Phê duyệt hủy & Tạo danh sách hoàn tiền
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Pending Revision Banner */}
+          {event.pending_revision && (
+            <div className="mb-6 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-slate-900/80 to-slate-900/90 p-5 shadow-xl backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">
+                    <Sparkles className="size-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Bản sửa đổi sự kiện chờ duyệt (Major Revision)</h3>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Ban tổ chức đã đề xuất các thay đổi quan trọng đối với sự kiện đang hoạt động. Vui lòng kiểm tra và quyết định phê duyệt.
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-500/30 animate-pulse">
+                  Chờ duyệt sửa đổi
+                </span>
+              </div>
+
+              {/* Proposed Changes Diff */}
+              <div className="mt-4 space-y-3">
+                <div className="text-xs bg-black/30 p-3.5 rounded-xl border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-amber-300 uppercase tracking-wider text-[11px]">
+                      Nội dung thay đổi đề xuất:
+                    </p>
+                    <span className="text-[11px] text-slate-400">
+                      Mức độ: <strong className="text-amber-400 font-semibold">{event.pending_revision.change_class || 'MAJOR'}</strong>
+                    </span>
+                  </div>
+
+                  {event.pending_revision.payload_after?.sessions && (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-[11px] font-semibold text-slate-300">Suất diễn mới:</p>
+                      <div className="grid gap-2">
+                        {event.pending_revision.payload_after.sessions.map((sess, idx) => (
+                          <div key={sess.id || idx} className="rounded-lg border border-amber-500/20 bg-amber-950/20 p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-bold text-white">{sess.session_name || `Suất #${idx + 1}`}</span>
+                            <div className="flex items-center gap-3 text-slate-300">
+                              <span>Bắt đầu: <strong className="text-amber-300">{formatDate(sess.start_time)}</strong></span>
+                              <span>•</span>
+                              <span>Kết thúc: <strong className="text-amber-300">{formatDate(sess.end_time)}</strong></span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other fields if any */}
+                  {Object.keys(event.pending_revision.proposed_changes || {})
+                    .filter((k) => k !== 'sessions')
+                    .map((k) => (
+                      <div key={k} className="text-xs text-slate-300">
+                        <span className="font-semibold text-white capitalize">{k}:</span>{' '}
+                        <span>{JSON.stringify(event.pending_revision.proposed_changes[k])}</span>
+                      </div>
+                    ))}
+                </div>
+
+                {/* Revision Note Input & Action Buttons */}
+                <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center gap-3">
+                  <input
+                    type="text"
+                    value={revisionNote}
+                    onChange={(e) => setRevisionNote(e.target.value)}
+                    placeholder="Ghi chú duyệt sửa đổi (tuỳ chọn)..."
+                    className="flex-1 w-full h-10 rounded-xl border border-white/10 bg-black/40 px-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
+                  />
+                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      disabled={reviewRevisionMutation.isPending}
+                      onClick={() => handleReviewRevision('REJECT')}
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-4 py-2 text-xs font-bold text-rose-300 transition disabled:opacity-50"
+                    >
+                      <Ban className="size-3.5" />
+                      <span>Từ chối sửa đổi</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={reviewRevisionMutation.isPending}
+                      onClick={() => handleReviewRevision('APPROVE')}
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-950/40 transition disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="size-4" />
+                      <span>Phê duyệt sửa đổi</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!isPendingReview && event.review_note && (
             <div className={`mb-6 p-4 rounded-xl border ${event.status === 'REJECTED' ? 'bg-error/10 border-error/20 text-error' : event.status === 'HIDDEN' ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-panel-soft border-border-soft text-content'}`}>
               <h3 className="font-bold mb-1">Ghi chú từ quản trị viên:</h3>
@@ -1399,7 +1765,11 @@ export function AdminEventReviewDetailPage() {
                 disabled={isPending}
                 className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0"
               >
-                Phê duyệt
+                {event?.cancel_request?.status === 'PENDING'
+                  ? 'Phê duyệt hủy'
+                  : event?.pending_revision
+                    ? 'Phê duyệt sửa đổi'
+                    : 'Phê duyệt'}
               </button>
               <button
                 type="button"
@@ -1407,7 +1777,11 @@ export function AdminEventReviewDetailPage() {
                 disabled={isPending}
                 className="admin-danger w-full disabled:cursor-not-allowed disabled:opacity-50 !bg-error/10 hover:!bg-error/20 !border-error/30 !text-error !px-0 !py-2.5 text-xs font-bold"
               >
-                Từ chối
+                {event?.cancel_request?.status === 'PENDING'
+                  ? 'Từ chối hủy'
+                  : event?.pending_revision
+                    ? 'Từ chối sửa đổi'
+                    : 'Từ chối'}
               </button>
             </div>
           </div>
@@ -1418,8 +1792,12 @@ export function AdminEventReviewDetailPage() {
       <ConfirmModal
         open={!!confirmState}
         title={confirmState?.title}
+        subtitle={confirmState?.subtitle}
+        eventTitle={confirmState?.eventTitle}
         description={confirmState?.description}
+        tone={confirmState?.tone}
         confirmText={confirmState?.confirmText}
+        cancelText={confirmState?.cancelText}
         confirmColor={confirmState?.confirmColor}
         onConfirm={confirmState?.onConfirm}
         onCancel={() => setConfirmState(null)}
@@ -1801,6 +2179,15 @@ function DocumentPreviewModal({ doc, onClose }) {
           )}
         </div>
       </div>
+
+      {isSuspendModalOpen && (
+        <AdminSuspendModal
+          event={event}
+          loading={suspendLoading}
+          onClose={() => setIsSuspendModalOpen(false)}
+          onConfirm={handleConfirmSuspend}
+        />
+      )}
     </div>
   )
 }
@@ -1825,22 +2212,122 @@ function SparklesIcon(props) {
   )
 }
 
-function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'admin-primary' }) {
+function ConfirmModal({
+  open,
+  title,
+  subtitle,
+  eventTitle,
+  description,
+  tone = 'primary',
+  onConfirm,
+  onCancel,
+  confirmText = 'Xác nhận',
+  cancelText = 'Hủy bỏ',
+  confirmColor,
+  isPending = false,
+}) {
   if (!open) return null
+
+  const getToneConfig = () => {
+    switch (tone) {
+      case 'success':
+        return {
+          icon: CheckCircle2,
+          iconWrap: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+          btnClass: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40',
+        }
+      case 'danger':
+        return {
+          icon: AlertTriangle,
+          iconWrap: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
+          btnClass: 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/40',
+        }
+      case 'warning':
+        return {
+          icon: AlertTriangle,
+          iconWrap: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+          btnClass: 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/40',
+        }
+      default:
+        return {
+          icon: CheckCircle2,
+          iconWrap: 'bg-primary/20 text-primary border border-primary/30',
+          btnClass: confirmColor || 'bg-primary hover:brightness-110 text-slate-950 font-bold shadow-lg shadow-primary/20',
+        }
+    }
+  }
+
+  const { icon: ToneIcon, iconWrap, btnClass } = getToneConfig()
+
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-      <Panel className="w-full max-w-sm border-border-soft/60">
-        <h3 className="text-lg font-bold text-content">{title}</h3>
-        <p className="mt-2 text-sm text-subtle">{description}</p>
-        <div className="mt-5 flex justify-end gap-3">
-          <button type="button" className="admin-secondary" onClick={onCancel}>
-            {cancelText}
-          </button>
-          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
-            {confirmText}
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconWrap}`}>
+              <ToneIcon className="size-6" />
+            </span>
+            <div>
+              <h3 className="text-xl font-black text-white">{title}</h3>
+              {subtitle ? (
+                <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
+              ) : (
+                <p className="mt-1 text-xs text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+          >
+            <X className="size-5" />
           </button>
         </div>
-      </Panel>
+
+        {/* Event highlight box */}
+        {eventTitle && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
+            <p className="font-bold text-white text-sm mt-0.5 truncate">{eventTitle}</p>
+          </div>
+        )}
+
+        {/* Description */}
+        {description && (
+          <p className="mt-3.5 text-xs text-slate-300 leading-relaxed">
+            {description}
+          </p>
+        )}
+
+        {/* Footer buttons */}
+        <div className="mt-6 flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+          >
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition disabled:opacity-50 ${btnClass}`}
+          >
+            {isPending ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Đang xử lý...</span>
+              </span>
+            ) : (
+              confirmText
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
