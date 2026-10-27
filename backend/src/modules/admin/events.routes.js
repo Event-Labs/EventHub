@@ -48,6 +48,20 @@ router.post('/:eventId/ai-review', eventsAdminController.runAiReview);
 router.patch('/:eventId/hide',   eventsAdminController.hideEvent);
 router.patch('/:eventId/unhide', eventsAdminController.unhideEvent);
 
+// Suspend / Unsuspend (Section 5.5)
+router.post('/:eventId/suspend',   eventsAdminController.suspendEvent);
+router.post('/:eventId/unsuspend', eventsAdminController.unsuspendEvent);
+
+// Cancellation Requests (Section 6.5)
+router.post('/:eventId/cancellation-requests/approve', eventsAdminController.approveCancellationRequest);
+router.post('/:eventId/cancellation-requests/reject', eventsAdminController.rejectCancellationRequest);
+
+// Force Cancel & Cooling-off (Section 6.6 & 15.10)
+router.post('/:eventId/force-cancel', eventsAdminController.initiateForceCancel);
+router.post('/:eventId/force-cancel/confirm', eventsAdminController.confirmForceCancel);
+// Revisions Review (Section 4.4 & 4.5)
+router.post('/:eventId/revisions/review', eventsAdminController.reviewRevision);
+
 module.exports = router;
 
 

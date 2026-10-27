@@ -13,16 +13,45 @@ function buildWhere(upper) {
   switch (upper) {
     case 'REJECTED':
       return {
-        // No bind params needed — literals embedded directly (enum values, safe)
         listClause:  `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'REJECTED'`,
         countClause: `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'REJECTED'`,
         listArgs:  [],   // appended after [limit, offset]
         countArgs: [],
       };
+    case 'SUSPENDED':
+    case 'SUSPENDED_BY_ADMIN':
+      return {
+        listClause:  `e.deleted_at IS NULL AND e.display_state = 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND e.display_state = 'SUSPENDED_BY_ADMIN'`,
+        listArgs:  [],
+        countArgs: [],
+      };
     case 'HIDDEN':
       return {
-        listClause:  `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'APPROVED'`,
-        countClause: `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'APPROVED'`,
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'HIDDEN' OR e.display_state = 'SUSPENDED_BY_ADMIN')`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'HIDDEN' OR e.display_state = 'SUSPENDED_BY_ADMIN')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'PENDING_REVIEW':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCEL_REQUESTS':
+    case 'CANCELLATION_REQUESTS':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
+        countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'PUBLISHED':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'PUBLISHED' OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'PUBLISHED' OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
         listArgs:  [],
         countArgs: [],
       };
@@ -64,7 +93,12 @@ class EventsListAdminRepository {
         e.updated_at,
         e.organizer_id,
         e.status,
+        e.display_state,
+        e.sales_status,
+        e.sales_blocks,
         e.approval_status,
+        e.pending_revision,
+        e.cancel_request,
         c.name AS category_name,
         COALESCE(o.organization_name, ou.full_name) AS organizer_name,
         ou.email AS organizer_email,
