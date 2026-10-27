@@ -8,6 +8,7 @@ import { fetchSessionSeats } from '@/services/events.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 const PAYMENT_METHODS = [

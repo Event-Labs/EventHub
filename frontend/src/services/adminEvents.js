@@ -118,5 +118,42 @@ export async function extractDocumentText(url) {
   return response.data.data
 }
 
+export async function suspendAdminEvent(eventId, payload = {}) {
+  const body = typeof payload === 'string' ? { reason: payload } : payload
+  const response = await http.post(`/admin/events/${eventId}/suspend`, body)
+  return response.data.data
+}
+
+export async function unsuspendAdminEvent(eventId) {
+  const response = await http.post(`/admin/events/${eventId}/unsuspend`)
+  return response.data.data
+}
+
+export async function approveCancellationRequest(eventId, payload = {}) {
+  const response = await http.post(`/admin/events/${eventId}/cancellation-requests/approve`, payload)
+  return response.data.data
+}
+
+export async function rejectCancellationRequest(eventId, payload = {}) {
+  const response = await http.post(`/admin/events/${eventId}/cancellation-requests/reject`, payload)
+  return response.data.data
+}
+
+export async function initiateForceCancel(eventId, payload = {}) {
+  const response = await http.post(`/admin/events/${eventId}/force-cancel`, payload)
+  return response.data.data
+}
+
+export async function confirmForceCancel(eventId, payload = {}) {
+  const response = await http.post(`/admin/events/${eventId}/force-cancel/confirm`, payload)
+  return response.data.data
+}
+
+export async function reviewAdminEventRevision(eventId, payload = {}) {
+  const response = await http.post(`/admin/events/${eventId}/revisions/review`, payload)
+  return response.data.data
+}
+
+
 
 

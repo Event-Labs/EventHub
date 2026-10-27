@@ -1,13 +1,16 @@
 import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AlertTriangle,
   Calendar,
   ChevronDown,
   ChevronUp,
   Heart,
   MapPin,
+  PauseCircle,
   ShieldCheck,
   UserCircle,
+  XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -16,7 +19,7 @@ import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
+import { getResumeBookingPath, hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -54,9 +57,15 @@ function formatPrice(value) {
 
 function venueSummary(venue) {
   if (!venue) return 'Địa điểm cập nhật sau'
-  return [venue.name, venue.address_line, venue.district, venue.city]
-    .filter(Boolean)
-    .join(', ')
+  if (typeof venue === 'string') return venue
+  if (typeof venue === 'object') {
+    return (
+      venue.summary ||
+      [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') ||
+      'Địa điểm cập nhật sau'
+    )
+  }
+  return 'Địa điểm cập nhật sau'
 }
 
 function getGoogleMapUrl(venue) {
@@ -177,6 +186,25 @@ export function EventDetailPage() {
     return ticketsBySession.get(String(selectedSessionId)) || []
   }, [selectedSessionId, ticketsBySession])
 
+  const isPaused = Boolean(
+    event?.is_paused ||
+    event?.sales_status === 'PAUSED' ||
+    (Array.isArray(event?.sales_blocks) && event.sales_blocks.some((b) => !b.released_at))
+  )
+  const SYSTEM_REASON_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING']
+  const rawPauseReason = event?.pause_note || event?.pause_reason
+  const pauseReasonText = rawPauseReason && !SYSTEM_REASON_CODES.includes(String(rawPauseReason).trim())
+    ? String(rawPauseReason).trim()
+    : null
+
+  const isHiddenByOrganizer = Boolean(
+    event?.display_state === 'HIDDEN_BY_ORGANIZER' ||
+    event?.status === 'HIDDEN'
+  )
+  const isCancelled = event?.status === 'CANCELLED'
+  const isSuspended = event?.display_state === 'SUSPENDED_BY_ADMIN'
+  const isEnded = event?.status === 'COMPLETED' || event?.sales_status === 'ENDED' || isPastTime(getEventEndTime(event), currentTime)
+
   const selectSession = (sessionId) => {
     if (requireLogin()) return
     const session = event?.sessions?.find((item) => String(item.id) === String(sessionId))
@@ -184,11 +212,19 @@ export function EventDetailPage() {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
+    if (isPaused) {
+      setBookingError('Sự kiện đang tạm dừng bán vé. Quý khách vui lòng quay lại sau!')
+      return
+    }
+    if (isCancelled || isSuspended || isEnded) {
+      setBookingError('Sự kiện hiện không thể đặt vé.')
+      return
+    }
     setBookingError('')
     setSelectedSessionId((current) => (String(current) === String(sessionId) ? null : sessionId))
   }
 
-  const activeDraft = readBookingDraft()
+  const activeDraft = readBookingDraft(event?.id)
   const isHoldingForThisEvent = Boolean(
     hasActiveSeatHold(activeDraft) &&
     event &&
@@ -203,6 +239,14 @@ export function EventDetailPage() {
 
   const handleBook = () => {
     if (requireLogin()) return
+    if (isPaused) {
+      setBookingError('Sự kiện đang tạm dừng bán vé. Ban tổ chức hiện không nhận thêm đơn đặt vé mới!')
+      return
+    }
+    if (isCancelled || isSuspended || isEnded) {
+      setBookingError('Sự kiện hiện không khả dụng để đặt vé.')
+      return
+    }
     if (!selectedSession) return
     if (isPastTime(selectedSession?.end_time || getEventEndTime(event), currentTime)) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
@@ -216,6 +260,14 @@ export function EventDetailPage() {
       eventSlug: event.slug,
       eventStartTime: event.start_time,
       eventEndTime: event.end_time,
+      salesStatus: event.sales_status,
+      sales_status: event.sales_status,
+      isPaused: isPaused,
+      is_paused: isPaused,
+      pauseReason: pauseReasonText,
+      pause_reason: pauseReasonText,
+      pauseNote: pauseReasonText,
+      pause_note: pauseReasonText,
       venueSummary: event.venue?.summary || venueSummary(firstVenue),
       selectedSession,
       availableTicketTypes: selectedSessionTickets,
@@ -234,11 +286,20 @@ export function EventDetailPage() {
       String(activeDraft?.selectedSession?.id) === String(selectedSession.id)
     )
 
-    const cartToPass = hasMatchingHold ? { ...baseCart, ...activeDraft } : baseCart
+    if (hasMatchingHold) {
+      const cartToPass = { ...baseCart, ...activeDraft }
+      const targetPath = getResumeBookingPath(cartToPass)
+      navigate(targetPath, {
+        state: {
+          cart: cartToPass,
+        },
+      })
+      return
+    }
 
     navigate('/booking/seats', {
       state: {
-        cart: cartToPass,
+        cart: baseCart,
       },
     })
   }
@@ -318,11 +379,119 @@ export function EventDetailPage() {
             <div className="mt-3.5 flex max-w-full flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:mt-4 sm:text-sm text-slate-200">
               <Info icon={UserCircle} text={`Ban tổ chức: ${event.organizer?.full_name || 'EventHub'}`} />
               <Info icon={Calendar} text={`${formatDateTime(event.start_time)} - ${formatDateTime(event.end_time)}`} />
-              <Info icon={MapPin} text={event.venue?.summary || venueSummary(firstVenue)} />
+              <Info icon={MapPin} text={venueSummary(event.venue) || venueSummary(firstVenue)} />
             </div>
           </div>
         </div>
       </section>
+
+      {/* Prominent Announcement Banner for Paused, Cancelled, Suspended, or Ended Event */}
+      {(isPaused || isCancelled || isSuspended || isEnded) && (
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+          {isPaused && (
+            <div className="relative overflow-hidden rounded-[24px] border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(245,158,11,0.2)] backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                  <PauseCircle className="size-6 animate-pulse" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-amber-500/20 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
+                      Thông báo từ Ban tổ chức
+                    </span>
+                    {pauseReasonText && (
+                      <span className="text-xs text-amber-200/80 font-medium">
+                        Lý do: {pauseReasonText}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    {isHiddenByOrganizer ? 'Sự kiện đang tạm ẩn' : 'Sự kiện đang tạm dừng bán vé'}
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-amber-100/90">
+                    {isHiddenByOrganizer
+                      ? 'Sự kiện này hiện đang tạm ẩn khỏi danh sách tìm kiếm và khám phá theo yêu cầu của ban tổ chức. Các tính năng chọn ghế và đặt vé mới tạm thời bị vô hiệu.'
+                      : 'Ban tổ chức hiện đang tạm thời dừng nhận các đơn đặt vé mới cho sự kiện này. Mọi chức năng chọn ghế và đặt vé trực tuyến tạm thời bị vô hiệu. Quý khách vui lòng quay lại sau hoặc liên hệ ban tổ chức để biết thêm chi tiết!'}
+                  </p>
+                  {pauseReasonText && (
+                    <p className="mt-3 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2 text-xs sm:text-sm text-amber-200 italic">
+                      Lời nhắn từ BTC: "{pauseReasonText}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isCancelled && (
+            <div className="relative overflow-hidden rounded-[24px] border border-rose-500/40 bg-gradient-to-r from-rose-950/70 via-rose-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(244,63,94,0.2)] backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.3)]">
+                  <XCircle className="size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-full bg-rose-500/20 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-rose-300 border border-rose-500/30">
+                    Thông báo quan trọng
+                  </span>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    Sự kiện đã bị hủy bỏ
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-rose-100/90">
+                    Sự kiện này đã chính thức bị hủy bỏ. Mọi đơn hàng đã thanh toán sẽ được hoàn tiền theo chính sách hoàn vé của sự kiện.
+                  </p>
+                  {event.cancel_reason_note && (
+                    <p className="mt-3 rounded-xl border border-rose-500/25 bg-rose-950/50 px-4 py-2 text-xs sm:text-sm text-rose-200 italic">
+                      Lý do hủy: "{event.cancel_reason_note}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isPaused && !isCancelled && isSuspended && (
+            <div className="relative overflow-hidden rounded-[24px] border border-red-500/40 bg-gradient-to-r from-red-950/70 via-red-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(239,68,68,0.2)] backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30">
+                  <AlertTriangle className="size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-full bg-red-500/20 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-red-300 border border-red-500/30">
+                    Cảnh báo kiểm duyệt
+                  </span>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    Sự kiện tạm dừng hoạt động
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-red-100/90">
+                    Sự kiện đang tạm thời bị đình chỉ bởi Ban quản trị nền tảng.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isPaused && !isCancelled && !isSuspended && isEnded && (
+            <div className="relative overflow-hidden rounded-[24px] border border-slate-700 bg-slate-900/80 p-6 sm:p-7 shadow-xl backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400 border border-slate-700">
+                  <AlertTriangle className="size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-full bg-slate-800 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-300 border border-slate-700">
+                    Đã kết thúc
+                  </span>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    Sự kiện đã kết thúc
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-slate-300">
+                    Sự kiện này đã diễn ra xong và đã đóng cổng bán vé. Cảm ơn quý khách đã quan tâm!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
         <section className="min-w-0 space-y-10">
@@ -398,9 +567,16 @@ export function EventDetailPage() {
 
                         {/* Thông tin suất diễn */}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white">
-                            {formatTime(session.start_time)} - {formatTime(session.end_time)}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-white">
+                              {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                            </p>
+                            {isPaused && (
+                              <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                                Tạm dừng bán vé
+                              </span>
+                            )}
+                          </div>
                           <p className="font-bold text-primary">
                             {formatShortDate(session.start_time)}
                           </p>
@@ -413,16 +589,18 @@ export function EventDetailPage() {
                         <button
                           type="button"
                           onClick={() => selectSession(session.id)}
-                          disabled={sessionExpired}
+                          disabled={sessionExpired || isPaused || isCancelled || isSuspended || isEnded}
                           className={cn(
                             'shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all',
                             sessionExpired && 'cursor-not-allowed bg-slate-800 text-slate-500 border border-slate-700',
-                            !sessionExpired && selected && 'shadow-[0_0_16px_rgba(201,154,71,0.5)] scale-[1.03]',
-                            !sessionExpired && !selected && 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/30',
+                            isPaused && 'cursor-not-allowed bg-amber-950/40 text-amber-300/80 border border-amber-500/30',
+                            (isCancelled || isSuspended || isEnded) && 'cursor-not-allowed bg-slate-800 text-slate-500 border border-slate-700',
+                            !sessionExpired && !isPaused && !isCancelled && !isSuspended && !isEnded && selected && 'shadow-[0_0_16px_rgba(201,154,71,0.5)] scale-[1.03]',
+                            !sessionExpired && !isPaused && !isCancelled && !isSuspended && !isEnded && !selected && 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/30',
                           )}
-                          style={!sessionExpired && selected ? { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' } : {}}
+                          style={!sessionExpired && !isPaused && !isCancelled && !isSuspended && !isEnded && selected ? { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' } : {}}
                         >
-                          {sessionExpired ? 'Đã hết hạn' : selected ? 'Đã chọn' : 'Chọn'}
+                          {sessionExpired ? 'Đã hết hạn' : isPaused ? 'Tạm dừng bán' : selected ? 'Đã chọn' : 'Chọn'}
                         </button>
                       </div>
 
@@ -434,7 +612,7 @@ export function EventDetailPage() {
                             {tickets.length ? (
                               tickets.map((ticketType) => {
                                 const soldOut = isSoldOut(ticketType)
-                                const saleOpen = !sessionExpired && isSaleOpen(ticketType, currentTime) && !soldOut
+                                const saleOpen = !sessionExpired && !isPaused && isSaleOpen(ticketType, currentTime) && !soldOut
                                 const totalQuantity = ticketTotal(ticketType)
                                 const availableQuantity = ticketAvailable(ticketType)
                                 return (
@@ -442,9 +620,10 @@ export function EventDetailPage() {
                                     key={ticketType.id}
                                     className={cn(
                                       'grid min-h-20 w-full gap-4 rounded-xl border px-5 py-4 text-left md:grid-cols-[minmax(0,1fr)_170px]',
-                                      saleOpen && 'border-primary/30 bg-primary/5 text-white',
-                                      !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
-                                      soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
+                                      isPaused && 'border-amber-500/20 bg-amber-950/20 text-slate-300',
+                                      !isPaused && saleOpen && 'border-primary/30 bg-primary/5 text-white',
+                                      !isPaused && !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
+                                      !isPaused && soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
                                     )}
                                   >
                                     <div className="max-w-3xl min-w-0">
@@ -459,10 +638,10 @@ export function EventDetailPage() {
                                       <p className={cn('font-display text-xl font-bold', saleOpen ? 'text-white' : 'text-inherit')}>
                                         {formatPrice(ticketType.price)}
                                       </p>
-                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
-                                        Còn {availableQuantity}/{totalQuantity}
+                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', isPaused ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                        {isPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
                                       </span>
-                                      {!saleOpen && (
+                                      {!saleOpen && !isPaused && (
                                         <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
                                           {soldOut ? 'Hết vé' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
@@ -594,6 +773,32 @@ export function EventDetailPage() {
           </div>
 
           <div className="mt-8 border-t border-white/10 pt-8">
+            {/* Warning note inside booking panel */}
+            {isPaused && (
+              <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 flex items-start gap-2.5">
+                <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  <strong>Tạm dừng bán vé:</strong> Ban tổ chức hiện đang tạm dừng nhận đơn đặt vé mới cho sự kiện này.
+                </span>
+              </div>
+            )}
+            {isCancelled && (
+              <div className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-200 flex items-start gap-2.5">
+                <XCircle className="size-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  <strong>Sự kiện đã bị hủy:</strong> Không thể mua vé cho sự kiện này.
+                </span>
+              </div>
+            )}
+            {isEnded && !isPaused && !isCancelled && (
+              <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/60 p-3.5 text-xs text-slate-300 flex items-start gap-2.5">
+                <AlertTriangle className="size-4 shrink-0 text-slate-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  <strong>Đã kết thúc:</strong> Sự kiện đã diễn ra và đã đóng cổng bán vé.
+                </span>
+              </div>
+            )}
+
             {bookingError && (
               <p className="mb-6 rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error">
                 {bookingError}
@@ -602,17 +807,40 @@ export function EventDetailPage() {
             <button
               type="button"
               onClick={handleBook}
-              disabled={selectedSessionExpired || !selectedSession}
-              className="w-full py-4 text-lg font-bold rounded-full transition-all hover:brightness-110 hover:shadow-[0_0_28px_rgba(201,154,71,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+              disabled={isPaused || isCancelled || isSuspended || isEnded || selectedSessionExpired || !selectedSession}
+              className={cn(
+                'w-full py-4 text-lg font-bold rounded-full transition-all select-none',
+                isPaused
+                  ? 'bg-amber-950/40 text-amber-300/80 border border-amber-500/30 cursor-not-allowed opacity-80'
+                  : (isCancelled || isSuspended || isEnded)
+                    ? 'bg-slate-800 text-slate-400 border border-white/10 cursor-not-allowed opacity-60'
+                    : 'hover:brightness-110 hover:shadow-[0_0_28px_rgba(201,154,71,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer'
+              )}
+              style={
+                (isPaused || isCancelled || isSuspended || isEnded)
+                  ? undefined
+                  : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }
+              }
             >
-              {selectedSessionExpired || (!selectedSession && eventExpired)
-                ? 'Đã hết hạn'
-                : (isHoldingForThisEvent && String(activeDraft?.selectedSession?.id) === String(selectedSession?.id))
-                  ? 'Tiếp tục đặt vé (Đang giữ ghế)'
-                  : selectedSession
-                    ? 'Đặt vé ngay'
-                    : 'Đặt vé'}
+              {isHiddenByOrganizer
+                ? 'Sự kiện đang tạm ẩn'
+                : isPaused
+                  ? 'Tạm dừng bán vé'
+                : isCancelled
+                  ? 'Sự kiện đã bị hủy'
+                  : isSuspended
+                    ? 'Sự kiện bị đình chỉ'
+                    : isEnded
+                      ? 'Sự kiện đã kết thúc'
+                      : selectedSessionExpired
+                        ? 'Suất diễn đã hết hạn'
+                        : (!selectedSession && eventExpired)
+                          ? 'Đã hết hạn'
+                          : (isHoldingForThisEvent && String(activeDraft?.selectedSession?.id) === String(selectedSession?.id))
+                            ? 'Tiếp tục đặt vé (Đang giữ ghế)'
+                            : selectedSession
+                              ? 'Đặt vé ngay'
+                              : 'Chọn suất diễn để đặt vé'}
             </button>
           </div>
         </aside>

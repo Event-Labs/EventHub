@@ -361,9 +361,116 @@ html.light select optgroup {
   will-change: stroke-dashoffset;
 }
 
-/* ── Create Event Page: Solid Deep Dark Form Cards & Inputs ── */
-.create-event-content section,
-.create-event-content .bg-surface {
+/* ── LED Border for Submit Review Button ("Gửi duyệt") ── */
+.btn-led-submit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  isolation: isolate;
+  height: 44px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-led-submit:not(:disabled) {
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35), 0 0 32px rgba(201, 154, 71, 0.25);
+}
+
+.btn-led-submit:not(:disabled):hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.65), 0 0 45px rgba(230, 193, 122, 0.5);
+}
+
+.btn-led-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-led-submit-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  pointer-events: none;
+  overflow: visible;
+  border-radius: 9999px;
+}
+
+.btn-led-submit-svg rect {
+  x: 1px;
+  y: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  rx: 21px;
+  ry: 21px;
+  fill: none;
+}
+
+.btn-led-submit-track {
+  stroke: rgba(201, 154, 71, 0.5);
+  stroke-width: 1.5px;
+}
+
+.btn-led-submit-beam-glow {
+  stroke: #FFF2C2;
+  stroke-width: 4px;
+  stroke-linecap: round;
+  stroke-dasharray: 28 72;
+  filter: drop-shadow(0 0 6px #F59E0B) drop-shadow(0 0 14px #10B981);
+  animation: ai-led-travel-glow 2.8s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.btn-led-submit-beam-core {
+  stroke: #FFFFFF;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-dasharray: 16 84;
+  filter: drop-shadow(0 0 4px #FFFFFF);
+  animation: ai-led-travel-core 2.8s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.btn-led-submit:disabled .btn-led-submit-beam-glow,
+.btn-led-submit:disabled .btn-led-submit-beam-core {
+  display: none;
+}
+
+.btn-led-submit-content {
+  position: relative;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff !important;
+  font-weight: 800;
+  font-size: 0.875rem;
+  padding: 0 1.85rem;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+  user-select: none;
+  transition: filter 0.2s ease;
+}
+
+.btn-led-submit:not(:disabled):hover .btn-led-submit-content {
+  filter: brightness(1.08);
+}
+
+/* ── Create & Update Event Page: Solid Deep Dark Form Cards & Inputs (Dark Mode Only) ── */
+html:not(.light) .create-event-content section,
+html:not(.light) .create-event-content .bg-surface {
   background-color: #0b1528 !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
@@ -371,23 +478,121 @@ html.light select optgroup {
   -webkit-backdrop-filter: blur(16px);
 }
 
-.create-event-content .bg-panel-soft {
+html:not(.light) .create-event-content .bg-panel-soft {
   background-color: #132238 !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-.create-event-content input,
-.create-event-content select,
-.create-event-content textarea {
+html:not(.light) .create-event-content input:not([type="checkbox"]):not([type="radio"]),
+html:not(.light) .create-event-content select,
+html:not(.light) .create-event-content textarea {
   background-color: #132238 !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
 }
 
-.create-event-content input:focus,
-.create-event-content select:focus,
-.create-event-content textarea:focus {
+html:not(.light) .create-event-content input:focus,
+html:not(.light) .create-event-content select:focus,
+html:not(.light) .create-event-content textarea:focus {
   border-color: #C99A47 !important;
   box-shadow: 0 0 0 2px rgba(201, 154, 71, 0.25) !important;
+}
+
+/* ── Create & Update Event Page: Clean, Elegant Light Mode Theme ── */
+html.light .create-event-content section,
+html.light .create-event-content .bg-surface {
+  background-color: #ffffff !important;
+  border-color: rgba(201, 154, 71, 0.25) !important;
+  box-shadow: 0 4px 20px -2px rgba(13, 27, 42, 0.08), 0 2px 6px -1px rgba(13, 27, 42, 0.04) !important;
+  color: #0D1B2A !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.light .create-event-content .bg-panel-soft {
+  background-color: #F8F3EA !important;
+  border-color: rgba(201, 154, 71, 0.2) !important;
+  color: #0D1B2A !important;
+}
+
+html.light .create-event-content input:not([type="checkbox"]):not([type="radio"]),
+html.light .create-event-content select,
+html.light .create-event-content textarea {
+  background-color: #ffffff !important;
+  border-color: rgba(201, 154, 71, 0.35) !important;
+  color: #0D1B2A !important;
+}
+
+html.light .create-event-content input::placeholder,
+html.light .create-event-content textarea::placeholder {
+  color: #718096 !important;
+}
+
+html.light .create-event-content input:focus,
+html.light .create-event-content select:focus,
+html.light .create-event-content textarea:focus {
+  border-color: #C99A47 !important;
+  box-shadow: 0 0 0 2px rgba(201, 154, 71, 0.25) !important;
+}
+
+/* Hero banner overlay elements in Step 5 MUST ALWAYS remain pure white in both dark and light modes */
+.event-hero-banner-overlay,
+.event-hero-banner-overlay h3,
+.event-hero-title,
+html.light .event-hero-banner-overlay,
+html.light .event-hero-banner-overlay h3,
+html.light .event-hero-title,
+html.light .event-hero-banner-overlay span {
+  color: #ffffff !important;
+}
+
+/* Light Mode Text Overrides in Create Event so text doesn't blend into white backgrounds */
+html.light .create-event-page th.text-white,
+html.light .create-event-page label.text-white,
+html.light .create-event-page h4.text-white,
+html.light .create-event-page h5.text-white,
+html.light .create-event-page p.text-white,
+html.light .create-event-page span.text-white:not(.badge-solid):not([class*="bg-primary"]):not([class*="bg-success"]):not([class*="bg-error"]):not([class*="bg-tertiary"]):not(.event-hero-banner-overlay *),
+html.light .create-event-page strong.text-white,
+html.light .create-event-page div.text-white:not([class*="bg-primary"]):not([class*="bg-success"]):not([class*="bg-error"]):not([class*="bg-tertiary"]):not([class*="bg-indigo-"]):not(.event-hero-banner-overlay):not(.event-hero-banner-overlay *) {
+  color: #0D1B2A !important;
+}
+
+html.light .create-event-page .text-white\/90,
+html.light .create-event-page .text-white\/80 {
+  color: #1B365D !important;
+}
+
+/* Light Mode Borders */
+html.light .create-event-page .border-white\/10,
+html.light .create-event-page .border-white\/15,
+html.light .create-event-page .border-white\/20,
+html.light .create-event-page .border-white\/25,
+html.light .create-event-page .border-white\/30 {
+  border-color: rgba(201, 154, 71, 0.3) !important;
+}
+
+/* Bottom & Secondary Action Buttons in Light Mode */
+html.light .create-event-page button.bg-\[\#101c30\],
+html.light .create-event-page .bg-\[\#101c30\] {
+  background-color: #ffffff !important;
+  border-color: rgba(201, 154, 71, 0.35) !important;
+  color: #0D1B2A !important;
+  box-shadow: 0 2px 8px rgba(13, 27, 42, 0.06) !important;
+}
+
+html.light .create-event-page button.bg-\[\#101c30\]:hover,
+html.light .create-event-page .bg-\[\#101c30\]:hover {
+  background-color: #F8F3EA !important;
+  border-color: #C99A47 !important;
+}
+
+/* Modals & popup panels */
+html.light .create-event-page .bg-\[\#0b1329\],
+html.light .create-event-page .bg-\[\#0b132b\] {
+  background-color: #ffffff !important;
+  border-color: rgba(201, 154, 71, 0.35) !important;
+  color: #0D1B2A !important;
 }
 
 /* Gold Section Header Icons #C99A47 */

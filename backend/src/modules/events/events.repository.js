@@ -9,6 +9,7 @@ const PUBLIC_EVENT_WHERE = `
   AND e.visibility = 'PUBLIC'
   AND e.approval_status = 'APPROVED'
   AND e.deleted_at IS NULL
+  AND COALESCE(e.display_state, 'VISIBLE') = 'VISIBLE'
   AND (e.start_publish_at IS NULL OR e.start_publish_at <= now())
   AND (e.end_publish_at IS NULL OR e.end_publish_at >= now())
 `;
@@ -20,6 +21,16 @@ const EVENT_CARD_SELECT = `
   e.short_description,
   e.thumbnail_url,
   e.banner_url,
+  e.status,
+  COALESCE(e.display_state, 'VISIBLE') AS display_state,
+  CASE 
+    WHEN e.status IN ('COMPLETED', 'CANCELLED') THEN 'CLOSED'
+    WHEN COALESCE(time_summary.end_time, e.end_time) < NOW() THEN 'ENDED'
+    ELSE COALESCE(e.sales_status, 'ON_SALE')
+  END AS sales_status,
+  COALESCE(e.sales_blocks, '[]'::jsonb) AS sales_blocks,
+  e.cancel_reason_note,
+  e.cancel_reason_code,
   COALESCE(time_summary.start_time, e.start_time) AS start_time,
   COALESCE(time_summary.end_time, e.end_time) AS end_time,
   e.created_at,
@@ -28,6 +39,7 @@ const EVENT_CARD_SELECT = `
   c.slug AS category_slug,
   organizer.id AS organizer_id,
   COALESCE(organizer.organization_name, organizer_user.full_name) AS organizer_name,
+  COALESCE(organizer.organization_avatar_url, organizer_user.avatar_url) AS organizer_avatar_url,
   venue_summary.venue_name,
   venue_summary.city,
   venue_summary.district,
@@ -186,6 +198,25 @@ class EventsRepository {
     return rows;
   }
 
+  async findPublicOrganizers() {
+    const query = `
+      SELECT DISTINCT ON (o.id)
+        o.id,
+        COALESCE(o.organization_name, u.full_name, 'Ban tổ chức') AS name,
+        COALESCE(o.organization_avatar_url, u.avatar_url) AS avatar_url,
+        COUNT(e.id)::int AS event_count
+      FROM organizers o
+      LEFT JOIN users u ON u.id = o.user_id
+      LEFT JOIN events e ON e.organizer_id = o.id AND e.status = 'PUBLISHED' AND e.deleted_at IS NULL
+      WHERE o.status = 'ACTIVE'
+      GROUP BY o.id, o.organization_name, u.full_name, o.organization_avatar_url, u.avatar_url
+      ORDER BY o.id, event_count DESC
+      LIMIT 15
+    `;
+    const { rows } = await db.query(query);
+    return rows.sort((a, b) => b.event_count - a.event_count);
+  }
+
   async findPublicEvents(filters) {
     const { list, count, params, countParams } = buildListQuery(filters);
     const [listResult, countResult] = await Promise.all([
@@ -290,7 +321,9 @@ class EventsRepository {
         ) ticket_usage ON true
         WHERE es_tt.event_id = e.id
       ) ticket_types ON true
-      WHERE ${PUBLIC_EVENT_WHERE}
+      WHERE e.deleted_at IS NULL
+        AND e.approval_status = 'APPROVED'
+        AND e.visibility = 'PUBLIC'
         AND (e.id::text = $2 OR e.slug = $2)
       LIMIT 1
     `;
@@ -312,7 +345,9 @@ class EventsRepository {
       const lookupQuery = `
         SELECT e.id
         FROM events e
-        WHERE ${PUBLIC_EVENT_WHERE}
+        WHERE e.deleted_at IS NULL
+          AND e.approval_status = 'APPROVED'
+          AND e.visibility = 'PUBLIC'
           AND (
             e.slug ILIKE $1 || '%'
             OR lower(e.title) = lower($1)
@@ -725,7 +760,7 @@ class EventsRepository {
           tt.id, tt.event_session_id, tt.name, tt.max_per_order, tt.sale_start, tt.sale_end, tt.is_seated,
           es.status AS session_status, es.end_time AS session_end_time,
           e.id AS event_id, e.end_time AS event_end_time, e.status AS event_status, e.visibility,
-          e.approval_status, e.deleted_at
+          e.approval_status, e.deleted_at, e.sales_status, e.display_state, e.sales_blocks
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
         JOIN events e ON e.id = es.event_id
@@ -736,7 +771,7 @@ class EventsRepository {
       );
 
       if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
-        throw new AppError('Th\u00f4ng tin v\u00e9 kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        throw new AppError('Thông tin vé không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
       const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
@@ -750,13 +785,44 @@ class EventsRepository {
         if (
           !ticketType ||
           ticketType.event_id !== payload.event_id ||
-          ticketType.deleted_at ||
+          ticketType.deleted_at
+        ) {
+          throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+        }
+
+        // Section 10.2: Point 1 - Hold Creation Checks
+        if (ticketType.event_status === 'CANCELLED' || ticketType.event_status === 'ENDED') {
+          throw new AppError('Sự kiện đã kết thúc hoặc đã bị hủy.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+        }
+
+        if (ticketType.display_state === 'SUSPENDED_BY_ADMIN') {
+          throw new AppError('Sự kiện đang bị đình chỉ bởi Quản trị viên.', 403, ErrorCodes.SUSPENDED_BY_ADMIN);
+        }
+
+        const activeBlocks = Array.isArray(ticketType.sales_blocks)
+          ? ticketType.sales_blocks.filter((b) => b && !b.released_at)
+          : [];
+        if (ticketType.sales_status === 'PAUSED' || activeBlocks.length > 0) {
+          const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
+          const reasons = activeBlocks
+            .map((b) => b.metadata?.note || b.note || b.metadata?.reason)
+            .filter((r) => r && !SYSTEM_CODES.includes(String(r).trim()))
+            .join(', ');
+          throw new AppError(
+            `Sự kiện đang tạm dừng bán vé${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
+            400,
+            ErrorCodes.SALES_PAUSED,
+          );
+        }
+
+        if (
+          ticketType.sales_status !== 'ON_SALE' ||
           ticketType.event_status !== 'PUBLISHED' ||
           ticketType.visibility !== 'PUBLIC' ||
           ticketType.approval_status !== 'APPROVED' ||
           !['UPCOMING', 'ONGOING'].includes(ticketType.session_status)
         ) {
-          throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
         }
 
         const eventEnd = ticketType.event_end_time ? new Date(ticketType.event_end_time).getTime() : null;

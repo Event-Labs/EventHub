@@ -196,7 +196,8 @@ function calculateEventCompleteness(formData) {
   const policyFileUrl = formData.refund_policy?.policy_file_url
   const hasTerms = Boolean(formData.additional_terms?.trim())
   const refundRulesValid = !formData.refund_policy?.allow_refund || Boolean(validateRefundRules(formData.refund_policy?.refund_rules).valid)
-  const policiesValid = Boolean(hasTerms || policyFileUrl) && refundRulesValid
+  // Chính sách & điều khoản tham dự là tùy chọn không bắt buộc; chỉ cần cấu hình hoàn vé hợp lệ (nếu bật)
+  const policiesValid = refundRulesValid
 
   const permitFiles = formData.refund_policy?.permit_files || []
   const permitsValid = Boolean(permitFiles.length > 0)
@@ -286,11 +287,13 @@ function calculateEventCompleteness(formData) {
       step: 4,
       label: 'Chính sách & Điều khoản tham dự',
       completed: policiesValid,
-      detail: !policiesValid
-        ? 'Cần nhập điều khoản tham dự hoặc tải file chính sách'
+      detail: !refundRulesValid
+        ? 'Cấu hình hoàn vé chưa hợp lệ'
         : policyFileUrl
           ? `Đã đính kèm file: ${formData.refund_policy?.policy_file_name || 'chính sách'}`
-          : 'Đã thiết lập điều khoản tham dự',
+          : hasTerms
+            ? 'Đã nhập điều khoản tham dự'
+            : 'Áp dụng điều khoản tiêu chuẩn (Không bắt buộc)',
     },
     {
       id: 'review_terms',
@@ -326,7 +329,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
     <div className="w-full max-w-5xl mx-auto px-4 py-4">
       <div className="relative flex items-center justify-between">
         {/* Đường line nối các bước */}
-        <div className="absolute top-[22px] left-10 sm:left-14 right-10 sm:right-14 -translate-y-1/2 h-[2px] bg-white/10 z-0 pointer-events-none">
+        <div className="absolute top-[22px] left-10 sm:left-14 right-10 sm:right-14 -translate-y-1/2 h-[2px] bg-white/10 [html.light_&]:bg-[#C99A47]/30 z-0 pointer-events-none">
           <div
             className="h-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-[0_0_8px_rgba(201,154,71,0.6)] transition-all duration-500"
             style={{ width: `${progress}%` }}
@@ -351,18 +354,18 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
                 className={`grid size-11 place-items-center rounded-full text-sm font-bold transition-all duration-300 ${active
                   ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-slate-950 shadow-[0_0_20px_rgba(201,154,71,0.5)] scale-110'
                   : done
-                    ? 'bg-[#0b132b] text-[#E6C17A] border border-[#E6C17A]/40 group-hover:scale-105 group-hover:bg-[#C99A47]/20 group-hover:border-[#E6C17A]'
-                    : 'bg-[#0b132b] text-slate-500 border border-white/10'
+                    ? 'bg-[#0b132b] text-[#E6C17A] border border-[#E6C17A]/40 group-hover:scale-105 group-hover:bg-[#C99A47]/20 group-hover:border-[#E6C17A] [html.light_&]:bg-[#F8F3EA] [html.light_&]:text-[#C99A47] [html.light_&]:border-[#C99A47]'
+                    : 'bg-[#0b132b] text-slate-500 border border-white/10 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/35 [html.light_&]:shadow-sm'
                   }`}
               >
-                {done ? <Check className="size-5 text-[#E6C17A]" /> : stepNum}
+                {done ? <Check className="size-5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" /> : stepNum}
               </div>
               <span
                 className={`text-xs sm:text-sm font-bold transition-colors text-center max-w-[130px] leading-tight ${active
-                  ? 'text-white drop-shadow-md'
+                  ? 'text-white drop-shadow-md [html.light_&]:text-[#0D1B2A] [html.light_&]:drop-shadow-none'
                   : done
-                    ? 'text-[#E6C17A] group-hover:underline'
-                    : 'text-slate-500'
+                    ? 'text-[#E6C17A] group-hover:underline [html.light_&]:text-[#C99A47]'
+                    : 'text-slate-500 [html.light_&]:text-[#536b88]'
                   }`}
               >
                 {label}
@@ -626,16 +629,13 @@ function Step1EventInfo({
             </div>
           </div>
           <div className="p-5">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h4 className={`text-[20px] font-semibold leading-tight ${formData.title ? 'text-content' : 'text-muted italic'}`}>
-                  {formData.title || 'Sự kiện không tiêu đề'}
-                </h4>
-                <p className="text-xs text-muted mt-1 italic">
-                  {categories.find((c) => c.id === formData.category_id)?.name || 'Chưa chọn danh mục'}
-                </p>
-              </div>
-              <span className="px-2 py-1 bg-panel-soft text-subtle rounded text-xs font-semibold border border-border-soft/30">Bản nháp</span>
+            <div className="mb-4">
+              <h4 className={`text-[20px] font-semibold leading-tight ${formData.title ? 'text-content' : 'text-muted italic'}`}>
+                {formData.title || 'Sự kiện không tiêu đề'}
+              </h4>
+              <p className="text-xs text-muted mt-1 italic">
+                {categories.find((c) => c.id === formData.category_id)?.name || 'Chưa chọn danh mục'}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Icon name="location_on" className="text-[#C99A47] text-[18px]" />
@@ -816,7 +816,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
               <button
                 type="button"
                 onClick={addSession}
-                className="flex items-center gap-1.5 !px-3.5 !py-1.5 org-btn-primary !text-xs font-bold rounded-full transition cursor-pointer"
+                className="flex items-center gap-1.5 !px-3.5 !py-1.5 org-btn-primary !text-sm font-bold rounded-full transition cursor-pointer"
               >
                 <Icon name="add" className="text-[15px]" />
                 <span>Thêm phiên</span>
@@ -865,35 +865,37 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                         type="text"
                         value={session.session_name || ''}
                         placeholder={`Phiên ${index + 1}`}
+                        title={session.session_name || `Phiên ${index + 1}`}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => updateSession(key, 'session_name', e.target.value)}
-                        className="w-24 sm:w-28 shrink-0 font-bold text-content text-sm bg-transparent border-b border-transparent focus:border-tertiary focus:outline-none focus:ring-0 px-1 py-0.5 truncate"
+                        className={`font-bold text-content text-sm bg-transparent border-b border-transparent hover:border-border-soft/60 focus:border-tertiary focus:outline-none focus:ring-0 px-1.5 py-0.5 transition-colors truncate ${isExpanded ? 'w-48 sm:w-72 md:w-96 lg:w-[420px] max-w-full' : 'w-24 sm:w-28 md:w-32 shrink-0'
+                          }`}
                       />
                       {!isExpanded && (
-                        <div className="hidden sm:flex items-center gap-2 text-xs flex-1 min-w-0">
+                        <div className="hidden sm:flex items-center gap-2 text-xs flex-1 min-w-0 overflow-hidden">
                           {session.start_date && (
                             <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-white font-semibold flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0">
-                              <Icon name="calendar_today" className="text-[13px] text-[#C99A47]" />
+                              <Icon name="calendar_today" className="text-[11px] text-[#C99A47]" />
                               {session.start_date}
                               {session.start_time && ` · ${session.start_time}${session.end_time ? ` - ${session.end_time}` : ''}`}
                             </span>
                           )}
                           {sessionVenue && (
-                            <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-white font-semibold flex items-center gap-1.5 text-xs truncate max-w-[180px] whitespace-nowrap shrink-0" title={sessionVenue.name}>
-                              <Icon name="location_on" className="text-[13px] text-[#C99A47]" />
+                            <span className="px-2 py-0.5 rounded-md bg-panel-soft border border-border-soft/40 text-white font-semibold flex items-center gap-1.5 text-xs truncate max-w-[220px] whitespace-nowrap shrink-0" title={sessionVenue.name}>
+                              <Icon name="location_on" className="text-[11px] text-[#C99A47]" />
                               {sessionVenue.name}
                             </span>
                           )}
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
                       {isOverlapped && (
                         <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-error/15 text-error flex items-center gap-1">
                           <Icon name="schedule" className="text-xs" /> Trùng giờ
                         </span>
                       )}
-                      {formData.sessions.length > 1 && (
+                      {isExpanded && formData.sessions.length > 1 && (
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeSession(key); }}
@@ -1052,10 +1054,9 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                 <Icon name="location_on" className="text-[#C99A47] text-lg" />
                 <h2 className="text-base font-bold text-content">Chi tiết địa điểm</h2>
               </div>
-              <div className="p-3.5 bg-panel-soft rounded-lg border border-border-soft/30 space-y-1">
+              <div className="space-y-1.5 pt-1">
                 <h3 className="text-sm font-bold text-content">{selectedVenue.name}</h3>
-                <p className="text-xs text-subtle flex items-center gap-1">
-                  <Icon name="pin_drop" className="text-[14px]" />
+                <p className="text-xs text-subtle leading-relaxed">
                   {[selectedVenue.address_line, selectedVenue.district, selectedVenue.city].filter(Boolean).join(', ')}
                 </p>
                 {(selectedVenue.max_seats > 0 || selectedVenue.seat_count > 0) && (
@@ -1150,12 +1151,12 @@ function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 space-y-4 text-white">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
-          <h3 className="text-lg font-black text-white">
-            Mô tả loại vé: <span className="text-primary">{ticketName}</span>
+      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-xl p-6 shadow-2xl shadow-black/90 space-y-4 text-white [html.light_&]:text-[#0D1B2A]">
+        <div className="flex items-center justify-between border-b border-white/10 [html.light_&]:border-[#C99A47]/20 pb-3">
+          <h3 className="text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">
+            Mô tả loại vé: <span className="text-primary [html.light_&]:text-[#C99A47]">{ticketName}</span>
           </h3>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white text-sm font-bold">✕</button>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white [html.light_&]:hover:text-[#0D1B2A] text-sm font-bold">✕</button>
         </div>
         <div>
           <label className="text-xs text-subtle font-semibold mb-1.5 block">Nội dung mô tả vé (quyền lợi, lối đi, quà tặng...):</label>
@@ -1571,21 +1572,48 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
     <div className="grid grid-cols-12 items-start gap-6">
       <div className="col-span-12 space-y-6 pb-24 lg:col-span-8">
         {sessions.length > 1 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-soft/30 pb-4">
-            <div className="flex flex-wrap gap-2">
-              {sessions.map((s, i) => (
-                <button
-                  key={s.id || s.clientKey}
-                  type="button"
-                  onClick={() => setActiveTab(i)}
-                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${activeTab === i
-                    ? 'border-tertiary bg-tertiary/10 text-primary'
-                    : 'border-border-soft/40 text-subtle hover:border-tertiary/50'
+          <div className="space-y-3.5 border-b border-border-soft/30 pb-4">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {sessions.map((s, i) => {
+                const sessionTitle = s.session_name?.trim()
+                const displayName = sessionTitle
+                  ? (sessionTitle.toLowerCase().startsWith('phiên') ? sessionTitle : `Phiên ${i + 1}: ${sessionTitle}`)
+                  : `Phiên ${i + 1}`
+
+                return (
+                  <button
+                    key={s.id || s.clientKey}
+                    type="button"
+                    onClick={() => setActiveTab(i)}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition whitespace-nowrap ${
+                      activeTab === i
+                        ? 'border-[#C99A47] bg-[#C99A47]/15 text-white shadow-sm ring-1 ring-[#C99A47]/30'
+                        : 'border-border-soft/40 text-subtle hover:border-[#C99A47]/50 hover:text-content'
                     }`}
-                >
-                  {s.session_name || `Phiên ${i + 1}`}
-                </button>
-              ))}
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 border ${
+                        activeTab === i
+                          ? 'bg-[#C99A47] text-[#0d1b2a] border-[#C99A47]'
+                          : 'bg-panel-soft text-[#C99A47] border-[#C99A47]/30'
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    <span>{displayName}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex justify-start">
+              <button
+                type="button"
+                onClick={() => setShowSyncConfirm(true)}
+                className="org-btn-primary inline-flex items-center gap-2 !rounded-xl !px-4 !py-2 !text-xs sm:!text-sm !font-bold cursor-pointer transition-all transform hover:scale-[1.01]"
+              >
+                <Icon name="content_copy" className="text-[17px] text-[#0D1B2A]" />
+                <span>Sao chép Bố cục Sơ đồ & Vé cho TẤT CẢ các phiên khác cùng địa điểm</span>
+              </button>
             </div>
           </div>
         )}
@@ -1982,17 +2010,21 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                       if (allCollapsed) expandAllTickets()
                       else collapseAllTickets()
                     }}
-                    className="px-3 py-1.5 rounded-lg border border-border-soft/40 bg-panel-soft text-xs font-semibold text-subtle hover:text-white hover:border-tertiary transition cursor-pointer"
+                    title={sessionTickets.every((tt) => collapsedTickets[tt.id || tt.clientKey] !== false) ? 'Mở rộng tất cả' : 'Thu gọn tất cả'}
+                    className="h-8.5 w-8.5 rounded-lg border border-border-soft/40 bg-panel-soft text-subtle hover:text-white hover:border-[#C99A47] transition flex items-center justify-center cursor-pointer"
                   >
-                    {sessionTickets.every((tt) => collapsedTickets[tt.id || tt.clientKey] !== false) ? 'Mở rộng tất cả' : 'Thu gọn tất cả'}
+                    <Icon
+                      name={sessionTickets.every((tt) => collapsedTickets[tt.id || tt.clientKey] !== false) ? 'unfold_more' : 'unfold_less'}
+                      className="text-[20px]"
+                    />
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={addTicketType}
-                  className="org-btn-primary px-3.5 py-2 text-xs cursor-pointer"
+                  className="org-btn-primary !px-3.5 !py-1.5 !text-sm font-bold gap-1.5 cursor-pointer transition-all"
                 >
-                  <Icon name="add" className="text-[16px]" />
+                  <Icon name="add" className="text-[15px]" />
                   <span>Thêm loại vé</span>
                 </button>
               </div>
@@ -2013,7 +2045,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                     type="number"
                     min="1"
                     max="100"
-                    className="h-10 w-16 rounded-lg border border-border-soft/60 bg-surface px-2 text-center text-sm font-bold text-content focus:border-tertiary outline-none shadow-sm"
+                    className="h-10 w-16 rounded-lg border border-border-soft/60 bg-surface px-2 text-center text-sm font-bold text-content focus:border-[#C99A47] outline-none shadow-sm"
                     value={formData.seating_rules?.max_tickets_per_order ?? 10}
                     onChange={(e) => {
                       const val = Math.max(1, Math.min(100, Number(e.target.value) || 1))
@@ -2061,8 +2093,8 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                   <div
                     key={key}
                     className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm ${isCollapsed
-                      ? 'border-border-soft/50 bg-surface hover:border-tertiary/50 hover:shadow-md'
-                      : 'border-tertiary/50 bg-surface ring-1 ring-tertiary/20 shadow-md'
+                      ? 'border-border-soft/50 bg-surface hover:border-[#C99A47]/50 hover:shadow-md'
+                      : 'border-[#C99A47]/50 bg-surface ring-1 ring-[#C99A47]/20 shadow-md'
                       }`}
                   >
                     {/* Header của vé (Bấm để thu gọn/mở rộng) */}
@@ -2073,7 +2105,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                     >
                       {/* Left: Thứ tự + Tên vé + Badges tóm tắt */}
                       <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                        <div className="w-7 h-7 rounded-lg bg-tertiary/10 text-tertiary font-bold text-xs flex items-center justify-center shrink-0 border border-tertiary/25">
+                        <div className="w-7 h-7 rounded-lg bg-[#C99A47]/10 text-[#C99A47] font-bold text-xs flex items-center justify-center shrink-0 border border-[#C99A47]/25">
                           #{index + 1}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -2083,11 +2115,11 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                             </h4>
                             {/* Badge giá */}
                             {isFree ? (
-                              <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-success/15 text-success border border-success/30">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-[#C99A47]/15 text-[#C99A47] border border-[#C99A47]/30">
                                 Miễn phí
                               </span>
                             ) : ticketPrice > 0 ? (
-                              <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-tertiary/10 text-tertiary border border-tertiary/25">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-[#C99A47]/10 text-[#C99A47] border border-[#C99A47]/25">
                                 {formatPriceString(tt.price)} VND
                               </span>
                             ) : (
@@ -2125,12 +2157,12 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                           </button>
                         )}
                         <span
-                          className="p-1 text-subtle hover:text-tertiary transition rounded-lg"
+                          className="p-1 text-subtle hover:text-[#C99A47] transition rounded-lg"
                           title={isCollapsed ? 'Mở rộng chỉnh sửa' : 'Thu gọn vé'}
                         >
                           <Icon
                             name="expand_more"
-                            className={`text-[22px] transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180 text-tertiary'
+                            className={`text-[22px] transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180 text-[#C99A47]'
                               }`}
                           />
                         </span>
@@ -2154,7 +2186,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                               </span>
                               <input
                                 type="text"
-                                className="w-full h-10 pl-9 pr-3 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-bold focus:border-tertiary focus:ring-1 focus:ring-tertiary/20 outline-none transition"
+                                className="w-full h-10 pl-9 pr-3 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-bold focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 outline-none transition"
                                 value={tt.name || ''}
                                 onChange={(e) => updateTicket(key, 'name', e.target.value)}
                                 placeholder="VD: Early Bird, Standard, VIP..."
@@ -2171,7 +2203,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                               <button
                                 type="button"
                                 onClick={() => updateTicket(key, 'price', 0)}
-                                className="text-xs font-bold text-success hover:underline cursor-pointer"
+                                className="text-xs font-bold text-[#C99A47] hover:text-[#E6C17A] hover:underline cursor-pointer"
                               >
                                 + Miễn phí
                               </button>
@@ -2179,7 +2211,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                             <div className="relative">
                               <input
                                 type="text"
-                                className="w-full h-10 pl-3 pr-14 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-black focus:border-tertiary focus:ring-1 focus:ring-tertiary/20 outline-none transition text-right"
+                                className="w-full h-10 pl-3 pr-14 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-black focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 outline-none transition text-right"
                                 value={tt.price !== undefined && tt.price !== null ? formatPriceString(tt.price) : ''}
                                 onChange={(e) => updateTicket(key, 'price', parsePriceNumber(e.target.value))}
                                 placeholder="0"
@@ -2201,7 +2233,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                               <input
                                 type="number"
                                 min="1"
-                                className="w-full h-10 pl-3 pr-10 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-bold focus:border-tertiary focus:ring-1 focus:ring-tertiary/20 outline-none transition text-center"
+                                className="w-full h-10 pl-3 pr-10 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-bold focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 outline-none transition text-center"
                                 value={tt.quantity || ''}
                                 onChange={(e) => {
                                   const val = Math.max(1, Number(e.target.value) || 1)
@@ -2222,37 +2254,37 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                             Mô tả & Quyền lợi đi kèm (Tùy chọn)
                           </label>
 
-                          {/* Gợi ý quyền lợi nhanh */}
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-white uppercase">Gợi ý:</span>
+                          <textarea
+                            rows={2}
+                            className="w-full px-3 py-2 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 resize-none placeholder:text-muted"
+                            value={tt.description || ''}
+                            onChange={(e) => updateTicket(key, 'description', e.target.value)}
+                            placeholder="Nhập mô tả các đặc quyền: Vé vào cửa, đã gồm nước uống, quà tặng lưu niệm..."
+                          />
+
+                          {/* Gợi ý quyền lợi nhanh - Đặt dưới ô input theo yêu cầu */}
+                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                            <span className="text-xs font-bold text-[#E6C17A] uppercase">GỢI Ý:</span>
                             {quickBenefitTags.map((tag) => (
                               <button
                                 key={tag}
                                 type="button"
                                 onClick={() => appendBenefit(tag)}
-                                className="px-2.5 py-1 rounded-md text-xs font-medium bg-panel-soft text-subtle hover:text-tertiary hover:bg-tertiary/10 border border-border-soft/40 transition cursor-pointer"
+                                className="px-2.5 py-1 rounded-md text-xs font-medium bg-panel-soft text-subtle hover:text-[#C99A47] hover:bg-[#C99A47]/10 hover:border-[#C99A47]/40 border border-border-soft/40 transition cursor-pointer"
                               >
                                 + {tag}
                               </button>
                             ))}
                           </div>
-
-                          <textarea
-                            rows={2}
-                            className="w-full px-3 py-2 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary/20 resize-none placeholder:text-muted"
-                            value={tt.description || ''}
-                            onChange={(e) => updateTicket(key, 'description', e.target.value)}
-                            placeholder="Nhập mô tả các đặc quyền: Vé vào cửa, đã gồm nước uống, quà tặng lưu niệm..."
-                          />
                         </div>
 
                         {/* Footer của vé khi mở: Tóm tắt doanh thu dự kiến */}
                         <div className="flex items-center justify-between pt-3 border-t border-border-soft/30 text-xs">
                           <div className="flex items-center gap-2 text-subtle">
-                            <Icon name="payments" className="text-base text-tertiary" />
+                            <Icon name="payments" className="text-base text-[#C99A47]" />
                             <span>
                               Doanh thu dự kiến:{' '}
-                              <strong className="text-tertiary font-bold text-sm">
+                              <strong className="text-[#C99A47] font-bold text-sm">
                                 {estRevenue.toLocaleString('vi-VN')} VND
                               </strong>{' '}
                               <span className="text-muted text-[11px]">
@@ -2285,19 +2317,7 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
             </div>
           </section>
         )}
-        {sessions.length > 1 && (
-          <div className="pt-8 border-t border-border-soft/30 w-full mt-4">
-            <button
-              type="button"
-              onClick={() => setShowSyncConfirm(true)}
-              className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#C99A47]/10 text-[#E6C17A] shadow-sm px-6 py-4 text-sm font-bold border border-[#E6C17A]/30 hover:bg-[#C99A47]/20 hover:border-[#E6C17A] transition-all transform hover:scale-[1.01]"
-            >
-              <Icon name="content_copy" className="text-[20px]" />
-              Sao chép Bố cục Sơ đồ & Vé cho TẤT CẢ các phiên khác cùng địa điểm
-            </button>
-            <p className="text-center text-xs text-subtle mt-3 font-medium">Thay vì phải làm lại thủ công, bạn có thể đồng bộ cấu hình hiện tại sang tất cả các phiên cùng sự kiện.</p>
-          </div>
-        )}
+
 
         <ConfirmModal
           open={showSyncConfirm}
@@ -2675,15 +2695,15 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                         href={file.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border-soft/50 text-xs font-medium text-tertiary flex items-center gap-1 transition"
+                        className="p-1 rounded-lg text-subtle hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer"
+                        title="Xem tài liệu"
                       >
-                        <Icon name="visibility" className="text-[14px]" />
-                        <span>Xem</span>
+                        <Icon name="visibility" className="text-[18px]" />
                       </a>
                       <button
                         type="button"
                         onClick={() => handleRemovePermitFile(file.id)}
-                        className="p-1 rounded text-subtle hover:text-error hover:bg-error/10 transition"
+                        className="p-1 rounded-lg text-subtle hover:text-error hover:bg-error/10 transition cursor-pointer"
                         title="Xóa tài liệu"
                       >
                         <Icon name="delete" className="text-[18px]" />
@@ -2879,7 +2899,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                     className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl bg-panel-soft border border-border-soft/40"
                   >
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="px-2 py-0.5 rounded bg-tertiary/10 text-tertiary text-xs font-bold">
+                      <span className="px-2 py-0.5 rounded-md bg-[#C99A47]/15 text-[#C99A47] border border-[#C99A47]/30 text-xs font-bold">
                         Mốc {idx + 1}
                       </span>
                       <span className="text-xs text-subtle font-medium">Hủy trước sự kiện ít nhất:</span>
@@ -2892,7 +2912,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                         max="365"
                         value={rule.days_before}
                         onChange={(e) => handleRuleChange(idx, 'days_before', e.target.value)}
-                        className="w-20 px-2.5 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-sm font-semibold text-content text-center outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+                        className="w-20 px-2.5 py-1.5 rounded-lg border border-border-soft/60 bg-surface text-sm font-semibold text-content text-center outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 transition"
                       />
                       <span className="text-xs text-subtle font-medium">ngày</span>
                     </div>
@@ -2906,9 +2926,9 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                           max="100"
                           value={rule.refund_rate}
                           onChange={(e) => handleRuleChange(idx, 'refund_rate', e.target.value)}
-                          className="w-20 px-2.5 py-1.5 pr-6 rounded-lg border border-border-soft/60 bg-surface text-sm font-semibold text-emerald-400 text-center outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
+                          className="w-20 px-2.5 py-1.5 pr-6 rounded-lg border border-border-soft/60 bg-surface text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] text-center outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 transition"
                         />
-                        <span className="absolute right-2 top-1.5 text-xs text-muted font-bold">%</span>
+                        <span className="absolute right-2 top-1.5 text-xs text-white/80 [html.light_&]:text-[#0D1B2A] font-bold">%</span>
                       </div>
                       <span className="text-xs text-subtle font-medium">giá vé</span>
 
@@ -2916,7 +2936,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                         type="button"
                         onClick={() => handleRemoveRule(idx)}
                         disabled={refundRules.length <= 1}
-                        className="p-1.5 rounded-lg text-subtle hover:text-error hover:bg-error/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-subtle transition ml-1"
+                        className="p-1.5 rounded-lg text-subtle hover:text-error hover:bg-error/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-subtle transition ml-1 cursor-pointer"
                         title={refundRules.length <= 1 ? 'Cần ít nhất 1 mốc' : 'Xóa mốc'}
                       >
                         <Icon name="delete" className="text-base" />
@@ -2930,9 +2950,9 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                 <button
                   type="button"
                   onClick={handleAddRule}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border-soft/60 hover:border-tertiary/60 text-xs font-semibold text-tertiary hover:bg-tertiary/5 transition"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-white/30 hover:border-white text-xs font-bold text-white hover:bg-white/5 transition cursor-pointer [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#C99A47]/10"
                 >
-                  <Icon name="add" className="text-base" />
+                  <Icon name="add" className="text-base text-white [html.light_&]:text-[#0D1B2A]" />
                   <span>Thêm mốc hoàn vé ({refundRules.length}/4)</span>
                 </button>
               )}
@@ -2948,13 +2968,13 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
               {/* Live Preview Box */}
               <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-2">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-content uppercase tracking-wider">
-                  <Icon name="visibility" className="text-tertiary text-sm" />
+                  <Icon name="visibility" className="text-[#C99A47] text-sm" />
                   <span>Xem trước quy định hiển thị cho khách hàng</span>
                 </div>
                 <div className="p-3 rounded-lg bg-surface border border-border-soft/40 text-xs text-subtle space-y-1.5">
                   {previewLines.map((line, idx) => (
                     <div key={idx} className="flex items-start gap-2">
-                      <span className="text-tertiary mt-0.5">•</span>
+                      <span className="text-[#C99A47] mt-0.5">•</span>
                       <span className="leading-relaxed">{line.replace(/^•\s*/, '')}</span>
                     </div>
                   ))}
@@ -3022,8 +3042,8 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
 
             <div className="flex items-start gap-3">
               <Icon
-                name={formData.additional_terms?.trim() || rp?.policy_file_url ? 'check_circle' : 'info'}
-                className={formData.additional_terms?.trim() || rp?.policy_file_url ? 'text-success text-lg mt-0.5 shrink-0' : 'text-muted text-lg mt-0.5 shrink-0'}
+                name="check_circle"
+                className="text-success text-lg mt-0.5 shrink-0"
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-content">Chính sách sự kiện</p>
@@ -3038,7 +3058,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                   <p className="text-xs text-muted leading-relaxed break-words">
                     {formData.additional_terms?.trim()
                       ? 'Đã nhập điều khoản tham dự'
-                      : 'Chưa nhập hoặc tải file chính sách'}
+                      : 'Quy định tiêu chuẩn (Không bắt buộc)'}
                   </p>
                 )}
               </div>
@@ -3089,9 +3109,14 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
     group.totalQty += Number(tt.quantity || 0)
     const session = formData.sessions.find((s) => (s.id || s.clientKey) === tt.session_key)
     if (session) {
+      const sessionIndex = formData.sessions.indexOf(session) + 1
       const ms = new Date(`${session.start_date}T${session.start_time}`).getTime() || 0
+      const sessionTitle = session.session_name?.trim()
+      const sName = sessionTitle
+        ? (sessionTitle.toLowerCase().startsWith('phiên') ? sessionTitle : `Phiên ${sessionIndex}: ${sessionTitle}`)
+        : `Phiên ${sessionIndex}`
       group.sessions.push({
-        name: session.session_name || `Phiên ${formData.sessions.indexOf(session) + 1}`,
+        name: sName,
         qty: tt.quantity,
         timeMs: ms,
       })
@@ -3128,18 +3153,18 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                   <img src={formData.thumbnail_url} alt="" className="w-full h-full object-cover rounded-xl" />
                 </div>
               )}
-              <div className="mb-1 text-white pb-1 min-w-0 flex-1">
-                <h3 className="text-xl sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight truncate drop-shadow-md">
+              <div className="event-hero-banner-overlay mb-1 pb-1 min-w-0 flex-1">
+                <h3 className="event-hero-title text-xl sm:text-2xl lg:text-3xl font-black !text-white leading-tight tracking-tight truncate drop-shadow-md">
                   {formData.title || 'Chưa nhập tên sự kiện'}
                 </h3>
                 <div className="flex gap-2 mt-2.5 flex-wrap items-center">
                   {categoryName && (
-                    <span className="bg-tertiary px-3 py-1 rounded-full text-xs font-extrabold text-white shadow-sm">
+                    <span className="bg-tertiary px-3 py-1 rounded-full text-xs font-extrabold !text-white shadow-sm">
                       {categoryName}
                     </span>
                   )}
                   {formData.tags.map((tag) => (
-                    <span key={tag} className="bg-white/20 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white/95 border border-white/25">
+                    <span key={tag} className="bg-white/20 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-semibold !text-white border border-white/25">
                       #{tag}
                     </span>
                   ))}
@@ -3148,8 +3173,8 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             </div>
           </div>
           <div className="p-6">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-muted mb-1">Mô tả tóm tắt sự kiện</h5>
-            <p className="text-sm text-subtle leading-relaxed">{formData.short_description || 'Chưa có mô tả tóm tắt.'}</p>
+            <h5 className="text-xs font-bold uppercase tracking-wider text-white mb-1">Mô tả tóm tắt sự kiện</h5>
+            <p className="text-sm text-white/90 leading-relaxed">{formData.short_description || 'Chưa có mô tả tóm tắt.'}</p>
           </div>
         </section>
 
@@ -3179,7 +3204,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-lg bg-tertiary/15 text-tertiary text-xs font-black flex items-center justify-center shrink-0 border border-tertiary/20">
+                      <span className="w-7 h-7 rounded-lg bg-[#C99A47]/15 text-[#C99A47] text-xs font-black flex items-center justify-center shrink-0 border border-[#C99A47]/30">
                         #{idx + 1}
                       </span>
                       <h5 className="font-bold text-sm text-content">
@@ -3194,34 +3219,34 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1 border-t border-border-soft/20">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm pt-2 border-t border-border-soft/20">
                     <div className="flex items-center gap-2 text-content">
-                      <Icon name="event" className="text-sm text-tertiary shrink-0" />
-                      <span>
+                      <Icon name="event" className="text-base text-tertiary shrink-0" />
+                      <span className="truncate">
                         Ngày: <strong className="text-content font-bold">{dateFormatted}</strong>
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-content">
-                      <Icon name="schedule" className="text-sm text-tertiary shrink-0" />
-                      <span>
+                      <Icon name="schedule" className="text-base text-tertiary shrink-0" />
+                      <span className="truncate">
                         Giờ diễn ra: <strong className="text-content font-bold">{session.start_time || '--:--'} - {session.end_time || '--:--'}</strong>
                       </span>
                     </div>
 
                     {session.checkin_start_time && (
-                      <div className="flex items-center gap-2 text-subtle">
-                        <Icon name="how_to_reg" className="text-sm text-success shrink-0" />
-                        <span>Mở check-in từ: <strong className="text-content font-semibold">{session.checkin_start_time}</strong></span>
+                      <div className="flex items-center gap-2 text-white">
+                        <Icon name="how_to_reg" className="text-base text-tertiary shrink-0" />
+                        <span className="truncate">Mở check-in: <strong className="text-white font-semibold">{session.checkin_start_time}</strong></span>
                       </div>
                     )}
 
-                    <div className="flex items-start gap-2 text-content sm:col-span-2 pt-0.5">
-                      <Icon name="location_on" className="text-sm text-tertiary shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-content">{sVenue?.name || 'Chưa chọn địa điểm'}</span>
-                        {sVenue?.address && <span className="text-muted block text-[11px] mt-0.5">{sVenue.address}</span>}
-                      </div>
+                    <div className="flex items-center gap-2 text-content sm:col-span-2">
+                      <Icon name="location_on" className="text-base text-tertiary shrink-0" />
+                      <span className="truncate">
+                        Địa điểm: <strong className="text-content font-bold">{sVenue?.name || 'Chưa chọn địa điểm'}</strong>
+                        {sVenue?.address && <span className="text-subtle font-normal ml-1.5 truncate">({sVenue.address})</span>}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -3237,10 +3262,10 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
               <Icon name="confirmation_number" className="text-[#C99A47] text-xl" />
               <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Cơ cấu vé & Bảng giá</h4>
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-subtle font-medium">Tổng: <strong className="text-content">{totalEventTickets.toLocaleString('vi-VN')} vé</strong></span>
+            <div className="flex items-center gap-2.5 text-sm">
+              <span className="text-white font-medium">Tổng: <strong className="text-white font-bold">{totalEventTickets.toLocaleString('vi-VN')} vé</strong></span>
               <span className="text-border-soft/60">|</span>
-              <span className="text-subtle font-medium">Dự thu: <strong className="text-tertiary font-bold">{totalEventRevenue.toLocaleString('vi-VN')} VND</strong></span>
+              <span className="text-white font-medium">Dự thu: <strong className="text-[#C99A47] font-bold">{totalEventRevenue.toLocaleString('vi-VN')} VND</strong></span>
             </div>
           </div>
 
@@ -3257,7 +3282,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     <div className="min-w-0 flex-1 pr-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm text-content">{group.name}</p>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${group.is_seated ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-tertiary/10 text-tertiary border border-tertiary/20'
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${group.is_seated ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-[#C99A47]/10 text-[#C99A47] border border-[#C99A47]/20'
                           }`}>
                           {group.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
                         </span>
@@ -3273,11 +3298,11 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     </div>
                     <div className="text-right shrink-0">
                       {isFree ? (
-                        <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-success/15 text-success border border-success/30">
+                        <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-[#C99A47]/15 text-[#C99A47] border border-[#C99A47]/30">
                           Miễn phí
                         </span>
                       ) : (
-                        <span className="text-sm font-black text-tertiary">
+                        <span className="text-sm font-black text-[#C99A47]">
                           {Number(group.price).toLocaleString('vi-VN')} VND
                         </span>
                       )}
@@ -3299,7 +3324,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
           </div>
         </section>
 
-        {/* Giấy phép & Hồ sơ pháp lý sự kiện (Đưa lên trước Chính sách theo đúng thứ tự) */}
+        {/* Giấy phép & Hồ sơ pháp lý sự kiện */}
         <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
           <div className="flex items-center justify-between gap-2 pb-3 border-b border-border-soft/30">
             <div className="flex items-center gap-2">
@@ -3321,7 +3346,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                   className="flex items-center justify-between p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/40 text-xs hover:border-border-soft/70 transition"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="size-8 rounded-lg bg-tertiary/10 text-tertiary flex items-center justify-center shrink-0">
+                    <div className="size-8 rounded-lg bg-[#C99A47]/10 text-[#C99A47] flex items-center justify-center shrink-0">
                       <Icon
                         name={file.type?.includes('pdf') || file.name?.endsWith('.pdf') ? 'picture_as_pdf' : 'description'}
                         className="text-base"
@@ -3336,10 +3361,10 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     href={file.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-1 rounded-lg bg-surface border border-border-soft/60 text-tertiary font-bold hover:bg-panel-soft transition flex items-center gap-1.5 shrink-0"
+                    className="p-1.5 rounded-lg text-white hover:text-[#C99A47] hover:bg-white/10 transition flex items-center justify-center shrink-0 cursor-pointer"
+                    title="Xem tài liệu"
                   >
-                    <span>Mở xem</span>
-                    <Icon name="open_in_new" className="text-xs" />
+                    <Icon name="visibility" className="text-[18px]" />
                   </a>
                 </div>
               ))}
@@ -3359,22 +3384,22 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Chính sách & Điều khoản tham dự</h4>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs flex items-center justify-between">
-            <span className="text-subtle font-medium">Thu thập thông tin người tham dự</span>
-            <span className="font-bold text-content px-2.5 py-0.5 rounded-full bg-surface border border-border-soft/40">
+          <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-sm flex items-center justify-between">
+            <span className="text-white font-medium">Thu thập thông tin người tham dự</span>
+            <span className="font-bold text-white px-2.5 py-0.5 rounded-full bg-surface border border-border-soft/40 text-xs">
               {formData.require_attendee_info ? 'Bắt buộc từng vé' : 'Không bắt buộc'}
             </span>
           </div>
 
           {formData.refund_policy?.policy_file_url && (
-            <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-sm flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
                 <Icon name="description" className="text-blue-500 shrink-0 text-lg" />
                 <div className="min-w-0">
-                  <span className="text-content font-bold truncate block">
+                  <span className="text-white font-bold truncate block">
                     {formData.refund_policy.policy_file_name || 'File chính sách sự kiện'}
                   </span>
-                  <span className="text-muted text-[11px]">
+                  <span className="text-muted text-xs">
                     {formatFileSize(formData.refund_policy.policy_file_size)}
                   </span>
                 </div>
@@ -3383,37 +3408,37 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                 href={formData.refund_policy.policy_file_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-tertiary font-bold hover:underline shrink-0 flex items-center gap-1 bg-surface px-3 py-1 rounded-lg border border-border-soft/50"
+                className="p-1.5 rounded-lg text-white hover:text-[#C99A47] hover:bg-white/10 transition flex items-center justify-center shrink-0 cursor-pointer"
+                title="Xem file chính sách"
               >
-                <span>Xem file</span>
-                <Icon name="open_in_new" className="text-xs" />
+                <Icon name="visibility" className="text-[18px]" />
               </a>
             </div>
           )}
 
           {formData.additional_terms && (
-            <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs space-y-1.5">
-              <span className="font-bold text-content block uppercase text-[11px] text-muted">Điều khoản bổ sung:</span>
-              <p className="text-subtle whitespace-pre-wrap leading-relaxed">{formData.additional_terms}</p>
+            <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-sm space-y-1.5">
+              <span className="font-bold text-white block uppercase text-xs">Điều khoản bổ sung:</span>
+              <p className="text-white whitespace-pre-wrap leading-relaxed">{formData.additional_terms}</p>
             </div>
           )}
 
-          <div className="p-3.5 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs space-y-2">
+          <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-sm space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-subtle font-medium">Chính sách hoàn vé</span>
-              <span className={`font-bold px-2.5 py-0.5 rounded-full bg-surface border border-border-soft/40 ${formData.refund_policy?.allow_refund ? 'text-emerald-400' : 'text-muted'}`}>
+              <span className="text-white font-medium">Chính sách hoàn vé</span>
+              <span className={`font-bold px-2.5 py-0.5 rounded-full bg-surface border border-border-soft/40 text-xs ${formData.refund_policy?.allow_refund ? 'text-emerald-400' : 'text-muted'}`}>
                 {formData.refund_policy?.allow_refund ? 'Hỗ trợ hoàn vé' : 'Không hỗ trợ hoàn vé'}
               </span>
             </div>
             {formData.refund_policy?.allow_refund && (
-              <div className="pt-2 border-t border-border-soft/30 space-y-1 text-subtle">
+              <div className="pt-2 border-t border-border-soft/30 space-y-1.5 text-white">
                 {generateRefundPolicyLines(formData.refund_policy).map((line, idx) => (
                   <div key={idx} className="leading-relaxed">
                     {line}
                   </div>
                 ))}
                 {formData.refund_policy?.refund_notes && (
-                  <div className="pt-1.5 text-muted italic">
+                  <div className="pt-1.5 text-muted text-xs italic">
                     Ghi chú: {formData.refund_policy.refund_notes}
                   </div>
                 )}
@@ -3423,18 +3448,31 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
         </section>
 
         {/* Cam kết của Ban tổ chức */}
-        <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Icon name="verified" className="text-tertiary text-xl" />
+        <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
+          <div className="flex items-center gap-2">
+            <Icon name="verified" className="text-[#C99A47] text-xl" />
             <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Cam kết của Ban tổ chức</h4>
           </div>
-          <label className="flex items-start gap-3.5 p-4 rounded-xl bg-panel-soft/70 border border-border-soft/40 hover:bg-panel-soft cursor-pointer transition">
-            <input
-              type="checkbox"
-              checked={Boolean(formData.terms_accepted)}
-              onChange={(e) => setFormData((p) => ({ ...p, terms_accepted: e.target.checked }))}
-              className="mt-1 size-5 rounded border-border-soft text-tertiary focus:ring-tertiary cursor-pointer shrink-0"
-            />
+          <label className="flex items-start gap-3.5 mt-5 cursor-pointer select-none group">
+            <div className="relative flex items-center justify-center shrink-0 mt-0.5">
+              <input
+                type="checkbox"
+                checked={Boolean(formData.terms_accepted)}
+                onChange={(e) => setFormData((p) => ({ ...p, terms_accepted: e.target.checked }))}
+                className="sr-only"
+              />
+              <div
+                className={`size-[19px] rounded-[6px] border transition-all flex items-center justify-center ${
+                  formData.terms_accepted
+                    ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] border-[#C99A47] shadow-[0_0_8px_rgba(201,154,71,0.5)]'
+                    : 'bg-panel-soft/80 border-border-soft/60 group-hover:border-[#C99A47]/60'
+                }`}
+              >
+                {formData.terms_accepted && (
+                  <Check className="size-3.5 text-[#0D1B2A] stroke-[3]" />
+                )}
+              </div>
+            </div>
             <div className="text-xs text-content leading-relaxed">
               <strong className="block text-sm mb-1 font-bold text-content">
                 Xác nhận cam kết thông tin và hồ sơ pháp lý sự kiện
@@ -3450,7 +3488,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
 
         <div className={`bg-surface border border-border-soft/30 ${completeness?.isReady ? 'border-t-success' : 'border-t-warning'} border-t-4 rounded-xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)]`}>
           <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold uppercase text-subtle">Trạng thái sự kiện</span>
+            <span className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">Trạng thái sự kiện</span>
             <span
               className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase border ${completeness?.isReady
                 ? 'bg-success/10 text-success border-success/20'
@@ -3491,8 +3529,8 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
 
           <div className="border-t border-border-soft/30 pt-4 space-y-2.5">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-bold uppercase text-subtle">Danh sách kiểm tra</span>
-              <span className="text-xs font-semibold text-muted">
+              <span className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">Danh sách kiểm tra</span>
+              <span className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
                 {completeness?.completedCount ?? 0}/{completeness?.total ?? 0}
               </span>
             </div>
@@ -4144,6 +4182,16 @@ export function CreateEventPage() {
       return
     }
     setError('')
+
+    // Khi chỉnh sửa sự kiện đã công khai/đã duyệt, các bước chuyển trang không tự ý gọi API lưu cục bộ
+    // để tránh kích hoạt tạo Revision sớm trên backend. Toàn bộ thay đổi sẽ được gửi một lần khi bấm 'Lưu lại' ở bước cuối.
+    if (isEditMode && eventStatus !== 'DRAFT') {
+      const next = Math.min(currentStep + 1, 5)
+      setCurrentStep(next)
+      setMaxCompletedStep((prev) => Math.max(prev, next))
+      return
+    }
+
     setLoading(true)
     try {
       if (currentStep === 1) {
@@ -4271,7 +4319,7 @@ export function CreateEventPage() {
     setLoading(true)
     setError('')
     try {
-      await updateOrganizerEvent(eventId, {
+      const updateResult = await updateOrganizerEvent(eventId, {
         title: formData.title,
         category_id: formData.category_id,
         tags: formData.tags,
@@ -4287,17 +4335,29 @@ export function CreateEventPage() {
         require_attendee_info: formData.require_attendee_info,
         sessions: buildSessionsPayload(),
         ticket_types: buildTicketTypesPayload(),
+        version: formData.version,
       })
       await syncZoneAssignments()
-      navigate('/organizer/events', {
-        state: { message: 'Đã cập nhật sự kiện thành công.' },
-      })
+      if (updateResult?.pending_revision) {
+        navigate('/organizer/events', {
+          state: { message: 'Các thay đổi quan trọng đã được lưu thành Bản sửa đổi chờ Quản trị viên duyệt.' },
+        })
+      } else {
+        navigate('/organizer/events', {
+          state: { message: 'Đã cập nhật sự kiện thành công.' },
+        })
+      }
     } catch (err) {
       console.error('[CreateEventPage handleUpdateEvent Error]:', err)
-      if (err?.response?.data) {
-        console.error('[CreateEventPage handleUpdateEvent] Backend Response:', JSON.stringify(err.response.data, null, 2))
+      if (err?.response?.data?.code === 'EVENT_VERSION_CONFLICT') {
+        toast.error('Dữ liệu sự kiện đã thay đổi bởi phiên khác. Vui lòng làm mới trang trước khi cập nhật.')
+      } else if (err?.response?.data?.code === 'CRITICAL_CHANGE_REQUIRED') {
+        toast.error('Thay đổi quan trọng (thay đổi hình thức sự kiện hoặc phiên diễn có vé đã bán) bị từ chối.')
+      } else if (err?.response?.data?.code === 'QUOTA_BELOW_COMMITTED') {
+        toast.error('Không thể giảm số lượng vé thấp hơn tổng số vé đã thanh toán.')
+      } else {
+        toast.error(getApiMessage(err, 'Không thể cập nhật sự kiện.'))
       }
-      toast.error(getApiMessage(err, 'Không thể cập nhật sự kiện.'))
     } finally {
       setLoading(false)
     }
@@ -4450,7 +4510,7 @@ export function CreateEventPage() {
   }
 
   return (
-    <div ref={pageTopRef} className="pb-20 max-w-6xl mx-auto">
+    <div ref={pageTopRef} className="pb-20 max-w-6xl mx-auto create-event-page">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="font-display text-3xl font-extrabold text-content">
@@ -4597,7 +4657,7 @@ export function CreateEventPage() {
           <button
             type="button"
             onClick={() => navigate('/organizer/events')}
-            className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-slate-200 text-sm font-semibold hover:bg-error/15 hover:border-error/50 hover:text-error shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all cursor-pointer"
+            className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-slate-200 text-sm font-semibold hover:bg-error/15 hover:border-error/50 hover:text-error shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-sm"
           >
             Hủy
           </button>
@@ -4605,7 +4665,7 @@ export function CreateEventPage() {
             type="button"
             onClick={handleSaveDraft}
             disabled={loading || editPermissions?.is_time_locked}
-            className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-white text-sm font-semibold hover:bg-[#182b4a] hover:border-[#C99A47]/60 shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-white text-sm font-semibold hover:bg-[#182b4a] hover:border-[#C99A47]/60 shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-sm [html.light_&]:hover:bg-[#F8F3EA]"
           >
             <Icon name="save" className="text-[18px] text-[#C99A47]" />
             <span>Lưu bản nháp</span>
@@ -4617,7 +4677,7 @@ export function CreateEventPage() {
               type="button"
               onClick={handleBack}
               disabled={loading}
-              className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-white text-sm font-semibold hover:bg-[#182b4a] hover:border-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-white text-sm font-semibold hover:bg-[#182b4a] hover:border-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-sm [html.light_&]:hover:bg-[#F8F3EA]"
             >
               <Icon name="arrow_back" className="text-[18px]" />
               <span>Quay lại</span>
@@ -4635,29 +4695,7 @@ export function CreateEventPage() {
             </button>
           )}
 
-          {currentStep === 5 && (!isEditMode ? (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading || !completeness.isReady}
-              title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
-              className="flex items-center gap-2 rounded-full bg-success px-8 py-2.5 text-sm font-bold text-white shadow-md hover:bg-success/80 disabled:opacity-50 disabled:cursor-not-allowed transition ml-2 cursor-pointer"
-            >
-              {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
-            </button>
-          ) : (isEditMode && ['DRAFT', 'HIDDEN'].includes(eventStatus)) ? (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading || !completeness.isReady}
-              title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
-              className="org-btn-primary px-6 py-2.5 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition ml-2 cursor-pointer"
-            >
-              {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
-            </button>
-          ) : null)}
-
-          {isEditMode && (
+          {isEditMode && currentStep === 5 && (
             <button
               type="button"
               onClick={handleUpdateEvent}
@@ -4668,6 +4706,42 @@ export function CreateEventPage() {
               {loading ? 'Đang lưu...' : 'Lưu lại'}
             </button>
           )}
+
+          {currentStep === 5 && (!isEditMode ? (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading || !completeness.isReady}
+              title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
+              className="btn-led-submit ml-2"
+            >
+              <svg className="btn-led-submit-svg" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <rect className="btn-led-submit-track" />
+                <rect className="btn-led-submit-beam-glow" pathLength="100" />
+                <rect className="btn-led-submit-beam-core" pathLength="100" />
+              </svg>
+              <span className="btn-led-submit-content">
+                {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
+              </span>
+            </button>
+          ) : (isEditMode && ['DRAFT', 'HIDDEN'].includes(eventStatus)) ? (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading || !completeness.isReady}
+              title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
+              className="btn-led-submit ml-2"
+            >
+              <svg className="btn-led-submit-svg" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <rect className="btn-led-submit-track" />
+                <rect className="btn-led-submit-beam-glow" pathLength="100" />
+                <rect className="btn-led-submit-beam-core" pathLength="100" />
+              </svg>
+              <span className="btn-led-submit-content">
+                {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
+              </span>
+            </button>
+          ) : null)}
         </div>
       </div>
 

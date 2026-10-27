@@ -6,7 +6,7 @@ const { buildPrompt } = require('../ai/prompts/financial.prompt');
 const logger = require('../../core/logger');
 
 const MAX_SUMMARY_LEN = 3000;
-const OLLAMA_TIMEOUT_MS = Number(process.env.FINANCIAL_AI_TIMEOUT_MS || 90000);
+const OLLAMA_TIMEOUT_MS = Number(process.env.FINANCIAL_AI_TIMEOUT_MS || 150000);
 
 class AiFinancialService {
   /**
@@ -21,25 +21,27 @@ class AiFinancialService {
 
     // Prefer fast, dedicated EventHub model (eve-agent) on CPU, or user-configured model
     const targetModel = process.env.FINANCIAL_AI_MODEL || 'eve-agent';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, OLLAMA_TIMEOUT_MS);
+
     try {
-      logger.info(`[AiFinancial] Đang gọi Ollama (${targetModel}) để tạo báo cáo tài chính cho "${financialData.event_title}"...`);
-      const response = await Promise.race([
-        ollamaClient.chat(
-          [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-          {
-            model: targetModel,
-            max_tokens: 800,
-            temperature: 0.2,
-            think: false,
-          }
-        ),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Ollama financial summary timeout')), OLLAMA_TIMEOUT_MS)
-        ),
-      ]);
+      logger.info(`[AiFinancial] Đang gọi Ollama (${targetModel}) để tạo báo cáo tài chính cho "${financialData.event_title}" (timeout: ${Math.round(OLLAMA_TIMEOUT_MS / 1000)}s)...`);
+      const response = await ollamaClient.chat(
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        {
+          model: targetModel,
+          max_tokens: 550,
+          num_ctx: 2048,
+          temperature: 0.2,
+          think: false,
+          signal: controller.signal,
+        }
+      );
 
       const raw = response.content || response.thinking || '';
       const summary = stripThinkBlocks(raw).trim();
@@ -51,7 +53,13 @@ class AiFinancialService {
 
       logger.warn('[AiFinancial] Phản hồi từ mô hình không hợp lệ hoặc quá ngắn, sử dụng dự phòng...');
     } catch (err) {
-      logger.error(`[AiFinancial] Ollama chat thất bại: ${err.message}. Đang dùng cơ chế fallback.`);
+      if (err.name === 'AbortError' || controller.signal.aborted || err.message?.includes('timed out')) {
+        logger.warn(`[AiFinancial] Quá thời gian phản hồi Ollama (${Math.round(OLLAMA_TIMEOUT_MS / 1000)}s trên CPU). Tự động kích hoạt cơ chế dự phòng chuẩn mực McKinsey.`);
+      } else {
+        logger.warn(`[AiFinancial] Không thể hoàn thành gọi Ollama (${err.message}). Kích hoạt cơ chế dự phòng chuẩn mực McKinsey.`);
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     // Fallback: Rule-based engine (McKinsey 4-pillar deterministic output)
@@ -64,8 +72,8 @@ class AiFinancialService {
     const starTier = tiers.find(t => t.status === 'Đang bán tốt') || tiers[0];
     const laggingTier = tiers.find(t => t.status === 'Chậm tiêu thụ');
 
-    const summary = `### 🎯 1. ĐÁNH GIÁ HIỆU SUẤT TÀI CHÍNH & TỶ SUẤT LỢI NHUẬN
-Sự kiện "${financialData.event_title}" ghi nhận tổng doanh thu gộp đạt ${fmt(financialData.gross_revenue)}, trong đó doanh thu ròng thực nhận là ${fmt(financialData.net_revenue)} sau khi trừ chi phí gói nền tảng và dịch vụ ${fmt(financialData.platform_fee || financialData.subscription_cost)}. Biên lợi nhuận ròng đạt ${financialData.net_margin_rate || 0}%, thể hiện mức độ kiểm soát chi phí ổn định. Doanh thu trên mỗi chỗ ngồi khả dụng (RevPAS) đạt ${fmt(financialData.revpas || 0)}, tương ứng hiệu suất khai thác doanh thu ${financialData.revpas > 0 && financialData.avg_ticket_price > 0 ? ((financialData.revpas / financialData.avg_ticket_price) * 100).toFixed(1) : 0}% so với giá vé niêm yết trung bình ${fmt(financialData.avg_ticket_price)}.
+    const summary = `### 🎯 1. ĐÁNH GIÁ TỔNG QUAN DOANH THU & HIỆU SUẤT KHAI THÁC
+Sự kiện "${financialData.event_title}" ghi nhận tổng doanh thu bán vé đạt ${fmt(financialData.gross_revenue || financialData.net_revenue)}. Do nền tảng EventHub áp dụng mô hình gói thuê bao đăng sự kiện (không trích hoa hồng % trên vé), 100% dòng tiền bán vé thuộc về Nhà tổ chức. Doanh thu trên mỗi chỗ ngồi khả dụng (RevPAS) đạt ${fmt(financialData.revpas || 0)}, tương ứng hiệu suất khai thác doanh thu ${financialData.revpas > 0 && financialData.avg_ticket_price > 0 ? ((financialData.revpas / financialData.avg_ticket_price) * 100).toFixed(1) : 0}% so với giá vé niêm yết trung bình ${fmt(financialData.avg_ticket_price)}.
 
 ### 📈 2. VẬN TỐC TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
 Tổng số lượng vé tiêu thụ đạt ${financialData.tickets_sold || 0} vé qua ${financialData.total_orders || 0} đơn hàng thành công, đạt tỷ lệ lấp đầy ${financialData.occupancy_rate || 0}%. Vận tốc bán vé gần nhất ghi nhận ở mức ${financialData.velocity_daily_tickets || 0} vé/ngày (bình quân ${fmt(financialData.velocity_daily_revenue || 0)}/ngày), trạng thái đà tăng trưởng: ${financialData.momentum_label || 'Ổn định'}. Về cơ cấu danh mục vé, hạng vé ${starTier ? `"${starTier.name}"` : (financialData.best_ticket_type || 'chủ lực')} là nguồn đóng góp doanh thu lớn nhất với tỷ trọng ${starTier?.revenue_contribution_pct || 0}% tổng doanh thu.
@@ -73,7 +81,7 @@ Tổng số lượng vé tiêu thụ đạt ${financialData.tickets_sold || 0} v
 ### ⚠️ 3. ĐIỂM NGHẼN TỒN KHO & CẢNH BÁO RỦI RO
 Điểm sức khỏe tài chính đạt ${financialData.health_score || 0}/100 (${financialData.risk_level || 'TRUNG BÌNH'}). Số lượng vé còn tồn trong kho là ${financialData.remaining_tickets || 0} vé trên tổng sức chứa ${financialData.total_capacity || financialData.tickets_sold} chỗ. ${financialData.days_until_event !== null && financialData.days_until_event !== undefined ? `Với thời gian đếm ngược còn ${financialData.days_until_event} ngày đến sự kiện, mức độ rủi ro tồn kho được xếp loại ${financialData.inventory_risk_level === 'CRITICAL' ? 'RẤT CAO' : (financialData.inventory_risk_level === 'HIGH' ? 'CAO' : 'KIỂM SOÁT ĐƯỢC')}, đòi hỏi tốc độ tiêu thụ tối thiểu ${financialData.required_daily_tickets || 0} vé/ngày để giải phóng toàn bộ chỗ ngồi.` : 'Cần tiếp tục theo dõi sát sao tiến độ tiêu thụ theo từng mốc mở bán.'} ${laggingTier ? `Hạng vé "${laggingTier.name}" đang có tỷ lệ lấp đầy thấp (${laggingTier.occupancy_rate}%), là điểm nghẽn tồn đọng cần giải tỏa.` : ''}
 
-### 💡 4. KẾ HOẠCH HÀNH ĐỘNG DOANH THU & ĐỊNH GIÁ ĐỘNG
+### 💡 4. KẾ HOẠCH HÀNH ĐỘNG KÍCH CẦU & ĐỊNH GIÁ ĐỘNG
 1. **Tối ưu hóa giá vé & Kích cầu ngắn hạn (48h tới):** ${laggingTier ? `Kích hoạt chương trình Flash Bundle (mua 2 vé tặng kèm quyền lợi ưu đãi) hoặc voucher 10-15% cho hạng vé "${laggingTier.name}" để kích thích quyết định mua sớm.` : `Tập trung mở gói ưu đãi nhóm (Group Ticket) cho các hạng vé còn tồn để cải thiện doanh thu trung bình.`}
 2. **Khai thác tệp khách tiềm năng:** Thực hiện chiến dịch tiếp thị lại (Retargeting) hướng đến người dùng đã truy cập xem trang sự kiện nhưng chưa hoàn tất đặt vé.
 3. **Mục tiêu doanh thu khả thi:** Ưu tiên đẩy mạnh bán vé cho các ngày cuối tuần để tối ưu hóa tỷ lệ lấp đầy trước giờ diễn ra sự kiện.`;
