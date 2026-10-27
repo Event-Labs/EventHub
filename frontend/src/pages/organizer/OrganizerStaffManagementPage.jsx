@@ -389,7 +389,7 @@ export function OrganizerStaffManagementPage() {
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
-                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Hết hạn</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Hành động</th>
                       </tr>
@@ -424,8 +424,10 @@ export function OrganizerStaffManagementPage() {
                               <span className="text-xs text-muted">Toàn bộ khu vực</span>
                             )}
                           </td>
-                          <td className="px-3.5 py-3">
-                            <InvitationStatusBadge status={inv.status} />
+                          <td className="px-3.5 py-3 !text-left whitespace-nowrap" style={{ textAlign: 'left' }}>
+                            <div className="flex items-center justify-start text-left">
+                              <InvitationStatusBadge status={inv.status} />
+                            </div>
                           </td>
                           <td className="px-3.5 py-3 text-muted whitespace-nowrap">
                             {inv.expires_at

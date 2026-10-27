@@ -377,7 +377,7 @@ export function OrganizerAttendeesPage() {
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên</th>
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Ghế / Khu vực</th>
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Mã vé</th>
-                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
+                      <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
                       <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Check-in lúc</th>
                     </tr>
                   </thead>
@@ -417,12 +417,14 @@ export function OrganizerAttendeesPage() {
                             {att.ticket_code}
                           </span>
                         </td>
-                        <td className="px-3.5 py-3 whitespace-nowrap">
-                          <Badge
-                            tone={TICKET_STATUS_TONE[att.status] || 'gray'}
-                          >
-                            {TICKET_STATUS_LABEL[att.status] || att.status}
-                          </Badge>
+                        <td className="px-3.5 py-3 whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>
+                          <div className="flex items-center justify-start text-left">
+                            <Badge
+                              tone={TICKET_STATUS_TONE[att.status] || 'gray'}
+                            >
+                              {TICKET_STATUS_LABEL[att.status] || att.status}
+                            </Badge>
+                          </div>
                         </td>
                         <td className="px-3.5 py-3 text-subtle text-sm whitespace-nowrap">
                           {formatDateTime(att.checked_in_at)}

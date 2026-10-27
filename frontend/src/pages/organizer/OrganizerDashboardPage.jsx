@@ -655,7 +655,7 @@ function TierBreakdownTable({ tiers = [] }) {
               <th className="px-4 py-2.5 font-bold">Đã bán / Sức chứa</th>
               <th className="px-4 py-2.5 font-bold">Lấp đầy</th>
               <th className="px-4 py-2.5 font-bold">Đóng góp DT</th>
-              <th className="px-4 py-2.5 font-bold">Trạng thái</th>
+              <th className="px-4 py-2.5 font-bold !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 text-slate-300">
@@ -688,10 +688,12 @@ function TierBreakdownTable({ tiers = [] }) {
                     </div>
                   </td>
                   <td className="px-4 py-3 font-bold text-emerald-400">{t.revenue_contribution_pct}%</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${statusClass}`}>
-                      {t.status}
-                    </span>
+                  <td className="px-4 py-3 !text-left" style={{ textAlign: 'left' }}>
+                    <div className="flex items-center justify-start text-left">
+                      <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${statusClass}`}>
+                        {t.status}
+                      </span>
+                    </div>
                   </td>
                 </tr>
               )

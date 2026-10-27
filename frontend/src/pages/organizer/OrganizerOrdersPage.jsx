@@ -247,7 +247,7 @@ export function OrganizerOrdersPage() {
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
                   <th className="w-14 px-2 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Số vé</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Tổng tiền</th>
-                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Trạng thái</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Ngày đặt</th>
                   <th className="w-14 px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Thao tác</th>
                 </tr>
@@ -286,12 +286,14 @@ export function OrganizerOrdersPage() {
                     <td className="px-3 py-3 text-right font-mono font-bold text-primary text-sm whitespace-nowrap">
                       {formatCurrency(order.total_amount)}
                     </td>
-                    <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <StatusBadge
-                        status={order.status}
-                        label={STATUS_LABEL[order.status]}
-                        tone={STATUS_TONE[order.status]}
-                      />
+                    <td className="px-3 py-3 !text-left whitespace-nowrap" style={{ textAlign: 'left' }}>
+                      <div className="flex items-center justify-start text-left">
+                        <StatusBadge
+                          status={order.status}
+                          label={STATUS_LABEL[order.status]}
+                          tone={STATUS_TONE[order.status]}
+                        />
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <p className="text-sm font-medium text-slate-200">{formatDateOnly(order.created_at)}</p>
