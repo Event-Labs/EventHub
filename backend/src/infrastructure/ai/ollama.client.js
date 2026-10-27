@@ -16,8 +16,8 @@ const logger = require('../../core/logger');
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
-const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
-const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
+const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 600000);
+const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 200000);
 const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 4096);
 const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 2);
 const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 512);
@@ -27,7 +27,7 @@ const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process
 /**
  * Base fetch wrapper with timeout and external cancellation support.
  */
-async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 1, externalSignal = null) {
+async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 0, externalSignal = null) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -64,6 +64,9 @@ async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 1, 
         abortErr.name = 'AbortError';
         abortErr.code = 'SCAN_CANCELLED';
         throw abortErr;
+      }
+      if (controller.signal.aborted) {
+        throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
       }
       if (err.name === 'AbortError') {
         throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
@@ -196,8 +199,10 @@ async function chat(messages, options = {}) {
   }
 
   let result;
+  const timeoutMs = options.timeoutMs || OLLAMA_TIMEOUT;
+  const retries = options.retries ?? 0;
   try {
-    result = await ollamaFetch('/api/chat', body, OLLAMA_TIMEOUT, 1, options.signal);
+    result = await ollamaFetch('/api/chat', body, timeoutMs, retries, options.signal);
   } catch (err) {
     if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || options.signal?.aborted) {
       throw err;
@@ -207,7 +212,7 @@ async function chat(messages, options = {}) {
       logger.info(`[OllamaClient] Model '${model}' does not support raw images input. Retrying with text-only payload.`);
       const textOnlyMessages = processedMessages.map(({ images, ...rest }) => rest);
       const textOnlyBody = { ...body, messages: textOnlyMessages };
-      result = await ollamaFetch('/api/chat', textOnlyBody, OLLAMA_TIMEOUT, 1, options.signal);
+      result = await ollamaFetch('/api/chat', textOnlyBody, timeoutMs, retries, options.signal);
     } else {
       throw err;
     }
@@ -626,6 +631,8 @@ module.exports = {
   describeImageBatch,
   OLLAMA_MODEL,
   OLLAMA_VISION_MODEL,
+  OLLAMA_TIMEOUT,
+  OLLAMA_VISION_TIMEOUT,
   OLLAMA_NUM_CTX,
   OLLAMA_NUM_THREAD,
   OLLAMA_NUM_BATCH,

@@ -3,11 +3,12 @@
 BOT_TOKEN="8701266208:AAEGUWsj1nM5__X1aAgcaZtQguw0RO5z8_I"
 CHAT_ID="8101098223"
 
-CF_LOGFILE="/home/kingxu2004/EventHub/cloudflared.log"
-NGROK_LOGFILE="/home/kingxu2004/EventHub/ngrok.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CF_LOGFILE="$SCRIPT_DIR/cloudflared.log"
+NGROK_LOGFILE="$SCRIPT_DIR/ngrok.log"
 
-CF_URL_FILE="/home/kingxu2004/EventHub/cloudflare-url.txt"
-LAST_CF_URL_FILE="/home/kingxu2004/EventHub/cloudflare-last-notified-url.txt"
+CF_URL_FILE="$SCRIPT_DIR/cloudflare-url.txt"
+LAST_CF_URL_FILE="$SCRIPT_DIR/cloudflare-last-notified-url.txt"
 
 LAST_CF_URL=""
 LAST_NGROK_URL=""

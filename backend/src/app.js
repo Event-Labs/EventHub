@@ -39,6 +39,7 @@ const operationsRoutes = require('./modules/operations/operations.routes');
 const ApiResponse = require('./core/response/ApiResponse');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Security Middlewares
 securityMiddlewares(app);

@@ -1122,8 +1122,9 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
 
       const aiResponse = await ollamaClient.chat(messages, {
         temperature: 0.15,
-        max_tokens: 900,
+        max_tokens: 650,
         num_ctx: ollamaClient.OLLAMA_NUM_CTX,
+        timeoutMs: ollamaClient.OLLAMA_TIMEOUT,
         signal: effectiveSignal,
       });
 
