@@ -33,7 +33,23 @@ function formatPrice(event) {
   return `${Number(min).toLocaleString('vi-VN')} đ`
 }
 
+function formatVenueText(venue) {
+  if (!venue) return ''
+  if (typeof venue === 'string') return venue
+  if (typeof venue === 'object') {
+    return (
+      venue.summary ||
+      [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') ||
+      ''
+    )
+  }
+  return ''
+}
+
 function normalizeEvent(event) {
+  const venueLocation = formatVenueText(event.venue)
+  const stringLocation = typeof event.location === 'string' ? event.location : ''
+
   return {
     id: event.slug || event.id,
     title: event.title,
@@ -43,7 +59,7 @@ function normalizeEvent(event) {
     badgeColor: event.badgeColor || 'primary',
     date: event.date || formatDateRange(event.start_time, event.end_time),
     time: event.time || '',
-    location: event.location || event.venue?.summary || event.venue || 'Địa điểm cập nhật sau',
+    location: stringLocation || venueLocation || 'Địa điểm cập nhật sau',
     priceLabel: formatPrice(event),
     isFavorited: Boolean(event.is_favorited),
   }
