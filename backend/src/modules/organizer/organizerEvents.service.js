@@ -245,7 +245,9 @@ class OrganizerEventsService {
   }
 
   async getOrganizerProfileForView(userId, accessToken) {
-    await this.assertProfileTwoFactorEnabled(userId);
+    if (accessToken) {
+      await this.assertProfileTwoFactorEnabled(userId);
+    }
     const profile = await this.getActiveOrganizerProfile(userId);
     const access = await this.hasSensitiveProfileAccess(userId, accessToken);
     const sensitiveAccess = {
