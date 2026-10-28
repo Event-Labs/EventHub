@@ -33,17 +33,60 @@ function formatPrice(event) {
   return `${Number(min).toLocaleString('vi-VN')} đ`
 }
 
-function formatVenueText(venue) {
-  if (!venue) return ''
-  if (typeof venue === 'string') return venue
-  if (typeof venue === 'object') {
-    return (
-      venue.summary ||
-      [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') ||
-      ''
-    )
+function formatCategory(category) {
+  if (typeof category === 'string' && category.trim()) return category.trim()
+  if (category && typeof category === 'object' && typeof category.name === 'string' && category.name.trim()) {
+    return category.name.trim()
   }
-  return ''
+  return 'Sự kiện'
+}
+
+function formatLocation(event) {
+  if (!event) return 'Địa điểm cập nhật sau'
+
+  if (typeof event.location === 'string' && event.location.trim()) {
+    return event.location.trim()
+  }
+
+  if (event.location && typeof event.location === 'object') {
+    if (typeof event.location.summary === 'string' && event.location.summary.trim()) {
+      return event.location.summary.trim()
+    }
+    const locParts = [
+      event.location.name,
+      event.location.address_line,
+      event.location.district,
+      event.location.city,
+    ].filter(Boolean)
+    if (locParts.length > 0) return locParts.join(', ')
+  }
+
+  if (typeof event.venue === 'string' && event.venue.trim()) {
+    return event.venue.trim()
+  }
+
+  if (event.venue && typeof event.venue === 'object') {
+    if (typeof event.venue.summary === 'string' && event.venue.summary.trim()) {
+      return event.venue.summary.trim()
+    }
+    const venueParts = [
+      event.venue.name,
+      event.venue.address_line,
+      event.venue.district,
+      event.venue.city,
+    ].filter(Boolean)
+    if (venueParts.length > 0) return venueParts.join(', ')
+  }
+
+  if (typeof event.venue_name === 'string' && event.venue_name.trim()) {
+    return event.venue_name.trim()
+  }
+
+  if (typeof event.location_name === 'string' && event.location_name.trim()) {
+    return event.location_name.trim()
+  }
+
+  return 'Địa điểm cập nhật sau'
 }
 
 function normalizeEvent(event) {
@@ -53,13 +96,13 @@ function normalizeEvent(event) {
   return {
     id: event.slug || event.id,
     title: event.title,
-    subtitle: event.subtitle || event.short_description,
+    subtitle: typeof (event.subtitle || event.short_description) === 'string' ? (event.subtitle || event.short_description) : '',
     image: event.thumbnail_url || event.banner_url || event.image,
-    category: event.category?.name || event.category || 'Sự kiện',
+    category: formatCategory(event.category),
     badgeColor: event.badgeColor || 'primary',
     date: event.date || formatDateRange(event.start_time, event.end_time),
     time: event.time || '',
-    location: stringLocation || venueLocation || 'Địa điểm cập nhật sau',
+    location: formatLocation(event),
     priceLabel: formatPrice(event),
     isFavorited: Boolean(event.is_favorited),
   }
