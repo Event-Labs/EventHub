@@ -75,7 +75,15 @@ function eventPath(event) {
 }
 
 function eventLocation(event) {
-  return event.location_name || event.location || event.venue_name || 'Đang cập nhật địa điểm'
+  if (!event) return 'Đang cập nhật địa điểm'
+  if (typeof event.location_name === 'string' && event.location_name.trim()) return event.location_name.trim()
+  if (typeof event.location === 'string' && event.location.trim()) return event.location.trim()
+  if (event.venue && typeof event.venue === 'object') {
+    if (typeof event.venue.summary === 'string' && event.venue.summary.trim()) return event.venue.summary.trim()
+    if (typeof event.venue.name === 'string' && event.venue.name.trim()) return event.venue.name.trim()
+  }
+  if (typeof event.venue_name === 'string' && event.venue_name.trim()) return event.venue_name.trim()
+  return 'Đang cập nhật địa điểm'
 }
 
 

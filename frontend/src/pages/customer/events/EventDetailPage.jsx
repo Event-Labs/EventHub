@@ -54,9 +54,10 @@ function formatPrice(value) {
 
 function venueSummary(venue) {
   if (!venue) return 'Địa điểm cập nhật sau'
+  if (typeof venue === 'string' && venue.trim()) return venue.trim()
   return [venue.name, venue.address_line, venue.district, venue.city]
     .filter(Boolean)
-    .join(', ')
+    .join(', ') || (typeof venue.summary === 'string' && venue.summary.trim()) || 'Địa điểm cập nhật sau'
 }
 
 function getGoogleMapUrl(venue) {
