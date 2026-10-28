@@ -90,6 +90,9 @@ function formatLocation(event) {
 }
 
 function normalizeEvent(event) {
+  const venueLocation = formatVenueText(event.venue)
+  const stringLocation = typeof event.location === 'string' ? event.location : ''
+
   return {
     id: event.slug || event.id,
     title: event.title,

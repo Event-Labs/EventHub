@@ -365,21 +365,17 @@ class TicketsRepository {
           t.id,
           t.status,
           t.event_id,
+          t.checked_in_at,
+          e.status AS event_status,
+          es.status AS session_status,
           es.end_time AS session_end_time,
           COALESCE(es.checkin_start_time, es.start_time) AS checkin_start_time,
           o.status AS order_status,
           EXISTS (
             SELECT 1
             FROM event_staffs staff_scope
-            JOIN events scoped_event ON scoped_event.id = staff_scope.event_id
             WHERE staff_scope.event_id = t.event_id
               AND staff_scope.staff_id = $2
-              AND scoped_event.deleted_at IS NULL
-              AND (
-                scoped_event.status = 'PUBLISHED'
-                OR (scoped_event.status = 'COMPLETED' AND scoped_event.approval_status = 'APPROVED')
-              )
-              AND COALESCE(scoped_event.end_time, scoped_event.start_time) >= now()
           ) AS has_staff_access
         FROM tickets t
         JOIN event_sessions es ON es.id = t.event_session_id
@@ -399,14 +395,39 @@ class TicketsRepository {
         return { state: 'NOT_FOUND' };
       }
 
+      // BR-RL-04, AC-SC-06: Staff must be assigned to this event
       if (!lockedTicket.has_staff_access) {
         await client.query('ROLLBACK');
-        return { state: 'FORBIDDEN' };
+        return { state: 'FORBIDDEN_ACTION' };
+      }
+
+      // Section 8.2: Event or Session CANCELLED -> SESSION_CANCELLED (AC-SC-02)
+      if (lockedTicket.event_status === 'CANCELLED' || lockedTicket.session_status === 'CANCELLED') {
+        await client.query('ROLLBACK');
+        return { state: 'SESSION_CANCELLED', ticket: lockedTicket };
+      }
+
+      // Section 8.2: Ticket REFUND_REQUESTED -> TICKET_REFUND_IN_PROGRESS (AC-SC-03)
+      if (lockedTicket.status === 'REFUND_REQUESTED') {
+        await client.query('ROLLBACK');
+        return { state: 'TICKET_REFUND_IN_PROGRESS', ticket: lockedTicket };
+      }
+
+      // Section 8.2: Ticket already USED -> ALREADY_CHECKED_IN
+      if (lockedTicket.status === 'USED') {
+        await client.query('ROLLBACK');
+        return { state: 'ALREADY_CHECKED_IN', ticket: lockedTicket };
+      }
+
+      // Section 8.2: Ticket REFUNDED, CANCELLED, EXPIRED -> TICKET_NOT_VALID
+      if (['REFUNDED', 'CANCELLED', 'EXPIRED'].includes(lockedTicket.status)) {
+        await client.query('ROLLBACK');
+        return { state: 'TICKET_NOT_VALID', ticket: lockedTicket };
       }
 
       if (lockedTicket.status !== 'VALID') {
         await client.query('ROLLBACK');
-        return { state: 'INVALID_STATUS', ticket: lockedTicket };
+        return { state: 'TICKET_NOT_VALID', ticket: lockedTicket };
       }
 
       if (lockedTicket.order_status !== 'PAID') {

@@ -22,7 +22,9 @@ import { checkTicketAvailability, fetchEventDetail, fetchSessionSeats, holdSeats
 import { getProfile } from '@/services/user.service.js'
 import promotionService from '@/services/promotions.js'
 import { getApiMessage } from '@/lib/messages.js'
+import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { cn } from '@/lib/utils.js'
 import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
 import {
   clearBookingDraft,
@@ -55,6 +57,14 @@ function ticketAvailability(ticketType) {
     Math.max(0, Number(ticketType?.available_quantity ?? total)),
   )
   return { available, total }
+}
+
+function formatPauseReasonSuffix(reason) {
+  if (!reason) return ''
+  const str = String(reason).trim()
+  const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING']
+  if (!str || SYSTEM_CODES.includes(str)) return ''
+  return ` (Lý do: ${str})`
 }
 
 function formatDateTime(value) {
@@ -443,8 +453,17 @@ export function BookingSeatsPage() {
   const { data: eventDetail } = useQuery({
     queryKey: ['booking-seats-event-detail', cart?.eventId],
     queryFn: () => fetchEventDetail(cart.eventId),
-    enabled: Boolean(cart?.eventId && (!cart?.availableTicketTypes || cart?.availableTicketTypes.length === 0)),
+    enabled: Boolean(cart?.eventId),
+    refetchInterval: 10_000,
   })
+
+  const isPaused = Boolean(
+    eventDetail?.is_paused ||
+    eventDetail?.sales_status === 'PAUSED' ||
+    cart?.is_paused ||
+    cart?.sales_status === 'PAUSED' ||
+    (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some((b) => !b.released_at))
+  )
 
   const allAvailableTickets = (cart?.availableTicketTypes && cart.availableTicketTypes.length > 0)
     ? cart.availableTicketTypes
@@ -663,6 +682,10 @@ export function BookingSeatsPage() {
   if (!cart || !session) return <NavigateBackToEvents />
 
   const continueFlow = async () => {
+    if (isPaused) {
+      toast.error('Sự kiện đang tạm dừng bán vé. Hiện tại không thể tiếp tục đặt vé.')
+      return
+    }
     const nextCart = { ...displayCart }
     if (seatRuleIssue) {
       toast.error(seatRuleIssue)
@@ -769,6 +792,10 @@ export function BookingSeatsPage() {
     : 10
 
   const toggleSeat = (seatId) => {
+    if (isPaused) {
+      toast.error('Sự kiện đang tạm dừng bán vé. Không thể chọn thêm ghế.')
+      return
+    }
     const isDeselecting = selectedSeatIds.includes(seatId)
     if (!isDeselecting && selectedSeatIds.length >= maxTicketsAllowed) {
       toast.error(`Bạn chỉ được chọn tối đa ${maxTicketsAllowed} ghế trong một lần đặt.`)
@@ -792,6 +819,10 @@ export function BookingSeatsPage() {
   }
 
   const updateUnseatedQuantity = (ticketType, delta) => {
+    if (isPaused) {
+      toast.error('Sự kiện đang tạm dừng bán vé. Không thể thay đổi số lượng vé.')
+      return
+    }
     setCart((current) => {
       const coloredTicketType = {
         ...ticketType,
@@ -830,6 +861,19 @@ export function BookingSeatsPage() {
 
   return (
     <BookingShell step={1} cart={displayCart}>
+      {isPaused && (
+        <div className="mb-6 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-slate-900/80 p-5 text-amber-200 backdrop-blur-md shadow-[0_0_24px_rgba(245,158,11,0.2)]">
+          <div className="flex items-start gap-3.5">
+            <AlertTriangle className="size-6 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+            <div className="min-w-0 flex-1">
+              <h4 className="font-bold text-base text-white">Sự kiện đang tạm dừng bán vé</h4>
+              <p className="mt-1 text-sm text-amber-200/90 leading-relaxed">
+                Ban tổ chức hiện đang tạm thời dừng nhận các đơn đặt vé mới cho sự kiện này{formatPauseReasonSuffix(eventDetail?.pause_note || eventDetail?.pause_reason || cart?.pause_note || cart?.pause_reason)}. Mọi thao tác chọn ghế và đặt vé mới tạm thời bị vô hiệu. Quý khách vui lòng quay lại sau!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
           {!hasSeatMap ? (
@@ -922,9 +966,10 @@ export function BookingSeatsPage() {
           cart={displayCart}
           setCart={setCart}
           colorByTicketTypeId={colorByTicketTypeId}
-          cta={canFastForward ? 'Kiểm tra & Thanh toán' : 'Tiếp tục'}
+          cta={isPaused ? 'Tạm dừng bán vé' : (canFastForward ? 'Kiểm tra & Thanh toán' : 'Tiếp tục')}
           onClick={continueFlow}
-          disabled={checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
+          disabled={isPaused || checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
+          isPaused={isPaused}
           onReset={resetSelection}
           resetDisabled={resettingSelection || displayItems.length === 0}
         />
@@ -954,8 +999,16 @@ export function BookingAttendeesPage() {
     queryKey: ['booking-attendees-event-detail', cart?.eventId],
     queryFn: () => fetchEventDetail(cart.eventId),
     enabled: Boolean(cart?.eventId),
-    staleTime: 1000 * 60 * 5,
+    refetchInterval: 10_000,
   })
+
+  const isPaused = Boolean(
+    eventDetail?.is_paused ||
+    eventDetail?.sales_status === 'PAUSED' ||
+    cart?.is_paused ||
+    cart?.sales_status === 'PAUSED' ||
+    (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some((b) => !b.released_at))
+  )
 
   const collectAttendees = Boolean(
     cart?.requireAttendeeInfo ??
@@ -1094,6 +1147,10 @@ export function BookingAttendeesPage() {
   }
 
   const continueFlow = () => {
+    if (isPaused) {
+      toast.error('Sự kiện đang tạm dừng bán vé. Hiện tại không thể tiếp tục đặt vé.')
+      return
+    }
     const cleanBuyer = {
       name: buyer.name?.trim() || '',
       email: buyer.email?.trim() || '',
@@ -1141,6 +1198,19 @@ export function BookingAttendeesPage() {
 
   return (
     <BookingShell step={2} cart={cart}>
+      {isPaused && (
+        <div className="mb-6 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-slate-900/80 p-5 text-amber-200 backdrop-blur-md shadow-[0_0_24px_rgba(245,158,11,0.2)]">
+          <div className="flex items-start gap-3.5">
+            <AlertTriangle className="size-6 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+            <div className="min-w-0 flex-1">
+              <h4 className="font-bold text-base text-white">Sự kiện đang tạm dừng bán vé</h4>
+              <p className="mt-1 text-sm text-amber-200/90 leading-relaxed">
+                Ban tổ chức hiện đang tạm thời dừng nhận các đơn đặt vé mới cho sự kiện này{formatPauseReasonSuffix(eventDetail?.pause_note || eventDetail?.pause_reason || cart?.pause_note || cart?.pause_reason)}. Mọi thao tác đặt vé mới tạm thời bị vô hiệu. Quý khách vui lòng quay lại sau!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-3 sm:space-y-3.5">
           <Panel>
@@ -1209,8 +1279,10 @@ export function BookingAttendeesPage() {
         <OrderCard
           cart={cart}
           setCart={setCart}
-          cta={'Tiếp tục kiểm tra đơn'}
+          cta={isPaused ? 'Tạm dừng bán vé' : 'Tiếp tục kiểm tra đơn'}
           onClick={continueFlow}
+          disabled={isPaused}
+          isPaused={isPaused}
           hideUnselectedTickets
         />
       </div>
@@ -1228,6 +1300,21 @@ export function BookingReviewPage() {
   const [promoInput, setPromoInput] = useState(cart?.promoCode || '')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+
+  const { data: eventDetail } = useQuery({
+    queryKey: ['booking-review-event-detail', cart?.eventId],
+    queryFn: () => fetchEventDetail(cart.eventId),
+    enabled: Boolean(cart?.eventId),
+    refetchInterval: 10_000,
+  })
+
+  const isPaused = Boolean(
+    eventDetail?.is_paused ||
+    eventDetail?.sales_status === 'PAUSED' ||
+    cart?.is_paused ||
+    cart?.sales_status === 'PAUSED' ||
+    (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some((b) => !b.released_at))
+  )
 
   useEffect(() => {
     if (!cart?.items?.length) return
@@ -1286,13 +1373,6 @@ export function BookingReviewPage() {
   const termsSectionRef = useRef(null)
   const [termsError, setTermsError] = useState(false)
 
-  const { data: eventDetail } = useQuery({
-    queryKey: ['booking-review-event-detail', cart?.eventId],
-    queryFn: () => fetchEventDetail(cart.eventId),
-    enabled: Boolean(cart?.eventId),
-    staleTime: 1000 * 60 * 5,
-  })
-
   const effectiveTerms = String(
     cart?.additionalTerms ||
     cart?.additional_terms ||
@@ -1345,6 +1425,10 @@ export function BookingReviewPage() {
   const collectAttendees = requiresAttendeeInfo(cart)
 
   const continueFlow = async () => {
+    if (isPaused) {
+      toast.error('Sự kiện đang tạm dừng bán vé. Hiện tại không thể tiếp tục thanh toán.')
+      return
+    }
     if (hasPolicy && !termsAccepted) {
       setTermsError(true)
       toast.warning('Vui lòng đọc và tick chọn xác nhận đồng ý với điều khoản tham dự và chính sách hoàn tiền của sự kiện trước khi tiếp tục.')
@@ -1390,6 +1474,19 @@ export function BookingReviewPage() {
 
   return (
     <BookingShell step={3} cart={cart}>
+      {isPaused && (
+        <div className="mb-6 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-slate-900/80 p-5 text-amber-200 backdrop-blur-md shadow-[0_0_24px_rgba(245,158,11,0.2)]">
+          <div className="flex items-start gap-3.5">
+            <AlertTriangle className="size-6 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+            <div className="min-w-0 flex-1">
+              <h4 className="font-bold text-base text-white">Sự kiện đang tạm dừng bán vé</h4>
+              <p className="mt-1 text-sm text-amber-200/90 leading-relaxed">
+                Ban tổ chức hiện đang tạm thời dừng nhận các đơn đặt vé mới cho sự kiện này{formatPauseReasonSuffix(eventDetail?.pause_note || eventDetail?.pause_reason || cart?.pause_note || cart?.pause_reason)}. Mọi thao tác đặt vé mới tạm thời bị vô hiệu. Quý khách vui lòng quay lại sau!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
           <Panel>
@@ -1581,9 +1678,10 @@ export function BookingReviewPage() {
         <OrderCard
           cart={{ ...cart, promoCode, promo: selectedPromo }}
           setCart={setCart}
-          cta={'Xác nhận và thanh toán'}
+          cta={isPaused ? 'Tạm dừng bán vé' : 'Xác nhận và thanh toán'}
           onClick={continueFlow}
-          disabled={checkingAvailability}
+          disabled={isPaused || checkingAvailability}
+          isPaused={isPaused}
           hideUnselectedTickets
           promoProps={{
             promoCode,
@@ -1751,7 +1849,7 @@ export function BookingPaymentPage() {
                 <p className="mt-2 font-display text-4xl font-extrabold text-white">{formatPrice(order.total_amount)}</p>
                 {payment.qr_code ? (
                   <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
-                    <img src={paymentQrImageSrc(payment.qr_code)} alt="QR PayOS" className="size-56" />
+                    <QRCodeImage text={payment.qr_code} alt="QR PayOS" size={224} className="size-56" />
                   </div>
                 ) : (
                   <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">
@@ -2003,6 +2101,7 @@ function OrderCard({
   colorByTicketTypeId,
   hideUnselectedTickets = false,
   promoProps,
+  isPaused = false,
 }) {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
@@ -2158,19 +2257,31 @@ function OrderCard({
       {promoDiscount(cart) > 0 && (
         <Line label={'Tổng thanh toán'} value={formatPrice(payableTotal(cart))} large />
       )}
+      {isPaused && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2">
+          <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
+          <span>Sự kiện đang tạm dừng bán vé. Quý khách không thể tiếp tục đặt vé.</span>
+        </div>
+      )}
+
       <div className="mt-8 space-y-3">
         <button
           type="button"
           onClick={onClick}
-          disabled={disabled}
-          className="btn-gold-primary w-full py-3.5 sm:py-4 text-base sm:text-lg tracking-wide select-none cursor-pointer"
+          disabled={disabled || isPaused}
+          className={cn(
+            'w-full py-3.5 sm:py-4 text-base sm:text-lg tracking-wide rounded-full font-bold select-none transition-all',
+            isPaused
+              ? 'bg-amber-950/40 text-amber-300/80 border border-amber-500/30 cursor-not-allowed opacity-80'
+              : 'btn-gold-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
+          )}
         >
-          {cta}
+          {isPaused ? 'Tạm dừng bán vé' : cta}
         </button>
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
-          className="w-full rounded-full border border-white/10 bg-transparent py-2.5 text-xs font-bold text-slate-400 transition hover:border-error/40 hover:bg-error/10 hover:text-error"
+          className="w-full rounded-full border border-white/10 bg-transparent py-2.5 text-xs font-bold text-slate-400 transition hover:border-error/40 hover:bg-error/10 hover:text-error cursor-pointer"
         >
           {'Hủy đặt vé'}
         </button>

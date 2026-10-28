@@ -38,12 +38,14 @@ class PaymentsService {
   async confirmAndNotify(args) {
     logger.info(`[PAYMENT_CONFIRM] started providerOrderCode=${args.providerOrderCode || 'missing'} transactionId=${args.transactionId || 'missing'} amount=${args.amount ?? 'missing'}`);
     const result = await ordersRepository.confirmPayment(args);
-    if (!result.alreadyPaid) {
+    if (!result.alreadyPaid && !result.lateCancelledEvent) {
       this.sendTicketConfirmation(result.order.id).then((emailSent) => {
         logger.info(`[PAYMENT_CONFIRM] notification completed orderId=${result.order.id} emailSent=${emailSent}`);
       }).catch((err) => {
         logger.error(`[PAYMENT_CONFIRM] notification failed orderId=${result.order.id}`, err);
       });
+    } else if (result.lateCancelledEvent) {
+      logger.warn(`[PAYMENT_CONFIRM] late payment after event cancelled orderId=${result.order?.id}; auto refund request created`);
     } else {
       logger.warn(`[PAYMENT_CONFIRM] already paid orderId=${result.orderId}; confirmation email is not retried`);
     }

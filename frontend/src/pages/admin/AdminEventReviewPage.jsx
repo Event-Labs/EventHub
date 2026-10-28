@@ -44,20 +44,24 @@ import {
   cancelAdminAutoReview,
   fetchAdminAutoReviewScanStatus,
   fetchAdminReviewCriteria,
+  suspendAdminEvent,
+  unsuspendAdminEvent,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, ImagePlaceholder, Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
+import { AdminSuspendModal } from './AdminSuspendModal.jsx'
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 const STATUS_TABS = [
   { label: 'Chờ duyệt', value: 'PENDING_REVIEW' },
+  { label: 'Yêu cầu hủy', value: 'CANCEL_REQUESTS' },
   { label: 'Đã duyệt', value: 'PUBLISHED' },
   { label: 'Từ chối', value: 'REJECTED' },
-  { label: 'Đã ẩn', value: 'HIDDEN' },
+  { label: 'Bị đình chỉ', value: 'SUSPENDED' },
 ]
 
 /**
@@ -66,11 +70,20 @@ const STATUS_TABS = [
  *   HIDDEN + approval_status=REJECTED → event failed admin review ("Từ chối")
  *   HIDDEN + approval_status=APPROVED → event was published then hidden for violations ("Đã ẩn")
  */
-function statusBadge(status, approvalStatus) {
+function statusBadge(status, approvalStatus, displayState) {
+  if (displayState === 'SUSPENDED_BY_ADMIN') {
+    return <Badge tone="red">Bị đình chỉ</Badge>
+  }
+  if (displayState === 'HIDDEN_BY_ORGANIZER') {
+    return <Badge tone="gray">BTC Tạm ẩn</Badge>
+  }
   if (status === 'HIDDEN') {
     return approvalStatus === 'REJECTED'
       ? <Badge tone="red">Từ chối</Badge>
       : <Badge tone="gray">Đã ẩn</Badge>
+  }
+  if (status === 'COMPLETED' && approvalStatus === 'APPROVED') {
+    return <Badge tone="green">Đã duyệt</Badge>
   }
   const map = {
     PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
@@ -112,6 +125,10 @@ export function AdminEventReviewPage() {
 
   // Confirm modal state
   const [confirmState, setConfirmState] = useState(null)
+
+  // Suspend modal state
+  const [suspendTarget, setSuspendTarget] = useState(null)
+  const [suspendLoading, setSuspendLoading] = useState(false)
 
   // AI Auto-review settings state & queries
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -348,6 +365,43 @@ export function AdminEventReviewPage() {
     })
   }
 
+  const confirmSuspend = async ({ reason, note }) => {
+    if (!suspendTarget || suspendLoading) return
+    setSuspendLoading(true)
+    try {
+      await suspendAdminEvent(suspendTarget.id, { reason, note })
+      toast.success(`Đã đình chỉ sự kiện "${suspendTarget.title}".`)
+      setSuspendTarget(null)
+      invalidate()
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể đình chỉ sự kiện.'))
+    } finally {
+      setSuspendLoading(false)
+    }
+  }
+
+  const quickUnsuspend = (event) => {
+    setConfirmState({
+      title: 'Gỡ đình chỉ sự kiện',
+      subtitle: 'Khôi phục hiển thị và quyền mở bán vé.',
+      eventTitle: event.title,
+      description: `Bạn có chắc chắn muốn gỡ lệnh đình chỉ cho sự kiện "${event.title}"? Sự kiện sẽ được hiển thị trở lại và Ban tổ chức có thể tiếp tục mở bán vé bình thường.`,
+      tone: 'success',
+      confirmText: 'Xác nhận gỡ đình chỉ',
+      cancelText: 'Hủy bỏ',
+      onConfirm: async () => {
+        try {
+          await unsuspendAdminEvent(event.id)
+          toast.success(`Đã gỡ đình chỉ sự kiện "${event.title}".`)
+          closeConfirm()
+          invalidate()
+        } catch (err) {
+          toast.error(getApiMessage(err, 'Không thể gỡ đình chỉ sự kiện.'))
+        }
+      },
+    })
+  }
+
   /** Modal submit */
   const submitModalReview = (status) => {
     if (!selectedEvent) return
@@ -355,9 +409,12 @@ export function AdminEventReviewPage() {
     if (status === 'APPROVED') {
       setConfirmState({
         title: 'Xác nhận phê duyệt',
-        description: 'Bạn có chắc chắn muốn phê duyệt sự kiện này?',
+        subtitle: 'Chấp thuận xuất bản sự kiện lên nền tảng.',
+        eventTitle: selectedEvent.title,
+        description: 'Sự kiện sẽ được công khai và cho phép người dùng đặt vé tham gia.',
+        tone: 'success',
         confirmText: 'Phê duyệt',
-        confirmColor: 'bg-success text-slate-950 hover:bg-success/90',
+        cancelText: 'Hủy bỏ',
         onConfirm: () => {
           reviewMutation.mutate({
             eventId: selectedEvent.id,
@@ -369,9 +426,12 @@ export function AdminEventReviewPage() {
     } else {
       setConfirmState({
         title: 'Xác nhận từ chối',
-        description: 'Bạn có chắc chắn muốn từ chối sự kiện này? Vui lòng đảm bảo đã nhập lý do (nếu cần).',
-        confirmText: 'Từ chối',
-        confirmColor: 'bg-error text-white hover:bg-error/90',
+        subtitle: 'Từ chối yêu cầu xuất bản sự kiện.',
+        eventTitle: selectedEvent.title,
+        description: 'Sự kiện sẽ bị từ chối và Ban tổ chức sẽ nhận được thông báo phản hồi lý do kiểm duyệt.',
+        tone: 'danger',
+        confirmText: 'Từ chối sự kiện',
+        cancelText: 'Hủy bỏ',
         onConfirm: () => {
           reviewMutation.mutate({
             eventId: selectedEvent.id,
@@ -645,7 +705,21 @@ export function AdminEventReviewPage() {
                 </span>,
 
                 /* Status badge */
-                <span key="status">{statusBadge(event.status, event.approval_status)}</span>,
+                <span key="status">
+                  <div className="flex flex-col gap-1 items-start">
+                    {statusBadge(event.status, event.approval_status, event.display_state)}
+                    {event.cancel_request?.status === 'PENDING' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse whitespace-nowrap">
+                        Chờ duyệt hủy
+                      </span>
+                    )}
+                    {event.pending_revision && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse whitespace-nowrap">
+                        Sửa đổi chờ duyệt
+                      </span>
+                    )}
+                  </div>
+                </span>,
 
                 /* Actions */
                 <div key="actions" className="flex flex-col gap-2">
@@ -656,30 +730,42 @@ export function AdminEventReviewPage() {
                     onChange={(e) => setNote(event.id, e.target.value)}
                   />
                   <div className="flex items-center justify-center gap-2">
-                    {/* Hide — only for PUBLISHED */}
-                    {event.status === 'PUBLISHED' && (
+                    {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
+                    {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
                       <TableActionButton
-                        title="Ẩn sự kiện"
+                        title="Đình chỉ sự kiện (Khóa đa nguồn vi phạm)"
                         tone="danger"
-                        icon={EyeOff}
-                        onClick={() => quickHide(event.id)}
-                        disabled={isMutating}
+                        icon={ShieldAlert}
+                        onClick={() => setSuspendTarget(event)}
+                        disabled={isMutating || suspendLoading}
                       />
                     )}
-                    {/* Unhide — only for HIDDEN+APPROVED (was published, then hidden) */}
-                    {event.status === 'HIDDEN' && event.approval_status === 'APPROVED' && (
+                    {/* Unsuspend — when SUSPENDED_BY_ADMIN */}
+                    {event.display_state === 'SUSPENDED_BY_ADMIN' && (
                       <TableActionButton
-                        title="Bỏ ẩn"
+                        title="Gỡ đình chỉ sự kiện"
                         tone="success"
-                        icon={Eye}
-                        onClick={() => quickUnhide(event.id)}
-                        disabled={isMutating}
+                        icon={CheckCircle2}
+                        onClick={() => quickUnsuspend(event)}
+                        disabled={isMutating || suspendLoading}
                       />
                     )}
                     {/* View/Review detail button */}
                     <TableActionButton
-                      title={event.status === 'PENDING_REVIEW' ? 'Duyệt chi tiết sự kiện' : 'Xem chi tiết sự kiện'}
-                      tone="primary"
+                      title={
+                        event.cancel_request?.status === 'PENDING'
+                          ? 'Xem & Duyệt yêu cầu hủy sự kiện'
+                          : event.status === 'PENDING_REVIEW' || event.pending_revision
+                            ? 'Xem chi tiết & Thẩm định duyệt'
+                            : 'Xem chi tiết sự kiện'
+                      }
+                      tone={
+                        event.cancel_request?.status === 'PENDING'
+                          ? 'danger'
+                          : event.pending_revision
+                            ? 'warning'
+                            : 'primary'
+                      }
                       icon={Eye}
                       onClick={() => navigate(`/admin/events/review/${event.id}`)}
                     />
@@ -737,8 +823,12 @@ export function AdminEventReviewPage() {
       <ConfirmModal
         open={!!confirmState}
         title={confirmState?.title}
+        subtitle={confirmState?.subtitle}
+        eventTitle={confirmState?.eventTitle}
         description={confirmState?.description}
+        tone={confirmState?.tone}
         confirmText={confirmState?.confirmText}
+        cancelText={confirmState?.cancelText}
         confirmColor={confirmState?.confirmColor}
         onConfirm={confirmState?.onConfirm}
         onCancel={() => setConfirmState(null)}
@@ -762,6 +852,16 @@ export function AdminEventReviewPage() {
         isOpen={isCriteriaOpen}
         onClose={() => setIsCriteriaOpen(false)}
       />
+
+      {/* Admin Suspend Modal */}
+      {suspendTarget && (
+        <AdminSuspendModal
+          event={suspendTarget}
+          loading={suspendLoading}
+          onClose={() => setSuspendTarget(null)}
+          onConfirm={confirmSuspend}
+        />
+      )}
     </Page>
   )
 }
@@ -960,30 +1060,6 @@ function EventReviewModal({
                 Từ chối
               </button>
             </>
-          )}
-
-          {isPublished && (
-            <button
-              type="button"
-              disabled={isMutating}
-              onClick={onHide}
-              className="admin-secondary disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <EyeOff className="size-4" />
-              Ẩn sự kiện
-            </button>
-          )}
-
-          {isHiddenApproved && (
-            <button
-              type="button"
-              disabled={isMutating}
-              onClick={onUnhide}
-              className="admin-primary disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <Eye className="size-4" />
-              Bỏ ẩn
-            </button>
           )}
 
           <button
@@ -1506,22 +1582,122 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   )
 }
 
-function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'admin-primary' }) {
+function ConfirmModal({
+  open,
+  title,
+  subtitle,
+  eventTitle,
+  description,
+  tone = 'primary',
+  onConfirm,
+  onCancel,
+  confirmText = 'Xác nhận',
+  cancelText = 'Hủy bỏ',
+  confirmColor,
+  isPending = false,
+}) {
   if (!open) return null
+
+  const getToneConfig = () => {
+    switch (tone) {
+      case 'success':
+        return {
+          icon: CheckCircle2,
+          iconWrap: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+          btnClass: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40',
+        }
+      case 'danger':
+        return {
+          icon: AlertTriangle,
+          iconWrap: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
+          btnClass: 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/40',
+        }
+      case 'warning':
+        return {
+          icon: AlertTriangle,
+          iconWrap: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+          btnClass: 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/40',
+        }
+      default:
+        return {
+          icon: CheckCircle2,
+          iconWrap: 'bg-primary/20 text-primary border border-primary/30',
+          btnClass: confirmColor || 'bg-primary hover:brightness-110 text-slate-950 font-bold shadow-lg shadow-primary/20',
+        }
+    }
+  }
+
+  const { icon: ToneIcon, iconWrap, btnClass } = getToneConfig()
+
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-      <Panel className="w-full max-w-sm border-border-soft/60">
-        <h3 className="text-lg font-bold text-content">{title}</h3>
-        <p className="mt-2 text-sm text-subtle">{description}</p>
-        <div className="mt-5 flex justify-end gap-3">
-          <button type="button" className="admin-secondary" onClick={onCancel}>
-            {cancelText}
-          </button>
-          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
-            {confirmText}
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconWrap}`}>
+              <ToneIcon className="size-6" />
+            </span>
+            <div>
+              <h3 className="text-xl font-black text-white">{title}</h3>
+              {subtitle ? (
+                <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
+              ) : (
+                <p className="mt-1 text-xs text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+          >
+            <X className="size-5" />
           </button>
         </div>
-      </Panel>
+
+        {/* Event highlight box */}
+        {eventTitle && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
+            <p className="font-bold text-white text-sm mt-0.5 truncate">{eventTitle}</p>
+          </div>
+        )}
+
+        {/* Description */}
+        {description && (
+          <p className="mt-3.5 text-xs text-slate-300 leading-relaxed">
+            {description}
+          </p>
+        )}
+
+        {/* Footer buttons */}
+        <div className="mt-6 flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+          >
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition disabled:opacity-50 ${btnClass}`}
+          >
+            {isPending ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Đang xử lý...</span>
+              </span>
+            ) : (
+              confirmText
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

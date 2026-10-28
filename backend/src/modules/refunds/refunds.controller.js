@@ -7,12 +7,41 @@ const {
   uuidParamSchema,
 } = require('./refunds.validation');
 
+const eventBusinessRulesService = require('../events/eventBusinessRules.service');
+
 class RefundsController {
   submitRefundRequest = async (req, res, next) => {
     try {
       const payload = requestRefundSchema.parse(req.body);
       const data = await refundsService.submitRefundRequest(req.user.sub, payload);
       res.status(201).json(ApiResponse.success(data, 'Đã gửi yêu cầu hoàn tiền thành công'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  submitPayoutInfo = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.submitPayoutInfo(req.user.sub, req.body);
+      res.status(200).json(ApiResponse.success(data, 'Đã ghi nhận thông tin tài khoản nhận tiền hoàn'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  disputeRefund = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.disputeRefund(req.user.sub, req.params.id, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã ghi nhận khiếu nại chưa nhận được tiền'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  confirmReceivedRefund = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.confirmReceivedRefund(req.user.sub, req.params.id);
+      res.status(200).json(ApiResponse.success(data, 'Đã xác nhận nhận tiền thành công'));
     } catch (error) {
       next(error);
     }
