@@ -417,7 +417,7 @@ class OrdersRepository {
                 JOIN orders o_sold ON o_sold.id = oi_sold.order_id
                 LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
                 WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                  AND o_sold.status = 'PAID'
+                  AND o_sold.status IN ('PAID', 'CONFIRMED')
                   AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
               ) AS has_paid_ticket
             FROM session_seats ss
@@ -453,7 +453,7 @@ class OrdersRepository {
                   JOIN orders o_sold ON o_sold.id = oi_sold.order_id
                   LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
                   WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                    AND o_sold.status = 'PAID'
+                    AND o_sold.status IN ('PAID', 'CONFIRMED')
                     AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
                 ) THEN 'SOLD'
                 WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -576,7 +576,7 @@ class OrdersRepository {
           const availabilityResult = await client.query(
             `
             SELECT
-              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
               COALESCE((
                 SELECT SUM(th.quantity)::int
                 FROM ticket_holds th
@@ -702,7 +702,7 @@ class OrdersRepository {
           tt.sale_start,
           tt.sale_end,
           tt.is_seated,
-          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
           COALESCE((
             SELECT SUM(th.quantity)::int
             FROM ticket_holds th
@@ -1013,7 +1013,7 @@ class OrdersRepository {
         const availabilityResult = await client.query(
           `
           SELECT
-            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
             COALESCE((
               SELECT SUM(th.quantity)::int
               FROM ticket_holds th
@@ -2096,8 +2096,8 @@ class OrdersRepository {
         ORDER BY oi.id
         LIMIT 1
       ) event_info ON true
-      JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
-      WHERE o.id = $1 AND o.status = 'PAID' ORDER BY po.paid_at DESC NULLS LAST LIMIT 1`,
+      LEFT JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
+      WHERE o.id = $1 AND o.status IN ('PAID', 'CONFIRMED') ORDER BY po.paid_at DESC NULLS LAST LIMIT 1`,
       [orderId],
     );
     const order = rows[0];

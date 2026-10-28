@@ -1,4 +1,5 @@
 const db = require('../../infrastructure/database/db.client');
+const { COMPLETED_ORDER_STATUSES } = require('../orders/orders.constants');
 
 const STAFF_TICKET_SELECT = `
   SELECT
@@ -135,7 +136,7 @@ class TicketsRepository {
       LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
       LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE o.user_id = $1
-        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
+        AND o.status IN ('PAID', 'CONFIRMED', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
         ${statusFilter}
       ORDER BY o.created_at DESC, t.created_at DESC
@@ -236,7 +237,7 @@ class TicketsRepository {
       ) p ON true
       WHERE t.id = $1
         AND o.user_id = $2
-        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
+        AND o.status IN ('PAID', 'CONFIRMED', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
       ORDER BY p.paid_at DESC NULLS LAST
       LIMIT 1
@@ -288,7 +289,7 @@ class TicketsRepository {
         )
         AND COALESCE(es.checkin_start_time, es.start_time) <= now()
         AND COALESCE(e.end_time, e.start_time) >= now()
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         ${conditions.length ? `AND ${conditions.join(' AND ')}` : ''}
       ORDER BY es.start_time DESC, t.created_at DESC
       LIMIT 25
@@ -430,7 +431,7 @@ class TicketsRepository {
         return { state: 'TICKET_NOT_VALID', ticket: lockedTicket };
       }
 
-      if (lockedTicket.order_status !== 'PAID') {
+      if (!COMPLETED_ORDER_STATUSES.includes(lockedTicket.order_status)) {
         await client.query('ROLLBACK');
         return { state: 'INVALID_ORDER', ticket: lockedTicket };
       }

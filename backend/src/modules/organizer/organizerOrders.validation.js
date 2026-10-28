@@ -4,9 +4,9 @@ const listOrdersSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   eventId: z.string().uuid().optional(),
-  // PENDING | PAID | CANCELLED | EXPIRED
+  // PENDING | PAID | CONFIRMED | CANCELLED | EXPIRED | REFUND_REQUESTED | REFUNDED
   status: z
-    .enum(['PENDING', 'PAID', 'CANCELLED', 'EXPIRED'])
+    .enum(['PENDING', 'PAID', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'REFUND_REQUESTED', 'REFUNDED'])
     .optional(),
   search: z.string().trim().max(200).optional(),
 });
