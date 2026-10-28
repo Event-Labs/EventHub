@@ -156,7 +156,7 @@ export function OrganizerEventPicker({
   return (
     <div ref={containerRef} className={`relative min-w-0 ${className}`}>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="block text-base font-bold text-white">Phạm vi sự kiện</span>
+        <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Phạm vi sự kiện</span>
         {selectedEvent && (
           <button
             type="button"
@@ -176,8 +176,8 @@ export function OrganizerEventPicker({
         onClick={() => setIsOpen((prev) => !prev)}
         className={`mt-1 flex h-10 w-full items-center justify-between gap-3 rounded-xl border px-3 text-left text-sm font-semibold text-white shadow-sm transition outline-none ${
           isOpen
-            ? 'border-primary/60 bg-[#0d172e] ring-2 ring-primary/20'
-            : 'border-white/15 bg-[#0d172e] hover:border-white/30'
+            ? 'border-primary/60 bg-[#0d172e] ring-2 ring-primary/20 [html.light_&]:bg-white [html.light_&]:border-[#C99A47] [html.light_&]:text-[#0D1B2A] [html.light_&]:ring-[#C99A47]/20'
+            : 'border-white/15 bg-[#0d172e] hover:border-white/30 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]'
         }`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -249,7 +249,7 @@ export function OrganizerEventPicker({
               top: popupStyle.top,
               width: popupStyle.width,
             }}
-            className="fixed z-[9999] max-h-[min(540px,calc(100vh-2rem))] overflow-hidden rounded-2xl border border-white/20 bg-[#0b1329] p-3 text-white shadow-2xl shadow-black/95 backdrop-blur-2xl"
+            className="fixed z-[9999] max-h-[min(540px,calc(100vh-2rem))] overflow-hidden rounded-2xl border border-white/20 bg-[#0b1329] p-3 text-white shadow-2xl shadow-black/95 backdrop-blur-2xl [html.light_&]:bg-white/98 [html.light_&]:border-[#C99A47]/35 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl"
           >
             {/* Search Box */}
             <div className="relative mb-2.5">
@@ -260,7 +260,7 @@ export function OrganizerEventPicker({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm kiếm sự kiện theo tên hoặc thể loại..."
-                className="h-9 w-full rounded-xl border border-white/10 bg-slate-950/70 pl-9 pr-8 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-primary/60 focus:ring-1 focus:ring-primary/20"
+                className="h-9 w-full rounded-xl border border-white/10 bg-slate-950/70 pl-9 pr-8 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-[#E6C17A] focus:ring-1 focus:ring-[#C99A47]/40 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder-[#536b88]"
               />
               {searchQuery && (
                 <button
@@ -274,7 +274,7 @@ export function OrganizerEventPicker({
             </div>
 
             {/* Segmented Status Tabs */}
-            <div className="mb-2.5 flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-bold scrollbar-none">
+            <div className="mb-2.5 flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-bold no-scrollbar">
               {tabs.map((tab) => {
                 const active = activeTab === tab.key
                 return (
@@ -282,18 +282,20 @@ export function OrganizerEventPicker({
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveTab(tab.key)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 transition-all ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] transition-all ${
                       active
-                        ? 'bg-primary/20 text-cyan-300 ring-1 ring-primary/40'
-                        : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-sm ring-1 ring-[#E6C17A]/60'
+                        : 'bg-white/5 text-slate-300 hover:bg-[#C99A47]/15 hover:text-[#E6C17A] [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F5EBDD] [html.light_&]:hover:text-[#0D1B2A]'
                     }`}
                   >
                     {tab.isLive && (
                       <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     )}
-                    <span>{tab.label}</span>
-                    <span className={`text-[10px] font-normal ${active ? 'text-cyan-200' : 'text-slate-500'}`}>
-                      ({tab.count})
+                    <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+                      <span>{tab.label}</span>
+                      <span className={`text-[11px] ${active ? 'text-[#0D1B2A]/85 font-bold' : 'text-slate-400 [html.light_&]:text-[#536b88] font-normal'}`}>
+                        ({tab.count})
+                      </span>
                     </span>
                   </button>
                 )
@@ -302,42 +304,26 @@ export function OrganizerEventPicker({
 
             {/* List Container */}
             <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-              {/* Pinned "All Events" Option */}
-              <button
-                type="button"
-                onClick={() => handleSelect('')}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl border p-2.5 text-left transition-all ${
-                  selectedEventId === ''
-                    ? 'border-primary/50 bg-primary/10 shadow-sm'
-                    : 'border-white/5 bg-slate-900/40 hover:border-white/15 hover:bg-slate-800/60'
-                }`}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 text-cyan-400 ring-1 ring-white/10">
-                    <Layers className="size-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-white">
-                      Tất cả sự kiện (Tổng quan toàn bộ)
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">
-                      Tổng hợp số liệu doanh thu, vé bán & vận hành toàn danh mục
-                    </p>
-                  </div>
-                </div>
-                {selectedEventId === '' && (
-                  <div className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-slate-950">
-                    <Check className="size-3 font-bold" />
-                  </div>
-                )}
-              </button>
-
-              {/* Separator */}
-              {filteredEvents.length > 0 && (
-                <div className="my-1.5 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  <span className="h-px flex-1 bg-white/5" />
-                  <span>Danh sách sự kiện ({filteredEvents.length})</span>
-                  <span className="h-px flex-1 bg-white/5" />
+              {/* Status Header / Reset to All Option */}
+              {selectedEventId ? (
+                <button
+                  type="button"
+                  onClick={() => handleSelect('')}
+                  className="mb-2 flex w-full items-center justify-between rounded-xl border border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/10 px-3 py-2 text-left text-xs font-bold text-[#E6C17A] transition hover:from-[#C99A47]/25 hover:to-[#E6C17A]/20 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/45 [html.light_&]:text-[#1B365D]"
+                >
+                  <span className="flex items-center gap-2">
+                    <Layers className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
+                    <span>Chọn lại tất cả sự kiện</span>
+                  </span>
+                  <span className="text-[11px] font-normal opacity-80">({events.length} sự kiện)</span>
+                </button>
+              ) : (
+                <div className="mb-2 flex items-center justify-between rounded-xl border border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/20 via-[#E6C17A]/15 to-[#C99A47]/20 px-3 py-1.5 text-xs font-bold text-[#E6C17A] shadow-sm [html.light_&]:bg-[#FAF4EB] [html.light_&]:border-[#C99A47]/50 [html.light_&]:text-[#0D1B2A]">
+                  <span className="flex items-center gap-2">
+                    <Check className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
+                    <span>Đang chọn: Tất cả sự kiện</span>
+                  </span>
+                  <span className="text-[11px] font-normal text-[#FFF6DC] [html.light_&]:text-[#536b88]">({events.length} sự kiện)</span>
                 </div>
               )}
 
@@ -353,8 +339,8 @@ export function OrganizerEventPicker({
                     onClick={() => handleSelect(ev.id)}
                     className={`flex w-full items-center justify-between gap-3 rounded-xl border p-2.5 text-left transition-all ${
                       isSelected
-                        ? 'border-primary/50 bg-primary/10 shadow-sm ring-1 ring-primary/30'
-                        : 'border-white/5 bg-slate-900/30 hover:border-white/15 hover:bg-slate-800/60'
+                        ? 'border-[#C99A47]/60 bg-[#C99A47]/15 shadow-sm ring-1 ring-[#E6C17A]/40'
+                        : 'border-white/5 bg-slate-900/30 hover:border-white/15 hover:bg-slate-800/60 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/20 [html.light_&]:hover:bg-[#F5EBDD]'
                     }`}
                   >
                     <div className="flex min-w-0 items-center gap-3">

@@ -2071,27 +2071,108 @@ html.light .direct-booking-page [class*="text-slate-500"] {
 
 /* 1. Synchronized Uniform Frame / Container Surfaces */
 html.light .glass-panel,
+html.light [class*="bg-[#020409]"],
+html.light [class*="bg-[#030712]"],
+html.light [class*="bg-[#070d1e]"],
+html.light [class*="bg-[#090D16]"],
+html.light [class*="bg-[#090f1f]"],
+html.light [class*="bg-[#0a0f1f]"],
+html.light [class*="bg-[#0b1329]"],
+html.light [class*="bg-[#0b132b]"],
+html.light [class*="bg-[#0c1224]"],
+html.light [class*="bg-[#0c1427]"],
+html.light [class*="bg-[#0d162e]"],
+html.light [class*="bg-[#0d172e]"],
+html.light [class*="bg-[#0e162b]"],
+html.light [class*="bg-[#0e172e]"],
+html.light [class*="bg-[#0e172a]"],
+html.light [class*="bg-[#0f172a]"],
+html.light [class*="bg-[#10172d]"],
+html.light [class*="bg-[#101c30]"],
+html.light [class*="bg-[#111a2e]"],
+html.light [class*="bg-[#111c3a]"],
+html.light [class*="bg-[#121930]"],
+html.light [class*="bg-[#121b33]"],
+html.light [class*="bg-[#121c33]"],
+html.light [class*="bg-[#121c38]"],
+html.light [class*="bg-[#131d38]"],
+html.light [class*="bg-[#141e36]"],
+html.light [class*="bg-[#152042]"],
+html.light [class*="bg-[#16223d]"],
+html.light [class*="bg-[#162244]"],
+html.light [class*="bg-[#172242]"],
+html.light [class*="bg-[#18254b]"],
+html.light [class*="bg-[#182b4a]"],
 html.light [class*="bg-[#0D1B2A]"],
 html.light [class*="bg-[#1B365D]"],
-html.light [class*="bg-[#0b1329]"],
-html.light [class*="bg-[#121b33]"],
-html.light [class*="bg-[#0d172e]"],
-html.light [class*="bg-[#090D16]"],
+html.light [class*="bg-[#1e2a4a]"],
 html.light [class*="bg-slate-950"],
 html.light [class*="bg-slate-900"],
 html.light [class*="bg-sky-950"],
-html.light [class*="bg-[#0e172a]"],
-html.light [class*="bg-[#0f172a]"],
-html.light [class*="bg-[#131d38]"],
-html.light [class*="bg-[#030712]"],
 html.light [class*="from-slate-900"],
+html.light [class*="from-purple-950"],
+html.light [class*="from-[#0d172e]"],
 html.light .portal-table,
 html.light .modal-solid,
 html.light .dialog-solid {
-  background-color: rgba(255, 253, 248, 0.92) !important;
+  background-color: rgba(255, 253, 248, 0.95) !important;
   background-image: none !important;
   border-color: rgba(201, 154, 71, 0.32) !important;
   box-shadow: 0 10px 32px -4px rgba(27, 54, 93, 0.08), 0 0 0 1px rgba(245, 235, 221, 0.6) !important;
+  color: #0D1B2A !important;
+}
+
+/* 1c. Sub-cards, Metric Tiles & Inset Boxes in Light Mode */
+html.light [class*="bg-slate-900/40"],
+html.light [class*="bg-slate-900/50"],
+html.light [class*="bg-slate-900/60"],
+html.light [class*="bg-slate-900/70"],
+html.light [class*="bg-slate-950/40"],
+html.light [class*="bg-slate-950/60"],
+html.light [class*="bg-slate-950/70"],
+html.light [class*="bg-slate-800/40"],
+html.light [class*="bg-slate-800/50"],
+html.light [class*="bg-slate-800/60"],
+html.light [class*="bg-slate-800/80"] {
+  background-color: #F8F3EA !important;
+  border-color: rgba(201, 154, 71, 0.28) !important;
+  color: #0D1B2A !important;
+}
+
+html.light [class*="bg-slate-900/50"]:hover,
+html.light [class*="bg-slate-800/80"]:hover {
+  background-color: #F5EBDD !important;
+  border-color: #C99A47 !important;
+}
+
+/* 1d. Progress Bar Tracks in Light Mode */
+html.light .rounded-full.bg-slate-800,
+html.light [class*="bg-slate-800"].rounded-full,
+html.light .bg-slate-800.overflow-hidden {
+  background-color: rgba(201, 154, 71, 0.18) !important;
+}
+
+/* 1e. Form Inputs, Selects & Triggers */
+html.light select,
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light textarea,
+html.light button[class*="bg-[#0d172e]"],
+html.light [class*="border-white/15"][class*="bg-[#0d172e]"] {
+  background-color: #ffffff !important;
+  border-color: rgba(201, 154, 71, 0.38) !important;
+  color: #0D1B2A !important;
+}
+
+html.light button[class*="bg-[#0d172e]"]:hover,
+html.light [class*="border-white/15"][class*="bg-[#0d172e]"]:hover {
+  background-color: #FAF4EB !important;
+  border-color: #C99A47 !important;
+  color: #0D1B2A !important;
+}
+
+html.light option,
+html.light optgroup {
+  background-color: #ffffff !important;
   color: #0D1B2A !important;
 }
 
@@ -2256,6 +2337,33 @@ html.light .text-subtle {
   color: #1B365D !important;
   opacity: 1 !important;
 }
+
+/* High-contrast metrics and accent colors on light backgrounds */
+html.light .text-emerald-400,
+html.light .text-emerald-300 {
+  color: #047857 !important;
+}
+html.light .text-cyan-400,
+html.light .text-cyan-300 {
+  color: #0369a1 !important;
+}
+html.light .text-rose-400,
+html.light .text-rose-300 {
+  color: #be123c !important;
+}
+html.light .text-amber-400,
+html.light .text-amber-300 {
+  color: #b45309 !important;
+}
+html.light .text-purple-400,
+html.light .text-purple-300 {
+  color: #7e22ce !important;
+}
+html.light .text-indigo-400,
+html.light .text-indigo-300 {
+  color: #4338ca !important;
+}
+
 
 /* Preserve gold title gradient & luster in light mode (Exact: #C99A47 #E6C17A) */
 html.light .gold-gradient-title,
@@ -2646,11 +2754,11 @@ html.light .force-dark svg text {
   overflow: hidden;
   border-radius: 0.75rem;
   padding: 1.5px;
-  box-shadow: 0 0 10px rgba(201, 154, 71, 0.4), 0 0 18px rgba(230, 193, 122, 0.2);
+  box-shadow: 0 0 10px rgba(201, 154, 71, 0.4), 0 0 18px rgba(230, 193, 122, 0.25);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   border: none;
-  background: transparent;
+  background: rgba(201, 154, 71, 0.25);
   text-decoration: none;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -2673,11 +2781,11 @@ html.light .force-dark svg text {
   inset: -250%;
   background: conic-gradient(
     from 0deg,
-    transparent 0%,
-    transparent 50%,
-    rgba(201, 154, 71, 0.15) 65%,
-    #C99A47 78%,
-    #E6C17A 88%,
+    rgba(201, 154, 71, 0.2) 0%,
+    rgba(201, 154, 71, 0.2) 45%,
+    rgba(201, 154, 71, 0.4) 60%,
+    #C99A47 75%,
+    #E6C17A 86%,
     #FFF6DC 95%,
     #FFFFFF 98%,
     #E6C17A 100%
