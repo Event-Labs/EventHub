@@ -30,6 +30,9 @@ function buildSeat(row) {
 }
 
 function effectiveTicketStatus(row) {
+  if (row.event_status === 'CANCELLED' && !['REFUNDED', 'CANCELLED'].includes(row.status)) {
+    return 'REFUND_REQUESTED';
+  }
   if (row.status !== 'VALID') return row.status;
   const endTime = row.session_end_time || row.event_end_time;
   return endTime && new Date(endTime).getTime() < Date.now() ? 'EXPIRED' : row.status;
@@ -53,6 +56,7 @@ function buildTicketPayload(row) {
     payable_price: row.payable_price !== undefined && row.payable_price !== null ? Number(row.payable_price) : Number(row.order_item_final_price || 0),
     event: {
       id: row.event_id,
+      status: row.event_status,
       title: row.event_title,
       slug: row.event_slug,
       short_description: row.event_short_description,
@@ -402,18 +406,22 @@ function buildDownloadSvg(ticket) {
 
 class TicketsService {
   async getMyTickets(userId, filters = {}) {
-    const allowedStatuses = ['VALID', 'USED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'REFUND_PENDING'];
+    const allowedStatuses = ['VALID', 'USED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'REFUND_PENDING', 'REFUND_REQUESTED'];
     const status = filters.status?.toUpperCase();
 
-    if (status && !allowedStatuses.includes(status)) {
+    if (status && status !== 'ALL' && !allowedStatuses.includes(status)) {
       throw new AppError('Invalid ticket status', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    const repositoryStatus = status === 'EXPIRED' ? undefined : status;
+    const repositoryStatus = ['EXPIRED', 'REFUND_PENDING', 'REFUND_REQUESTED'].includes(status) ? undefined : status;
     const tickets = (await ticketsRepository.findTicketsByUserId(userId, { status: repositoryStatus }))
       .map(buildTicketPayload);
+
     if (status === 'VALID' || status === 'EXPIRED') {
       return tickets.filter((ticket) => ticket.status === status);
+    }
+    if (status === 'REFUND_PENDING' || status === 'REFUND_REQUESTED') {
+      return tickets.filter((ticket) => ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED');
     }
     return tickets;
   }

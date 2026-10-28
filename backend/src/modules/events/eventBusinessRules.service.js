@@ -4,6 +4,7 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const fieldCrypto = require('../../core/security/fieldCrypto');
 const logger = require('../../core/logger');
+const notificationsService = require('../notifications/notifications.service');
 const ordersRepository = require('../orders/orders.repository');
 const {
   SALES_BLOCK_REASONS,
@@ -702,6 +703,11 @@ class EventBusinessRulesService {
       );
 
       await client.query('COMMIT');
+
+      notificationsService.notifyEventCancellation(eventId, {
+        reason: note || 'Ban tổ chức hủy sự kiện',
+      }).catch((e) => logger.warn(`[NOTIFY_NORMAL_CANCEL_ERR] ${e.message}`));
+
       return rows[0];
     } catch (err) {
       await client.query('ROLLBACK');
@@ -964,6 +970,22 @@ class EventBusinessRulesService {
       );
 
       await client.query('COMMIT');
+
+      // Notify attendees & organizer
+      notificationsService.notifyEventCancellation(eventId, {
+        reason: cancelReq.note || cancelReq.reason_note || 'Theo yêu cầu từ Ban tổ chức',
+      }).catch((e) => logger.warn(`[NOTIFY_ATTENDEES_CANCEL_ERR] ${e.message}`));
+
+      if (event.organizer_user_id) {
+        notificationsService.createAndDispatch({
+          userId: event.organizer_user_id,
+          eventId,
+          title: 'Yêu cầu hủy sự kiện đã được duyệt',
+          content: `Yêu cầu hủy sự kiện "${event.title}" đã được Quản trị viên phê duyệt. Tiến trình hoàn tiền 100% cho khách hàng đã được khởi tạo.`,
+          type: 'EVENT',
+        }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_CANCEL_ERR] ${e.message}`));
+      }
+
       return rows[0];
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1037,6 +1059,19 @@ class EventBusinessRulesService {
       );
 
       await client.query('COMMIT');
+
+      // Notify organizer of rejection
+      const orgUserId = event.organizer_user_id || (await this.resolveOrganizerUserId(event.organizer_id));
+      if (orgUserId) {
+        notificationsService.createAndDispatch({
+          userId: orgUserId,
+          eventId,
+          title: 'Yêu cầu hủy sự kiện bị từ chối',
+          content: `Yêu cầu hủy sự kiện "${event.title}" đã bị Quản trị viên từ chối${note ? ` với lý do: "${note}"` : ''}.`,
+          type: 'EVENT',
+        }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REJECT_ERR] ${e.message}`));
+      }
+
       return rows[0];
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1044,6 +1079,15 @@ class EventBusinessRulesService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Helper to resolve organizer user_id from organizer_id
+   */
+  async resolveOrganizerUserId(organizerId) {
+    if (!organizerId) return null;
+    const { rows } = await db.query(`SELECT user_id FROM organizers WHERE id = $1 LIMIT 1`, [organizerId]);
+    return rows[0]?.user_id || null;
   }
 
   /**
@@ -1346,7 +1390,152 @@ class EventBusinessRulesService {
       );
 
       await client.query('COMMIT');
+
+      // Notify attendees & organizer
+      notificationsService.notifyEventCancellation(eventId, {
+        reason: cancelReq.note || 'Theo quyết định từ Ban quản trị nền tảng',
+      }).catch((e) => logger.warn(`[NOTIFY_ATTENDEES_FORCE_CANCEL_ERR] ${e.message}`));
+
+      if (event.organizer_user_id) {
+        notificationsService.createAndDispatch({
+          userId: event.organizer_user_id,
+          eventId,
+          title: 'Sự kiện đã bị hủy cưỡng chế',
+          content: `Sự kiện "${event.title}" đã bị Quản trị viên hủy cưỡng chế sau thời gian chờ Cooling-off. Tiến trình hoàn tiền 100% cho khách hàng đã được kích hoạt.`,
+          type: 'EVENT',
+        }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_FORCE_CANCEL_ERR] ${e.message}`));
+      }
+
       return rows[0];
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Admin reviews pending revision (Section 4.4 & 4.5)
+   */
+  async reviewRevision(adminId, eventId, { decision, note }) {
+    if (!['APPROVE', 'REJECT'].includes(decision)) {
+      throw new AppError('Quyết định không hợp lệ (APPROVE hoặc REJECT)', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+      const { rows: eventRows } = await client.query(
+        `SELECT e.*, o.user_id AS organizer_user_id FROM events e JOIN organizers o ON o.id = e.organizer_id WHERE e.id = $1 FOR UPDATE`,
+        [eventId],
+      );
+      const event = eventRows[0];
+      if (!event) throw new AppError('Sự kiện không tồn tại', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+
+      const pending = event.pending_revision;
+      if (!pending || pending.status !== 'SUBMITTED') {
+        throw new AppError('Không có bản sửa đổi nào đang chờ xét duyệt.', 400, ErrorCodes.INVALID_INPUT);
+      }
+
+      const history = Array.isArray(event.revision_history) ? event.revision_history : [];
+      const updatedRevision = {
+        ...pending,
+        status: decision === 'APPROVE' ? 'APPROVED' : 'REJECTED',
+        reviewed_by: adminId,
+        reviewed_at: new Date().toISOString(),
+        admin_note: note || '',
+      };
+
+      const auditTrail = appendAuditTrail(event.audit_trail, {
+        userId: adminId,
+        role: 'ADMIN',
+        action: `REVISION_${decision}`,
+        reason: note || `Admin ${decision.toLowerCase()}ed event revision`,
+        diff: pending.diff,
+      });
+
+      let updatedEvent;
+      if (decision === 'APPROVE') {
+        const after = pending.payload_after || {};
+        const { rows } = await client.query(
+          `
+          UPDATE events
+          SET title = COALESCE($2, title),
+              short_description = COALESCE($3, short_description),
+              description = COALESCE($4, description),
+              location = COALESCE($5, location),
+              banner_url = COALESCE($6, banner_url),
+              thumbnail_url = COALESCE($7, thumbnail_url),
+              pending_revision = NULL,
+              revision_history = $8::jsonb,
+              audit_trail = $9::jsonb,
+              version = version + 1,
+              updated_at = NOW()
+          WHERE id = $1
+          RETURNING *
+          `,
+          [
+            eventId,
+            after.title || null,
+            after.short_description || null,
+            after.description || null,
+            typeof after.location === 'string' ? after.location : null,
+            after.banner_url || null,
+            after.thumbnail_url || null,
+            JSON.stringify([...history, updatedRevision]),
+            JSON.stringify(auditTrail),
+          ],
+        );
+        updatedEvent = rows[0];
+      } else {
+        const { rows } = await client.query(
+          `
+          UPDATE events
+          SET pending_revision = NULL,
+              revision_history = $2::jsonb,
+              audit_trail = $3::jsonb,
+              version = version + 1,
+              updated_at = NOW()
+          WHERE id = $1
+          RETURNING *
+          `,
+          [eventId, JSON.stringify([...history, updatedRevision]), JSON.stringify(auditTrail)],
+        );
+        updatedEvent = rows[0];
+      }
+
+      await client.query('COMMIT');
+
+      // Dispatch notifications
+      if (decision === 'APPROVE') {
+        notificationsService.notifyEventChange(eventId, {
+          reason: note || 'Quản trị viên đã duyệt các cập nhật sự kiện',
+          changeClass: pending.change_class,
+        }).catch((e) => logger.warn(`[NOTIFY_REVISION_ATTENDEES_ERR] ${e.message}`));
+
+        if (event.organizer_user_id) {
+          notificationsService.createAndDispatch({
+            userId: event.organizer_user_id,
+            eventId,
+            title: 'Bản sửa đổi sự kiện đã được phê duyệt',
+            content: `Bản sửa đổi cho sự kiện "${event.title}" đã được Quản trị viên phê duyệt thành công.`,
+            type: 'EVENT',
+          }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REVISION_APPROVED_ERR] ${e.message}`));
+        }
+      } else {
+        if (event.organizer_user_id) {
+          notificationsService.createAndDispatch({
+            userId: event.organizer_user_id,
+            eventId,
+            title: 'Bản sửa đổi sự kiện bị từ chối',
+            content: `Bản sửa đổi cho sự kiện "${event.title}" đã bị Quản trị viên từ chối${note ? ` với lý do: "${note}"` : ''}.`,
+            type: 'EVENT',
+          }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REVISION_REJECTED_ERR] ${e.message}`));
+        }
+      }
+
+      return updatedEvent;
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -1362,7 +1551,16 @@ class EventBusinessRulesService {
   /**
    * Customer submits bank account payout info (Section 7.17, AC-RP-05)
    */
-  async submitPayoutInfo(userId, { refundId, bankName, bankAccountNumber, bankAccountName }) {
+  async submitPayoutInfo(userId, payload = {}) {
+    const refundId = payload.refundId || payload.refund_request_id || payload.id;
+    const bankName = payload.bankName || payload.bank_name;
+    const rawAccountNumber = payload.bankAccountNumber || payload.bank_account_number;
+    const bankAccountNumber = rawAccountNumber ? String(rawAccountNumber).trim().replace(/\s+/g, '') : '';
+    const bankAccountName = payload.bankAccountName || payload.bank_account_name ? String(payload.bankAccountName || payload.bank_account_name).trim().toUpperCase() : '';
+
+    if (!refundId) {
+      throw new AppError('Thiếu mã yêu cầu hoàn tiền.', 400, ErrorCodes.INVALID_INPUT);
+    }
     if (!bankName || !bankAccountNumber || !bankAccountName) {
       throw new AppError('Vui lòng cung cấp đầy đủ thông tin: Ngân hàng, Số tài khoản và Tên chủ tài khoản.', 400, ErrorCodes.INVALID_INPUT);
     }
@@ -1372,7 +1570,7 @@ class EventBusinessRulesService {
       SELECT rr.*, o.organizer_id, o.buyer_name
       FROM refund_requests rr
       JOIN orders o ON o.id = rr.order_id
-      WHERE rr.id = $1 AND rr.customer_id = $2
+      WHERE rr.id = $1 AND (rr.customer_id = $2 OR o.user_id = $2)
       `,
       [refundId, userId],
     );
@@ -1383,13 +1581,11 @@ class EventBusinessRulesService {
       throw new AppError('Yêu cầu hoàn tiền đã gửi lệnh chi hoặc đã hoàn tất, không thể thay đổi thông tin.', 400, ErrorCodes.REFUND_INFO_LOCKED);
     }
 
-    const encryptedAccount = fieldCrypto.encrypt(bankAccountNumber, refund.organizer_id || 'platform', 'payer_account_number');
-
     const auditTrail = appendAuditTrail(refund.audit_trail, {
       userId,
       role: 'CUSTOMER',
       action: 'SUBMIT_PAYOUT_INFO',
-      diff: { bankName, bankAccountName },
+      diff: { bankName, bankAccountNumber, bankAccountName },
     });
 
     const { rows: updated } = await db.query(
@@ -1407,7 +1603,7 @@ class EventBusinessRulesService {
       WHERE id = $1
       RETURNING *
       `,
-      [refundId, bankName, encryptedAccount, bankAccountName, JSON.stringify(auditTrail)],
+      [refundId, bankName, bankAccountNumber, bankAccountName, JSON.stringify(auditTrail)],
     );
 
     return updated[0];
@@ -1418,7 +1614,11 @@ class EventBusinessRulesService {
    */
   async disputeRefund(userId, refundId, { reason }) {
     const { rows } = await db.query(
-      `SELECT * FROM refund_requests WHERE id = $1 AND customer_id = $2`,
+      `SELECT rr.*, o.order_code, e.title AS event_title, e.organizer_id AS event_organizer_id
+       FROM refund_requests rr
+       LEFT JOIN orders o ON o.id = rr.order_id
+       LEFT JOIN events e ON e.id = rr.event_id
+       WHERE rr.id = $1 AND rr.customer_id = $2`,
       [refundId, userId],
     );
     const refund = rows[0];
@@ -1448,6 +1648,21 @@ class EventBusinessRulesService {
       [refundId, reason || 'Khách hàng báo chưa nhận được tiền hoàn', JSON.stringify(auditTrail)],
     );
 
+    try {
+      const orgUserId = await this.resolveOrganizerUserId(refund.organizer_id || refund.event_organizer_id);
+      if (orgUserId) {
+        notificationsService.createAndDispatch({
+          userId: orgUserId,
+          eventId: refund.event_id,
+          title: 'Khiếu nại hoàn tiền: Khách hàng chưa nhận được tiền',
+          content: `Khách hàng khiếu nại chưa nhận được tiền hoàn đơn ${refund.order_code || refund.id}. Lý do: ${reason || 'Chưa nhận được tiền'}. Vui lòng kiểm tra lại đối soát.`,
+          type: 'REFUND',
+        }).catch(() => {});
+      }
+    } catch (e) {
+      // ignore
+    }
+
     return updated[0];
   }
 
@@ -1456,7 +1671,11 @@ class EventBusinessRulesService {
    */
   async confirmReceivedRefund(userId, refundId) {
     const { rows } = await db.query(
-      `SELECT * FROM refund_requests WHERE id = $1 AND customer_id = $2`,
+      `SELECT rr.*, o.order_code, e.title AS event_title, e.organizer_id AS event_organizer_id
+       FROM refund_requests rr
+       LEFT JOIN orders o ON o.id = rr.order_id
+       LEFT JOIN events e ON e.id = rr.event_id
+       WHERE rr.id = $1 AND rr.customer_id = $2`,
       [refundId, userId],
     );
     const refund = rows[0];
@@ -1483,6 +1702,21 @@ class EventBusinessRulesService {
       `,
       [refundId, JSON.stringify(auditTrail)],
     );
+
+    try {
+      const orgUserId = await this.resolveOrganizerUserId(refund.organizer_id || refund.event_organizer_id);
+      if (orgUserId) {
+        notificationsService.createAndDispatch({
+          userId: orgUserId,
+          eventId: refund.event_id,
+          title: 'Khách hàng đã nhận được tiền hoàn',
+          content: `Khách hàng đã xác nhận nhận đủ tiền hoàn ${Number(refund.refund_amount || 0).toLocaleString('vi-VN')} đ cho đơn hàng ${refund.order_code || refund.id}.`,
+          type: 'PAYMENT',
+        }).catch(() => {});
+      }
+    } catch (e) {
+      // ignore
+    }
 
     return updated[0];
   }

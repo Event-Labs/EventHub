@@ -187,7 +187,7 @@ class NotificationsRepository {
       JOIN orders o ON o.id = oi.order_id
       LEFT JOIN users u ON u.id = o.user_id
       WHERE t.event_id = $1
-        AND o.status IN ('PAID', 'CONFIRMED')
+        AND o.status IN ('PAID', 'CONFIRMED', 'REFUND_REQUESTED', 'REFUNDED')
         AND COALESCE(u.email, o.buyer_email) IS NOT NULL
       `,
       [eventId],

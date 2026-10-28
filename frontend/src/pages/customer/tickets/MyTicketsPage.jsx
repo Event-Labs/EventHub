@@ -38,7 +38,7 @@ function statusMeta(ticket) {
   if (ticket.status === 'REFUNDED') {
     return { label: 'Đã hoàn', className: 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.25)]' }
   }
-  if (ticket.status === 'REFUND_PENDING') {
+  if (ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED' || ticket.event?.status === 'CANCELLED') {
     return { label: 'Chờ hoàn tiền', className: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]' }
   }
   return { label: 'Hợp lệ', className: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.25)]' }
@@ -47,6 +47,7 @@ function statusMeta(ticket) {
 const STATUS_RANK = {
   VALID: 1,          // 1. Ưu tiên vé hợp lệ lên đầu
   REFUND_PENDING: 2, // 2. Chờ hoàn tiền
+  REFUND_REQUESTED: 2,
   USED: 3,           // 3. Đã dùng
   EXPIRED: 4,        // 4. Hết hạn
   CANCELLED: 5,      // 5. Đã hủy

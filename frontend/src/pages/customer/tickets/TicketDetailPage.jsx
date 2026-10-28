@@ -55,7 +55,8 @@ function venueLine(ticket) {
 }
 
 function statusText(ticket) {
-  if (ticket?.status === 'REFUND_REQUESTED') return 'Đang chờ hoàn vé'
+  if (ticket?.status === 'REFUND_REQUESTED' || ticket?.status === 'REFUND_PENDING') return 'Đang chờ hoàn vé'
+  if (ticket?.event?.status === 'CANCELLED' && ticket?.status !== 'REFUNDED') return 'Đang chờ hoàn vé'
   if (ticket?.status === 'REFUNDED') return 'Đã hoàn vé'
   if (ticket?.status === 'EXPIRED') return 'Hết hạn'
   if (ticket?.status === 'USED') return 'Đã dùng'
@@ -282,6 +283,8 @@ export function TicketDetailPage() {
     }
   }, [isAuthenticated, location.pathname, navigate])
 
+  const queryClient = useQueryClient()
+
   const ticketQuery = useQuery({
     queryKey: ['ticket-detail', ticketId],
     queryFn: () => fetchTicketDetail(ticketId),
@@ -360,7 +363,18 @@ export function TicketDetailPage() {
     refundRequest ||
     ticket.status === 'REFUND_PENDING' ||
     ticket.status === 'REFUNDED' ||
-    ticket.status === 'REFUND_REQUESTED'
+    ticket.status === 'REFUND_REQUESTED' ||
+    ticket.event?.status === 'CANCELLED'
+  )
+
+  const isEventCancelled = ticket.event?.status === 'CANCELLED' || ticket.status === 'REFUND_REQUESTED' || ticket.status === 'CANCELLED'
+  const hasProvidedPayout = Boolean(refundRequest?.bank_account_number)
+  const needsPayoutInput = Boolean(
+    (isEventCancelled || refundRequest) &&
+    !hasProvidedPayout &&
+    refundRequest?.status !== 'REFUNDED' &&
+    refundRequest?.status !== 'REJECTED' &&
+    ticket.status !== 'REFUNDED'
   )
 
   return (
@@ -488,6 +502,17 @@ export function TicketDetailPage() {
           </section>
 
           <div className="mx-auto mt-8 max-w-[620px] space-y-4 lg:mx-0">
+            {needsPayoutInput && (
+              <button
+                type="button"
+                onClick={() => setRefundDetailOpen(true)}
+                className="w-full py-4 text-[15px] font-bold rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(245,158,11,0.35)] transition-all cursor-pointer"
+              >
+                <RotateCcw className="size-5" />
+                Cung cấp số tài khoản nhận tiền hoàn 100%
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleDownload}
@@ -539,6 +564,12 @@ export function TicketDetailPage() {
         onClose={() => setRefundDetailOpen(false)}
         ticket={ticket}
         refundRequest={refundRequest}
+        onPayoutSubmitted={() => {
+          ticketQuery.refetch()
+          refundsQuery.refetch()
+          queryClient.invalidateQueries({ queryKey: ['my-refunds'] })
+          queryClient.invalidateQueries({ queryKey: ['ticket-detail'] })
+        }}
       />
     </div>
   )
@@ -1078,16 +1109,29 @@ function Info({ label, value }) {
   )
 }
 
-function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
+function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSubmitted }) {
   if (!isOpen || !ticket) return null
 
   const toast = useToast()
   const status = refundRequest?.status || (ticket.status === 'REFUNDED' ? 'REFUNDED' : 'PENDING')
-  const [bankName, setBankName] = useState('')
+  const [bankName, setBankName] = useState(refundRequest?.bank_name || '')
   const [accountNumber, setAccountNumber] = useState('')
-  const [accountName, setAccountName] = useState('')
+  const [accountName, setAccountName] = useState(refundRequest?.bank_account_name || ticket.order?.buyer_name || '')
   const [submittingPayout, setSubmittingPayout] = useState(false)
-  const [confirmedReceived, setConfirmedReceived] = useState(Boolean(refundRequest?.audit_trail?.some?.((a) => a.action === 'CUSTOMER_CONFIRMED')))
+  const isCustomerConfirmed = Boolean(
+    refundRequest?.audit_trail?.some?.((a) => a.action === 'CONFIRM_REFUND_RECEIVED' || a.action === 'CUSTOMER_CONFIRMED')
+  )
+  const [confirmedReceived, setConfirmedReceived] = useState(isCustomerConfirmed)
+  useEffect(() => {
+    setConfirmedReceived(isCustomerConfirmed)
+  }, [isCustomerConfirmed])
+
+  const needsPayoutInfo = Boolean(
+    refundRequest &&
+    !refundRequest.bank_account_number &&
+    status !== 'REFUNDED' &&
+    status !== 'REJECTED'
+  )
 
   const handlePayoutSubmit = async (e) => {
     e.preventDefault()
@@ -1104,6 +1148,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
         bank_account_name: accountName.trim().toUpperCase(),
       })
       toast.success('Đã lưu thông tin nhận tiền hoàn. Ban tổ chức sẽ tiến hành chuyển khoản.')
+      onPayoutSubmitted?.()
       onClose()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể lưu thông tin nhận tiền.')
@@ -1117,6 +1162,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
       await confirmReceivedRefund(refundRequest.id)
       setConfirmedReceived(true)
       toast.success('Cảm ơn bạn đã xác nhận đã nhận đủ tiền hoàn.')
+      onPayoutSubmitted?.()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể xác nhận đã nhận tiền.')
     }
@@ -1128,6 +1174,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
     try {
       await disputeRefund(refundRequest.id, reason.trim())
       toast.warning('Đã gửi khiếu nại chưa nhận được tiền. Ban tổ chức và Admin sẽ kiểm tra lại giao dịch.')
+      onPayoutSubmitted?.()
       onClose()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể gửi khiếu nại.')
@@ -1135,6 +1182,13 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
   }
 
   const getStatusBadge = () => {
+    if (needsPayoutInfo) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/40 bg-orange-500/15 px-3.5 py-1 text-xs font-bold text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.3)] animate-pulse">
+          <Clock3 className="size-3.5" /> Cần cung cấp STK nhận tiền
+        </span>
+      )
+    }
     switch (status) {
       case 'PENDING':
         return (
@@ -1217,8 +1271,8 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
             </div>
           </div>
 
-          {/* Form to submit payout info if CUSTOMER_INPUT */}
-          {status === 'CUSTOMER_INPUT' && (
+          {/* Form to submit payout info if needsPayoutInfo */}
+          {needsPayoutInfo && (
             <div className="rounded-[20px] border border-orange-500/30 bg-orange-500/10 p-5">
               <h4 className="text-xs font-bold text-orange-300 uppercase tracking-wider mb-2">
                 Cung cấp thông tin tài khoản nhận tiền hoàn
@@ -1237,7 +1291,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
                     <option value="">-- Chọn ngân hàng thụ hưởng --</option>
                     {VIETNAMESE_BANKS.map((b) => (
                       <option key={b.code} value={b.shortName}>
-                        {b.shortName} - {b.name}
+                        {b.shortName} - {b.fullName}
                       </option>
                     ))}
                   </select>
@@ -1265,11 +1319,26 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
                 <button
                   type="submit"
                   disabled={submittingPayout}
-                  className="w-full rounded-xl bg-orange-600 hover:bg-orange-500 py-2.5 text-xs font-bold text-white transition disabled:opacity-50"
+                  className="w-full rounded-xl bg-orange-600 hover:bg-orange-500 py-2.5 text-xs font-bold text-white transition disabled:opacity-50 cursor-pointer"
                 >
                   {submittingPayout ? 'Đang lưu...' : 'Xác nhận thông tin nhận tiền'}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* Display submitted bank account info if already provided */}
+          {!needsPayoutInfo && refundRequest?.bank_name && (
+            <div className="rounded-[20px] border border-blue-500/30 bg-blue-500/10 p-4">
+              <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-1">
+                Tài khoản nhận tiền hoàn đã ghi nhận
+              </h4>
+              <p className="text-xs text-blue-100">
+                Ngân hàng: <strong>{refundRequest.bank_name}</strong> — Số TK: <strong>{refundRequest.bank_account_number}</strong> — Chủ TK: <strong>{refundRequest.bank_account_name || 'N/A'}</strong>
+              </p>
+              <p className="text-[11px] text-blue-200/80 mt-1">
+                Ban tổ chức sẽ đối soát và thực hiện chuyển tiền hoàn 100% cho bạn theo quy định.
+              </p>
             </div>
           )}
 
