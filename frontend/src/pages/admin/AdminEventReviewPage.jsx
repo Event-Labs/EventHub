@@ -499,10 +499,10 @@ export function AdminEventReviewPage() {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="font-display text-base font-black tracking-wide text-content flex items-center gap-2">
+                <h2 className="font-display text-base font-black tracking-wide text-content flex flex-wrap items-center gap-2">
                   <span>Hệ thống AI Tự động Thẩm định & Duyệt Sự kiện</span>
-                  <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    <Sparkles className="size-3 text-indigo-400" />
+                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <Sparkles className="size-3 text-indigo-400 shrink-0" />
                     AI Agent
                   </span>
                 </h2>
@@ -588,11 +588,13 @@ export function AdminEventReviewPage() {
                 type="button"
                 disabled={runSingleAutoReviewMutation.isPending || autoReviewStats.pending_count === 0}
                 onClick={() => runSingleAutoReviewMutation.mutate()}
-                className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-gradient-to-r from-indigo-600 to-indigo-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-indigo-600/30 transition duration-200 hover:-translate-y-0.5 hover:from-indigo-500 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-led-gold-sm active:scale-95"
                 title="Thẩm định duy nhất 01 sự kiện đang chờ duyệt (mỗi lần chạy chỉ review 1 sự kiện)"
               >
-                <Play className="size-4" />
-                <span>Quét duyệt AI</span>
+                <span className="btn-led-gold-sm-inner">
+                  <Play className="size-4 fill-current" />
+                  <span>Quét duyệt AI</span>
+                </span>
               </button>
             )}
 

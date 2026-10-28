@@ -20,3 +20,4 @@ ALTER TABLE orders
   DROP COLUMN IF EXISTS audit_trail,
   DROP COLUMN IF EXISTS complimentary_reason,
   DROP COLUMN IF EXISTS idempotency_key;
+

@@ -44,3 +44,4 @@ BEGIN
     ALTER TABLE tickets VALIDATE CONSTRAINT chk_tickets_amounts_non_negative;
   END IF;
 END $$;
+
