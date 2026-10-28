@@ -1855,7 +1855,13 @@ export function BookingPaymentPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
           <Panel>
-            {checkoutMutation.isPending && <p className="text-muted">{'\u0110ang gi\u1eef v\u00e9 v\u00e0 t\u1ea1o thanh to\u00e1n PayOS...'}</p>}
+            {checkoutMutation.isPending && (
+              <p className="text-muted">
+                {Number(cart?.totalAmount ?? 0) === 0
+                  ? 'Đang xác nhận đặt vé miễn phí...'
+                  : 'Đang giữ vé và tạo thanh toán PayOS...'}
+              </p>
+            )}
             {payment && (
               <div className="text-center">
                 <p className="text-sm font-bold uppercase tracking-widest text-muted">{'S\u1ed1 ti\u1ec1n c\u1ea7n thanh to\u00e1n'}</p>
