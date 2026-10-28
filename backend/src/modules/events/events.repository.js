@@ -5,7 +5,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
 const PUBLIC_EVENT_WHERE = `
-  e.status = 'PUBLISHED'
+  e.status IN ('PUBLISHED', 'COMPLETED')
   AND e.visibility = 'PUBLIC'
   AND e.approval_status = 'APPROVED'
   AND e.deleted_at IS NULL

@@ -37,6 +37,7 @@ function formatDateTime(value) {
 
 function formatCurrency(value) {
   if (value === undefined || value === null) return 'N/A'
+  if (Number(value) === 0) return 'Miễn phí'
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -343,12 +344,13 @@ export function TicketDetailPage() {
   const venue = venueLine(ticket)
   const seat = ticket.seat?.label || 'Không có ghế cố định'
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
-  const isOrderPaid = ['PAID', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
+  const isZeroAmountOrFree = ticket.order?.status === 'CONFIRMED' || Number(ticket.order?.total_amount) === 0 || ['FREE', 'FULLY_DISCOUNTED', 'COMPLIMENTARY'].includes(ticket.ticket_source)
+  const isOrderPaid = ['PAID', 'CONFIRMED', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
   const isEntryEligible = ticket.status === 'VALID'
   const collectAttendees = Boolean(ticket.event?.require_attendee_info)
   const activeRefundPolicy = ticket.refund_policy_snapshot || ticket.event?.refund_policy || {}
   const isRefundAllowedByPolicy = Boolean(activeRefundPolicy.allow_refund ?? activeRefundPolicy.allow_refunds)
-  const canRequestRefund = isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
+  const canRequestRefund = !isZeroAmountOrFree && isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
 
   const hasRefundInfo = Boolean(
     refundRequest ||
@@ -370,10 +372,10 @@ export function TicketDetailPage() {
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,620px)_360px] lg:items-start relative">
         <aside className="order-2 space-y-6 lg:order-2 lg:sticky lg:top-32">
           <Panel title="Thanh toán" icon={ReceiptText}>
-            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || 'N/A'} />
-            <Info label="Phương thức" value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
+            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || (ticket.order?.status === 'CONFIRMED' ? 'Miễn phí' : 'N/A')} />
+            <Info label="Phương thức" value={ticket.order?.payment_method === 'FREE' || ticket.order?.status === 'CONFIRMED' ? 'Miễn phí' : (ticket.payment?.provider || ticket.payment?.method || 'N/A')} />
             <Info label="Tổng thanh toán" value={formatCurrency(ticket.order?.total_amount)} />
-            <Info label="Thanh toán lúc" value={formatDateTime(ticket.payment?.paid_at)} />
+            <Info label="Thanh toán lúc" value={ticket.payment?.paid_at ? formatDateTime(ticket.payment?.paid_at) : (ticket.order?.status === 'CONFIRMED' ? formatDateTime(ticket.order?.created_at) : 'N/A')} />
           </Panel>
           <Panel title="Thông tin check-in" icon={CheckCircle2}>
             <Info label="Trạng thái" value={statusText(ticket)} />
@@ -508,7 +510,7 @@ export function TicketDetailPage() {
                   refundsQuery.refetch()
                 }}
               />
-            ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy ? (
+            ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy && !isZeroAmountOrFree ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
                 Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.
               </div>

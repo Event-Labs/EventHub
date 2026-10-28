@@ -38,7 +38,7 @@ import {
 
 function formatPrice(value) {
   const number = Number(value)
-  if (!Number.isFinite(number)) return '0 \u0111'
+  if (!Number.isFinite(number) || number === 0) return 'Miễn phí'
   return `${number.toLocaleString('vi-VN')} \u0111`
 }
 
@@ -1733,8 +1733,21 @@ export function BookingPaymentPage() {
   }, [orderId, cart?.eventId, cart?.items?.length])
 
   const checkoutMutation = useMutation({
-    mutationFn: checkoutOrder,
+    mutationFn: (payload) => {
+      const idempotencyKey =
+        cart?.idempotencyKey ||
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+      return checkoutOrder({ ...payload, idempotency_key: idempotencyKey }, { idempotencyKey })
+    },
     onSuccess: (data) => {
+      if (data.is_completed || data.order?.status === 'CONFIRMED' || !data.requires_payment) {
+        toast.success('Đặt vé thành công! Vé của bạn đã sẵn sàng.')
+        clearBookingDraft()
+        navigate('/my-tickets', { replace: true })
+        return
+      }
       toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       setCheckout(data)
       const paymentCart = {
@@ -1749,7 +1762,7 @@ export function BookingPaymentPage() {
       navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart: paymentCart, checkout: data } })
     },
     onError: (err) => {
-      const message = getApiMessage(err, 'Không thể tạo thanh toán PayOS. Vui lòng thử lại.')
+      const message = getApiMessage(err, 'Không thể tạo thanh toán. Vui lòng thử lại.')
       toast.error(message)
     },
   })
@@ -2733,7 +2746,10 @@ function UnseatedTicketSelection({
             const quantity = Number(item?.quantity || 0)
             const availability = ticketAvailability(ticketType)
             const isSoldOut = availability.total > 0 && availability.available <= 0
-            const perOrder = Math.min(Math.max(1, Number(ticketType.max_per_order || 20)), maxTicketsAllowed)
+            const isFree = Number(ticketType.price || 0) === 0
+            const maxFreeLimit = Number(event?.seating_rules?.max_free_tickets_per_user ?? 2)
+            const rawPerOrder = isFree ? Math.min(Number(ticketType.max_per_order || 20), maxFreeLimit) : Number(ticketType.max_per_order || 20)
+            const perOrder = Math.min(Math.max(1, rawPerOrder), maxTicketsAllowed)
             const maxLimit = availability.available > 0 ? Math.min(availability.available, perOrder) : perOrder
             const isMaxReached = quantity >= maxLimit || currentTotalTickets >= maxTicketsAllowed
 
@@ -2750,6 +2766,11 @@ function UnseatedTicketSelection({
                     <span className="font-bold text-primary text-sm sm:text-base">
                       {formatPrice(ticketType.price)}
                     </span>
+                    {isFree && (
+                      <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                        Tối đa {maxFreeLimit} vé/tài khoản
+                      </span>
+                    )}
                     {isSoldOut ? (
                       <span className="inline-flex items-center rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
                         Hết vé

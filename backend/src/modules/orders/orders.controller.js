@@ -5,9 +5,20 @@ const { checkoutSchema, orderIdParamSchema, staffDirectBookingSchema } = require
 class OrdersController {
   checkout = async (req, res, next) => {
     try {
+      const idempotencyKey =
+        req.headers['idempotency-key'] ||
+        req.headers['x-idempotency-key'] ||
+        req.body?.idempotency_key ||
+        null;
       const payload = checkoutSchema.parse(req.body);
-      const data = await ordersService.checkout(req.user.sub, payload);
-      res.status(201).json(ApiResponse.success(data, 'Order created. Waiting for PayOS payment.'));
+      const data = await ordersService.checkout(req.user?.sub, {
+        ...payload,
+        idempotency_key: idempotencyKey,
+      });
+      const message = data.is_completed
+        ? 'Đặt vé thành công.'
+        : 'Order created. Waiting for PayOS payment.';
+      res.status(201).json(ApiResponse.success(data, message));
     } catch (err) {
       next(err);
     }

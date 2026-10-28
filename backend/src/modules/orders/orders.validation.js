@@ -1,6 +1,7 @@
 const { z } = require('zod');
 
 const checkoutSchema = z.object({
+  idempotency_key: z.string().trim().max(255).optional().nullable(),
   event_id: z.string().uuid(),
   buyer_name: z.string().trim().min(2).max(255),
   buyer_email: z.string().trim().email().max(255),
