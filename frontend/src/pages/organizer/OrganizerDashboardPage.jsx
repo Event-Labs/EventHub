@@ -227,10 +227,11 @@ function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEna
 
   const count = data.length
   const w = containerWidth || 600
-  const sidePad = 16
-  const usableWidth = Math.max(w - sidePad * 2, 80)
+  const padLeft = 48
+  const padRight = 16
+  const usableWidth = Math.max(w - padLeft - padRight, 80)
   const slotW = count > 0 ? usableWidth / count : 40
-  const barWidth = Math.min(Math.max(slotW * 0.55, 8), 36)
+  const barWidth = Math.min(Math.max(slotW * 0.55, 12), 48)
 
   const hoveredItem = hoveredIndex !== null ? data[hoveredIndex] : null
 
@@ -241,16 +242,16 @@ function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEna
         <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
           <div>
             <span className="text-slate-400">Tổng doanh thu kỳ: </span>
-            <strong className="text-white font-bold">{fmtCurrency(totalNet)}</strong>
+            <strong className="text-[#E6C17A] font-black">{fmtCurrency(totalNet)}</strong>
           </div>
           <div>
             <span className="text-slate-400">Số đơn: </span>
-            <strong className="text-cyan-400">{totalOrders}</strong>
+            <strong className="text-white font-bold">{totalOrders}</strong>
           </div>
           {peakDay && Number(peakDay.net_revenue) > 0 && (
             <div>
               <span className="text-slate-400">Đỉnh doanh thu: </span>
-              <strong className="text-emerald-400">
+              <strong className="text-[#FBBF24] font-black">
                 {fmtCurrency(peakDay.net_revenue)} ({fmtChartDay(peakDay.day)})
               </strong>
             </div>
@@ -264,7 +265,7 @@ function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEna
         </div>
 
         {hoveredItem && (
-          <div className="rounded-lg border border-cyan-500/30 bg-cyan-950/60 px-2.5 py-1 text-xs font-semibold text-cyan-200">
+          <div className="rounded-lg border border-amber-500/40 bg-amber-950/80 px-2.5 py-1 text-xs font-bold text-amber-200 shadow-md">
             {fmtChartDay(hoveredItem.day)}: {fmtCurrency(hoveredItem.net_revenue)} · {hoveredItem.orders} đơn
           </div>
         )}
@@ -280,46 +281,89 @@ function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEna
           onMouseLeave={() => setHoveredIndex(null)}
         >
           <defs>
-            <linearGradient id="barGradientNormal" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.85" />
-              <stop offset="100%" stopColor="#2563eb" stopOpacity="0.35" />
+            {/* Luminous Gold Gradient for normal revenue bars */}
+            <linearGradient id="barGradientGold" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FBBF24" stopOpacity="1" />
+              <stop offset="100%" stopColor="#D97706" stopOpacity="0.85" />
             </linearGradient>
-            <linearGradient id="barGradientPeak" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.6" />
+            {/* Radiant Gold / Amber Gradient for peak revenue day */}
+            <linearGradient id="barGradientPeakGold" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FEF08A" stopOpacity="1" />
+              <stop offset="45%" stopColor="#F59E0B" stopOpacity="1" />
+              <stop offset="100%" stopColor="#B45309" stopOpacity="0.95" />
             </linearGradient>
-            <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity="1" />
-              <stop offset="100%" stopColor="#0284c7" stopOpacity="0.75" />
+            {/* Hover Gradient */}
+            <linearGradient id="barGradientHoverGold" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FFFBEB" stopOpacity="1" />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity="1" />
             </linearGradient>
+            {/* Subtle glow filter */}
+            <filter id="goldBarGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#F59E0B" floodOpacity="0.4" />
+            </filter>
           </defs>
 
-          {/* Grid lines */}
-          {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-            <line
-              key={pct}
-              x1={sidePad}
-              x2={w - sidePad}
-              y1={height - pct * height}
-              y2={height - pct * height}
-              stroke="rgba(255, 255, 255, 0.06)"
-              strokeWidth={1}
-            />
-          ))}
+          {/* Grid lines and Y-axis values */}
+          {[0, 0.5, 1].map((pct) => {
+            const yPos = height - pct * (height - 20)
+            return (
+              <g key={pct}>
+                <line
+                  x1={padLeft}
+                  x2={w - padRight}
+                  y1={yPos}
+                  y2={yPos}
+                  stroke="rgba(255, 255, 255, 0.08)"
+                  strokeDasharray={pct > 0 && pct < 1 ? "4 4" : "none"}
+                  strokeWidth={1}
+                />
+                <text
+                  x={padLeft - 8}
+                  y={yPos + 4}
+                  textAnchor="end"
+                  fontSize={10}
+                  fontWeight={700}
+                  fill="#E6C17A"
+                >
+                  {pct === 0 ? '0' : fmtShort(pct * maxVal)}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* Trục hoành (X-Axis line) */}
+          <line
+            x1={padLeft}
+            x2={w - padRight}
+            y1={height}
+            y2={height}
+            stroke="rgba(255, 255, 255, 0.2)"
+            strokeWidth={1.5}
+          />
+
+          {/* Trục tung (Y-Axis line) */}
+          <line
+            x1={padLeft}
+            x2={padLeft}
+            y1={10}
+            y2={height}
+            stroke="rgba(201, 154, 71, 0.45)"
+            strokeWidth={1.5}
+          />
 
           {/* Bars */}
           {data.map((d, i) => {
-            const barH = Math.max((Number(d.net_revenue) / maxVal) * height, 3)
-            const x = sidePad + i * slotW + (slotW - barWidth) / 2
+            const barH = Math.max((Number(d.net_revenue) / maxVal) * (height - 20), 4)
+            const x = padLeft + i * slotW + (slotW - barWidth) / 2
             const y = height - barH
             const isHighest = Number(d.net_revenue) === maxVal && maxVal > 0
             const isHovered = hoveredIndex === i
 
             const fill = isHovered
-              ? 'url(#barGradientHover)'
+              ? 'url(#barGradientHoverGold)'
               : isHighest
-                ? 'url(#barGradientPeak)'
-                : 'url(#barGradientNormal)'
+                ? 'url(#barGradientPeakGold)'
+                : 'url(#barGradientGold)'
 
             return (
               <g
@@ -332,12 +376,24 @@ function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEna
                   y={y}
                   width={barWidth}
                   height={barH}
-                  rx={4}
+                  rx={5}
                   fill={fill}
+                  stroke="rgba(251, 191, 36, 0.4)"
+                  strokeWidth={1}
+                  filter={isHighest || isHovered ? "url(#goldBarGlow)" : undefined}
                   className="transition-all duration-200"
                 >
                   <title>{`${fmtChartDay(d.day)}: ${fmtCurrency(d.net_revenue)} (${d.orders} đơn)`}</title>
                 </rect>
+                {isHighest && (
+                  <circle
+                    cx={x + barWidth / 2}
+                    cy={y - 5}
+                    r={3}
+                    fill="#FEF08A"
+                    filter="url(#goldBarGlow)"
+                  />
+                )}
               </g>
             )
           })}
@@ -346,19 +402,28 @@ function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEna
           {data.map((d, i) => {
             const step = Math.max(1, Math.ceil(count / Math.max(Math.floor(w / 70), 2)))
             if (i % step !== 0 && i !== count - 1) return null
-            const x = sidePad + i * slotW + slotW / 2
+            const x = padLeft + i * slotW + slotW / 2
             return (
-              <text
-                key={`lbl-${d.day}`}
-                x={x}
-                y={height + 22}
-                textAnchor="middle"
-                fontSize={10}
-                fontWeight={600}
-                fill="#94a3b8"
-              >
-                {fmtChartDay(d.day)}
-              </text>
+              <g key={`lbl-${d.day}`}>
+                <line
+                  x1={x}
+                  x2={x}
+                  y1={height}
+                  y2={height + 5}
+                  stroke="rgba(255, 255, 255, 0.2)"
+                  strokeWidth={1}
+                />
+                <text
+                  x={x}
+                  y={height + 20}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={700}
+                  fill="#cbd5e1"
+                >
+                  {fmtChartDay(d.day)}
+                </text>
+              </g>
             )
           })}
         </svg>
@@ -551,49 +616,100 @@ function TicketOperationsPanel({ dashboard = {}, isSingleEvent = false, checkinS
 
   const checkinRate = total > 0 ? ((used / total) * 100).toFixed(1) : '0'
 
-  const segments = [
-    { label: 'Đã check-in', value: used, color: 'bg-emerald-500', text: 'text-emerald-400' },
-    { label: 'Còn hiệu lực', value: valid, color: 'bg-cyan-500', text: 'text-cyan-400' },
-    { label: 'Đã hủy', value: cancelled, color: 'bg-rose-500', text: 'text-rose-400' },
+  const cards = [
+    {
+      id: 'used',
+      label: 'Đã check-in',
+      value: used,
+      pct: ((used / total) * 100).toFixed(0),
+      barClass: 'bg-gradient-to-r from-emerald-500 to-teal-400',
+      dotClass: 'bg-emerald-400',
+      textClass: 'text-emerald-400 [html.light_&]:text-emerald-600',
+      labelClass: 'text-emerald-300 [html.light_&]:text-emerald-700',
+      subClass: 'text-emerald-400/80 [html.light_&]:text-emerald-600',
+      boxClass: 'border-emerald-500/30 bg-emerald-500/10 [html.light_&]:bg-emerald-50/80 [html.light_&]:border-emerald-300',
+    },
+    {
+      id: 'valid',
+      label: 'Còn hiệu lực',
+      value: valid,
+      pct: ((valid / total) * 100).toFixed(0),
+      barClass: 'bg-gradient-to-r from-blue-500 to-indigo-500',
+      dotClass: 'bg-blue-400',
+      textClass: 'text-blue-400 [html.light_&]:text-blue-600',
+      labelClass: 'text-blue-300 [html.light_&]:text-blue-700',
+      subClass: 'text-blue-400/80 [html.light_&]:text-blue-600',
+      boxClass: 'border-blue-500/30 bg-blue-500/10 [html.light_&]:bg-blue-50/80 [html.light_&]:border-blue-300',
+    },
+    {
+      id: 'cancelled',
+      label: 'Đã hủy',
+      value: cancelled,
+      pct: ((cancelled / total) * 100).toFixed(0),
+      barClass: 'bg-gradient-to-r from-rose-500 to-red-600',
+      dotClass: 'bg-rose-400',
+      textClass: 'text-rose-400 [html.light_&]:text-rose-600',
+      labelClass: 'text-rose-300 [html.light_&]:text-rose-700',
+      subClass: 'text-rose-400/80 [html.light_&]:text-rose-600',
+      boxClass: 'border-rose-500/30 bg-rose-500/10 [html.light_&]:bg-rose-50/80 [html.light_&]:border-rose-300',
+    },
   ]
 
   return (
     <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
       <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-bold text-white">Tình trạng vé & Check-in</h3>
+        <div className="flex items-center gap-2">
+          <TicketCheck className="size-5 text-[#E6C17A]" />
+          <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Tình trạng vé & Check-in</h3>
         </div>
-        <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-bold text-cyan-300">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700">
+          <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
           {checkinRate}% check-in
         </span>
       </div>
 
       {/* Segmented Progress Bar */}
-      <div className="flex h-3 overflow-hidden rounded-full bg-slate-800 [html.light_&]:bg-[#E8DCCB]">
-        {segments.map((item) => (
-          <div
-            key={item.label}
-            className={`${item.color} transition-all duration-500`}
-            style={{ width: `${Math.max(0, (item.value / total) * 100)}%` }}
-            title={`${item.label}: ${fmtNumber(item.value)} vé`}
-          />
-        ))}
+      <div className="flex h-3.5 overflow-hidden rounded-full bg-slate-900/90 p-0.5 border border-white/10 [html.light_&]:bg-[#E8DCCB] [html.light_&]:border-[#C99A47]/20 shadow-inner">
+        {cards.map((item) => {
+          const widthPct = Math.max(0, (item.value / total) * 100)
+          if (widthPct === 0) return null
+          return (
+            <div
+              key={item.id}
+              className={`h-full ${item.barClass} first:rounded-l-full last:rounded-r-full transition-all duration-500`}
+              style={{ width: `${widthPct}%` }}
+              title={`${item.label}: ${fmtNumber(item.value)} vé (${item.pct}%)`}
+            />
+          )
+        })}
       </div>
 
       {/* Metric Tiles */}
-      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        {segments.map((item) => (
-          <div key={item.label} className="rounded-xl border border-white/5 bg-slate-900/50 p-2.5 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/25">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</p>
-            <p className={`mt-1 font-display text-base font-black ${item.text}`}>{fmtNumber(item.value)}</p>
-            <p className="text-[10px] text-slate-500">{((item.value / total) * 100).toFixed(0)}%</p>
+      <div className="mt-4 grid grid-cols-3 gap-2.5 text-center">
+        {cards.map((item) => (
+          <div
+            key={item.id}
+            className={`rounded-xl border p-2.5 transition-all hover:scale-[1.02] ${item.boxClass}`}
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <span className={`size-1.5 rounded-full ${item.dotClass}`} />
+              <p className={`text-[10px] font-bold uppercase tracking-wider ${item.labelClass}`}>
+                {item.label}
+              </p>
+            </div>
+            <p className={`mt-1 font-display text-xl sm:text-2xl font-black ${item.textClass}`}>
+              {fmtNumber(item.value)}
+            </p>
+            <p className={`text-[11px] font-bold ${item.subClass}`}>
+              {item.pct}%
+            </p>
           </div>
         ))}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3 text-xs">
-        <span className="text-slate-400">Tổng vé đã phát hành:</span>
-        <strong className="text-white font-bold">{fmtNumber(issued)} vé</strong>
+      <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3 text-sm [html.light_&]:border-slate-200">
+        <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">Tổng vé đã phát hành:</span>
+        <strong className="text-base font-black text-white [html.light_&]:text-[#0D1B2A]">{fmtNumber(issued)} vé</strong>
       </div>
     </div>
   )
@@ -1164,64 +1280,62 @@ export function OrganizerDashboardPage() {
       description="Trung tâm điều hành doanh thu, tốc độ bán vé, tình trạng check-in và cố vấn chiến lược AI."
     >
       {/* ── Master Filter & Context Controls ── */}
-      <div className="relative z-20 mb-6 rounded-2xl border border-white/10 bg-[#0e172e]/90 p-4 shadow-xl backdrop-blur-xl [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid flex-1 gap-4 sm:grid-cols-2">
-            {/* Smart Event Picker */}
-            <OrganizerEventPicker
-              events={events}
-              selectedEventId={selectedEventId}
-              onSelectEvent={setSelectedEventId}
-              loading={eventsLoading}
-            />
+      <div className="relative z-20 mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="grid flex-1 gap-4 sm:grid-cols-2">
+          {/* Smart Event Picker */}
+          <OrganizerEventPicker
+            events={events}
+            selectedEventId={selectedEventId}
+            onSelectEvent={setSelectedEventId}
+            loading={eventsLoading}
+          />
 
-            {/* Date Range Filter */}
-            <DateRangeFilter
-              value={datePreset}
-              customFrom={customFrom}
-              customTo={customTo}
-              comparisonEnabled={comparison.enabled}
-              comparisonMode={comparison.mode}
-              comparisonFrom={comparison.from}
-              comparisonTo={comparison.to}
-              onPresetChange={setDatePreset}
-              onCustomFromChange={setCustomFrom}
-              onCustomToChange={setCustomTo}
-              onComparisonChange={setComparison}
-              compact
-            />
-          </div>
+          {/* Date Range Filter */}
+          <DateRangeFilter
+            value={datePreset}
+            customFrom={customFrom}
+            customTo={customTo}
+            comparisonEnabled={comparison.enabled}
+            comparisonMode={comparison.mode}
+            comparisonFrom={comparison.from}
+            comparisonTo={comparison.to}
+            onPresetChange={setDatePreset}
+            onCustomFromChange={setCustomFrom}
+            onCustomToChange={setCustomTo}
+            onComparisonChange={setComparison}
+            compact
+          />
+        </div>
 
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2.5 self-end">
-            <button
-              type="button"
-              onClick={loadStats}
-              disabled={loading}
-              title="Làm mới dữ liệu"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-[#0d172e] px-4 text-xs font-bold text-slate-200 shadow-sm transition hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
-            >
-              <RefreshCw className={`size-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
-              <span className="hidden sm:inline">Làm mới</span>
-            </button>
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2.5 self-end">
+          <button
+            type="button"
+            onClick={loadStats}
+            disabled={loading}
+            title="Làm mới dữ liệu"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-[#0d172e] px-4 text-xs font-bold text-slate-200 shadow-sm transition hover:border-[#C99A47]/60 hover:text-[#E6C17A] disabled:opacity-50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
+          >
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin text-[#E6C17A]' : ''}`} />
+            <span className="hidden sm:inline">Làm mới</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={loadFinancialSummary}
-              disabled={summaryLoading}
-              className="btn-led-gold-sm h-10 shrink-0 active:scale-95"
-              title="Đánh giá doanh thu"
-            >
-              <span className="btn-led-gold-sm-inner px-4 !text-sm font-black">
-                {summaryLoading ? (
-                  <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />
-                ) : (
-                  <Sparkles className="size-4 text-[#0D1B2A]" />
-                )}
-                <span>{summaryLoading ? 'Đang phân tích...' : 'Đánh giá doanh thu'}</span>
-              </span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={loadFinancialSummary}
+            disabled={summaryLoading}
+            className="btn-led-gold-sm h-10 shrink-0 active:scale-95"
+            title="Đánh giá doanh thu"
+          >
+            <span className="btn-led-gold-sm-inner px-4 !text-sm font-black">
+              {summaryLoading ? (
+                <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />
+              ) : (
+                <Sparkles className="size-4 text-[#0D1B2A]" />
+              )}
+              <span>{summaryLoading ? 'Đang phân tích...' : 'Đánh giá doanh thu'}</span>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -1506,7 +1620,7 @@ export function OrganizerDashboardPage() {
               <OrganizerPanel>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <BarChart3 className="size-5 text-cyan-400" />
+                    <BarChart3 className="size-5 text-[#E6C17A]" />
                     <div>
                       <h3 className="font-bold text-white">
                         {selectedEventId ? 'Tốc độ doanh thu sự kiện theo ngày' : 'Doanh thu ròng toàn hệ thống theo ngày'}
