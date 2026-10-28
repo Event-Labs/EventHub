@@ -2,6 +2,7 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const { sendEmail } = require('../../infrastructure/email/email.service');
+const db = require('../../infrastructure/database/db.client');
 const notificationsRepository = require('./notifications.repository');
 const notificationStream = require('./notifications.stream');
 
@@ -225,6 +226,99 @@ class NotificationsService {
 
     if (sent > 0) logger.info(`Sent ${sent} event reminders`);
     return sent;
+  }
+
+  async notifyEventCancellation(eventId, { reason, title } = {}) {
+    try {
+      const { rows } = await db.query(`SELECT id, title, slug, organizer_id FROM events WHERE id = $1`, [eventId]);
+      const event = rows[0];
+      if (!event) return;
+
+      const attendees = await notificationsRepository.findEventAttendeeContacts(eventId);
+      const notifTitle = `Sự kiện "${event.title}" đã bị hủy`;
+      const reasonText = reason ? ` (Lý do: ${reason})` : '';
+      const notifContent = `Sự kiện "${event.title}" đã chính thức bị hủy${reasonText}. Hệ thống đã tự động tạo yêu cầu hoàn tiền 100%. Vui lòng vào mục "Vé của tôi" để kiểm tra và cung cấp thông tin tài khoản ngân hàng nhận tiền hoàn.`;
+
+      for (const att of attendees) {
+        if (att.user_id) {
+          await this.createAndDispatch(
+            {
+              userId: att.user_id,
+              eventId: event.id,
+              title: notifTitle,
+              content: notifContent,
+              type: 'EVENT',
+            },
+            att.email
+              ? {
+                  email: att.email,
+                  subject: `[EventHub] ${notifTitle}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                      <h2 style="color: #dc2626;">Thông báo hủy sự kiện</h2>
+                      <p>Kính gửi quý khách <strong>${att.full_name || 'Khách hàng'}</strong>,</p>
+                      <p>Sự kiện <strong>"${event.title}"</strong> đã chính thức bị hủy${reasonText}.</p>
+                      <p>Hệ thống đã tự động tạo yêu cầu hoàn trả 100% số tiền vé đã thanh toán cho bạn.</p>
+                      <p><strong>Hướng dẫn nhận tiền hoàn:</strong></p>
+                      <ol>
+                        <li>Đăng nhập vào EventHub và truy cập mục <strong>Vé của tôi</strong>.</li>
+                        <li>Chọn vé sự kiện và bấm <strong>Cung cấp thông tin nhận tiền</strong> (Số tài khoản & Tên ngân hàng).</li>
+                        <li>Ban tổ chức sẽ tiến hành chuyển khoản hoàn tiền cho bạn theo quy định.</li>
+                      </ol>
+                      <p style="margin-top: 20px; font-size: 13px; color: #666;">Trân trọng,<br>Đội ngũ EventHub</p>
+                    </div>
+                  `,
+                }
+              : {},
+          ).catch((e) => logger.warn(`[NOTIFY_CANCEL_ERR] ${e.message}`));
+        }
+      }
+    } catch (err) {
+      logger.error('[NOTIFY_EVENT_CANCELLATION_ERR]', err);
+    }
+  }
+
+  async notifyEventChange(eventId, { reason, changeClass } = {}) {
+    try {
+      const { rows } = await db.query(`SELECT id, title, slug FROM events WHERE id = $1`, [eventId]);
+      const event = rows[0];
+      if (!event) return;
+
+      const attendees = await notificationsRepository.findEventAttendeeContacts(eventId);
+      const notifTitle = `Cập nhật thông tin sự kiện "${event.title}"`;
+      const notifContent = `Sự kiện "${event.title}" vừa có cập nhật thông tin quan trọng${reason ? `: ${reason}` : ''}. Quý khách vui lòng kiểm tra lại vé và lịch trình tham dự trong mục "Vé của tôi".`;
+
+      for (const att of attendees) {
+        if (att.user_id) {
+          await this.createAndDispatch(
+            {
+              userId: att.user_id,
+              eventId: event.id,
+              title: notifTitle,
+              content: notifContent,
+              type: 'EVENT',
+            },
+            att.email
+              ? {
+                  email: att.email,
+                  subject: `[EventHub] ${notifTitle}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                      <h2 style="color: #f59e0b;">Thông báo cập nhật sự kiện</h2>
+                      <p>Kính gửi quý khách <strong>${att.full_name || 'Khách hàng'}</strong>,</p>
+                      <p>Sự kiện <strong>"${event.title}"</strong> vừa có cập nhật thông tin quan trọng${reason ? `: <em>${reason}</em>` : ''}.</p>
+                      <p>Vui lòng đăng nhập vào mục <strong>Vé của tôi</strong> để xem chi tiết thời gian và địa điểm mới nhất.</p>
+                      <p style="margin-top: 20px; font-size: 13px; color: #666;">Trân trọng,<br>Đội ngũ EventHub</p>
+                    </div>
+                  `,
+                }
+              : {},
+          ).catch((e) => logger.warn(`[NOTIFY_CHANGE_ERR] ${e.message}`));
+        }
+      }
+    } catch (err) {
+      logger.error('[NOTIFY_EVENT_CHANGE_ERR]', err);
+    }
   }
 }
 

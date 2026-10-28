@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
-  DollarSign,
   Edit,
   Eye,
   EyeOff,
@@ -41,25 +40,85 @@ import { getDisplayStateInfo, getSalesStatusInfo, isEventEnded } from './eventSt
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
-const STATUS_LABELS = {
-  DRAFT: 'Bản nháp',
-  PENDING_REVIEW: 'Chờ duyệt',
-  APPROVED: 'Đã duyệt',
-  PUBLISHED: 'Đã xuất bản',
-  HIDDEN: 'Đã ẩn',
-  CANCELLED: 'Đã hủy',
-  COMPLETED: 'Đã kết thúc',
+export function getPrimaryEventStatus(event) {
+  if (!event) return { key: 'UNKNOWN', label: 'Không xác định', tone: 'gray' }
+
+  // 1. Đã hủy (Cao nhất)
+  if (event.status === 'CANCELLED') {
+    return { key: 'CANCELLED', label: 'Đã hủy', tone: 'red' }
+  }
+
+  // 2. Chờ duyệt hủy
+  if (event.cancel_request?.status === 'PENDING') {
+    return { key: 'CANCEL_REQUESTED', label: 'Chờ duyệt hủy', tone: 'red' }
+  }
+
+  // 3. Bị đình chỉ bởi Admin
+  if (event.display_state === 'SUSPENDED_BY_ADMIN') {
+    return { key: 'SUSPENDED', label: 'Bị đình chỉ', tone: 'red' }
+  }
+
+  // 4. Đã kết thúc (quá thời gian sự kiện hoặc trạng thái COMPLETED)
+  const ended = isEventEnded(event)
+  if (ended || (event.status === 'COMPLETED' && event.approval_status !== 'APPROVED')) {
+    return { key: 'COMPLETED', label: 'Đã kết thúc', tone: 'gray' }
+  }
+
+  // 5. Đã ẩn (BTC chủ động ẩn sự kiện)
+  if (event.display_state === 'HIDDEN_BY_ORGANIZER' || event.status === 'HIDDEN') {
+    return { key: 'HIDDEN', label: 'Đã ẩn', tone: 'gray' }
+  }
+
+  // 6. Tạm dừng bán vé
+  if (event.sales_status === 'PAUSED') {
+    return { key: 'PAUSED', label: 'Tạm dừng bán', tone: 'amber' }
+  }
+
+  // 7. Sửa đổi chờ duyệt
+  if (event.pending_revision && event.pending_revision.status === 'SUBMITTED') {
+    return { key: 'REVISION_PENDING', label: 'Sửa đổi chờ duyệt', tone: 'amber' }
+  }
+
+  // 8. Đã duyệt (Chờ BTC bấm xuất bản)
+  const isApprovedAwaitingPublish = !ended && (
+    (event.status === 'COMPLETED' && event.approval_status === 'APPROVED') ||
+    event.status === 'APPROVED'
+  )
+  if (isApprovedAwaitingPublish) {
+    return { key: 'APPROVED', label: 'Chờ xuất bản', tone: 'cyan' }
+  }
+
+  // 9. Đang bán vé (Sự kiện công khai, mở bán vé bình thường)
+  if (event.status === 'PUBLISHED') {
+    return { key: 'ON_SALE', label: 'Đang bán vé', tone: 'green' }
+  }
+
+  // 10. Chờ duyệt (Sự kiện mới gửi Admin xét duyệt)
+  if (event.status === 'PENDING_REVIEW') {
+    return { key: 'PENDING_REVIEW', label: 'Chờ duyệt', tone: 'amber' }
+  }
+
+  // 11. Bản nháp
+  if (event.status === 'DRAFT') {
+    return { key: 'DRAFT', label: 'Bản nháp', tone: 'gray' }
+  }
+
+  return { key: event.status, label: event.status, tone: 'gray' }
 }
 
-const STATUS_TONES = {
-  DRAFT: 'gray',
-  PENDING_REVIEW: 'amber',
-  APPROVED: 'green',
-  PUBLISHED: 'green',
-  HIDDEN: 'gray',
-  CANCELLED: 'gray',
-  COMPLETED: 'gray',
-}
+const EVENT_STATUS_FILTERS = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'ON_SALE', label: 'Đang bán vé' },
+  { value: 'PAUSED', label: 'Tạm dừng bán' },
+  { value: 'HIDDEN', label: 'Đã ẩn' },
+  { value: 'APPROVED', label: 'Chờ xuất bản' },
+  { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+  { value: 'REVISION_PENDING', label: 'Sửa đổi chờ duyệt' },
+  { value: 'DRAFT', label: 'Bản nháp' },
+  { value: 'COMPLETED', label: 'Đã kết thúc' },
+  { value: 'CANCEL_REQUESTED', label: 'Chờ duyệt hủy' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+]
 
 function formatEventDate(iso) {
   if (!iso) return '—'
@@ -853,10 +912,8 @@ export function OrganizerEventsPage() {
         !q ||
         event.title?.toLowerCase().includes(q) ||
         event.category_name?.toLowerCase().includes(q)
-      const ended = isEventEnded(event)
-      const isApprovedAwaitingPublish = !ended && event.status === 'COMPLETED' && event.approval_status === 'APPROVED'
-      const effectiveStatus = ended ? 'COMPLETED' : (isApprovedAwaitingPublish ? 'APPROVED' : event.status)
-      const matchStatus = !statusFilter || effectiveStatus === statusFilter || (statusFilter === 'COMPLETED' && ended) || (statusFilter === 'APPROVED' && isApprovedAwaitingPublish)
+      const primaryStatus = getPrimaryEventStatus(event)
+      const matchStatus = !statusFilter || primaryStatus.key === statusFilter
       return matchSearch && matchStatus
     })
   }, [events, search, statusFilter])
@@ -894,10 +951,9 @@ export function OrganizerEventsPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="" className="bg-[#0b1329] text-white">Tất cả trạng thái</option>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value} className="bg-[#0b1329] text-white">
-                {label}
+            {EVENT_STATUS_FILTERS.map((f) => (
+              <option key={f.value} value={f.value} className="bg-[#0b1329] text-white">
+                {f.label}
               </option>
             ))}
           </select>
@@ -947,51 +1003,12 @@ export function OrganizerEventsPage() {
             <span key="date" className="whitespace-nowrap">{formatEventDate(event.start_time)}</span>,
 
             (() => {
-              const ended = isEventEnded(event)
-              const isApprovedAwaitingPublish = !ended && event.status === 'COMPLETED' && event.approval_status === 'APPROVED'
+              const statusInfo = getPrimaryEventStatus(event)
               return (
-                <div key="status" className="flex flex-col gap-1 items-start">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge tone={ended ? 'gray' : (isApprovedAwaitingPublish ? 'green' : (STATUS_TONES[event.status] || 'gray'))}>
-                      {ended ? 'Đã kết thúc' : (isApprovedAwaitingPublish ? 'Đã duyệt' : (STATUS_LABELS[event.status] || event.status))}
-                    </Badge>
-                    {event.cancel_request?.status === 'PENDING' && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 animate-pulse">
-                        Chờ duyệt hủy
-                      </span>
-                    )}
-                    {event.pending_revision && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                        Bản sửa đổi chờ duyệt
-                      </span>
-                    )}
-                  </div>
-                  {ended ? (
-                    <div className="flex items-center gap-1 flex-wrap text-[11px] mt-0.5">
-                      <span className="text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700 text-[10px]">
-                        Đã đóng bán
-                      </span>
-                    </div>
-                  ) : isApprovedAwaitingPublish ? (
-                    <div className="flex items-center gap-1 flex-wrap text-[11px] mt-0.5">
-                      <span className="text-cyan-300 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-700 text-[10px]">
-                        Chờ xuất bản
-                      </span>
-                    </div>
-                  ) : (event.status === 'PUBLISHED' || event.status === 'HIDDEN' || event.display_state === 'HIDDEN_BY_ORGANIZER' || event.display_state === 'SUSPENDED_BY_ADMIN') ? (
-                    <div className="flex items-center gap-1 flex-wrap text-[11px] mt-0.5">
-                      {event.display_state === 'SUSPENDED_BY_ADMIN' ? (
-                        <span className="text-rose-300 bg-rose-950 px-1.5 py-0.5 rounded border border-rose-800 text-[10px] font-bold">Đình chỉ bởi Admin</span>
-                      ) : (event.display_state === 'HIDDEN_BY_ORGANIZER' || event.status === 'HIDDEN') ? (
-                        <span className="text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 text-[10px]">Đã ẩn</span>
-                      ) : null}
-                      {event.sales_status === 'PAUSED' ? (
-                        <span className="text-amber-300 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-700 text-[10px]">Tạm dừng bán</span>
-                      ) : (
-                        <span className="text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-700 text-[10px]">Đang bán vé</span>
-                      )}
-                    </div>
-                  ) : null}
+                <div key="status" className="flex items-center">
+                  <Badge tone={statusInfo.tone}>
+                    {statusInfo.label}
+                  </Badge>
                 </div>
               )
             })(),
@@ -1071,15 +1088,6 @@ export function OrganizerEventsPage() {
                       title="Xóa bản nháp"
                       icon={Trash2}
                       tone="danger"
-                    />
-                  )}
-                  {/* If event is cancelled or has refund obligations, link to refunds */}
-                  {(event.status === 'CANCELLED' || event.refund_obligation_status) && (
-                    <TableActionButton
-                      to={`/organizer/refunds?eventId=${event.id}`}
-                      title="Đối soát danh sách hoàn tiền"
-                      icon={DollarSign}
-                      tone="warning"
                     />
                   )}
                 </div>
