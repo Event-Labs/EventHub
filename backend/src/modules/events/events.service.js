@@ -1,3 +1,8 @@
+function cleanHtmlSpaces(str) {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ');
+}
+
 const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
@@ -35,7 +40,7 @@ function mapCard(row) {
     id: row.id,
     title: row.title,
     slug: row.slug,
-    short_description: row.short_description,
+    short_description: cleanHtmlSpaces(row.short_description),
     thumbnail_url: row.thumbnail_url,
     banner_url: row.banner_url,
     status: row.status,
@@ -79,7 +84,7 @@ function mapCard(row) {
 function mapDetail(row) {
   return {
     ...mapCard(row),
-    description: row.description,
+    description: cleanHtmlSpaces(row.description),
     additional_terms: row.additional_terms || null,
     seating_rules: normalizeRules(row.seating_rules),
     require_attendee_info: Boolean(row.require_attendee_info),

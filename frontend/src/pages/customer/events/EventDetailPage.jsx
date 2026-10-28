@@ -76,6 +76,13 @@ function isSaleOpen(ticketType, now) {
   return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now)
 }
 
+function formatOverviewHtml(content) {
+  if (!content || typeof content !== 'string') return ''
+  return content
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\u00A0/g, ' ')
+}
+
 function isPastTime(value, now) {
   return value ? new Date(value).getTime() <= now : false
 }
@@ -317,7 +324,8 @@ export function EventDetailPage() {
 
   const heroImage = event.banner_url || event.thumbnail_url
   const firstVenue = event.venues?.[0]
-  const overview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
+  const rawOverview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
+  const overview = formatOverviewHtml(rawOverview)
   const eventEndTime = getEventEndTime(event)
   const eventExpired = isPastTime(eventEndTime, currentTime)
   const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.end_time || eventEndTime, currentTime) : false
@@ -491,20 +499,20 @@ export function EventDetailPage() {
       <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
         <section className="min-w-0 space-y-10">
           {/* Tổng quan Bento Card */}
-          <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
+          <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-6 sm:p-7 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div>
-              <h2 className="font-display text-3xl font-black text-white">
+              <h2 className="font-display text-2xl font-black text-white">
                 Tổng quan
               </h2>
             </div>
             <div
-              className="mt-5 block w-full min-w-0 text-left ql-bubble"
+              className="mt-4 block w-full min-w-0 text-left ql-bubble"
             >
               <div
                 className={cn(
-                  'block max-w-full break-words text-lg leading-8 text-muted ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_a]:break-words [&_table]:block [&_table]:overflow-x-auto',
-                  overviewOpen ? '!overflow-visible' : 'line-clamp-5 !overflow-hidden',
+                  'block max-w-full text-sm sm:text-base leading-relaxed text-slate-300 font-normal ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [word-break:normal] [overflow-wrap:break-word] hyphens-none',
+                  overviewOpen ? '!overflow-visible' : 'line-clamp-6 !overflow-hidden',
                 )}
                 dangerouslySetInnerHTML={{ __html: overview }}
               />

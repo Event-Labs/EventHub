@@ -5,7 +5,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
 const PUBLIC_EVENT_WHERE = `
-  e.status = 'PUBLISHED'
+  e.status IN ('PUBLISHED', 'COMPLETED')
   AND e.visibility = 'PUBLIC'
   AND e.approval_status = 'APPROVED'
   AND e.deleted_at IS NULL
@@ -307,7 +307,7 @@ class EventsRepository {
         LEFT JOIN seat_maps sm_tt ON sm_tt.id = es_tt.seat_map_id
         LEFT JOIN LATERAL (
           SELECT
-            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
             COALESCE((
               SELECT SUM(th.quantity)::int
               FROM ticket_holds th
@@ -404,7 +404,7 @@ class EventsRepository {
             JOIN orders o_sold ON o_sold.id = oi_sold.order_id
             LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
             WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-              AND o_sold.status = 'PAID'
+              AND o_sold.status IN ('PAID', 'CONFIRMED')
               AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
           ) THEN 'SOLD'
           WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -534,7 +534,7 @@ class EventsRepository {
       unseated_usage AS (
         SELECT
           ti.ticket_type_id,
-          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
           COALESCE((
             SELECT SUM(th.quantity)::int
             FROM ticket_holds th
@@ -558,7 +558,7 @@ class EventsRepository {
               JOIN orders o_sold ON o_sold.id = oi_sold.order_id
               LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
               WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                AND o_sold.status = 'PAID'
+                AND o_sold.status IN ('PAID', 'CONFIRMED')
                 AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
             ) THEN 'SOLD'
               WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -656,7 +656,7 @@ class EventsRepository {
             JOIN orders o_sold ON o_sold.id = oi_sold.order_id
             LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
             WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-              AND o_sold.status = 'PAID'
+              AND o_sold.status IN ('PAID', 'CONFIRMED')
               AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
           ) THEN 'SOLD'
           WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -723,7 +723,7 @@ class EventsRepository {
       JOIN ticket_types tt ON tt.id = oi.ticket_type_id
       JOIN event_sessions es ON es.id = tt.event_session_id
       WHERE es.event_id = $1
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         AND (
           o.user_id = $2
           OR ($3::text IS NOT NULL AND lower(o.buyer_email) = lower($3::text))
@@ -815,14 +815,23 @@ class EventsRepository {
           );
         }
 
+        const effectiveSalesStatus =
+          ticketType.event_status === 'PUBLISHED' && (!ticketType.sales_status || ticketType.sales_status === 'NOT_STARTED')
+            ? 'ON_SALE'
+            : ticketType.sales_status;
+
         if (
-          ticketType.sales_status !== 'ON_SALE' ||
+          effectiveSalesStatus !== 'ON_SALE' ||
           ticketType.event_status !== 'PUBLISHED' ||
           ticketType.visibility !== 'PUBLIC' ||
           ticketType.approval_status !== 'APPROVED' ||
           !['UPCOMING', 'ONGOING'].includes(ticketType.session_status)
         ) {
           throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
+        }
+
+        if (ticketType.sales_status === 'NOT_STARTED' && ticketType.event_status === 'PUBLISHED') {
+          await client.query("UPDATE events SET sales_status = 'ON_SALE', updated_at = NOW() WHERE id = $1", [ticketType.event_id]);
         }
 
         const eventEnd = ticketType.event_end_time ? new Date(ticketType.event_end_time).getTime() : null;
@@ -863,7 +872,7 @@ class EventsRepository {
               JOIN orders o_sold ON o_sold.id = oi_sold.order_id
               LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
               WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                AND o_sold.status = 'PAID'
+                AND o_sold.status IN ('PAID', 'CONFIRMED')
                 AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
             ) AS has_paid_ticket
           FROM session_seats ss

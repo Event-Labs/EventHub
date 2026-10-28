@@ -89,10 +89,20 @@ function formatLocation(event) {
   return 'Địa điểm cập nhật sau'
 }
 
-function normalizeEvent(event) {
-  const venueLocation = formatVenueText(event.venue)
-  const stringLocation = typeof event.location === 'string' ? event.location : ''
+function formatVenueText(venue) {
+  if (!venue) return ''
+  if (typeof venue === 'string') return venue.trim()
+  if (typeof venue === 'object') {
+    return (
+      (typeof venue.summary === 'string' && venue.summary.trim()) ||
+      [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') ||
+      ''
+    )
+  }
+  return ''
+}
 
+function normalizeEvent(event) {
   return {
     id: event.slug || event.id,
     title: event.title,

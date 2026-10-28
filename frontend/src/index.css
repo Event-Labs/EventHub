@@ -2550,3 +2550,170 @@ html.light .force-dark .btn-gold-primary {
 html.light .force-dark svg text {
   fill: #f8fafc !important;
 }
+
+/* LED BORDER BUTTON EFFECT - PURE GOLD LUXURY */
+@keyframes led-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gold-halo-pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(201, 154, 71, 0.45), 0 0 24px rgba(230, 193, 122, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(230, 193, 122, 0.65), 0 0 32px rgba(201, 154, 71, 0.38);
+  }
+}
+
+.btn-led-border {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  padding: 2px;
+  animation: gold-halo-pulse 3s ease-in-out infinite;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.btn-led-border:hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 0 24px rgba(230, 193, 122, 0.85), 0 0 42px rgba(201, 154, 71, 0.6), 0 0 10px rgba(255, 244, 208, 0.8) !important;
+}
+
+.btn-led-border::before {
+  content: '';
+  position: absolute;
+  inset: -250%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 45%,
+    rgba(201, 154, 71, 0.1) 60%,
+    rgba(201, 154, 71, 0.45) 75%,
+    #C99A47 84%,
+    #E6C17A 91%,
+    #FFF6DC 96%,
+    #FFFFFF 98%,
+    #E6C17A 100%
+  );
+  animation: led-rotate 3.2s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.btn-led-inner {
+  position: relative;
+  display: inline-flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #C99A47, #E6C17A) !important;
+  color: #0D1B2A !important;
+  padding: 0.5rem 1.15rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+  transition: filter 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-led-border:hover .btn-led-inner {
+  filter: brightness(1.1);
+}
+
+
+/* LED BORDER FOR RECTANGULAR/ROUNDED-XL BUTTONS (THIN BORDER) */
+.btn-led-gold-sm {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  padding: 1.5px;
+  box-shadow: 0 0 10px rgba(201, 154, 71, 0.4), 0 0 18px rgba(230, 193, 122, 0.2);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-decoration: none;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.btn-led-gold-sm:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 0 16px rgba(230, 193, 122, 0.75), 0 0 26px rgba(201, 154, 71, 0.5);
+}
+
+.btn-led-gold-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-led-gold-sm::before {
+  content: '';
+  position: absolute;
+  inset: -250%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 50%,
+    rgba(201, 154, 71, 0.15) 65%,
+    #C99A47 78%,
+    #E6C17A 88%,
+    #FFF6DC 95%,
+    #FFFFFF 98%,
+    #E6C17A 100%
+  );
+  animation: led-rotate 3s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.btn-led-gold-sm:disabled::before {
+  animation: none;
+  background: rgba(201, 154, 71, 0.3);
+}
+
+.btn-led-gold-sm-inner {
+  position: relative;
+  display: inline-flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: calc(0.75rem - 1.5px);
+  background: linear-gradient(135deg, #C99A47, #E6C17A) !important;
+  color: #0D1B2A !important;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  transition: filter 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-led-gold-sm:hover:not(:disabled) .btn-led-gold-sm-inner {
+  filter: brightness(1.08);
+}

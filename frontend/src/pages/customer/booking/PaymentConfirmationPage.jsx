@@ -75,11 +75,15 @@ export function PaymentConfirmationPage() {
   }, [])
 
   useEffect(() => {
-    if (statusQuery.data?.order?.status !== 'PAID' || paymentSuccessHandledRef.current) return
-
-    paymentSuccessHandledRef.current = true
-    toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
-    navigate('/my-tickets', { replace: true })
+    const orderStatus = statusQuery.data?.order?.status
+    if ((orderStatus === 'PAID' || orderStatus === 'CONFIRMED') && !paymentSuccessHandledRef.current) {
+      paymentSuccessHandledRef.current = true
+      const msg = orderStatus === 'CONFIRMED'
+        ? 'Đặt vé thành công. Vé của bạn đã sẵn sàng!'
+        : 'Thanh toán thành công. Vé của bạn đã sẵn sàng!'
+      toast.success(msg)
+      navigate('/my-tickets', { replace: true })
+    }
   }, [navigate, statusQuery.data?.order?.status, toast])
 
   const data = statusQuery.data

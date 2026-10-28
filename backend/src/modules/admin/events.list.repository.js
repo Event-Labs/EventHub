@@ -147,7 +147,7 @@ class EventsListAdminRepository {
           FROM order_items oi
           JOIN orders ord ON ord.id = oi.order_id
           WHERE oi.ticket_type_id = tt.id
-            AND ord.status = 'PAID'
+            AND ord.status IN ('PAID', 'CONFIRMED')
         ) sold ON true
         WHERE sess.event_id = e.id
       ) ticket_summary ON true
