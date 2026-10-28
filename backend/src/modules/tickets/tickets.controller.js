@@ -75,6 +75,15 @@ class TicketsController {
       next(err);
     }
   };
+
+  cancelFreeTicket = async (req, res, next) => {
+    try {
+      const data = await ticketsService.cancelFreeTicket(req.user.sub, req.params.ticketId, req.body?.reason);
+      res.status(200).json(ApiResponse.success(data, 'Hủy vé miễn phí thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new TicketsController();

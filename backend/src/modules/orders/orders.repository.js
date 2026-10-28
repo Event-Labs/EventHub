@@ -2821,6 +2821,59 @@ class OrdersRepository {
       client.release();
     }
   }
+
+  /**
+   * Revert promo code usage for an order (Decision 2.6, Section 3)
+   * Locking order: orders (FOR UPDATE) -> promo_codes (FOR UPDATE)
+   * Only called when event is cancelled or rescheduled.
+   * Idempotent: checks audit_trail to ensure voucher is reverted at most once per order.
+   */
+  async revertPromoCodeUsageForOrder(orderId, client = db) {
+    // 1. Lock orders FOR UPDATE
+    const { rows: [order] } = await client.query(
+      `SELECT id, promo_code_id, audit_trail FROM orders WHERE id = $1 FOR UPDATE`,
+      [orderId],
+    );
+
+    if (!order || !order.promo_code_id) {
+      return { reverted: false, reason: 'NO_PROMO_CODE' };
+    }
+
+    // 2. Check audit_trail to avoid duplicate reversal
+    const audit = Array.isArray(order.audit_trail) ? order.audit_trail : [];
+    const alreadyReverted = audit.some((entry) => entry.action === 'REVERT_PROMO_CODE');
+    if (alreadyReverted) {
+      return { reverted: false, reason: 'ALREADY_REVERTED' };
+    }
+
+    // 3. Lock promo_codes FOR UPDATE and decrease used_count
+    const { rows: [promo] } = await client.query(
+      `SELECT id, code, used_count FROM promo_codes WHERE id = $1 FOR UPDATE`,
+      [order.promo_code_id],
+    );
+
+    if (promo) {
+      await client.query(
+        `UPDATE promo_codes SET used_count = GREATEST(0, used_count - 1) WHERE id = $1`,
+        [promo.id],
+      );
+    }
+
+    // 4. Record audit_trail entry on orders
+    const revertEntry = {
+      action: 'REVERT_PROMO_CODE',
+      promo_code_id: order.promo_code_id,
+      promo_code: promo?.code,
+      timestamp: new Date().toISOString(),
+    };
+
+    await client.query(
+      `UPDATE orders SET audit_trail = COALESCE(audit_trail, '[]'::jsonb) || $2::jsonb WHERE id = $1`,
+      [orderId, JSON.stringify([revertEntry])],
+    );
+
+    return { reverted: true, promoCode: promo?.code };
+  }
 }
 
 module.exports = new OrdersRepository();

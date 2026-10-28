@@ -47,6 +47,10 @@ function buildTicketPayload(row) {
     attendee_email: row.attendee_email,
     created_at: row.created_at,
     checked_in_at: row.checked_in_at,
+    ticket_source: row.ticket_source || 'STANDARD',
+    original_price: row.original_price !== undefined && row.original_price !== null ? Number(row.original_price) : Number(row.ticket_type_price || 0),
+    discount_allocated: row.discount_allocated !== undefined && row.discount_allocated !== null ? Number(row.discount_allocated) : 0,
+    payable_price: row.payable_price !== undefined && row.payable_price !== null ? Number(row.payable_price) : Number(row.order_item_final_price || 0),
     event: {
       id: row.event_id,
       title: row.event_title,
@@ -525,6 +529,10 @@ class TicketsService {
 
     return buildStaffTicketPayload(result.ticket);
   }
+
+  cancelFreeTicket = async (userId, ticketId, reason) => {
+    return ticketsRepository.cancelFreeTicket(ticketId, userId, reason);
+  };
 }
 
 module.exports = new TicketsService();
