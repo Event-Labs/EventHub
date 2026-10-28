@@ -267,9 +267,6 @@ export function AppLayout() {
   }, []);
 
   if (hasAdminRole) {
-    if (pathname === '/') {
-      return <Navigate to="/admin" replace />
-    }
     if (
       pathname.startsWith('/booking') ||
       pathname === '/my-tickets' ||
@@ -348,6 +345,7 @@ export function AppLayout() {
               {hasAdminRole && (
                 <NavLink
                   to="/admin"
+                  reloadDocument
                   className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
                 >
                   Trang quản trị
@@ -477,6 +475,7 @@ export function AppLayout() {
                       <NavLink
                         className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
                         to="/admin"
+                        reloadDocument
                         onClick={() => setOpen(false)}
                       >
                         Quay lại trang quản trị

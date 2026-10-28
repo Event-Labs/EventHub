@@ -8,6 +8,8 @@ try {
 const organizerPaymentsRepository = require('./organizerPayments.repository');
 const organizerEventsRepository = require('../organizer/organizerEvents.repository');
 const organizerEgressService = require('../egress/organizerEgress.service');
+const { assertEgressIp, payoutAxiosConfig } = require('../payments/payoutEgress');
+const axios = require('axios');
 const fieldCrypto = require('../../core/security/fieldCrypto');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
@@ -316,29 +318,31 @@ class OrganizerPaymentsService {
     }
 
     try {
+      if (process.env.PAYOS_STATIC_PROXY_URL) {
+        await assertEgressIp();
+      }
+
       // Giải mã apiKey ngay trước khi gọi fetch, không giữ ở biến phạm vi rộng, không đưa vào log/error
       const apiKey = this._dec(channel, apiKeyColumn, apiKeyField);
 
       let balance = null;
       let verified = false;
 
-      // Bước 1: Thử kiểm tra số dư ví Bảo Kim qua payouts-account/balance (timeout ngắn 3s)
+      // Bước 1: Thử kiểm tra số dư ví Bảo Kim qua payouts-account/balance
       try {
-        const balController = new AbortController();
-        const balTimeout = setTimeout(() => balController.abort(), 3000);
-
-        const balRes = await fetch('https://api-merchant.payos.vn/v1/payouts-account/balance', {
-          method: 'GET',
+        const balRes = await axios.get('https://api-merchant.payos.vn/v1/payouts-account/balance', {
           headers: {
             'x-client-id': clientId,
             'x-api-key': apiKey,
           },
-          signal: balController.signal,
-        }).finally(() => clearTimeout(balTimeout));
+          timeout: 4000,
+          validateStatus: () => true,
+          ...payoutAxiosConfig(),
+        });
 
-        const balJson = await balRes.json().catch(() => ({}));
+        const balJson = balRes.data || {};
 
-        if (balRes.ok && (balJson.code === '00' || balJson.code === '0' || balJson.code === 0)) {
+        if (balRes.status === 200 && (balJson.code === '00' || balJson.code === '0' || balJson.code === 0)) {
           verified = true;
           balance = balJson.data?.balance;
         } else if (balJson.code === '601' || balJson.code === 601) {
@@ -355,7 +359,7 @@ class OrganizerPaymentsService {
         ) {
           const realIp = await organizerEgressService.getRealPublicIp();
           throw new AppError(
-            `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${balJson.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound thực tế của máy chủ là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist" (xóa bỏ IP mock 198.51.100.1 nếu có).`,
+            `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${balJson.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound cố định của máy chủ/proxy là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist".`,
             400,
             ErrorCodes.PAYMENT_PROVIDER_ERROR,
           );
@@ -367,19 +371,17 @@ class OrganizerPaymentsService {
 
       // Bước 2: Xác thực trực tiếp quyền chi hộ & IP Whitelist qua endpoint Payouts của PayOS
       if (!verified) {
-        const verifyController = new AbortController();
-        const verifyTimeout = setTimeout(() => verifyController.abort(), 6000);
-
-        const verifyRes = await fetch('https://api-merchant.payos.vn/v1/payouts/EH_VERIFY', {
-          method: 'GET',
+        const verifyRes = await axios.get('https://api-merchant.payos.vn/v1/payouts/EH_VERIFY', {
           headers: {
             'x-client-id': clientId,
             'x-api-key': apiKey,
           },
-          signal: verifyController.signal,
-        }).finally(() => clearTimeout(verifyTimeout));
+          timeout: 8000,
+          validateStatus: () => true,
+          ...payoutAxiosConfig(),
+        });
 
-        const verifyJson = await verifyRes.json().catch(() => ({}));
+        const verifyJson = verifyRes.data || {};
 
         // Mã 608: "Mã payout không tồn tại" => PayOS xác thực Client ID, API Key và IP Whitelist đều hợp lệ 100%!
         if (verifyJson.code === '608' || verifyJson.code === '00' || verifyJson.code === 0 || verifyJson.code === '0') {
@@ -398,7 +400,7 @@ class OrganizerPaymentsService {
         ) {
           const realIp = await organizerEgressService.getRealPublicIp();
           throw new AppError(
-            `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${verifyJson.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound thực tế của máy chủ là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist" (xóa bỏ IP mock 198.51.100.1 nếu có).`,
+            `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${verifyJson.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound cố định của máy chủ/proxy là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist".`,
             400,
             ErrorCodes.PAYMENT_PROVIDER_ERROR,
           );
@@ -422,7 +424,7 @@ class OrganizerPaymentsService {
       }
     } catch (err) {
       if (err instanceof AppError) throw err;
-      if (err.name === 'AbortError') {
+      if (err.name === 'AbortError' || err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         throw new AppError('Hết thời gian kết nối đến cổng PayOS (Timeout). Vui lòng thử lại sau.', 504, ErrorCodes.PAYMENT_PROVIDER_ERROR);
       }
       throw new AppError(`Lỗi kết nối Kênh chi PayOS: ${err.message}`, 500, ErrorCodes.PAYMENT_PROVIDER_ERROR);
