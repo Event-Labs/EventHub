@@ -88,8 +88,8 @@ function statusBadge(status, approvalStatus, displayState) {
   const map = {
     PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
     PUBLISHED: { tone: 'green', label: 'Đã duyệt' },
-    CANCELLED: { tone: 'gray', label: 'Đã hủy' },
-    COMPLETED: { tone: 'green', label: 'Đã kết thúc' },
+    CANCELLED: { tone: 'red', label: 'Đã hủy' },
+    COMPLETED: { tone: 'purple', label: 'Đã kết thúc' },
   }
   const cfg = map[status] ?? { tone: 'gray', label: status }
   return <Badge tone={cfg.tone}>{cfg.label}</Badge>

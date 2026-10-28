@@ -41,7 +41,7 @@ import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
 export function getPrimaryEventStatus(event) {
-  if (!event) return { key: 'UNKNOWN', label: 'Không xác định', tone: 'gray' }
+  if (!event) return { key: 'UNKNOWN', label: 'Không xác định', tone: 'slate' }
 
   // 1. Đã hủy (Cao nhất)
   if (event.status === 'CANCELLED') {
@@ -61,17 +61,17 @@ export function getPrimaryEventStatus(event) {
   // 4. Đã kết thúc (quá thời gian sự kiện hoặc trạng thái COMPLETED)
   const ended = isEventEnded(event)
   if (ended || (event.status === 'COMPLETED' && event.approval_status !== 'APPROVED')) {
-    return { key: 'COMPLETED', label: 'Đã kết thúc', tone: 'gray' }
+    return { key: 'COMPLETED', label: 'Đã kết thúc', tone: 'purple' }
   }
 
   // 5. Đã ẩn (BTC chủ động ẩn sự kiện)
   if (event.display_state === 'HIDDEN_BY_ORGANIZER' || event.status === 'HIDDEN') {
-    return { key: 'HIDDEN', label: 'Đã ẩn', tone: 'gray' }
+    return { key: 'HIDDEN', label: 'Đã ẩn', tone: 'neutral' }
   }
 
   // 6. Tạm dừng bán vé
   if (event.sales_status === 'PAUSED') {
-    return { key: 'PAUSED', label: 'Tạm dừng bán', tone: 'amber' }
+    return { key: 'PAUSED', label: 'Tạm dừng bán', tone: 'orange' }
   }
 
   // 7. Sửa đổi chờ duyệt
@@ -100,10 +100,10 @@ export function getPrimaryEventStatus(event) {
 
   // 11. Bản nháp
   if (event.status === 'DRAFT') {
-    return { key: 'DRAFT', label: 'Bản nháp', tone: 'gray' }
+    return { key: 'DRAFT', label: 'Bản nháp', tone: 'slate' }
   }
 
-  return { key: event.status, label: event.status, tone: 'gray' }
+  return { key: event.status, label: event.status, tone: 'slate' }
 }
 
 const EVENT_STATUS_FILTERS = [
