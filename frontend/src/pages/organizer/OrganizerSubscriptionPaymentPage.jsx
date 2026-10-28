@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { fetchSubscriptionPaymentStatus } from '@/services/subscriptions.js'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 
 function fmtCurrency(n) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
@@ -168,9 +169,10 @@ export function OrganizerSubscriptionPaymentPage() {
 
             {payment?.qr_code ? (
               <div className="mx-auto mt-5 w-fit rounded-xl bg-white p-3 shadow-sm border border-border-soft/20">
-                <img
-                  src={paymentQrImageSrc(payment.qr_code)}
+                <QRCodeImage
+                  text={payment.qr_code}
                   alt="QR thanh toán"
+                  size={208}
                   className="size-52"
                 />
               </div>

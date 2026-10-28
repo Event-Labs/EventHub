@@ -111,7 +111,7 @@ class UserRepository {
     const query = `
       SELECT u.*, array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL) as roles,
       (SELECT COUNT(*) FROM events WHERE organizer_id = u.id) as events_created,
-      (SELECT COUNT(*) FROM orders WHERE user_id = u.id AND status = 'PAID') as tickets_bought,
+      (SELECT COUNT(*) FROM orders WHERE user_id = u.id AND status IN ('PAID', 'CONFIRMED')) as tickets_bought,
       (SELECT SUM(total_amount) FROM orders WHERE user_id = u.id AND status = 'PAID') as total_spent,
       admin.full_name as locked_by_name
       FROM users u

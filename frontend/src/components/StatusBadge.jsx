@@ -49,6 +49,7 @@ export const BADGE_TONES = {
 export const STATUS_CONFIG_MAP = {
   // ─── Orders ──────────────────────────────────────────────
   PAID: { label: 'Đã thanh toán', tone: 'green' },
+  CONFIRMED: { label: 'Miễn phí (0đ)', tone: 'emerald' },
   PENDING: { label: 'Chờ thanh toán', tone: 'amber' },
   CANCELLED: { label: 'Đã hủy', tone: 'gray' },
   CANCELED: { label: 'Đã hủy', tone: 'gray' },

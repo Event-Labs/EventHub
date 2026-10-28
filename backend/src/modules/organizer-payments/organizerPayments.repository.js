@@ -111,6 +111,22 @@ class OrganizerPaymentsRepository {
     );
     return rows[0] || null;
   }
+
+  async clearPayoutCredentials(organizerId) {
+    const { rows } = await pool.query(
+      `UPDATE organizer_payment_channels
+       SET payout_client_id = NULL,
+           payout_api_key_encrypted = NULL,
+           payout_checksum_key_encrypted = NULL,
+           payout_status = 'SAME_AS_INBOUND',
+           updated_at = NOW()
+       WHERE organizer_id = $1
+       RETURNING *`,
+      [organizerId]
+    );
+    return rows[0] || null;
+  }
 }
 
 module.exports = new OrganizerPaymentsRepository();
+

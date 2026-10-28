@@ -25,6 +25,7 @@ import {
 const ORDER_STATUSES = [
   { value: '', label: 'Tất cả trạng thái' },
   { value: 'PAID', label: 'Đã thanh toán' },
+  { value: 'CONFIRMED', label: 'Miễn phí (0đ)' },
   { value: 'PENDING', label: 'Chờ thanh toán' },
   { value: 'REFUND_REQUESTED', label: 'Yêu cầu hoàn tiền' },
   { value: 'REFUNDED', label: 'Đã hoàn tiền' },
@@ -35,6 +36,7 @@ const ORDER_STATUSES = [
 
 const STATUS_TONE = {
   PAID: 'green',
+  CONFIRMED: 'emerald',
   PENDING: 'amber',
   REFUND_REQUESTED: 'purple',
   REFUNDED: 'green',
@@ -47,6 +49,7 @@ const STATUS_TONE = {
 
 const STATUS_LABEL = {
   PAID: 'Đã thanh toán',
+  CONFIRMED: 'Miễn phí (0đ)',
   PENDING: 'Chờ thanh toán',
   REFUND_REQUESTED: 'Yêu cầu hoàn tiền',
   REFUNDED: 'Đã hoàn tiền',
@@ -247,7 +250,7 @@ export function OrganizerOrdersPage() {
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
                   <th className="w-14 px-2 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Số vé</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Tổng tiền</th>
-                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Trạng thái</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Ngày đặt</th>
                   <th className="w-14 px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Thao tác</th>
                 </tr>
@@ -286,12 +289,14 @@ export function OrganizerOrdersPage() {
                     <td className="px-3 py-3 text-right font-mono font-bold text-primary text-sm whitespace-nowrap">
                       {formatCurrency(order.total_amount)}
                     </td>
-                    <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <StatusBadge
-                        status={order.status}
-                        label={STATUS_LABEL[order.status]}
-                        tone={STATUS_TONE[order.status]}
-                      />
+                    <td className="px-3 py-3 !text-left whitespace-nowrap" style={{ textAlign: 'left' }}>
+                      <div className="flex items-center justify-start text-left">
+                        <StatusBadge
+                          status={order.status}
+                          label={STATUS_LABEL[order.status]}
+                          tone={STATUS_TONE[order.status]}
+                        />
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <p className="text-sm font-medium text-slate-200">{formatDateOnly(order.created_at)}</p>
@@ -523,30 +528,35 @@ function OrderDetailModal({ orderId, onClose }) {
                     </div>
                   </div>
 
-                  {order.payment_status && (
+                  {(order.payment_status || order.status === 'CONFIRMED') && (
                     <div className="mt-3 border-t border-white/10 pt-3 text-xs text-slate-300">
                       <p>
                         Phương thức:{' '}
                         <span className="font-semibold text-white">
-                          {order.payment_provider || '—'}
+                          {order.status === 'CONFIRMED' ? 'Miễn phí (0đ)' : (order.payment_provider || '—')}
                         </span>
                       </p>
-                      {order.payment_transaction_id && (
+                      {order.payment_transaction_id ? (
                         <p className="mt-1">
                           Mã giao dịch:{' '}
                           <span className="font-mono font-semibold text-white">
                             {order.payment_transaction_id}
                           </span>
                         </p>
-                      )}
-                      {order.payment_paid_at && (
+                      ) : order.status === 'CONFIRMED' ? (
                         <p className="mt-1">
-                          Thanh toán lúc:{' '}
-                          <span className="font-semibold text-white">
-                            {formatDateTime(order.payment_paid_at)}
+                          Mã giao dịch:{' '}
+                          <span className="font-mono font-semibold text-white">
+                            Miễn phí
                           </span>
                         </p>
-                      )}
+                      ) : null}
+                      <p className="mt-1">
+                        Thanh toán lúc:{' '}
+                        <span className="font-semibold text-white">
+                          {order.payment_paid_at ? formatDateTime(order.payment_paid_at) : (order.status === 'CONFIRMED' ? formatDateTime(order.created_at) : '—')}
+                        </span>
+                      </p>
                     </div>
                   )}
                 </div>

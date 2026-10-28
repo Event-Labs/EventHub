@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, fetchOrderStatus } from '@/services/orders.js'
 import { getApiMessage } from '@/lib/messages.js'
+import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { cn } from '@/lib/utils.js'
 
@@ -74,11 +75,15 @@ export function PaymentConfirmationPage() {
   }, [])
 
   useEffect(() => {
-    if (statusQuery.data?.order?.status !== 'PAID' || paymentSuccessHandledRef.current) return
-
-    paymentSuccessHandledRef.current = true
-    toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
-    navigate('/my-tickets', { replace: true })
+    const orderStatus = statusQuery.data?.order?.status
+    if ((orderStatus === 'PAID' || orderStatus === 'CONFIRMED') && !paymentSuccessHandledRef.current) {
+      paymentSuccessHandledRef.current = true
+      const msg = orderStatus === 'CONFIRMED'
+        ? 'Đặt vé thành công. Vé của bạn đã sẵn sàng!'
+        : 'Thanh toán thành công. Vé của bạn đã sẵn sàng!'
+      toast.success(msg)
+      navigate('/my-tickets', { replace: true })
+    }
   }, [navigate, statusQuery.data?.order?.status, toast])
 
   const data = statusQuery.data
@@ -166,7 +171,7 @@ export function PaymentConfirmationPage() {
 
           {data.payment?.qr_code ? (
             <div className="mx-auto mt-8 w-fit rounded-2xl bg-white p-5 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
-              <img src={paymentQrImageSrc(data.payment.qr_code)} alt="QR PayOS" className="size-60" />
+              <QRCodeImage text={data.payment.qr_code} alt="QR PayOS" size={240} className="size-60" />
             </div>
           ) : (
             <div className="mx-auto mt-8 grid size-60 place-items-center rounded-2xl border-2 border-dashed border-white/10 bg-slate-900/50 text-sm font-medium text-slate-400">

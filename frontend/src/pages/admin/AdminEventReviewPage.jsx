@@ -22,6 +22,7 @@ import {
   Settings,
   Sliders,
   Play,
+  Square,
   Zap,
   Info,
   X,
@@ -39,21 +40,28 @@ import {
   fetchAdminAutoReviewSettings,
   updateAdminAutoReviewSettings,
   runAdminBatchAutoReview,
+  runAdminSingleAutoReview,
+  cancelAdminAutoReview,
+  fetchAdminAutoReviewScanStatus,
   fetchAdminReviewCriteria,
+  suspendAdminEvent,
+  unsuspendAdminEvent,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, ImagePlaceholder, Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
+import { AdminSuspendModal } from './AdminSuspendModal.jsx'
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 const STATUS_TABS = [
   { label: 'Chờ duyệt', value: 'PENDING_REVIEW' },
+  { label: 'Yêu cầu hủy', value: 'CANCEL_REQUESTS' },
   { label: 'Đã duyệt', value: 'PUBLISHED' },
   { label: 'Từ chối', value: 'REJECTED' },
-  { label: 'Đã ẩn', value: 'HIDDEN' },
+  { label: 'Bị đình chỉ', value: 'SUSPENDED' },
 ]
 
 /**
@@ -62,11 +70,20 @@ const STATUS_TABS = [
  *   HIDDEN + approval_status=REJECTED → event failed admin review ("Từ chối")
  *   HIDDEN + approval_status=APPROVED → event was published then hidden for violations ("Đã ẩn")
  */
-function statusBadge(status, approvalStatus) {
+function statusBadge(status, approvalStatus, displayState) {
+  if (displayState === 'SUSPENDED_BY_ADMIN') {
+    return <Badge tone="red">Bị đình chỉ</Badge>
+  }
+  if (displayState === 'HIDDEN_BY_ORGANIZER') {
+    return <Badge tone="gray">BTC Tạm ẩn</Badge>
+  }
   if (status === 'HIDDEN') {
     return approvalStatus === 'REJECTED'
       ? <Badge tone="red">Từ chối</Badge>
       : <Badge tone="gray">Đã ẩn</Badge>
+  }
+  if (status === 'COMPLETED' && approvalStatus === 'APPROVED') {
+    return <Badge tone="green">Đã duyệt</Badge>
   }
   const map = {
     PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
@@ -109,6 +126,10 @@ export function AdminEventReviewPage() {
   // Confirm modal state
   const [confirmState, setConfirmState] = useState(null)
 
+  // Suspend modal state
+  const [suspendTarget, setSuspendTarget] = useState(null)
+  const [suspendLoading, setSuspendLoading] = useState(false)
+
   // AI Auto-review settings state & queries
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
@@ -116,6 +137,12 @@ export function AdminEventReviewPage() {
   const { data: autoReviewData, isLoading: isSettingsLoading } = useQuery({
     queryKey: ['admin-auto-review-settings'],
     queryFn: fetchAdminAutoReviewSettings,
+  })
+
+  const { data: scanStatus } = useQuery({
+    queryKey: ['admin-auto-review-scan-status'],
+    queryFn: fetchAdminAutoReviewScanStatus,
+    refetchInterval: (query) => (query.state.data?.isRunning ? 2000 : 8000),
   })
 
   const { data: criteriaList = [] } = useQuery({
@@ -193,18 +220,44 @@ export function AdminEventReviewPage() {
     },
   })
 
-  const batchAutoReviewMutation = useMutation({
-    mutationFn: runAdminBatchAutoReview,
+  const runSingleAutoReviewMutation = useMutation({
+    mutationFn: runAdminSingleAutoReview,
     onSuccess: (res) => {
-      const { total_processed, approved_count, rejected_count, needs_review_count } = res
-      toast.success(
-        `Hoàn tất quét tự động ${total_processed} sự kiện: ${approved_count} đã duyệt, ${rejected_count} đã từ chối, ${needs_review_count} cần admin kiểm tra.`
-      )
+      if (res.cancelled) {
+        toast.info(res.message || 'Tiến trình quét đã được dừng theo yêu cầu.')
+      } else if (res.processed === 0) {
+        toast.info(res.message || 'Không có sự kiện nào cần quét lúc này.')
+      } else {
+        const title = res.eventTitle ? `"${res.eventTitle}"` : 'Sự kiện'
+        if (res.action === 'APPROVED') {
+          toast.success(`Hệ thống AI đã tự động phê duyệt sự kiện ${title}.`)
+        } else if (res.action === 'REJECTED') {
+          toast.error(`Hệ thống AI đã tự động từ chối sự kiện ${title}.`)
+        } else if (res.action === 'PRE_REVIEWED') {
+          toast.success(`Đã hoàn tất quét review trước cho ${title}. Kết quả đã sẵn sàng để Admin kiểm tra.`)
+        } else {
+          toast.info(`AI đã thẩm định ${title}: Cần Admin xem xét thêm (Needs Review).`)
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['admin-events'] })
       queryClient.invalidateQueries({ queryKey: ['admin-auto-review-settings'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể thực hiện quét tự động hàng loạt.'))
+      toast.error(getApiMessage(err, 'Không thể thực hiện quét duyệt sự kiện.'))
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
+    },
+  })
+
+  const cancelAutoReviewMutation = useMutation({
+    mutationFn: cancelAdminAutoReview,
+    onSuccess: (res) => {
+      toast.success(res.message || 'Đã gửi lệnh dừng tiến trình quét AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể hủy tiến trình quét.'))
     },
   })
 
@@ -312,6 +365,43 @@ export function AdminEventReviewPage() {
     })
   }
 
+  const confirmSuspend = async ({ reason, note }) => {
+    if (!suspendTarget || suspendLoading) return
+    setSuspendLoading(true)
+    try {
+      await suspendAdminEvent(suspendTarget.id, { reason, note })
+      toast.success(`Đã đình chỉ sự kiện "${suspendTarget.title}".`)
+      setSuspendTarget(null)
+      invalidate()
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Không thể đình chỉ sự kiện.'))
+    } finally {
+      setSuspendLoading(false)
+    }
+  }
+
+  const quickUnsuspend = (event) => {
+    setConfirmState({
+      title: 'Gỡ đình chỉ sự kiện',
+      subtitle: 'Khôi phục hiển thị và quyền mở bán vé.',
+      eventTitle: event.title,
+      description: `Bạn có chắc chắn muốn gỡ lệnh đình chỉ cho sự kiện "${event.title}"? Sự kiện sẽ được hiển thị trở lại và Ban tổ chức có thể tiếp tục mở bán vé bình thường.`,
+      tone: 'success',
+      confirmText: 'Xác nhận gỡ đình chỉ',
+      cancelText: 'Hủy bỏ',
+      onConfirm: async () => {
+        try {
+          await unsuspendAdminEvent(event.id)
+          toast.success(`Đã gỡ đình chỉ sự kiện "${event.title}".`)
+          closeConfirm()
+          invalidate()
+        } catch (err) {
+          toast.error(getApiMessage(err, 'Không thể gỡ đình chỉ sự kiện.'))
+        }
+      },
+    })
+  }
+
   /** Modal submit */
   const submitModalReview = (status) => {
     if (!selectedEvent) return
@@ -319,9 +409,12 @@ export function AdminEventReviewPage() {
     if (status === 'APPROVED') {
       setConfirmState({
         title: 'Xác nhận phê duyệt',
-        description: 'Bạn có chắc chắn muốn phê duyệt sự kiện này?',
+        subtitle: 'Chấp thuận xuất bản sự kiện lên nền tảng.',
+        eventTitle: selectedEvent.title,
+        description: 'Sự kiện sẽ được công khai và cho phép người dùng đặt vé tham gia.',
+        tone: 'success',
         confirmText: 'Phê duyệt',
-        confirmColor: 'bg-success text-slate-950 hover:bg-success/90',
+        cancelText: 'Hủy bỏ',
         onConfirm: () => {
           reviewMutation.mutate({
             eventId: selectedEvent.id,
@@ -333,9 +426,12 @@ export function AdminEventReviewPage() {
     } else {
       setConfirmState({
         title: 'Xác nhận từ chối',
-        description: 'Bạn có chắc chắn muốn từ chối sự kiện này? Vui lòng đảm bảo đã nhập lý do (nếu cần).',
-        confirmText: 'Từ chối',
-        confirmColor: 'bg-error text-white hover:bg-error/90',
+        subtitle: 'Từ chối yêu cầu xuất bản sự kiện.',
+        eventTitle: selectedEvent.title,
+        description: 'Sự kiện sẽ bị từ chối và Ban tổ chức sẽ nhận được thông báo phản hồi lý do kiểm duyệt.',
+        tone: 'danger',
+        confirmText: 'Từ chối sự kiện',
+        cancelText: 'Hủy bỏ',
         onConfirm: () => {
           reviewMutation.mutate({
             eventId: selectedEvent.id,
@@ -381,6 +477,8 @@ export function AdminEventReviewPage() {
   const setNote = (eventId, value) =>
     setNotes((prev) => ({ ...prev, [eventId]: value }))
 
+  const isScanning = Boolean(scanStatus?.isRunning || runSingleAutoReviewMutation.isPending)
+
   return (
     <Page
       title="Duyệt Sự kiện"
@@ -391,25 +489,27 @@ export function AdminEventReviewPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3.5">
             <div className={`mt-0.5 grid size-11 shrink-0 place-items-center rounded-xl border shadow-inner ${
-              autoReviewSettings.auto_review_enabled
-                ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
-                : 'border-border-soft/60 bg-panel text-subtle'
+              isScanning
+                ? 'border-amber-400/50 bg-gradient-to-br from-amber-500/30 to-rose-600/30 text-amber-300 shadow-amber-500/20'
+                : autoReviewSettings.auto_review_enabled
+                  ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
+                  : 'border-border-soft/60 bg-panel text-subtle'
             }`}>
               <Bot className="size-6" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="font-display text-base font-black tracking-wide text-content flex items-center gap-2">
+                <h2 className="font-display text-base font-black tracking-wide text-content flex flex-wrap items-center gap-2">
                   <span>Hệ thống AI Tự động Thẩm định & Duyệt Sự kiện</span>
-                  <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    <Sparkles className="size-3 text-indigo-400" />
+                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <Sparkles className="size-3 text-indigo-400 shrink-0" />
                     AI Agent
                   </span>
                 </h2>
                 {autoReviewSettings.auto_review_enabled ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-400 shadow-sm shadow-emerald-500/20">
                     <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
-                    ĐANG BẬT (TỰ ĐỘNG)
+                    {autoReviewSettings.auto_approve_enabled ? 'ĐANG BẬT (QUÉT 15P + TỰ ĐỘNG DUYỆT)' : 'ĐANG BẬT (QUÉT 15P REVIEW TRƯỚC)'}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-500/30 bg-zinc-500/10 px-2.5 py-0.5 text-xs font-bold text-zinc-400">
@@ -419,10 +519,10 @@ export function AdminEventReviewPage() {
                 )}
               </div>
               <p className="mt-1 text-xs text-subtle max-w-2xl leading-relaxed">
-                Tự động quét nội dung, thẩm định giấy phép đính kèm & hình ảnh, tự động phê duyệt nếu đạt chuẩn hoặc từ chối và gửi hướng dẫn khắc phục chi tiết cho Organizer.
+                Chu kỳ 15 phút quét đúng 1 sự kiện: Tự động phê duyệt nếu đạt chuẩn khi bật tự duyệt; hoặc quét review trước lưu kết quả thẩm định để Admin xem xét nếu tắt tự duyệt.
               </p>
 
-              {/* Stats badges */}
+              {/* Stats badges & Live Scanning status */}
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
                 <span className="inline-flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft/60 px-2.5 py-1 text-subtle">
                   Chờ duyệt: <strong className="text-amber-400">{autoReviewStats.pending_count}</strong>
@@ -433,6 +533,13 @@ export function AdminEventReviewPage() {
                 <span className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-950/20 px-2.5 py-1 text-rose-300">
                   AI Tự động từ chối: <strong className="text-rose-400">{autoReviewStats.auto_rejected_count}</strong>
                 </span>
+
+                {isScanning && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-2.5 py-1 text-amber-200 font-semibold animate-pulse">
+                    <RefreshCw className="size-3 animate-spin text-amber-400" />
+                    Đang quét 1 sự kiện: {scanStatus?.eventTitle ? `"${scanStatus.eventTitle}"` : 'Đang xử lý...'}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -454,16 +561,42 @@ export function AdminEventReviewPage() {
               <span>{autoReviewSettings.auto_review_enabled ? 'Bật tự động' : 'Tắt tự động'}</span>
             </button>
 
-            {/* Batch Run Button */}
-            <button
-              type="button"
-              disabled={batchAutoReviewMutation.isPending || autoReviewStats.pending_count === 0}
-              onClick={() => batchAutoReviewMutation.mutate()}
-              className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-gradient-to-r from-indigo-600 to-indigo-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-indigo-600/30 transition duration-200 hover:-translate-y-0.5 hover:from-indigo-500 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Play className={`size-4 ${batchAutoReviewMutation.isPending ? 'animate-spin' : ''}`} />
-              <span>{batchAutoReviewMutation.isPending ? 'Đang chạy...' : 'Quét duyệt tất cả'}</span>
-            </button>
+            {/* AI Run Button / Cancel Button */}
+            {isScanning ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={cancelAutoReviewMutation.isPending}
+                  onClick={() => {
+                    runSingleAutoReviewMutation.reset()
+                    cancelAutoReviewMutation.mutate()
+                    queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-4 py-2 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 hover:shadow-rose-600/30 active:scale-95 disabled:opacity-50"
+                  title="Dừng và hủy ngay tiến trình quét AI đang chạy"
+                >
+                  <Square className="size-3.5 fill-white text-white animate-pulse" />
+                  <span>{cancelAutoReviewMutation.isPending ? 'Đang dừng...' : 'Hủy tiến trình quét'}</span>
+                </button>
+                <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 bg-amber-500/20 px-2.5 py-1.5 rounded-xl border border-amber-500/30">
+                  <RefreshCw className="size-3 animate-spin text-amber-400" />
+                  Đang chạy AI...
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={runSingleAutoReviewMutation.isPending || autoReviewStats.pending_count === 0}
+                onClick={() => runSingleAutoReviewMutation.mutate()}
+                className="btn-led-gold-sm active:scale-95"
+                title="Thẩm định duy nhất 01 sự kiện đang chờ duyệt (mỗi lần chạy chỉ review 1 sự kiện)"
+              >
+                <span className="btn-led-gold-sm-inner">
+                  <Play className="size-4 fill-current" />
+                  <span>Quét duyệt AI</span>
+                </span>
+              </button>
+            )}
 
             {/* Settings Button */}
             <button
@@ -574,45 +707,71 @@ export function AdminEventReviewPage() {
                 </span>,
 
                 /* Status badge */
-                <span key="status">{statusBadge(event.status, event.approval_status)}</span>,
+                <span key="status">
+                  <div className="flex flex-col gap-1 items-start">
+                    {statusBadge(event.status, event.approval_status, event.display_state)}
+                    {event.cancel_request?.status === 'PENDING' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse whitespace-nowrap">
+                        Chờ duyệt hủy
+                      </span>
+                    )}
+                    {event.pending_revision && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse whitespace-nowrap">
+                        Sửa đổi chờ duyệt
+                      </span>
+                    )}
+                  </div>
+                </span>,
 
                 /* Actions */
                 <div key="actions" className="flex flex-col gap-2">
+                  <div className="flex items-center justify-center gap-2">
+                    {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
+                    {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
+                      <TableActionButton
+                        title="Đình chỉ sự kiện (Khóa đa nguồn vi phạm)"
+                        tone="danger"
+                        icon={ShieldAlert}
+                        onClick={() => setSuspendTarget(event)}
+                        disabled={isMutating || suspendLoading}
+                      />
+                    )}
+                    {/* Unsuspend — when SUSPENDED_BY_ADMIN */}
+                    {event.display_state === 'SUSPENDED_BY_ADMIN' && (
+                      <TableActionButton
+                        title="Gỡ đình chỉ sự kiện"
+                        tone="success"
+                        icon={CheckCircle2}
+                        onClick={() => quickUnsuspend(event)}
+                        disabled={isMutating || suspendLoading}
+                      />
+                    )}
+                    {/* View/Review detail button */}
+                    <TableActionButton
+                      title={
+                        event.cancel_request?.status === 'PENDING'
+                          ? 'Xem & Duyệt yêu cầu hủy sự kiện'
+                          : event.status === 'PENDING_REVIEW' || event.pending_revision
+                            ? 'Xem chi tiết & Thẩm định duyệt'
+                            : 'Xem chi tiết sự kiện'
+                      }
+                      tone={
+                        event.cancel_request?.status === 'PENDING'
+                          ? 'danger'
+                          : event.pending_revision
+                            ? 'warning'
+                            : 'primary'
+                      }
+                      icon={Eye}
+                      onClick={() => navigate(`/admin/events/review/${event.id}`)}
+                    />
+                  </div>
                   <input
                     className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
                     placeholder="Ghi chú (tuỳ chọn)"
                     value={notes[event.id] ?? ''}
                     onChange={(e) => setNote(event.id, e.target.value)}
                   />
-                  <div className="flex items-center justify-center gap-2">
-                    {/* Hide — only for PUBLISHED */}
-                    {event.status === 'PUBLISHED' && (
-                      <TableActionButton
-                        title="Ẩn sự kiện"
-                        tone="danger"
-                        icon={EyeOff}
-                        onClick={() => quickHide(event.id)}
-                        disabled={isMutating}
-                      />
-                    )}
-                    {/* Unhide — only for HIDDEN+APPROVED (was published, then hidden) */}
-                    {event.status === 'HIDDEN' && event.approval_status === 'APPROVED' && (
-                      <TableActionButton
-                        title="Bỏ ẩn"
-                        tone="success"
-                        icon={Eye}
-                        onClick={() => quickUnhide(event.id)}
-                        disabled={isMutating}
-                      />
-                    )}
-                    {/* View/Review detail button */}
-                    <TableActionButton
-                      title={event.status === 'PENDING_REVIEW' ? 'Duyệt chi tiết sự kiện' : 'Xem chi tiết sự kiện'}
-                      tone="primary"
-                      icon={Eye}
-                      onClick={() => navigate(`/admin/events/review/${event.id}`)}
-                    />
-                  </div>
                 </div>,
               ])}
             />
@@ -666,8 +825,12 @@ export function AdminEventReviewPage() {
       <ConfirmModal
         open={!!confirmState}
         title={confirmState?.title}
+        subtitle={confirmState?.subtitle}
+        eventTitle={confirmState?.eventTitle}
         description={confirmState?.description}
+        tone={confirmState?.tone}
         confirmText={confirmState?.confirmText}
+        cancelText={confirmState?.cancelText}
         confirmColor={confirmState?.confirmColor}
         onConfirm={confirmState?.onConfirm}
         onCancel={() => setConfirmState(null)}
@@ -691,6 +854,16 @@ export function AdminEventReviewPage() {
         isOpen={isCriteriaOpen}
         onClose={() => setIsCriteriaOpen(false)}
       />
+
+      {/* Admin Suspend Modal */}
+      {suspendTarget && (
+        <AdminSuspendModal
+          event={suspendTarget}
+          loading={suspendLoading}
+          onClose={() => setSuspendTarget(null)}
+          onConfirm={confirmSuspend}
+        />
+      )}
     </Page>
   )
 }
@@ -891,30 +1064,6 @@ function EventReviewModal({
             </>
           )}
 
-          {isPublished && (
-            <button
-              type="button"
-              disabled={isMutating}
-              onClick={onHide}
-              className="admin-secondary disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <EyeOff className="size-4" />
-              Ẩn sự kiện
-            </button>
-          )}
-
-          {isHiddenApproved && (
-            <button
-              type="button"
-              disabled={isMutating}
-              onClick={onUnhide}
-              className="admin-primary disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <Eye className="size-4" />
-              Bỏ ẩn
-            </button>
-          )}
-
           <button
             type="button"
             className="admin-secondary"
@@ -1052,14 +1201,32 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     retry: false,
   })
 
+  const cancelMutation = useMutation({
+    mutationFn: cancelAdminAutoReview,
+    onSuccess: (res) => {
+      toast.success(res.message || 'Đã gửi lệnh dừng tiến trình quét AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-ai-review', eventId] })
+    },
+    onError: (err) => {
+      toast.error(getApiMessage(err, 'Không thể hủy tiến trình quét.'))
+    },
+  })
+
   const runMutation = useMutation({
     mutationFn: () => runAdminAiReview(event),
     onSuccess: (data) => {
-      toast.success('Đã hoàn thành phân tích sự kiện bằng AI!')
-      queryClient.setQueryData(['admin-ai-review', eventId], data)
+      if (data?.cancelled) {
+        toast.info(data.message || 'Tiến trình quét đã được dừng theo yêu cầu.')
+      } else {
+        toast.success('Đã hoàn thành phân tích sự kiện bằng AI!')
+        queryClient.setQueryData(['admin-ai-review', eventId], data)
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Không thể chạy phân tích AI.')
+      queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
   })
 
@@ -1170,15 +1337,32 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => runMutation.mutate()}
-          disabled={runMutation.isPending || reviewQuery.isLoading}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
-        >
-          <RefreshCw className={`size-3.5 ${runMutation.isPending ? 'animate-spin' : ''}`} />
-          {runMutation.isPending ? 'Đang phân tích...' : aiData ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
-        </button>
+        {runMutation.isPending ? (
+          <button
+            type="button"
+            onClick={() => {
+              runMutation.reset()
+              cancelMutation.mutate()
+              queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
+            }}
+            disabled={cancelMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-4 py-2 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 hover:shadow-rose-600/30 active:scale-95 disabled:opacity-50"
+            title="Dừng và hủy ngay tiến trình quét AI đang chạy"
+          >
+            <Square className="size-3.5 fill-white text-white animate-pulse" />
+            <span>{cancelMutation.isPending ? 'Đang dừng...' : 'Hủy tiến trình quét'}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => runMutation.mutate()}
+            disabled={runMutation.isPending || reviewQuery.isLoading}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
+          >
+            <RefreshCw className={`size-3.5 ${runMutation.isPending ? 'animate-spin' : ''}`} />
+            {aiData ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
+          </button>
+        )}
       </div>
 
       {/* Active AI Scanning Progress State */}
@@ -1187,9 +1371,15 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           <div className="flex items-start gap-3">
             <RefreshCw className="size-5 animate-spin text-indigo-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
-              <h5 className="text-xs font-bold text-indigo-300">
-                AI đang quét và phân tích đa tầng sự kiện...
-              </h5>
+              <div className="flex items-center justify-between">
+                <h5 className="text-xs font-bold text-indigo-300">
+                  AI đang quét và phân tích đa tầng sự kiện...
+                </h5>
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg">
+                  <span className="size-1.5 rounded-full bg-rose-400 animate-ping" />
+                  Có thể bấm "Hủy tiến trình quét" ở trên để dừng
+                </span>
+              </div>
               <div className="mt-1.5 space-y-1.5 text-xs text-slate-300">
                 <p className="flex items-center gap-2">
                   <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
@@ -1200,6 +1390,9 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                   <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả tiếng Việt & đối chiếu bộ điều khoản EventHub...</span>
                 </p>
               </div>
+              <p className="mt-2 text-[10px] text-slate-400 italic">
+                Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút "Hủy tiến trình quét" màu đỏ ở trên nếu bạn muốn dừng ngay lập tức.
+              </p>
             </div>
           </div>
         </div>
@@ -1391,22 +1584,122 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   )
 }
 
-function ConfirmModal({ open, title, description, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', confirmColor = 'admin-primary' }) {
+function ConfirmModal({
+  open,
+  title,
+  subtitle,
+  eventTitle,
+  description,
+  tone = 'primary',
+  onConfirm,
+  onCancel,
+  confirmText = 'Xác nhận',
+  cancelText = 'Hủy bỏ',
+  confirmColor,
+  isPending = false,
+}) {
   if (!open) return null
+
+  const getToneConfig = () => {
+    switch (tone) {
+      case 'success':
+        return {
+          icon: CheckCircle2,
+          iconWrap: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+          btnClass: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40',
+        }
+      case 'danger':
+        return {
+          icon: AlertTriangle,
+          iconWrap: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
+          btnClass: 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/40',
+        }
+      case 'warning':
+        return {
+          icon: AlertTriangle,
+          iconWrap: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+          btnClass: 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/40',
+        }
+      default:
+        return {
+          icon: CheckCircle2,
+          iconWrap: 'bg-primary/20 text-primary border border-primary/30',
+          btnClass: confirmColor || 'bg-primary hover:brightness-110 text-slate-950 font-bold shadow-lg shadow-primary/20',
+        }
+    }
+  }
+
+  const { icon: ToneIcon, iconWrap, btnClass } = getToneConfig()
+
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-      <Panel className="w-full max-w-sm border-border-soft/60">
-        <h3 className="text-lg font-bold text-content">{title}</h3>
-        <p className="mt-2 text-sm text-subtle">{description}</p>
-        <div className="mt-5 flex justify-end gap-3">
-          <button type="button" className="admin-secondary" onClick={onCancel}>
-            {cancelText}
-          </button>
-          <button type="button" className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:-translate-y-0.5 ${confirmColor}`} onClick={onConfirm}>
-            {confirmText}
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconWrap}`}>
+              <ToneIcon className="size-6" />
+            </span>
+            <div>
+              <h3 className="text-xl font-black text-white">{title}</h3>
+              {subtitle ? (
+                <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
+              ) : (
+                <p className="mt-1 text-xs text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+          >
+            <X className="size-5" />
           </button>
         </div>
-      </Panel>
+
+        {/* Event highlight box */}
+        {eventTitle && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
+            <p className="font-bold text-white text-sm mt-0.5 truncate">{eventTitle}</p>
+          </div>
+        )}
+
+        {/* Description */}
+        {description && (
+          <p className="mt-3.5 text-xs text-slate-300 leading-relaxed">
+            {description}
+          </p>
+        )}
+
+        {/* Footer buttons */}
+        <div className="mt-6 flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+          >
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition disabled:opacity-50 ${btnClass}`}
+          >
+            {isPending ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Đang xử lý...</span>
+              </span>
+            ) : (
+              confirmText
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1506,7 +1799,7 @@ function AiAutoReviewSettingsModal({
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <label className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>Kích hoạt AI Tự động Đánh giá & Duyệt</span>
+                  <span>Kích hoạt AI Quét Thẩm định (Chu kỳ 15 phút / 1 sự kiện)</span>
                   {formState.auto_review_enabled && (
                     <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
                       Đang kích hoạt
@@ -1514,7 +1807,7 @@ function AiAutoReviewSettingsModal({
                   )}
                 </label>
                 <p className="text-xs text-slate-400">
-                  Khi bật, sự kiện gửi duyệt sẽ được AI quét toàn diện (giấy phép, ảnh, nội dung, lịch trình, giá vé).
+                  Cứ sau mỗi 15 phút, hệ thống tự động quét đúng 1 sự kiện đang chờ duyệt (hoặc Admin có thể bấm nút chạy thủ công bất cứ lúc nào).
                 </p>
               </div>
               <input
@@ -1544,7 +1837,8 @@ function AiAutoReviewSettingsModal({
                 />
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Tự động chuyển sự kiện sang trạng thái <strong>ĐÃ DUYỆT (COMPLETED)</strong> khi không có vi phạm và điểm chất lượng đạt chuẩn.
+                • <strong>BẬT</strong>: Sự kiện đạt chuẩn sẽ tự động chuyển sang <strong>ĐÃ DUYỆT (APPROVED)</strong>.<br />
+                • <strong>TẮT</strong>: Cứ sau 15p AI chỉ quét review trước cho Admin và đưa ra kết quả, giữ nguyên sự kiện ở trạng thái Chờ duyệt để Admin kiểm tra và quyết định.
               </p>
             </div>
 

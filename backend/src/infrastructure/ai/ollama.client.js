@@ -14,40 +14,77 @@
 const logger = require('../../core/logger');
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3:4b';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
 const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
+const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 8192);
+const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 12);
+const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 1024);
+const OLLAMA_NUM_GPU = Number(process.env.OLLAMA_NUM_GPU || 28);
 
 
 /**
- * Base fetch wrapper with timeout.
+ * Base fetch wrapper with timeout and external cancellation support.
  */
-async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 1, externalSignal = null) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const response = await fetch(`${OLLAMA_BASE_URL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(`Ollama HTTP ${response.status}: ${text.slice(0, 200)}`);
+    const onExternalAbort = () => controller.abort();
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        clearTimeout(timer);
+        const err = new Error('Scan aborted by user');
+        err.name = 'AbortError';
+        err.code = 'SCAN_CANCELLED';
+        throw err;
+      }
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
     }
 
-    return await response.json();
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
+    try {
+      const response = await fetch(`${OLLAMA_BASE_URL}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Ollama HTTP ${response.status}: ${text.slice(0, 200)}`);
+      }
+
+      return await response.json();
+    } catch (err) {
+      if (externalSignal?.aborted) {
+        const abortErr = new Error('Scan aborted by user');
+        abortErr.name = 'AbortError';
+        abortErr.code = 'SCAN_CANCELLED';
+        throw abortErr;
+      }
+      if (err.name === 'AbortError') {
+        throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
+      }
+      const isTransient = err.message && (
+        err.message.includes('fetch failed') ||
+        err.message.includes('ECONNRESET') ||
+        err.message.includes('other side closed')
+      );
+      if (attempt < retries && isTransient) {
+        logger.warn(`[OllamaClient] Kết nối Ollama bị gián đoạn do đổi model, đang thử lại lần ${attempt + 1}/${retries}...`);
+        await new Promise((res) => setTimeout(res, 2000));
+        continue;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
     }
-    throw err;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -79,7 +116,10 @@ async function generate(prompt, options = {}) {
       temperature: options.temperature ?? 0.3,
       top_p: options.top_p ?? 0.9,
       num_predict: options.max_tokens ?? 2048,
-      num_ctx: options.num_ctx ?? 4096,
+      num_ctx: options.num_ctx ?? OLLAMA_NUM_CTX,
+      num_thread: options.num_thread ?? OLLAMA_NUM_THREAD,
+      num_batch: options.num_batch ?? OLLAMA_NUM_BATCH,
+      ...(options.num_gpu !== undefined ? { num_gpu: options.num_gpu } : (OLLAMA_NUM_GPU ? { num_gpu: OLLAMA_NUM_GPU } : {})),
     },
   };
 
@@ -89,12 +129,12 @@ async function generate(prompt, options = {}) {
 
   let result;
   try {
-    result = await ollamaFetch('/api/generate', body);
+    result = await ollamaFetch('/api/generate', body, options.timeoutMs || OLLAMA_TIMEOUT, options.retries ?? 1, options.signal);
   } catch (err) {
     if (err.message && (err.message.includes('image input is not supported') || err.message.includes('mmproj'))) {
       logger.info(`[OllamaClient] Model '${model}' does not support raw images in generate. Retrying with text-only payload.`);
       delete body.images;
-      result = await ollamaFetch('/api/generate', body);
+      result = await ollamaFetch('/api/generate', body, options.timeoutMs || OLLAMA_TIMEOUT, options.retries ?? 1, options.signal);
     } else {
       throw err;
     }
@@ -141,8 +181,10 @@ async function chat(messages, options = {}) {
       temperature: options.temperature ?? 0.25,
       top_p:       options.top_p       ?? 0.85,
       num_predict: options.max_tokens  ?? 1200,
-      num_ctx:     options.num_ctx      ?? 4096,
-      num_thread:  12,
+      num_ctx:     options.num_ctx      ?? OLLAMA_NUM_CTX,
+      num_thread:  options.num_thread   ?? OLLAMA_NUM_THREAD,
+      num_batch:   options.num_batch    ?? OLLAMA_NUM_BATCH,
+      ...(options.num_gpu !== undefined ? { num_gpu: options.num_gpu } : (OLLAMA_NUM_GPU ? { num_gpu: OLLAMA_NUM_GPU } : {})),
     },
   };
 
@@ -154,14 +196,17 @@ async function chat(messages, options = {}) {
 
   let result;
   try {
-    result = await ollamaFetch('/api/chat', body);
+    result = await ollamaFetch('/api/chat', body, OLLAMA_TIMEOUT, 1, options.signal);
   } catch (err) {
+    if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || options.signal?.aborted) {
+      throw err;
+    }
     // If the model does not have vision projector (mmproj), retry as pure text
     if (err.message && (err.message.includes('image input is not supported') || err.message.includes('mmproj'))) {
       logger.info(`[OllamaClient] Model '${model}' does not support raw images input. Retrying with text-only payload.`);
       const textOnlyMessages = processedMessages.map(({ images, ...rest }) => rest);
       const textOnlyBody = { ...body, messages: textOnlyMessages };
-      result = await ollamaFetch('/api/chat', textOnlyBody);
+      result = await ollamaFetch('/api/chat', textOnlyBody, OLLAMA_TIMEOUT, 1, options.signal);
     } else {
       throw err;
     }
@@ -421,9 +466,16 @@ function sanitizeRawVisionOutput(rawText) {
 /**
  * Trau chuốt và chuẩn hóa mô tả sang tiếng Việt tự nhiên, chuyên nghiệp bằng model ngôn ngữ chính
  */
-async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eventTitle = '') {
+async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eventTitle = '', signal = null) {
   if (!rawDescription || typeof rawDescription !== 'string') {
     return `Ảnh ${sourceLabel || 'sự kiện'} hiển thị hình ảnh sự kiện rõ nét, không phát hiện nội dung vi phạm.`;
+  }
+
+  if (signal?.aborted) {
+    const abortErr = new Error('Scan aborted by user');
+    abortErr.name = 'AbortError';
+    abortErr.code = 'SCAN_CANCELLED';
+    throw abortErr;
   }
 
   // 1. Nếu có ký tự tiếng Thái/Khmer hoặc chuỗi lặp rác -> làm sạch trước
@@ -431,7 +483,7 @@ async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eve
 
   // Nếu sau khi làm sạch chuỗi còn quá ngắn hoặc rỗng do toàn bộ là mã rác
   if (cleaned.length < 15) {
-    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, phù hợp với chủ đề và không chứa nội dung nhạy cảm hay vi phạm quy định.`;
+    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, chủ đề phù hợp và đảm bảo chất lượng hình ảnh.`;
   }
 
   // 2. Nếu mô tả đã thuần tiếng Việt và có đầy đủ dấu câu, không chứa tiếng Anh -> giữ nguyên
@@ -450,7 +502,7 @@ ${cleaned}
 Hãy chuyển đổi và viết lại thành một bản nhận định TIẾNG VIỆT tự nhiên, chuẩn mực (2-3 câu):
 1. Nội dung trực quan: Mô tả đối tượng, người/nghệ sĩ, bối cảnh, màu sắc và phong cách thiết kế của ảnh.
 2. Thông tin chữ (OCR): Đọc tên sự kiện, nghệ sĩ biểu diễn, ngày giờ, địa điểm tổ chức nếu có trên ảnh.
-3. An toàn & phù hợp: Nhận xét ảnh có rõ nét, an toàn, không có nội dung đồi trụy hay cờ bạc và có phù hợp với sự kiện "${eventTitle}" hay không.
+3. Tính thẩm mỹ & phù hợp: Nhận xét hình ảnh có hiển thị rõ nét, bố cục có đạt chuẩn và phù hợp với sự kiện "${eventTitle}" hay không.
 
 YÊU CẦU BẮT BUỘC:
 - Trả về DUY NHẤT một đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG dùng thẻ <think>, KHÔNG để sót từ tiếng Anh thừa, KHÔNG thêm lời chào).
@@ -461,17 +513,21 @@ YÊU CẦU BẮT BUỘC:
       temperature: 0.1,
       max_tokens: 200,
       think: false,
+      signal,
     });
 
     if (vietnameseText && vietnameseText.length > 15 && !isForeignOrGibberishText(vietnameseText)) {
       return vietnameseText.replace(/<\/?[a-zA-Z0-9_-]+>/g, '').trim();
     }
   } catch (err) {
+    if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || signal?.aborted || String(err.message || '').includes('aborted')) {
+      throw err;
+    }
     logger.warn(`[OllamaClient] ensureVietnameseDescription fallback: ${err.message}`);
   }
 
   // Fallback an toàn nếu mô hình ngôn ngữ không phản hồi
-  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, chủ đề phù hợp và không vi phạm quy định nội dung.`;
+  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, thiết kế phù hợp và đạt tiêu chuẩn chất lượng hình ảnh.`;
 }
 
 /**
@@ -485,8 +541,15 @@ YÊU CẦU BẮT BUỘC:
  * @param {string} eventTitle - Event title for context
  * @returns {Promise<string>} Text description of the image content in Vietnamese
  */
-async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '', isPermit = false) {
+async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '', isPermit = false, signal = null) {
   if (!base64Image) return 'Không thể phân tích ảnh (dữ liệu ảnh trống).';
+
+  if (signal?.aborted) {
+    const abortErr = new Error('Scan aborted by user');
+    abortErr.name = 'AbortError';
+    abortErr.code = 'SCAN_CANCELLED';
+    throw abortErr;
+  }
 
   // LƯU Ý KỸ THUẬT QUAN TRỌNG:
   // Moondream là mô hình Vision 1.8B chỉ được huấn luyện bằng tiếng Anh.
@@ -506,17 +569,23 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
       temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
       repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
       num_predict: 250,
+      num_thread: OLLAMA_NUM_THREAD,
+      num_gpu: 99,           // Moondream chỉ 1.7GB, đưa 100% vào GPU VRAM (4GB) để xử lý ảnh cực nhanh
+      num_batch: 512,
     },
   };
 
   try {
-    const result = await ollamaFetch('/api/generate', body, OLLAMA_VISION_TIMEOUT);
+    const result = await ollamaFetch('/api/generate', body, OLLAMA_VISION_TIMEOUT, 1, signal);
     const rawDescription = String(result.response || '').trim();
     if (!rawDescription) return `${sourceLabel || 'Ảnh sự kiện'} đã được tải lên, bố cục đạt chuẩn.`;
 
     // Tự động làm sạch mã rác và chuyển hóa 100% sang tiếng Việt nhuần nhuyễn
-    return await ensureVietnameseDescription(rawDescription, sourceLabel, eventTitle);
+    return await ensureVietnameseDescription(rawDescription, sourceLabel, eventTitle, signal);
   } catch (err) {
+    if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || signal?.aborted || String(err.message || '').includes('aborted')) {
+      throw err;
+    }
     logger.warn(`[OllamaClient] Vision model '${OLLAMA_VISION_MODEL}' error: ${err.message}`);
     return `${sourceLabel || 'Ảnh sự kiện'} đã được ghi nhận (${err.message.slice(0, 80)})`;
   }
@@ -530,12 +599,19 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
  * @param {string} eventTitle - Event title for context
  * @returns {Promise<Array<{source: string, description: string}>>}
  */
-async function describeImageBatch(images, eventTitle = '') {
+async function describeImageBatch(images, eventTitle = '', signal = null) {
   if (!Array.isArray(images) || images.length === 0) return [];
 
   const results = [];
 
   for (const img of images) {
+    if (signal?.aborted) {
+      const err = new Error('Scan aborted by user');
+      err.name = 'AbortError';
+      err.code = 'SCAN_CANCELLED';
+      throw err;
+    }
+
     const isPermit = img.source && img.source.startsWith('PERMIT');
     const isPoster = img.source === 'MAIN_POSTER';
     const isBanner = img.source === 'COVER_BANNER';
@@ -557,7 +633,7 @@ async function describeImageBatch(images, eventTitle = '') {
           : 'Describe what is shown in this event image in detail. Describe the people, setting, stage, activity, and read any visible text.';
 
     logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}'...`);
-    const description = await describeImage(img.base64, contextPrompt, sourceLabel, eventTitle, isPermit);
+    const description = await describeImage(img.base64, contextPrompt, sourceLabel, eventTitle, isPermit, signal);
     results.push({
       source: img.source,
       url: img.url || '',
@@ -580,4 +656,8 @@ module.exports = {
   describeImageBatch,
   OLLAMA_MODEL,
   OLLAMA_VISION_MODEL,
+  OLLAMA_NUM_CTX,
+  OLLAMA_NUM_THREAD,
+  OLLAMA_NUM_BATCH,
+  OLLAMA_NUM_GPU,
 };

@@ -1,6 +1,7 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const organizerEventsService = require('./organizerEvents.service');
 const organizerEventsRepository = require('./organizerEvents.repository');
+const eventBusinessRulesService = require('../events/eventBusinessRules.service');
 const aiDocumentParserService = require('./aiDocumentParser.service');
 const logger = require('../../core/logger');
 
@@ -119,8 +120,80 @@ class OrganizerEventsController {
 
   cancelEvent = async (req, res, next) => {
     try {
-      const data = await organizerEventsService.cancelEvent(req.user.sub, req.params.eventId);
-      res.status(200).json(ApiResponse.success(data, 'Event cancelled successfully'));
+      const data = await eventBusinessRulesService.cancelEventNormalFlow(req.user.sub, req.params.eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Hủy sự kiện thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  submitCancellationRequest = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.submitCancellationRequest(req.user.sub, req.params.eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã gửi yêu cầu hủy sự kiện thành công, đang chờ Quản trị viên xét duyệt'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  withdrawCancellationRequest = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.withdrawCancellationRequest(req.user.sub, req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, 'Đã rút lại yêu cầu hủy sự kiện thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  hideEvent = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.hideEvent(req.user.sub, req.params.eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã ẩn sự kiện và tạm dừng bán vé thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  unhideEvent = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.unhideEvent(req.user.sub, req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, data.message || 'Đã hiển thị lại sự kiện'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  pauseSales = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.pauseSales(req.user.sub, req.params.eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã tạm dừng bán vé'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  resumeSales = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.resumeSales(req.user.sub, req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, data.message || 'Đã mở bán lại vé'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getRefundWorklist = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.getRefundWorklist(req.user.sub, req.params.eventId);
+      res.status(200).json(ApiResponse.success(data, 'Danh sách cần hoàn tiền'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  markRefundsSubmitted = async (req, res, next) => {
+    try {
+      const data = await eventBusinessRulesService.markRefundsSubmitted(req.user.sub, req.params.eventId, req.body || {});
+      res.status(200).json(ApiResponse.success(data, 'Đã đánh dấu các khoản hoàn tiền thành công'));
     } catch (err) {
       next(err);
     }

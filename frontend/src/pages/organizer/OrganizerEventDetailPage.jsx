@@ -239,8 +239,8 @@ export function OrganizerEventDetailPage() {
                                 </div>
                             )}
                             <div className="absolute left-4 top-4">
-                                <Badge tone={STATUS_TONES[event.status] || 'gray'}>
-                                    {STATUS_LABELS[event.status] || event.status}
+                                <Badge tone={event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? 'green' : (STATUS_TONES[event.status] || 'gray')}>
+                                    {event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? 'Đã duyệt' : (STATUS_LABELS[event.status] || event.status)}
                                 </Badge>
                             </div>
                         </div>

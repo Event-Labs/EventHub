@@ -1,12 +1,18 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const crypto = require('crypto');
+const db = require('../../infrastructure/database/db.client');
 const authRepository = require('../auth/auth.repository');
 const authService = require('../auth/auth.service');
 const organizerEventsRepository = require('./organizerEvents.repository');
 const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
 const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 const { validateRefundRules } = require('../refunds/refundPolicyHelper');
+const {
+  classifyEventChanges,
+  calculateMinQuota,
+  appendAuditTrail,
+} = require('../events/eventLifecycleHelper');
 const aiImageReviewService = require('../ai/aiImageReview.service');
 const logger = require('../../core/logger');
 const ollamaClient = require('../../infrastructure/ai/ollama.client');
@@ -411,10 +417,152 @@ class OrganizerEventsService {
     const organizerId = await this.resolveOrganizerId(userId);
     const data = sanitizeEventPayload(payload);
     const currentEvent = await this.assertOwnsEvent(organizerId, eventId);
+
+    // 1. Optimistic Locking (AC-UE-08, BR-UE-09)
+    if (payload.version !== undefined && Number(payload.version) !== Number(currentEvent.version || 1)) {
+      throw new AppError('Xung đột phiên bản khi cập nhật. Dữ liệu đã thay đổi bởi phiên làm việc khác.', 409, ErrorCodes.EVENT_VERSION_CONFLICT);
+    }
+
+    // 2. Lifecycle & Suspended checks (BR-UE-02, AC-HE-05)
+    if (['CANCELLED', 'ENDED'].includes(currentEvent.status)) {
+      throw new AppError('Sự kiện đã kết thúc hoặc đã hủy, không thể cập nhật.', 400, ErrorCodes.EVENT_INVALID_TRANSITION);
+    }
+    if (currentEvent.display_state === 'SUSPENDED_BY_ADMIN') {
+      throw new AppError('Sự kiện đang bị đình chỉ bởi Quản trị viên, không thể chỉnh sửa.', 403, ErrorCodes.SUSPENDED_BY_ADMIN);
+    }
+
+    // 3. Check financial orders and tickets
+    const finSummary = await organizerEventsRepository.getEventFinancialSummary(eventId);
+    const hasFinancialOrders = Number(finSummary.paid_orders_count || 0) > 0 || Number(finSummary.issued_tickets_count || 0) > 0;
+
+    // 4. Classify changes if Event is PUBLISHED or APPROVED
+    if (currentEvent.status === 'PUBLISHED' || currentEvent.status === 'APPROVED') {
+      const { changeClass, changes } = classifyEventChanges(currentEvent, data, { hasFinancialOrders });
+
+      // Critical Change check (Section 4.5, AC-UE-04, AC-UE-10)
+      if (changeClass === 'CRITICAL') {
+        if (!payload.is_critical_change) {
+          throw new AppError(
+            'Sự kiện đã có người mua vé. Thay đổi ngày/giờ, địa điểm hoặc hình thức bắt buộc qua quy trình Critical Change.',
+            400,
+            ErrorCodes.CRITICAL_CHANGE_REQUIRED,
+          );
+        }
+        if (!payload.commitment_accepted) {
+          throw new AppError(
+            'Ban tổ chức phải cam kết hoàn tiền trước khi gửi yêu cầu Critical Change.',
+            400,
+            ErrorCodes.REFUND_COMMITMENT_REQUIRED,
+          );
+        }
+        if (currentEvent.pending_revision && currentEvent.pending_revision.status === 'SUBMITTED') {
+          throw new AppError('Đã có một yêu cầu xét duyệt đang mở cho sự kiện này.', 400, ErrorCodes.REVISION_ALREADY_OPEN);
+        }
+
+        const revision = {
+          id: crypto.randomUUID(),
+          change_class: 'CRITICAL',
+          status: 'SUBMITTED',
+          payload_before: currentEvent,
+          payload_after: data,
+          diff: changes,
+          reason: payload.reason || 'Critical Event Update',
+          note: payload.note || '',
+          commitment_accepted_at: new Date().toISOString(),
+          commitment_accepted_by: userId,
+          submitted_by: userId,
+          submitted_at: new Date().toISOString(),
+          sla_due_at: new Date(Date.now() + 24 * 3600000).toISOString(),
+        };
+
+        const auditTrail = appendAuditTrail(currentEvent.audit_trail, {
+          userId,
+          role: 'ORGANIZER',
+          action: 'SUBMIT_CRITICAL_CHANGE',
+          reason: payload.reason,
+          diff: changes,
+        });
+
+        await db.query(
+          `UPDATE events SET pending_revision = $1::jsonb, audit_trail = $2::jsonb, version = version + 1, updated_at = NOW() WHERE id = $3`,
+          [JSON.stringify(revision), JSON.stringify(auditTrail), eventId],
+        );
+
+        return {
+          ...mapEvent(currentEvent),
+          pending_revision: revision,
+          message: 'Yêu cầu Critical Change đã được gửi và đang chờ Quản trị viên xét duyệt.',
+        };
+      }
+
+      // Major Revision check (Section 4.4, AC-UE-03)
+      if (changeClass === 'MAJOR') {
+        if (currentEvent.pending_revision && currentEvent.pending_revision.status === 'SUBMITTED') {
+          throw new AppError('Đã có một Revision đang mở cho sự kiện này.', 400, ErrorCodes.REVISION_ALREADY_OPEN);
+        }
+
+        const revision = {
+          id: crypto.randomUUID(),
+          change_class: 'MAJOR',
+          status: 'SUBMITTED',
+          payload_before: currentEvent,
+          payload_after: data,
+          diff: changes,
+          reason: payload.reason || 'Major Event Update',
+          submitted_by: userId,
+          submitted_at: new Date().toISOString(),
+          sla_due_at: new Date(Date.now() + 24 * 3600000).toISOString(),
+        };
+
+        const auditTrail = appendAuditTrail(currentEvent.audit_trail, {
+          userId,
+          role: 'ORGANIZER',
+          action: 'SUBMIT_MAJOR_REVISION',
+          reason: payload.reason,
+          diff: changes,
+        });
+
+        await db.query(
+          `UPDATE events SET pending_revision = $1::jsonb, audit_trail = $2::jsonb, version = version + 1, updated_at = NOW() WHERE id = $3`,
+          [JSON.stringify(revision), JSON.stringify(auditTrail), eventId],
+        );
+
+        return {
+          ...mapEvent(currentEvent),
+          pending_revision: revision,
+          message: 'Thay đổi lớn đã được gửi tới Quản trị viên xét duyệt. Bản sự kiện đang chạy được giữ nguyên.',
+        };
+      }
+
+      // Minor Change - Quota check against min_quota (AC-UE-06)
+      const commitmentStats = await organizerEventsRepository.getTicketTypeCommitmentStats(eventId);
+      const statsMap = new Map(commitmentStats.map((cs) => [cs.ticket_type_id, cs]));
+      if (Array.isArray(data.ticket_types)) {
+        for (const tt of data.ticket_types) {
+          if (tt.id && statsMap.has(tt.id) && tt.quantity !== undefined) {
+            const stat = statsMap.get(tt.id);
+            const minQuota = calculateMinQuota({
+              validCount: stat.issued_tickets_count,
+              activeHoldCount: stat.active_holds_count,
+            });
+            if (Number(tt.quantity) < minQuota) {
+              const err = new AppError(
+                `Số lượng vé mới không được nhỏ hơn số vé đã cam kết (${minQuota} vé).`,
+                400,
+                ErrorCodes.QUOTA_BELOW_COMMITTED,
+              );
+              err.min_quota = minQuota;
+              throw err;
+            }
+          }
+        }
+      }
+    }
+
     const { context, permissions } = await this.getEditContext(eventId);
     this.assertNotTimeLocked(permissions);
 
-    const eventFields = {};
+    const eventFields = { version: Number(currentEvent.version || 1) + 1 };
     [
       'title',
       'category_id',

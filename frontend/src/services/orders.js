@@ -1,7 +1,11 @@
 import { http } from '@/services/http.js'
 
-export async function checkoutOrder(payload) {
-  const response = await http.post('/orders/checkout', payload)
+export async function checkoutOrder(payload, options = {}) {
+  const headers = {}
+  if (options.idempotencyKey) {
+    headers['Idempotency-Key'] = options.idempotencyKey
+  }
+  const response = await http.post('/orders/checkout', payload, { headers })
   return response.data.data
 }
 

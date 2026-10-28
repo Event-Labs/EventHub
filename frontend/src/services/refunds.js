@@ -26,6 +26,22 @@ export async function fetchRefundDetail(id) {
   return response.data.data
 }
 
+export async function submitPayoutInfo(payload) {
+  const response = await http.post('/refunds/payout-info', payload)
+  return response.data.data
+}
+
+export async function disputeRefund(id, reason = '') {
+  const response = await http.post(`/refunds/${id}/dispute`, { reason })
+  return response.data.data
+}
+
+export async function confirmReceivedRefund(id) {
+  const response = await http.post(`/refunds/${id}/confirm`)
+  return response.data.data
+}
+
+
 // Organizer APIs
 export async function fetchOrganizerRefundRequests(params = {}) {
   const response = await http.get('/organizer/refunds', { params })

@@ -1,3 +1,8 @@
+function cleanHtmlSpaces(str) {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ');
+}
+
 const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
@@ -19,27 +24,54 @@ function mapCard(row) {
   const minPrice = toNumber(row.min_price);
   const maxPrice = toNumber(row.max_price);
 
+  const salesBlocks = Array.isArray(row.sales_blocks) ? row.sales_blocks : [];
+  const activeBlock = salesBlocks.find((b) => !b.released_at);
+  const isPaused = row.sales_status === 'PAUSED' || Boolean(activeBlock);
+
+  const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
+  const rawNote = activeBlock
+    ? (activeBlock.metadata?.note || activeBlock.note || activeBlock.metadata?.reason || null)
+    : null;
+  const humanPauseNote = rawNote && !SYSTEM_CODES.includes(String(rawNote).trim())
+    ? String(rawNote).trim()
+    : null;
+
   return {
     id: row.id,
     title: row.title,
     slug: row.slug,
-    short_description: row.short_description,
+    short_description: cleanHtmlSpaces(row.short_description),
     thumbnail_url: row.thumbnail_url,
     banner_url: row.banner_url,
+    status: row.status,
+    display_state: row.display_state || 'VISIBLE',
+    sales_status: isPaused ? 'PAUSED' : (row.sales_status || 'ON_SALE'),
+    sales_blocks: salesBlocks,
+    is_paused: isPaused,
+    pause_reason: humanPauseNote,
+    pause_note: humanPauseNote,
+    cancel_reason_note: row.cancel_reason_note || null,
+    cancel_reason_code: row.cancel_reason_code || null,
     category: row.category_id
       ? { id: row.category_id, name: row.category_name, slug: row.category_slug }
       : null,
     start_time: row.start_time,
     end_time: row.end_time,
+    location: formatVenue(row) || 'Địa điểm cập nhật sau',
     venue: {
-      name: row.venue_name,
-      city: row.city,
-      district: row.district,
-      address_line: row.address_line,
-      summary: formatVenue(row),
+      name: row.venue_name || null,
+      city: row.city || null,
+      district: row.district || null,
+      address_line: row.address_line || null,
+      summary: formatVenue(row) || 'Địa điểm cập nhật sau',
     },
     organizer: row.organizer_id
-      ? { id: row.organizer_id, full_name: row.organizer_name }
+      ? {
+          id: row.organizer_id,
+          full_name: row.organizer_name,
+          organization_name: row.organizer_name,
+          avatar_url: row.organizer_avatar_url || null,
+        }
       : null,
     min_price: minPrice,
     max_price: maxPrice,
@@ -52,7 +84,7 @@ function mapCard(row) {
 function mapDetail(row) {
   return {
     ...mapCard(row),
-    description: row.description,
+    description: cleanHtmlSpaces(row.description),
     additional_terms: row.additional_terms || null,
     seating_rules: normalizeRules(row.seating_rules),
     require_attendee_info: Boolean(row.require_attendee_info),
@@ -81,6 +113,10 @@ function mapDetail(row) {
 class EventsService {
   async getPublicCategories() {
     return eventsRepository.findPublicCategories();
+  }
+
+  async getPublicOrganizers() {
+    return eventsRepository.findPublicOrganizers();
   }
 
   async getPublicEvents(query, userId) {

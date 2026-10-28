@@ -14,10 +14,13 @@ const eventsListAdminController = require('./events.list.controller');
 // List pending review events
 router.get('/pending', eventsListAdminController.listPendingReview);
 
-// AI Auto-Review Settings & Batch Trigger
+// AI Auto-Review Settings, Single Run, Batch Run, Cancel & Scan Status
 router.get('/settings/auto-review', eventsAdminController.getAutoReviewSettings);
 router.patch('/settings/auto-review', eventsAdminController.updateAutoReviewSettings);
+router.post('/auto-review/single', eventsAdminController.runSingleAutoReview);
 router.post('/auto-review/batch', eventsAdminController.runBatchAutoReview);
+router.post('/auto-review/cancel', eventsAdminController.cancelAutoReview);
+router.get('/auto-review/scan-status', eventsAdminController.getAutoReviewScanStatus);
 
 // AI Review Criteria Management (Điều khoản duyệt sự kiện)
 router.get('/review-criteria', eventsAdminController.listReviewCriteria);
@@ -44,6 +47,20 @@ router.post('/:eventId/ai-review', eventsAdminController.runAiReview);
 // Hide / unhide event
 router.patch('/:eventId/hide',   eventsAdminController.hideEvent);
 router.patch('/:eventId/unhide', eventsAdminController.unhideEvent);
+
+// Suspend / Unsuspend (Section 5.5)
+router.post('/:eventId/suspend',   eventsAdminController.suspendEvent);
+router.post('/:eventId/unsuspend', eventsAdminController.unsuspendEvent);
+
+// Cancellation Requests (Section 6.5)
+router.post('/:eventId/cancellation-requests/approve', eventsAdminController.approveCancellationRequest);
+router.post('/:eventId/cancellation-requests/reject', eventsAdminController.rejectCancellationRequest);
+
+// Force Cancel & Cooling-off (Section 6.6 & 15.10)
+router.post('/:eventId/force-cancel', eventsAdminController.initiateForceCancel);
+router.post('/:eventId/force-cancel/confirm', eventsAdminController.confirmForceCancel);
+// Revisions Review (Section 4.4 & 4.5)
+router.post('/:eventId/revisions/review', eventsAdminController.reviewRevision);
 
 module.exports = router;
 

@@ -33,17 +33,86 @@ function formatPrice(event) {
   return `${Number(min).toLocaleString('vi-VN')} đ`
 }
 
+function formatCategory(category) {
+  if (typeof category === 'string' && category.trim()) return category.trim()
+  if (category && typeof category === 'object' && typeof category.name === 'string' && category.name.trim()) {
+    return category.name.trim()
+  }
+  return 'Sự kiện'
+}
+
+function formatLocation(event) {
+  if (!event) return 'Địa điểm cập nhật sau'
+
+  if (typeof event.location === 'string' && event.location.trim()) {
+    return event.location.trim()
+  }
+
+  if (event.location && typeof event.location === 'object') {
+    if (typeof event.location.summary === 'string' && event.location.summary.trim()) {
+      return event.location.summary.trim()
+    }
+    const locParts = [
+      event.location.name,
+      event.location.address_line,
+      event.location.district,
+      event.location.city,
+    ].filter(Boolean)
+    if (locParts.length > 0) return locParts.join(', ')
+  }
+
+  if (typeof event.venue === 'string' && event.venue.trim()) {
+    return event.venue.trim()
+  }
+
+  if (event.venue && typeof event.venue === 'object') {
+    if (typeof event.venue.summary === 'string' && event.venue.summary.trim()) {
+      return event.venue.summary.trim()
+    }
+    const venueParts = [
+      event.venue.name,
+      event.venue.address_line,
+      event.venue.district,
+      event.venue.city,
+    ].filter(Boolean)
+    if (venueParts.length > 0) return venueParts.join(', ')
+  }
+
+  if (typeof event.venue_name === 'string' && event.venue_name.trim()) {
+    return event.venue_name.trim()
+  }
+
+  if (typeof event.location_name === 'string' && event.location_name.trim()) {
+    return event.location_name.trim()
+  }
+
+  return 'Địa điểm cập nhật sau'
+}
+
+function formatVenueText(venue) {
+  if (!venue) return ''
+  if (typeof venue === 'string') return venue.trim()
+  if (typeof venue === 'object') {
+    return (
+      (typeof venue.summary === 'string' && venue.summary.trim()) ||
+      [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') ||
+      ''
+    )
+  }
+  return ''
+}
+
 function normalizeEvent(event) {
   return {
     id: event.slug || event.id,
     title: event.title,
-    subtitle: event.subtitle || event.short_description,
+    subtitle: typeof (event.subtitle || event.short_description) === 'string' ? (event.subtitle || event.short_description) : '',
     image: event.thumbnail_url || event.banner_url || event.image,
-    category: event.category?.name || event.category || 'Sự kiện',
+    category: formatCategory(event.category),
     badgeColor: event.badgeColor || 'primary',
     date: event.date || formatDateRange(event.start_time, event.end_time),
     time: event.time || '',
-    location: event.location || event.venue?.summary || event.venue || 'Địa điểm cập nhật sau',
+    location: formatLocation(event),
     priceLabel: formatPrice(event),
     isFavorited: Boolean(event.is_favorited),
   }
@@ -76,7 +145,7 @@ export function EventCard({
           openDetail()
         }
       }}
-      className="glass-panel group flex h-full cursor-pointer flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1"
+      className="glass-panel group flex h-full cursor-pointer flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 [transform:translateZ(0)] will-change-transform"
     >
       <div
         className={cn(
@@ -122,7 +191,7 @@ export function EventCard({
           </button>
         )}
       </div>
-      <div className="flex flex-1 flex-col space-y-4 p-5">
+      <div className="flex flex-1 flex-col space-y-4 p-5 [transform:translateZ(0)]">
         <div className="h-[84px]">
           <h3 className="line-clamp-3 font-display text-xl font-bold leading-snug text-white transition-colors group-hover:text-primary">
             {item.title}

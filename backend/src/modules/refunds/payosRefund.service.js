@@ -145,12 +145,48 @@ class PayOSRefundService {
     const refundId = refundRequest.id;
     const providerOrderCode = paymentOrder?.provider_order_code;
     const refundAmount = Math.round(Number(amount || refundRequest.refund_amount || 0));
-    const hasDedicatedPayout = Boolean(channel?.payout_client_id && channel?.payout_api_key_encrypted);
-    const activeClientId = hasDedicatedPayout ? channel.payout_client_id : channel?.client_id;
-    const activeApiKey = hasDedicatedPayout ? channel.payout_api_key_encrypted : channel?.api_key_encrypted;
-    const activeChecksumKey = hasDedicatedPayout
-      ? channel.payout_checksum_key_encrypted
-      : channel?.checksum_key_encrypted;
+
+    const organizerId = refundRequest?.organizer_id || channel?.organizer_id || paymentOrder?.organizer_id;
+    let activeClientId = null;
+    let activeApiKey = null;
+    let activeChecksumKey = null;
+    let hasDedicatedPayout = false;
+
+    if (organizerId) {
+      try {
+        const organizerPaymentsService = require('../organizer-payments/organizerPayments.service');
+        const creds = await organizerPaymentsService.getDecryptedCredentials(organizerId);
+        if (creds) {
+          if (creds.payout && !creds.payout.isSameAsInbound) {
+            hasDedicatedPayout = true;
+            activeClientId = creds.payout.clientId;
+            activeApiKey = creds.payout.apiKey;
+            activeChecksumKey = creds.payout.checksumKey;
+          } else {
+            hasDedicatedPayout = false;
+            activeClientId = creds.clientId;
+            activeApiKey = creds.apiKey;
+            activeChecksumKey = creds.checksumKey;
+          }
+        }
+      } catch (err) {
+        logger.error(`[PAYOS_REFUND] Failed to load decrypted credentials for organizer ${organizerId}: ${err.message}`);
+      }
+    }
+
+    if (!activeClientId) {
+      hasDedicatedPayout = Boolean(channel?.payout_client_id && channel?.payout_api_key_encrypted);
+      activeClientId = hasDedicatedPayout ? channel.payout_client_id : channel?.client_id;
+      const rawApi = hasDedicatedPayout ? channel.payout_api_key_encrypted : channel?.api_key_encrypted;
+      const rawChecksum = hasDedicatedPayout ? channel.payout_checksum_key_encrypted : channel?.checksum_key_encrypted;
+      const fieldCrypto = require('../../core/security/fieldCrypto');
+      activeApiKey = fieldCrypto.isEncrypted(rawApi)
+        ? fieldCrypto.decrypt(rawApi, organizerId, hasDedicatedPayout ? 'payos_payout_api_key' : 'payos_api_key', { allowLegacy: true })
+        : rawApi;
+      activeChecksumKey = fieldCrypto.isEncrypted(rawChecksum)
+        ? fieldCrypto.decrypt(rawChecksum, organizerId, hasDedicatedPayout ? 'payos_payout_checksum_key' : 'payos_checksum_key', { allowLegacy: true })
+        : rawChecksum;
+    }
 
     logger.info(
       `[PAYOS_REFUND] Initiating refund refundId=${refundId} orderCode=${providerOrderCode} amount=${refundAmount} using ${hasDedicatedPayout ? 'DEDICATED Kênh chi' : 'INBOUND Kênh thu'} (clientId=${activeClientId?.slice(0, 8)}...)`,
@@ -165,7 +201,7 @@ class PayOSRefundService {
       };
     }
 
-    if (!channel || !activeClientId || !activeApiKey) {
+    if ((!channel && !activeClientId) || !activeClientId || !activeApiKey) {
       return {
         success: false,
         error: 'Ban tổ chức chưa cấu hình hoặc thiếu thông tin kết nối cổng thanh toán PayOS.',
@@ -190,7 +226,6 @@ class PayOSRefundService {
     }
 
     // 1b. Resolve Dedicated Egress Gateway for Organizer
-    const organizerId = refundRequest?.organizer_id || channel?.organizer_id;
     let egressGateway = null;
     if (organizerId) {
       try {
@@ -218,8 +253,13 @@ class PayOSRefundService {
       }
     }
 
-    // 2. Check for mock/simulation in test or configured environment
-    if (options.mockSuccess || process.env.PAYOS_MOCK_REFUND === 'true') {
+    // 2. Check for mock/simulation in test or configured environment (KHÔNG BAO GIỜ mock ở production)
+    const isMockAllowed =
+      options.mockSuccess ||
+      process.env.NODE_ENV === 'test' ||
+      (process.env.NODE_ENV !== 'production' && process.env.PAYOS_MOCK_REFUND === 'true');
+
+    if (isMockAllowed && process.env.NODE_ENV !== 'production') {
       const mockTxId = `MOCK_PAYOS_RF_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       logger.info(`[PAYOS_REFUND] Mock refund success refundId=${refundId} txId=${mockTxId}`);
       return {

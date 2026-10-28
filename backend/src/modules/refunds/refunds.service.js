@@ -6,6 +6,7 @@ const refundsRepository = require('./refunds.repository');
 const refundRuleEngine = require('./refundRuleEngine');
 const payosRefundService = require('./payosRefund.service');
 const notificationsService = require('../notifications/notifications.service');
+const { buildRefundConfirmationEmail } = require('./refundConfirmationEmail.service');
 
 class RefundsService {
   /**
@@ -276,15 +277,16 @@ class RefundsService {
           await refundsRepository.unlockTicketFromRefund(refund.ticket_id, client);
         }
 
-        // Restore order status to PAID if no other pending refund requests exist
+        // Restore order status to PAID (or CONFIRMED for 0đ orders) if no other pending refund requests exist
         const otherPending = await client.query(
           `SELECT 1 FROM refund_requests WHERE order_id = $1 AND id != $2 AND status IN ('PENDING', 'APPROVED', 'PROCESSING') LIMIT 1`,
           [refund.order_id, refundId],
         );
         if (otherPending.rows.length === 0) {
+          const targetStatus = Number(refund.order_total_amount || 0) === 0 ? 'CONFIRMED' : 'PAID';
           await client.query(
-            `UPDATE orders SET status = 'PAID', updated_at = now() WHERE id = $1 AND status = 'REFUND_REQUESTED'`,
-            [refund.order_id],
+            `UPDATE orders SET status = $1, updated_at = now() WHERE id = $2 AND status = 'REFUND_REQUESTED'`,
+            [targetStatus, refund.order_id],
           );
         }
 
@@ -429,6 +431,10 @@ class RefundsService {
 
         // Notify customer of successful refund asynchronously in background (no delay for HTTP response)
         setImmediate(() => {
+          const emailData = buildRefundConfirmationEmail(refund, updated, {
+            refundMethod: payload.refund_method,
+          });
+
           notificationsService
             .createAndDispatch(
               {
@@ -438,7 +444,12 @@ class RefundsService {
                 content: `Yêu cầu hoàn tiền vé ${refund.ticket_code || 'đơn ' + refund.order_code} đã hoàn tất. Số tiền: ${Number(updated.refund_amount).toLocaleString('vi-VN')} VND.`,
                 type: 'PAYMENT',
               },
-              { email: refund.customer_email },
+              {
+                email: refund.customer_email,
+                subject: emailData.subject,
+                message: emailData.text,
+                html: emailData.html,
+              },
             )
             .catch((err) => logger.warn(`[NOTIFY_REFUND_SUCCESS_FAIL] ${err.message}`));
         });

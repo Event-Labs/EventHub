@@ -47,6 +47,10 @@ function buildTicketPayload(row) {
     attendee_email: row.attendee_email,
     created_at: row.created_at,
     checked_in_at: row.checked_in_at,
+    ticket_source: row.ticket_source || 'STANDARD',
+    original_price: row.original_price !== undefined && row.original_price !== null ? Number(row.original_price) : Number(row.ticket_type_price || 0),
+    discount_allocated: row.discount_allocated !== undefined && row.discount_allocated !== null ? Number(row.discount_allocated) : 0,
+    payable_price: row.payable_price !== undefined && row.payable_price !== null ? Number(row.payable_price) : Number(row.order_item_final_price || 0),
     event: {
       id: row.event_id,
       title: row.event_title,
@@ -490,12 +494,25 @@ class TicketsService {
       throw new AppError('Không tìm thấy vé.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    if (result.state === 'FORBIDDEN') {
-      throw new AppError('Staff không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+    if (result.state === 'FORBIDDEN_ACTION' || result.state === 'FORBIDDEN') {
+      throw new AppError('Nhân viên không được phân công cho sự kiện này.', 403, ErrorCodes.FORBIDDEN_ACTION);
     }
 
-    if (result.state === 'INVALID_STATUS') {
-      throw new AppError(invalidTicketMessage(result.ticket?.status), 400, ErrorCodes.INVALID_INPUT);
+    if (result.state === 'SESSION_CANCELLED') {
+      throw new AppError('Sự kiện hoặc suất diễn đã bị hủy.', 400, ErrorCodes.SESSION_CANCELLED);
+    }
+
+    if (result.state === 'TICKET_REFUND_IN_PROGRESS') {
+      throw new AppError('Vé đang trong tiến trình hoàn tiền, không được phép check-in.', 400, ErrorCodes.TICKET_REFUND_IN_PROGRESS);
+    }
+
+    if (result.state === 'ALREADY_CHECKED_IN') {
+      const checkedTime = result.ticket?.checked_in_at ? new Date(result.ticket.checked_in_at).toLocaleTimeString('vi-VN') : '';
+      throw new AppError(`Vé đã được check-in trước đó${checkedTime ? ' lúc ' + checkedTime : ''}.`, 400, ErrorCodes.ALREADY_CHECKED_IN);
+    }
+
+    if (result.state === 'TICKET_NOT_VALID' || result.state === 'INVALID_STATUS') {
+      throw new AppError(invalidTicketMessage(result.ticket?.status), 400, ErrorCodes.TICKET_NOT_VALID);
     }
 
     if (result.state === 'INVALID_ORDER') {
@@ -503,19 +520,19 @@ class TicketsService {
     }
 
     if (result.state === 'CHECKIN_NOT_OPEN') {
-      throw new AppError(
-        'Vé này chưa đến giờ tham gia.',
-        400,
-        ErrorCodes.INVALID_INPUT,
-      );
+      throw new AppError('Vé này chưa đến giờ tham gia.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     if (result.state === 'EXPIRED') {
-      throw new AppError('Vé đã hết hạn.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Vé đã hết hạn.', 400, ErrorCodes.TICKET_NOT_VALID);
     }
 
     return buildStaffTicketPayload(result.ticket);
   }
+
+  cancelFreeTicket = async (userId, ticketId, reason) => {
+    return ticketsRepository.cancelFreeTicket(ticketId, userId, reason);
+  };
 }
 
 module.exports = new TicketsService();

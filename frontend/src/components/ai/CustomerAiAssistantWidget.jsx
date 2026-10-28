@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { MessageSquare, X, Send, Loader2, Bot, User, Sparkles, Menu, Plus, Trash2, Clock, ChevronLeft, Mic, Square } from 'lucide-react'
-import { sendChatMessage } from '@/services/aiAssistant.js'
+import { sendChatMessage, getAiChatSessions, saveAiChatSession, syncAiChatSessions, deleteAiChatSession } from '@/services/aiAssistant.js'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate, Link } from 'react-router-dom'
@@ -857,16 +857,75 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     } catch (e) {}
   }, []);
 
-  // When userKey changes (e.g. account switch), reload sessions for that specific user
+  // When userKey changes (e.g. account switch), reload sessions for that specific user and sync with Database
   useEffect(() => {
-    if (!userKey) {
+    if (!userKey || !isAuthenticated()) {
       setSessions([createNewSession()]);
       setActiveSessionId(null);
       return;
     }
-    const loaded = loadInitialSessions(userKey);
-    setSessions(loaded);
-    setActiveSessionId(loadInitialActiveId(userKey, loaded));
+
+    // 1. Initial instant load from localStorage cache
+    const cachedSessions = loadInitialSessions(userKey);
+    setSessions(cachedSessions);
+    setActiveSessionId(loadInitialActiveId(userKey, cachedSessions));
+
+    // 2. Fetch remote sessions from PostgreSQL database
+    let isMounted = true;
+    getAiChatSessions()
+      .then(async (dbSessions) => {
+        if (!isMounted) return;
+        const safeDbSessions = Array.isArray(dbSessions) ? dbSessions : [];
+        const dbSessionIds = new Set(safeDbSessions.map((s) => s.id));
+
+        // Find any local cached sessions that are not in the DB yet
+        const unsyncedLocal = cachedSessions.filter(
+          (local) => !dbSessionIds.has(local.id) && Array.isArray(local.messages) && local.messages.length > 1,
+        );
+
+        if (unsyncedLocal.length > 0) {
+          try {
+            const syncedSessions = await syncAiChatSessions(unsyncedLocal);
+            if (isMounted && Array.isArray(syncedSessions) && syncedSessions.length > 0) {
+              setSessions(syncedSessions);
+              setActiveSessionId((prev) => (prev && syncedSessions.some((s) => s.id === prev) ? prev : syncedSessions[0]?.id));
+              const storageKey = getSessionsStorageKey(userKey);
+              if (storageKey) {
+                try {
+                  localStorage.setItem(storageKey, JSON.stringify(syncedSessions));
+                } catch (e) {}
+              }
+              return;
+            }
+          } catch (e) {
+            console.warn('[CustomerAiAssistantWidget] Auto-sync local sessions to DB warning:', e);
+          }
+        }
+
+        if (safeDbSessions.length > 0) {
+          setSessions(safeDbSessions);
+          setActiveSessionId((prev) => {
+            if (prev && safeDbSessions.some((s) => s.id === prev)) return prev;
+            return safeDbSessions[0]?.id || null;
+          });
+          const storageKey = getSessionsStorageKey(userKey);
+          if (storageKey) {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(safeDbSessions));
+            } catch (e) {}
+          }
+        } else if (cachedSessions.length > 0 && cachedSessions.some((s) => s.messages?.length > 1)) {
+          // If DB is completely empty for this user, push all cached sessions to DB
+          syncAiChatSessions(cachedSessions).catch(() => {});
+        }
+      })
+      .catch((err) => {
+        console.warn('[CustomerAiAssistantWidget] Failed to sync sessions from DB:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [userKey]);
 
   // Save sessions to user-scoped localStorage
@@ -899,10 +958,11 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
   const handleCreateNewChat = () => {
     const newSession = createNewSession();
-    setSessions(prev => [newSession, ...prev]);
+    setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
     setShowHistoryDrawer(false);
     setInput('');
+    saveAiChatSession(newSession).catch(() => {});
   };
 
   const handleSelectSession = (sessionId) => {
@@ -912,11 +972,13 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
   const handleDeleteSession = (e, sessionId) => {
     e.stopPropagation();
-    const updated = sessions.filter(s => s.id !== sessionId);
+    deleteAiChatSession(sessionId).catch(() => {});
+    const updated = sessions.filter((s) => s.id !== sessionId);
     if (updated.length === 0) {
       const fresh = createNewSession();
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
+      saveAiChatSession(fresh).catch(() => {});
     } else {
       setSessions(updated);
       if (activeSessionId === sessionId) {
@@ -976,7 +1038,12 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         ? []
         : messages.map(m => ({ role: m.role, content: m.content }));
 
-      const response = await sendChatMessage(userMessage, apiHistory, { signal: abortController.signal });
+      const response = await sendChatMessage(
+        userMessage,
+        apiHistory,
+        { signal: abortController.signal },
+        { sessionId: activeSession.id, title: newTitle }
+      );
 
       const assistantText = response?.content || 'Eve đã tiếp nhận thông tin của bạn!';
 
@@ -997,12 +1064,20 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                          abortController.signal.aborted;
 
       if (isCanceled) {
+        const stoppedMessages = [...updatedMessagesWithUser, { role: 'assistant', content: '_⏹️ Đã dừng phản hồi theo yêu cầu của bạn._' }];
+        saveAiChatSession({
+          id: activeSession.id,
+          title: newTitle,
+          messages: stoppedMessages,
+          updatedAt: Date.now()
+        }).catch(() => {});
+
         setSessions(prev => prev.map(s => {
           if (s.id === activeSession.id) {
             return {
               ...s,
               updatedAt: Date.now(),
-              messages: [...updatedMessagesWithUser, { role: 'assistant', content: '_⏹️ Đã dừng phản hồi theo yêu cầu của bạn._' }]
+              messages: stoppedMessages
             };
           }
           return s;
