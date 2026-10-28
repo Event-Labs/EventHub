@@ -789,48 +789,6 @@ export function OrganizerPaymentSettingsPage() {
           {/* ========================================================================= */}
           {activeTab === 'payout' && (
             <div className="space-y-6">
-              {/* Status Alert Banner */}
-              <div
-                className={`rounded-2xl border p-5 transition ${isPayoutActive
-                  ? 'border-success/30 bg-success/10 text-content'
-                  : 'border-warning/30 bg-warning/10 text-content'
-                  }`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    {isPayoutActive ? (
-                      <CheckCircle2 className="mt-0.5 size-6 text-success shrink-0" />
-                    ) : (
-                      <AlertCircle className="mt-0.5 size-6 text-warning shrink-0" />
-                    )}
-                    <div>
-                      <h3 className="font-bold text-content text-base">
-                        {isPayoutActive
-                          ? 'Kênh chi (Payouts) đang hoạt động'
-                          : 'Kênh chi (Payouts) chưa được kích hoạt'}
-                      </h3>
-                      <p className="mt-1 text-sm text-subtle">
-                        {isPayoutActive
-                          ? 'Hệ thống đang sử dụng bộ khóa Kênh chi riêng đã xác thực thành công với PayOS.'
-                          : 'Để thực hiện hoàn tiền tự động qua PayOS, Ban tổ chức vui lòng cài đặt bộ khóa Kênh chi riêng và xác thực kết nối.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={runPayoutConnectionTest}
-                      disabled={payoutTesting || (!payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
-                      className="flex items-center gap-2 rounded-xl border border-border-soft/40 bg-surface px-4 py-2 text-sm font-semibold text-content hover:bg-surface/80 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`size-4 ${payoutTesting ? 'animate-spin text-primary' : ''}`} />
-                      Kiểm tra lại
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               {/* Configuration Box */}
               <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm space-y-6">
                 <div>
