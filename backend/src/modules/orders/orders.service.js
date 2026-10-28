@@ -393,6 +393,10 @@ class OrdersService {
   }
 
   async createStaffDirectBooking(staffId, roles = [], payload) {
+    if (payload.payment_method === 'complimentary') {
+      return this.createStaffComplimentaryBooking(staffId, roles, payload);
+    }
+
     await ordersRepository.expirePendingOrders();
 
     const normalizedItems = payload.items.map((item) => ({
@@ -527,6 +531,43 @@ class OrdersService {
     return mapStaffDirectBooking(data);
   }
 
+  async createStaffComplimentaryBooking(staffId, roles = [], payload) {
+    if (!features.STAFF_COMPLIMENTARY_BOOKING_ENABLED) {
+      throw new AppError('Tính năng cấp vé mời nhân sự hiện đang tạm đóng.', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    await ordersRepository.expirePendingOrders();
+
+    const normalizedItems = payload.items.map((item) => ({
+      ticket_type_id: item.ticket_type_id,
+      quantity: Number(item.quantity),
+      session_seat_ids: item.session_seat_ids || [],
+    }));
+
+    const data = await ordersRepository.createStaffComplimentaryBooking({
+      staffId,
+      staffRoles: roles,
+      eventId: payload.event_id,
+      buyer: {
+        name: payload.buyer_name,
+        email: payload.buyer_email ? payload.buyer_email.toLowerCase() : null,
+        phone: normalizePhone(payload.buyer_phone),
+      },
+      complimentaryReason: payload.complimentary_reason,
+      internalNote: payload.internal_note || null,
+      items: normalizedItems,
+      attendees: payload.attendees || [],
+    });
+
+    const confirmationEmailSent = await paymentsService.sendTicketConfirmation(data.order.id);
+
+    return {
+      order: data.order,
+      order_items: data.orderItems,
+      issued_tickets: data.issuedTickets,
+      confirmation_email_sent: confirmationEmailSent,
+    };
+  }
 }
 
 module.exports = new OrdersService();

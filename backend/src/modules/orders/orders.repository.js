@@ -902,6 +902,315 @@ class OrdersRepository {
     return [...events.values()];
   }
 
+  /**
+   * Staff Complimentary Ticket Booking (Decision 2.8)
+   * Locking order: events (advisory lock) -> ticket_types (FOR UPDATE) -> orders -> tickets -> session_seats (FOR UPDATE)
+   */
+  async createStaffComplimentaryBooking({ staffId, staffRoles = [], buyer, complimentaryReason, internalNote, eventId, items, attendees = [] }) {
+    const client = await db.getClient();
+    const isAdmin = userIsAdmin(staffRoles);
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Validate staff account
+      const staffResult = await client.query(
+        'SELECT id, full_name, email FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [staffId],
+      );
+      const staff = staffResult.rows[0];
+      if (!staff) {
+        throw new AppError('Không tìm thấy tài khoản nhân sự.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      }
+
+      // 2. Validate event assignment
+      if (!isAdmin) {
+        const scopeResult = await client.query(
+          `
+          SELECT 1
+          FROM event_staffs es
+          JOIN events e ON e.id = es.event_id
+          WHERE es.event_id = $1
+            AND es.staff_id = $2
+            AND e.deleted_at IS NULL
+            AND e.status = 'PUBLISHED'
+          LIMIT 1
+          `,
+          [eventId, staffId],
+        );
+        if (scopeResult.rows.length === 0) {
+          throw new AppError('Bạn không được phân công quản lý sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+        }
+      }
+
+      // 3. Advisory lock for event complimentary issuance
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtext('event_complimentary_' || $1::text))`,
+        [eventId],
+      );
+
+      // 4. Lock ticket types FOR UPDATE
+      const ticketTypeIds = [...new Set(items.map((item) => item.ticket_type_id))];
+      const ticketTypesResult = await client.query(
+        `
+        SELECT
+          tt.id,
+          tt.event_session_id,
+          tt.name,
+          tt.price,
+          tt.quantity,
+          tt.is_seated,
+          es.id AS session_id,
+          es.status AS session_status,
+          es.start_time AS session_start_time,
+          es.end_time AS session_end_time,
+          es.venue_id,
+          e.id AS event_id,
+          e.title AS event_title,
+          e.slug AS event_slug,
+          e.status AS event_status,
+          e.deleted_at,
+          e.seating_rules,
+          e.refund_policy AS event_refund_policy,
+          e.organizer_id
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
+        WHERE tt.id = ANY($1::uuid[])
+        FOR UPDATE OF tt
+        `,
+        [ticketTypeIds],
+      );
+
+      if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
+        throw new AppError('Thông tin vé không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      const firstTicket = ticketTypesResult.rows[0];
+      if (
+        !firstTicket ||
+        firstTicket.event_id !== eventId ||
+        firstTicket.deleted_at ||
+        firstTicket.event_status !== 'PUBLISHED'
+      ) {
+        throw new AppError('Sự kiện hiện không khả dụng để cấp vé mời.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      // 5. Check complimentary_quota if configured
+      const seatingRules = typeof firstTicket.seating_rules === 'string'
+        ? JSON.parse(firstTicket.seating_rules)
+        : (firstTicket.seating_rules || {});
+      const complimentaryQuota = seatingRules.complimentary_quota !== undefined && seatingRules.complimentary_quota !== null
+        ? Number(seatingRules.complimentary_quota)
+        : null;
+
+      const totalRequested = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+      if (complimentaryQuota !== null && complimentaryQuota >= 0) {
+        const { rows: [quotaRow] } = await client.query(
+          `
+          SELECT COUNT(*)::int AS count
+          FROM tickets t
+          WHERE t.event_id = $1
+            AND t.ticket_source = 'COMPLIMENTARY'
+            AND t.status IN ('VALID', 'USED')
+          `,
+          [eventId],
+        );
+        const currentComplimentaryCount = quotaRow?.count || 0;
+        if (currentComplimentaryCount + totalRequested > complimentaryQuota) {
+          throw new AppError(
+            `Hạn mức vé mời của sự kiện (${complimentaryQuota} vé) không đủ đáp ứng. Đã cấp: ${currentComplimentaryCount} vé.`,
+            400,
+            ErrorCodes.INVALID_INPUT,
+          );
+        }
+      }
+
+      // 6. Check inventory for each ticket type
+      const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
+      for (const item of items) {
+        const tt = ticketTypeMap.get(item.ticket_type_id);
+        const { rows: [soldRow] } = await client.query(
+          `
+          SELECT COUNT(t.id)::int AS sold
+          FROM tickets t
+          JOIN order_items oi ON oi.id = t.order_item_id
+          JOIN orders o ON o.id = oi.order_id
+          WHERE oi.ticket_type_id = $1
+            AND o.status IN ('PAID', 'CONFIRMED')
+            AND t.status IN ('VALID', 'USED')
+          `,
+          [tt.id],
+        );
+        const currentSold = soldRow?.sold || 0;
+        if (currentSold + item.quantity > tt.quantity) {
+          throw new AppError(
+            `Hạng vé "${tt.name}" đã hết số lượng khả dụng.`,
+            400,
+            ErrorCodes.ORDER_TICKET_UNAVAILABLE,
+          );
+        }
+      }
+
+      // 7. Check and lock seats if seated
+      const allSeatIds = items.flatMap((item) => item.session_seat_ids || []);
+      if (allSeatIds.length > 0) {
+        const { rows: lockedSeats } = await client.query(
+          `
+          SELECT id, status, held_by, held_until, order_id
+          FROM session_seats
+          WHERE id = ANY($1::uuid[])
+          FOR UPDATE
+          `,
+          [allSeatIds],
+        );
+        if (lockedSeats.length !== allSeatIds.length) {
+          throw new AppError('Một số ghế đã chọn không tồn tại.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+        for (const seat of lockedSeats) {
+          const isAvailable = seat.status === 'AVAILABLE' || (seat.held_by === staffId && seat.status === 'HELD');
+          if (!isAvailable) {
+            throw new AppError('Một số ghế đã chọn đã được đặt hoặc không khả dụng.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          }
+        }
+      }
+
+      // 8. Create order with CONFIRMED status and FREE payment method
+      const orderCode = `ORD_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const auditTrail = [
+        {
+          action: 'STAFF_COMPLIMENTARY_BOOKING',
+          issued_by: staffId,
+          roles: staffRoles,
+          reason: complimentaryReason.trim(),
+          internal_note: internalNote || null,
+          total_tickets: totalRequested,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+
+      const { rows: [order] } = await client.query(
+        `
+        INSERT INTO orders (
+          order_code, user_id, organizer_id,
+          buyer_name, buyer_email, buyer_phone,
+          subtotal, discount_amount, platform_fee, total_amount,
+          status, payment_method, complimentary_reason, staff_user_id,
+          audit_trail, created_at, updated_at
+        )
+        VALUES (
+          $1, $2, $3,
+          $4, $5, $6,
+          0, 0, 0, 0,
+          'CONFIRMED', 'FREE', $7, $8,
+          $9::jsonb, NOW(), NOW()
+        )
+        RETURNING *
+        `,
+        [
+          orderCode,
+          staffId,
+          firstTicket.organizer_id,
+          buyer.name,
+          buyer.email,
+          buyer.phone || null,
+          complimentaryReason.trim(),
+          staffId,
+          JSON.stringify(auditTrail),
+        ],
+      );
+
+      // 9. Create order items and issued tickets
+      const orderItems = [];
+      const issuedTickets = [];
+
+      let attendeeIndex = 0;
+      for (const item of items) {
+        const tt = ticketTypeMap.get(item.ticket_type_id);
+        const originalPrice = Number(tt.price || 0);
+
+        const { rows: [orderItem] } = await client.query(
+          `
+          INSERT INTO order_items (
+            order_id, ticket_type_id, quantity, unit_price, final_price, created_at
+          )
+          VALUES ($1, $2, $3, $4, 0, NOW())
+          RETURNING *
+          `,
+          [order.id, tt.id, item.quantity, originalPrice],
+        );
+        orderItems.push(orderItem);
+
+        for (let i = 0; i < item.quantity; i++) {
+          const seatId = item.session_seat_ids?.[i] || null;
+          const attendee = attendees[attendeeIndex] || {};
+          attendeeIndex++;
+
+          const ticketCode = `TK_${orderCode.slice(4)}_${Math.random().toString(36).slice(2, 6).toUpperCase()}_${i + 1}`;
+          const qrCode = `EH_TK_${ticketCode}`;
+
+          const { rows: [ticket] } = await client.query(
+            `
+            INSERT INTO tickets (
+              order_item_id, event_id, event_session_id, ticket_type_id,
+              session_seat_id, ticket_code, qr_code, status,
+              ticket_source, original_price, discount_allocated, payable_price,
+              attendee_name, attendee_email, refund_policy_snapshot, created_at
+            )
+            VALUES (
+              $1, $2, $3, $4,
+              $5, $6, $7, 'VALID',
+              'COMPLIMENTARY', $8, $8, 0,
+              $9, $10, $11::jsonb, NOW()
+            )
+            RETURNING *
+            `,
+            [
+              orderItem.id,
+              eventId,
+              tt.event_session_id,
+              tt.id,
+              seatId,
+              ticketCode,
+              qrCode,
+              originalPrice,
+              attendee.name || buyer.name,
+              attendee.email || buyer.email,
+              JSON.stringify(firstTicket.event_refund_policy || {}),
+            ],
+          );
+          issuedTickets.push(ticket);
+
+          if (seatId) {
+            await client.query(
+              `
+              UPDATE session_seats
+              SET status = 'SOLD', order_id = $1, held_by = NULL, held_until = NULL
+              WHERE id = $2
+              `,
+              [order.id, seatId],
+            );
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        order,
+        orderItems,
+        issuedTickets,
+        event: firstTicket,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async createStaffDirectBooking({ staffId, staffRoles = [], buyer, paymentMethod, internalNote, eventId, items }) {
     const client = await db.getClient();
     const isAdmin = userIsAdmin(staffRoles);

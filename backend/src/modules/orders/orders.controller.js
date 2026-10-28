@@ -1,6 +1,11 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const ordersService = require('./orders.service');
-const { checkoutSchema, orderIdParamSchema, staffDirectBookingSchema } = require('./orders.validation');
+const {
+  checkoutSchema,
+  orderIdParamSchema,
+  staffDirectBookingSchema,
+  staffComplimentaryBookingSchema,
+} = require('./orders.validation');
 
 class OrdersController {
   checkout = async (req, res, next) => {
@@ -58,6 +63,16 @@ class OrdersController {
       const payload = staffDirectBookingSchema.parse(req.body);
       const data = await ordersService.createStaffDirectBooking(req.user.sub, req.user.roles || [], payload);
       res.status(201).json(ApiResponse.success(data, 'Staff direct booking created successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  createStaffComplimentaryBooking = async (req, res, next) => {
+    try {
+      const payload = staffComplimentaryBookingSchema.parse(req.body);
+      const data = await ordersService.createStaffComplimentaryBooking(req.user.sub, req.user.roles || [], payload);
+      res.status(201).json(ApiResponse.success(data, 'Cấp vé mời nhân sự thành công'));
     } catch (err) {
       next(err);
     }
