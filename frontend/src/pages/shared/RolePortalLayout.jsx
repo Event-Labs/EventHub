@@ -363,7 +363,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
           reloadDocument
           className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-bold transition-all ${isLight
             ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
-            : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-slate-950 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+            : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
             }`}
           title="Chuyển sang trang khách hàng"
         >

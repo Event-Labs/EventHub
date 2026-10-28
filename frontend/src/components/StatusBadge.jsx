@@ -39,6 +39,10 @@ export const BADGE_TONES = {
     'bg-slate-500/25 text-slate-200 border-slate-400/40 font-extrabold [html.light_&]:bg-[#e2e8f0] [html.light_&]:text-[#1e293b] [html.light_&]:border-[#94a3b8] [html.light_&]:shadow-sm [html.light_&]:font-black',
   slate:
     'bg-slate-500/25 text-slate-200 border-slate-400/40 font-extrabold [html.light_&]:bg-[#e2e8f0] [html.light_&]:text-[#1e293b] [html.light_&]:border-[#94a3b8] [html.light_&]:shadow-sm [html.light_&]:font-black',
+  draft:
+    'bg-slate-700/40 text-slate-300 border-dashed border-slate-400/50 font-extrabold [html.light_&]:bg-[#f1f5f9] [html.light_&]:text-[#475569] [html.light_&]:border-[#94a3b8] [html.light_&]:border-dashed [html.light_&]:shadow-sm [html.light_&]:font-black',
+  completed:
+    'bg-purple-500/25 text-purple-300 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)] font-extrabold [html.light_&]:bg-[#f3e8ff] [html.light_&]:text-[#6b21a8] [html.light_&]:border-[#a855f7] [html.light_&]:shadow-sm [html.light_&]:font-black',
   neutral:
     'bg-white/20 text-slate-200 border-white/40 font-extrabold [html.light_&]:bg-[#f1f5f9] [html.light_&]:text-[#0f172a] [html.light_&]:border-[#cbd5e1] [html.light_&]:shadow-sm [html.light_&]:font-black',
 }
@@ -51,8 +55,8 @@ export const STATUS_CONFIG_MAP = {
   PAID: { label: 'Đã thanh toán', tone: 'green' },
   CONFIRMED: { label: 'Miễn phí (0đ)', tone: 'emerald' },
   PENDING: { label: 'Chờ thanh toán', tone: 'amber' },
-  CANCELLED: { label: 'Đã hủy', tone: 'gray' },
-  CANCELED: { label: 'Đã hủy', tone: 'gray' },
+  CANCELLED: { label: 'Đã hủy', tone: 'red' },
+  CANCELED: { label: 'Đã hủy', tone: 'red' },
   EXPIRED: { label: 'Hết hạn', tone: 'orange' },
   REFUND_REQUESTED: { label: 'Yêu cầu hoàn tiền', tone: 'purple' },
   REFUNDED: { label: 'Đã hoàn tiền', tone: 'green' },
@@ -66,12 +70,12 @@ export const STATUS_CONFIG_MAP = {
 
   // ─── Events & Approval ───────────────────────────────────
   PUBLISHED: { label: 'Đã xuất bản', tone: 'green' },
-  DRAFT: { label: 'Bản nháp', tone: 'gray' },
+  DRAFT: { label: 'Bản nháp', tone: 'slate' },
   PENDING_REVIEW: { label: 'Chờ duyệt', tone: 'amber' },
   NEEDS_REVISION: { label: 'Cần sửa đổi', tone: 'amber' },
-  HIDDEN: { label: 'Đã ẩn', tone: 'gray' },
-  ENDED: { label: 'Đã kết thúc', tone: 'gray' },
-  COMPLETED: { label: 'Đã kết thúc', tone: 'green' },
+  HIDDEN: { label: 'Đã ẩn', tone: 'neutral' },
+  ENDED: { label: 'Đã kết thúc', tone: 'purple' },
+  COMPLETED: { label: 'Đã kết thúc', tone: 'purple' },
   ONGOING: { label: 'Đang diễn ra', tone: 'green' },
   UPCOMING: { label: 'Sắp diễn ra', tone: 'blue' },
 
@@ -127,9 +131,20 @@ export function resolveStatusConfig(status, fallbackLabel = null) {
 
   // If status is already in Vietnamese or custom text, make a sensible tone deduction
   const lower = String(status).toLowerCase()
-  let tone = 'gray'
+  let tone = 'slate'
 
   if (
+    lower.includes('kết thúc') ||
+    lower.includes('ended') ||
+    lower.includes('hoàn tất sự kiện')
+  ) {
+    tone = 'purple'
+  } else if (
+    lower.includes('nháp') ||
+    lower.includes('draft')
+  ) {
+    tone = 'slate'
+  } else if (
     lower.includes('thành công') ||
     lower.includes('hoàn tất') ||
     lower.includes('hoạt động') ||
@@ -167,6 +182,11 @@ export function resolveStatusConfig(status, fallbackLabel = null) {
     lower.includes('không hợp lệ')
   ) {
     tone = 'red'
+  } else if (
+    lower.includes('ẩn') ||
+    lower.includes('hidden')
+  ) {
+    tone = 'neutral'
   }
 
   return {
