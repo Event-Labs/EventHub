@@ -302,13 +302,22 @@ class OrdersRepository {
         );
       }
 
+      const effectiveSalesStatus =
+        firstTicket.event_status === 'PUBLISHED' && (!firstTicket.sales_status || firstTicket.sales_status === 'NOT_STARTED')
+          ? 'ON_SALE'
+          : firstTicket.sales_status;
+
       if (
-        firstTicket.sales_status !== 'ON_SALE' ||
+        effectiveSalesStatus !== 'ON_SALE' ||
         firstTicket.event_status !== 'PUBLISHED' ||
         firstTicket.visibility !== 'PUBLIC' ||
         firstTicket.approval_status !== 'APPROVED'
       ) {
         throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
+      }
+
+      if (firstTicket.sales_status === 'NOT_STARTED' && firstTicket.event_status === 'PUBLISHED') {
+        await client.query("UPDATE events SET sales_status = 'ON_SALE', updated_at = NOW() WHERE id = $1", [eventId]);
       }
 
       if (requireEventTermsAcceptance && String(firstTicket.additional_terms || '').trim() && !eventTermsAccepted) {
@@ -2682,13 +2691,22 @@ class OrdersRepository {
         throw new AppError('Sự kiện đang tạm dừng bán vé.', 400, ErrorCodes.SALES_PAUSED);
       }
 
+      const effectiveSalesStatus =
+        firstTicket.event_status === 'PUBLISHED' && (!firstTicket.sales_status || firstTicket.sales_status === 'NOT_STARTED')
+          ? 'ON_SALE'
+          : firstTicket.sales_status;
+
       if (
-        firstTicket.sales_status !== 'ON_SALE' ||
+        effectiveSalesStatus !== 'ON_SALE' ||
         firstTicket.event_status !== 'PUBLISHED' ||
         firstTicket.visibility !== 'PUBLIC' ||
         firstTicket.approval_status !== 'APPROVED'
       ) {
         throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
+      }
+
+      if (firstTicket.sales_status === 'NOT_STARTED' && firstTicket.event_status === 'PUBLISHED') {
+        await client.query("UPDATE events SET sales_status = 'ON_SALE', updated_at = NOW() WHERE id = $1", [eventId]);
       }
 
       if (requireEventTermsAcceptance && String(firstTicket.additional_terms || '').trim() && !eventTermsAccepted) {

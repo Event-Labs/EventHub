@@ -815,14 +815,23 @@ class EventsRepository {
           );
         }
 
+        const effectiveSalesStatus =
+          ticketType.event_status === 'PUBLISHED' && (!ticketType.sales_status || ticketType.sales_status === 'NOT_STARTED')
+            ? 'ON_SALE'
+            : ticketType.sales_status;
+
         if (
-          ticketType.sales_status !== 'ON_SALE' ||
+          effectiveSalesStatus !== 'ON_SALE' ||
           ticketType.event_status !== 'PUBLISHED' ||
           ticketType.visibility !== 'PUBLIC' ||
           ticketType.approval_status !== 'APPROVED' ||
           !['UPCOMING', 'ONGOING'].includes(ticketType.session_status)
         ) {
           throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
+        }
+
+        if (ticketType.sales_status === 'NOT_STARTED' && ticketType.event_status === 'PUBLISHED') {
+          await client.query("UPDATE events SET sales_status = 'ON_SALE', updated_at = NOW() WHERE id = $1", [ticketType.event_id]);
         }
 
         const eventEnd = ticketType.event_end_time ? new Date(ticketType.event_end_time).getTime() : null;
