@@ -723,12 +723,6 @@ export function AdminEventReviewPage() {
 
                 /* Actions */
                 <div key="actions" className="flex flex-col gap-2">
-                  <input
-                    className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
-                    placeholder="Ghi chú (tuỳ chọn)"
-                    value={notes[event.id] ?? ''}
-                    onChange={(e) => setNote(event.id, e.target.value)}
-                  />
                   <div className="flex items-center justify-center gap-2">
                     {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
                     {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
@@ -770,6 +764,12 @@ export function AdminEventReviewPage() {
                       onClick={() => navigate(`/admin/events/review/${event.id}`)}
                     />
                   </div>
+                  <input
+                    className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
+                    placeholder="Ghi chú (tuỳ chọn)"
+                    value={notes[event.id] ?? ''}
+                    onChange={(e) => setNote(event.id, e.target.value)}
+                  />
                 </div>,
               ])}
             />
