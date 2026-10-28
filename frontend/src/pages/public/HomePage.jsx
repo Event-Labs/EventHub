@@ -26,7 +26,7 @@ import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
-const RECENT_EXPIRED_WINDOW_MS = 15 * 24 * 60 * 60 * 1000
+const RECENT_EXPIRED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 const categoryIcons = [
   Music,
@@ -75,11 +75,20 @@ function eventPath(event) {
 }
 
 function eventLocation(event) {
-  return event.location_name || event.location || event.venue_name || 'Đang cập nhật địa điểm'
+  if (!event) return 'Đang cập nhật địa điểm'
+  if (typeof event.location_name === 'string' && event.location_name.trim()) return event.location_name.trim()
+  if (typeof event.location === 'string' && event.location.trim()) return event.location.trim()
+  if (event.venue && typeof event.venue === 'object') {
+    if (typeof event.venue.summary === 'string' && event.venue.summary.trim()) return event.venue.summary.trim()
+    if (typeof event.venue.name === 'string' && event.venue.name.trim()) return event.venue.name.trim()
+  }
+  if (typeof event.venue_name === 'string' && event.venue_name.trim()) return event.venue_name.trim()
+  return 'Đang cập nhật địa điểm'
 }
 
 
 function getEventTimeState(event, now = Date.now()) {
+  if (event.status === 'COMPLETED') return 'expired'
   const start = event.start_time ? new Date(event.start_time).getTime() : null
   const end = event.end_time ? new Date(event.end_time).getTime() : start
 
@@ -121,7 +130,7 @@ function isRecentlyExpiredEvent(event, now = Date.now()) {
   const endedAt = event.end_time || event.start_time
   if (!endedAt) return false
   const endedTime = new Date(endedAt).getTime()
-  return Number.isFinite(endedTime) && endedTime < now && endedTime >= now - RECENT_EXPIRED_WINDOW_MS
+  return Number.isFinite(endedTime) && (endedTime < now || event.status === 'COMPLETED') && endedTime >= now - RECENT_EXPIRED_WINDOW_MS
 }
 
 function uniqueEvents(...groups) {
@@ -158,6 +167,11 @@ export function HomePage() {
   const timelineQuery = useQuery({
     queryKey: ['home-events', 'timeline'],
     queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc' }),
+  })
+
+  const pastEventsQuery = useQuery({
+    queryKey: ['home-events', 'past'],
+    queryFn: () => fetchEvents({ limit: 20, sort_by: 'start_time', sort_order: 'desc' }),
   })
 
   const categoriesQuery = useQuery({
@@ -201,12 +215,16 @@ export function HomePage() {
     () => timelineQuery.data?.items || [],
     [timelineQuery.data?.items],
   )
+  const pastEvents = useMemo(
+    () => pastEventsQuery.data?.items || [],
+    [pastEventsQuery.data?.items],
+  )
   const categories = categoriesQuery.data || []
   const heroEvents = useMemo(() => {
     return uniqueEvents(featuredEvents, upcomingEvents, timelineEvents)
       .filter((event) => getEventTimeState(event, timelineNow) !== 'expired')
       .slice(0, 10)
-  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
+  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents, pastEvents])
 
   const trendingThisWeekEvents = useMemo(() => {
     return uniqueEvents(trendingEvents, timelineEvents, upcomingEvents, featuredEvents)
@@ -215,7 +233,7 @@ export function HomePage() {
   }, [featuredEvents, timelineEvents, timelineNow, trendingEvents, upcomingEvents])
 
   const homeTimeline = useMemo(() => {
-    const events = uniqueEvents(timelineEvents, upcomingEvents, featuredEvents)
+    const events = uniqueEvents(timelineEvents, upcomingEvents, featuredEvents, pastEvents)
     return {
       ongoing: events
         .filter((event) => getEventTimeState(event, timelineNow) === 'ongoing')
@@ -327,7 +345,7 @@ export function HomePage() {
         <ScrollReveal>
           <form
             onSubmit={handleSearch}
-            className="relative z-20 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 mb-8"
+            className="relative z-20 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mb-8"
           >
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="relative flex-1">
@@ -341,10 +359,10 @@ export function HomePage() {
               </div>
               <button
                 type="submit"
-                className="rounded-full px-8 py-4 text-base font-bold transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 cursor-pointer"
+                className="rounded-full px-10 py-4 text-base font-extrabold tracking-wide whitespace-nowrap transition-all shadow-md hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 cursor-pointer"
                 style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
-                <span>Tìm kiếm</span>
+                <span className="font-extrabold">Tìm kiếm</span>
               </button>
             </div>
           </form>

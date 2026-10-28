@@ -1,4 +1,7 @@
 const db = require('../../infrastructure/database/db.client');
+const AppError = require('../../core/errors/AppError');
+const ErrorCodes = require('../../core/errors/errorCodes');
+const { COMPLETED_ORDER_STATUSES } = require('../orders/orders.constants');
 
 const STAFF_TICKET_SELECT = `
   SELECT
@@ -77,6 +80,10 @@ class TicketsRepository {
         t.refund_policy_snapshot,
         t.created_at,
         t.checked_in_at,
+        t.ticket_source,
+        t.original_price,
+        t.discount_allocated,
+        t.payable_price,
         oi.id AS order_item_id,
         oi.quantity AS order_item_quantity,
         oi.unit_price AS order_item_unit_price,
@@ -136,7 +143,7 @@ class TicketsRepository {
       LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
       LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE o.user_id = $1
-        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
+        AND o.status IN ('PAID', 'CONFIRMED', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
         ${statusFilter}
       ORDER BY o.created_at DESC, t.created_at DESC
@@ -161,6 +168,10 @@ class TicketsRepository {
         t.created_at,
         t.checked_in_at,
         t.checked_in_by,
+        t.ticket_source,
+        t.original_price,
+        t.discount_allocated,
+        t.payable_price,
         oi.id AS order_item_id,
         oi.quantity AS order_item_quantity,
         oi.unit_price AS order_item_unit_price,
@@ -238,7 +249,7 @@ class TicketsRepository {
       ) p ON true
       WHERE t.id = $1
         AND o.user_id = $2
-        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
+        AND o.status IN ('PAID', 'CONFIRMED', 'REFUND_REQUESTED', 'REFUNDED')
         AND e.deleted_at IS NULL
       ORDER BY p.paid_at DESC NULLS LAST
       LIMIT 1
@@ -290,7 +301,7 @@ class TicketsRepository {
         )
         AND COALESCE(es.checkin_start_time, es.start_time) <= now()
         AND COALESCE(e.end_time, e.start_time) >= now()
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         ${conditions.length ? `AND ${conditions.join(' AND ')}` : ''}
       ORDER BY es.start_time DESC, t.created_at DESC
       LIMIT 25
@@ -432,7 +443,7 @@ class TicketsRepository {
         return { state: 'TICKET_NOT_VALID', ticket: lockedTicket };
       }
 
-      if (lockedTicket.order_status !== 'PAID') {
+      if (!COMPLETED_ORDER_STATUSES.includes(lockedTicket.order_status)) {
         await client.query('ROLLBACK');
         return { state: 'INVALID_ORDER', ticket: lockedTicket };
       }
@@ -475,6 +486,213 @@ class TicketsRepository {
       return { state: 'CHECKED_IN', ticket: ticketResult.rows[0] };
     } catch (error) {
       await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Cancel free ticket / 0d order ticket (Decision 2.7)
+   * Locking order: orders (FOR UPDATE) -> tickets (FOR UPDATE) -> session_seats (FOR UPDATE)
+   */
+  async cancelFreeTicket(ticketId, userId, reason) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Initial read to fetch ticket, order, and session start time
+      const { rows: [ticket] } = await client.query(
+        `
+        SELECT
+          t.id,
+          t.ticket_code,
+          t.ticket_source,
+          t.status AS ticket_status,
+          t.checked_in_at,
+          t.session_seat_id,
+          t.order_item_id,
+          oi.order_id,
+          o.user_id AS order_user_id,
+          o.order_code,
+          o.status AS order_status,
+          o.audit_trail,
+          es.start_time AS session_start_time
+        FROM tickets t
+        JOIN order_items oi ON oi.id = t.order_item_id
+        JOIN orders o ON o.id = oi.order_id
+        JOIN event_sessions es ON es.id = t.event_session_id
+        WHERE t.id = $1
+        `,
+        [ticketId],
+      );
+
+      if (!ticket) {
+        throw new AppError('Vé không tồn tại', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      }
+
+      if (ticket.order_user_id !== userId) {
+        throw new AppError('Bạn không có quyền thực hiện thao tác với vé này', 403, ErrorCodes.AUTH_FORBIDDEN);
+      }
+
+      // Idempotency: If ticket is already cancelled, return existing state
+      if (ticket.ticket_status === 'CANCELLED') {
+        await client.query('COMMIT');
+        return {
+          id: ticket.id,
+          ticket_code: ticket.ticket_code,
+          status: 'CANCELLED',
+          order_id: ticket.order_id,
+          order_code: ticket.order_code,
+          already_cancelled: true,
+          message: 'Vé đã được hủy trước đó',
+        };
+      }
+
+      // Validation 1: Only VALID tickets can be cancelled
+      if (ticket.ticket_status !== 'VALID') {
+        throw new AppError(`Trạng thái vé (${ticket.ticket_status}) không hợp lệ để hủy`, 400, ErrorCodes.INVALID_INPUT);
+      }
+
+      // Validation 2: Cannot cancel checked-in tickets
+      if (ticket.checked_in_at) {
+        throw new AppError('Vé đã được check-in, không thể hủy', 400, ErrorCodes.INVALID_INPUT);
+      }
+
+      // Validation 3: Only CONFIRMED orders and FREE / FULLY_DISCOUNTED tickets can be cancelled via this flow
+      if (ticket.order_status !== 'CONFIRMED' || !['FREE', 'FULLY_DISCOUNTED'].includes(ticket.ticket_source)) {
+        throw new AppError(
+          'Chỉ hỗ trợ hủy vé trực tiếp đối với vé miễn phí hoặc đơn hàng 0đ (CONFIRMED)',
+          400,
+          ErrorCodes.INVALID_INPUT,
+        );
+      }
+
+      // Validation 4: Deadline is up to 2 hours before session start time
+      const sessionStart = new Date(ticket.session_start_time).getTime();
+      const twoHoursMs = 2 * 60 * 60 * 1000;
+      if (Date.now() > sessionStart - twoHoursMs) {
+        throw new AppError(
+          'Chỉ có thể hủy vé trước giờ bắt đầu sự kiện ít nhất 2 giờ',
+          400,
+          ErrorCodes.INVALID_INPUT,
+        );
+      }
+
+      // 2. Lock orders row FOR UPDATE
+      const { rows: [lockedOrder] } = await client.query(
+        `SELECT id, status, audit_trail FROM orders WHERE id = $1 FOR UPDATE`,
+        [ticket.order_id],
+      );
+
+      // 3. Lock tickets row FOR UPDATE
+      const { rows: [lockedTicket] } = await client.query(
+        `SELECT id, status, session_seat_id FROM tickets WHERE id = $1 FOR UPDATE`,
+        [ticket.id],
+      );
+
+      if (lockedTicket.status === 'CANCELLED') {
+        await client.query('COMMIT');
+        return {
+          id: ticket.id,
+          ticket_code: ticket.ticket_code,
+          status: 'CANCELLED',
+          order_id: ticket.order_id,
+          order_code: ticket.order_code,
+          already_cancelled: true,
+          message: 'Vé đã được hủy trước đó',
+        };
+      }
+
+      // 4. Update ticket status to CANCELLED
+      const updateResult = await client.query(
+        `UPDATE tickets SET status = 'CANCELLED' WHERE id = $1 AND status = 'VALID' RETURNING id`,
+        [ticket.id],
+      );
+      if (updateResult.rowCount === 0) {
+        // Re-read to confirm status
+        const { rows: [checkTicket] } = await client.query('SELECT status FROM tickets WHERE id = $1', [ticket.id]);
+        if (checkTicket?.status === 'CANCELLED') {
+          await client.query('COMMIT');
+          return {
+            id: ticket.id,
+            ticket_code: ticket.ticket_code,
+            status: 'CANCELLED',
+            order_id: ticket.order_id,
+            already_cancelled: true,
+          };
+        }
+        throw new AppError('Không thể cập nhật trạng thái vé', 500, ErrorCodes.INTERNAL_SERVER_ERROR);
+      }
+
+      // 5. Release seat if assigned (only if seat belongs to this order)
+      const seatIdToRelease = lockedTicket.session_seat_id || ticket.session_seat_id;
+      if (seatIdToRelease) {
+        // Lock seat FOR UPDATE and release
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'AVAILABLE', order_id = NULL
+          WHERE id = $1 AND order_id = $2
+          `,
+          [seatIdToRelease, ticket.order_id],
+        );
+      }
+
+      // 6. Check if any non-cancelled tickets remain in this order
+      const { rows: [countRow] } = await client.query(
+        `
+        SELECT COUNT(*)::int AS active_count
+        FROM tickets t
+        JOIN order_items oi ON oi.id = t.order_item_id
+        WHERE oi.order_id = $1 AND t.status != 'CANCELLED'
+        `,
+        [ticket.order_id],
+      );
+
+      let finalOrderStatus = lockedOrder.status;
+      if (countRow.active_count === 0) {
+        await client.query(
+          `UPDATE orders SET status = 'CANCELLED' WHERE id = $1`,
+          [ticket.order_id],
+        );
+        finalOrderStatus = 'CANCELLED';
+      }
+
+      // 7. Append audit trail to orders
+      const auditEntry = {
+        action: 'CANCEL_FREE_TICKET',
+        ticket_id: ticket.id,
+        ticket_code: ticket.ticket_code,
+        ticket_source: ticket.ticket_source,
+        cancelled_by: userId,
+        cancelled_at: new Date().toISOString(),
+        reason: reason || 'Khách hàng tự hủy vé miễn phí',
+        order_status_after: finalOrderStatus,
+      };
+
+      await client.query(
+        `
+        UPDATE orders
+        SET audit_trail = COALESCE(audit_trail, '[]'::jsonb) || $2::jsonb
+        WHERE id = $1
+        `,
+        [ticket.order_id, JSON.stringify([auditEntry])],
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        id: ticket.id,
+        ticket_code: ticket.ticket_code,
+        status: 'CANCELLED',
+        order_id: ticket.order_id,
+        order_code: ticket.order_code,
+        order_status: finalOrderStatus,
+        message: 'Hủy vé miễn phí thành công',
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
       throw error;
     } finally {
       client.release();

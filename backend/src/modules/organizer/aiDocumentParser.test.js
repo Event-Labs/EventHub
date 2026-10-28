@@ -1,8 +1,19 @@
+const fs = require('fs');
+const path = require('path');
+
 jest.mock('../admin/eventCategories.repository', () => ({
   findAll: jest.fn().mockResolvedValue([
-    { id: 'cat-music', name: 'Âm nhạc' },
-    { id: 'cat-tech', name: 'Công nghệ' },
+    { id: 'cat-music', name: 'Âm nhạc', slug: 'am-nhac-bieu-dien' },
+    { id: 'cat-tech', name: 'Công nghệ', slug: 'kinh-doanh-cong-nghe' },
+    { id: 'cat-edu', name: 'Hội thảo', slug: 'hoi-thao-giao-duc' },
+    { id: 'cat-culture', name: 'Văn hóa', slug: 'le-hoi-van-hoa' },
+    { id: 'cat-sport', name: 'Thể thao', slug: 'the-thao' },
   ]),
+}));
+
+jest.mock('../../infrastructure/ai/ollama.client', () => ({
+  generate: jest.fn().mockRejectedValue(new Error('Ollama offline in unit test')),
+  extractJSON: jest.fn(),
 }));
 
 jest.mock('pdf-parse', () => {
@@ -231,4 +242,157 @@ Terms and Conditions:
     expect(result.data.additional_terms).toContain('Vé chỉ có giá trị cho đúng sự kiện');
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   }, 60000);
+
+  const sampleDir = path.join(__dirname, '../../../../EventHub_AI_Create_Event_Test_Documents');
+  const readSample = (name) => fs.readFileSync(path.join(sampleDir, name), 'utf8');
+  const ticketByHint = (tickets, hint) =>
+    tickets.find((t) => t.name.toLowerCase().includes(hint.toLowerCase()));
+
+  test('sample 01 structured tech conference', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('01_structured_tech_conference.txt'));
+    expect(result.data.title).toBe('FutureTech Vietnam 2027');
+    expect(result.data.sessions[0].start_date).toBe('2027-11-20');
+    expect(result.data.sessions[0].checkin_start_time).toBe('08:00');
+    expect(result.data.sessions[0].start_time).toBe('09:00');
+    expect(result.data.sessions[0].end_time).toBe('17:30');
+    expect(result.data.venue_name).toMatch(/Da Nang Innovation Hub/i);
+    expect(result.data.district).toBe('Hải Châu');
+    expect(result.data.province).toBe('Thành phố Đà Nẵng');
+    expect(ticketByHint(result.data.ticket_types, 'Student').price).toBe(150000);
+    expect(ticketByHint(result.data.ticket_types, 'Student').quantity_total).toBe(200);
+    expect(ticketByHint(result.data.ticket_types, 'Standard').price).toBe(350000);
+    expect(ticketByHint(result.data.ticket_types, 'VIP').quantity_total).toBe(30);
+    expect(result.data.require_attendee_information).toBe(true);
+  });
+
+  test('sample 02 unstructured music night', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('02_unstructured_music_night.txt'));
+    expect(result.data.title).toBe('Mùa Gió Qua Phố');
+    expect(result.data.sessions[0].start_date).toBe('2027-11-06');
+    expect(result.data.sessions[0].checkin_start_time).toBe('18:00');
+    expect(result.data.sessions[0].start_time).toBe('19:00');
+    expect(result.data.sessions[0].end_time).toBe('21:45');
+    expect(result.data.venue_name).toBe('');
+    expect(result.data.district).toMatch(/Bình Thạnh/i);
+    expect(result.data.province).toBe('Thành phố Hồ Chí Minh');
+    expect(ticketByHint(result.data.ticket_types, 'sớm').price).toBe(100000);
+    expect(ticketByHint(result.data.ticket_types, 'thường').price).toBe(140000);
+    expect(result.data.require_attendee_information).toBe(true);
+  });
+
+  test('sample 03 semistructured workshop', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('03_semistructured_workshop.txt'));
+    expect(result.data.title.toLowerCase()).toContain('design thinking');
+    expect(result.data.sessions[0].start_date).toBe('2027-03-13');
+    expect(result.data.sessions[0].checkin_start_time).toBe('08:30');
+    expect(result.data.sessions[0].start_time).toBe('09:00');
+    expect(result.data.sessions[0].end_time).toBe('12:00');
+    expect(result.data.venue_name).toMatch(/Creative Learning Center/i);
+    expect(result.data.province).toBe('Thành phố Đà Nẵng');
+    expect(ticketByHint(result.data.ticket_types, 'Learner').price).toBe(80000);
+    expect(ticketByHint(result.data.ticket_types, 'Learner').quantity_total).toBe(45);
+    expect(ticketByHint(result.data.ticket_types, 'Team').price).toBe(250000);
+  });
+
+  test('sample 04 press release art exhibition', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('04_press_release_art_exhibition.txt'));
+    expect(result.data.title).toBe('Layers of the City');
+    expect(result.data.sessions).toHaveLength(3);
+    expect(result.data.sessions.map((s) => s.start_date)).toEqual(['2028-01-22', '2028-01-23', '2028-01-24']);
+    expect(result.data.sessions[0].start_time).toBe('10:00');
+    expect(result.data.sessions[0].end_time).toBe('20:00');
+    expect(result.data.venue_name).toBe('');
+    expect(result.data.district).toMatch(/3/);
+    expect(result.data.province).toBe('Thành phố Hồ Chí Minh');
+    expect(ticketByHint(result.data.ticket_types, 'day').price).toBe(70000);
+    expect(ticketByHint(result.data.ticket_types, 'three').price).toBe(150000);
+  });
+
+  test('sample 05 table-like food festival', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('05_table_like_food_festival.txt'));
+    expect(result.data.title).toBe('Taste of Central Vietnam 2027');
+    expect(result.data.sessions[0].start_date).toBe('2027-12-04');
+    expect(result.data.sessions[0].start_time).toBe('10:00');
+    expect(result.data.sessions[0].end_time).toBe('21:00');
+    expect(result.data.venue_name).toMatch(/Riverside Park/i);
+    expect(result.data.province).toBe('Thành phố Đà Nẵng');
+    expect(ticketByHint(result.data.ticket_types, 'General').price).toBe(50000);
+    expect(ticketByHint(result.data.ticket_types, 'General').quantity_total).toBe(1000);
+    expect(ticketByHint(result.data.ticket_types, 'Family').price).toBe(160000);
+    expect(ticketByHint(result.data.ticket_types, 'Family').quantity_total).toBe(150);
+  });
+
+  test('sample 06 email corporate training', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('06_email_corporate_training.txt'));
+    expect(result.data.title).toMatch(/Practical Cybersecurity for Small Teams/i);
+    expect(result.data.sessions[0].start_date).toBe('2027-04-09');
+    expect(result.data.sessions[0].checkin_start_time).toBe('13:00');
+    expect(result.data.sessions[0].start_time).toBe('13:30');
+    expect(result.data.sessions[0].end_time).toBe('17:00');
+    expect(result.data.venue_name).toBe('');
+    expect(result.data.district).toBe('Hải Châu');
+    expect(result.data.province).toBe('Thành phố Đà Nẵng');
+    expect(ticketByHint(result.data.ticket_types, 'regular').price).toBe(200000);
+    expect(ticketByHint(result.data.ticket_types, 'student').price).toBe(100000);
+  });
+
+  test('sample 07 json event launch', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('07_json_event_launch.txt'));
+    expect(result.data.title).toBe('Startup Launchpad Meetup: From Idea to First Customer');
+    expect(result.data.sessions[0].start_date).toBe('2027-05-15');
+    expect(result.data.sessions[0].checkin_start_time).toBe('17:30');
+    expect(result.data.sessions[0].start_time).toBe('18:00');
+    expect(result.data.sessions[0].end_time).toBe('20:45');
+    expect(result.data.venue_name).toBe('Founders Corner');
+    expect(result.data.district).toBe('Sơn Trà');
+    expect(result.data.province).toBe('Thành phố Đà Nẵng');
+    expect(ticketByHint(result.data.ticket_types, 'Community').price).toBe(120000);
+    expect(ticketByHint(result.data.ticket_types, 'Community').quantity_total).toBe(80);
+    expect(ticketByHint(result.data.ticket_types, 'Founder').price).toBe(220000);
+    expect(result.data.require_attendee_information).toBe(true);
+    expect(result.data.tags.join(' ').toLowerCase()).toMatch(/startup/);
+  });
+
+  test('sample 08 chat conversation', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('08_chat_conversation.txt'));
+    expect(result.data.title).toBe('Steps for Hope');
+    expect(result.data.sessions[0].start_date).toBe('2027-05-16');
+    expect(result.data.sessions[0].checkin_start_time).toBe('05:30');
+    expect(result.data.sessions[0].start_time).toBe('06:15');
+    expect(result.data.sessions[0].end_time).toBe('09:00');
+    expect(result.data.venue_name).toMatch(/Gia Định/i);
+    expect(result.data.province).toBe('Thành phố Hồ Chí Minh');
+    expect(ticketByHint(result.data.ticket_types, '5 km').price).toBe(100000);
+    expect(ticketByHint(result.data.ticket_types, '10 km').price).toBe(150000);
+  });
+
+  test('sample 09 multiday cultural event', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('09_multiday_cultural_event.txt'));
+    expect(result.data.title).toMatch(/Asia Culture Exchange Days/i);
+    expect(result.data.sessions).toHaveLength(3);
+    expect(result.data.sessions[0].start_date).toBe('2027-10-08');
+    expect(result.data.sessions[1].start_date).toBe('2027-10-09');
+    expect(result.data.sessions[2].start_date).toBe('2027-10-10');
+    expect(result.data.sessions[0].checkin_start_time).toBe('15:00');
+    expect(result.data.sessions[0].start_time).toBe('16:00');
+    expect(result.data.sessions[0].end_time).toBe('20:00');
+    expect(result.data.venue_name).toBe('');
+    expect(result.data.province).toBe('Thừa Thiên Huế');
+    expect(ticketByHint(result.data.ticket_types, 'Three-day').price).toBe(240000);
+    expect(ticketByHint(result.data.ticket_types, 'Single').price).toBe(100000);
+  });
+
+  test('sample 10 messy notes ignores last-edited date', async () => {
+    const result = await aiDocumentParserService.extractEventFromText(readSample('10_messy_notes_missing_fields.txt'));
+    expect(result.data.title).toBe('Night of New Voices');
+    expect(result.data.sessions[0].start_date).toBe('2027-08-27');
+    expect(result.data.sessions[0].checkin_start_time).toBe('16:30');
+    expect(result.data.sessions[0].start_time).toBe('17:30');
+    expect(result.data.sessions[0].end_time).toBe('21:30');
+    expect(result.data.venue_name).toBe('');
+    expect(result.data.province).toBe('Thành phố Cần Thơ');
+    expect(ticketByHint(result.data.ticket_types, 'student').price).toBe(75000);
+    expect(ticketByHint(result.data.ticket_types, 'general').price).toBe(130000);
+    expect(ticketByHint(result.data.ticket_types, 'supporter').price).toBe(200000);
+  });
 });

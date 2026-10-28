@@ -187,7 +187,7 @@ class NotificationsRepository {
       JOIN orders o ON o.id = oi.order_id
       LEFT JOIN users u ON u.id = o.user_id
       WHERE t.event_id = $1
-        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
+        AND o.status IN ('PAID', 'CONFIRMED', 'REFUND_REQUESTED', 'REFUNDED')
         AND COALESCE(u.email, o.buyer_email) IS NOT NULL
       `,
       [eventId],
@@ -218,7 +218,7 @@ class NotificationsRepository {
       JOIN events e ON e.id = t.event_id
       JOIN event_sessions es ON es.id = t.event_session_id
       LEFT JOIN venues v ON v.id = es.venue_id
-      WHERE o.status = 'PAID'
+      WHERE o.status IN ('PAID', 'CONFIRMED')
         AND t.status = 'VALID'
         AND es.start_time >= $1
         AND es.start_time < $2

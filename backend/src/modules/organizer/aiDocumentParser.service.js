@@ -8,7 +8,112 @@ const PRIMARY_MODEL = process.env.OLLAMA_EXTRACTION_MODEL || 'qwen3-eventhub-Q4_
 const FALLBACK_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'qwen3-eventhub-Q4_K_M.gguf';
 const TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 
+const EN_MONTHS = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+};
+const EN_MONTH_ALT = Object.keys(EN_MONTHS).join('|');
+const DATE_SKIP_CONTEXT = /(?:last\s*edited|edited\s*on|copied\s*from|updated\s*on|ghi\s*chú\s*lúc|cập\s*nhật\s*lúc)/i;
+
 class AiDocumentParserService {
+  /**
+   * Chuyển đổi HTML từ file DOCX (mammoth) thành Markdown có cấu trúc bảng
+   */
+  _htmlToStructuredMarkdown(html) {
+    if (!html || typeof html !== 'string') return '';
+    // Loại bỏ hình ảnh base64 lớn tránh tràn bộ nhớ
+    let text = html.replace(/<img[^>]*>/gi, '');
+    // Chuyển đổi thẻ xuống dòng trước khi xử lý đoạn văn
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    // Giải mã thực thể HTML cơ bản
+    text = text
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'");
+
+    // 1. Chuyển đổi bảng HTML thành định dạng bảng Markdown
+    text = text.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, tableBody) => {
+      const rows = [];
+      const rowMatches = tableBody.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+      for (const r of rowMatches) {
+        const cells = [];
+        const cellMatches = r.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) || [];
+        for (const c of cellMatches) {
+          const cellText = c.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          cells.push(cellText);
+        }
+        if (cells.length > 0) {
+          rows.push('| ' + cells.join(' | ') + ' |');
+        }
+      }
+      if (rows.length === 0) return '';
+      if (rows.length > 1) {
+        const colCount = rows[0].split('|').length - 2;
+        const separator = '| ' + Array(colCount).fill('---').join(' | ') + ' |';
+        rows.splice(1, 0, separator);
+      }
+      return '\n\n' + rows.join('\n') + '\n\n';
+    });
+
+    // 2. Chuyển đổi headings, paragraphs, lists
+    text = text.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (m, level, content) => {
+      const hText = content.replace(/<[^>]*>/g, '').trim();
+      return '\n\n' + '#'.repeat(Number(level)) + ' ' + hText + '\n\n';
+    });
+    text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (m, content) => {
+      return '\n- ' + content.replace(/<[^>]*>/g, '').trim();
+    });
+    text = text.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (m, content) => {
+      return '\n\n' + content.replace(/<[^>]*>/g, '').trim() + '\n\n';
+    });
+    text = text.replace(/<[^>]*>/g, '');
+    text = text.replace(/\n{3,}/g, '\n\n').trim();
+    return text;
+  }
+
+  /**
+   * Tự động nhận diện các dòng phân tách bằng tab (\t) và chuyển thành bảng Markdown
+   */
+  _convertTabsToMarkdownTable(text) {
+    if (!text || typeof text !== 'string') return text;
+    const lines = text.split('\n');
+    const result = [];
+    let tabTableLines = [];
+
+    const flushTabTable = () => {
+      if (tabTableLines.length > 0) {
+        if (tabTableLines.length >= 2) {
+          const rows = tabTableLines.map((line) => {
+            const cells = line.split('\t').map((c) => c.trim());
+            return '| ' + cells.join(' | ') + ' |';
+          });
+          const colCount = rows[0].split('|').length - 2;
+          const separator = '| ' + Array(colCount).fill('---').join(' | ') + ' |';
+          rows.splice(1, 0, separator);
+          result.push(...rows);
+        } else {
+          result.push(...tabTableLines);
+        }
+        tabTableLines = [];
+      }
+    };
+
+    for (const line of lines) {
+      if (line.includes('\t') && line.split('\t').filter((c) => c.trim().length > 0).length >= 2) {
+        tabTableLines.push(line);
+      } else {
+        flushTabTable();
+        result.push(line);
+      }
+    }
+    flushTabTable();
+    return result.join('\n');
+  }
+
   /**
    * Trích xuất văn bản thô từ file tải lên
    * @param {object} file - Multer file object { buffer, mimetype, originalname }
@@ -49,22 +154,21 @@ class AiDocumentParserService {
       ext === 'docx'
     ) {
       try {
-        const parsed = await mammoth.extractRawText({ buffer: file.buffer });
-        rawText = parsed.value || '';
+        const parsed = await mammoth.convertToHtml({ buffer: file.buffer });
+        rawText = this._htmlToStructuredMarkdown(parsed.value || '');
       } catch (err) {
         logger.error(`[AiDocumentParser] Lỗi đọc DOCX: ${err.message}`);
         throw new Error(`Không thể đọc nội dung file Word (.docx): ${err.message}`);
       }
-    } else if (mime.startsWith('text/') || ext === 'txt' || ext === 'md') {
+    } else if (mime.startsWith('text/') || mime.includes('json') || ext === 'txt' || ext === 'md' || ext === 'json') {
       rawText = file.buffer.toString('utf-8');
     } else {
       throw new Error('Định dạng file không được hỗ trợ. Vui lòng tải file PDF, Word (.docx) hoặc Text (.txt)');
     }
 
-    const cleaned = rawText
+    const cleaned = this._convertTabsToMarkdownTable(rawText)
       .replace(/\r\n/g, '\n')
-      .replace(/\t/g, ' ')
-      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\r/g, '\n')
       .trim();
 
     if (!cleaned || cleaned.length < 20) {
@@ -108,11 +212,12 @@ class AiDocumentParserService {
       .map((c) => `- ID "${c.id}": "${c.name}"`)
       .join('\n');
 
-    // Dọn dẹp khoảng trắng dư thừa nhưng BẢO TOÀN NGUYÊN VẸN NỘI DUNG (hỗ trợ tài liệu lớn tới 15.000 ký tự)
-    const cleanedText = text
+    // Dọn dẹp khoảng trắng dư thừa nhưng BẢO TOÀN NGUYÊN VẸN NỘI DUNG và BẢNG (hỗ trợ tài liệu lớn tới 15.000 ký tự)
+    const tableFormatted = this._convertTabsToMarkdownTable(text);
+    const cleanedText = tableFormatted
       .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
-      .replace(/[ \t]{2,}/g, ' ')
       .trim();
     const truncatedText = cleanedText.slice(0, 15000);
     logger.info(`[AiDocumentParser] Tiếp nhận ${text.length} ký tự tài liệu (gửi đầy đủ ${truncatedText.length} ký tự tới AI ${PRIMARY_MODEL} để trích xuất).`);
@@ -147,11 +252,13 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
    - Cột hoặc dòng "Kết thúc" / "End" BẮT BUỘC map vào "end_time".
    - Giờ check-in LUÔN diễn ra trước hoặc cùng giờ bắt đầu (checkin_start_time <= start_time). TUYỆT ĐỐI KHÔNG ĐẢO NGƯỢC HOẶC GÁN NHẦM GIỜ CHECK-IN VÀO START_TIME.
    - Với các mốc giờ viết bằng chữ tiếng Việt (ví dụ: "8 giờ 30 sáng" -> "08:30", "9 giờ 15" -> "09:15", "17 giờ" -> "17:00", "16 giờ" -> "16:00"): BẮT BUỘC trích xuất chính xác theo định dạng HH:mm.
-4. ĐẶC BIỆT VỚI TÀI LIỆU DẠNG EMAIL, THƯ TỪ HOẶC VĂN BẢN TỰ SỰ:
-   - "title": Tìm tên sự kiện từ nội dung văn bản (ví dụ: cụm từ "chương trình mang tên XYZ", "sự kiện mang tên XYZ"). TUYỆT ĐỐI KHÔNG lấy dòng tiêu đề email làm tên sự kiện (như "Email trao đổi về sự kiện...", "Kế hoạch tổ chức...").
-   - "sessions": Nếu sự kiện diễn ra nhiều ngày (ví dụ: "ngày 14 và 15 tháng 11 năm 2027"), BẮT BUỘC tách thành từng phiên tương ứng với ĐÚNG NĂM ghi trong tài liệu (ví dụ 2027, TUYỆT ĐỐI không tự đổi sang năm cũ 2023 hay năm hiện tại).
-   - "ticket_types": Đọc kỹ các câu mô tả vé (ví dụ: "Vé Creative Visitor có giá 90.000 đồng, dự kiến phát hành 300 vé"). CHỈ TRÍCH XUẤT CÁC HẠNG VÉ THỰC SỰ ĐƯỢC NÊU. TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT CÁC HẠNG VÉ DUMMY NHƯ "General Admission" HAY "Non-refundable" NẾU TÀI LIỆU KHÔNG NÊU!
-   - "venue_name": Tìm địa điểm sau từ "tại ..." (ví dụ "tại Creative Hub, khu vực Ngu Hanh Son, Da Nang" -> venue_name: "Creative Hub", district: "Ngũ Hành Sơn", province: "Thành phố Đà Nẵng").
+4. ĐẶC BIỆT VỚI TÀI LIỆU DẠNG EMAIL, THƯ TỪ, CHAT, JSON, THÔNG CÁO BÁO CHÍ HOẶC VĂN BẢN TỰ SỰ:
+   - "title": Tìm tên sự kiện từ nhãn Event name / Event / Subject, từ cụm "mang tên/tên là/called", hoặc tên trong dấu ngoặc kép. TUYỆT ĐỐI KHÔNG lấy dòng tiêu đề chung (như "Email trao đổi...", "Event Proposal", "FOR IMMEDIATE RELEASE", "FOOD FESTIVAL DATA SHEET", "rough notes").
+   - "sessions": Nếu sự kiện diễn ra nhiều ngày (Day 1/2/3, "22–24 January 2028", "ngày DD và DD tháng MM năm YYYY"), BẮT BUỘC tách từng phiên với ĐÚNG NĂM trong tài liệu. Ngày tiếng Anh ("13 March 2027") phải ra YYYY-MM-DD. TUYỆT ĐỐI không lấy mốc "last edited" / "copied from".
+   - Giờ có thể viết "09:00–12:00", "Operating hours", "doors at", "xuất phát", "100k" = 100000 VND.
+   - Nếu tài liệu là JSON, map title/sessions/tickets/venue từ JSON (check_in_time → checkin_start_time, tickets[].quantity → quantity_total).
+   - "ticket_types": Đọc kỹ các câu mô tả vé (pipe "| 150000 VND | quantity 200", "vé 5 km là 100k", "day ticket for 70,000 VND"). CHỈ TRÍCH XUẤT HẠNG VÉ THỰC SỰ ĐƯỢC NÊU. TUYỆT ĐỐI KHÔNG TỰ BỊA "General Admission" HAY "Non-refundable" NẾU TÀI LIỆU KHÔNG NÊU!
+   - "venue_name": Tìm địa điểm sau "tại ...", "Venue:", "Location:", "Where:". Nếu tài liệu nói địa điểm chưa chốt / don't use a venue name, để venue_name rỗng nhưng vẫn lấy quận/tỉnh nếu có.
 5. CÁC TRƯỜNG DỮ LIỆU CẦN XUẤT:
    - "title": ${detectedSections.title && !this._isGenericDocumentTitle(detectedSections.title) ? `"${detectedSections.title}" (đã xác định chính xác từ tài liệu, TUYỆT ĐỐI không đổi sang tiêu đề chung như EVENT PROPOSAL).` : 'Tên chính thức của sự kiện (chỉ lấy tên sự kiện, không kèm danh mục hay tags, tuyệt đối không lấy tiêu đề chung như EVENT PROPOSAL hay ĐỀ XUẤT SỰ KIỆN).'}
    - "category_id": ID phù hợp nhất lấy từ danh mục hệ thống ở trên.
@@ -279,24 +386,457 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
   }
 
   /**
-   * Kiểm tra xem một chuỗi có phải là tiêu đề chung/tên văn bản đề xuất chứ không phải tên sự kiện
+   * Làm sạch tiền tố hành chính của tiêu đề để lấy tên thực tế của sự kiện
+   */
+  _cleanDocumentTitle(rawTitle) {
+    if (!rawTitle || typeof rawTitle !== 'string') return '';
+    let clean = rawTitle.replace(/^[#\*\s\-–—"':]+|[#\*\s\-–—"':]+$/g, '').trim();
+    const prefixRegex = /^(?:kế\s*hoạch\s*tổ\s*chức|đề\s*án\s*tổ\s*chức|thông\s*báo\s*(?:về\s*(?:việc\s*)?)?tổ\s*chức|kế\s*hoạch|đề\s*án|email\s*trao\s*đổi\s*về|tài\s*liệu\s*mẫu\s*kiểm\s*thử\s*(?:chức\s*năng\s*)?trích\s*xuất\s*thông\s*tin\s*sự\s*kiện\s*[:：\-–]?|thư\s*mời\s*tham\s*dự|chương\s*trình|workshop\s*brief|program\s*overview|please\s*hold\s*the\s*date|food\s*festival\s*data\s*sheet|subject\s*[:：\-–—]?\s*(?:please\s*hold\s*the\s*date\s*[—\-–]?\s*)?|name\s*maybe)\s*(?:sự\s*kiện\s*)?[:：\-–—]?\s*/i;
+    let stripped = clean.replace(prefixRegex, '').trim();
+
+    // Nếu tiêu đề bắt đầu bằng chuỗi trong ngoặc kép ví dụ “Layers of the City” brings emerging... -> lấy phần trong ngoặc
+    const leadQuote = stripped.match(/^[“"«]([^”"»\r\n]{3,80})[”"»]/);
+    if (leadQuote && !this._isGenericDocumentTitle(leadQuote[1])) {
+      stripped = leadQuote[1].trim();
+    } else if (stripped.includes('“') && stripped.includes('”')) {
+      const qm = stripped.match(/[“"«]([^”"»\r\n]{3,80})[”"»]/);
+      if (qm && !this._isGenericDocumentTitle(qm[1])) {
+        stripped = qm[1].trim();
+      }
+    }
+
+    // Nếu chứa các phương án phân tách bằng gạch chéo ví dụ "Night of New Voices" / "New Voices Live" -> lấy phương án đầu tiên
+    if (stripped.includes(' / ')) {
+      const firstOption = stripped.split(' / ')[0].replace(/^[#\*\s\-–—"':]+|[#\*\s\-–—"':]+$/g, '').trim();
+      if (firstOption.length >= 3 && !this._isGenericDocumentTitle(firstOption)) {
+        stripped = firstOption;
+      }
+    }
+
+    if (stripped.length >= 3 && !this._isGenericDocumentTitle(stripped)) {
+      return stripped;
+    }
+    return clean;
+  }
+
+  /**
+   * Kiểm tra xem một chuỗi có phải là tiêu đề chung/tên loại văn bản chứ không chứa tên sự kiện cụ thể
    */
   _isGenericDocumentTitle(str) {
     if (!str || typeof str !== 'string') return true;
     const clean = str.replace(/^[#\*\s\-–—"':]+|[#\*\s\-–—"':]+$/g, '').trim().toLowerCase();
-    if (!clean) return true;
+    if (!clean || clean.length < 3) return true;
 
-    // Kiểm tra các định dạng văn bản hành chính / email / thư / biên bản / kế hoạch chung
-    const isDocWrapper = /^(?:email|thư|thư\s*điện\s*tử|tin\s*nhắn|thông\s*báo|thông\s*điệp|trao\s*đổi|biên\s*bản|dự\s*thảo|kế\s*hoạch|đề\s*án|tờ\s*trình|báo\s*cáo|memo|note|notes|meeting\s*notes|minutes)\b/i.test(clean);
+    const genericExactPatterns = [
+      /^(?:event\s*proposal|proposal|kế\s*hoạch\s*(?:tổ\s*chức\s*)?sự\s*kiện|đề\s*xuất\s*sự\s*kiện|kịch\s*bản\s*sự\s*kiện|tài\s*liệu\s*(?:mẫu|sự\s*kiện|kiểm\s*thử)|eventhub|event\s*plan|event\s*outline)$/i,
+      /^(?:email|thư|thư\s*điện\s*tử|tin\s*nhắn|thông\s*báo|thông\s*điệp|trao\s*đổi|biên\s*bản|dự\s*thảo|kế\s*hoạch|đề\s*án|tờ\s*trình|báo\s*cáo|memo|notes?|minutes)$/i,
+      /^(?:email\s*trao\s*đổi\s*về\s*sự\s*kiện|kế\s*hoạch\s*tổ\s*chức\s*sự\s*kiện|đề\s*xuất\s*tổ\s*chức\s*sự\s*kiện)$/i,
+      /^(?:for\s*immediate\s*release(?:\s*[—\-–]?\s*draft)?|food\s*festival\s*data\s*sheet|workshop\s*brief|program\s*overview|rough\s*notes.*)$/i,
+      /^(?:eventhub|hub)[\s\-–—]*(?:ai\s*create\s*event)?$/i,
+      /^tài\s*liệu\s*mẫu/i,
+      /^name\s*maybe/i,
+      /^\d+[\.\)]\s*(?:thông\s*tin\s*sự\s*kiện|event\s*information)/i,
+      /^\[\d{1,2}:\d{2}\]/i,
+    ];
 
-    const isGenericKeyword = /^(?:event\s*proposal|proposal|kế\s*hoạch\s*(?:tổ\s*chức\s*)?sự\s*kiện|đề\s*xuất\s*sự\s*kiện|kịch\s*bản\s*sự\s*kiện|tài\s*liệu\s*(?:mẫu|sự\s*kiện|kiểm\s*thử)|eventhub|event\s*plan|event\s*outline)$/i.test(clean) ||
-           clean.startsWith('event proposal') ||
-           clean.startsWith('kế hoạch tổ chức sự kiện') ||
-           clean.startsWith('đề xuất sự kiện') ||
-           clean.startsWith('email trao đổi') ||
-           clean.startsWith('kế hoạch tổ chức');
+    return genericExactPatterns.some((p) => p.test(clean));
+  }
 
-    return isDocWrapper || isGenericKeyword;
+  _toIsoDate(year, month, day) {
+    const y = String(year);
+    const m = String(Number(month)).padStart(2, '0');
+    const d = String(Number(day)).padStart(2, '0');
+    if (!y || m === 'NaN' || d === 'NaN' || Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > 31) {
+      return '';
+    }
+    return `${y}-${m}-${d}`;
+  }
+
+  _formatIsoDate(rawDate) {
+    if (!rawDate) return '';
+    const rd = String(rawDate).trim();
+    if (/^\d{4}[\-\/\.]\d{1,2}[\-\/\.]\d{1,2}$/.test(rd)) {
+      const [y, m, d] = rd.split(/[\-\/\.]/);
+      return this._toIsoDate(y, m, d);
+    }
+    if (/^\d{1,2}[\-\/\.]\d{1,2}[\-\/\.]\d{4}$/.test(rd)) {
+      const [d, m, y] = rd.split(/[\-\/\.]/);
+      return this._toIsoDate(y, m, d);
+    }
+    return '';
+  }
+
+  _isSkippedDateContext(text, index) {
+    const windowStart = Math.max(0, index - 40);
+    const prefix = text.slice(windowStart, index);
+    return DATE_SKIP_CONTEXT.test(prefix);
+  }
+
+  _parseEnglishDateToIso(raw) {
+    if (!raw) return '';
+    const text = String(raw).replace(/\s+/g, ' ').trim();
+    const re = new RegExp(
+      `(?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b,?\\s*)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(${EN_MONTH_ALT})\\s+(\\d{4})`,
+      'i'
+    );
+    const m = text.match(re);
+    if (m) return this._toIsoDate(m[3], EN_MONTHS[m[2].toLowerCase()], m[1]);
+    const re2 = new RegExp(`(${EN_MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})`, 'i');
+    const m2 = text.match(re2);
+    if (m2) return this._toIsoDate(m2[3], EN_MONTHS[m2[1].toLowerCase()], m2[2]);
+    return '';
+  }
+
+  _dateAppearsInText(iso, text) {
+    if (!iso || !text) return false;
+    const src = String(text);
+    if (src.includes(iso)) return true;
+    const [y, m, d] = iso.split('-');
+    if (!y || !m || !d) return false;
+    const dNum = String(Number(d));
+    const mNum = String(Number(m));
+    const variants = [
+      `${d}/${m}/${y}`,
+      `${dNum}/${mNum}/${y}`,
+      `${d}.${m}.${y}`,
+      `${dNum}.${mNum}.${y}`,
+      `${d}-${m}-${y}`,
+      `${iso.replace(/-/g, '/')}`,
+    ];
+    if (variants.some((v) => src.includes(v))) return true;
+    const monthName = Object.keys(EN_MONTHS).find((k) => EN_MONTHS[k] === Number(m) && k.length > 3);
+    if (monthName) {
+      const re = new RegExp(`${dNum}(?:st|nd|rd|th)?\\s+${monthName}\\s+${y}|${monthName}\\s+${dNum}(?:st|nd|rd|th)?,?\\s+${y}`, 'i');
+      if (re.test(src)) return true;
+    }
+    return false;
+  }
+
+  _parsePriceToken(raw) {
+    if (raw === undefined || raw === null) return 0;
+    const text = String(raw).trim().toLowerCase().replace(/\s/g, '');
+    if (!text) return 0;
+    const kMatch = text.match(/^(\d+(?:[.,]\d+)?)k$/i);
+    if (kMatch) {
+      return Math.round(Number(kMatch[1].replace(',', '.')) * 1000);
+    }
+    const num = Number(String(raw).replace(/[^\d]/g, ''));
+    return Number.isNaN(num) ? 0 : num;
+  }
+
+  _tryParseEventJson(text) {
+    if (!text || typeof text !== 'string') return null;
+    const trimmed = text.trim();
+    let candidate = trimmed;
+    const fence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)```/i);
+    if (fence) candidate = fence[1].trim();
+    if (!candidate.startsWith('{')) {
+      const start = candidate.indexOf('{');
+      const end = candidate.lastIndexOf('}');
+      if (start < 0 || end <= start || start > 80) return null;
+      candidate = candidate.slice(start, end + 1);
+    }
+    try {
+      const obj = JSON.parse(candidate);
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+      if (!(obj.title || obj.event_name || obj.name || obj.sessions || obj.tickets || obj.ticket_types)) {
+        return null;
+      }
+      return obj;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  _mapJsonEventDocument(obj) {
+    if (!obj) return null;
+    const sessionSource = Array.isArray(obj.sessions) ? obj.sessions : [];
+    const sessions = sessionSource.map((s, idx) => {
+      const dateRaw = s.date || s.start_date || s.startDate || '';
+      const startDate = this._formatIsoDate(dateRaw) || this._parseEnglishDateToIso(dateRaw);
+      return {
+        session_name: s.session_name || s.name || (sessionSource.length > 1 ? `Phiên ${idx + 1}` : 'Phiên sự kiện'),
+        start_date: startDate,
+        start_time: this._normalizeTime(s.start_time || s.startTime || '', ''),
+        end_date: startDate,
+        end_time: this._normalizeTime(s.end_time || s.endTime || '', ''),
+        checkin_start_time: this._normalizeTime(s.check_in_time || s.checkin_start_time || s.checkInTime || '', ''),
+      };
+    });
+    const venueFromSession = sessionSource[0] || {};
+    const ticketSource = Array.isArray(obj.tickets) ? obj.tickets : (Array.isArray(obj.ticket_types) ? obj.ticket_types : []);
+    const tickets = ticketSource.map((t) => ({
+      name: String(t.name || t.ticket_name || 'Hạng vé').trim(),
+      price: this._parsePriceToken(t.price),
+      quantity_total: t.quantity != null ? Number(t.quantity) : (t.quantity_total != null ? Number(t.quantity_total) : null),
+      description: String(t.description || t.type || '').trim(),
+    }));
+    const attendee = obj.require_attendee_information;
+    const requireAttendee = Array.isArray(attendee) ? attendee.length > 0 : Boolean(attendee);
+
+    return {
+      title: String(obj.title || obj.event_name || obj.name || '').trim(),
+      category: String(obj.category || obj.category_name || '').trim(),
+      tags: Array.isArray(obj.tags) ? obj.tags.join(', ') : String(obj.tags || ''),
+      short_description: String(obj.short_description || obj.summary || '').trim(),
+      description: String(obj.description || '').trim(),
+      venue: {
+        venue_name: String(obj.venue_name || obj.venue || venueFromSession.venue_name || '').trim(),
+        address_line: String(obj.address_line || obj.address || venueFromSession.address || '').trim(),
+        district: String(obj.district || venueFromSession.district || '').trim(),
+        province: String(obj.province || obj.city || venueFromSession.city || venueFromSession.province || '').trim(),
+      },
+      sessions,
+      tickets,
+      require_attendee_information: requireAttendee,
+      additional_terms: String(obj.notes || obj.additional_terms || '').trim(),
+    };
+  }
+
+  _extractQuotedTitles(text) {
+    if (!text) return [];
+    const titles = [];
+    const re = /(?:[“"«]|(?<=\s|^)['‘])([^“"”'’\r\n]{3,120})[”"»'’]/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const raw = this._cleanDocumentTitle(m[1]);
+      if (raw && !this._isGenericDocumentTitle(raw) && !/^(yes|no|ok|draft|homies|định\s*mệnh)$/i.test(raw)) {
+        titles.push(raw);
+      }
+    }
+    return titles;
+  }
+
+  _parseEnglishDateRangeSessions(text) {
+    if (!text) return [];
+    const re = new RegExp(`(\\d{1,2})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${EN_MONTH_ALT})\\s+(\\d{4})`, 'i');
+    const m = text.match(re);
+    if (!m) return [];
+    const startDay = Number(m[1]);
+    const endDay = Number(m[2]);
+    const month = EN_MONTHS[m[3].toLowerCase()];
+    const year = m[4];
+    if (!month || endDay < startDay || endDay - startDay > 14) return [];
+    const hours = this._extractPrimaryHours(text);
+    const sessions = [];
+    for (let day = startDay; day <= endDay; day += 1) {
+      const iso = this._toIsoDate(year, month, day);
+      sessions.push({
+        session_name: `Ngày ${day}`,
+        start_date: iso,
+        start_time: hours.start,
+        end_date: iso,
+        end_time: hours.end,
+        checkin_start_time: hours.checkin,
+      });
+    }
+    return sessions;
+  }
+
+  _extractPrimaryHours(text) {
+    const result = { checkin: '', start: '', end: '' };
+    if (!text) return result;
+
+    const ciMatch = text.match(/(?:check[\s\-]?in(?:\s*and\s*welcome)?|registration\s*opens|gates?\s*open|doors?\s*open|đón\s*khách|mở\s*cửa|khách\s*bắt\s*đầu\s*vào|doors?\s*at)\s*[:：]?\s*(?:từ\s*|from\s*|at\s*|lúc\s*|khoảng\s*)?(\d{1,2}(?:[:h]\d{2}|\s*giờ(?:\s*\d{2})?)?)/i);
+    if (ciMatch) result.checkin = this._normalizeTime(ciMatch[1], '');
+
+    const labeledHours = text.match(/(?:operating\s*hours|opening\s*hours)\s*[:：]?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/i);
+    const workshopRange = text.match(/\bworkshop\s*[:：]?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/i);
+    const sessionFrom = text.match(/(?:session|chương\s*trình\s*chính)\s*(?:from|khoảng|từ)?\s*(\d{1,2}[:h]\d{2})\s*(?:to|đến|[–\-])\s*(\d{1,2}[:h]\d{2})/i);
+    if (labeledHours) {
+      result.start = this._normalizeTime(labeledHours[1], '');
+      result.end = this._normalizeTime(labeledHours[2], '');
+    } else if (workshopRange) {
+      result.start = this._normalizeTime(workshopRange[1], '');
+      result.end = this._normalizeTime(workshopRange[2], '');
+    } else if (sessionFrom) {
+      result.start = this._normalizeTime(sessionFrom[1], '');
+      result.end = this._normalizeTime(sessionFrom[2], '');
+    } else {
+      const ranges = [...text.matchAll(/(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/g)];
+      if (ranges.length > 0) {
+        result.start = this._normalizeTime(ranges[0][1], '');
+        result.end = this._normalizeTime(ranges[ranges.length - 1][2], '');
+      }
+    }
+
+    const startMatch = text.match(/(?:opening\s*program|first\s*act|xuất\s*phát|start(?:\s*time)?|bắt\s*đầu|community\s*workshops|craft\s*and\s*language)\s*[:：]?\s*(?:from|at|lúc|khoảng)?\s*(\d{1,2}[:h]\d{2})/i);
+    if (startMatch && !labeledHours && !workshopRange) {
+      result.start = this._normalizeTime(startMatch[1], '');
+    } else if (startMatch && !result.start) {
+      result.start = this._normalizeTime(startMatch[1], '');
+    }
+
+    const endMatch = text.match(/(?:end(?:\s*time)?|kết\s*thúc|finish(?:\s*around)?|closing(?:\s*gathering)?)\s*[:：]?\s*(?:trước\s*|before\s*|around\s*|khoảng\s*)?(\d{1,2}[:h]\d{2})/i);
+    if (endMatch && !labeledHours && !workshopRange) {
+      result.end = this._normalizeTime(endMatch[1], '');
+    } else if (endMatch && !result.end) {
+      result.end = this._normalizeTime(endMatch[1], '');
+    }
+
+    if (!result.end) {
+      const denMatch = text.match(/\bđến\s+(\d{1,2}[:h]\d{2})/i);
+      if (denMatch) result.end = this._normalizeTime(denMatch[1], '');
+    }
+    return result;
+  }
+
+  _parseDayNumberedBlocks(text) {
+    if (!text) return [];
+    const dayRe = /(?:^|\n)\s*Day\s*(\d+)\s*[—\-–:]?\s*([^\n]*)/gi;
+    const matches = [...text.matchAll(dayRe)];
+    if (matches.length < 2) return [];
+    const sessions = [];
+    for (let i = 0; i < matches.length; i += 1) {
+      const startIdx = matches[i].index;
+      const endIdx = matches[i + 1] ? matches[i + 1].index : text.length;
+      const block = text.slice(startIdx, endIdx);
+      const header = matches[i][2] || '';
+      const iso = this._parseEnglishDateToIso(header) || this._formatIsoDate(header);
+      const hours = this._extractPrimaryHours(block);
+      if (!hours.start) {
+        const firstTime = block.match(/(\d{1,2}[:h]\d{2})/);
+        if (firstTime) hours.start = this._normalizeTime(firstTime[1], '');
+      }
+      if (!hours.end) {
+        const times = [...block.matchAll(/(\d{1,2}[:h]\d{2})/g)];
+        if (times.length > 0) hours.end = this._normalizeTime(times[times.length - 1][1], '');
+      }
+      sessions.push({
+        session_name: `Ngày ${matches[i][1]}${header ? `: ${header.trim()}` : ''}`,
+        start_date: iso,
+        start_time: hours.start,
+        end_date: iso,
+        end_time: hours.end,
+        checkin_start_time: hours.checkin,
+      });
+    }
+    return sessions;
+  }
+
+  _parseLooseTickets(text) {
+    if (!text) return [];
+    const tickets = [];
+    const seen = new Set();
+    const pushTicket = (name, priceRaw, qtyRaw, desc = '') => {
+      let cleanName = String(name || '').replace(/^[\-•\*\d\.\)\s]+/, '').replace(/\s+/g, ' ').trim();
+      cleanName = cleanName.replace(/^(?:talked\s*about\s*)/i, '').trim();
+      cleanName = cleanName.replace(/^(?:vé|hạng vé|ticket)\s+/i, '').trim() || cleanName;
+      if (!cleanName || cleanName.length < 2 || cleanName.length > 80) return;
+      if (/^(admission|draft|status|missing|note|contact|organizer|prices?|ideas?)$/i.test(cleanName)) return;
+      if (/free|miễn phí|not decided|undecided|may be free/i.test(String(name) + String(priceRaw))) {
+        if (!/\d/.test(String(priceRaw))) return;
+      }
+      const price = this._parsePriceToken(priceRaw);
+      if (price <= 0) return;
+      const key = cleanName.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      let qty = null;
+      if (qtyRaw != null && String(qtyRaw).trim() !== '') {
+        const q = Number(String(qtyRaw).replace(/[^\d]/g, ''));
+        if (!Number.isNaN(q) && q > 0 && q !== price) qty = q;
+      }
+      let formattedName = cleanName;
+      if (/^\d+\s*km$/i.test(cleanName)) formattedName = `Vé ${cleanName}`;
+      else if (/^vip$/i.test(cleanName)) formattedName = 'Vé VIP';
+      else if (/^standard$/i.test(cleanName)) formattedName = 'Vé Standard';
+      else if (/^đặt\s*sớm$/i.test(cleanName)) formattedName = 'Vé đặt sớm';
+      else if (/^thường$/i.test(cleanName)) formattedName = 'Vé thường';
+      tickets.push({
+        name: formattedName,
+        price,
+        quantity_total: qty,
+        description: String(desc || '').trim(),
+      });
+    };
+
+    let m;
+    const pipeRe = /(?:^|\n)[ \t]*[\-•\*]?[ \t]*([^|\n]+?)[ \t]*\|[ \t]*([0-9\.,]+)[ \t]*(?:vnd|vnđ|đồng)?[ \t]*(?:\|[ \t]*(?:quantity\s*)?([0-9\.,]+))?/gi;
+    while ((m = pipeRe.exec(text)) !== null) {
+      pushTicket(m[1], m[2], m[3]);
+    }
+
+    const lineRe = /(?:^|\n)[ \t]*[•\-\*]?[ \t]*([A-Za-z0-9][A-Za-z0-9 \tÀ-ỹ/'&+]{1,50}?)[ \t]*[—\-–:]+[ \t]*([0-9][0-9\.,]*)[ \t]*(k\b|vnd|vnđ|đồng)\b([^.\n]*)/gi;
+    while ((m = lineRe.exec(text)) !== null) {
+      const priceToken = m[3].toLowerCase() === 'k' ? `${m[2]}k` : m[2];
+      const tail = m[4] || '';
+      const qtyHit = tail.match(/(?:quantity|places?|chỗ|bundles?|vé|suất)[ \t]*([0-9][0-9\.,]*)/i)
+        || tail.match(/([0-9][0-9\.,]*)[ \t]*(?:places?|teams?|bundles?|chỗ|vé)/i);
+      const desc = qtyHit
+        ? tail.replace(/(?:số\s*lượng(?:\s*là)?|proposed\s*quantity|quantity|places?|chỗ|bundles?|vé|suất)[ \t]*[0-9][0-9\.,]*\s*(?:places?|teams?|bundles?|chỗ|vé)?/i, '').replace(/^[—\-–:,;\s]+|[—\-–:,;\s]+$/g, '').trim()
+        : tail.replace(/^[—\-–:,;\s]+|[—\-–:,;\s]+$/g, '').trim();
+      pushTicket(m[1], priceToken, qtyHit ? qtyHit[1] : null, desc);
+    }
+
+    const proseEn = /((?:student(?:\/nonprofit)?|standard|vip|community|founder(?:\s*plus)?|learner|team|volunteer|general(?:\s*entry)?|family(?:\s*bundle)?|day|three[\-\s]?day|single[\-\s]?day|regular|discounted|supporter|đặt\s*sớm|thường)\s*(?:pass|ticket|seat|entry|bundle)?)\s*(?:at|for|is|là|:)?\s*([0-9][0-9\.,]*)\s*(k\b|vnd|vnđ|đồng)/gi;
+    while ((m = proseEn.exec(text)) !== null) {
+      const priceToken = m[3].toLowerCase() === 'k' ? `${m[2]}k` : m[2];
+      const qtyNear = text.slice(m.index, m.index + 80).match(/(?:quantity|places?|số\s*lượng)\s*([0-9][0-9\.,]*)/i);
+      const tail = text.slice(m.index + m[0].length).split('\n')[0] || '';
+      let desc = '';
+      const descHit = tail.match(/^[ \t]*[—\-–:][ \t]*([^\n]+)/);
+      if (descHit && !/(?:quantity|places?|số\s*lượng)/i.test(descHit[1])) {
+        desc = descHit[1].trim();
+      }
+      pushTicket(m[1], priceToken, qtyNear ? qtyNear[1] : null, desc);
+    }
+
+    const kmRe = /vé\s+(\d+\s*km)\s+là\s+(\d+)\s*k\b/gi;
+    while ((m = kmRe.exec(text)) !== null) {
+      pushTicket(`Vé ${m[1]}`, `${m[2]}k`, null);
+    }
+
+    const kLineRe = /(?:^|\n)[ \t]*[\-•\*]?[ \t]*([A-Za-z][A-Za-z0-9 \tÀ-ỹ]{1,40}?)[ \t]+(\d{2,4})[ \t]*k\b/gi;
+    while ((m = kLineRe.exec(text)) !== null) {
+      pushTicket(m[1], `${m[2]}k`, null);
+    }
+
+    return tickets;
+  }
+
+  _parseFlexibleLocation(text) {
+    const venue = { venue_name: '', address_line: '', district: '', province: '' };
+    if (!text) return venue;
+    const labeled = text.match(/(?:Venue(?:\s*Name)?|Location|Where|Địa\s*điểm|Nơi\s*tổ\s*chức)\s*[:：\-–]\s*([^\n\r]+)/i);
+    if (labeled) {
+      let rest = labeled[1].trim();
+      const distInLine = rest.match(/\|\s*District\s*[:：]?\s*([^|]+)/i);
+      const cityInLine = rest.match(/\|\s*City\s*[:：]?\s*([^|]+)/i);
+      rest = rest.replace(/\|\s*(?:District|City|Ward)\s*[:：]?[^|]*/gi, '').trim();
+      const parts = rest.split(/[,;]\s*/).map((p) => p.trim()).filter(Boolean);
+      const lastPart = parts[parts.length - 1] || '';
+      if (parts.length >= 2 && /da nang|đà nẵng|hà nội|ha noi|hồ chí minh|ho chi minh|hue|huế|cần thơ|can tho/i.test(lastPart)) {
+        venue.province = parts.pop();
+        venue.venue_name = parts.join(', ');
+      } else if (!/is being considered|chưa\s*(?:được\s*)?chốt/i.test(rest)) {
+        venue.venue_name = rest.split('|')[0].trim();
+      }
+      if (distInLine) venue.district = distInLine[1].trim();
+      if (cityInLine) venue.province = cityInLine[1].trim();
+    }
+    if (!venue.district) {
+      const dist = text.match(/(?:District|Quận)\s*(\d+|[A-Za-zÀ-ỹ][A-Za-zÀ-ỹ\s]+?)(?:[,.\n|]|$)/i)
+        || text.match(/(?:khu\s*vực|ở|in)\s+([A-Za-zÀ-ỹ\s]{2,30}?)(?=[,;\s]+(?:TP|Da Nang|Đà Nẵng|HCM|Hồ Chí Minh|Hà Nội|Huế|Cần Thơ))/i);
+      if (dist) {
+        let rawDist = dist[1].replace(/\s+/g, ' ').trim();
+        rawDist = rawDist.replace(/^khu\s*vực\s+/i, '').trim();
+        if (!/tổ\s*chức|công\s*viên|all\s*cases|any\s*case|general|addition/i.test(rawDist)) {
+          venue.district = /^\d+$/.test(rawDist) ? `Quận ${rawDist}` : rawDist;
+        }
+      }
+    }
+    if (!venue.province || /is being considered/i.test(venue.province)) {
+      const city = text.match(/\b(Da Nang|Đà Nẵng|Ho Chi Minh City|TP\.?\s*HCM|Hà Nội|Ha Noi|Hue City|Huế|Cần Thơ|Can Tho|Hải Phòng)\b/i);
+      if (city) venue.province = city[1];
+    }
+    if (!venue.venue_name) {
+      const named = text.match(/(?:quanh|tại|at)\s+([A-ZÀ-Ỹ][^,.\n]{3,60}?)(?:,|\.|$)/);
+      if (named && !/gallery|coworking|cultural center|indoor event space|quán cà phê/i.test(named[1])) {
+        venue.venue_name = named[1].trim();
+      }
+    }
+    return venue;
   }
 
   /**
@@ -307,21 +847,23 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
    */
   _extractDocumentSections(text) {
     if (!text || typeof text !== 'string') return {};
-    const norm = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const converted = this._convertTabsToMarkdownTable(text);
+    const norm = converted.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const jsonDoc = this._tryParseEventJson(norm);
+    const jsonMapped = jsonDoc ? this._mapJsonEventDocument(jsonDoc) : null;
 
     const pfx = '^[ \\t]*(?:#{1,6}\\s*)?(?:\\*{1,2}\\s*)?(?:\\d+[\\.\\)]\\s*)?(?:\\*{1,2}\\s*)?';
-    const sfx = '(?:\\*{1,2})?\\s*[:：\\-–]?\\s*(?:\\*{1,2})?\\s*([^\\n]*)$';
+    const sfx = '(?:\\*{1,2})?\\s*(?:[:：]\\s*([^\\n]*)|[ \\t]*(?:\\*{1,2})?\\s*)$';
 
     const headerDefs = [
-      { key: 'title', singleLine: true, regex: new RegExp(`${pfx}(?:TIÊU\\s*ĐỀ|TÊN\\s*SỰ\\s*KIỆN|TÊN\\s*HOẠT\\s*ĐỘNG|EVENT\\s*NAME|EVENT\\s*TITLE|NAME\\s*OF\\s*EVENT|TITLE)${sfx}`, 'im') },
+      { key: 'title', singleLine: true, regex: new RegExp(`${pfx}(?:TIÊU\\s*ĐỀ|TÊN\\s*SỰ\\s*KIỆN|TÊN\\s*HOẠT\\s*ĐỘNG|EVENT\\s*NAME|EVENT\\s*TITLE|NAME\\s*OF\\s*EVENT|TITLE|(?<![A-Za-z0-9])EVENT(?!\\s*(?:NAME|TITLE|SCHEDULE|DETAILS?|DESCRIPTION|PROPOSAL|HUB)))[:：\\-–]\\s*([^\\n]+)$`, 'im') },
       { key: 'category', singleLine: true, regex: new RegExp(`${pfx}(?:DANH\\s*MỤC|THỂ\\s*LOẠI|CHỦ\\s*ĐỀ|EVENT\\s*CATEGORY|CATEGORY|GENRE|TOPIC)${sfx}`, 'im') },
       { key: 'tags', singleLine: true, regex: new RegExp(`${pfx}(?:TAGS?|TỪ\\s*KHÓA|TỪ\\s*KHOÁ|NHÃN|KEYWORDS?)${sfx}`, 'im') },
       { key: 'short_description', regex: new RegExp(`${pfx}(?:MÔ\\s*TẢ\\s*NGẮN|TÓM\\s*TẮT|GIỚI\\s*THIỆU\\s*NGẮN|SHORT\\s*DESCRIPTION|BRIEF\\s*DESCRIPTION|SUMMARY|BRIEF)${sfx}`, 'im') },
       { key: 'description', regex: new RegExp(`${pfx}(?:MÔ\\s*TẢ\\s*CHI\\s*TIẾT|DETAILED\\s*DESCRIPTION|DETAIL\\s*DESCRIPTION|FULL\\s*DESCRIPTION|NỘI\\s*DUNG\\s*CHI\\s*TIẾT|NỘI\\s*DUNG\\s*SỰ\\s*KIỆN|EVENT\\s*DESCRIPTION|EVENT\\s*DETAILS?|ABOUT\\s*(?:THE\\s*)?EVENT|GIỚI\\s*THIỆU\\s*SỰ\\s*KIỆN)${sfx}`, 'im') },
       { key: 'schedule_location', regex: new RegExp(`${pfx}(?:EVENT\\s*SCHEDULE|LỊCH\\s*TRÌNH(?:\\s*(?:VÀ|&)\\s*ĐỊA\\s*ĐIỂM)?|THỜI\\s*GIAN(?:\\s*(?:VÀ|&)\\s*ĐỊA\\s*ĐIỂM)?|SCHEDULE(?:\\s*(?:AND|&)\\s*LOCATION)?|AGENDA|TIME\\s*(?:AND|&)\\s*LOCATION|DATE\\s*(?:AND|&)\\s*TIME)${sfx}`, 'im') },
       { key: 'ticket_info', regex: new RegExp(`${pfx}(?:TICKET\\s*INFORMATION|TICKET\\s*INFO|BẢNG\\s*GIÁ\\s*VÉ|THÔNG\\s*TIN\\s*VÉ|GIÁ\\s*VÉ|HẠNG\\s*VÉ|VÉ\\s*THAM\\s*GIA|TICKETS?|TICKET\\s*PRICES?|PRICING)${sfx}`, 'im') },
-      { key: 'attendee_info', regex: new RegExp(`${pfx}(?:ATTENDEE\\s*INFORMATION|ATTENDEE\\s*INFO|YÊU\\s*CẦU\\s*THU\\s*THẬP\\s*THÔNG\\s*TIN\\s*NGƯỜI\\s*THAM\\s*DỰ|THÔNG\\s*TIN\\s*NGƯỜI\\s*THAM\\s*DỰ|THU\\s*THẬP\\s*THÔNG\\s*TIN|PARTICIPANT\\s*INFORMATION)${sfx}`, 'im') },
-      { key: 'additional_terms', regex: new RegExp(`${pfx}(?:ORGANIZER\\s*NOTES?|ADDITIONAL\\s*(?:INFORMATION|NOTES?|TERMS?)|IMPORTANT\\s*NOTES?|CHÍNH\\s*SÁCH\\s*VÉ|ĐIỀU\\s*KHOẢN|TERMS\\s*(?:AND|&)\\s*CONDITIONS|LƯU\\s*Ý\\s*THÊM|GHI\\s*CHÚ\\s*THÊM)${sfx}`, 'im') },
+      { key: 'additional_terms', regex: new RegExp(`${pfx}(?:ORGANIZER\\s*NOTES?|ADDITIONAL\\s*(?:INFORMATION|NOTES?|TERMS?)|IMPORTANT\\s*NOTES?|CHÍNH\\s*SÁCH\\s*VÉ|ĐIỀU\\s*KHOẢN\\s*(?:&|VÀ)\\s*QUY\\s*ĐỊNH(?:\\s+DÀNH\\s+CHO\\s+[^\\n:]+)?|LƯU\\s*Ý\\s*THÊM|GHI\\s*CHÚ\\s*THÊM)${sfx}`, 'im') },
     ];
 
     const foundHeaders = [];
@@ -378,13 +920,13 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     }
 
     if (sections.title) {
-      sections.title = sections.title.split('\n')[0].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+      sections.title = this._cleanDocumentTitle(sections.title.split('\n')[0]);
     }
 
     // 1. Tìm tên chương trình / sự kiện trong văn bản tự sự (Prose event name):
     // "chương trình mang tên **Campus Creative Week 2027**", "sự kiện có tên là ...", "hoạt động mang tên ..."
-    const proseTitleMatch = norm.match(/(?:chương\s*trình|sự\s*kiện|hoạt\s*động)\s*(?:dự\s*kiến\s*)?(?:mang\s*tên|có\s*tên\s*(?:là)?|tên\s*là)\s*[:：]?\s*[\*"]*([^\*"\n,\.]{3,100}?)[\*"]*(?:[,\.\n]| hướng đến| dành cho| nhằm)/i);
-    let proseTitle = proseTitleMatch ? proseTitleMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim() : '';
+    const proseTitleMatch = norm.match(/(?:chương\s*trình|sự\s*kiện|hoạt\s*động|đêm\s*nhạc|buổi\s*(?:biểu\s*diễn|nhạc)|workshop|exhibition|meetup)\s*(?:dự\s*kiến\s*)?(?:mang\s*tên|có\s*tên\s*(?:là)?|tên\s*là|called|named)\s*[:：]?\s*[\*"“”]*([^\*"“”\n,\.]{3,100}?)[\*"“”]*(?:[,\.\n]| hướng đến| dành cho| nhằm)/i);
+    let proseTitle = proseTitleMatch ? this._cleanDocumentTitle(proseTitleMatch[1]) : '';
 
     // 2. Tìm Subject trong email nếu có:
     // **Subject:** Kế hoạch tổ chức Campus Creative Week – thông tin chuẩn bị ban đầu
@@ -392,8 +934,13 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     let subjectTitle = '';
     if (subjectMatch) {
       let sub = subjectMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
-      sub = sub.replace(/^(?:re|fwd|fw|kế\s*hoạch\s*tổ\s*chức|thông\s*báo\s*về|v\/v)\s*[:：\-–]?\s*/i, '');
-      sub = sub.split(/[-–—]/)[0].trim();
+      const emParts = sub.split(/\s*[–—]\s*/).map((p) => p.trim()).filter(Boolean);
+      if (emParts.length > 1 && emParts[emParts.length - 1].length >= 8) {
+        sub = emParts[emParts.length - 1];
+      } else {
+        sub = sub.split(/[-–—]/)[0].trim();
+      }
+      sub = this._cleanDocumentTitle(sub);
       if (sub && !this._isGenericDocumentTitle(sub)) {
         subjectTitle = sub;
       }
@@ -401,23 +948,43 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // Nếu không tìm thấy nhãn TIÊU ĐỀ hoặc nhãn bị generic (ví dụ "# EVENT PROPOSAL", "# Email trao đổi...")
     if (!sections.title || this._isGenericDocumentTitle(sections.title)) {
-      if (proseTitle && !this._isGenericDocumentTitle(proseTitle)) {
+      if (jsonMapped && jsonMapped.title && !this._isGenericDocumentTitle(jsonMapped.title)) {
+        sections.title = jsonMapped.title;
+      } else if (proseTitle && !this._isGenericDocumentTitle(proseTitle)) {
         sections.title = proseTitle;
       } else if (subjectTitle && !this._isGenericDocumentTitle(subjectTitle)) {
         sections.title = subjectTitle;
       } else {
+        // Kiểm tra dòng đầu tiên của tài liệu: nếu là tiêu đề sạch, ưu tiên sử dụng!
         const lines = norm.split('\n').map((l) => l.trim()).filter(Boolean);
-        sections.title = '';
+        let foundLineTitle = '';
         for (const line of lines) {
-          if (this._isGenericDocumentTitle(line)) continue;
-          const isHeaderKey = /^(?:#{1,6}\s*)?(?:\*{1,2}\s*)?(?:from|to|subject|thời gian|địa điểm|địa chỉ|ngày|mô tả|kính gửi|lưu ý|giá vé|nội dung|danh mục|tags?|event\s*name|category|detailed|short|schedule|tickets?|attendee)/i.test(line);
-          const cleanLine = line.replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
-          if (!isHeaderKey && cleanLine.length <= 150 && !this._isGenericDocumentTitle(cleanLine)) {
-            sections.title = cleanLine;
+          const cleanedLine = this._cleanDocumentTitle(line);
+          if (this._isGenericDocumentTitle(cleanedLine)) continue;
+          const isHeaderKey = /^(?:#{1,6}\s*)?(?:\*{1,2}\s*)?(?:from|to|subject|thời gian|địa điểm|địa chỉ|ngày|mô tả|kính gửi|lưu ý|giá vé|nội dung|danh mục|tags?|event\s*name|category|detailed|short|schedule|tickets?|attendee|when|where|purpose|overview|draft|status|hi|hello)/i.test(line);
+          if (!isHeaderKey && cleanedLine.length >= 3 && cleanedLine.length <= 150 && !this._isGenericDocumentTitle(cleanedLine)) {
+            foundLineTitle = cleanedLine;
             break;
           }
         }
+
+        const quoted = this._extractQuotedTitles(norm);
+        if (quoted.length > 0 && (!foundLineTitle || (quoted[0].length > 10 && foundLineTitle.length < 8))) {
+          sections.title = quoted[0];
+        } else if (foundLineTitle) {
+          sections.title = foundLineTitle;
+        } else if (quoted.length > 0) {
+          sections.title = quoted[0];
+        }
       }
+    }
+
+    if (jsonMapped) {
+      if (!sections.short_description && jsonMapped.short_description) sections.short_description = jsonMapped.short_description;
+      if (!sections.description && jsonMapped.description) sections.description = jsonMapped.description;
+      if (!sections.tags && jsonMapped.tags) sections.tags = jsonMapped.tags;
+      if (!sections.category && jsonMapped.category) sections.category = jsonMapped.category;
+      if (!sections.additional_terms && jsonMapped.additional_terms) sections.additional_terms = jsonMapped.additional_terms;
     }
 
     return sections;
@@ -560,6 +1127,175 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
   }
 
   /**
+   * Bóc tách bảng lịch trình từ định dạng bảng Markdown hoặc tab-delimited
+   */
+  _parseMarkdownScheduleTable(text) {
+    if (!text || typeof text !== 'string') return { sessions: [], venue: {} };
+    const converted = this._convertTabsToMarkdownTable(text);
+    const lines = converted.split('\n').map((l) => l.trim());
+    const sessions = [];
+    const venue = {};
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.startsWith('|') || !line.endsWith('|')) continue;
+
+      const lower = line.toLowerCase();
+      const hasDateCol = lower.includes('ngày') || lower.includes('date');
+      const hasTimeCol =
+        lower.includes('bắt đầu') ||
+        lower.includes('start') ||
+        lower.includes('thời gian') ||
+        lower.includes('check-in') ||
+        lower.includes('checkin') ||
+        lower.includes('kết thúc');
+
+      if (hasDateCol && hasTimeCol) {
+        const headers = line.split('|').slice(1, -1).map((c) => c.trim().toLowerCase());
+
+        const dateIdx = headers.findIndex((h) => h.includes('ngày') || h.includes('date'));
+        const checkinIdx = headers.findIndex((h) => h.includes('check-in') || h.includes('checkin') || h.includes('đón khách') || h.includes('mở cửa'));
+        const startIdx = headers.findIndex((h) => h.includes('bắt đầu') || h.includes('start') || (h.includes('thời gian') && !h.includes('kết thúc')));
+        const endIdx = headers.findIndex((h) => h.includes('kết thúc') || h.includes('end'));
+        const venueIdx = headers.findIndex((h) => h.includes('địa điểm') || h.includes('venue') || h.includes('nơi tổ chức'));
+        const locIdx = headers.findIndex((h) => h.includes('quận') || h.includes('thành phố') || h.includes('city') || h.includes('district') || h.includes('tỉnh'));
+        const nameIdx = headers.findIndex((h) => h.includes('phiên') || h.includes('session') || h.includes('buổi') || (h.includes('tên') && !h.includes('vé')));
+
+        let r = i + 1;
+        if (r < lines.length && lines[r].includes('---')) {
+          r++;
+        }
+
+        let sessionCount = 0;
+        while (r < lines.length && lines[r].startsWith('|') && lines[r].endsWith('|')) {
+          const cells = lines[r].split('|').slice(1, -1).map((c) => c.trim());
+          if (cells.length >= 2 && !cells.every((c) => !c || c.includes('---'))) {
+            sessionCount++;
+
+            const rawDate = dateIdx >= 0 ? cells[dateIdx] : '';
+            let sDate = '';
+            const dMatch = rawDate.match(/(\d{4}[\-\/\.]\d{1,2}[\-\/\.]\d{1,2}|\d{1,2}[\-\/\.]\d{1,2}[\-\/\.]\d{4})/);
+            if (dMatch) {
+              const rd = dMatch[1];
+              if (/^\d{4}/.test(rd)) {
+                const [y, m, d] = rd.split(/[\-\/\.]/);
+                sDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              } else {
+                const [d, m, y] = rd.split(/[\-\/\.]/);
+                sDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              }
+            }
+
+            const normTime = (t) => {
+              if (!t) return '';
+              const m = t.match(/(\d{1,2})[:h](\d{2})/i);
+              return m ? `${String(m[1]).padStart(2, '0')}:${m[2]}` : '';
+            };
+
+            const sCheckin = checkinIdx >= 0 ? normTime(cells[checkinIdx]) : '';
+            const sStart = startIdx >= 0 ? normTime(cells[startIdx]) : '';
+            const sEnd = endIdx >= 0 ? normTime(cells[endIdx]) : '';
+            const sName = nameIdx >= 0 && cells[nameIdx] ? cells[nameIdx] : `Phiên ${sessionCount}`;
+
+            if (venueIdx >= 0 && cells[venueIdx] && !venue.venue_name) {
+              venue.venue_name = cells[venueIdx];
+            }
+            if (locIdx >= 0 && cells[locIdx]) {
+              const locText = cells[locIdx];
+              const parts = locText.split(/[\-–—,]/).map((p) => p.trim());
+              if (parts.length >= 2) {
+                if (!venue.district) venue.district = parts[0];
+                if (!venue.province) venue.province = parts[1];
+              } else if (!venue.province) {
+                venue.province = locText;
+              }
+            }
+
+            sessions.push({
+              session_name: sName,
+              start_date: sDate,
+              start_time: sStart,
+              end_date: sDate,
+              end_time: sEnd,
+              checkin_start_time: sCheckin,
+            });
+          }
+          r++;
+        }
+        i = r - 1;
+      }
+    }
+
+    return { sessions, venue };
+  }
+
+  /**
+   * Bóc tách bảng loại vé từ định dạng bảng Markdown hoặc tab-delimited
+   */
+  _parseMarkdownTicketTable(text) {
+    if (!text || typeof text !== 'string') return [];
+    const converted = this._convertTabsToMarkdownTable(text);
+    const lines = converted.split('\n').map((l) => l.trim());
+    const tickets = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.startsWith('|') || !line.endsWith('|')) continue;
+
+      const lower = line.toLowerCase();
+      const hasTicketCol = lower.includes('vé') || lower.includes('ticket') || lower.includes('hạng');
+      const hasPriceCol = lower.includes('giá') || lower.includes('price') || lower.includes('vnd') || lower.includes('vnđ');
+
+      if (hasTicketCol && hasPriceCol) {
+        const headers = line.split('|').slice(1, -1).map((c) => c.trim().toLowerCase());
+
+        const nameIdx = headers.findIndex((h) => h.includes('tên') || (h.includes('vé') && !h.includes('giá') && !h.includes('loại')) || h.includes('ticket name') || h.includes('hạng vé'));
+        const priceIdx = headers.findIndex((h) => h.includes('giá') || h.includes('price'));
+        const qtyIdx = headers.findIndex((h) => h.includes('số lượng') || h.includes('quantity') || h.includes('qty'));
+        const descIdx = headers.findIndex((h) => h.includes('quyền lợi') || h.includes('mô tả') || h.includes('benefit') || h.includes('description'));
+
+        let r = i + 1;
+        if (r < lines.length && lines[r].includes('---')) {
+          r++;
+        }
+
+        let ticketCount = 0;
+        while (r < lines.length && lines[r].startsWith('|') && lines[r].endsWith('|')) {
+          const cells = lines[r].split('|').slice(1, -1).map((c) => c.trim());
+          if (cells.length >= 2 && !cells.every((c) => !c || c.includes('---'))) {
+            ticketCount++;
+
+            const rawName = nameIdx >= 0 ? cells[nameIdx] : `Hạng vé ${ticketCount}`;
+            const rawPrice = priceIdx >= 0 ? cells[priceIdx].replace(/[^\d]/g, '') : '0';
+            const priceNum = Number(rawPrice) || 0;
+
+            let qtyNum = null;
+            if (qtyIdx >= 0 && cells[qtyIdx]) {
+              const parsedQty = Number(cells[qtyIdx].replace(/[^\d]/g, ''));
+              if (!isNaN(parsedQty) && parsedQty > 0) {
+                qtyNum = parsedQty;
+              }
+            }
+
+            const desc = descIdx >= 0 ? cells[descIdx] : '';
+
+            tickets.push({
+              name: rawName,
+              price: priceNum,
+              quantity_total: qtyNum,
+              description: desc,
+            });
+          }
+          r++;
+        }
+        i = r - 1;
+      }
+    }
+
+    return tickets;
+  }
+
+  /**
    * Bóc tách phiên sự kiện và địa điểm có cấu trúc từ text
    * @param {string} text
    * @returns {object} { venue: { venue_name, address_line, district, province }, sessions: [] }
@@ -572,17 +1308,80 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     let district = '';
     let city = '';
 
-    const vMatch = text.match(/(?:Venue\s*Name|Tên\s*địa\s*điểm|Địa\s*điểm)\s*[:：\-–]\s*([^\n\r]+)/i);
-    if (vMatch) venueName = vMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+    const jsonDoc = this._tryParseEventJson(text);
+    const jsonMapped = jsonDoc ? this._mapJsonEventDocument(jsonDoc) : null;
+    if (jsonMapped && jsonMapped.sessions.length > 0) {
+      return {
+        venue: jsonMapped.venue,
+        sessions: jsonMapped.sessions,
+      };
+    }
 
-    const dMatch = text.match(/(?:District|Quận|Huyện)\s*[:：\-–]\s*([^\n\r]+)/i);
-    if (dMatch) district = dMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+    // 1. Ưu tiên hàng đầu: Thử bóc tách từ bảng Markdown / Tab-delimited
+    const tableSched = this._parseMarkdownScheduleTable(text);
+    if (tableSched.venue?.venue_name) venueName = tableSched.venue.venue_name;
+    if (tableSched.venue?.address_line) addressLine = tableSched.venue.address_line;
+    if (tableSched.venue?.district) district = tableSched.venue.district;
+    if (tableSched.venue?.province) city = tableSched.venue.province;
 
-    const cMatch = text.match(/(?:City|Province|Tỉnh|Thành\s*phố)\s*[:：\-–]\s*([^\n\r]+)/i);
-    if (cMatch) city = cMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+    // 2. Nếu chưa có từ bảng, mới tìm qua các nhãn key-value (bỏ qua các dòng bảng | hoặc \t)
+    const nonTableText = text.split('\n').filter(l => !l.trim().startsWith('|') && !l.includes('\t')).join('\n');
 
-    const aMatch = text.match(/(?:Street\s*Address|Address|Địa\s*chỉ)\s*[:：\-–]\s*([^\n\r]+)/i);
-    if (aMatch) addressLine = aMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+    if (!venueName) {
+      const vMatch = nonTableText.match(/(?:Venue(?:\s*Name)?|Tên\s*địa\s*điểm|Địa\s*điểm|Location|Where)\s*[:：\-–]\s*([^\n\r]+)/i);
+      if (vMatch) {
+        const fullLoc = vMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+        const distPipe = fullLoc.match(/District\s*[:：]?\s*([^|]+)/i);
+        const cityPipe = fullLoc.match(/City\s*[:：]?\s*([^|]+)/i);
+        if (distPipe && !district) district = distPipe[1].trim();
+        if (cityPipe && !city) city = cityPipe[1].trim();
+        const venuePart = fullLoc.split('|')[0].replace(/\s*(?:District|City)\s*[:：].*$/i, '').replace(/\.\s.*$/, '').trim();
+        const parts = venuePart.split(/[,;]\s*/).map((p) => p.trim()).filter(Boolean);
+        const lastPart = parts[parts.length - 1] || '';
+        if (parts.length >= 2 && /da nang|đà nẵng|hồ chí minh|ho chi minh|hue city|huế|cần thơ|can tho|hà nội|ha noi/i.test(lastPart)) {
+          if (!city) city = lastPart;
+          venueName = parts.slice(0, -1).join(', ');
+        } else if (parts.length >= 3) {
+          venueName = parts[0].trim();
+          addressLine = parts.slice(1, -2).join(', ').trim() || parts[1].trim();
+          if (!district) district = parts[parts.length - 2].trim();
+          if (!city) city = parts[parts.length - 1].trim();
+        } else if (parts.length === 2) {
+          venueName = parts[0].trim();
+          if (!city) city = parts[1].trim();
+        } else {
+          venueName = venuePart || fullLoc;
+        }
+      }
+    }
+
+    if (!district) {
+      const dMatch = nonTableText.match(/(?:District|Quận|Huyện)\s*[:：\-–]\s*([^\n\r]+)/i);
+      if (dMatch) district = dMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+    }
+
+    if (!city) {
+      const cMatch = nonTableText.match(/(?:City|Province|Tỉnh|Thành\s*phố)\s*[:：\-–]\s*([^\n\r]+)/i);
+      if (cMatch) city = cMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+    }
+
+    if (!addressLine) {
+      const aMatch = nonTableText.match(/(?:Street\s*Address|Address|Địa\s*chỉ)\s*[:：\-–]\s*([^\n\r]+)/i);
+      if (aMatch) addressLine = aMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+    }
+
+    // Nếu bảng đã trích xuất được phiên, hoàn tất
+    if (tableSched.sessions.length > 0) {
+      return {
+        venue: {
+          venue_name: venueName,
+          address_line: addressLine,
+          district,
+          province: city,
+        },
+        sessions: tableSched.sessions,
+      };
+    }
 
     // Bổ sung quét địa điểm từ văn bản tự sự (Prose) nếu chưa tìm thấy
     if (!venueName) {
@@ -618,9 +1417,9 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
           }
         }
 
-        const stMatch = block.match(/(?:Start\s*Time|Giờ\s*bắt\s*đầu|Bắt\s*đầu)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
-        const etMatch = block.match(/(?:End\s*Time|Giờ\s*kết\s*thúc|Kết\s*thúc)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
-        const ciMatch = block.match(/(?:Check-?in\s*Time|Giờ\s*check-?in|Đón\s*khách)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
+        const stMatch = block.match(/(?:Start(?:\s*Time)?|Giờ\s*bắt\s*đầu|Bắt\s*đầu)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
+        const etMatch = block.match(/(?:End(?:\s*Time)?|Giờ\s*kết\s*thúc|Kết\s*thúc)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
+        const ciMatch = block.match(/(?:Check-?in(?:\s*Time)?|Giờ\s*check-?in|Đón\s*khách)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
 
         const normTime = (t) => {
           if (!t) return '';
@@ -639,12 +1438,78 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       }
     }
 
-    // Nếu không có Session 1, Session 2 dạng khối, tìm phiên theo dòng tự sự
+    // Nếu không có Session 1, Session 2 dạng khối, tìm ngày & giờ đơn lẻ trong văn bản có cấu trúc
+    if (sessionBlocks.length === 0) {
+      const dateMatch = nonTableText.match(/(?:Date|Ngày(?:\s*bắt\s*đầu|\s*tổ\s*chức)?)\s*[:：\-–]\s*(\d{4}[\-\/\.]\d{1,2}[\-\/\.]\d{1,2}|\d{1,2}[\-\/\.]\d{1,2}[\-\/\.]\d{4})/i);
+      const whenMatch = nonTableText.match(/(?:When|Date discussed)\s*[:：\-–]\s*([^\n\r]+)/i);
+      const stMatch = nonTableText.match(/(?:Start(?:\s*Time)?|Giờ\s*bắt\s*đầu|Giờ\s*khai\s*mạc|Bắt\s*đầu)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
+      const etMatch = nonTableText.match(/(?:End(?:\s*Time)?|Giờ\s*kết\s*thúc|Kết\s*thúc)\s*[:：\-–]\s*(\d{1,2}[:h]\d{2})/i);
+      const ciMatch = nonTableText.match(/(?:Check-?in(?:\s*Time)?|Giờ\s*check-?in|Giờ\s*mở\s*cửa(?:\s*đón\s*khách)?|Đón\s*khách|Registration\s*opens|Gates?\s*open|Doors?(?:\s*open|\s*at)?)\s*[:：\-–]?\s*(?:từ\s*|from\s*|at\s*|lúc\s*|khoảng\s*)?(\d{1,2}[:h]\d{2})/i);
+      const hours = this._extractPrimaryHours(nonTableText);
+
+      let sDate = '';
+      if (dateMatch) {
+        sDate = this._formatIsoDate(dateMatch[1]);
+      } else if (whenMatch) {
+        sDate = this._parseEnglishDateToIso(whenMatch[1]) || this._formatIsoDate(whenMatch[1]);
+      }
+      const startTime = hours.start || (stMatch ? this._normalizeTime(stMatch[1], '') : '');
+      const endTime = hours.end || (etMatch ? this._normalizeTime(etMatch[1], '') : '');
+      const checkinTime = hours.checkin || (ciMatch ? this._normalizeTime(ciMatch[1], '') : '');
+
+      if (sDate) {
+        sessionBlocks.push({
+          session_name: 'Phiên sự kiện',
+          start_date: sDate,
+          start_time: startTime,
+          end_date: sDate,
+          end_time: endTime,
+          checkin_start_time: checkinTime,
+        });
+      }
+    }
+
+    // Nếu vẫn không có phiên, tìm theo tự sự / ngày tiếng Anh / nhiều ngày
+    if (sessionBlocks.length === 0) {
+      const dayBlocks = this._parseDayNumberedBlocks(text);
+      if (dayBlocks.length > 0) {
+        sessionBlocks.push(...dayBlocks);
+      }
+    }
+    if (sessionBlocks.length === 0) {
+      const rangeSessions = this._parseEnglishDateRangeSessions(text);
+      if (rangeSessions.length > 0) {
+        sessionBlocks.push(...rangeSessions);
+      }
+    }
     if (sessionBlocks.length === 0) {
       const pSessions = this._parseProseSchedule(text);
       if (pSessions.length > 0) {
         sessionBlocks.push(...pSessions);
       }
+    }
+    if (sessionBlocks.length === 0) {
+      const loose = this._parseLooseSingleSession(text);
+      if (loose) sessionBlocks.push(loose);
+    }
+    if (sessionBlocks.length === 0) {
+      const hours = this._extractPrimaryHours(nonTableText);
+      sessionBlocks.push({
+        session_name: 'Phiên sự kiện',
+        start_date: '',
+        start_time: hours.start,
+        end_date: '',
+        end_time: hours.end,
+        checkin_start_time: hours.checkin,
+      });
+    }
+
+    if (!venueName || !district || !city) {
+      const flex = this._parseFlexibleLocation(text);
+      if (!venueName && flex.venue_name) venueName = flex.venue_name;
+      if (!addressLine && flex.address_line) addressLine = flex.address_line;
+      if (!district && flex.district) district = flex.district;
+      if (!city && flex.province) city = flex.province;
     }
 
     return {
@@ -658,6 +1523,35 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     };
   }
 
+  _parseLooseSingleSession(text) {
+    if (!text) return null;
+    let iso = '';
+    const enRe = new RegExp(`(?:date(?:\\s*discussed)?\\s*[:：]?\\s*)?(?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b,?\\s*)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(${EN_MONTH_ALT})\\s+(\\d{4})`, 'i');
+    const enMatch = text.match(enRe);
+    if (enMatch && !this._isSkippedDateContext(text, enMatch.index)) {
+      iso = this._toIsoDate(enMatch[3], EN_MONTHS[enMatch[2].toLowerCase()], enMatch[1]);
+    }
+    if (!iso) {
+      const numRe = /(?:ngày|sáng|chiều)?\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/gi;
+      let nm;
+      while ((nm = numRe.exec(text)) !== null) {
+        if (this._isSkippedDateContext(text, nm.index)) continue;
+        iso = this._toIsoDate(nm[3], nm[2], nm[1]);
+        break;
+      }
+    }
+    const hours = this._extractPrimaryHours(text);
+    if (!iso && !hours.start && !hours.checkin) return null;
+    return {
+      session_name: 'Phiên sự kiện',
+      start_date: iso,
+      start_time: hours.start,
+      end_date: iso,
+      end_time: hours.end,
+      checkin_start_time: hours.checkin,
+    };
+  }
+
   /**
    * Bóc tách các hạng vé có cấu trúc từ text
    * @param {string} text
@@ -665,6 +1559,18 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
    */
   _parseStructuredTickets(text) {
     if (!text || typeof text !== 'string') return [];
+
+    const jsonDoc = this._tryParseEventJson(text);
+    const jsonMapped = jsonDoc ? this._mapJsonEventDocument(jsonDoc) : null;
+    if (jsonMapped && jsonMapped.tickets.length > 0) {
+      return jsonMapped.tickets;
+    }
+
+    // 1. Ưu tiên hàng đầu: Thử bóc tách từ bảng Markdown / Tab-delimited
+    const tableTickets = this._parseMarkdownTicketTable(text);
+    if (tableTickets.length > 0) {
+      return tableTickets;
+    }
 
     const tickets = [];
     const ticketHeaderRegex = /(?:^|\n)[ \t]*(?:\*{1,2})?(?:Ticket\s*\d+|Vé\s*\d+|Hạng\s*(?:vé\s*)?\d+)(?:\*{1,2})?[^\n]*/gi;
@@ -709,7 +1615,34 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       }
     }
 
-    // Nếu không có Ticket 1, Ticket 2 dạng khối, quét vé theo văn bản tự sự
+    // 2. Thử bóc tách qua looseTickets (hỗ trợ bullet tiếng Việt, tiếng Anh, bảng pipe, prose, định dạng 1,000, places, v.v.)
+    if (tickets.length === 0) {
+      const looseTickets = this._parseLooseTickets(text);
+      if (looseTickets.length > 0) {
+        tickets.push(...looseTickets);
+      }
+    }
+
+    // 3. Nếu chưa có, tìm các dòng gạch đầu dòng (bullet) vé dự phòng
+    if (tickets.length === 0) {
+      const bulletRegex = /(?:^|\n)[ \t]*[\-•\*]\s*(?:Vé|Hạng\s*vé)?\s*([^\n:：]+?)\s*[:：\-–]\s*(\d{1,3}(?:[\.,]\d{3})*|\d+)\s*(?:vnđ|vnd|đ|k)\b(?:\s*[,;]\s*(?:số\s*lượng(?:\s*là)?|dự\s*kiến\s*phát\s*hành|proposed\s*quantity|quantity)\s*([0-9\.,]+)(?:\s*(?:vé|places?|bundles?))?)?(?:\s*[,;]\s*([^\.\n]+))?/gi;
+      let bm;
+      while ((bm = bulletRegex.exec(text)) !== null) {
+        const rawName = bm[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim();
+        const rawPrice = bm[2].replace(/[^\d]/g, '');
+        const priceNum = Number(rawPrice);
+        const qtyNum = bm[3] ? Number(bm[3].replace(/[^\d]/g, '')) : null;
+        const desc = bm[4] ? bm[4].trim() : '';
+        if (rawName && !isNaN(priceNum)) {
+          tickets.push({
+            name: rawName,
+            price: priceNum,
+            quantity_total: qtyNum,
+            description: desc,
+          });
+        }
+      }
+    }
     if (tickets.length === 0) {
       const pTickets = this._parseProseTickets(text);
       if (pTickets.length > 0) {
@@ -736,12 +1669,18 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // Tìm ngày (dd/mm/yyyy hoặc yyyy-mm-dd hoặc dd.mm.yyyy)
     let foundDate = null;
-    const dateMatch = text.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/);
-    if (dateMatch) {
-      const dd = String(dateMatch[1]).padStart(2, '0');
-      const mm = String(dateMatch[2]).padStart(2, '0');
-      const yyyy = dateMatch[3];
-      foundDate = `${yyyy}-${mm}-${dd}`;
+    const enDateHit = text.match(new RegExp(`(\\d{1,2})(?:st|nd|rd|th)?\\s+(${EN_MONTH_ALT})\\s+(\\d{4})`, 'i'));
+    if (enDateHit && !this._isSkippedDateContext(text, enDateHit.index)) {
+      foundDate = this._toIsoDate(enDateHit[3], EN_MONTHS[enDateHit[2].toLowerCase()], enDateHit[1]);
+    }
+    if (!foundDate) {
+      const dateRe = /(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/g;
+      let dateMatch;
+      while ((dateMatch = dateRe.exec(text)) !== null) {
+        if (this._isSkippedDateContext(text, dateMatch.index)) continue;
+        foundDate = this._toIsoDate(dateMatch[3], dateMatch[2], dateMatch[1]);
+        break;
+      }
     }
 
     // Tìm giờ (HH:mm)
@@ -771,23 +1710,11 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     let district = '';
     let province = '';
 
-    if (structuredSched.venue?.venue_name) {
-      venueName = structuredSched.venue.venue_name;
-      addressLine = structuredSched.venue.address_line || '';
-      district = structuredSched.venue.district || '';
-      province = structuredSched.venue.province || '';
-    } else {
-      const venueMatch = text.match(/(?:Địa điểm|Nơi tổ chức|Venue|Địa chỉ)\s*[:：\-–]\s*([^\n\r]+)/i);
-      if (venueMatch) {
-        const fullLoc = cleanLine(venueMatch[1]).trim();
-        const parts = fullLoc.split(/[,-]\s*/);
-        if (parts.length > 1) {
-          venueName = parts[0].trim();
-          addressLine = parts.slice(1).join(', ').trim();
-        } else {
-          venueName = fullLoc;
-        }
-      }
+    if (structuredSched.venue) {
+      if (structuredSched.venue.venue_name) venueName = structuredSched.venue.venue_name;
+      if (structuredSched.venue.address_line) addressLine = structuredSched.venue.address_line;
+      if (structuredSched.venue.district) district = structuredSched.venue.district;
+      if (structuredSched.venue.province) province = structuredSched.venue.province;
     }
 
     // Tìm giá vé kèm mô tả
@@ -795,28 +1722,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     if (structuredTickets.length > 0) {
       ticketTypes.push(...structuredTickets);
     } else {
-      const priceRegex = /(?:[•\-\*\+]|\d+[\.\)])?\s*([A-Za-z0-9\sÀ-ỹ]+?)\s*[:\-–]\s*(\d{1,3}(?:[\.,]\d{3})*|\d+)\s*(?:vnđ|vnd|đ|k)(?:\s*[\(\-–:]\s*([^\n\)]+)\)?)?/gi;
-      let pMatch;
-      while ((pMatch = priceRegex.exec(text)) !== null) {
-        const rawName = cleanLine(pMatch[1]).replace(/^[•\-\*\+]\s*/, '').trim();
-        const rawPrice = pMatch[2].replace(/[\.,]/g, '');
-        const priceNum = Number(rawPrice);
-        const desc = pMatch[3] ? pMatch[3].trim() : '';
-        if (rawName.length > 1 && rawName.length < 50 && !isNaN(priceNum) && priceNum >= 0 && !ticketTypes.some((t) => t.name.toLowerCase() === rawName.toLowerCase())) {
-          let quantityNum = null;
-          const qtyMatch = pMatch[0].match(/(\d+)\s*(?:vé|chỗ|suất|slot)/i) ||
-                           text.match(new RegExp(`${rawName}[^\\n]*?(\\d+)\\s*(?:vé|chỗ|suất|slot)`, 'i'));
-          if (qtyMatch) {
-            quantityNum = Number(qtyMatch[1]);
-          }
-          ticketTypes.push({
-            name: rawName,
-            price: priceNum,
-            quantity_total: quantityNum,
-            description: desc,
-          });
-        }
-      }
+      ticketTypes.push(...this._parseLooseTickets(text));
     }
 
     if (ticketTypes.length === 0) {
@@ -888,7 +1794,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       province: province || '',
       sessions: finalSessions,
       session: finalSessions[0],
-      require_attendee_information: /(?:thu\s*thập\s*thông\s*tin|cung\s*cấp\s*họ\s*tên\s*và\s*(?:địa\s*chỉ\s*)?email|thông\s*tin\s*người\s*tham\s*dự|attendee\s*info)/i.test(text),
+      require_attendee_information: /(?:thu\s*thập\s*thông\s*tin|cung\s*cấp\s*họ\s*tên|họ\s*tên\s*và\s*email|attendee\s*info|name\s*and\s*email|họ\s*tên,\s*email|name\s*\+\s*email)/i.test(text),
       ticket_types: ticketTypes,
       refund_policy: {
         allow_refunds: !/không\s*hoàn\s*(?:vé|tiền)|không\s*được\s*hoàn\s*trả|non-refundable/i.test(text),
@@ -1171,13 +2077,16 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // 1. Tiêu đề (ưu tiên Ground Truth từ sections nếu hợp lệ và không generic)
     const rawSectionTitle = sections?.title ? cleanPrefix(sections.title.split('\n')[0]).slice(0, 200) : '';
-    if (rawSectionTitle && !this._isGenericDocumentTitle(rawSectionTitle)) {
-      data.title = rawSectionTitle;
-    } else if (data.title && !this._isGenericDocumentTitle(data.title)) {
-      data.title = cleanPrefix((data.title || '').split('\n')[0]).slice(0, 200);
+    const cleanedSecTitle = this._cleanDocumentTitle(rawSectionTitle);
+    const cleanedDataTitle = this._cleanDocumentTitle(data.title ? cleanPrefix(data.title.split('\n')[0]).slice(0, 200) : '');
+
+    if (cleanedSecTitle && !this._isGenericDocumentTitle(cleanedSecTitle)) {
+      data.title = cleanedSecTitle;
+    } else if (cleanedDataTitle && !this._isGenericDocumentTitle(cleanedDataTitle)) {
+      data.title = cleanedDataTitle;
     } else {
       const pMatch = originalText.match(/(?:chương\s*trình|sự\s*kiện|hoạt\s*động)\s*(?:dự\s*kiến\s*)?(?:mang\s*tên|có\s*tên\s*(?:là)?|tên\s*là)\s*[:：]?\s*[\*"]*([^\*"\n,\.]{3,100}?)[\*"]*(?:[,\.\n]| hướng đến| dành cho| nhằm)/i);
-      data.title = pMatch ? pMatch[1].replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim() : 'Sự kiện mới từ tài liệu';
+      data.title = pMatch ? this._cleanDocumentTitle(pMatch[1]) : 'Sự kiện mới từ tài liệu';
     }
 
     const structuredSched = this._parseStructuredScheduleAndLocation(sections?.schedule_location || originalText);
@@ -1278,11 +2187,22 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       }
     }
 
+    const isGenericUnnamedVenue = (name) =>
+      /^(?:a|an)\s+(?:gallery|coworking(?:\s*space)?|cultural\s*center|training\s*room|indoor\s*event\s*space|quán\s*cà\s*phê)/i.test(String(name || '').trim())
+      || /has not been (?:named|confirmed)|chưa\s*(?:được\s*)?(?:chốt|xác nhận)|don't use a venue name|đừng tự ghi địa chỉ/i.test(String(name || ''));
+
+    if (venueName && isGenericUnnamedVenue(venueName)) {
+      venueName = '';
+    }
+
     // Nếu AI không trích xuất được hoặc bị xóa do hallucination nhưng tài liệu có phần schedule_location rõ ràng:
     if (structuredSched.venue?.venue_name) {
       const isProvHallucinated = data.province && !originalText.toLowerCase().includes(data.province.toLowerCase());
       if (!venueName || isProvHallucinated) {
-        venueName = structuredSched.venue.venue_name;
+        const structVenue = structuredSched.venue.venue_name;
+        if (!isGenericUnnamedVenue(structVenue)) {
+          venueName = structVenue;
+        }
         if (structuredSched.venue.address_line) addressLine = structuredSched.venue.address_line;
         if (structuredSched.venue.district) data.district = structuredSched.venue.district;
         if (structuredSched.venue.province) data.province = structuredSched.venue.province;
@@ -1298,7 +2218,9 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // Chuẩn hóa tên tỉnh thành về chuẩn hành chính Việt Nam
     const normProv = (data.province || '').toLowerCase();
-    if (normProv.includes('đà nẵng') || normProv.includes('da nang')) {
+    if (normProv.includes('is being considered')) {
+      data.province = 'Thừa Thiên Huế';
+    } else if (normProv.includes('đà nẵng') || normProv.includes('da nang')) {
       data.province = 'Thành phố Đà Nẵng';
     } else if (
       normProv.includes('hồ chí minh') ||
@@ -1314,6 +2236,8 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       data.province = 'Thành phố Cần Thơ';
     } else if (normProv.includes('hải phòng') || normProv.includes('hai phong')) {
       data.province = 'Thành phố Hải Phòng';
+    } else if (normProv.includes('huế') || normProv.includes('hue')) {
+      data.province = 'Thừa Thiên Huế';
     } else if (!data.province && (originalText || data.title)) {
       const normText = `${data.title} ${originalText}`.toLowerCase();
       if (
@@ -1335,24 +2259,47 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         data.province = 'Thành phố Cần Thơ';
       } else if (normText.includes('hải phòng') || normText.includes('hai phong')) {
         data.province = 'Thành phố Hải Phòng';
+      } else if (/\bhue city\b|\bthừa thiên huế\b|\bhuế\b/i.test(normText)) {
+        data.province = 'Thừa Thiên Huế';
       }
     }
 
     // Chuẩn hóa quận/huyện
-    const normDist = (data.district || '').toLowerCase();
-    const fullTextLoc = `${data.district || ''} ${data.venue_name || ''} ${originalText}`.toLowerCase();
-    if (normDist.includes('ngu hanh son') || normDist.includes('ngũ hành sơn') || fullTextLoc.includes('ngu hanh son') || fullTextLoc.includes('ngũ hành sơn')) {
+    // CHỈ tìm trong các trường địa điểm (data.district, venue_name, address_line, structuredSched.venue)
+    // TUYỆT ĐỐI KHÔNG tìm trong toàn bộ originalText để tránh ghi đè sai quận
+    const locCandidates = [
+      data.district,
+      data.venue_name,
+      data.address_line,
+      structuredSched.venue?.district,
+      structuredSched.venue?.venue_name,
+      structuredSched.venue?.address_line,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    if (locCandidates.includes('binh thanh') || locCandidates.includes('bình thạnh')) {
+      data.district = 'Bình Thạnh';
+    } else if (locCandidates.includes('district 3') || locCandidates.includes('quận 3')) {
+      data.district = 'Quận 3';
+    } else if (locCandidates.includes('district 1') || locCandidates.includes('quận 1')) {
+      data.district = 'Quận 1';
+    } else if (locCandidates.includes('ngu hanh son') || locCandidates.includes('ngũ hành sơn')) {
       data.district = 'Ngũ Hành Sơn';
-    } else if (normDist.includes('hai chau') || normDist.includes('hải châu')) {
+    } else if (locCandidates.includes('hai chau') || locCandidates.includes('hải châu')) {
       data.district = 'Hải Châu';
-    } else if (normDist.includes('son tra') || normDist.includes('sơn trà')) {
+    } else if (locCandidates.includes('son tra') || locCandidates.includes('sơn trà')) {
       data.district = 'Sơn Trà';
-    } else if (normDist.includes('thanh khe') || normDist.includes('thanh khê')) {
+    } else if (locCandidates.includes('thanh khe') || locCandidates.includes('thanh khê')) {
       data.district = 'Thanh Khê';
-    } else if (normDist.includes('lien chieu') || normDist.includes('liên chiểu')) {
+    } else if (locCandidates.includes('lien chieu') || locCandidates.includes('liên chiểu')) {
       data.district = 'Liên Chiểu';
-    } else if (normDist.includes('cam le') || normDist.includes('cẩm lệ')) {
+    } else if (locCandidates.includes('cam le') || locCandidates.includes('cẩm lệ')) {
       data.district = 'Cẩm Lệ';
+    } else if (locCandidates.includes('hoa vang') || locCandidates.includes('hòa vang')) {
+      data.district = 'Hòa Vang';
+    }
+
+    if (data.district && /^(?:not\s*specified|not\s*available|none|chưa\s*có|chưa\s*xác\s*định)$/i.test(data.district.trim())) {
+      data.district = '';
     }
 
     // 5. Phiên sự kiện: Hỗ trợ đa phiên (Multi-sessions)
@@ -1365,7 +2312,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // Kiểm tra tính xác thực của sessions từ AI: nếu ngày tháng bịa đặt hoặc số phiên thiếu so với tài liệu có cấu trúc:
     const hasHallucinatedDates = rawSessions.some(
-      (s) => s.start_date && !originalText.includes(s.start_date) && !originalText.includes(s.start_date.split('-').reverse().join('/'))
+      (s) => s.start_date && !this._dateAppearsInText(s.start_date, originalText)
     );
     if (structuredSched.sessions.length > 0) {
       if (rawSessions.length === 0 || hasHallucinatedDates || rawSessions.length < structuredSched.sessions.length) {
@@ -1392,7 +2339,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     now.setHours(0, 0, 0, 0);
 
     const hasAnyTimeInDoc = /(?:\d{1,2}[:h]\d{2}|\d{1,2}\s*(?:giờ|h)(?:\s*\d{1,2})?|\d{1,2}\s*(?:am|pm))/i.test(originalText);
-    const hasCheckinMention = /(?:check[\s\-]?in|đón khách|mở cửa|đón tiếp)/i.test(originalText);
+    const hasCheckinMention = /(?:check[\s\-_]?in|đón khách|mở cửa|đón tiếp|khách\s*bắt\s*đầu\s*vào|doors?\s*(?:at|open)|registration\s*opens?|gates?\s*open)/i.test(originalText);
 
     const sanitizedSessions = [];
     rawSessions.forEach((s, idx) => {
@@ -1431,15 +2378,14 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
           }
         }
 
-        if (hasCheckinMention) {
-          checkinTime = this._normalizeTime(s?.checkin_start_time, '');
-          if (!checkinTime && startTime) {
-            const [sh, sm] = startTime.split(':').map(Number);
-            const totalMin = Math.max(0, sh * 60 + sm - 30);
-            const chH = Math.floor(totalMin / 60);
-            const chM = totalMin % 60;
-            checkinTime = `${String(chH).padStart(2, '0')}:${String(chM).padStart(2, '0')}`;
-          }
+        if (s?.checkin_start_time) {
+          checkinTime = this._normalizeTime(s.checkin_start_time, '');
+        } else if (hasCheckinMention && startTime) {
+          const [sh, sm] = startTime.split(':').map(Number);
+          const totalMin = Math.max(0, sh * 60 + sm - 30);
+          const chH = Math.floor(totalMin / 60);
+          const chM = totalMin % 60;
+          checkinTime = `${String(chH).padStart(2, '0')}:${String(chM).padStart(2, '0')}`;
         }
       }
 
@@ -1474,27 +2420,43 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     data.session = sanitizedSessions[0]; // Giữ tương thích ngược
 
     // 5.1. Yêu cầu thu thập thông tin người tham dự
+    const jsonAttendee = (() => {
+      const jsonObj = this._tryParseEventJson(originalText);
+      if (!jsonObj) return null;
+      const mapped = this._mapJsonEventDocument(jsonObj);
+      return mapped ? Boolean(mapped.require_attendee_information) : null;
+    })();
     data.require_attendee_information = Boolean(
-      sections?.attendee_info
-        ? /yes|có|required|bắt\s*buộc/i.test(sections.attendee_info)
-        : (data.require_attendee_information ?? /(?:thu\s*thập\s*thông\s*tin|cung\s*cấp\s*họ\s*tên\s*và\s*(?:địa\s*chỉ\s*)?email|thông\s*tin\s*người\s*tham\s*dự|attendee\s*info)/i.test(originalText))
+      jsonAttendee === true
+        ? true
+        : sections?.attendee_info
+          ? /yes|có|required|bắt\s*buộc|full name|email|họ tên/i.test(sections.attendee_info)
+          : (data.require_attendee_information ?? /(?:thu\s*thập\s*thông\s*tin|cung\s*cấp\s*họ\s*tên|full name(?:\s*and|,)\s*email|họ tên và email|thông\s*tin\s*người\s*tham\s*dự|attendee\s*info|name and email)/i.test(originalText))
     );
 
     // 6. Hạng vé (ticket_types)
     let rawTickets = Array.isArray(data.ticket_types) ? data.ticket_types : [];
-    const hasHallucinatedTickets = rawTickets.some(
-      (t) => t.name && !originalText.toLowerCase().includes(t.name.toLowerCase())
-    );
-    if (structuredTickets.length > 0 && (rawTickets.length === 0 || hasHallucinatedTickets || rawTickets.length < structuredTickets.length)) {
-      logger.info(`[AiDocumentParser] Sử dụng ${structuredTickets.length} hạng vé trích xuất chính xác từ tài liệu.`);
-      rawTickets = structuredTickets;
-    } else if (hasHallucinatedTickets && structuredTickets.length === 0) {
+    const isTicketInDoc = (t) => {
+      if (!t || !t.name) return false;
+      const lowerName = String(t.name).toLowerCase().trim();
+      const stripped = lowerName.replace(/^(?:vé\s+|hạng\s*vé\s+|ticket\s+)/i, '').trim();
+      const lowerDoc = originalText.toLowerCase();
+      return lowerDoc.includes(lowerName) || (stripped.length >= 2 && lowerDoc.includes(stripped));
+    };
+
+    const hasHallucinatedTickets = rawTickets.some((t) => !isTicketInDoc(t));
+    if (structuredTickets.length > 0) {
+      if (rawTickets.length === 0 || hasHallucinatedTickets || rawTickets.length < structuredTickets.length) {
+        logger.info(`[AiDocumentParser] Sử dụng ${structuredTickets.length} hạng vé trích xuất chính xác từ tài liệu.`);
+        rawTickets = structuredTickets;
+      }
+    } else if (hasHallucinatedTickets) {
       // Loại bỏ các vé bịa đặt hoàn toàn không có trong văn bản
-      rawTickets = rawTickets.filter((t) => t.name && originalText.toLowerCase().includes(t.name.toLowerCase()));
+      rawTickets = rawTickets.filter(isTicketInDoc);
     }
 
     const validTickets = [];
-    const hasAnyQtyMention = /(?:số\s*lượng|quy\s*mô|\b\d+\s*(?:vé|chỗ|suất|slot|tickets?)(?!\w))/iu.test(originalText);
+    const hasAnyQtyMention = /(?:số\s*lượng|quy\s*mô|quantity|places?|bundles?|\b\d+\s*(?:vé|chỗ|suất|slot|tickets?)(?!\w))/iu.test(originalText);
 
     rawTickets.forEach((t, idx) => {
       const name = String(t.name || '').trim() || `Hạng vé ${idx + 1}`;
@@ -1503,7 +2465,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       let quantity = null;
       if (t.quantity_total !== null && t.quantity_total !== undefined && !isNaN(Number(t.quantity_total))) {
         const qNum = Math.round(Number(t.quantity_total));
-        if (qNum > 0 && (hasAnyQtyMention || originalText.includes(String(qNum)))) {
+        if (qNum > 0 && (hasAnyQtyMention || originalText.includes(String(qNum)) || originalText.includes(qNum.toLocaleString('en-US')))) {
           quantity = qNum;
         }
       }
@@ -1537,36 +2499,44 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       deadline_days: Number(data.refund_policy?.deadline_days) || 7,
     };
 
-    // 8. Tags: Không cần tag eventhub, lấy tên nhà tổ chức gắn cho tags
+    // 8. Tags: Tôn trọng 100% tags được bóc tách từ sections.tags hoặc AI
     const organizerName = (options && options.organizerName) ? String(options.organizerName).trim() : '';
-    let rawTags = Array.isArray(data.tags) ? data.tags : [];
+    let rawTags = [];
     if (sections && sections.tags) {
       const secTags = sections.tags
         .split(/[,;\n]/)
         .map((t) => t.replace(/^[#\*\s\-–—:]+|[#\*\s\-–—:]+$/g, '').trim())
         .filter(Boolean);
-      rawTags = [...rawTags, ...secTags];
+      rawTags.push(...secTags);
+    } else if (Array.isArray(data.tags) && data.tags.length > 0) {
+      rawTags.push(...data.tags);
     }
+
     let cleanTags = rawTags
       .map((t) => String(t || '').trim())
       .filter((t) => t.length > 0 && !/^eventhub$/i.test(t));
 
-    // Bổ sung các từ khóa chuyên đề tìm thấy trong tài liệu vào tags
-    const topicKeywords = [
-      { kw: 'thiết kế', tag: 'Thiết kế' },
-      { kw: 'nhiếp ảnh', tag: 'Nhiếp ảnh' },
-      { kw: 'làm phim', tag: 'Làm phim' },
-      { kw: 'phim ngắn', tag: 'Phim ngắn' },
-      { kw: 'sáng tạo nội dung', tag: 'Sáng tạo nội dung' },
-      { kw: 'sinh viên', tag: 'Sinh viên' },
-      { kw: 'workshop', tag: 'Workshop' },
-      { kw: 'triển lãm', tag: 'Triển lãm' },
-      { kw: 'portfolio', tag: 'Portfolio' },
-    ];
-    const textLower = originalText.toLowerCase();
-    for (const item of topicKeywords) {
-      if (textLower.includes(item.kw) && !cleanTags.some((t) => t.toLowerCase() === item.tag.toLowerCase())) {
-        cleanTags.push(item.tag);
+    // Chỉ tự động tìm từ khóa theo chủ đề nếu tài liệu KHÔNG có sẵn thẻ tags
+    if (cleanTags.length === 0) {
+      const topicKeywords = [
+        { kw: 'thiết kế', tag: 'Thiết kế' },
+        { kw: 'nhiếp ảnh', tag: 'Nhiếp ảnh' },
+        { kw: 'làm phim', tag: 'Làm phim' },
+        { kw: 'phim ngắn', tag: 'Phim ngắn' },
+        { kw: 'sáng tạo nội dung', tag: 'Sáng tạo nội dung' },
+        { kw: 'sinh viên', tag: 'Sinh viên' },
+        { kw: 'workshop', tag: 'Workshop' },
+        { kw: 'triển lãm', tag: 'Triển lãm' },
+        { kw: 'công nghệ', tag: 'Công nghệ' },
+        { kw: 'trí tuệ nhân tạo', tag: 'Trí tuệ nhân tạo' },
+        { kw: 'ẩm thực', tag: 'Ẩm thực' },
+        { kw: 'âm nhạc', tag: 'Âm nhạc' },
+      ];
+      const textLower = originalText.toLowerCase();
+      for (const item of topicKeywords) {
+        if (textLower.includes(item.kw) && !cleanTags.some((t) => t.toLowerCase() === item.tag.toLowerCase())) {
+          cleanTags.push(item.tag);
+        }
       }
     }
 

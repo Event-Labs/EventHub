@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
-import { fetchTicketDetail } from '@/services/tickets.js'
+import { fetchTicketDetail, cancelFreeTicket } from '@/services/tickets.js'
 import {
   submitRefundRequest,
   fetchRefundPreview,
@@ -37,6 +37,7 @@ function formatDateTime(value) {
 
 function formatCurrency(value) {
   if (value === undefined || value === null) return 'N/A'
+  if (Number(value) === 0) return 'Miễn phí'
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -346,12 +347,17 @@ export function TicketDetailPage() {
   const venue = venueLine(ticket)
   const seat = ticket.seat?.label || 'Không có ghế cố định'
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
-  const isOrderPaid = ['PAID', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
+  const isZeroAmountOrFree = ticket.order?.status === 'CONFIRMED' || Number(ticket.order?.total_amount) === 0 || ['FREE', 'FULLY_DISCOUNTED', 'COMPLIMENTARY'].includes(ticket.ticket_source)
+  const isOrderPaid = ['PAID', 'CONFIRMED', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
   const isEntryEligible = ticket.status === 'VALID'
+  const sessionStartTime = ticket.session?.start_time ? new Date(ticket.session.start_time).getTime() : 0
+  const isMoreThan2HoursBeforeSession = sessionStartTime > 0 && sessionStartTime - Date.now() > 2 * 60 * 60 * 1000
+  const isFreeOrDiscounted = ticket.order?.status === 'CONFIRMED' && ['FREE', 'FULLY_DISCOUNTED'].includes(ticket.ticket_source)
+  const canCancelFreeTicket = isFreeOrDiscounted && isEntryEligible && !ticket.checked_in_at && isMoreThan2HoursBeforeSession
   const collectAttendees = Boolean(ticket.event?.require_attendee_info)
   const activeRefundPolicy = ticket.refund_policy_snapshot || ticket.event?.refund_policy || {}
   const isRefundAllowedByPolicy = Boolean(activeRefundPolicy.allow_refund ?? activeRefundPolicy.allow_refunds)
-  const canRequestRefund = isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
+  const canRequestRefund = !isZeroAmountOrFree && isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
 
   const hasRefundInfo = Boolean(
     refundRequest ||
@@ -384,10 +390,10 @@ export function TicketDetailPage() {
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,620px)_360px] lg:items-start relative">
         <aside className="order-2 space-y-6 lg:order-2 lg:sticky lg:top-32">
           <Panel title="Thanh toán" icon={ReceiptText}>
-            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || 'N/A'} />
-            <Info label="Phương thức" value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
+            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || (ticket.order?.status === 'CONFIRMED' ? 'Miễn phí' : 'N/A')} />
+            <Info label="Phương thức" value={ticket.order?.payment_method === 'FREE' || ticket.order?.status === 'CONFIRMED' ? 'Miễn phí' : (ticket.payment?.provider || ticket.payment?.method || 'N/A')} />
             <Info label="Tổng thanh toán" value={formatCurrency(ticket.order?.total_amount)} />
-            <Info label="Thanh toán lúc" value={formatDateTime(ticket.payment?.paid_at)} />
+            <Info label="Thanh toán lúc" value={ticket.payment?.paid_at ? formatDateTime(ticket.payment?.paid_at) : (ticket.order?.status === 'CONFIRMED' ? formatDateTime(ticket.order?.created_at) : 'N/A')} />
           </Panel>
           <Panel title="Thông tin check-in" icon={CheckCircle2}>
             <Info label="Trạng thái" value={statusText(ticket)} />
@@ -525,7 +531,14 @@ export function TicketDetailPage() {
 
 
 
-            {canRequestRefund ? (
+            {canCancelFreeTicket ? (
+              <CancelFreeTicketButton
+                ticket={ticket}
+                onCancelled={() => {
+                  ticketQuery.refetch()
+                }}
+              />
+            ) : canRequestRefund ? (
               <RefundButton
                 ticket={ticket}
                 onRefundSubmitted={() => {
@@ -533,7 +546,11 @@ export function TicketDetailPage() {
                   refundsQuery.refetch()
                 }}
               />
-            ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy ? (
+            ) : isFreeOrDiscounted && isEntryEligible && !ticket.checked_in_at && !isMoreThan2HoursBeforeSession ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
+                Vé miễn phí chỉ có thể hủy trước giờ bắt đầu sự kiện ít nhất 2 giờ.
+              </div>
+            ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy && !isZeroAmountOrFree ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
                 Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.
               </div>
@@ -555,6 +572,98 @@ export function TicketDetailPage() {
         }}
       />
     </div>
+  )
+}
+
+function CancelFreeTicketButton({ ticket, onCancelled }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const toast = useToast()
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelFreeTicket(ticket.id, reason.trim() || 'Khách hàng tự hủy vé miễn phí'),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Hủy vé miễn phí thành công')
+      setIsOpen(false)
+      onCancelled?.()
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Không thể hủy vé. Vui lòng thử lại sau.')
+    },
+  })
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="w-full rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3.5 text-sm font-bold text-rose-400 transition hover:bg-rose-500/20 hover:border-rose-500/50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+      >
+        <X className="size-4" />
+        Hủy vé miễn phí
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-[#0d172e] p-6 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <h3 className="font-display text-lg font-bold text-white flex items-center gap-2">
+                <AlertCircle className="size-5 text-rose-400" />
+                Xác nhận hủy vé miễn phí
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-full p-1 text-slate-400 hover:text-white"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-sm text-slate-300">
+              <p>
+                Bạn có chắc chắn muốn hủy vé <strong className="text-white font-mono">{ticket.ticket_code}</strong> cho sự kiện <strong className="text-white">{ticket.event?.title}</strong> không?
+              </p>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                <strong>Lưu ý:</strong> Vé sau khi hủy sẽ không thể khôi phục lại. Ghế ngồi hoặc lượt đặt sẽ được giải phóng cho khán giả khác. Nếu muốn tham gia, bạn sẽ phải tiến hành đặt lại vé nếu sự kiện còn chỗ.
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                  Lý do hủy (không bắt buộc)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Bận việc đột xuất, trùng lịch..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-rose-400 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                disabled={cancelMutation.isPending}
+                onClick={() => setIsOpen(false)}
+                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                Giữ lại vé
+              </button>
+              <button
+                type="button"
+                disabled={cancelMutation.isPending}
+                onClick={() => cancelMutation.mutate()}
+                className="rounded-xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-rose-500 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-rose-900/40"
+              >
+                {cancelMutation.isPending ? 'Đang hủy...' : 'Xác nhận hủy vé'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

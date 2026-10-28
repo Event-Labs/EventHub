@@ -2071,27 +2071,108 @@ html.light .direct-booking-page [class*="text-slate-500"] {
 
 /* 1. Synchronized Uniform Frame / Container Surfaces */
 html.light .glass-panel,
+html.light [class*="bg-[#020409]"],
+html.light [class*="bg-[#030712]"],
+html.light [class*="bg-[#070d1e]"],
+html.light [class*="bg-[#090D16]"],
+html.light [class*="bg-[#090f1f]"],
+html.light [class*="bg-[#0a0f1f]"],
+html.light [class*="bg-[#0b1329]"],
+html.light [class*="bg-[#0b132b]"],
+html.light [class*="bg-[#0c1224]"],
+html.light [class*="bg-[#0c1427]"],
+html.light [class*="bg-[#0d162e]"],
+html.light [class*="bg-[#0d172e]"],
+html.light [class*="bg-[#0e162b]"],
+html.light [class*="bg-[#0e172e]"],
+html.light [class*="bg-[#0e172a]"],
+html.light [class*="bg-[#0f172a]"],
+html.light [class*="bg-[#10172d]"],
+html.light [class*="bg-[#101c30]"],
+html.light [class*="bg-[#111a2e]"],
+html.light [class*="bg-[#111c3a]"],
+html.light [class*="bg-[#121930]"],
+html.light [class*="bg-[#121b33]"],
+html.light [class*="bg-[#121c33]"],
+html.light [class*="bg-[#121c38]"],
+html.light [class*="bg-[#131d38]"],
+html.light [class*="bg-[#141e36]"],
+html.light [class*="bg-[#152042]"],
+html.light [class*="bg-[#16223d]"],
+html.light [class*="bg-[#162244]"],
+html.light [class*="bg-[#172242]"],
+html.light [class*="bg-[#18254b]"],
+html.light [class*="bg-[#182b4a]"],
 html.light [class*="bg-[#0D1B2A]"],
 html.light [class*="bg-[#1B365D]"],
-html.light [class*="bg-[#0b1329]"],
-html.light [class*="bg-[#121b33]"],
-html.light [class*="bg-[#0d172e]"],
-html.light [class*="bg-[#090D16]"],
+html.light [class*="bg-[#1e2a4a]"],
 html.light [class*="bg-slate-950"],
 html.light [class*="bg-slate-900"],
 html.light [class*="bg-sky-950"],
-html.light [class*="bg-[#0e172a]"],
-html.light [class*="bg-[#0f172a]"],
-html.light [class*="bg-[#131d38]"],
-html.light [class*="bg-[#030712]"],
 html.light [class*="from-slate-900"],
+html.light [class*="from-purple-950"],
+html.light [class*="from-[#0d172e]"],
 html.light .portal-table,
 html.light .modal-solid,
 html.light .dialog-solid {
-  background-color: rgba(255, 253, 248, 0.92) !important;
+  background-color: rgba(255, 253, 248, 0.95) !important;
   background-image: none !important;
   border-color: rgba(201, 154, 71, 0.32) !important;
   box-shadow: 0 10px 32px -4px rgba(27, 54, 93, 0.08), 0 0 0 1px rgba(245, 235, 221, 0.6) !important;
+  color: #0D1B2A !important;
+}
+
+/* 1c. Sub-cards, Metric Tiles & Inset Boxes in Light Mode */
+html.light [class*="bg-slate-900/40"],
+html.light [class*="bg-slate-900/50"],
+html.light [class*="bg-slate-900/60"],
+html.light [class*="bg-slate-900/70"],
+html.light [class*="bg-slate-950/40"],
+html.light [class*="bg-slate-950/60"],
+html.light [class*="bg-slate-950/70"],
+html.light [class*="bg-slate-800/40"],
+html.light [class*="bg-slate-800/50"],
+html.light [class*="bg-slate-800/60"],
+html.light [class*="bg-slate-800/80"] {
+  background-color: #F8F3EA !important;
+  border-color: rgba(201, 154, 71, 0.28) !important;
+  color: #0D1B2A !important;
+}
+
+html.light [class*="bg-slate-900/50"]:hover,
+html.light [class*="bg-slate-800/80"]:hover {
+  background-color: #F5EBDD !important;
+  border-color: #C99A47 !important;
+}
+
+/* 1d. Progress Bar Tracks in Light Mode */
+html.light .rounded-full.bg-slate-800,
+html.light [class*="bg-slate-800"].rounded-full,
+html.light .bg-slate-800.overflow-hidden {
+  background-color: rgba(201, 154, 71, 0.18) !important;
+}
+
+/* 1e. Form Inputs, Selects & Triggers */
+html.light select,
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light textarea,
+html.light button[class*="bg-[#0d172e]"],
+html.light [class*="border-white/15"][class*="bg-[#0d172e]"] {
+  background-color: #ffffff !important;
+  border-color: rgba(201, 154, 71, 0.38) !important;
+  color: #0D1B2A !important;
+}
+
+html.light button[class*="bg-[#0d172e]"]:hover,
+html.light [class*="border-white/15"][class*="bg-[#0d172e]"]:hover {
+  background-color: #FAF4EB !important;
+  border-color: #C99A47 !important;
+  color: #0D1B2A !important;
+}
+
+html.light option,
+html.light optgroup {
+  background-color: #ffffff !important;
   color: #0D1B2A !important;
 }
 
@@ -2256,6 +2337,33 @@ html.light .text-subtle {
   color: #1B365D !important;
   opacity: 1 !important;
 }
+
+/* High-contrast metrics and accent colors on light backgrounds */
+html.light .text-emerald-400,
+html.light .text-emerald-300 {
+  color: #047857 !important;
+}
+html.light .text-cyan-400,
+html.light .text-cyan-300 {
+  color: #0369a1 !important;
+}
+html.light .text-rose-400,
+html.light .text-rose-300 {
+  color: #be123c !important;
+}
+html.light .text-amber-400,
+html.light .text-amber-300 {
+  color: #b45309 !important;
+}
+html.light .text-purple-400,
+html.light .text-purple-300 {
+  color: #7e22ce !important;
+}
+html.light .text-indigo-400,
+html.light .text-indigo-300 {
+  color: #4338ca !important;
+}
+
 
 /* Preserve gold title gradient & luster in light mode (Exact: #C99A47 #E6C17A) */
 html.light .gold-gradient-title,
@@ -2550,3 +2658,170 @@ html.light .force-dark .btn-gold-primary {
 html.light .force-dark svg text {
   fill: #f8fafc !important;
 }
+
+/* LED BORDER BUTTON EFFECT - PURE GOLD LUXURY */
+@keyframes led-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gold-halo-pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(201, 154, 71, 0.45), 0 0 24px rgba(230, 193, 122, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(230, 193, 122, 0.65), 0 0 32px rgba(201, 154, 71, 0.38);
+  }
+}
+
+.btn-led-border {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  padding: 2px;
+  animation: gold-halo-pulse 3s ease-in-out infinite;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.btn-led-border:hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 0 24px rgba(230, 193, 122, 0.85), 0 0 42px rgba(201, 154, 71, 0.6), 0 0 10px rgba(255, 244, 208, 0.8) !important;
+}
+
+.btn-led-border::before {
+  content: '';
+  position: absolute;
+  inset: -250%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 45%,
+    rgba(201, 154, 71, 0.1) 60%,
+    rgba(201, 154, 71, 0.45) 75%,
+    #C99A47 84%,
+    #E6C17A 91%,
+    #FFF6DC 96%,
+    #FFFFFF 98%,
+    #E6C17A 100%
+  );
+  animation: led-rotate 3.2s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.btn-led-inner {
+  position: relative;
+  display: inline-flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #C99A47, #E6C17A) !important;
+  color: #0D1B2A !important;
+  padding: 0.5rem 1.15rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+  transition: filter 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-led-border:hover .btn-led-inner {
+  filter: brightness(1.1);
+}
+
+
+/* LED BORDER FOR RECTANGULAR/ROUNDED-XL BUTTONS (THIN BORDER) */
+.btn-led-gold-sm {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  padding: 1.5px;
+  box-shadow: 0 0 10px rgba(201, 154, 71, 0.4), 0 0 18px rgba(230, 193, 122, 0.25);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+  background: rgba(201, 154, 71, 0.25);
+  text-decoration: none;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.btn-led-gold-sm:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 0 16px rgba(230, 193, 122, 0.75), 0 0 26px rgba(201, 154, 71, 0.5);
+}
+
+.btn-led-gold-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-led-gold-sm::before {
+  content: '';
+  position: absolute;
+  inset: -250%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(201, 154, 71, 0.2) 0%,
+    rgba(201, 154, 71, 0.2) 45%,
+    rgba(201, 154, 71, 0.4) 60%,
+    #C99A47 75%,
+    #E6C17A 86%,
+    #FFF6DC 95%,
+    #FFFFFF 98%,
+    #E6C17A 100%
+  );
+  animation: led-rotate 3s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.btn-led-gold-sm:disabled::before {
+  animation: none;
+  background: rgba(201, 154, 71, 0.3);
+}
+
+.btn-led-gold-sm-inner {
+  position: relative;
+  display: inline-flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: calc(0.75rem - 1.5px);
+  background: linear-gradient(135deg, #C99A47, #E6C17A) !important;
+  color: #0D1B2A !important;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  transition: filter 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-led-gold-sm:hover:not(:disabled) .btn-led-gold-sm-inner {
+  filter: brightness(1.08);
+}

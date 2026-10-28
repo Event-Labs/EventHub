@@ -5,6 +5,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const fieldCrypto = require('../../core/security/fieldCrypto');
 const logger = require('../../core/logger');
 const notificationsService = require('../notifications/notifications.service');
+const ordersRepository = require('../orders/orders.repository');
 const {
   SALES_BLOCK_REASONS,
   getActiveSalesBlocks,
@@ -77,6 +78,73 @@ class EventBusinessRulesService {
       issued_tickets_count: 0,
       active_holds_count: 0,
     };
+  }
+
+  /**
+   * Process CONFIRMED (0d / free) orders when an event is cancelled (Decision 2.9)
+   * - Does NOT create refund_requests for tickets with payable_price = 0 or CONFIRMED orders
+   * - Sets ticket status to CANCELLED
+   * - Releases assigned seats to AVAILABLE
+   * - Sets order status to CANCELLED with reason EVENT_CANCELLED
+   * - Idempotently reverts promo code usage (if voucher was applied)
+   * - Appends to orders.audit_trail
+   */
+  async processConfirmedOrdersOnCancellation(client, eventId) {
+    const { rows: confirmedOrders } = await client.query(
+      `
+      SELECT DISTINCT o.id, o.promo_code_id, o.audit_trail
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      JOIN event_sessions es ON es.id = tt.event_session_id
+      WHERE es.event_id = $1 AND o.status = 'CONFIRMED'
+      FOR UPDATE OF o
+      `,
+      [eventId],
+    );
+
+    for (const order of confirmedOrders) {
+      await client.query(
+        `
+        UPDATE tickets
+        SET status = 'CANCELLED'
+        WHERE order_item_id IN (SELECT id FROM order_items WHERE order_id = $1)
+          AND status = 'VALID'
+        `,
+        [order.id],
+      );
+
+      await client.query(
+        `
+        UPDATE session_seats
+        SET status = 'AVAILABLE', order_id = NULL
+        WHERE order_id = $1
+        `,
+        [order.id],
+      );
+
+      if (order.promo_code_id) {
+        await ordersRepository.revertPromoCodeUsageForOrder(order.id, client);
+      }
+
+      const auditEntry = {
+        action: 'EVENT_CANCELLED_VOID_ZERO_ORDER',
+        reason: 'Sự kiện bị hủy, đơn hàng 0đ được hủy tự động và giải phóng tài nguyên',
+        timestamp: new Date().toISOString(),
+      };
+
+      await client.query(
+        `
+        UPDATE orders
+        SET status = 'CANCELLED',
+            status_reason = 'EVENT_CANCELLED',
+            audit_trail = COALESCE(audit_trail, '[]'::jsonb) || $2::jsonb,
+            updated_at = NOW()
+        WHERE id = $1
+        `,
+        [order.id, JSON.stringify([auditEntry])],
+      );
+    }
   }
 
   /**
@@ -583,7 +651,10 @@ class EventBusinessRulesService {
         [eventId],
       );
 
-      // 6. Cancel free tickets
+      // 6. Process CONFIRMED orders and free tickets (Decision 2.9: cancel tickets, release seats, revert voucher, void order)
+      await this.processConfirmedOrdersOnCancellation(client, eventId);
+
+      // Cancel any remaining valid tickets for this event (defense-in-depth)
       await client.query(
         `
         UPDATE tickets t
@@ -856,6 +927,9 @@ class EventBusinessRulesService {
           ],
         );
       }
+
+      // Process CONFIRMED orders and free tickets (Decision 2.9: cancel tickets, release seats, revert voucher, void order)
+      await this.processConfirmedOrdersOnCancellation(client, eventId);
 
       // 4. Update Event to CANCELLED with refund_obligation_status = 'IN_PROGRESS'
       const updatedCancelReq = {
@@ -1275,6 +1349,9 @@ class EventBusinessRulesService {
           ],
         );
       }
+
+      // Process CONFIRMED orders and free tickets (Decision 2.9: cancel tickets, release seats, revert voucher, void order)
+      await this.processConfirmedOrdersOnCancellation(client, eventId);
 
       const updatedCancelReq = {
         ...cancelReq,

@@ -13,6 +13,7 @@ import {
   Clock,
   Copy,
   ExternalLink,
+  Eye,
   Layers,
   Loader2,
   Printer,
@@ -33,7 +34,7 @@ import {
   fetchTicketSalesAnalytics,
   generateFinancialSummary,
 } from '@/services/organizerOrders.js'
-import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { OrganizerPage, OrganizerPanel, TableActionButton } from './OrganizerComponents.jsx'
 import { getEventOperationalStatus } from './eventStatusUtil.js'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 
@@ -447,15 +448,14 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
                 </td>
 
                 <td className="px-3 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => onDrillDownEvent(item.event_id)}
-                    title={`Xem phân tích cho ${item.event_title}`}
-                    className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-slate-800/80 px-2 py-1 text-xs font-bold text-cyan-300 transition hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-200 whitespace-nowrap"
-                  >
-                    <span>Xem</span>
-                    <ArrowRight className="size-3" />
-                  </button>
+                  <div className="flex items-center justify-end">
+                    <TableActionButton
+                      onClick={() => onDrillDownEvent(item.event_id)}
+                      title={`Xem phân tích cho ${item.event_title}`}
+                      icon={Eye}
+                      tone="default"
+                    />
+                  </div>
                 </td>
               </tr>
             )
@@ -558,13 +558,10 @@ function TicketOperationsPanel({ dashboard = {}, isSingleEvent = false, checkinS
   ]
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+    <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="font-bold text-white">Tình trạng vé & Check-in</h3>
-          <p className="text-xs text-slate-400">
-            {isSingleEvent ? 'Tỷ lệ check-in thực tế của sự kiện' : 'Tổng quan phát hành & soát vé toàn hệ thống'}
-          </p>
         </div>
         <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-bold text-cyan-300">
           {checkinRate}% check-in
@@ -572,7 +569,7 @@ function TicketOperationsPanel({ dashboard = {}, isSingleEvent = false, checkinS
       </div>
 
       {/* Segmented Progress Bar */}
-      <div className="flex h-3 overflow-hidden rounded-full bg-slate-800">
+      <div className="flex h-3 overflow-hidden rounded-full bg-slate-800 [html.light_&]:bg-[#E8DCCB]">
         {segments.map((item) => (
           <div
             key={item.label}
@@ -586,7 +583,7 @@ function TicketOperationsPanel({ dashboard = {}, isSingleEvent = false, checkinS
       {/* Metric Tiles */}
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
         {segments.map((item) => (
-          <div key={item.label} className="rounded-xl border border-white/5 bg-slate-900/50 p-2.5">
+          <div key={item.label} className="rounded-xl border border-white/5 bg-slate-900/50 p-2.5 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/25">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</p>
             <p className={`mt-1 font-display text-base font-black ${item.text}`}>{fmtNumber(item.value)}</p>
             <p className="text-[10px] text-slate-500">{((item.value / total) * 100).toFixed(0)}%</p>
@@ -1167,7 +1164,7 @@ export function OrganizerDashboardPage() {
       description="Trung tâm điều hành doanh thu, tốc độ bán vé, tình trạng check-in và cố vấn chiến lược AI."
     >
       {/* ── Master Filter & Context Controls ── */}
-      <div className="relative z-20 mb-6 rounded-2xl border border-white/10 bg-[#0e172e]/90 p-4 shadow-xl backdrop-blur-xl">
+      <div className="relative z-20 mb-6 rounded-2xl border border-white/10 bg-[#0e172e]/90 p-4 shadow-xl backdrop-blur-xl [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="grid flex-1 gap-4 sm:grid-cols-2">
             {/* Smart Event Picker */}
@@ -1202,7 +1199,7 @@ export function OrganizerDashboardPage() {
               onClick={loadStats}
               disabled={loading}
               title="Làm mới dữ liệu"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-[#0d172e] px-4 text-xs font-bold text-slate-200 shadow-sm transition hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-[#0d172e] px-4 text-xs font-bold text-slate-200 shadow-sm transition hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
             >
               <RefreshCw className={`size-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
               <span className="hidden sm:inline">Làm mới</span>
@@ -1212,14 +1209,17 @@ export function OrganizerDashboardPage() {
               type="button"
               onClick={loadFinancialSummary}
               disabled={summaryLoading}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-purple-500/40 bg-gradient-to-r from-purple-600 to-indigo-600 px-4 text-xs font-black text-white shadow-md shadow-purple-500/20 transition hover:from-purple-500 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-led-gold-sm h-10 shrink-0 active:scale-95"
+              title="Đánh giá doanh thu"
             >
-              {summaryLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Sparkles className="size-4 text-amber-300" />
-              )}
-              <span>{summaryLoading ? 'Đang phân tích...' : 'Đánh giá doanh thu'}</span>
+              <span className="btn-led-gold-sm-inner px-4 !text-sm font-black">
+                {summaryLoading ? (
+                  <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />
+                ) : (
+                  <Sparkles className="size-4 text-[#0D1B2A]" />
+                )}
+                <span>{summaryLoading ? 'Đang phân tích...' : 'Đánh giá doanh thu'}</span>
+              </span>
             </button>
           </div>
         </div>
@@ -1532,9 +1532,6 @@ export function OrganizerDashboardPage() {
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-white">Hiệu suất doanh thu theo sự kiện</h3>
-                      <p className="text-xs text-slate-400">
-                        Danh sách các sự kiện có đơn hàng phát sinh trong kỳ phân tích
-                      </p>
                     </div>
                     <span className="rounded-full border border-white/10 bg-slate-800/80 px-2.5 py-0.5 text-xs font-bold text-slate-300">
                       {byEvent.length} sự kiện

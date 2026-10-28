@@ -3,6 +3,9 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const ordersRepository = require('./orders.repository');
 const paymentsService = require('../payments/payments.service');
 const env = require('../../config/env');
+const logger = require('../../core/logger');
+const { ZERO_AMOUNT_CHECKOUT_ENABLED } = require('../../config/features');
+const { validateIdempotencyPayload, formatExistingOrderResponse } = ordersRepository;
 
 function normalizePhone(phone) {
   if (!phone) return null;
@@ -174,6 +177,21 @@ class OrdersService {
   async checkout(userId, payload) {
     await ordersRepository.expirePendingOrders();
 
+    const idempotencyKey = payload.idempotency_key || null;
+
+    if (idempotencyKey) {
+      const existing = await ordersRepository.findOrderByIdempotencyKey(idempotencyKey);
+      if (existing) {
+        validateIdempotencyPayload(existing, {
+          userId,
+          eventId: payload.event_id,
+          promoCode: payload.promo_code,
+          items: payload.items,
+        });
+        return formatExistingOrderResponse(existing);
+      }
+    }
+
     const normalizedItems = payload.items.map((item) => {
       const quantity = Number(item.quantity);
       const unitPrice = Number(item.unit_price || item.price || 0);
@@ -187,6 +205,84 @@ class OrdersService {
     });
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
+
+    // Zero-Amount Checkout bypass (behind feature flag ZERO_AMOUNT_CHECKOUT_ENABLED)
+    if (ZERO_AMOUNT_CHECKOUT_ENABLED) {
+      const couldBeZero = subtotal === 0 || Boolean(payload.promo_code);
+
+      if (couldBeZero) {
+        try {
+          const confirmed = await ordersRepository.confirmZeroAmountCheckout({
+            userId,
+            eventId: payload.event_id,
+            buyer: {
+              name: payload.buyer_name,
+              email: payload.buyer_email.toLowerCase(),
+              phone: normalizePhone(payload.buyer_phone),
+            },
+            attendees: (payload.attendees || []).map((attendee) => ({
+              ticket_type_id: attendee.ticket_type_id,
+              session_seat_id: attendee.session_seat_id || null,
+              name: attendee.name,
+              email: attendee.email.toLowerCase(),
+            })),
+            promoCode: payload.promo_code,
+            items: normalizedItems,
+            idempotencyKey,
+            requireEventTermsAcceptance: true,
+            eventTermsAccepted: payload.event_terms_accepted,
+          });
+
+          // Idempotent replay check if concurrent request already completed
+          if (confirmed.idempotent_replay) {
+            return confirmed;
+          }
+
+          // Fire and forget email confirmation
+          paymentsService.sendTicketConfirmation(confirmed.order.id).catch((err) => {
+            logger.error(`[ZERO_CHECKOUT_EMAIL_ERROR] orderId=${confirmed.order.id}`, err);
+          });
+
+          return {
+            order: {
+              id: confirmed.order.id,
+              order_code: confirmed.order.order_code,
+              status: confirmed.order.status,
+              subtotal: mapMoney(confirmed.order.subtotal),
+              discount_amount: mapMoney(confirmed.order.discount_amount),
+              platform_fee: 0,
+              total_amount: 0,
+              expired_at: null,
+              created_at: confirmed.order.created_at,
+              event: confirmed.event ? {
+                id: confirmed.event.event_id || confirmed.event.id,
+                title: confirmed.event.event_title || confirmed.event.title,
+                slug: confirmed.event.event_slug || confirmed.event.slug,
+              } : null,
+            },
+            payment: null,
+            items: confirmed.orderItems.map((item) => ({
+              ticket_type_id: item.ticket_type_id,
+              ticket_type_name: item.ticket_type_name,
+              quantity: Number(item.quantity),
+              unit_price: mapMoney(item.unit_price),
+              final_price: mapMoney(item.final_price),
+            })),
+            tickets: confirmed.issuedTickets,
+            requires_payment: false,
+            is_completed: true,
+          };
+        } catch (err) {
+          // If error indicates payable amount > 0, proceed to regular PayOS flow
+          if (err.message && err.message.includes('lớn hơn 0')) {
+            // Not a zero-amount order, fall through
+          } else {
+            throw err;
+          }
+        }
+      }
+    }
+
     const paymentChannel = await paymentsService.getOrganizerPayosChannelForEvent(payload.event_id);
 
     const created = await ordersRepository.createPendingCheckout({
@@ -212,6 +308,7 @@ class OrdersService {
       paymentChannel,
       requireEventTermsAcceptance: true,
       eventTermsAccepted: payload.event_terms_accepted,
+      idempotencyKey,
     });
 
     try {
@@ -258,19 +355,25 @@ class OrdersService {
         final_price: mapMoney(item.final_price),
       })),
       hold_seconds: Number(process.env.TICKET_HOLD_SECONDS || 900),
+      requires_payment: true,
+      is_completed: false,
     };
   }
 
   async getStatus(userId, orderId) {
     await ordersRepository.expirePendingOrders();
-    try {
-      await paymentsService.syncTicketOrderFromPayos(orderId, userId);
-    } catch (error) {
-      // Keep status polling usable even if PayOS status sync is temporarily unavailable.
-    }
     const row = await ordersRepository.findOrderStatus(orderId, userId);
     if (!row) {
-      throw new AppError('Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n h\u00e0ng.', 404, ErrorCodes.ORDER_NOT_FOUND);
+      throw new AppError('Không tìm thấy đơn hàng.', 404, ErrorCodes.ORDER_NOT_FOUND);
+    }
+    if (row.order?.status === 'PENDING' && row.payment?.id) {
+      try {
+        await paymentsService.syncTicketOrderFromPayos(orderId, userId);
+        const updatedRow = await ordersRepository.findOrderStatus(orderId, userId);
+        if (updatedRow) return mapOrderStatus(updatedRow);
+      } catch (error) {
+        // Keep status polling usable even if PayOS status sync is temporarily unavailable.
+      }
     }
     return mapOrderStatus(row);
   }
@@ -290,6 +393,10 @@ class OrdersService {
   }
 
   async createStaffDirectBooking(staffId, roles = [], payload) {
+    if (payload.payment_method === 'complimentary') {
+      return this.createStaffComplimentaryBooking(staffId, roles, payload);
+    }
+
     await ordersRepository.expirePendingOrders();
 
     const normalizedItems = payload.items.map((item) => ({
@@ -424,6 +531,43 @@ class OrdersService {
     return mapStaffDirectBooking(data);
   }
 
+  async createStaffComplimentaryBooking(staffId, roles = [], payload) {
+    if (!features.STAFF_COMPLIMENTARY_BOOKING_ENABLED) {
+      throw new AppError('Tính năng cấp vé mời nhân sự hiện đang tạm đóng.', 403, ErrorCodes.AUTH_FORBIDDEN);
+    }
+
+    await ordersRepository.expirePendingOrders();
+
+    const normalizedItems = payload.items.map((item) => ({
+      ticket_type_id: item.ticket_type_id,
+      quantity: Number(item.quantity),
+      session_seat_ids: item.session_seat_ids || [],
+    }));
+
+    const data = await ordersRepository.createStaffComplimentaryBooking({
+      staffId,
+      staffRoles: roles,
+      eventId: payload.event_id,
+      buyer: {
+        name: payload.buyer_name,
+        email: payload.buyer_email ? payload.buyer_email.toLowerCase() : null,
+        phone: normalizePhone(payload.buyer_phone),
+      },
+      complimentaryReason: payload.complimentary_reason,
+      internalNote: payload.internal_note || null,
+      items: normalizedItems,
+      attendees: payload.attendees || [],
+    });
+
+    const confirmationEmailSent = await paymentsService.sendTicketConfirmation(data.order.id);
+
+    return {
+      order: data.order,
+      order_items: data.orderItems,
+      issued_tickets: data.issuedTickets,
+      confirmation_email_sent: confirmationEmailSent,
+    };
+  }
 }
 
 module.exports = new OrdersService();

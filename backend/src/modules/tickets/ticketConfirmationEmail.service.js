@@ -5,7 +5,11 @@ const env = require('../../config/env');
 const MAX_TICKETS_PER_EMAIL = 6;
 
 const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0));
+const money = (value) => {
+  const num = Number(value || 0);
+  if (num === 0) return '0 ₫ (Miễn phí)';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
+};
 const date = (value) => value ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value)) : 'N/A';
 const maskEmail = (value) => {
   const [name = '', domain = ''] = String(value || '').split('@');
@@ -69,7 +73,7 @@ function buildHtml(order, tickets, delivery = {}) {
   ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(order.event_title)}" style="width:100%;max-height:300px;object-fit:cover" />` : ''}
   <div style="background:white;padding:24px"><h2>${escapeHtml(order.event_title)}</h2><p>Xin chao <b>${escapeHtml(order.buyer_name)}</b>, EventHub da nhan thanh toan.</p>
   <table width="100%" cellpadding="7" style="background:#f8fafc"><tr><td>Ma don</td><td align="right"><b>${escapeHtml(order.order_code)}</b></td></tr>
-  <tr><td>Ma giao dich</td><td align="right">${escapeHtml(order.transaction_code || 'N/A')}</td></tr><tr><td>Thanh toan luc</td><td align="right">${escapeHtml(date(order.paid_at))}</td></tr>
+  <tr><td>Ma giao dich</td><td align="right">${escapeHtml(order.transaction_code || (Number(order.total_amount) === 0 ? 'Mien phi' : 'N/A'))}</td></tr><tr><td>Thoi gian</td><td align="right">${escapeHtml(order.paid_at ? date(order.paid_at) : (Number(order.total_amount) === 0 ? 'Mien phi' : 'N/A'))}</td></tr>
   <tr><td>Tam tinh</td><td align="right">${money(order.subtotal)}</td></tr><tr><td>Giam gia</td><td align="right">-${money(order.discount_amount)}</td></tr>
   <tr><td>Phi nen tang</td><td align="right">${money(order.platform_fee)}</td></tr><tr><td><b>Tong thanh toan</b></td><td align="right"><b>${money(order.total_amount)}</b></td></tr></table>
   ${partNotice}<h2>Ve cua ban (${tickets.length})</h2>${tickets.map((ticket) => ticketCard(ticket, order)).join('')}
@@ -183,7 +187,7 @@ async function sendOrderConfirmation(order, tickets) {
     return emailService.sendEmail({
       email: order.buyer_email,
       subject: `Vé EventHub - ${order.event_title} (${order.order_code})${partLabel}`,
-      message: `Thanh toán thành công đơn ${order.order_code}. Email ${part}/${ticketBatches.length} gồm ${ticketBatch.length}/${tickets.length} vé. Tổng: ${money(order.total_amount)}.`,
+      message: `${Number(order.total_amount) === 0 ? 'Đặt vé thành công' : 'Thanh toán thành công'} đơn ${order.order_code}. Email ${part}/${ticketBatches.length} gồm ${ticketBatch.length}/${tickets.length} vé. Tổng: ${money(order.total_amount)}.`,
       html: localizeVietnameseHtml(buildHtml(order, ticketBatch, {
         part,
         totalParts: ticketBatches.length,
