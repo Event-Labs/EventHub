@@ -468,6 +468,66 @@ html.light select optgroup {
   filter: brightness(1.08);
 }
 
+/* ── Urgent Action Banner LED Glow Border (Thin, Seamless, No Dark Fringe) ── */
+.urgent-banner-led-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+  overflow: visible;
+  border-radius: 1rem;
+}
+
+.urgent-banner-led-svg rect {
+  x: 0.5px;
+  y: 0.5px;
+  width: calc(100% - 1px);
+  height: calc(100% - 1px);
+  rx: 16px;
+  ry: 16px;
+  fill: none;
+}
+
+.urgent-banner-led-track {
+  stroke: rgba(245, 158, 11, 0.45);
+  stroke-width: 1px;
+}
+
+.urgent-banner-led-glow {
+  stroke: #FBBF24;
+  stroke-width: 2.2px;
+  stroke-linecap: round;
+  stroke-dasharray: 20 80;
+  filter: drop-shadow(0 0 5px #F59E0B) drop-shadow(0 0 10px #D97706);
+  animation: ai-led-travel-glow 3.5s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.urgent-banner-led-core {
+  stroke: #FFFFFF;
+  stroke-width: 1px;
+  stroke-linecap: round;
+  stroke-dasharray: 12 88;
+  filter: drop-shadow(0 0 2px #FFFFFF);
+  animation: ai-led-travel-core 3.5s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+html.light .urgent-banner-led-track {
+  stroke: rgba(217, 119, 6, 0.45);
+}
+
+html.light .urgent-banner-led-glow {
+  stroke: #D97706;
+  filter: drop-shadow(0 0 4px #F59E0B);
+}
+
+html.light .urgent-banner-led-core {
+  stroke: #FDE68A;
+}
+
 /* ── Create & Update Event Page: Solid Deep Dark Form Cards & Inputs (Dark Mode Only) ── */
 html:not(.light) .create-event-content section,
 html:not(.light) .create-event-content .bg-surface {
@@ -2657,7 +2717,7 @@ html.light .force-dark .btn-gold-primary {
 
 html.light .force-dark svg text {
   fill: #f8fafc !important;
-}
+}
 
 /* LED BORDER BUTTON EFFECT - PURE GOLD LUXURY */
 @keyframes led-rotate {

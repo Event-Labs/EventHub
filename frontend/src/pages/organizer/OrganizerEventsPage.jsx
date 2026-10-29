@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  Archive,
+  ArchiveRestore,
   CalendarDays,
   CheckCircle2,
   Edit,
   Eye,
-  EyeOff,
   Globe,
   PauseCircle,
   PlayCircle,
@@ -180,11 +181,11 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 rounded-xl bg-success px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-success/80 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                 Đang xuất bản...
               </span>
             ) : (
@@ -386,11 +387,11 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
             <button
               type="submit"
               disabled={!isFormValid || loading}
-              className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-50 ${hasPaidOrders ? 'bg-amber-600 hover:bg-amber-500' : 'bg-error hover:bg-error/80'}`}
+              className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                   Đang xử lý...
                 </span>
               ) : hasPaidOrders ? (
@@ -423,7 +424,7 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
         {/* Header */}
         <div className="flex items-start gap-3">
           <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${isCurrentlyHidden ? 'bg-primary/15 text-primary' : 'bg-amber-500/15 text-amber-400'}`}>
-            {isCurrentlyHidden ? <Eye className="size-5" /> : <EyeOff className="size-5" />}
+            {isCurrentlyHidden ? <ArchiveRestore className="size-5" /> : <Archive className="size-5" />}
           </span>
           <div>
             <h3 className="text-xl font-black text-white">
@@ -483,11 +484,11 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-60 ${isCurrentlyHidden ? 'bg-primary hover:bg-primary/80' : 'bg-amber-600 hover:bg-amber-500'}`}
+            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                 Đang xử lý...
               </span>
             ) : isCurrentlyHidden ? (
@@ -579,11 +580,11 @@ function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) {
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-60 ${isCurrentlyPaused ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'}`}
+            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                 Đang xử lý...
               </span>
             ) : isCurrentlyPaused ? (
@@ -1040,9 +1041,9 @@ export function OrganizerEventsPage() {
                       {event.display_state !== 'SUSPENDED_BY_ADMIN' && (
                         <TableActionButton
                           onClick={() => openHideModal(event)}
-                          title={event.display_state === 'HIDDEN_BY_ORGANIZER' ? 'Hiện lại sự kiện' : 'Ẩn sự kiện'}
-                          icon={event.display_state === 'HIDDEN_BY_ORGANIZER' ? Eye : EyeOff}
-                          tone="default"
+                          title={event.display_state === 'HIDDEN_BY_ORGANIZER' ? 'Hiện lại sự kiện' : 'Tạm ẩn sự kiện'}
+                          icon={event.display_state === 'HIDDEN_BY_ORGANIZER' ? ArchiveRestore : Archive}
+                          tone={event.display_state === 'HIDDEN_BY_ORGANIZER' ? 'primary' : 'default'}
                         />
                       )}
 
@@ -1179,9 +1180,9 @@ export function OrganizerEventsPage() {
                 type="button"
                 disabled={withdrawLoading}
                 onClick={confirmWithdrawCancellationRequest}
-                className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-amber-500 disabled:opacity-50 inline-flex items-center gap-1.5"
+                className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
               >
-                {withdrawLoading && <span className="size-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                {withdrawLoading && <span className="size-3 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />}
                 Xác nhận rút lại
               </button>
             </div>

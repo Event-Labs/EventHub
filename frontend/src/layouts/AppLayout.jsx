@@ -471,34 +471,6 @@ export function AppLayout() {
                   </div>
 
                   <div className="border-t border-border-soft py-1">
-                    {hasAdminRole && (
-                      <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
-                        to="/admin"
-                        reloadDocument
-                        onClick={() => setOpen(false)}
-                      >
-                        Quay lại trang quản trị
-                      </NavLink>
-                    )}
-                    {canOpenOrganizerPortal && (
-                      <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
-                        to="/organizer"
-                        onClick={() => setOpen(false)}
-                      >
-                        Quay lại trang tổ chức
-                      </NavLink>
-                    )}
-                    {canOpenStaffPortal && (
-                      <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
-                        to="/staff"
-                        onClick={() => setOpen(false)}
-                      >
-                        Quay lại trang nhân sự
-                      </NavLink>
-                    )}
                     {!canOpenOrganizerPortal && !hasAdminRole && (
                       <NavLink
                         className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
