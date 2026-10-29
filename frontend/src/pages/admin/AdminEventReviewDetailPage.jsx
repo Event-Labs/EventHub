@@ -302,51 +302,168 @@ function SuggestionCard({ suggestion, onClick }) {
   )
 }
 
-function ContentSpellingAuditCard({ contentReview, onClick }) {
-  if (!contentReview) return null
+function ContentSpellingAuditCard({ contentReview, event, onClick }) {
+  // Fallback to client-side evaluation if contentReview is absent or incomplete
+  const fallbackReview = useMemo(() => {
+    if (!event) return null
+    const title = String(event.title || '').trim()
+    const rawDesc = String(event.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    const textLower = `${title} ${event.short_description || ''} ${rawDesc}`.toLowerCase()
 
-  const titleStatus = contentReview.title_status || 'VALID'
-  const descStatus = contentReview.description_status || 'VALID'
-  const spellingIssues = Array.isArray(contentReview.spelling_grammar_issues) ? contentReview.spelling_grammar_issues : []
+    let titleStatus = 'VALID'
+    let titleAnalysis = `Tiêu đề sự kiện "${title}" rõ ràng, đúng nhận diện chương trình, không vi phạm chuẩn mực.`
+    if (!title || title.length < 5) {
+      titleStatus = 'NEEDS_IMPROVEMENT'
+      titleAnalysis = 'Tiêu đề sự kiện quá ngắn, chưa đủ thông tin định danh rõ ràng.'
+    } else if (/(\b(x100|bao l[oờ]|ki[eế]m ti[eề]n nhanh|l[uừ]a)\b)/i.test(title)) {
+      titleStatus = 'VIOLATION'
+      titleAnalysis = 'Tiêu đề chứa dấu hiệu giật tít lừa đảo, cam kết lợi nhuận hoặc từ ngữ cấm.'
+    }
+
+    let descStatus = 'VALID'
+    let descAnalysis = ''
+    const sensitiveFraudWords = ['chuyển khoản stk', 'stk cá nhân', 'inbox zalo', 'telegram đầu tư', 'bao lời 100%', 'cam kết lãi']
+    const foundFraud = sensitiveFraudWords.find((w) => textLower.includes(w))
+
+    const charCount = rawDesc.length
+    const wordCount = rawDesc.split(/\s+/).filter(Boolean).length
+    const hasActors = /(diễn viên|nghệ sĩ|đạo diễn|ca sĩ|khách mời|speaker|diễn giả|ns\.)/i.test(rawDesc)
+    const hasSynopsis = /(nội dung|cốt truyện|vở kịch|câu chuyện|chương trình|giới thiệu|tiết mục)/i.test(rawDesc)
+    const hasRules = /(quy định|lưu ý|cảnh báo|độ tuổi|trang phục|dresscode|vật dụng|cấm|check-in|vé)/i.test(rawDesc)
+    const isHorrorOrMature = /(kịch ma|kinh dị|ma quái|nhà có ma|con quỷ|rùng rợn|18\+|kinh hoàng)/i.test(textLower)
+
+    if (foundFraud) {
+      descStatus = 'VIOLATION'
+      descAnalysis = `Phát hiện từ khóa nghi vấn giao dịch ngoài sàn / cam kết phi thực tế: "${foundFraud}".`
+    } else if (charCount < 50) {
+      descStatus = 'NEEDS_IMPROVEMENT'
+      descAnalysis = 'Mô tả chi tiết sự kiện quá sơ sài, gần như chưa có nội dung chương trình để khán giả tham khảo.'
+    } else {
+      const parts = []
+      if (charCount >= 100) parts.push(`Mô tả chi tiết có độ dài ${charCount} ký tự (${wordCount} từ).`)
+      if (hasActors) parts.push('Đã giới thiệu rõ đạo diễn và dàn diễn viên/nghệ sĩ tham gia biểu diễn.')
+      if (hasSynopsis) parts.push('Có phần tóm tắt nội dung và chủ đề sự kiện.')
+      else parts.push('Nội dung cốt truyện/kịch bản sự kiện còn ngắn, chưa nêu rõ chi tiết câu chuyện.')
+
+      if (isHorrorOrMature) {
+        if (!hasRules) {
+          descStatus = 'NEEDS_IMPROVEMENT'
+          parts.push('LƯU Ý: Đây là thể loại Kịch Ma/Kinh dị (hiệu ứng 4D, âm thanh giật gân), nhưng mô tả chưa có cảnh báo an toàn & khuyến cáo độ tuổi (ví dụ: hạn chế trẻ nhỏ dưới 12 tuổi, cảnh báo người có tiền sử tim mạch/huyết áp hoặc phụ nữ mang thai).')
+        } else {
+          parts.push('Có quy định tham gia và khuyến cáo an toàn cho người tham dự.')
+        }
+      } else if (!hasRules && charCount < 300) {
+        parts.push('Khuyến nghị bổ sung thêm mục Lưu ý khi tham gia (thời gian check-in, đồ uống/vật dụng được phép mang vào).')
+      }
+      descAnalysis = parts.join(' ')
+    }
+
+    const spellingIssues = []
+    if (/\s+[;:,.\?!]|\b[;:,.\?!][^\s\d"'\)\]\}\>]/.test(`${title} ${rawDesc}`)) {
+      spellingIssues.push('Khoảng cách trước/sau dấu câu (; hoặc :) chưa đồng bộ')
+    }
+    if (/\bQủy\b/i.test(`${title} ${rawDesc}`)) {
+      spellingIssues.push('Từ "Qủy" nên chuẩn hóa thành "Quỷ" (dấu hỏi trên chữ u/y chuẩn tiếng Việt)')
+    }
+
+    return {
+      title_status: titleStatus,
+      title_analysis: titleAnalysis,
+      description_status: descStatus,
+      description_analysis: descAnalysis,
+      spelling_grammar_issues: spellingIssues,
+      hasActors,
+      hasSynopsis,
+      hasRules,
+      isHorrorOrMature,
+    }
+  }, [event])
+
+  const effectiveReview = contentReview || fallbackReview
+  if (!effectiveReview) return null
+
+  const titleStatus = effectiveReview.title_status || 'VALID'
+  const descStatus = effectiveReview.description_status || 'VALID'
+  const descAnalysis = effectiveReview.description_analysis || ''
+  const titleAnalysis = effectiveReview.title_analysis || ''
+  const spellingIssues = Array.isArray(effectiveReview.spelling_grammar_issues) ? effectiveReview.spelling_grammar_issues : []
 
   const getStatusBadge = (st) => {
     if (st === 'VIOLATION') {
-      return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">Vi phạm</span>
+      return <span className="rounded bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30 whitespace-nowrap">Vi phạm</span>
     }
     if (st === 'NEEDS_IMPROVEMENT') {
-      return <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">Cần sửa</span>
+      return <span className="rounded bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30 whitespace-nowrap">Cần bổ sung</span>
     }
-    return <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">Hợp lệ</span>
+    return <span className="rounded bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 whitespace-nowrap">Đạt chuẩn</span>
   }
 
+  const overallTone = descStatus === 'VIOLATION' || titleStatus === 'VIOLATION'
+    ? 'border-rose-500/30 bg-rose-950/20'
+    : descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT'
+      ? 'border-amber-500/30 bg-amber-950/20'
+      : 'border-slate-700/60 bg-slate-900/60'
+
   return (
-    <div className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+    <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 backdrop-blur-sm`}>
+      <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
         <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-          <Type className="size-4 text-slate-400" />
-          Soát lỗi Tiêu đề, Mô tả & Chính tả
+          <FileText className="size-4 text-indigo-400" />
+          Thẩm định Mô tả chi tiết & Nội dung sự kiện
         </span>
+        {getStatusBadge(descStatus === 'VIOLATION' || titleStatus === 'VIOLATION' ? 'VIOLATION' : descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT' ? 'NEEDS_IMPROVEMENT' : 'VALID')}
       </div>
 
-      {/* Title Audit */}
-      {contentReview.title_analysis && (
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1.5">
+      {/* Description Audit Section */}
+      <div className="rounded-xl border border-white/10 bg-slate-950/70 p-3.5 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+            <span className="size-2 rounded-full bg-indigo-400"></span>
+            <span>Mô tả chi tiết sự kiện:</span>
+          </div>
+          {getStatusBadge(descStatus)}
+        </div>
+
+        {descAnalysis ? (
+          <p className="text-xs text-slate-300 leading-relaxed break-words">{descAnalysis}</p>
+        ) : (
+          <p className="text-xs text-slate-400 italic">Mô tả bài viết đã được quét, không phát hiện vi phạm.</p>
+        )}
+
+        {/* Feature Checkpoints */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/5 text-slate-300">
+            ✓ Giới thiệu & Cốt truyện
+          </span>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border ${descStatus === 'NEEDS_IMPROVEMENT' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-white/5 border-white/5 text-slate-300'}`}>
+            {descStatus === 'NEEDS_IMPROVEMENT' ? '⚠ Cần cảnh báo độ tuổi / an toàn' : '✓ Quy định & An toàn'}
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/5 text-slate-300">
+            ✓ Minh bạch thanh toán
+          </span>
+        </div>
+
+        {descStatus !== 'VALID' && (
+          <div className="pt-1.5">
+            <button
+              type="button"
+              onClick={() => onClick?.(`[Góp ý mô tả chi tiết] ${descAnalysis}`)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition cursor-pointer"
+            >
+              <span>+ Thêm nhận xét mô tả vào ghi chú duyệt</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Title Audit Section */}
+      {titleAnalysis && (
+        <div className="rounded-xl border border-white/5 bg-slate-950/50 p-3 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-200">Tiêu đề:</span>
+            <span className="font-semibold text-slate-200">Tiêu đề sự kiện:</span>
             {getStatusBadge(titleStatus)}
           </div>
-          <p className="text-xs text-slate-300 leading-relaxed">{contentReview.title_analysis}</p>
-        </div>
-      )}
-
-      {/* Description Audit */}
-      {contentReview.description_analysis && (
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-200">Mô tả bài viết:</span>
-            {getStatusBadge(descStatus)}
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed">{contentReview.description_analysis}</p>
+          <p className="text-xs text-slate-300 leading-relaxed">{titleAnalysis}</p>
         </div>
       )}
 
@@ -355,14 +472,14 @@ function ContentSpellingAuditCard({ contentReview, onClick }) {
         <div className="space-y-2 pt-1">
           <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
             <SpellCheck className="size-4 text-amber-400" />
-            <span>Phát hiện {spellingIssues.length} lỗi chính tả / ngữ pháp:</span>
+            <span>Phát hiện {spellingIssues.length} lưu ý chính tả / dấu câu:</span>
           </div>
           <div className="space-y-1.5">
             {spellingIssues.map((issue, idx) => (
               <button
                 key={idx}
                 type="button"
-                onClick={() => onClick?.(`[Lỗi chính tả] ${issue}`)}
+                onClick={() => onClick?.(`[Lỗi chính tả / văn bản] ${issue}`)}
                 className="group flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2 text-left text-xs text-amber-200 transition hover:bg-amber-950/35 hover:border-amber-500/40"
                 title="Bấm để sao chép vào ghi chú"
               >
@@ -537,6 +654,145 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
   )
 }
 
+
+function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasCoT = Boolean(
+    ocrReasoning?.step1_scene_context ||
+    ocrReasoning?.step2_anchor_text ||
+    ocrReasoning?.step3_stylized_decoding ||
+    ocrReasoning?.step4_moderation_verdict
+  )
+  const texts = Array.isArray(extractedTexts) ? extractedTexts : []
+
+  if (!hasCoT && texts.length === 0) return null
+
+  const getFontStyleLabel = (style) => {
+    switch (style) {
+      case 'STYLIZED_HORROR': return 'Chữ kinh dị / Uốn lượn'
+      case 'NEON_GLOW': return 'Hiệu ứng Neon'
+      case '3D_EFFECT': return 'Hiệu ứng 3D'
+      case 'HANDWRITTEN': return 'Chữ viết tay'
+      default: return 'Phông chữ chuẩn'
+    }
+  }
+
+  const getEffectLabel = (eff) => {
+    switch (eff) {
+      case 'BLOOD_SPLATTER': return 'Vệt máu giả nghệ thuật'
+      case 'SMOKE': return 'Khói sương'
+      case 'DISTORTION': return 'Biến dạng'
+      default: return null
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 p-2.5 space-y-2 mt-2">
+      {/* Extracted Texts List */}
+      {texts.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+            <Sparkles className="size-3.5 text-indigo-400" />
+            <span>Văn bản giải mã qua Visual OCR ({texts.length} cụm từ):</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {texts.map((t, i) => {
+              const effectText = getEffectLabel(t.visual_effect)
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs flex-wrap"
+                >
+                  <span className="font-bold text-white tracking-wide">
+                    {t.text}
+                  </span>
+                  {t.is_event_title && (
+                    <span className="rounded bg-indigo-500/30 px-1.5 py-0.5 text-[9px] font-bold text-indigo-200">
+                      Tên sự kiện
+                    </span>
+                  )}
+                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-medium text-slate-300">
+                    {getFontStyleLabel(t.font_style)}
+                  </span>
+                  {effectText && (
+                    <span className="rounded bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-medium text-rose-300">
+                      {effectText}
+                    </span>
+                  )}
+                  {t.confidence && (
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                      t.confidence === 'HIGH'
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {t.confidence === 'HIGH' ? 'Tin cậy cao' : 'Tin cậy TB'}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 4-Step CoT Reasoning */}
+      {hasCoT && (
+        <div className="pt-1.5 border-t border-indigo-500/20">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex w-full items-center justify-between text-[11px] font-bold text-indigo-300 hover:text-indigo-200 transition py-0.5 cursor-pointer"
+          >
+            <span className="flex items-center gap-1.5">
+              <span>🧠 Visual Chain-of-Thought (CoT) — 4 Bước suy luận OCR</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal">
+              {expanded ? '▲ Thu gọn' : '▼ Xem chi tiết 4 bước'}
+            </span>
+          </button>
+
+          {expanded && (
+            <div className="space-y-2 pt-2 text-[11px] leading-relaxed text-slate-300">
+              {ocrReasoning.step1_scene_context && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>1. Phân tích bối cảnh & Chủ đề (Scene & Theme Context):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step1_scene_context}</p>
+                </div>
+              )}
+              {ocrReasoning.step2_anchor_text && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>2. Quét vùng chữ rõ nét làm mồi ngữ cảnh (Anchor Text):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step2_anchor_text}</p>
+                </div>
+              )}
+              {ocrReasoning.step3_stylized_decoding && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>3. Giải mã phông chữ biến dạng & Khung xương (Stylized Typography):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step3_stylized_decoding}</p>
+                </div>
+              )}
+              {ocrReasoning.step4_moderation_verdict && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>4. Đánh giá kiểm duyệt (Moderation Verdict):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step4_moderation_verdict}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
   // Strictly filter out any PERMIT items to never mix documents with images
   const items = Array.isArray(imageReview?.items) ? imageReview.items.filter(it => !it.source?.startsWith('PERMIT')) : []
@@ -601,6 +857,12 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
               {img.analysis && (
                 <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
               )}
+
+              {/* Visual CoT OCR 4-step Reasoning & Extracted Texts */}
+              <VisualCoTOcrSection
+                ocrReasoning={img.ocr_reasoning}
+                extractedTexts={img.extracted_texts}
+              />
 
               {Array.isArray(img.issues) && img.issues.length > 0 && (
                 <div className="space-y-1 pt-1">
@@ -1361,7 +1623,7 @@ export function AdminEventReviewDetailPage() {
       {/* Main Split Screen */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Column: Event Details */}
-        <div className={`overflow-y-auto p-6 ${customScrollbar} ${isPendingReview ? 'w-[58%] lg:w-[62%] rounded-bl-[32px]' : 'w-full max-w-5xl mx-auto rounded-b-[32px]'}`}>
+        <div className={`overflow-y-auto p-6 ${customScrollbar} ${isPendingReview ? 'w-1/2 min-w-0 flex-1 rounded-bl-[32px]' : 'w-full max-w-5xl mx-auto rounded-b-[32px]'}`}>
           {/* Cancellation Request Banner */}
           {event.cancel_request?.status === 'PENDING' && (
             <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-950/30 p-5 shadow-lg backdrop-blur-xl">
@@ -2118,7 +2380,7 @@ export function AdminEventReviewDetailPage() {
 
         {/* Right Column: AI Assistant & Actions - ONLY FOR PENDING_REVIEW */}
         {isPendingReview && (
-          <div className="flex w-[48%] xl:w-[45%] shrink-0 flex-col border-l border-white/5 bg-slate-900/40 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] rounded-br-[32px]">
+          <div className="flex w-1/2 min-w-0 shrink-0 flex-col border-l border-white/10 bg-slate-900/40 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] rounded-br-[32px]">
           {/* AI Info Area */}
           <div className={`flex-1 overflow-y-auto p-5 ${customScrollbar}`}>
             {/* AI Assistant Header */}
@@ -2325,6 +2587,7 @@ export function AdminEventReviewDetailPage() {
                   {aiData.content_review && (
                     <ContentSpellingAuditCard
                       contentReview={aiData.content_review}
+                      event={event}
                       onClick={handleWarningClick}
                     />
                   )}

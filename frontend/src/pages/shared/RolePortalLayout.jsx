@@ -186,10 +186,10 @@ export function RolePortalLayout({
         />
         <div className="flex-1 overflow-y-auto overflow-x-hidden pt-20 w-full min-w-0">
           <div
-            className={`mx-auto w-full min-w-0 px-3 py-4 sm:px-5 sm:py-6 transition-all duration-300 ${
+            className={`mx-auto w-full min-w-0 transition-all duration-300 ${
               location.pathname.includes('/events/review/')
-                ? 'max-w-[1760px] 2xl:max-w-[1920px]'
-                : 'max-w-[1320px]'
+                ? 'max-w-full px-2 sm:px-4 py-2 sm:py-3'
+                : 'max-w-[1320px] px-3 py-4 sm:px-5 sm:py-6'
             }`}
           >
             <Outlet />

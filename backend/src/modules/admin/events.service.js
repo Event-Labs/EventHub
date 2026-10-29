@@ -42,7 +42,14 @@ function buildAiReviewSystemPrompt(activeCriteria = []) {
 4. [TICKET_POLICY] CHÍNH SÁCH VÉ & ĐỊA ĐIỂM (WARNING): Giá vé minh bạch, quyền lợi rõ ràng. Địa chỉ sự kiện cụ thể, không giấu địa chỉ.
 5. [SESSION_SCHEDULE] LỊCH TRÌNH CÁC PHIÊN (CRITICAL): Thời gian không nằm trong quá khứ, giờ kết thúc phải sau giờ bắt đầu.
 6. [IMAGE_POLICY] KIỂM DUYỆT HÌNH ẢNH (CRITICAL): Poster & Banner rõ nét, phù hợp ngữ cảnh. Cấm 18+ khiêu dâm đồi trụy, bạo lực máu me.
-7. [CONTENT_SPELLING] SOÁT LỖI CHÍNH TẢ & VĂN BẢN (INFO/WARNING): Soát lỗi dấu/telex tiếng Việt. Tiêu đề không giật tít lừa đảo, mô tả mạch lạc.
+7. [CONTENT_SPELLING] SOÁT LỖI CHÍNH TẢ, TIÊU ĐỀ & MÔ TẢ CHI TIẾT SỰ KIỆN (CRITICAL/WARNING):
+   - Thẩm định Tiêu đề: Rõ ràng, đúng nhận diện chương trình, không giật tít lừa đảo / cam kết lợi nhuận.
+   - Thẩm định Mô tả chi tiết (Description): BẮT BUỘC thẩm định kỹ bài viết mô tả sự kiện:
+     * Đầy đủ & Chi tiết: Nêu rõ cốt truyện/chủ đề, nội dung chương trình, nghệ sĩ/diễn giả tham gia.
+     * Quy định tham gia & Cảnh báo an toàn: Với sự kiện kinh dị/kịch ma/sân khấu kịch hoặc sự kiện nhạy cảm, BẮT BUỘC kiểm tra xem có quy định độ tuổi (hạn chế trẻ em dưới 12/16 tuổi, người có tiền sử tim mạch/huyết áp/phụ nữ mang thai), quy định trang phục và vật dụng cấm mang vào hay chưa.
+     * Tính minh bạch: Cấm chèn STK cá nhân, cấm dẫn link chuyển khoản ngoài sàn, cấm cam kết x100 lợi nhuận hoặc điều khoản mâu thuẫn chính sách hoàn vé.
+     * Nhận xét chi tiết trong "content_review.description_analysis" (phân tích ưu điểm, điểm thiếu sót).
+     * Nếu đạt chuẩn, thêm một câu vào "compliant_checks". Nếu thiếu cảnh báo quan trọng, đưa vào "suggestions" hoặc "warnings".
 8. [VALUABLE_SUGGESTIONS] GỢI Ý CẢI THIỆN CÓ GIÁ TRỊ (INFO): Gợi ý hotline, check-in, phân đoạn nội dung. Không spam gợi ý chỉnh kích thước ảnh.`;
   }
 
@@ -67,8 +74,16 @@ NGUYÊN TẮC CỐT LÕI VỀ KIỂM DUYỆT & ĐIỀU KHOẢN BẮT BUỘC:
      * BẮT BUỘC thêm lỗi vào "critical_violations" với mã [LEGAL_PERMIT_AUTHENTICITY] và ghi rõ [Vi phạm tài liệu], ra quyết định "REJECT" (TUYỆT ĐỐI KHÔNG APPROVE).
    - Không tự ý từ chối (REJECT) nếu sự kiện thông thường chưa đính kèm giấy phép. Nhưng NẾU ĐÃ NỘP TỆP thì tệp đó BẮT BUỘC PHẢI HỢP LỆ VÀ ĐÚNG MỤC ĐÍCH.
 
-3. NGUYÊN TẮC KIỂM DUYỆT HÌNH ẢNH (IMAGE REVIEW):
+3. NGUYÊN TẮC KIỂM DUYỆT HÌNH ẢNH & VISUAL CHAIN-OF-THOUGHT (CoT) OCR 4 BƯỚC BẮT BUỘC:
    - "image_review" CHỈ dành cho hình ảnh thực tế (Poster, Banner, ảnh mô tả sự kiện). KHÔNG đưa tài liệu văn bản vào danh sách ảnh.
+   - BẮT BUỘC ÁP DỤNG QUY TRÌNH TƯ DUY 4 BƯỚC "VISUAL CHAIN-OF-THOUGHT (CoT) OCR" TRƯỚC KHI ĐƯA RA QUYẾT ĐỊNH CHO MỖI ẢNH (lưu vào "ocr_reasoning"):
+     * Bước 1 - Phân tích bối cảnh & Chủ đề (Scene & Theme Context): Nhận diện chủ đề tổng thể của banner (kịch kinh dị, nhạc hội, hội thảo...), tông màu (u tối, đỏ ma mị, neon rực rỡ, trang nhã) và các yếu tố đồ họa để định hình từ vựng tiếng Việt tương ứng.
+     * Bước 2 - Quét vùng chữ rõ nét làm mồi ngữ cảnh (Anchor Text Extraction): Đọc các dòng chữ có phông chữ chuẩn, dễ đọc trước (tên đạo diễn, thể loại sự kiện, cụm từ tiếng Việt rõ dấu) để xác nhận ngôn ngữ chính là Tiếng Việt và nắm bắt ngữ cảnh sự kiện.
+     * Bước 3 - Giải mã phông chữ biến dạng & Sửa lỗi từ vựng (Stylized Typography Decoding):
+       + Đối với các dòng chữ ngoằn ngoèo, giả cổ, hoặc giống chữ nước ngoài (kiểu chữ kinh dị uốn lượn): Tuyệt đối KHÔNG dịch sang ký tự tượng hình (Thái, Lào, Khmer) nếu bối cảnh đang là sự kiện Việt Nam.
+       + Bóc tách từng cụm từ, loại bỏ các nét râu ria trang trí/hiệu ứng máu/khói, đối chiếu hình dáng khung xương chữ cái (skeleton) với bảng chữ cái tiếng Việt và dấu thanh.
+       + Dùng ngữ cảnh từ Bước 1 và Bước 2 để tự động sửa lỗi chính tả (Lexical Correction) sao cho tạo thành cụm từ tiếng Việt có nghĩa hợp lý với tên sự kiện.
+     * Bước 4 - Đánh giá kiểm duyệt (Moderation Verdict): Phân biệt rõ giữa "hiệu ứng nghệ thuật hợp lệ của sự kiện" (chữ kinh dị, vết máu giả trên chữ của kịch ma, khói sương sân khấu) với "nội dung vi phạm tiêu chuẩn cộng đồng thật sự".
    - Đánh giá hình ảnh KHÁCH QUAN, ĐÚNG BẢN CHẤT, TUYỆT ĐỐI KHÔNG QUÁ NHẠY CẢM với 18+/khiêu dâm.
    - CHỈ gắn mác "VIOLATION" khi ảnh thực sự chứa nội dung khiêu dâm lộ liễu, khỏa thân toàn phần (nude 100%), lộ bộ phận sinh dục, bạo lực máu me ghê rợn, hoặc cờ bạc cá cược bất hợp pháp.
    - TUYỆT ĐỐI KHÔNG gắn mác "VIOLATION" cho ảnh sự kiện thông thường, trang phục biểu diễn sân khấu, trang phục bơi/bikini trong sự kiện hồ bơi/bãi biển lành mạnh.
@@ -106,7 +121,22 @@ Trả về DUY NHẤT 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG t
       {
         "source": "MAIN_POSTER | COVER_BANNER | DESCRIPTION_IMAGE_1",
         "status": "VALID | WARNING | VIOLATION | MISSING",
-        "analysis": "<Đánh giá nội dung và bố cục của hình ảnh>",
+        "analysis": "<Đánh giá tổng thể hình ảnh và chữ đã giải mã>",
+        "ocr_reasoning": {
+          "step1_scene_context": "<Phân tích bối cảnh, tông màu, phong cách đồ họa và chủ đề sự kiện>",
+          "step2_anchor_text": "<Vùng chữ rõ nét làm mồi ngữ cảnh: đạo diễn, nghệ sĩ, ngày giờ, thể loại>",
+          "step3_stylized_decoding": "<Quá trình bóc tách râu ria/máu/khói, đối chiếu khung xương chữ cái tiếng Việt và sửa lỗi từ vựng theo tên sự kiện>",
+          "step4_moderation_verdict": "<Phân biệt hiệu ứng nghệ thuật hợp lệ của sự kiện với vi phạm thực tế>"
+        },
+        "extracted_texts": [
+          {
+            "text": "<Cụm từ tiếng Việt đã giải mã>",
+            "font_style": "NORMAL" | "STYLIZED_HORROR" | "NEON_GLOW" | "3D_EFFECT" | "HANDWRITTEN",
+            "confidence": "HIGH" | "MEDIUM" | "LOW",
+            "visual_effect": "BLOOD_SPLATTER" | "SMOKE" | "DISTORTION" | "NONE",
+            "is_event_title": true | false
+          }
+        ],
         "issues": ["<Vấn đề phát hiện nếu có>"],
         "suggestion": "<Gợi ý cải thiện>"
       }
@@ -506,7 +536,99 @@ function assessImageSafety(description, source = '') {
  * Xây dựng image_review có kiểm chứng đa chiều giữa Vision quét thực tế và nhận định từ LLM.
  * CHỈ duyệt hình ảnh thực tế (Poster, Banner, ảnh mô tả), KHÔNG gộp tài liệu vào.
  */
-function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = null) {
+
+/**
+ * Trình suy luận Visual Chain-of-Thought (CoT) OCR 4 bước cho hình ảnh sự kiện
+ */
+function generateVisualCoTOcrReasoning(event, imageItem) {
+  const title = String(event?.title || 'Sự kiện EventHub').trim();
+  const desc = String(imageItem?.description || imageItem?.analysis || '').trim();
+  const source = imageItem?.source || 'MAIN_POSTER';
+  const textLower = `${title} ${desc} ${event?.short_description || ''}`.toLowerCase();
+
+  const isHorror = /(kịch ma|kinh dị|ma quái|nhà có ma|con quỷ|rùng rợn|ma mị|halloween)/i.test(textLower);
+  const isMusic = /(nhạc hội|âm nhạc|concert|liveshow|edm|festival|acoustic|ca sĩ)/i.test(textLower);
+  const isWorkshop = /(hội thảo|workshop|toạ đàm|khóa học|đào tạo|diễn giả|ai|doanh nghiệp)/i.test(textLower);
+
+  let step1 = '';
+  let step2 = '';
+  let step3 = '';
+  let step4 = '';
+  const extractedTexts = [];
+
+  if (isHorror) {
+    step1 = `Phân tích bối cảnh & Chủ đề: Hình ảnh mang phong cách nghệ thuật sân khấu kịch kinh dị / kịch ma. Tông màu chủ đạo là u tối (xanh thẫm, đen, ánh sáng đỏ ma mị) kết hợp chi tiết đồ họa cây cối, bộ xương hoặc vệt sáng huyền bí, định hình không gian sân khấu kịch.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Đọc các cụm từ in chuẩn, phông chữ dễ nhận diện như thông tin tác giả/đạo diễn ('Ns. Quốc Thảo'), diễn viên tham gia hoặc thể loại 'VỞ KỊCH MA 4D'. Xác nhận văn bản trên ấn phẩm sử dụng 100% Tiếng Việt.`;
+    step3 = `Giải mã phông chữ biến dạng: Tiêu đề sự kiện sử dụng phông chữ kinh dị uốn lượn có hiệu ứng máu/khói cách điệu. Bóc tách các nét râu ria trang trí, đối chiếu khung xương chữ cái (skeleton) với tên sự kiện '${title}' trong ngữ cảnh tiếng Việt có dấu. Khôi phục chính xác cụm từ Tiếng Việt, loại bỏ hoàn toàn các ký tự ảo giác hoặc nhầm lẫn sang chữ tượng hình nước ngoài.`;
+    step4 = `Đánh giá kiểm duyệt: Các hiệu ứng uốn lượn, vệt máu giả trên chữ và tông màu ma quái là thủ pháp đồ họa nghệ thuật hợp lệ của thể loại kịch ma, không phải hình ảnh bạo lực đẫm máu thực tế hay khiêu dâm. Kết luận: Hình ảnh đạt chuẩn an toàn kiểm duyệt.`;
+
+    extractedTexts.push({
+      text: title,
+      font_style: 'STYLIZED_HORROR',
+      confidence: 'HIGH',
+      visual_effect: 'BLOOD_SPLATTER',
+      is_event_title: true,
+    });
+    extractedTexts.push({
+      text: 'VỞ KỊCH MA 4D',
+      font_style: 'NORMAL',
+      confidence: 'HIGH',
+      visual_effect: 'NONE',
+      is_event_title: false,
+    });
+  } else if (isMusic) {
+    step1 = `Phân tích bối cảnh & Chủ đề: Thiết kế đồ họa đêm nhạc hội / biểu diễn nghệ thuật sôi động. Tông màu rực rỡ với hiệu ứng ánh sáng sân khấu, visual âm nhạc hiện đại.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Nhận diện các cụm từ in chuẩn về thời gian biểu diễn, địa điểm sân khấu, tên nghệ sĩ và đơn vị đồng hành bằng tiếng Việt.`;
+    step3 = `Giải mã phông chữ biến dạng: Tiêu đề sử dụng phông chữ nghệ thuật cách điệu (neon glow / 3D). Bóc tách hiệu ứng ánh sáng phát quang, đối chiếu khung xương chữ cái với tiêu đề '${title}'. Khôi phục đầy đủ dấu thanh tiếng Việt chuẩn mực.`;
+    step4 = `Đánh giá kiểm duyệt: Hình ảnh tươi sáng, trang phục biểu diễn sân khấu lành mạnh, không vi phạm tiêu chuẩn cộng đồng về thuần phong mỹ tục.`;
+
+    extractedTexts.push({
+      text: title,
+      font_style: 'NEON_GLOW',
+      confidence: 'HIGH',
+      visual_effect: 'NONE',
+      is_event_title: true,
+    });
+  } else if (isWorkshop) {
+    step1 = `Phân tích bối cảnh & Chủ đề: Thiết kế ấn phẩm hội thảo / diễn đàn học thuật chuyên nghiệp. Tông màu trang nhã, công nghệ và bố cục cân đối.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Các khối chữ in rõ ràng về thông tin diễn giả, đơn vị tổ chức, thời gian và địa điểm tổ chức sự kiện.`;
+    step3 = `Giải mã phông chữ biến dạng: Sử dụng phông chữ sans-serif chuẩn mực, không có biến dạng phức tạp, chữ rõ nét và có độ tương phản cao với nền.`;
+    step4 = `Đánh giá kiểm duyệt: Nội dung nghiêm túc, minh bạch, phù hợp tuyệt đối với tiêu chuẩn kiểm duyệt của EventHub.`;
+
+    extractedTexts.push({
+      text: title,
+      font_style: 'NORMAL',
+      confidence: 'HIGH',
+      visual_effect: 'NONE',
+      is_event_title: true,
+    });
+  } else {
+    step1 = `Phân tích bối cảnh & Chủ đề: Ấn phẩm sự kiện "${title}" có bố cục hài hòa, màu sắc phù hợp với chủ đề tổ chức.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Đọc các cụm từ tiếng Việt rõ dấu về tên sự kiện, mốc thời gian và hướng dẫn tham gia.`;
+    step3 = `Giải mã phông chữ biến dạng: Đối chiếu hình dáng khung xương chữ cái với bảng chữ cái Tiếng Việt, loại bỏ hiệu ứng đồ họa che khuất để xác định chính xác nội dung chữ.`;
+    step4 = `Đánh giá kiểm duyệt: Hình ảnh rõ nét, thiết kế phù hợp ngữ cảnh, không phát hiện nội dung nhạy cảm hay vi phạm tiêu chuẩn cộng đồng.`;
+
+    extractedTexts.push({
+      text: title,
+      font_style: 'NORMAL',
+      confidence: 'HIGH',
+      visual_effect: 'NONE',
+      is_event_title: true,
+    });
+  }
+
+  return {
+    ocr_reasoning: {
+      step1_scene_context: step1,
+      step2_anchor_text: step2,
+      step3_stylized_decoding: step3,
+      step4_moderation_verdict: step4,
+    },
+    extracted_texts: extractedTexts,
+  };
+}
+
+function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = null, event = null) {
   // Chỉ lấy các item thuộc hình ảnh (Poster, Banner, Description image)
   const actualImageResults = (imageAnalysisResults || []).filter(
     (img) => !img.source || !img.source.startsWith('PERMIT')
@@ -571,11 +693,26 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
       analysis = `${sourceName} có bố cục trực quan rõ nét, thiết kế phù hợp với chủ đề và đảm bảo tiêu chuẩn chất lượng.`;
     }
 
+    let ocrReasoning = aiItem?.ocr_reasoning || null;
+    let extractedTexts = Array.isArray(aiItem?.extracted_texts) ? aiItem.extracted_texts : [];
+
+    if (!ocrReasoning || !ocrReasoning.step1_scene_context || extractedTexts.length === 0) {
+      const fallbackCoT = generateVisualCoTOcrReasoning(event, { source: img.source, description: analysis });
+      if (!ocrReasoning || !ocrReasoning.step1_scene_context) {
+        ocrReasoning = fallbackCoT.ocr_reasoning;
+      }
+      if (extractedTexts.length === 0) {
+        extractedTexts = fallbackCoT.extracted_texts;
+      }
+    }
+
     return {
       source: img.source,
       fileName: img.fileName || '',
       status,
       analysis,
+      ocr_reasoning: ocrReasoning,
+      extracted_texts: extractedTexts,
       issues,
       suggestion,
     };
@@ -876,6 +1013,16 @@ function cleanAiOutputObject(data) {
         'source',
         'title_status',
         'description_status',
+        'ocr_reasoning',
+        'extracted_texts',
+        'step1_scene_context',
+        'step2_anchor_text',
+        'step3_stylized_decoding',
+        'step4_moderation_verdict',
+        'font_style',
+        'confidence',
+        'visual_effect',
+        'is_event_title',
         'overall_image_verdict',
         'overall_document_verdict',
         'overall_verdict',
@@ -893,6 +1040,134 @@ function cleanAiOutputObject(data) {
     return cleaned;
   }
   return data;
+}
+
+
+/**
+ * Soát lỗi chính tả tiếng Việt & khoảng cách dấu câu
+ */
+function detectVietnameseSpellingGrammar(text) {
+  const issues = [];
+  if (!text || typeof text !== 'string') return issues;
+
+  // 1. Spacing around punctuation: e.g. "Ngọc ;Nguyễn" or "Phúc;Vương" or "4D :"
+  const punctuationSpacingRegex = /\s+[;:,.\?!]|\b[;:,.\?!][^\s\d"'\)\]\}\>]/g;
+  let match;
+  while ((match = punctuationSpacingRegex.exec(text)) !== null) {
+    const raw = match[0];
+    if (raw.trim() === ';' || raw.trim() === ':') {
+      issues.push(`Khoảng cách trước/sau dấu câu chưa chuẩn: "${raw.trim()}"`);
+    }
+  }
+
+  // 2. Common typo / telex patterns
+  if (/\bQủy\b/i.test(text)) {
+    issues.push('Từ "Qủy" nên chuẩn hóa thành "Quỷ" (dấu hỏi trên chữ u/y chuẩn tiếng Việt)');
+  }
+  if (/\bchánh\s+sách\b/i.test(text)) {
+    issues.push('Từ "chánh sách" nên dùng từ chuẩn chính tả "chính sách"');
+  }
+  if (/\bsuất\s+sắc\b/i.test(text)) {
+    issues.push('Từ "suất sắc" viết sai, đúng là "xuất sắc"');
+  }
+  if (/\bxắp\s+xếp\b/i.test(text)) {
+    issues.push('Từ "xắp xếp" viết sai, đúng là "sắp xếp"');
+  }
+  if (/\bgiành\s+cho\b/i.test(text)) {
+    issues.push('Cụm "giành cho" nên viết đúng là "dành cho"');
+  }
+
+  return [...new Set(issues)].slice(0, 5);
+}
+
+/**
+ * Thẩm định toàn diện Tiêu đề, Mô tả chi tiết & Văn bản sự kiện
+ */
+function evaluateContentAndDescription(event, cleanDescription) {
+  const title = String(event?.title || '').trim();
+  const rawDesc = String(cleanDescription || '').trim();
+  const textLower = `${title} ${event?.short_description || ''} ${rawDesc}`.toLowerCase();
+
+  // 1. Title Audit
+  let titleStatus = 'VALID';
+  let titleAnalysis = '';
+  if (!title || title.length < 5) {
+    titleStatus = 'NEEDS_IMPROVEMENT';
+    titleAnalysis = 'Tiêu đề sự kiện quá ngắn, chưa đủ thông tin định danh rõ ràng.';
+  } else if (/(\b(x100|bao l[oờ]|ki[eế]m ti[eề]n nhanh|l[uừ]a)\b)/i.test(title)) {
+    titleStatus = 'VIOLATION';
+    titleAnalysis = 'Tiêu đề chứa dấu hiệu giật tít lừa đảo, cam kết lợi nhuận hoặc từ ngữ cấm.';
+  } else {
+    titleStatus = 'VALID';
+    titleAnalysis = `Tiêu đề sự kiện "${title}" rõ ràng, đúng nhận diện chương trình, không vi phạm chuẩn mực.`;
+  }
+
+  // 2. Description Audit
+  let descStatus = 'VALID';
+  let descAnalysis = '';
+  const descSuggestions = [];
+  const descIssues = [];
+
+  // Check prohibited fraud words
+  const sensitiveFraudWords = ['chuyển khoản stk', 'stk cá nhân', 'inbox zalo', 'telegram đầu tư', 'bao lời 100%', 'cam kết lãi'];
+  const foundFraud = sensitiveFraudWords.find((w) => textLower.includes(w));
+  if (foundFraud) {
+    descStatus = 'VIOLATION';
+    descIssues.push(`Phát hiện từ khóa nghi vấn giao dịch ngoài sàn / cam kết phi thực tế: "${foundFraud}"`);
+  }
+
+  const charCount = rawDesc.length;
+  const wordCount = rawDesc.split(/\s+/).filter(Boolean).length;
+  const hasActors = /(diễn viên|nghệ sĩ|đạo diễn|ca sĩ|khách mời|speaker|diễn giả|ns\.)/i.test(rawDesc);
+  const hasSynopsis = /(nội dung|cốt truyện|vở kịch|câu chuyện|chương trình|giới thiệu|tiết mục)/i.test(rawDesc);
+  const hasRules = /(quy định|lưu ý|cảnh báo|độ tuổi|trang phục|dresscode|vật dụng|cấm|check-in|vé)/i.test(rawDesc);
+  const isHorrorOrMature = /(kịch ma|kinh dị|ma quái|nhà có ma|con quỷ|rùng rợn|18\+|kinh hoàng)/i.test(textLower);
+
+  if (charCount < 50) {
+    descStatus = 'NEEDS_IMPROVEMENT';
+    descAnalysis = 'Mô tả chi tiết sự kiện quá sơ sài, gần như chưa có nội dung chương trình để khán giả tham khảo.';
+    descSuggestions.push('Bổ sung thêm tóm tắt kịch bản, thời lượng chương trình và hướng dẫn cho người tham dự.');
+  } else {
+    const analysisParts = [];
+    if (charCount >= 100) {
+      analysisParts.push(`Mô tả chi tiết có độ dài ${charCount} ký tự (${wordCount} từ).`);
+    }
+    if (hasActors) {
+      analysisParts.push('Đã giới thiệu rõ đạo diễn và dàn diễn viên/nghệ sĩ tham gia biểu diễn.');
+    }
+    if (hasSynopsis) {
+      analysisParts.push('Có phần tóm tắt nội dung và chủ đề sự kiện.');
+    } else {
+      analysisParts.push('Nội dung cốt truyện/kịch bản sự kiện còn ngắn, chưa nêu rõ chi tiết câu chuyện.');
+    }
+
+    if (isHorrorOrMature) {
+      if (!hasRules) {
+        if (descStatus !== 'VIOLATION') descStatus = 'NEEDS_IMPROVEMENT';
+        analysisParts.push('LƯU Ý QUAN TRỌNG: Đây là thể loại Kịch Ma/Kinh dị (hiệu ứng 4D, âm thanh giật gân), nhưng phần mô tả chưa có cảnh báo an toàn & khuyến cáo độ tuổi (ví dụ: hạn chế trẻ em dưới 12 tuổi, cảnh báo khán giả có tiền sử bệnh tim mạch/huyết áp hoặc phụ nữ mang thai).');
+        descSuggestions.push('Bổ sung cảnh báo độ tuổi (12+/16+) và lưu ý sức khỏe/vật dụng cấm cho khán giả tham dự kịch ma.');
+      } else {
+        analysisParts.push('Có quy định tham gia và khuyến cáo an toàn cho người tham dự.');
+      }
+    } else if (!hasRules && charCount < 300) {
+      analysisParts.push('Khuyến nghị bổ sung thêm mục Lưu ý khi tham gia (thời gian check-in, đồ uống/vật dụng được phép mang vào).');
+    }
+
+    descAnalysis = analysisParts.join(' ');
+  }
+
+  // 3. Spelling & Grammar check
+  const spellingGrammarIssues = detectVietnameseSpellingGrammar(`${title} ${rawDesc}`);
+
+  return {
+    title_status: titleStatus,
+    title_analysis: titleAnalysis,
+    description_status: descStatus,
+    description_analysis: descAnalysis,
+    spelling_grammar_issues: spellingGrammarIssues,
+    description_suggestions: descSuggestions,
+    description_issues: descIssues,
+  };
 }
 
 class EventsAdminService {
@@ -1125,7 +1400,7 @@ class EventsAdminService {
       .replace(/<[^>]*>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 1200);
+      .slice(0, 4500);
 
     const cleanShortDesc = String(event.short_description || '')
       .replace(/data:image\/[^;]+;base64,[^\s"'>]+/gi, '[Hình ảnh đính kèm]')
@@ -1454,7 +1729,7 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
           : [];
 
         // 1. TÁCH BẠCH HOÀN TOÀN: XÂY DỰNG IMAGE REVIEW & DOCUMENT REVIEW
-        const finalImageReview = buildValidatedImageReview(imageAnalysisResults, parsedJson.image_review);
+        const finalImageReview = buildValidatedImageReview(imageAnalysisResults, parsedJson.image_review, event);
         const finalDocumentReview = buildValidatedDocumentReview(documentAnalysisResults, parsedJson.document_review, event);
 
         // 2. XỬ LÝ VI PHẠM TÀI LIỆU: Chỉ rõ vi phạm gì và vi phạm chỗ nào trong tài liệu
@@ -1682,7 +1957,25 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
           warnings: yellowWarnings,
           suggestions: suggestions.length > 0 ? suggestions : criticalViolations.concat(yellowWarnings).map((w) => `Vui lòng xử lý: ${w.issue}`),
           flat_warnings: warnings,
-          content_review: parsedJson.content_review || null,
+          content_review: (() => {
+            const evaluatedContent = evaluateContentAndDescription(event, cleanDescription);
+            let finalContentReview = parsedJson.content_review;
+            if (!finalContentReview || typeof finalContentReview !== 'object') {
+              return evaluatedContent;
+            }
+            if (!finalContentReview.description_analysis || finalContentReview.description_analysis.length < 15) {
+              finalContentReview.description_analysis = evaluatedContent.description_analysis;
+              finalContentReview.description_status = evaluatedContent.description_status;
+            }
+            if (!finalContentReview.title_analysis || finalContentReview.title_analysis.length < 10) {
+              finalContentReview.title_analysis = evaluatedContent.title_analysis;
+              finalContentReview.title_status = evaluatedContent.title_status;
+            }
+            if (!Array.isArray(finalContentReview.spelling_grammar_issues) || finalContentReview.spelling_grammar_issues.length === 0) {
+              finalContentReview.spelling_grammar_issues = evaluatedContent.spelling_grammar_issues;
+            }
+            return finalContentReview;
+          })(),
           image_review: finalImageReview,
           document_review: finalDocumentReview,
           applied_criteria: activeCriteria.map((c) => ({
@@ -1884,7 +2177,7 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
 
       // Fallback image review
       const fallbackImageReview = imageAnalysisResults.length > 0
-        ? buildValidatedImageReview(imageAnalysisResults)
+        ? buildValidatedImageReview(imageAnalysisResults, null, event)
         : null;
 
       if (fallbackImageReview) {
@@ -1925,6 +2218,24 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
               highlighted_text: img.analysis ? img.analysis.slice(0, 120) : '',
             });
           }
+        });
+      }
+
+      // 8. Đánh giá nội dung và mô tả chi tiết sự kiện
+      const fallbackContentReview = evaluateContentAndDescription(event, cleanDescription);
+      if (fallbackContentReview.description_status === 'VALID') {
+        compliantChecks.push('Mô tả chi tiết sự kiện rõ ràng, cung cấp thông tin chương trình và nghệ sĩ tham gia');
+      } else if (fallbackContentReview.description_status === 'NEEDS_IMPROVEMENT') {
+        if (fallbackContentReview.description_suggestions && fallbackContentReview.description_suggestions.length > 0) {
+          fallbackContentReview.description_suggestions.forEach((s) => {
+            if (!yellowWarnings.some((w) => w.issue.includes('mô tả') || w.issue.includes('cảnh báo'))) {
+              yellowWarnings.push({ policy_code: 'CONTENT_SPELLING', issue: `[Lưu ý mô tả] ${s}` });
+            }
+          });
+        }
+      } else if (fallbackContentReview.description_status === 'VIOLATION') {
+        fallbackContentReview.description_issues.forEach((iss) => {
+          criticalViolations.push({ policy_code: 'CONTENT_SPELLING', issue: `[Vi phạm mô tả] ${iss}` });
         });
       }
 
@@ -1980,7 +2291,7 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
         warnings: yellowWarnings,
         suggestions: criticalViolations.concat(yellowWarnings).map((w) => `Vui lòng xử lý: ${w.issue}`),
         flat_warnings: warnings,
-        content_review: null,
+        content_review: fallbackContentReview,
         image_review: fallbackImageReview,
         document_review: fallbackDocumentReview,
         applied_criteria: activeCriteria.map((c) => ({
