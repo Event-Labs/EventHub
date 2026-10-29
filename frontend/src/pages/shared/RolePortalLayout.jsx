@@ -185,7 +185,13 @@ export function RolePortalLayout({
           onToggleTheme={() => setPortalTheme(theme === 'light' ? 'dark' : 'light')}
         />
         <div className="flex-1 overflow-y-auto overflow-x-hidden pt-20 w-full min-w-0">
-          <div className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8 min-w-0">
+          <div
+            className={`mx-auto w-full min-w-0 px-3 py-4 sm:px-5 sm:py-6 transition-all duration-300 ${
+              location.pathname.includes('/events/review/')
+                ? 'max-w-[1760px] 2xl:max-w-[1920px]'
+                : 'max-w-[1320px]'
+            }`}
+          >
             <Outlet />
           </div>
         </div>

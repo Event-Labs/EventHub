@@ -132,7 +132,10 @@ class EventsListAdminRepository {
         SELECT json_agg(
           json_build_object(
             'id', tt.id,
+            'event_session_id', tt.event_session_id,
+            'session_name', tt.session_name,
             'name', tt.name,
+            'description', tt.description,
             'price', tt.price,
             'quantity', tt.quantity,
             'sold_quantity', COALESCE(sold.sold_quantity, 0),
@@ -140,8 +143,21 @@ class EventsListAdminRepository {
           )
           ORDER BY tt.price ASC, tt.name ASC
         ) AS items
-        FROM event_sessions sess
-        JOIN ticket_types tt ON tt.event_session_id = sess.id
+        FROM (
+          SELECT DISTINCT ON (tt_inner.event_session_id, tt_inner.name, tt_inner.price, tt_inner.is_seated)
+            tt_inner.id,
+            tt_inner.event_session_id,
+            sess_inner.session_name,
+            tt_inner.name,
+            tt_inner.description,
+            tt_inner.price,
+            tt_inner.quantity,
+            tt_inner.is_seated
+          FROM event_sessions sess_inner
+          JOIN ticket_types tt_inner ON tt_inner.event_session_id = sess_inner.id
+          WHERE sess_inner.event_id = e.id
+          ORDER BY tt_inner.event_session_id, tt_inner.name, tt_inner.price, tt_inner.is_seated, tt_inner.created_at DESC
+        ) tt
         LEFT JOIN LATERAL (
           SELECT COALESCE(SUM(oi.quantity), 0)::int AS sold_quantity
           FROM order_items oi
@@ -149,7 +165,6 @@ class EventsListAdminRepository {
           WHERE oi.ticket_type_id = tt.id
             AND ord.status = 'PAID'
         ) sold ON true
-        WHERE sess.event_id = e.id
       ) ticket_summary ON true
       WHERE ${listClause}
       ORDER BY e.created_at DESC

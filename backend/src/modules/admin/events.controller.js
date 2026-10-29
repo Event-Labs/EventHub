@@ -297,10 +297,32 @@ class EventsAdminController {
 
       const arrayBuffer = await remoteResp.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const isPdf = buffer.subarray(0, 5).toString('latin1').startsWith('%PDF-') || url.toLowerCase().includes('.pdf');
+      const magic = buffer.subarray(0, 5).toString('latin1');
+      const lowerUrl = url.toLowerCase();
 
-      res.setHeader('Content-Type', isPdf ? 'application/pdf' : (remoteResp.headers.get('content-type') || 'application/octet-stream'));
-      res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+      let contentType = remoteResp.headers.get('content-type') || 'application/octet-stream';
+      let filename = 'document';
+
+      if (magic.startsWith('%PDF-') || lowerUrl.includes('.pdf')) {
+        contentType = 'application/pdf';
+        filename = 'document.pdf';
+      } else if (magic.startsWith('PK\x03\x04') || lowerUrl.includes('.docx')) {
+        contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        filename = 'document.docx';
+      } else if (magic.startsWith('\xFF\xD8\xFF') || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) {
+        contentType = 'image/jpeg';
+        filename = 'document.jpg';
+      } else if (magic.startsWith('\x89PNG') || lowerUrl.includes('.png')) {
+        contentType = 'image/png';
+        filename = 'document.png';
+      } else if (magic.startsWith('RIFF') || lowerUrl.includes('.webp')) {
+        contentType = 'image/webp';
+        filename = 'document.webp';
+      }
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cache-Control', 'public, max-age=86400');
       return res.send(buffer);
     } catch (err) {

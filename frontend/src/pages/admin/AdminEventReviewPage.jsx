@@ -27,7 +27,7 @@ import {
   Info,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -904,6 +904,77 @@ function EventReviewModal({
   const isPublished = event.status === 'PUBLISHED'
   const isHiddenApproved = event.status === 'HIDDEN' && event.approval_status === 'APPROVED'
 
+  const groupedReviewTickets = useMemo(() => {
+    if (!Array.isArray(event?.ticket_types) || event.ticket_types.length === 0) return []
+    const groups = []
+    const rawSessions = Array.isArray(event?.sessions) ? event.sessions : []
+
+    const sessionMap = new Map()
+    rawSessions.forEach((s, idx) => {
+      const sIndex = idx + 1
+      const rawName = s.session_name?.trim() || ''
+      const hasPrefix = /^phiên\s*\d+/i.test(rawName)
+      const cleanName = hasPrefix ? rawName : (rawName ? `Phiên ${sIndex}: ${rawName}` : `Phiên ${sIndex}`)
+      sessionMap.set(String(s.id), {
+        index: sIndex,
+        displayName: cleanName,
+        rawName,
+      })
+    })
+
+    event.ticket_types.forEach((ticket) => {
+      const name = ticket?.name?.trim() || 'Vé tiêu chuẩn'
+      const price = Number(ticket?.price || 0)
+      const isSeated = Boolean(ticket?.is_seated)
+      const key = `${name.toLowerCase()}___${price}___${isSeated}`
+
+      let group = groups.find((g) => g.key === key)
+      if (!group) {
+        group = {
+          key,
+          name,
+          price,
+          is_seated: isSeated,
+          totalQuantity: 0,
+          totalSold: 0,
+          sessions: [],
+          uniqueQuantities: new Set(),
+        }
+        groups.push(group)
+      }
+
+      const sSessionId = String(ticket?.event_session_id)
+      const existingSession = group.sessions.find((s) => String(s.sessionId) === sSessionId)
+      if (existingSession) {
+        return
+      }
+
+      const qty = Number(ticket?.quantity || 0)
+      const sold = Number(ticket?.sold_quantity || 0)
+      group.totalQuantity += qty
+      group.totalSold += sold
+      group.uniqueQuantities.add(qty)
+
+      const sMeta = sessionMap.get(sSessionId)
+      const sessionIndex = sMeta?.index || (group.sessions.length + 1)
+      const sessionName = sMeta?.displayName || `Phiên ${sessionIndex}`
+
+      group.sessions.push({
+        sessionId: ticket?.event_session_id,
+        sessionIndex,
+        sessionName,
+        quantity: qty,
+        soldQuantity: sold,
+      })
+    })
+
+    groups.forEach((g) => {
+      g.sessions.sort((a, b) => a.sessionIndex - b.sessionIndex)
+    })
+
+    return groups
+  }, [event?.ticket_types, event?.sessions])
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
       <Panel className="max-h-[90vh] w-full max-w-5xl overflow-y-auto border-border-soft/60">
@@ -939,7 +1010,7 @@ function EventReviewModal({
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <DetailBlock icon={Tag} label="Danh mục" value={event.category_name || 'Chưa phân loại'} />
           <DetailBlock icon={Calendar} label="Hình thức" value={event.format || 'Chưa cập nhật'} />
-          <DetailBlock icon={Ticket} label="Số loại vé" value={`${event.ticket_types?.length || 0} loại vé`} />
+          <DetailBlock icon={Ticket} label="Số loại vé" value={`${groupedReviewTickets.length} loại vé`} />
           <DetailBlock icon={MapPin} label="Số phiên" value={`${event.sessions?.length || 0} phiên`} />
         </div>
 
@@ -964,7 +1035,13 @@ function EventReviewModal({
               ) : (
                 event.sessions.map((session) => (
                   <div key={session.id} className="rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
-                    <p className="font-bold text-content">{session.session_name || 'Session'}</p>
+                    <p className="font-bold text-content">
+                      {session.session_name
+                        ? (/^phiên\s*\d+/i.test(session.session_name)
+                            ? session.session_name
+                            : `Phiên ${event.sessions.indexOf(session) + 1}: ${session.session_name}`)
+                        : `Phiên ${event.sessions.indexOf(session) + 1}`}
+                    </p>
                     <p className="mt-1 text-subtle">{formatDateTime(session.start_time)} - {formatDateTime(session.end_time)}</p>
                     <p className="mt-1 text-subtle">
                       {[session.venue_name, session.address_line, session.city].filter(Boolean).join(', ') || 'Chưa cập nhật địa điểm'}
@@ -977,23 +1054,45 @@ function EventReviewModal({
           </div>
 
           <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-            <p className="text-xs font-bold uppercase text-muted">Loại vé</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase text-muted">Loại vé ({groupedReviewTickets.length})</p>
+              {groupedReviewTickets.length > 0 && (
+                <span className="text-xs text-subtle">
+                  Tổng {groupedReviewTickets.reduce((s, g) => s + g.totalQuantity, 0).toLocaleString('vi-VN')} vé
+                </span>
+              )}
+            </div>
             <div className="mt-3 space-y-3">
-              {(event.ticket_types || []).length === 0 ? (
+              {groupedReviewTickets.length === 0 ? (
                 <p className="text-sm text-subtle">Chưa có loại vé.</p>
               ) : (
-                event.ticket_types.map((ticket) => (
-                  <div key={ticket.id} className="flex items-start justify-between gap-3 rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
-                    <div>
-                      <p className="font-bold text-content">{ticket.name}</p>
-                      <p className="mt-1 text-subtle">{ticket.is_seated ? 'Vé theo ghế' : 'Vé thường'}</p>
+                groupedReviewTickets.map((ticket) => {
+                  const isMultiSession = ticket.sessions.length > 1
+                  const isUniform = isMultiSession && ticket.uniqueQuantities.size === 1
+                  return (
+                    <div key={ticket.key} className="flex flex-col gap-2 rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-content">{ticket.name}</p>
+                          <p className="mt-1 text-xs text-subtle">
+                            {ticket.is_seated ? 'Vé theo ghế' : 'Vé thường'}
+                            {isMultiSession ? ` • Áp dụng ${ticket.sessions.length} phiên` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-content">{formatMoney(ticket.price)}</p>
+                          <p className="mt-1 text-xs text-subtle">
+                            {isMultiSession && isUniform ? (
+                              `${ticket.sessions[0]?.quantity} vé/phiên (Tổng: ${ticket.totalQuantity.toLocaleString('vi-VN')})`
+                            ) : (
+                              `${ticket.totalSold || 0}/${ticket.totalQuantity || 0} đã bán`
+                            )}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-content">{formatMoney(ticket.price)}</p>
-                      <p className="mt-1 text-xs text-subtle">{ticket.sold_quantity || 0}/{ticket.quantity || 0} đã bán</p>
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>
@@ -1005,6 +1104,38 @@ function EventReviewModal({
             <p className="mt-1 whitespace-pre-wrap">{event.review_note}</p>
           </div>
         )}
+
+        {/* Permits Section */}
+        {(() => {
+          const permits = Array.isArray(event.business_permits) ? event.business_permits : Array.isArray(event.permits) ? event.permits : []
+          if (permits.length === 0) return null
+          return (
+            <div className="mt-5 rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
+              <p className="text-xs font-bold uppercase text-muted">Giấy phép & Tài liệu đính kèm ({permits.length})</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {permits.map((p, idx) => {
+                  const url = p.url || p.file_url || (typeof p === 'string' ? p : '')
+                  const name = p.name || p.file_name || `Giấy phép ${idx + 1}`
+                  return (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between rounded-lg border border-border-soft/20 bg-surface/50 p-2.5 text-xs text-content hover:bg-surface hover:text-primary transition"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="size-4 text-indigo-400 shrink-0" />
+                        <span className="truncate">{name}</span>
+                      </div>
+                      <Eye className="size-3.5 text-subtle shrink-0 ml-2" />
+                    </a>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* AI Review Assistant Card */}
         <div className="mt-5">
@@ -1061,6 +1192,15 @@ function EventReviewModal({
               </button>
             </>
           )}
+
+          <button
+            type="button"
+            className="admin-secondary flex items-center gap-1.5"
+            onClick={() => navigate(`/admin/events/review/${event.id}`)}
+          >
+            <Eye className="size-4" />
+            Xem trang kiểm duyệt chi tiết & Tài liệu
+          </button>
 
           <button
             type="button"
@@ -1260,7 +1400,6 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   const getImageSourceLabel = (src) => {
     if (src === 'MAIN_POSTER') return 'Ảnh đại diện chính (Poster)'
     if (src === 'COVER_BANNER') return 'Ảnh bìa (Cover Banner)'
-    if (src?.startsWith('PERMIT')) return 'Tài liệu giấy phép'
     if (src?.startsWith('DESCRIPTION_IMAGE')) return `Ảnh trong mô tả (${src.replace('DESCRIPTION_IMAGE_', '#')})`
     return src || 'Hình ảnh'
   }
@@ -1277,7 +1416,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     if (st === 'VIOLATION') return <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30">Vi phạm nội dung</span>
     if (st === 'WARNING') return <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 border border-amber-500/30">Cần lưu ý / Tải lỗi</span>
     if (st === 'MISSING') return <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30">Chưa tải ảnh</span>
-    return <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/30">Đạt chuẩn (AI Vision xác nhận)</span>
+    return <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/30">Đạt chuẩn (AI xác nhận)</span>
   }
 
   const handleApplySingle = (text) => {
@@ -1296,7 +1435,14 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
       lines.push('=== LƯU Ý & CẢNH BÁO ===')
       aiData.warnings.forEach(w => lines.push(`- [LƯU Ý] ${w.issue}${w.highlighted_text ? ` (Trích: "${w.highlighted_text}")` : ''}`))
     }
-    const imageIssues = (aiData.image_review?.items || []).filter(i => i.status === 'VIOLATION' || i.status === 'WARNING')
+    const docIssues = (aiData.document_review?.items || []).filter(d => d.status === 'VIOLATION' || d.status === 'WARNING')
+    if (docIssues.length > 0) {
+      lines.push('=== VẤN ĐỀ TÀI LIỆU GIẤY PHÉP ===')
+      docIssues.forEach(d => {
+        lines.push(`- [${d.fileName || 'Tài liệu'}]: ${d.violation_type || d.analysis || ''}${d.violating_location ? ` (Trích: "${d.violating_location}")` : ''}`)
+      })
+    }
+    const imageIssues = (aiData.image_review?.items || []).filter(i => (!i.source?.startsWith('PERMIT')) && (i.status === 'VIOLATION' || i.status === 'WARNING'))
     if (imageIssues.length > 0) {
       lines.push('=== VẤN ĐỀ HÌNH ẢNH ===')
       imageIssues.forEach(img => {
@@ -1311,9 +1457,14 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     toast.success('Đã sao chép tất cả vấn đề vào ô Ghi chú Admin!')
   }
 
-  const imageItems = Array.isArray(aiData?.image_review?.items) ? aiData.image_review.items : []
-  const visionItems = Array.isArray(aiData?.vision_analysis) ? aiData.vision_analysis : []
+  // Strictly separate documents and images
+  const imageItems = Array.isArray(aiData?.image_review?.items) ? aiData.image_review.items.filter(i => !i.source?.startsWith('PERMIT')) : []
+  const visionItems = Array.isArray(aiData?.vision_analysis) ? aiData.vision_analysis.filter(v => !v.source?.startsWith('PERMIT')) : []
   const hasImages = imageItems.length > 0 || visionItems.length > 0
+
+  const docItems = Array.isArray(aiData?.document_review?.items) ? aiData.document_review.items : []
+  const docAnalysisList = Array.isArray(aiData?.document_analysis) ? aiData.document_analysis : []
+  const hasDocs = docItems.length > 0 || docAnalysisList.length > 0
 
   return (
     <div className="rounded-2xl border border-slate-700/60 bg-slate-900/90 p-5 shadow-lg">
@@ -1428,6 +1579,91 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 text-xs text-slate-300 leading-relaxed">
               <span className="font-bold text-slate-100 mr-1.5">Tóm tắt đánh giá:</span>
               {aiData.summary}
+            </div>
+          )}
+
+          {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP (ĐỘC LẬP VỚI HÌNH ẢNH) */}
+          {hasDocs && (
+            <div className="rounded-xl border border-indigo-500/30 bg-slate-900/80 p-4 space-y-3 shadow-md">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
+                  <FileCheck className="size-4 text-indigo-400" />
+                  Kiểm duyệt Tài liệu Giấy phép ({docItems.length || docAnalysisList.length} tệp)
+                </span>
+                <span className="text-[10px] text-indigo-300 font-semibold">
+                  Đánh giá độc lập với hình ảnh
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {docItems.map((doc, idx) => (
+                  <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="font-bold text-slate-100 truncate max-w-[220px]" title={doc.fileName}>
+                        {doc.fileName || `Tài liệu ${idx + 1}`}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {doc.relevance_to_event && (
+                          <span className="rounded bg-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-300 border border-indigo-500/30">
+                            {doc.relevance_to_event === 'HIGH' ? 'Khớp sự kiện & pháp lý' : doc.relevance_to_event === 'NOT_RELEVANT' ? 'Không liên quan' : 'Liên quan một phần'}
+                          </span>
+                        )}
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold border ${
+                          doc.status === 'VIOLATION'
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                            : doc.status === 'WARNING'
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        }`}>
+                          {doc.status === 'VIOLATION' ? 'Vi phạm tài liệu' : doc.status === 'WARNING' ? 'Cần lưu ý' : 'Hợp lệ'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {doc.analysis && (
+                      <p className="text-xs text-slate-300 leading-relaxed">{doc.analysis}</p>
+                    )}
+
+                    {(doc.violation_type || (doc.status === 'VIOLATION' && doc.issues?.length > 0)) && (
+                      <div className="rounded-lg border border-rose-500/30 bg-rose-950/30 p-2.5 space-y-1.5">
+                        <p className="text-xs font-bold text-rose-300">
+                          Vi phạm gì: {doc.violation_type || 'Nội dung không hợp lệ'}
+                        </p>
+                        {doc.violating_location && (
+                          <div className="rounded border-l-2 border-rose-500 bg-slate-950/90 p-2 text-[11px] text-rose-200 font-mono">
+                            <span className="font-bold text-rose-400 not-italic block mb-0.5">Trích dẫn vi phạm trong tài liệu:</span>
+                            &ldquo;{doc.violating_location}&rdquo;
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1">
+                      {doc.url ? (
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1"
+                        >
+                          <Eye className="size-3" />
+                          <span>Mở xem tài liệu</span>
+                        </a>
+                      ) : <span />}
+
+                      {(doc.status === 'VIOLATION' || doc.status === 'WARNING') && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplySingle(`[Vi phạm tài liệu ${doc.fileName || idx + 1}] ${doc.violation_type || doc.analysis || ''}${doc.violating_location ? ` (Trích: "${doc.violating_location}")` : ''}`)}
+                          className="text-[11px] font-semibold text-rose-400 hover:text-rose-300"
+                        >
+                          + Thêm vào ghi chú
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
