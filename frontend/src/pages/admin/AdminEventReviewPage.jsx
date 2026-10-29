@@ -88,8 +88,8 @@ function statusBadge(status, approvalStatus, displayState) {
   const map = {
     PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
     PUBLISHED: { tone: 'green', label: 'Đã duyệt' },
-    CANCELLED: { tone: 'gray', label: 'Đã hủy' },
-    COMPLETED: { tone: 'green', label: 'Đã kết thúc' },
+    CANCELLED: { tone: 'red', label: 'Đã hủy' },
+    COMPLETED: { tone: 'purple', label: 'Đã kết thúc' },
   }
   const cfg = map[status] ?? { tone: 'gray', label: status }
   return <Badge tone={cfg.tone}>{cfg.label}</Badge>
@@ -499,10 +499,10 @@ export function AdminEventReviewPage() {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="font-display text-base font-black tracking-wide text-content flex items-center gap-2">
+                <h2 className="font-display text-base font-black tracking-wide text-content flex flex-wrap items-center gap-2">
                   <span>Hệ thống AI Tự động Thẩm định & Duyệt Sự kiện</span>
-                  <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    <Sparkles className="size-3 text-indigo-400" />
+                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <Sparkles className="size-3 text-indigo-400 shrink-0" />
                     AI Agent
                   </span>
                 </h2>
@@ -588,11 +588,13 @@ export function AdminEventReviewPage() {
                 type="button"
                 disabled={runSingleAutoReviewMutation.isPending || autoReviewStats.pending_count === 0}
                 onClick={() => runSingleAutoReviewMutation.mutate()}
-                className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-gradient-to-r from-indigo-600 to-indigo-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-indigo-600/30 transition duration-200 hover:-translate-y-0.5 hover:from-indigo-500 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-led-gold-sm active:scale-95"
                 title="Thẩm định duy nhất 01 sự kiện đang chờ duyệt (mỗi lần chạy chỉ review 1 sự kiện)"
               >
-                <Play className="size-4" />
-                <span>Quét duyệt AI</span>
+                <span className="btn-led-gold-sm-inner">
+                  <Play className="size-4 fill-current" />
+                  <span>Quét duyệt AI</span>
+                </span>
               </button>
             )}
 
@@ -723,12 +725,6 @@ export function AdminEventReviewPage() {
 
                 /* Actions */
                 <div key="actions" className="flex flex-col gap-2">
-                  <input
-                    className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
-                    placeholder="Ghi chú (tuỳ chọn)"
-                    value={notes[event.id] ?? ''}
-                    onChange={(e) => setNote(event.id, e.target.value)}
-                  />
                   <div className="flex items-center justify-center gap-2">
                     {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
                     {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
@@ -770,6 +766,12 @@ export function AdminEventReviewPage() {
                       onClick={() => navigate(`/admin/events/review/${event.id}`)}
                     />
                   </div>
+                  <input
+                    className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
+                    placeholder="Ghi chú (tuỳ chọn)"
+                    value={notes[event.id] ?? ''}
+                    onChange={(e) => setNote(event.id, e.target.value)}
+                  />
                 </div>,
               ])}
             />

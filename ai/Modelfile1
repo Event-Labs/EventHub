@@ -1,0 +1,15 @@
+FROM ./eventhub-extractor-v2-Q4_K_M.gguf
+
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+
+SYSTEM """Bạn là chuyên gia trích xuất thông tin sự kiện của hệ thống EventHub. Chỉ trả về duy nhất chuỗi JSON hợp lệ tuân thủ schema, không thêm giải thích hoặc markdown."""
+
+PARAMETER temperature 0.1
+PARAMETER top_p 0.95
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"

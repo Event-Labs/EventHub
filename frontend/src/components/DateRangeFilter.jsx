@@ -360,12 +360,12 @@ export function DateRangeFilter({
 
   return (
     <div ref={containerRef} className="relative">
-      <span className="block text-base font-bold text-white mb-1.5">Khoảng thời gian</span>
+      <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Khoảng thời gian</span>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="mt-1 flex h-10 min-w-72 items-center justify-between gap-3 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:border-[#E6C17A]/50"
+        className="mt-1 flex h-10 min-w-72 items-center justify-between gap-3 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:border-[#E6C17A]/50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
       >
         <span className="flex min-w-0 items-center gap-2">
           <CalendarRange className="size-4 shrink-0 text-[#E6C17A]" />
@@ -383,7 +383,7 @@ export function DateRangeFilter({
       {open && createPortal(
         <div
           ref={popupRef}
-          className="fixed z-[9999] max-h-[min(620px,calc(100vh-2rem))] overflow-hidden rounded-2xl border border-white/20 bg-[#0b1329] text-white shadow-2xl shadow-black/95"
+          className="fixed z-[9999] max-h-[min(620px,calc(100vh-2rem))] overflow-hidden rounded-2xl border border-white/20 bg-[#0b1329] text-white shadow-2xl shadow-black/95 [html.light_&]:bg-white/98 [html.light_&]:border-[#C99A47]/35 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl"
           style={{
             left: popupStyle.left,
             top: popupStyle.top,
@@ -391,7 +391,7 @@ export function DateRangeFilter({
           }}
         >
           <div className="grid md:grid-cols-[220px_1fr]">
-            <div className="date-range-filter-scroll max-h-[420px] overflow-y-auto overscroll-contain border-b border-white/10 bg-[#070d1e] py-1 md:border-b-0 md:border-r">
+            <div className="date-range-filter-scroll max-h-[420px] overflow-y-auto overscroll-contain border-b border-white/10 bg-[#070d1e] py-1 md:border-b-0 md:border-r [html.light_&]:bg-[#FAF4EB] [html.light_&]:border-[#C99A47]/20">
               {DATE_RANGE_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -446,7 +446,7 @@ export function DateRangeFilter({
               ))}
             </div>
 
-            <div className="p-5 bg-[#0b1329]">
+            <div className="p-5 bg-[#0b1329] [html.light_&]:bg-white">
               <div className="mb-4 rounded-xl border border-white/10 bg-[#121c38] px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-wider text-[#E6C17A]">Đang chọn</p>
                 <p className="mt-1 text-sm font-bold text-white">{draftLabel}</p>

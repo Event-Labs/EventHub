@@ -246,7 +246,7 @@ class RefundsService {
       }
 
       // Concurrency & idempotency check (Report 3: 3.7.12 & Abnormal Cases)
-      if (refund.status !== 'PENDING' && refund.status !== 'FAILED') {
+      if (!['PENDING', 'FAILED', 'PROCESSING', 'APPROVED'].includes(refund.status)) {
         throw new AppError(
           'Yêu cầu này đã được xử lý bởi người dùng khác hoặc đã hoàn tất.',
           409,
@@ -277,15 +277,16 @@ class RefundsService {
           await refundsRepository.unlockTicketFromRefund(refund.ticket_id, client);
         }
 
-        // Restore order status to PAID if no other pending refund requests exist
+        // Restore order status to PAID (or CONFIRMED for 0đ orders) if no other pending refund requests exist
         const otherPending = await client.query(
           `SELECT 1 FROM refund_requests WHERE order_id = $1 AND id != $2 AND status IN ('PENDING', 'APPROVED', 'PROCESSING') LIMIT 1`,
           [refund.order_id, refundId],
         );
         if (otherPending.rows.length === 0) {
+          const targetStatus = Number(refund.order_total_amount || 0) === 0 ? 'CONFIRMED' : 'PAID';
           await client.query(
-            `UPDATE orders SET status = 'PAID', updated_at = now() WHERE id = $1 AND status = 'REFUND_REQUESTED'`,
-            [refund.order_id],
+            `UPDATE orders SET status = $1, updated_at = now() WHERE id = $2 AND status = 'REFUND_REQUESTED'`,
+            [targetStatus, refund.order_id],
           );
         }
 
@@ -485,6 +486,14 @@ class RefundsService {
       proof_url: row.organizer_proof_url,
       transaction_ref: row.organizer_transaction_ref,
       processed_by_id: row.processed_by_id,
+      execution_mode: row.execution_mode,
+      refund_destination_source: row.refund_destination_source,
+      ready_at: row.ready_at,
+      due_at: row.due_at,
+      disputed: Boolean(row.disputed),
+      dispute_reason: row.dispute_reason,
+      disputed_at: row.disputed_at,
+      audit_trail: row.audit_trail,
       requested_at: row.requested_at,
       reviewed_at: row.reviewed_at,
       refunded_at: row.refunded_at,

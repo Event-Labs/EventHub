@@ -13,6 +13,7 @@ import {
   CreditCard,
   ExternalLink,
   Eye,
+  EyeOff,
   HelpCircle,
   Info,
   KeyRound,
@@ -388,570 +389,204 @@ export function OrganizerPaymentSettingsPage() {
       title="Cài đặt Thanh toán & Chi hộ"
       description="Cấu hình Kênh thu để nhận tiền bán vé và Kênh chi để tự động hoàn tiền vé cho khách hàng qua PayOS."
     >
-      <div className="mt-6">
-        <OrganizerPanel>
-          {/* Tabs Switcher */}
-          <div className="flex flex-wrap items-center gap-3 border-b border-border-soft/30 pb-4">
-            <button
-              type="button"
-              onClick={() => setActiveTab('inbound')}
-              className={`flex items-center gap-2.5 rounded-xl px-5 py-3 text-sm font-bold transition ${activeTab === 'inbound'
-                ? 'border border-primary/40 bg-primary/15 text-primary shadow-sm'
-                : 'border border-border-soft/20 bg-panel-soft text-subtle hover:border-border-soft hover:text-content'
-                }`}
-            >
-              <ArrowDownLeft className="size-4" />
-              Kênh thu (Nhận tiền bán vé)
-              {isActive && (
-                <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">
-                  <CheckCircle2 className="size-3" />
-                  Đang hoạt động
-                </span>
-              )}
-            </button>
+      {/* Channel Switcher Buttons - Below Title, Same Row, Right-aligned */}
+      <div className="mb-5 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('inbound')}
+          className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs sm:text-sm font-extrabold transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap ${activeTab === 'inbound'
+            ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 ring-1 ring-[#E6C17A]/60'
+            : 'border-[#C99A47]/45 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-white [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#C99A47]/25'
+            }`}
+        >
+          <ArrowDownLeft className={`size-4 ${activeTab === 'inbound' ? 'text-[#0D1B2A]' : 'text-[#E6C17A]'}`} />
+          <span>Kênh thu (Nhận tiền bán vé)</span>
+        </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('payout')}
-              className={`flex items-center gap-2.5 rounded-xl px-5 py-3 text-sm font-bold transition ${activeTab === 'payout'
-                ? 'border border-primary/40 bg-primary/15 text-primary shadow-sm'
-                : 'border border-border-soft/20 bg-panel-soft text-subtle hover:border-border-soft hover:text-content'
-                }`}
-            >
-              <ArrowUpRight className="size-4" />
-              Kênh chi (Hoàn tiền / Payouts)
-              {isPayoutActive ? (
-                <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">
-                  <CheckCircle2 className="size-3" />
-                  Đang hoạt động
-                </span>
-              ) : (
-                <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/15 px-2.5 py-0.5 text-xs font-semibold text-warning">
-                  <AlertCircle className="size-3" />
-                  Chưa kích hoạt
-                </span>
-              )}
-            </button>
-          </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('payout')}
+          className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs sm:text-sm font-extrabold transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap ${activeTab === 'payout'
+            ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 ring-1 ring-[#E6C17A]/60'
+            : 'border-[#C99A47]/45 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-white [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#C99A47]/25'
+            }`}
+        >
+          <ArrowUpRight className={`size-4 ${activeTab === 'payout' ? 'text-[#0D1B2A]' : 'text-[#E6C17A]'}`} />
+          <span>Kênh chi (Hoàn tiền)</span>
+        </button>
+      </div>
 
-          {/* ========================================================================= */}
-          {/* TAB 1: KÊNH THU (INBOUND PAYMENT CHANNEL)                                  */}
-          {/* ========================================================================= */}
-          {activeTab === 'inbound' && (
-            <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm">
-              {!showSavedSettings && <StepNav step={step} />}
+      <div>
 
-              {step === 1 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-content">Chọn PayOS</h2>
-                    <p className="mt-2 max-w-2xl text-sm text-subtle">
-                      EventHub dùng PayOS để tạo mã QR, ghi nhận thanh toán tự động và xuất vé sau khi khách hàng thanh toán.
-                    </p>
-                  </div>
+        {/* ========================================================================= */}
+        {/* TAB 1: KÊNH THU (INBOUND PAYMENT CHANNEL)                                  */}
+        {/* ========================================================================= */}
+        {activeTab === 'inbound' && (
+          <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+            {!showSavedSettings && <StepNav step={step} />}
 
-                  <button
-                    type="button"
-                    onClick={() => setStep(2)}
-                    className="w-full rounded-2xl border border-tertiary/30 bg-tertiary/10 p-6 text-left transition hover:border-tertiary/60 hover:bg-tertiary/10"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex gap-3">
-                        <div className="grid size-11 place-items-center rounded-xl border border-tertiary/35 bg-tertiary/15 text-primary">
-                          <Wifi className="size-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-content">PayOS</h3>
-                          <p className="text-sm text-subtle">Khuyến dùng cho bán vé sự kiện tại Việt Nam</p>
-                        </div>
-                      </div>
-                      {isActive && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/15 px-3 py-1 text-xs font-semibold text-success">
-                          <CheckCircle2 className="size-3.5" />
-                          Đang hoạt động
-                        </span>
-                      )}
-                    </div>
-
-                    <ul className="mt-5 grid gap-2 text-sm text-content sm:grid-cols-2">
-                      <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Thanh toán qua mã QR</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Chuyển khoản ngân hàng</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Ghi nhận thanh toán tự động</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Xuất vé sau khi thanh toán</li>
-                    </ul>
-                  </button>
-
-                  <WizardFooter onNext={() => setStep(2)} nextLabel="Tiếp tục" />
-                </div>
-              )}
-
-              {step === 2 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-content">Thông tin ngân hàng</h2>
-                    <p className="mt-2 text-sm text-subtle">
-                      Nhập tài khoản ngân hàng chính sẽ nhận doanh thu bán vé từ kênh thanh toán PayOS.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div className="md:col-span-2">
-                      <label htmlFor="bank" className="mb-1.5 block text-sm font-semibold text-content">Ngân hàng</label>
-                      <select
-                        id="bank"
-                        value={bankInfo.bank}
-                        onChange={(e) => setBankInfo((prev) => ({ ...prev, bank: e.target.value }))}
-                        className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-                      >
-                        <option value="" className="bg-surface text-content">Chọn ngân hàng</option>
-                        {BANK_OPTIONS.map((bank) => (
-                          <option key={bank} value={bank} className="bg-surface text-content">{bank}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="account-number" className="mb-1.5 block text-sm font-semibold text-content">Số tài khoản</label>
-                      <input
-                        id="account-number"
-                        value={bankInfo.accountNumber}
-                        onChange={(e) => setBankInfo((prev) => ({ ...prev, accountNumber: e.target.value }))}
-                        className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
-                        placeholder="Nhập số tài khoản"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="account-holder" className="mb-1.5 block text-sm font-semibold text-content">Tên chủ tài khoản</label>
-                      <input
-                        id="account-holder"
-                        value={bankInfo.accountHolder}
-                        onChange={(e) => setBankInfo((prev) => ({ ...prev, accountHolder: e.target.value.toUpperCase() }))}
-                        className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 uppercase"
-                        placeholder="Nhập tên chủ tài khoản"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 p-4 text-sm text-subtle">
-                    Tên chủ tài khoản nên trùng với thông tin đã xác thực trên payOS để việc đối soát diễn ra thuận lợi.
-                  </div>
-
-                  <WizardFooter
-                    onBack={() => setStep(1)}
-                    onNext={() => {
-                      const message = validateStep2()
-                      if (message) {
-                        setError(message)
-                        return
-                      }
-                      setError(null)
-                      setStep(3)
-                    }}
-                  />
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-content">Kết nối PayOS</h2>
-                    <p className="mt-2 text-sm text-subtle">
-                      Làm theo checklist bên trái để tạo kênh thanh toán trên payOS, sau đó copy 3 key và dán vào form bên phải.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-                    <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-panel-soft/60 p-5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-base font-bold text-content">Checklist tạo 3 key</h3>
-                          <p className="text-sm text-subtle">Chọn từng bước để xem ảnh hướng dẫn ngay bên dưới bước đó.</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => window.open('https://my.payos.vn', '_blank', 'noopener,noreferrer')}
-                          className="org-btn-primary"
-                        >
-                          Mở PayOS
-                          <ExternalLink className="size-4" />
-                        </button>
-                      </div>
-
-                      <ol className="space-y-2">
-                        {PAYOS_GUIDE_STEPS.map((item, index) => {
-                          const isSelected = guideImageIndex === index
-                          return (
-                            <li key={item.title}>
-                              <button
-                                type="button"
-                                onClick={() => setGuideImageIndex(index)}
-                                className={`w-full rounded-xl border p-3 text-left transition ${isSelected
-                                  ? 'border-tertiary bg-tertiary/10'
-                                  : 'border-border-soft/25 bg-surface/40 hover:border-tertiary/40'
-                                  }`}
-                              >
-                                <span className="flex gap-3">
-                                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-tertiary text-xs font-bold text-white">
-                                    {index + 1}
-                                  </span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block text-sm font-semibold text-content">{item.title}</span>
-                                    <span className="mt-1 block text-sm leading-6 text-subtle">{item.detail}</span>
-                                    {isSelected && (
-                                      <span className="mt-3 block overflow-hidden rounded-lg border border-border-soft/30 bg-surface">
-                                        <img src={item.image} alt={item.title} className="w-full object-contain" />
-                                      </span>
-                                    )}
-                                  </span>
-                                </span>
-                              </button>
-                            </li>
-                          )
-                        })}
-                      </ol>
-                    </section>
-
-                    <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-surface p-5">
-                      <div>
-                        <h3 className="text-base font-bold text-content">Nhập 3 key từ payOS</h3>
-                        <p className="mt-1 text-sm text-subtle">Dán đúng thứ tự như payOS hiển thị: Client ID, API Key, Checksum Key.</p>
-                      </div>
-
-                      <CredentialField
-                        id="client-id"
-                        label="Client ID"
-                        icon={Copy}
-                        value={formData.client_id}
-                        placeholder={hasStoredCredentials ? `Hiện tại: ${safeChannelMeta.merchantId}` : 'Dán Client ID'}
-                        onChange={(value) => {
-                          setConnectionTouched(true)
-                          setFormData((prev) => ({ ...prev, client_id: value }))
-                        }}
-                      />
-                      <CredentialField
-                        id="api-key"
-                        label="API Key"
-                        icon={KeyRound}
-                        type="password"
-                        value={formData.api_key}
-                        badge={channel?.has_api_key ? 'Đã lưu' : null}
-                        placeholder={channel?.has_api_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán API Key'}
-                        onChange={(value) => {
-                          setConnectionTouched(true)
-                          setFormData((prev) => ({ ...prev, api_key: value }))
-                        }}
-                      />
-                      <CredentialField
-                        id="checksum-key"
-                        label="Checksum Key"
-                        icon={ShieldCheck}
-                        type="password"
-                        value={formData.checksum_key}
-                        badge={channel?.has_checksum_key ? 'Đã lưu' : null}
-                        placeholder={channel?.has_checksum_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Checksum Key'}
-                        onChange={(value) => {
-                          setConnectionTouched(true)
-                          setFormData((prev) => ({ ...prev, checksum_key: value }))
-                        }}
-                      />
-
-                      <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-                        Không chia sẻ 3 key này cho người khác. EventHub chỉ dùng key để tạo và xác minh thanh toán cho sự kiện của bạn.
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={runConnectionTest}
-                        disabled={testing || !canAdvanceFromStep3}
-                        className="org-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {testing ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-                        Verify
-                      </button>
-
-                      {connectionTouched && !canAdvanceFromStep3 && (
-                        <p className="text-xs font-semibold text-warning">
-                          Vui lòng điền đủ Client ID, API Key và Checksum Key trước khi kiểm tra kết nối.
-                        </p>
-                      )}
-                    </section>
-                  </div>
-
-                  <WizardFooter onBack={() => setStep(2)} />
-                </div>
-              )}
-
-              {step === 4 && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-content">Kiểm tra kết nối</h2>
-
-                  {testState.status === 'loading' && (
-                    <div className="rounded-2xl border border-border-soft/30 bg-panel-soft p-5">
-                      <div className="mb-4 flex items-center gap-2 font-bold text-content">
-                        <Loader2 className="size-4 animate-spin text-primary" />
-                        <p>Đang thử nghiệm kết nối...</p>
-                      </div>
-                      <ul className="space-y-2 text-sm text-subtle">
-                        {checks.map((text, index) => (
-                          <li key={text} className="flex items-center gap-2">
-                            {progressIndex >= index ? <CheckCircle2 className="size-4 text-success" /> : <Circle className="size-4 text-muted opacity-60" />}
-                            {text}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {testState.status === 'success' && (
-                    <div className="space-y-4 rounded-2xl border border-success/30 bg-success/10 p-5">
-                      <p className="flex items-center gap-2 text-sm font-semibold text-success">
-                        <CheckCircle2 className="size-5" />
-                        Kênh thanh toán đã được kết nối thành công
-                      </p>
-                      <div className="grid gap-2 text-sm text-content">
-                        <p><span className="font-semibold text-muted">Ngân hàng:</span> {bankInfo.bank || 'Chưa có dữ liệu'}</p>
-                        <p><span className="font-semibold text-muted">Số tài khoản:</span> {bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa có dữ liệu'}</p>
-                        <p><span className="font-semibold text-muted">Trạng thái:</span> Đang hoạt động</p>
-                      </div>
-                      <button type="button" onClick={() => setStep(5)} className="rounded-xl bg-success px-5 py-2.5 text-sm font-semibold text-slate-950 hover:opacity-90">
-                        Lưu và hoàn tất
-                      </button>
-                    </div>
-                  )}
-
-                  {testState.status === 'error' && (
-                    <div className="space-y-4 rounded-2xl border border-error/30 bg-error/10 p-5">
-                      <p className="flex items-center gap-2 text-sm font-semibold text-error">
-                        <AlertCircle className="size-5" />
-                        Không thể kết nối
-                      </p>
-                      <p className="text-sm text-error">{testState.message}</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setError(null)
-                          if (testState.message?.toLowerCase().includes('ngân hàng')) {
-                            setStep(2)
-                          } else {
-                            setStep(3)
-                          }
-                        }}
-                        className="rounded-xl border border-error/35 bg-surface px-4 py-2 text-sm font-medium text-error hover:bg-error/10"
-                      >
-                        Thử lại
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {step === 5 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-content">Hoàn thành</h2>
-                    <p className="mt-2 text-sm text-subtle">Kênh thanh toán của bạn đã sẵn sàng để nhận tiền bán vé.</p>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <SummaryCard icon={CreditCard} title="Bán vé trả phí" text="Có thể xuất bản sự kiện có bán vé." />
-                    <SummaryCard icon={Banknote} title="Nhận doanh thu" text="Tiền được chuyển về ngân hàng đã cấu hình." />
-                    <SummaryCard icon={WalletCards} title="Theo dõi giao dịch" text="Giao dịch được ghi nhận trong hệ thống." />
-                  </div>
-
-                  <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm text-content">
-                    <p className="mb-2 font-bold text-primary">Kết nối Kênh thu đã lưu</p>
-                    <p><span className="font-medium text-muted">Ngân hàng:</span> {channel?.bank_name || bankInfo.bank || 'Chưa thiết lập'}</p>
-                    <p><span className="font-medium text-muted">Số tài khoản:</span> {channel?.bank_account_masked || (bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa thiết lập')}</p>
-                    <p><span className="font-medium text-muted">Chủ tài khoản:</span> {channel?.bank_account_holder || bankInfo.accountHolder || 'Chưa thiết lập'}</p>
-                    <div className="my-3 border-t border-border-soft/20" />
-                    <p><span className="font-medium text-muted">Client ID:</span> {safeChannelMeta.merchantId}</p>
-                    <p><span className="font-medium text-muted">API Key:</span> {channel?.has_api_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
-                    <p><span className="font-medium text-muted">Checksum Key:</span> {channel?.has_checksum_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    {showSavedSettings && (
-                      <button type="button" onClick={handleEditSettings} className="org-btn-primary">
-                        <CreditCard className="size-4" />
-                        Cập nhật Kênh thu
-                      </button>
-                    )}
-                    <button type="button" onClick={() => navigate(returnTo || '/organizer/events')} className="org-btn-secondary">
-                      {returnTo ? 'Quay lại sự kiện' : 'Đi tới Quản lý sự kiện'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 2: KÊNH CHI (PAYOUTS / CHI HỘ HOÀN TIỀN)                               */}
-          {/* ========================================================================= */}
-          {activeTab === 'payout' && (
-            <div className="space-y-6">
-              {/* Status Alert Banner */}
-              <div
-                className={`rounded-2xl border p-5 transition ${isPayoutActive
-                  ? 'border-success/30 bg-success/10 text-content'
-                  : 'border-warning/30 bg-warning/10 text-content'
-                  }`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    {isPayoutActive ? (
-                      <CheckCircle2 className="mt-0.5 size-6 text-success shrink-0" />
-                    ) : (
-                      <AlertCircle className="mt-0.5 size-6 text-warning shrink-0" />
-                    )}
-                    <div>
-                      <h3 className="font-bold text-content text-base">
-                        {isPayoutActive
-                          ? 'Kênh chi (Payouts) đang hoạt động'
-                          : 'Kênh chi (Payouts) chưa được kích hoạt'}
-                      </h3>
-                      <p className="mt-1 text-sm text-subtle">
-                        {isPayoutActive
-                          ? 'Hệ thống đang sử dụng bộ khóa Kênh chi riêng đã xác thực thành công với PayOS.'
-                          : 'Để thực hiện hoàn tiền tự động qua PayOS, Ban tổ chức vui lòng cài đặt bộ khóa Kênh chi riêng và xác thực kết nối.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={runPayoutConnectionTest}
-                      disabled={payoutTesting || (!payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
-                      className="flex items-center gap-2 rounded-xl border border-border-soft/40 bg-surface px-4 py-2 text-sm font-semibold text-content hover:bg-surface/80 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`size-4 ${payoutTesting ? 'animate-spin text-primary' : ''}`} />
-                      Kiểm tra lại
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Configuration Box */}
-              <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm space-y-6">
+            {step === 1 && (
+              <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-content">Cấu hình Kênh chi (Payouts / Chi hộ)</h2>
-                  <p className="mt-1 text-sm text-subtle">
-                    Cài đặt bộ khóa Kênh chi riêng và làm theo các bước hướng dẫn bên dưới để kích hoạt dịch vụ trên payOS.
+                  <h2 className="text-2xl font-bold text-content">Chọn PayOS</h2>
+                  <p className="mt-2 max-w-2xl text-sm text-subtle">
+                    EventHub dùng PayOS để tạo mã QR, ghi nhận thanh toán tự động và xuất vé sau khi khách hàng thanh toán.
                   </p>
                 </div>
 
-                {/* Split Grid: Checklist on left, Form on right */}
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="w-full rounded-2xl border border-tertiary/30 bg-tertiary/10 p-6 text-left transition hover:border-tertiary/60 hover:bg-tertiary/10"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex gap-3">
+                      <div className="grid size-11 place-items-center rounded-xl border border-tertiary/35 bg-tertiary/15 text-primary">
+                        <Wifi className="size-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-content">PayOS</h3>
+                        <p className="text-sm text-subtle">Khuyến dùng cho bán vé sự kiện tại Việt Nam</p>
+                      </div>
+                    </div>
+                    {isActive && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/15 px-3 py-1 text-xs font-semibold text-success">
+                        <CheckCircle2 className="size-3.5" />
+                        Đang hoạt động
+                      </span>
+                    )}
+                  </div>
+
+                  <ul className="mt-5 grid gap-2 text-sm text-content sm:grid-cols-2">
+                    <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Thanh toán qua mã QR</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Chuyển khoản ngân hàng</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Ghi nhận thanh toán tự động</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Xuất vé sau khi thanh toán</li>
+                  </ul>
+                </button>
+
+                <WizardFooter onNext={() => setStep(2)} nextLabel="Tiếp tục" />
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-content">Thông tin ngân hàng</h2>
+                  <p className="mt-2 text-sm text-subtle">
+                    Nhập tài khoản ngân hàng chính sẽ nhận doanh thu bán vé từ kênh thanh toán PayOS.
+                  </p>
+                </div>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label htmlFor="bank" className="mb-1.5 block text-sm font-semibold text-content">Ngân hàng</label>
+                    <select
+                      id="bank"
+                      value={bankInfo.bank}
+                      onChange={(e) => setBankInfo((prev) => ({ ...prev, bank: e.target.value }))}
+                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    >
+                      <option value="" className="bg-surface text-content">Chọn ngân hàng</option>
+                      {BANK_OPTIONS.map((bank) => (
+                        <option key={bank} value={bank} className="bg-surface text-content">{bank}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="account-number" className="mb-1.5 block text-sm font-semibold text-content">Số tài khoản</label>
+                    <input
+                      id="account-number"
+                      value={bankInfo.accountNumber}
+                      onChange={(e) => setBankInfo((prev) => ({ ...prev, accountNumber: e.target.value }))}
+                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
+                      placeholder="Nhập số tài khoản"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="account-holder" className="mb-1.5 block text-sm font-semibold text-content">Tên chủ tài khoản</label>
+                    <input
+                      id="account-holder"
+                      value={bankInfo.accountHolder}
+                      onChange={(e) => setBankInfo((prev) => ({ ...prev, accountHolder: e.target.value.toUpperCase() }))}
+                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 uppercase"
+                      placeholder="Nhập tên chủ tài khoản"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 p-4 text-sm text-subtle">
+                  Tên chủ tài khoản nên trùng với thông tin đã xác thực trên payOS để việc đối soát diễn ra thuận lợi.
+                </div>
+
+                <WizardFooter
+                  onBack={() => setStep(1)}
+                  onNext={() => {
+                    const message = validateStep2()
+                    if (message) {
+                      setError(message)
+                      return
+                    }
+                    setError(null)
+                    setStep(3)
+                  }}
+                />
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-content">Kết nối PayOS</h2>
+                  <p className="mt-2 text-sm text-subtle">
+                    Làm theo checklist bên trái để tạo kênh thanh toán trên payOS, sau đó copy 3 key và dán vào form bên phải.
+                  </p>
+                </div>
+
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-                  {/* Left Column: Step by step guide */}
                   <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-panel-soft/60 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <h3 className="text-base font-bold text-content">Hướng dẫn kích hoạt Kênh chi trên payOS</h3>
-                        <p className="text-sm text-subtle">Chọn từng bước bên dưới để xem hướng dẫn chi tiết.</p>
+                        <h3 className="text-base font-bold text-content">Checklist tạo 3 key</h3>
+                        <p className="text-sm text-subtle">Chọn từng bước để xem ảnh hướng dẫn ngay bên dưới bước đó.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => window.open('https://my.payos.vn', '_blank', 'noopener,noreferrer')}
-                        className="org-btn-primary text-xs"
+                        className="org-btn-primary"
                       >
                         Mở PayOS
-                        <ExternalLink className="size-3.5" />
+                        <ExternalLink className="size-4" />
                       </button>
                     </div>
 
-                    <ol className="space-y-3">
-                      {PAYOS_PAYOUT_GUIDE_STEPS.map((stepItem, index) => {
-                        const isSelected = payoutGuideIndex === index
+                    <ol className="space-y-2">
+                      {PAYOS_GUIDE_STEPS.map((item, index) => {
+                        const isSelected = guideImageIndex === index
                         return (
-                          <li key={stepItem.stepNumber}>
+                          <li key={item.title}>
                             <button
                               type="button"
-                              onClick={() => setPayoutGuideIndex(index)}
-                              className={`w-full rounded-xl border p-4 text-left transition ${isSelected
-                                ? 'border-primary/60 bg-primary/10 shadow-sm'
-                                : 'border-border-soft/25 bg-surface/50 hover:border-primary/30'
+                              onClick={() => setGuideImageIndex(index)}
+                              className={`w-full rounded-xl border p-3 text-left transition ${isSelected
+                                ? 'border-tertiary bg-tertiary/10'
+                                : 'border-border-soft/25 bg-surface/40 hover:border-tertiary/40'
                                 }`}
                             >
-                              <div className="flex gap-3">
-                                <span
-                                  className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${isSelected ? 'bg-primary text-slate-950' : 'bg-border-soft/50 text-content'
-                                    }`}
-                                >
-                                  {stepItem.stepNumber}
+                              <span className="flex gap-3">
+                                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-tertiary text-xs font-bold text-white">
+                                  {index + 1}
                                 </span>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span className="text-sm font-bold text-content">{stepItem.title}</span>
-                                    <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                                      {stepItem.badge}
-                                    </span>
-                                  </div>
-                                  <p className="mt-1.5 text-sm leading-relaxed text-subtle">{stepItem.detail}</p>
-
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-sm font-semibold text-content">{item.title}</span>
+                                  <span className="mt-1 block text-sm leading-6 text-subtle">{item.detail}</span>
                                   {isSelected && (
-                                    <div className="mt-3 space-y-2 border-t border-border-soft/20 pt-3">
-                                      <div className="flex items-start gap-2 rounded-lg bg-surface/80 p-3 text-xs text-subtle">
-                                        <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-                                        <span>{stepItem.note}</span>
-                                      </div>
-
-                                      {stepItem.stepNumber === 3 && (
-                                        <div className="space-y-2.5 rounded-lg border border-primary/40 bg-primary/10 p-3.5 text-xs">
-                                          <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                              <span className="text-content font-medium">
-                                                IP Outbound riêng của Ban tổ chức:{' '}
-                                                {serverIp ? (
-                                                  <strong className="font-mono text-primary font-bold text-sm ml-1">{serverIp}</strong>
-                                                ) : (
-                                                  <span className="italic text-subtle ml-1">Đang cấp phát...</span>
-                                                )}
-                                              </span>
-                                              {egressGateway?.is_mock ? (
-                                                <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/30">
-                                                  Môi trường thử nghiệm (Local Mock)
-                                                </span>
-                                              ) : (
-                                                <span className="inline-flex items-center rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
-                                                  Egress Gateway Chuyên dụng
-                                                </span>
-                                              )}
-                                            </div>
-                                            {serverIp && (
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  navigator.clipboard.writeText(serverIp)
-                                                  toast.success(`Đã sao chép IP Outbound riêng: ${serverIp}`)
-                                                }}
-                                                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1.5 font-bold text-[#0D1B2A] hover:opacity-90 transition shadow-sm"
-                                              >
-                                                <Copy className="size-3.5" />
-                                                Sao chép IP
-                                              </button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {stepItem.actionUrl && (
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            window.open(stepItem.actionUrl, '_blank', 'noopener,noreferrer')
-                                          }}
-                                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                                        >
-                                          {stepItem.actionLabel}
-                                          <ExternalLink className="size-3" />
-                                        </button>
-                                      )}
-                                    </div>
+                                    <span className="mt-3 block overflow-hidden rounded-lg border border-border-soft/30 bg-surface">
+                                      <img src={item.image} alt={item.title} className="w-full object-contain" />
+                                    </span>
                                   )}
-                                </div>
-                              </div>
+                                </span>
+                              </span>
                             </button>
                           </li>
                         )
@@ -959,118 +594,410 @@ export function OrganizerPaymentSettingsPage() {
                     </ol>
                   </section>
 
-                  {/* Right Column: Key Input & Verify Form */}
-                  <section className="space-y-5 rounded-2xl border border-border-soft/30 bg-surface p-5">
+                  <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-surface p-5">
                     <div>
-                      <h3 className="text-base font-bold text-content">
-                        Nhập 3 key Kênh chi từ payOS
-                      </h3>
-                      <p className="mt-1 text-sm text-subtle">
-                        Dán đúng thứ tự: Client ID, API Key, Checksum Key được cấp riêng cho Kênh chi.
-                      </p>
+                      <h3 className="text-base font-bold text-content">Nhập 3 key từ payOS</h3>
+                      <p className="mt-1 text-sm text-subtle">Dán đúng thứ tự như payOS hiển thị: Client ID, API Key, Checksum Key.</p>
                     </div>
 
-                    {/* Key Separation & Distinction Card */}
-                    <div className="rounded-xl border border-border-soft/30 bg-panel-soft/60 p-3 text-xs space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-subtle">Khóa Kênh thu (Nhận tiền):</span>
-                        <span className="font-mono text-content font-medium">{safeChannelMeta.merchantId}</span>
-                      </div>
-                      <div className="flex items-center justify-between border-t border-border-soft/20 pt-1.5">
-                        <span className="text-subtle">Khóa Kênh chi (Hoàn tiền):</span>
-                        <span className="font-mono text-primary font-bold">
-                          {hasStoredPayoutCredentials
-                            ? safePayoutMeta.merchantId
-                            : 'Chưa cấu hình'}
-                        </span>
-                      </div>
+                    <CredentialField
+                      id="client-id"
+                      label="Client ID"
+                      type="password"
+                      value={formData.client_id}
+                      badge={channel?.client_id ? 'Đã lưu' : null}
+                      placeholder={hasStoredCredentials ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Client ID'}
+                      onChange={(value) => {
+                        setConnectionTouched(true)
+                        setFormData((prev) => ({ ...prev, client_id: value }))
+                      }}
+                    />
+                    <CredentialField
+                      id="api-key"
+                      label="API Key"
+                      type="password"
+                      value={formData.api_key}
+                      badge={channel?.has_api_key ? 'Đã lưu' : null}
+                      placeholder={channel?.has_api_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán API Key'}
+                      onChange={(value) => {
+                        setConnectionTouched(true)
+                        setFormData((prev) => ({ ...prev, api_key: value }))
+                      }}
+                    />
+                    <CredentialField
+                      id="checksum-key"
+                      label="Checksum Key"
+                      type="password"
+                      value={formData.checksum_key}
+                      badge={channel?.has_checksum_key ? 'Đã lưu' : null}
+                      placeholder={channel?.has_checksum_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Checksum Key'}
+                      onChange={(value) => {
+                        setConnectionTouched(true)
+                        setFormData((prev) => ({ ...prev, checksum_key: value }))
+                      }}
+                    />
+
+                    <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+                      Không chia sẻ 3 key này cho người khác. EventHub chỉ dùng key để tạo và xác minh thanh toán cho sự kiện của bạn.
                     </div>
 
-                    <div className="space-y-4">
-                      <CredentialField
-                        id="payout-client-id"
-                        label="Client ID (Kênh chi)"
-                        icon={Copy}
-                        value={payoutFormData.client_id}
-                        placeholder={hasStoredPayoutCredentials ? `Hiện tại: ${safePayoutMeta.merchantId}` : 'Dán Client ID Kênh chi'}
-                        onChange={(value) => setPayoutFormData((prev) => ({ ...prev, client_id: value }))}
-                      />
-                      <CredentialField
-                        id="payout-api-key"
-                        label="API Key (Kênh chi)"
-                        icon={KeyRound}
-                        type="password"
-                        value={payoutFormData.api_key}
-                        badge={channel?.has_payout_api_key ? 'Đã lưu' : null}
-                        placeholder={channel?.has_payout_api_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán API Key Kênh chi'}
-                        onChange={(value) => setPayoutFormData((prev) => ({ ...prev, api_key: value }))}
-                      />
-                      <CredentialField
-                        id="payout-checksum-key"
-                        label="Checksum Key (Kênh chi)"
-                        icon={ShieldCheck}
-                        type="password"
-                        value={payoutFormData.checksum_key}
-                        badge={channel?.has_payout_checksum_key ? 'Đã lưu' : null}
-                        placeholder={channel?.has_payout_checksum_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Checksum Key Kênh chi'}
-                        onChange={(value) => setPayoutFormData((prev) => ({ ...prev, checksum_key: value }))}
-                      />
-                    </div>
-
-                    {/* Test / Verify Action Button */}
                     <button
                       type="button"
-                      onClick={runPayoutConnectionTest}
-                      disabled={payoutTesting || (!payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
-                      className="org-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50 py-3 font-bold"
+                      onClick={runConnectionTest}
+                      disabled={testing || !canAdvanceFromStep3}
+                      className="org-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {payoutTesting ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Đang xác thực Kênh chi với PayOS...
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="size-4" />
-                          Kiểm tra kết nối Kênh chi (Verify)
-                        </>
-                      )}
+                      {testing ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                      Verify
                     </button>
 
-                    {/* Feedback Result Display */}
-                    {payoutTestState.status === 'success' && (
-                      <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success space-y-2">
-                        <div className="flex items-center gap-2 font-bold">
-                          <CheckCircle2 className="size-5" />
-                          Kết nối thành công!
-                        </div>
-                        <p className="text-xs leading-relaxed text-content">
-                          {payoutTestState.message}
-                        </p>
-                        {payoutTestState.balance !== undefined && payoutTestState.balance !== null && (
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-content pt-1">
-                            <Coins className="size-4 text-warning" />
-                            Số dư ví chi hộ: {Number(payoutTestState.balance).toLocaleString('vi-VN')} VNĐ
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {payoutTestState.status === 'error' && (
-                      <div className="rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error space-y-2">
-                        <div className="flex items-center gap-2 font-bold">
-                          <AlertCircle className="size-5" />
-                          Không thể kết nối Kênh chi
-                        </div>
-                        <p className="text-xs leading-relaxed">{payoutTestState.message}</p>
-                      </div>
+                    {connectionTouched && !canAdvanceFromStep3 && (
+                      <p className="text-xs font-semibold text-warning">
+                        Vui lòng điền đủ Client ID, API Key và Checksum Key trước khi kiểm tra kết nối.
+                      </p>
                     )}
                   </section>
                 </div>
+
+                <WizardFooter onBack={() => setStep(2)} />
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-content">Kiểm tra kết nối</h2>
+
+                {testState.status === 'loading' && (
+                  <div className="rounded-2xl border border-border-soft/30 bg-panel-soft p-5">
+                    <div className="mb-4 flex items-center gap-2 font-bold text-content">
+                      <Loader2 className="size-4 animate-spin text-primary" />
+                      <p>Đang thử nghiệm kết nối...</p>
+                    </div>
+                    <ul className="space-y-2 text-sm text-subtle">
+                      {checks.map((text, index) => (
+                        <li key={text} className="flex items-center gap-2">
+                          {progressIndex >= index ? <CheckCircle2 className="size-4 text-success" /> : <Circle className="size-4 text-muted opacity-60" />}
+                          {text}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {testState.status === 'success' && (
+                  <div className="space-y-4 rounded-2xl border border-success/30 bg-success/10 p-5">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-success">
+                      <CheckCircle2 className="size-5" />
+                      Kênh thanh toán đã được kết nối thành công
+                    </p>
+                    <div className="grid gap-2 text-sm text-content">
+                      <p><span className="font-semibold text-muted">Ngân hàng:</span> {bankInfo.bank || 'Chưa có dữ liệu'}</p>
+                      <p><span className="font-semibold text-muted">Số tài khoản:</span> {bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa có dữ liệu'}</p>
+                      <p><span className="font-semibold text-muted">Trạng thái:</span> Đang hoạt động</p>
+                    </div>
+                    <button type="button" onClick={() => setStep(5)} className="rounded-xl bg-success px-5 py-2.5 text-sm font-semibold text-slate-950 hover:opacity-90">
+                      Lưu và hoàn tất
+                    </button>
+                  </div>
+                )}
+
+                {testState.status === 'error' && (
+                  <div className="space-y-4 rounded-2xl border border-error/30 bg-error/10 p-5">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-error">
+                      <AlertCircle className="size-5" />
+                      Không thể kết nối
+                    </p>
+                    <p className="text-sm text-error">{testState.message}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null)
+                        if (testState.message?.toLowerCase().includes('ngân hàng')) {
+                          setStep(2)
+                        } else {
+                          setStep(3)
+                        }
+                      }}
+                      className="rounded-xl border border-error/35 bg-surface px-4 py-2 text-sm font-medium text-error hover:bg-error/10"
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 5 && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-content">Cấu hình Kênh thu</h2>
+                  <p className="mt-2 text-sm text-subtle">Kênh thanh toán của bạn đã sẵn sàng để nhận tiền bán vé</p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <SummaryCard icon={CreditCard} title="Bán vé trả phí" text="Có thể xuất bản sự kiện có bán vé." />
+                  <SummaryCard icon={Banknote} title="Nhận doanh thu" text="Tiền được chuyển về ngân hàng đã cấu hình." />
+                  <SummaryCard icon={WalletCards} title="Theo dõi giao dịch" text="Giao dịch được ghi nhận trong hệ thống." />
+                </div>
+
+                <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm text-content">
+                  <p className="mb-2 font-bold text-primary">Kết nối Kênh thu đã lưu</p>
+                  <p><span className="font-medium text-muted">Ngân hàng:</span> {channel?.bank_name || bankInfo.bank || 'Chưa thiết lập'}</p>
+                  <p><span className="font-medium text-muted">Số tài khoản:</span> {channel?.bank_account_masked || (bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa thiết lập')}</p>
+                  <p><span className="font-medium text-muted">Chủ tài khoản:</span> {channel?.bank_account_holder || bankInfo.accountHolder || 'Chưa thiết lập'}</p>
+                  <div className="my-3 border-t border-border-soft/20" />
+                  <p><span className="font-medium text-muted">Client ID:</span> {safeChannelMeta.merchantId}</p>
+                  <p><span className="font-medium text-muted">API Key:</span> {channel?.has_api_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
+                  <p><span className="font-medium text-muted">Checksum Key:</span> {channel?.has_checksum_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  {showSavedSettings && (
+                    <button type="button" onClick={handleEditSettings} className="org-btn-primary">
+                      <CreditCard className="size-4" />
+                      Cập nhật Kênh thu
+                    </button>
+                  )}
+                  <button type="button" onClick={() => navigate(returnTo || '/organizer/events')} className="org-btn-secondary">
+                    {returnTo ? 'Quay lại sự kiện' : 'Đi tới Quản lý sự kiện'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: KÊNH CHI (PAYOUTS / CHI HỘ HOÀN TIỀN)                               */}
+        {/* ========================================================================= */}
+        {activeTab === 'payout' && (
+          <div className="space-y-6">
+            {/* Configuration Box */}
+            <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-content">Cấu hình Kênh chi</h2>
+                <p className="mt-1 text-sm text-subtle">
+                  Cài đặt bộ khóa Kênh chi riêng và làm theo các bước hướng dẫn bên dưới để kích hoạt dịch vụ trên payOS
+                </p>
+              </div>
+
+              {/* Split Grid: Checklist on left, Form on right */}
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+                {/* Left Column: Step by step guide */}
+                <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-panel-soft/60 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-bold text-content">Hướng dẫn kích hoạt Kênh chi trên payOS</h3>
+                      <p className="text-sm text-subtle">Chọn từng bước bên dưới để xem hướng dẫn chi tiết.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://my.payos.vn', '_blank', 'noopener,noreferrer')}
+                      className="org-btn-primary text-xs"
+                    >
+                      Mở PayOS
+                      <ExternalLink className="size-3.5" />
+                    </button>
+                  </div>
+
+                  <ol className="space-y-3">
+                    {PAYOS_PAYOUT_GUIDE_STEPS.map((stepItem, index) => {
+                      const isSelected = payoutGuideIndex === index
+                      return (
+                        <li key={stepItem.stepNumber}>
+                          <button
+                            type="button"
+                            onClick={() => setPayoutGuideIndex(index)}
+                            className={`w-full rounded-xl border p-4 text-left transition ${isSelected
+                              ? 'border-primary/60 bg-primary/10 shadow-sm'
+                              : 'border-border-soft/25 bg-surface/50 hover:border-primary/30'
+                              }`}
+                          >
+                            <div className="flex gap-3">
+                              <span
+                                className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${isSelected ? 'bg-primary text-slate-950' : 'bg-border-soft/50 text-content'
+                                  }`}
+                              >
+                                {stepItem.stepNumber}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-sm font-bold text-content">{stepItem.title}</span>
+                                  <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                                    {stepItem.badge}
+                                  </span>
+                                </div>
+                                <p className="mt-1.5 text-sm leading-relaxed text-subtle">{stepItem.detail}</p>
+
+                                {isSelected && (
+                                  <div className="mt-3 space-y-2 border-t border-border-soft/20 pt-3">
+                                    <div className="flex items-start gap-2 rounded-lg bg-surface/80 p-3 text-xs text-subtle">
+                                      <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+                                      <span>{stepItem.note}</span>
+                                    </div>
+
+                                    {stepItem.stepNumber === 3 && (
+                                      <div className="space-y-2.5 rounded-lg border border-primary/40 bg-primary/10 p-3.5 text-xs">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-content font-medium">
+                                              IP Outbound riêng của Ban tổ chức:{' '}
+                                              {serverIp ? (
+                                                <strong className="font-mono text-primary font-bold text-sm ml-1">{serverIp}</strong>
+                                              ) : (
+                                                <span className="italic text-subtle ml-1">Đang cấp phát...</span>
+                                              )}
+                                            </span>
+                                          </div>
+                                          {serverIp && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigator.clipboard.writeText(serverIp)
+                                                toast.success(`Đã sao chép IP Outbound riêng: ${serverIp}`)
+                                              }}
+                                              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1.5 font-bold text-[#0D1B2A] hover:opacity-90 transition shadow-sm"
+                                            >
+                                              <Copy className="size-3.5" />
+                                              Sao chép IP
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {stepItem.actionUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          window.open(stepItem.actionUrl, '_blank', 'noopener,noreferrer')
+                                        }}
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                                      >
+                                        {stepItem.actionLabel}
+                                        <ExternalLink className="size-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </section>
+
+                {/* Right Column: Key Input & Verify Form */}
+                <section className="space-y-5 rounded-2xl border border-border-soft/30 bg-surface p-5">
+                  <div>
+                    <h3 className="text-base font-bold text-content">
+                      Nhập 3 key Kênh chi từ payOS
+                    </h3>
+                  </div>
+
+                  {/* Key Separation & Distinction Card */}
+                  <div className="rounded-xl border border-border-soft/30 bg-panel-soft/60 p-3 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-subtle">Khóa Kênh thu (Nhận tiền):</span>
+                      <span className="font-mono text-content font-medium">{safeChannelMeta.merchantId}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-border-soft/20 pt-1.5">
+                      <span className="text-subtle">Khóa Kênh chi (Hoàn tiền):</span>
+                      <span className="font-mono text-primary font-bold">
+                        {hasStoredPayoutCredentials
+                          ? safePayoutMeta.merchantId
+                          : 'Chưa cấu hình'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <CredentialField
+                      id="payout-client-id"
+                      label="Client ID (Kênh chi)"
+                      type="password"
+                      value={payoutFormData.client_id}
+                      badge={channel?.payout_client_id ? 'Đã lưu' : null}
+                      placeholder={hasStoredPayoutCredentials ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Client ID Kênh chi'}
+                      onChange={(value) => setPayoutFormData((prev) => ({ ...prev, client_id: value }))}
+                    />
+                    <CredentialField
+                      id="payout-api-key"
+                      label="API Key (Kênh chi)"
+                      type="password"
+                      value={payoutFormData.api_key}
+                      badge={channel?.has_payout_api_key ? 'Đã lưu' : null}
+                      placeholder={channel?.has_payout_api_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán API Key Kênh chi'}
+                      onChange={(value) => setPayoutFormData((prev) => ({ ...prev, api_key: value }))}
+                    />
+                    <CredentialField
+                      id="payout-checksum-key"
+                      label="Checksum Key (Kênh chi)"
+                      type="password"
+                      value={payoutFormData.checksum_key}
+                      badge={channel?.has_payout_checksum_key ? 'Đã lưu' : null}
+                      placeholder={channel?.has_payout_checksum_key ? 'Đã lưu (nhập nếu muốn đổi)' : 'Dán Checksum Key Kênh chi'}
+                      onChange={(value) => setPayoutFormData((prev) => ({ ...prev, checksum_key: value }))}
+                    />
+                  </div>
+
+                  {/* Test / Verify Action Button */}
+                  <button
+                    type="button"
+                    onClick={runPayoutConnectionTest}
+                    disabled={payoutTesting || (!payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
+                    className="org-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50 py-3 font-bold"
+                  >
+                    {payoutTesting ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Đang xác thực Kênh chi với PayOS...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="size-4" />
+                        Kiểm tra kết nối Kênh chi (Verify)
+                      </>
+                    )}
+                  </button>
+
+                  {/* Feedback Result Display */}
+                  {payoutTestState.status === 'success' && (
+                    <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success space-y-2">
+                      <div className="flex items-center gap-2 font-bold">
+                        <CheckCircle2 className="size-5" />
+                        Kết nối thành công!
+                      </div>
+                      <p className="text-xs leading-relaxed text-content">
+                        {payoutTestState.message}
+                      </p>
+                      {payoutTestState.balance !== undefined && payoutTestState.balance !== null && (
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-content pt-1">
+                          <Coins className="size-4 text-warning" />
+                          Số dư ví chi hộ: {Number(payoutTestState.balance).toLocaleString('vi-VN')} VNĐ
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {payoutTestState.status === 'error' && (
+                    <div className="rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error space-y-2">
+                      <div className="flex items-center gap-2 font-bold">
+                        <AlertCircle className="size-5" />
+                        Không thể kết nối Kênh chi
+                      </div>
+                      <p className="text-xs leading-relaxed">{payoutTestState.message}</p>
+                    </div>
+                  )}
+                </section>
               </div>
             </div>
-          )}
-        </OrganizerPanel>
+          </div>
+        )}
       </div>
     </OrganizerPage>
   )
@@ -1111,7 +1038,7 @@ function WizardFooter({ onBack, onNext, nextLabel = 'Tiếp tục' }) {
   )
 }
 
-function CredentialField({ id, label, value, onChange, placeholder, type = 'text', icon: Icon, badge }) {
+function CredentialField({ id, label, value, onChange, placeholder, type = 'text', badge }) {
   const [showPassword, setShowPassword] = useState(false)
   const isPasswordType = type === 'password'
   const actualType = isPasswordType && showPassword ? 'text' : type
@@ -1141,22 +1068,21 @@ function CredentialField({ id, label, value, onChange, placeholder, type = 'text
             }
           }}
           onChange={(e) => onChange(e.target.value.trim())}
-          className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 pr-20 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
+          className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 pr-11 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
           placeholder={placeholder}
         />
-        <div className="absolute inset-y-0 right-3 flex items-center gap-2 text-muted">
-          {isPasswordType && (
+        {isPasswordType && (
+          <div className="absolute inset-y-0 right-3 flex items-center text-muted">
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               className="p-1 hover:text-content text-muted transition"
               title={showPassword ? 'Ẩn khóa' : 'Hiện khóa'}
             >
-              <Eye className="size-4" />
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>
-          )}
-          <Icon className="size-4 pointer-events-none" />
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
