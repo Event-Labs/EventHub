@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   Check,
@@ -823,6 +824,7 @@ export function BookingSeatsPage() {
       toast.error('Sự kiện đang tạm dừng bán vé. Không thể thay đổi số lượng vé.')
       return
     }
+
     setCart((current) => {
       const coloredTicketType = {
         ...ticketType,
@@ -842,6 +844,7 @@ export function BookingSeatsPage() {
       const existing = itemIndex >= 0
         ? items[itemIndex]
         : { ticketType: coloredTicketType, quantity: 0, sessionSeatIds: [], seatLabels: [], session }
+
       const available = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
       const perOrder = Math.min(Math.max(1, Number(ticketType.max_per_order || 20)), maxTicketsAllowed)
       const maximum = available > 0 ? Math.min(available, perOrder) : perOrder
@@ -2752,12 +2755,14 @@ function UnseatedTicketSelection({
             const quantity = Number(item?.quantity || 0)
             const availability = ticketAvailability(ticketType)
             const isSoldOut = availability.total > 0 && availability.available <= 0
-            const isFree = Number(ticketType.price || 0) === 0
-            const maxFreeLimit = Number(event?.seating_rules?.max_free_tickets_per_user ?? 2)
-            const rawPerOrder = isFree ? Math.min(Number(ticketType.max_per_order || 20), maxFreeLimit) : Number(ticketType.max_per_order || 20)
-            const perOrder = Math.min(Math.max(1, rawPerOrder), maxTicketsAllowed)
+            const perOrder = Math.min(
+              Math.max(1, Number(ticketType.max_per_order || 20)),
+              maxTicketsAllowed,
+            )
             const maxLimit = availability.available > 0 ? Math.min(availability.available, perOrder) : perOrder
-            const isMaxReached = quantity >= maxLimit || currentTotalTickets >= maxTicketsAllowed
+            const isMaxReached =
+              quantity >= maxLimit ||
+              currentTotalTickets >= maxTicketsAllowed
 
             return (
               <div
@@ -2772,11 +2777,6 @@ function UnseatedTicketSelection({
                     <span className="font-bold text-primary text-sm sm:text-base">
                       {formatPrice(ticketType.price)}
                     </span>
-                    {isFree && (
-                      <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-                        Tối đa {maxFreeLimit} vé/tài khoản
-                      </span>
-                    )}
                     {isSoldOut ? (
                       <span className="inline-flex items-center rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
                         Hết vé
