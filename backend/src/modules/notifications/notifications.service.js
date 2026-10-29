@@ -5,6 +5,14 @@ const { sendEmail } = require('../../infrastructure/email/email.service');
 const db = require('../../infrastructure/database/db.client');
 const notificationsRepository = require('./notifications.repository');
 const notificationStream = require('./notifications.stream');
+const env = require('../../config/env');
+const {
+  formatReminderDate,
+  formatReminderTime,
+  formatVenueAddress,
+  buildEventReminderHtml,
+  buildEventReminderText,
+} = require('./eventReminderEmail.template');
 
 function mapNotification(row) {
   if (!row) return null;
@@ -203,29 +211,117 @@ class NotificationsService {
 
   async sendDueReminders() {
     const now = new Date();
-    const to = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const recipients = await notificationsRepository.findUpcomingReminderRecipients({ from: now, to });
-    let sent = 0;
+    let sentCount = 0;
 
-    for (const row of recipients) {
-      const content = `Sự kiện "${row.event_title}" sẽ bắt đầu lúc ${formatDateTime(row.start_time)}${venueLine(row) ? ` tại ${venueLine(row)}` : ''}. Hãy kiểm tra vé và chuẩn bị check-in đúng giờ.`;
+    // Milestone 1: 2h reminder (Events starting between 30 mins and 2.5 hours from now)
+    const from2h = new Date(now.getTime() + 30 * 60 * 1000);
+    const to2h = new Date(now.getTime() + 2.5 * 60 * 60 * 1000);
+    const recipients2h = await notificationsRepository.findUpcomingReminderRecipients({
+      from: from2h,
+      to: to2h,
+      milestone: '2h',
+    });
+
+    for (const row of recipients2h) {
+      const isSent = await this.dispatchReminderEmail(row, '2h');
+      if (isSent) sentCount += 1;
+    }
+
+    // Milestone 2: 24h reminder (Events starting between 2.5 hours and 26 hours from now)
+    const from24h = new Date(now.getTime() + 2.5 * 60 * 60 * 1000);
+    const to24h = new Date(now.getTime() + 26 * 60 * 60 * 1000);
+    const recipients24h = await notificationsRepository.findUpcomingReminderRecipients({
+      from: from24h,
+      to: to24h,
+      milestone: '24h',
+    });
+
+    for (const row of recipients24h) {
+      const isSent = await this.dispatchReminderEmail(row, '24h');
+      if (isSent) sentCount += 1;
+    }
+
+    if (sentCount > 0) {
+      logger.info(`Sent ${sentCount} event reminders (2h: ${recipients2h.length}, 24h: ${recipients24h.length})`);
+    }
+    return sentCount;
+  }
+
+  async dispatchReminderEmail(row, milestone = '24h') {
+    try {
+      const is2h = milestone === '2h';
+      const clientUrl = String(env.CLIENT_URL || '').replace(/\/$/, '');
+      const ticketLink = row.order_code
+        ? `${clientUrl}/my-tickets?order=${encodeURIComponent(row.order_code)}`
+        : `${clientUrl}/my-tickets`;
+
+      const isOnline = row.event_format === 'ONLINE' || (!row.venue_name && !row.address_line);
+      const formattedDate = formatReminderDate(row.start_time);
+      const formattedTime = formatReminderTime(row.start_time, row.end_time);
+
+      const emailSubject = is2h
+        ? `[EventHub] Nhắc lịch: "${row.event_title}" sắp bắt đầu sau 2 giờ nữa!`
+        : `[EventHub] Nhắc lịch: "${row.event_title}" sẽ diễn ra vào ngày mai (${formattedDate})`;
+
+      const notifTitle = is2h
+        ? `Nhắc lịch: "${row.event_title}" sắp diễn ra trong 2 giờ tới!`
+        : `Nhắc lịch: "${row.event_title}" diễn ra trong 24 giờ tới (${formattedDate})`;
+
+      const notifContent = `Sự kiện "${row.event_title}" sẽ bắt đầu lúc ${formattedTime}, ${formattedDate}${
+        isOnline ? ' (Trực tuyến)' : row.venue_name ? ` tại ${row.venue_name}` : ''
+      }. Hãy chuẩn bị vé điện tử để check-in đúng giờ.`;
+
+      const html = buildEventReminderHtml({
+        attendeeName: row.full_name || 'bạn',
+        eventTitle: row.event_title,
+        bannerUrl: row.banner_url || row.thumbnail_url,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        venueName: row.venue_name,
+        addressLine: row.address_line,
+        ward: row.ward,
+        district: row.district,
+        city: row.city,
+        isOnline,
+        ticketLink,
+        milestone,
+      });
+
+      const message = buildEventReminderText({
+        attendeeName: row.full_name || 'bạn',
+        eventTitle: row.event_title,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        venueName: row.venue_name,
+        addressLine: row.address_line,
+        ward: row.ward,
+        district: row.district,
+        city: row.city,
+        isOnline,
+        ticketLink,
+        milestone,
+      });
+
       await this.createAndDispatch(
         {
           userId: row.user_id,
           eventId: row.event_id,
-          title: 'Nhắc lịch sự kiện',
-          content,
+          title: notifTitle,
+          content: notifContent,
           type: 'EVENT',
         },
         {
           email: row.email,
+          subject: emailSubject,
+          message,
+          html,
         },
       );
-      sent += 1;
+      return true;
+    } catch (err) {
+      logger.error(`Failed to dispatch reminder to user ${row.user_id} (${row.email}):`, err);
+      return false;
     }
-
-    if (sent > 0) logger.info(`Sent ${sent} event reminders`);
-    return sent;
   }
 
   async notifyEventCancellation(eventId, { reason, title } = {}) {
