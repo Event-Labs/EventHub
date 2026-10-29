@@ -938,25 +938,20 @@ export function AdminAnalyticsPage() {
     >
       {/* ── 1. Attention Required Banner ("CẦN XỬ LÝ NGAY") ── */}
       {overview && (
-        <div className="relative mb-6 overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-r from-[#17140b] via-[#0f172a] to-[#17140b] p-5 shadow-2xl shadow-amber-500/10 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-50/80">
+        <div className="relative mb-6 rounded-2xl bg-gradient-to-r from-[#17140b] via-[#0f172a] to-[#17140b] p-5 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-amber-50/90 [html.light_&]:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+          <svg className="urgent-banner-led-svg" aria-hidden="true">
+            <rect className="urgent-banner-led-track" />
+            <rect className="urgent-banner-led-glow" pathLength="100" />
+            <rect className="urgent-banner-led-core" pathLength="100" />
+          </svg>
           <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-amber-500/10 blur-2xl" />
-          <div className="mb-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm">
-                <AlertTriangle className="size-4.5" />
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-wider text-amber-400">
-                  Cần xử lý ngay
-                </p>
-                <p className="text-[11px] text-slate-400 [html.light_&]:text-[#536b88]">
-                  Các tác vụ tồn đọng cần hành động từ Quản trị viên
-                </p>
-              </div>
+          <div className="mb-3.5 flex items-center gap-2.5">
+            <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm">
+              <AlertTriangle className="size-4.5" />
             </div>
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-300">
-              Ưu tiên
-            </span>
+            <p className="text-xs font-black uppercase tracking-wider text-amber-400">
+              Cần xử lý ngay
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -976,7 +971,7 @@ export function AdminAnalyticsPage() {
                     : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-500/30 [html.light_&]:bg-amber-100/60'
                 }`}
               >
-                <span className="text-xs font-bold text-slate-200 [html.light_&]:text-[#1B365D]">{label}</span>
+                <span className="text-sm font-bold text-white [html.light_&]:text-[#1B365D]">{label}</span>
                 <span className={`shrink-0 text-xl font-black ${severity === 'critical' ? 'text-rose-400' : 'text-amber-400'}`}>
                   {count}
                 </span>

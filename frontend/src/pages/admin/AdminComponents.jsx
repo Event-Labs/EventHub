@@ -80,7 +80,12 @@ export function Page({
 export function AttentionSection({ items }) {
   if (!items?.length) return null
   return (
-    <div className="mb-6 rounded-[32px] border border-amber-500/40 bg-[#0f172a] p-6 shadow-xl shadow-amber-500/10 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-50/80">
+    <div className="relative mb-6 rounded-2xl bg-[#0f172a] p-6 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-amber-50/90">
+      <svg className="urgent-banner-led-svg" aria-hidden="true">
+        <rect className="urgent-banner-led-track" />
+        <rect className="urgent-banner-led-glow" pathLength="100" />
+        <rect className="urgent-banner-led-core" pathLength="100" />
+      </svg>
       <div className="mb-4 flex items-center gap-3">
         <div className="grid size-9 place-items-center rounded-xl border border-warning/30 bg-warning/20 shadow-inner">
           <span className="text-sm">⚠️</span>
