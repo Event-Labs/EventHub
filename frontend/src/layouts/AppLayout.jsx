@@ -81,6 +81,15 @@ function getNotificationDisplay(notification) {
 function getNotificationTarget(notification) {
   if (isStaffInvitationNotification(notification)) return '/notifications'
 
+  const title = (notification.title || '').toLowerCase()
+  const content = (notification.content || '').toLowerCase()
+  if (title.includes('organizer') || content.includes('organizer')) {
+    if (title.includes('đã được duyệt') || content.includes('phê duyệt thành công')) {
+      return '/organizer'
+    }
+    return '/organizer-request?mode=edit'
+  }
+
   const eventTarget = notification.event?.slug || notification.event_id
   return eventTarget ? `/events/${eventTarget}` : '/notifications'
 }

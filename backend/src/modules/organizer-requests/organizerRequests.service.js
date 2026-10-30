@@ -7,6 +7,7 @@ const { sendEmail } = require('../../infrastructure/email/email.service');
 const { client: redisClient } = require('../../infrastructure/redis/redis.client');
 const organizerEventsRepository = require('../organizer/organizerEvents.repository');
 const organizerRequestsRepository = require('./organizerRequests.repository');
+const notificationsService = require('../notifications/notifications.service');
 
 const BUSINESS_EMAIL_VERIFY_PREFIX = 'organizer_business_email_verify:';
 
@@ -45,6 +46,7 @@ function mapRequest(row) {
     individual_id_back_url: row.individual_id_back_url,
     individual_selfie_url: row.individual_selfie_url,
     individual_tax_code: row.individual_tax_code,
+    kyc_ocr_data: row.kyc_ocr_data,
     terms_accepted: row.terms_accepted,
     terms_accepted_at: row.terms_accepted_at,
     request_action: row.request_action || 'APPLICATION',
@@ -95,6 +97,7 @@ function buildRequestInput(payload) {
     individualIdBackUrl: payload.individual_id_back_url?.trim() || null,
     individualSelfieUrl: payload.individual_selfie_url?.trim() || null,
     individualTaxCode: payload.individual_tax_code?.trim() || null,
+    kycOcrData: payload.kyc_ocr_data || null,
     termsAccepted: payload.terms_accepted,
   };
 }
@@ -462,27 +465,122 @@ class OrganizerRequestsService {
 
     const reviewedRequest = await this.getRequestById(requestId);
 
-    if (
-      payload.status === 'APPROVED' &&
-      reviewedRequest.request_type === 'ORGANIZATION' &&
-      organizationPassword
-    ) {
-      await sendEmail({
-        email: reviewedRequest.business_email,
-        subject: 'Tài khoản Organizer EventHub đã được cấp',
-        message:
-          `Yêu cầu Organizer của bạn đã được duyệt.\n` +
-          `Email đăng nhập: ${reviewedRequest.business_email}\n` +
-          `Mật khẩu tạm thời: ${organizationPassword}\n` +
-          `Vui lòng đăng nhập và đổi mật khẩu sớm nhất có thể.`,
-        html: `
-          <p>Xin chào ${reviewedRequest.organization_name},</p>
-          <p>Yêu cầu Organizer của bạn đã được duyệt.</p>
-          <p><strong>Email đăng nhập:</strong> ${reviewedRequest.business_email}</p>
-          <p><strong>Mật khẩu tạm thời:</strong> ${organizationPassword}</p>
-          <p>Vui lòng đăng nhập vào EventHub và đổi mật khẩu sớm nhất có thể.</p>
-        `,
-      });
+    const applicantUserId = reviewedRequest.user_id;
+    const applicantEmail = reviewedRequest.applicant?.email;
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+    if (payload.status === 'APPROVED') {
+      if (
+        reviewedRequest.request_type === 'ORGANIZATION' &&
+        organizationPassword
+      ) {
+        await sendEmail({
+          email: reviewedRequest.business_email,
+          subject: 'Tài khoản Organizer EventHub đã được cấp',
+          message:
+            `Yêu cầu Organizer của bạn đã được duyệt.\n` +
+            `Email đăng nhập: ${reviewedRequest.business_email}\n` +
+            `Mật khẩu tạm thời: ${organizationPassword}\n` +
+            `Vui lòng đăng nhập và đổi mật khẩu sớm nhất có thể.`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6;">
+              <h2 style="color: #0284c7;">🎉 Tài khoản Organizer của bạn đã sẵn sàng</h2>
+              <p>Xin chào <strong>${reviewedRequest.organization_name}</strong>,</p>
+              <p>Hồ sơ đăng ký tổ chức sự kiện của bạn đã được Ban quản trị EventHub phê duyệt thành công.</p>
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                <p style="margin: 0 0 8px 0;"><strong>Email đăng nhập:</strong> ${reviewedRequest.business_email}</p>
+                <p style="margin: 0;"><strong>Mật khẩu tạm thời:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 14px;">${organizationPassword}</code></p>
+              </div>
+              <p>Vui lòng đăng nhập vào hệ thống và đổi mật khẩu sớm nhất có thể:</p>
+              <p style="margin-top: 24px;">
+                <a href="${clientUrl}/login" style="background: linear-gradient(135deg, #C99A47, #E6C17A); color: #0D1B2A; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Đăng nhập Organizer</a>
+              </p>
+              <p style="margin-top: 30px; font-size: 13px; color: #64748b;">Trân trọng,<br />Đội ngũ EventHub</p>
+            </div>
+          `,
+        });
+
+        if (applicantUserId) {
+          await notificationsService.createAndDispatch({
+            userId: applicantUserId,
+            title: 'Hồ sơ Organizer đã được duyệt',
+            content: `Hồ sơ đăng ký của tổ chức "${reviewedRequest.organization_name}" đã được phê duyệt. Thông tin tài khoản đã được gửi đến email ${reviewedRequest.business_email}.`,
+            type: 'SYSTEM',
+          });
+        }
+      } else {
+        // Individual organizer approval
+        if (applicantUserId) {
+          await notificationsService.createAndDispatch(
+            {
+              userId: applicantUserId,
+              title: 'Hồ sơ Organizer đã được duyệt',
+              content: `Chúc mừng! Hồ sơ đăng ký Organizer của bạn cho "${reviewedRequest.organization_name}" đã được phê duyệt. Bạn có thể đăng xuất và đăng nhập lại để bắt đầu tạo sự kiện.`,
+              type: 'SYSTEM',
+            },
+            applicantEmail
+              ? {
+                  email: applicantEmail,
+                  subject: '[EventHub] Chúc mừng! Hồ sơ Organizer của bạn đã được phê duyệt',
+                  message: `Xin chào ${reviewedRequest.applicant?.full_name || reviewedRequest.organization_name},\n\nHồ sơ đăng ký Organizer của bạn cho "${reviewedRequest.organization_name}" đã được phê duyệt thành công.\n\nVui lòng đăng xuất và đăng nhập lại để truy cập vào bảng điều khiển Organizer.`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6;">
+                      <h2 style="color: #0284c7;">🎉 Chúc mừng bạn đã trở thành Organizer!</h2>
+                      <p>Xin chào <strong>${reviewedRequest.applicant?.full_name || reviewedRequest.organization_name}</strong>,</p>
+                      <p>Hồ sơ đăng ký trở thành Nhà tổ chức sự kiện cho <strong>"${reviewedRequest.organization_name}"</strong> đã được Ban quản trị EventHub phê duyệt thành công.</p>
+                      <p>Tài khoản của bạn đã được cấp quyền Nhà tổ chức. Vui lòng đăng xuất và đăng nhập lại để truy cập vào hệ thống quản lý sự kiện.</p>
+                      <p style="margin-top: 24px;">
+                        <a href="${clientUrl}/login" style="background: linear-gradient(135deg, #C99A47, #E6C17A); color: #0D1B2A; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Đăng nhập EventHub</a>
+                      </p>
+                      <p style="margin-top: 30px; font-size: 13px; color: #64748b;">Trân trọng,<br />Đội ngũ EventHub</p>
+                    </div>
+                  `,
+                }
+              : {},
+          );
+        }
+      }
+    } else if (payload.status === 'REJECTED') {
+      const recipientEmail = applicantEmail || reviewedRequest.business_email;
+      const note = reviewedRequest.review_note?.trim();
+      const formattedNote = note ? (note.endsWith('.') ? note : `${note}.`) : '';
+
+      if (applicantUserId) {
+        await notificationsService.createAndDispatch(
+          {
+            userId: applicantUserId,
+            title: 'Hồ sơ Organizer chưa được duyệt',
+            content: `Rất tiếc, hồ sơ đăng ký Organizer của bạn cho "${reviewedRequest.organization_name}" chưa được phê duyệt.${formattedNote ? `\nLý do: ${formattedNote}` : ''}\nBạn có thể cập nhật thông tin và gửi lại yêu cầu.`,
+            type: 'SYSTEM',
+          },
+          recipientEmail
+            ? {
+                email: recipientEmail,
+                subject: '[EventHub] Thông báo về yêu cầu đăng ký Organizer của bạn',
+                message: `Xin chào ${reviewedRequest.applicant?.full_name || reviewedRequest.organization_name},\n\nHồ sơ đăng ký Organizer của bạn cho "${reviewedRequest.organization_name}" chưa được duyệt.${formattedNote ? `\nLý do: ${formattedNote}` : ''}\n\nBạn có thể kiểm tra và cập nhật lại hồ sơ tại ${clientUrl}/organizer-request?mode=edit.`,
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6;">
+                    <h2 style="color: #e11d48;">Thông báo về hồ sơ đăng ký Organizer</h2>
+                    <p>Xin chào <strong>${reviewedRequest.applicant?.full_name || reviewedRequest.organization_name}</strong>,</p>
+                    <p>Ban quản trị EventHub đã xem xét hồ sơ đăng ký Organizer của bạn cho <strong>"${reviewedRequest.organization_name}"</strong>.</p>
+                    <p>Rất tiếc, hồ sơ của bạn chưa đủ điều kiện phê duyệt tại thời điểm này.</p>
+                    ${reviewedRequest.review_note ? `
+                      <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+                        <strong style="color: #991b1b;">Lý do xem xét lại:</strong>
+                        <p style="margin: 4px 0 0 0; color: #7f1d1d;">${reviewedRequest.review_note}</p>
+                      </div>
+                    ` : ''}
+                    <p>Bạn có thể kiểm tra lại thông tin, cập nhật và gửi lại yêu cầu xét duyệt bất cứ lúc nào:</p>
+                    <p style="margin-top: 24px;">
+                      <a href="${clientUrl}/organizer-request?mode=edit" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Cập nhật lại hồ sơ</a>
+                    </p>
+                    <p style="margin-top: 30px; font-size: 13px; color: #64748b;">Trân trọng,<br />Đội ngũ EventHub</p>
+                  </div>
+                `,
+              }
+            : {},
+        );
+      }
     }
 
     return reviewedRequest;
