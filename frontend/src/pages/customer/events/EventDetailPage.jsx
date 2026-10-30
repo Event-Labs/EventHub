@@ -8,7 +8,6 @@ import {
   Heart,
   MapPin,
   PauseCircle,
-  ShieldCheck,
   UserCircle,
   XCircle,
 } from 'lucide-react'
@@ -502,7 +501,7 @@ export function EventDetailPage() {
           <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-6 sm:p-7 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div>
-              <h2 className="font-display text-2xl font-black text-white">
+              <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Tổng quan
               </h2>
             </div>
@@ -531,7 +530,7 @@ export function EventDetailPage() {
           <section id="booking-section" className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-8 py-5">
-              <h2 className="font-display text-2xl font-black text-primary drop-shadow-md">
+              <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Lịch diễn
               </h2>
             </div>
@@ -645,7 +644,7 @@ export function EventDetailPage() {
                                         {isPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
                                       </span>
                                       {!saleOpen && !isPaused && (
-                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán')}>
                                           {soldOut ? 'Hết vé' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
                                       )}
@@ -727,29 +726,35 @@ export function EventDetailPage() {
 
         <aside className="glass-panel min-w-0 h-fit rounded-[24px] p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_60%)] opacity-20" />
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Vé sự kiện
               </h2>
             </div>
-            <ShieldCheck className="size-7 shrink-0 text-primary drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+            <button
+              type="button"
+              onClick={handleFavorite}
+              disabled={favoriteMutation.isPending}
+              className={cn(
+                'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
+                event.is_favorited
+                  ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
+                  : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
+              )}
+              title={event.is_favorited ? 'Bỏ yêu thích sự kiện' : 'Lưu vào danh sách yêu thích'}
+              aria-label={event.is_favorited ? 'Bỏ yêu thích' : 'Yêu thích'}
+            >
+              <Heart
+                className={cn(
+                  'size-5 transition-transform duration-200 active:scale-90',
+                  event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                )}
+              />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleFavorite}
-            disabled={favoriteMutation.isPending}
-            className={cn(
-              'mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-primary/40 py-3.5 font-bold text-primary transition-all hover:bg-primary/10 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] disabled:cursor-not-allowed disabled:opacity-70',
-              event.is_favorited && 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(6,182,212,0.2)]',
-            )}
-          >
-            <Heart className={cn('size-5', event.is_favorited && 'fill-current')} />
-            {event.is_favorited ? 'Đã yêu thích' : 'Yêu thích'}
-          </button>
-
-          <div className="mt-8 space-y-4">
+          <div className="mt-6 space-y-4">
             {selectedSession ? (
               <>
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-inner">

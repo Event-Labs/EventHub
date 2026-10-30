@@ -43,12 +43,12 @@ const STATUS_LABELS = {
 }
 
 const STATUS_TONES = {
-    DRAFT: 'gray',
+    DRAFT: 'slate',
     PENDING_REVIEW: 'amber',
     PUBLISHED: 'green',
-    HIDDEN: 'gray',
-    CANCELLED: 'gray',
-    COMPLETED: 'green',
+    HIDDEN: 'neutral',
+    CANCELLED: 'red',
+    COMPLETED: 'purple',
 }
 
 function DemandPredictionCard({ eventId }) {

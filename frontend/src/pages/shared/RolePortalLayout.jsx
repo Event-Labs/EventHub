@@ -347,7 +347,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
       : 'border-white/10 bg-slate-950/80 text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)]'
       }`}>
       <div className="flex items-center gap-5">
-        <NavLink to="/" title="Về trang chủ" className="shrink-0 transition opacity-90 hover:opacity-100">
+        <NavLink to="/" reloadDocument title="Về trang chủ" className="shrink-0 transition opacity-90 hover:opacity-100">
           <img
             src={logoSrc}
             alt="EventHub"
@@ -360,9 +360,10 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <NavLink
           to="/"
+          reloadDocument
           className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-bold transition-all ${isLight
             ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
-            : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-slate-950 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+            : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
             }`}
           title="Chuyển sang trang khách hàng"
         >

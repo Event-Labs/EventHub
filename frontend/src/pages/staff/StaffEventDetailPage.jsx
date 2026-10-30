@@ -93,7 +93,7 @@ export function StaffEventDetailPage() {
           </div>
           <div>
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <Badge tone="green">{EVENT_STATUS_LABELS[event.status] || 'Chưa xác định'}</Badge>
+              <Badge tone={event.status === 'COMPLETED' ? 'purple' : 'green'}>{EVENT_STATUS_LABELS[event.status] || 'Chưa xác định'}</Badge>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="blue">Vai trò: {event.staff_role || 'Nhân sự'}</Badge>
                 {event.gate ? (

@@ -94,7 +94,7 @@ export function AdminOrganizerDetailPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-xl font-extrabold text-white [html.light_&]:text-[#0D1B2A]">{organizer.organization_name}</h2>
                 <Status value={organizer.status} />
-                {organizer.plan_name ? <Badge tone="blue">{organizer.plan_name}</Badge> : <Badge tone="gray">Chưa có gói</Badge>}
+                {organizer.plan_name ? <Badge tone={getPlanTone(organizer.plan_name)}>{organizer.plan_name}</Badge> : <Badge tone="gray">Chưa có gói</Badge>}
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-300 [html.light_&]:text-[#536b88]">{organizer.description || 'Organizer chưa cập nhật mô tả.'}</p>
             </div>
@@ -300,6 +300,15 @@ function DocLink({ href, label }) {
       {label} <ExternalLink className="size-3" />
     </a>
   )
+}
+
+function getPlanTone(planName) {
+  if (!planName) return 'gray'
+  const name = String(planName).toLowerCase()
+  if (name.includes('doanh nghiệp') || name.includes('enterprise') || name.includes('vip')) return 'primary'
+  if (name.includes('chuyên nghiệp') || name.includes('pro')) return 'indigo'
+  if (name.includes('khởi nghiệp') || name.includes('starter') || name.includes('cơ bản')) return 'blue'
+  return 'blue'
 }
 
 function formatCurrency(value) {

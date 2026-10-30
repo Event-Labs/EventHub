@@ -11,6 +11,9 @@ class OrganizerEgressService {
    * Caches for 5 minutes to avoid high-latency external lookups on every request.
    */
   async getRealPublicIp() {
+    if (process.env.PAYOS_EXPECTED_EGRESS_IP) {
+      return process.env.PAYOS_EXPECTED_EGRESS_IP.trim();
+    }
     const now = Date.now();
     if (cachedRealIp && now - lastRealIpTime < 300000) {
       return cachedRealIp;

@@ -195,22 +195,49 @@ class NotificationsRepository {
     return rows;
   }
 
-  async findUpcomingReminderRecipients({ from, to }) {
+  async findUpcomingReminderRecipients({ from, to, milestone = '24h' }) {
+    const is2h = milestone === '2h';
+    const antiDuplicationClause = is2h
+      ? `AND NOT EXISTS (
+          SELECT 1
+          FROM notifications n
+          WHERE n.user_id = o.user_id
+            AND n.event_id = e.id
+            AND n.title LIKE '%2 giờ%'
+            AND n.created_at >= now() - interval '1 day'
+        )`
+      : `AND NOT EXISTS (
+          SELECT 1
+          FROM notifications n
+          WHERE n.user_id = o.user_id
+            AND n.event_id = e.id
+            AND (n.title LIKE '%24 giờ%' OR n.title LIKE '%ngày mai%' OR n.title = 'Nhắc lịch sự kiện')
+            AND n.created_at >= now() - interval '2 days'
+        )`;
+
     const { rows } = await db.query(
       `
-      SELECT DISTINCT
+      SELECT DISTINCT ON (o.user_id, e.id, es.id)
         o.user_id,
-        u.email,
-        u.full_name,
+        COALESCE(t.attendee_email, u.email, o.buyer_email) AS email,
+        COALESCE(t.attendee_name, u.full_name, o.buyer_name, 'Quý khách') AS full_name,
         e.id AS event_id,
         e.title AS event_title,
         e.slug AS event_slug,
+        e.banner_url,
+        e.thumbnail_url,
+        e.format AS event_format,
         es.id AS session_id,
+        es.session_name,
         es.start_time,
+        es.end_time,
         v.name AS venue_name,
         v.address_line,
+        v.ward,
         v.district,
-        v.city
+        v.city,
+        o.order_code,
+        t.ticket_code
       FROM tickets t
       JOIN order_items oi ON oi.id = t.order_item_id
       JOIN orders o ON o.id = oi.order_id
@@ -218,19 +245,19 @@ class NotificationsRepository {
       JOIN events e ON e.id = t.event_id
       JOIN event_sessions es ON es.id = t.event_session_id
       LEFT JOIN venues v ON v.id = es.venue_id
-      WHERE o.status IN ('PAID', 'CONFIRMED')
+      WHERE e.status = 'PUBLISHED'
+        AND e.deleted_at IS NULL
+        AND COALESCE(e.display_state, 'VISIBLE') = 'VISIBLE'
+        AND (e.cancel_request IS NULL OR COALESCE(e.cancel_request->>'status', '') != 'APPROVED')
+        AND o.status IN ('PAID', 'CONFIRMED')
+        AND o.status NOT IN ('CANCELLED', 'REFUNDED')
+        AND COALESCE(o.refunded_amount, 0) < o.total_amount
         AND t.status = 'VALID'
+        AND t.status NOT IN ('CANCELLED', 'REFUNDED')
         AND es.start_time >= $1
         AND es.start_time < $2
-        AND NOT EXISTS (
-          SELECT 1
-          FROM notifications n
-          WHERE n.user_id = o.user_id
-            AND n.event_id = e.id
-            AND n.title = 'Nhắc lịch sự kiện'
-            AND n.created_at >= now() - interval '2 days'
-        )
-      ORDER BY es.start_time ASC
+        ${antiDuplicationClause}
+      ORDER BY o.user_id, e.id, es.id, es.start_time ASC
       LIMIT 500
       `,
       [from, to],
