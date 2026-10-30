@@ -482,6 +482,17 @@ function PortalNotificationBell({ theme }) {
     }
     setNotificationOpen(false)
 
+    const title = (notification.title || '').toLowerCase()
+    const content = (notification.content || '').toLowerCase()
+    if (title.includes('organizer') || content.includes('organizer')) {
+      if (title.includes('đã được duyệt') || content.includes('phê duyệt')) {
+        navigate('/organizer')
+        return
+      }
+      navigate('/organizer-request?mode=edit')
+      return
+    }
+
     const isOrganizerPortal = location.pathname.startsWith('/organizer')
     if (notification.event_id && isOrganizerPortal) {
       navigate(`/organizer/events/${notification.event_id}`)

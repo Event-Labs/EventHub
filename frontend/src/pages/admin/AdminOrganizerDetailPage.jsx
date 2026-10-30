@@ -220,8 +220,21 @@ export function AdminOrganizerDetailPage() {
                   {request.legal_document_url && <DocLink href={request.legal_document_url} label="Đăng ký kinh doanh" />}
                   {request.business_license_url && <DocLink href={request.business_license_url} label="Giấy phép" />}
                   {request.legal_representative_id_url && <DocLink href={request.legal_representative_id_url} label="Đại diện pháp lý" />}
+                  {request.individual_selfie_url && <DocLink href={request.individual_selfie_url} label="Ảnh chân dung (Selfie)" />}
+                  {request.kyc_ocr_data?.social_link && <DocLink href={request.kyc_ocr_data.social_link} label="Kênh truyền thông / MXH" />}
+                  {request.kyc_ocr_data?.portfolio_url && <DocLink href={request.kyc_ocr_data.portfolio_url} label="Minh chứng / Portfolio" />}
                   {request.individual_id_front_url && <DocLink href={request.individual_id_front_url} label="CCCD mặt trước" />}
                   {request.individual_id_back_url && <DocLink href={request.individual_id_back_url} label="CCCD mặt sau" />}
+                  {request.kyc_ocr_data && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      <ShieldCheck className="size-3.5" />{' '}
+                      {request.kyc_ocr_data?.verification_method === 'PARTNER_VETTING' || request.kyc_ocr_data?.algorithm_checked
+                        ? 'Định danh số & Uy tín (Không lưu ảnh CCCD)'
+                        : request.kyc_ocr_data?.scan_method === 'VNEID_GATEWAY' || request.kyc_ocr_data?.verified
+                        ? 'Xác thực qua VNeID Mức 2'
+                        : 'Xác thực định danh số'}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
