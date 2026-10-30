@@ -191,24 +191,26 @@ export function AdminOrganizerRequestsPage() {
 
       {!requestsQuery.isLoading && !requestsQuery.isError && (
         <Table
-          tableClassName="min-w-[900px]"
           headers={[
             'Tổ chức',
             'Loại',
-            'Người gửi',
-            'Liên hệ',
+            'Người gửi & Liên hệ',
             'Trạng thái',
-            'Ngày tạo/gửi',
+            'Ngày gửi',
             'Thao tác',
           ]}
           rows={requests.map((request) => [
-            <div key="org">
-              <p className="font-semibold text-content max-w-[150px] truncate" title={request.organization_name}>{request.organization_name}</p>
-              <p className="line-clamp-1 text-xs text-subtle max-w-[150px]" title={request.organization_description}>
-                {request.organization_description}
+            <div key="org" className="min-w-[160px] max-w-[220px]">
+              <p className="font-bold text-content truncate" title={request.organization_name}>
+                {request.organization_name}
               </p>
+              {request.organization_description && (
+                <p className="line-clamp-1 text-xs text-subtle mt-0.5" title={request.organization_description}>
+                  {request.organization_description}
+                </p>
+              )}
             </div>,
-            <div key="type" className="space-y-1">
+            <div key="type" className="space-y-1 min-w-[140px]">
               <Badge tone={request.request_type === 'ORGANIZATION' ? 'green' : 'blue'}>
                 {requestActionLabel(request.request_action)} · {requestTypeLabel(request.request_type)}
               </Badge>
@@ -234,23 +236,22 @@ export function AdminOrganizerRequestsPage() {
                 </div>
               )}
             </div>,
-            <div key="user">
-              <p className="font-semibold text-content">{request.applicant?.full_name}</p>
-              <p className="text-xs text-subtle max-w-[150px] truncate" title={request.applicant?.email}>{request.applicant?.email}</p>
-            </div>,
-            <div key="contact" className="text-sm">
-              <p className="text-content font-medium max-w-[200px] truncate" title={request.business_email || request.applicant?.email}>
+            <div key="sender" className="min-w-[180px] max-w-[240px]">
+              <p className="font-bold text-content truncate" title={request.applicant?.full_name}>
+                {request.applicant?.full_name || 'Chưa có tên'}
+              </p>
+              <p className="text-xs text-subtle truncate" title={request.business_email || request.applicant?.email}>
                 {request.business_email || request.applicant?.email}
               </p>
-              <p className="text-subtle text-xs mt-0.5">{request.business_phone}</p>
+              <p className="text-xs text-subtle">{request.business_phone || request.applicant?.phone || 'Chưa có SĐT'}</p>
               {request.request_type === 'ORGANIZATION' && (
-                <p
-                  className={`mt-1 text-xs font-semibold ${
+                <span
+                  className={`inline-block mt-0.5 text-[11px] font-semibold ${
                     request.business_email_verified ? 'text-success' : 'text-warning'
                   }`}
                 >
-                  {request.business_email_verified ? 'Email đã xác thực' : 'Email chưa xác thực'}
-                </p>
+                  {request.business_email_verified ? '✓ Email đã xác thực' : '⚠ Email chưa xác thực'}
+                </span>
               )}
             </div>,
             <StatusBadge
@@ -259,7 +260,7 @@ export function AdminOrganizerRequestsPage() {
               label={statusLabel(request.status)}
               tone={statusTone(request.status)}
             />,
-            <span key="date" className="text-subtle font-medium">
+            <span key="date" className="text-subtle font-medium whitespace-nowrap">
               {new Date(request.created_at).toLocaleDateString('vi-VN')}
             </span>,
             <TableActionButton
