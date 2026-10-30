@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Camera, CheckCircle2, Clock3, History, Loader2, UserCircle, X, XCircle } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { AlertTriangle, Building2, Camera, Check, CheckCircle2, Clock3, History, Loader2, Lock, UserCircle, X, XCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { getStoredUserKey, getUserRoles, isAdminUser, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
@@ -13,6 +13,118 @@ import { uploadOrganizerAvatar, uploadOrganizerDocument } from '@/services/uploa
 import { getProfile } from '@/services/user.service.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+
+export const CCCD_PROVINCE_CODES = {
+  '001': 'Hà Nội', '002': 'Hà Giang', '004': 'Cao Bằng', '006': 'Bắc Kạn',
+  '008': 'Tuyên Quang', '010': 'Lào Cai', '011': 'Điện Biên', '012': 'Lai Châu',
+  '014': 'Sơn La', '015': 'Yên Bái', '017': 'Hòa Bình', '019': 'Thái Nguyên',
+  '020': 'Lạng Sơn', '022': 'Quảng Ninh', '024': 'Bắc Giang', '025': 'Phú Thọ',
+  '026': 'Vĩnh Phúc', '027': 'Bắc Ninh', '030': 'Hải Dương', '031': 'Hải Phòng',
+  '033': 'Hưng Yên', '034': 'Thái Bình', '035': 'Hà Nam', '036': 'Nam Định',
+  '037': 'Ninh Bình', '038': 'Thanh Hóa', '040': 'Nghệ An', '042': 'Hà Tĩnh',
+  '044': 'Quảng Bình', '045': 'Quảng Trị', '046': 'Thừa Thiên Huế', '048': 'Đà Nẵng',
+  '049': 'Quảng Nam', '051': 'Quảng Ngãi', '052': 'Bình Định', '054': 'Phú Yên',
+  '056': 'Khánh Hòa', '058': 'Ninh Thuận', '060': 'Bình Thuận', '062': 'Kon Tum',
+  '064': 'Gia Lai', '066': 'Đắk Lắk', '067': 'Đắk Nông', '068': 'Lâm Đồng',
+  '070': 'Bình Phước', '072': 'Tây Ninh', '074': 'Bình Dương', '075': 'Đồng Nai',
+  '077': 'Bà Rịa - Vũng Tàu', '079': 'TP. Hồ Chí Minh', '080': 'Long An',
+  '082': 'Tiền Giang', '083': 'Bến Tre', '084': 'Trà Vinh', '086': 'Vĩnh Long',
+  '087': 'Đồng Tháp', '089': 'An Giang', '091': 'Kiên Giang', '092': 'Cần Thơ',
+  '093': 'Hậu Giang', '094': 'Sóc Trăng', '095': 'Bạc Liêu', '096': 'Cà Mau',
+}
+
+export function validateCccdStructure(idNumber, dob = '', gender = '') {
+  if (!idNumber || !/^\d{12}$/.test(idNumber)) {
+    return { valid: false, message: 'Số CCCD phải bao gồm đúng 12 chữ số theo quy chuẩn Bộ Công An.' }
+  }
+
+  // 1. Kiểm tra 3 số đầu - Mã tỉnh/thành phố khai sinh
+  const provinceCode = idNumber.slice(0, 3)
+  const province = CCCD_PROVINCE_CODES[provinceCode]
+  if (!province) {
+    return {
+      valid: false,
+      message: `Mã tỉnh/thành '${provinceCode}' không thuộc 63 tỉnh/thành Việt Nam.`,
+    }
+  }
+
+  // 2. Kiểm tra chữ số thứ 4 - Thế kỷ sinh & Giới tính
+  const genderDigit = parseInt(idNumber.charAt(3), 10)
+  if (![0, 1, 2, 3].includes(genderDigit)) {
+    return {
+      valid: false,
+      message: `Chữ số thứ 4 ('${genderDigit}') không hợp lệ. Quy chuẩn C06 chỉ chấp nhận 0-1 (thế kỷ 20) hoặc 2-3 (thế kỷ 21).`,
+    }
+  }
+
+  const century = genderDigit === 0 || genderDigit === 1 ? 1900 : 2000
+  const cccdGender = genderDigit === 0 || genderDigit === 2 ? 'Nam' : 'Nữ'
+
+  // 3. Kiểm tra 2 số tiếp theo (thứ 5 & 6) - Năm sinh
+  const yearSuffix = parseInt(idNumber.slice(4, 6), 10)
+  const cccdBirthYear = century + yearSuffix
+  const currentYear = new Date().getFullYear()
+
+  if (cccdBirthYear > currentYear - 15) {
+    return {
+      valid: false,
+      message: `Năm sinh trích xuất từ CCCD (${cccdBirthYear}) chưa đủ tuổi đại diện tổ chức sự kiện.`,
+    }
+  }
+  if (cccdBirthYear < 1920) {
+    return {
+      valid: false,
+      message: `Năm sinh trích xuất từ CCCD (${cccdBirthYear}) không hợp lệ.`,
+    }
+  }
+
+  // 4. Kiểm tra dãy 6 số cuối (không được là 000000)
+  const randomPart = idNumber.slice(6)
+  if (randomPart === '000000') {
+    return {
+      valid: false,
+      message: 'Dãy 6 số cuối không hợp lệ (kho số C06 Bộ Công An bắt đầu từ 000001).',
+    }
+  }
+
+  // 5. Đối chiếu chéo với Ngày sinh (nếu người dùng đã nhập)
+  if (dob) {
+    let year = null
+    const parts = dob.includes('/') ? dob.split('/') : dob.includes('-') ? dob.split('-') : null
+    if (parts) {
+      if (parts[2]?.length === 4) year = parseInt(parts[2], 10)
+      else if (parts[0]?.length === 4) year = parseInt(parts[0], 10)
+    }
+
+    if (year && !isNaN(year) && year !== cccdBirthYear) {
+      return {
+        valid: false,
+        message: `Năm sinh khai báo (${year}) không khớp với năm sinh trích xuất từ CCCD (${cccdBirthYear}).`,
+      }
+    }
+  }
+
+  // 6. Đối chiếu chéo với Giới tính (nếu người dùng đã chọn)
+  if (gender) {
+    const isMale = gender.toLowerCase().includes('nam') || gender.toLowerCase() === 'm'
+    const isFemale = gender.toLowerCase().includes('nữ') || gender.toLowerCase() === 'f'
+    const selectedGender = isMale ? 'Nam' : isFemale ? 'Nữ' : gender
+
+    if (selectedGender !== cccdGender) {
+      return {
+        valid: false,
+        message: `Giới tính chọn (${selectedGender}) không khớp với chữ số giới tính trong CCCD (${cccdGender}).`,
+      }
+    }
+  }
+
+  return {
+    valid: true,
+    province,
+    gender: cccdGender,
+    birthYear: cccdBirthYear,
+  }
+}
 
 const emptyForm = {
   request_type: 'INDIVIDUAL',
@@ -34,6 +146,12 @@ const emptyForm = {
   individual_id_back_url: '',
   individual_selfie_url: '',
   individual_tax_code: '',
+  individual_dob: '',
+  individual_address: '',
+  individual_gender: 'Nam',
+  individual_social_link: '',
+  individual_portfolio_url: '',
+  kyc_ocr_data: null,
   terms_accepted: false,
 }
 
@@ -41,33 +159,34 @@ const requestTypeOptions = [
   {
     value: 'INDIVIDUAL',
     label: 'Cá nhân',
-    description: 'Dành cho creator, host độc lập hoặc nhóm nhỏ chưa có pháp nhân.',
+    description: 'Dành cho creator, host độc lập, workshop hoặc nhóm tổ chức chưa thành lập pháp nhân.',
   },
   {
     value: 'ORGANIZATION',
-    label: 'Tổ chức',
-    description: 'Dành cho doanh nghiệp, CLB, trung tâm hoặc pháp nhân có mã số thuế.',
+    label: 'Tổ chức / Doanh nghiệp',
+    description: 'Dành cho doanh nghiệp, công ty, câu lạc bộ có tư cách pháp nhân và mã số thuế.',
   },
 ]
 
 const validationLabels = {
-  organization_name: 'Tên tổ chức',
-  organization_description: 'Mô tả',
-  business_email: 'Email tổ chức',
-  business_phone: 'Số điện thoại',
-  organization_avatar_url: 'Ảnh đại diện',
-  tax_code: 'Mã số thuế',
+  organization_name: 'Tên ban tổ chức / Thương hiệu',
+  organization_description: 'Mô tả hoạt động',
+  business_email: 'Email liên hệ',
+  business_phone: 'Số điện thoại liên hệ',
+  organization_avatar_url: 'Ảnh đại diện / Logo',
+  tax_code: 'Mã số thuế doanh nghiệp',
   legal_document_url: 'Giấy chứng nhận đăng ký doanh nghiệp',
   legal_representative_name: 'Người đại diện pháp luật',
-  legal_representative_position: 'Chức vụ',
+  legal_representative_position: 'Chức vụ người đại diện',
   legal_representative_id_url: 'Giấy tờ tùy thân người đại diện',
+  authorization_letter_url: 'Giấy ủy quyền',
+  business_license_url: 'Giấy phép kinh doanh đặc thù',
   individual_full_name: 'Họ tên pháp lý',
-  individual_identity_number: 'Số CCCD/Hộ chiếu',
-  individual_id_front_url: 'CCCD mặt trước',
-  individual_id_back_url: 'CCCD mặt sau',
-  individual_selfie_url: 'Ảnh chân dung/Selfie',
+  individual_identity_number: 'Số CCCD/Định danh cá nhân',
+  individual_selfie_url: 'Ảnh chân dung/Selfie đối chiếu',
   individual_tax_code: 'Mã số thuế cá nhân',
-  terms_accepted: 'Điều khoản',
+  individual_social_link: 'Liên kết mạng xã hội / Kênh truyền thông',
+  terms_accepted: 'Điều khoản dịch vụ',
 }
 
 function requestTypeLabel(type) {
@@ -281,9 +400,9 @@ function StatusCard({ request, titlePrefix, onEdit }) {
             <button
               type="button"
               onClick={() => onEdit(request)}
-              className="mt-5 inline-flex rounded-full border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
+              className="mt-5 inline-flex rounded-full border border-[#C99A47]/40 bg-[#C99A47]/15 px-6 py-2.5 text-sm font-bold text-[#E6C17A] transition-all hover:bg-[#C99A47]/30 hover:border-[#E6C17A]"
             >
-              Chỉnh sửa
+              Cập nhật hồ sơ
             </button>
           )}
         </div>
@@ -410,6 +529,7 @@ export function OrganizerRequestPage() {
     setSelectedAvatar(null)
     setSelectedDocuments({})
     setPreviewUrl(request.organization_avatar_url || '')
+    const kyc = request.kyc_ocr_data || null
     setForm({
       ...emptyForm,
       request_type: request.request_type || 'INDIVIDUAL',
@@ -427,16 +547,36 @@ export function OrganizerRequestPage() {
       authorization_letter_url: request.authorization_letter_url || '',
       individual_full_name: request.individual_full_name || '',
       individual_identity_number: request.individual_identity_number || '',
-      individual_id_front_url: request.individual_id_front_url || '',
-      individual_id_back_url: request.individual_id_back_url || '',
+      individual_id_front_url: '',
+      individual_id_back_url: '',
       individual_selfie_url: request.individual_selfie_url || '',
       individual_tax_code: request.individual_tax_code || '',
+      individual_dob: kyc?.dob || '',
+      individual_address: kyc?.address || '',
+      individual_gender: kyc?.gender || 'Nam',
+      individual_social_link: kyc?.social_link || '',
+      individual_portfolio_url: kyc?.portfolio_url || '',
+      kyc_ocr_data: kyc,
       terms_accepted: Boolean(request.terms_accepted),
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const autoEditTriggeredRef = useRef(false)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const isEditMode = searchParams.get('mode') === 'edit' || searchParams.get('edit') === 'latest' || location.state?.editLatest
+    if (isEditMode && requests.length > 0 && !editingRequest && !autoEditTriggeredRef.current) {
+      const candidate = [...requests].reverse().find((r) => r.status === 'REJECTED' || r.status === 'PENDING') || requests[requests.length - 1]
+      if (candidate && candidate.status !== 'APPROVED') {
+        autoEditTriggeredRef.current = true
+        handleEditRequest(candidate)
+      }
+    }
+  }, [location.search, location.state, requests, editingRequest])
+
   const cancelEdit = () => {
+    autoEditTriggeredRef.current = true
     setEditingRequest(null)
     setForm(emptyForm)
     setSelectedAvatar(null)
@@ -499,6 +639,54 @@ export function OrganizerRequestPage() {
       return
     }
 
+    if (!isOrganization) {
+      if (!form.individual_full_name?.trim()) {
+        const message = 'Vui lòng nhập Họ và tên pháp lý.'
+        setError(message)
+        toast.error(message)
+        return
+      }
+
+      if (!form.individual_identity_number?.trim() || form.individual_identity_number.trim().length !== 12) {
+        const message = 'Vui lòng nhập đúng 12 chữ số CCCD.'
+        setError(message)
+        toast.error(message)
+        return
+      }
+
+      const cccdCheck = validateCccdStructure(
+        form.individual_identity_number.trim(),
+        form.individual_dob?.trim(),
+        form.individual_gender
+      )
+      if (!cccdCheck.valid) {
+        setError(cccdCheck.message)
+        toast.error(cccdCheck.message)
+        return
+      }
+
+      if (!form.individual_dob?.trim()) {
+        const message = 'Vui lòng nhập ngày sinh.'
+        setError(message)
+        toast.error(message)
+        return
+      }
+
+      if (!form.individual_address?.trim()) {
+        const message = 'Vui lòng nhập nơi thường trú theo CCCD.'
+        setError(message)
+        toast.error(message)
+        return
+      }
+
+      if (!form.individual_social_link?.trim()) {
+        const message = 'Vui lòng cung cấp link mạng xã hội hoặc kênh truyền thông chính chủ để Admin thẩm định.'
+        setError(message)
+        toast.error(message)
+        return
+      }
+    }
+
     if (!form.terms_accepted) {
       const message = 'Vui lòng xác nhận đã đọc và đồng ý Điều khoản dành cho Nhà tổ chức.'
       setError(message)
@@ -508,13 +696,11 @@ export function OrganizerRequestPage() {
 
     const requiredDocuments = isOrganization
       ? [
-          ['legal_document_url', 'Vui lòng tải Giấy chứng nhận đăng ký doanh nghiệp.'],
-          ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
-        ]
+        ['legal_document_url', 'Vui lòng tải Giấy chứng nhận đăng ký doanh nghiệp.'],
+        ['legal_representative_id_url', 'Vui lòng tải giấy tờ tùy thân của người đại diện.'],
+      ]
       : [
-        ['individual_id_front_url', 'Vui lòng tải ảnh CCCD mặt trước.'],
-        ['individual_id_back_url', 'Vui lòng tải ảnh CCCD mặt sau.'],
-        ['individual_selfie_url', 'Vui lòng tải ảnh chân dung/Selfie.'],
+        ['individual_selfie_url', 'Vui lòng tải ảnh chân dung/Selfie để đối chiếu trực quan.'],
       ]
 
     const missingDocument = requiredDocuments.find(
@@ -528,10 +714,12 @@ export function OrganizerRequestPage() {
     }
 
     const uploadDocumentField = async (field) => {
+      // Security rule: NEVER upload CCCD front/back to Cloudinary!
+      if (field === 'individual_id_front_url' || field === 'individual_id_back_url') {
+        return ''
+      }
       if (selectedDocuments[field]) {
         const imageOnlyFields = [
-          'individual_id_front_url',
-          'individual_id_back_url',
           'individual_selfie_url',
         ]
         const uploadResult = await uploadOrganizerDocument(selectedDocuments[field], {
@@ -558,10 +746,35 @@ export function OrganizerRequestPage() {
           authorization_letter_url: await uploadDocumentField('authorization_letter_url'),
         }
         : {
-          individual_id_front_url: await uploadDocumentField('individual_id_front_url'),
-          individual_id_back_url: await uploadDocumentField('individual_id_back_url'),
+          individual_id_front_url: '',
+          individual_id_back_url: '',
           individual_selfie_url: await uploadDocumentField('individual_selfie_url'),
         }
+
+      const validation = !isOrganization
+        ? validateCccdStructure(
+            form.individual_identity_number.trim(),
+            form.individual_dob?.trim(),
+            form.individual_gender
+          )
+        : null
+
+      const finalKycData = !isOrganization
+        ? {
+            verification_method: 'PARTNER_VETTING',
+            id_number: form.individual_identity_number.trim(),
+            full_name: form.individual_full_name.trim().toLocaleUpperCase('vi-VN'),
+            dob: form.individual_dob?.trim() || '',
+            gender: form.individual_gender || 'Nam',
+            address: form.individual_address?.trim() || '',
+            social_link: form.individual_social_link?.trim() || '',
+            portfolio_url: form.individual_portfolio_url?.trim() || '',
+            province: validation?.province || '',
+            birth_year: validation?.birthYear || '',
+            algorithm_checked: true,
+            submitted_at: new Date().toISOString(),
+          }
+        : null
 
       requestMutation.mutate({
         id: editingRequest?.id,
@@ -569,7 +782,7 @@ export function OrganizerRequestPage() {
           request_type: form.request_type,
           organization_name: form.organization_name.trim(),
           organization_description: form.organization_description.trim(),
-          business_email: isOrganization ? form.business_email.trim() : '',
+          business_email: isOrganization ? form.business_email.trim() : (form.business_email?.trim() || ''),
           business_phone: form.business_phone.trim(),
           organization_avatar_url: avatarUrl,
           tax_code: isOrganization ? form.tax_code.trim() : '',
@@ -581,10 +794,11 @@ export function OrganizerRequestPage() {
           authorization_letter_url: documentUrls.authorization_letter_url || '',
           individual_full_name: isOrganization ? '' : form.individual_full_name.trim(),
           individual_identity_number: isOrganization ? '' : form.individual_identity_number.trim(),
-          individual_id_front_url: documentUrls.individual_id_front_url || '',
-          individual_id_back_url: documentUrls.individual_id_back_url || '',
+          individual_id_front_url: '', // Not stored for security
+          individual_id_back_url: '',  // Not stored for security
           individual_selfie_url: documentUrls.individual_selfie_url || '',
           individual_tax_code: isOrganization ? '' : form.individual_tax_code.trim(),
+          kyc_ocr_data: isOrganization ? null : finalKycData,
           terms_accepted: form.terms_accepted,
         },
       })
@@ -681,8 +895,8 @@ export function OrganizerRequestPage() {
                     onChange={handleChange('organization_name')}
                     placeholder={
                       form.request_type === 'ORGANIZATION'
-                        ? 'EventHub Production JSC'
-                        : 'Tên thương hiệu / nhóm tổ chức của bạn'
+                        ? 'VD: Công ty Sự Kiện Việt'
+                        : 'VD: CLB Âm Nhạc Sài Gòn'
                     }
                     required
                   />
@@ -690,17 +904,25 @@ export function OrganizerRequestPage() {
                     label="Số điện thoại"
                     value={form.business_phone}
                     onChange={handleChange('business_phone')}
-                    placeholder="0901234567 hoặc +84901234567"
+                    placeholder="VD: 0901234567"
                     required
                   />
-                  {form.request_type === 'ORGANIZATION' && (
+                  {form.request_type === 'ORGANIZATION' ? (
                     <Field
                       label="Email tổ chức"
                       type="email"
                       value={form.business_email}
                       onChange={handleChange('business_email')}
-                      placeholder="ops@example.com"
+                      placeholder="contact@company.com"
                       required
+                    />
+                  ) : (
+                    <Field
+                      label="Email liên hệ (Tùy chọn)"
+                      type="email"
+                      value={form.business_email}
+                      onChange={handleChange('business_email')}
+                      placeholder="contact@example.com"
                     />
                   )}
                 </div>
@@ -811,57 +1033,184 @@ export function OrganizerRequestPage() {
               {form.request_type === 'INDIVIDUAL' && (
                 <>
                   <FormSection
-                    title="Thông tin định danh cá nhân"
-                    description="Thông tin cần trùng khớp với giấy tờ tùy thân dùng để xác minh."
+                    title="Thông tin cá nhân"
+                    description="Vui lòng nhập đúng theo giấy tờ tùy thân để hồ sơ được xét duyệt nhanh nhất."
                   >
+                    <div className="flex items-center gap-2 rounded-xl bg-emerald-950/30 border border-emerald-500/20 px-3.5 py-2.5 text-xs text-emerald-300">
+                      <Lock className="size-4 shrink-0 text-emerald-400" />
+                      <span>Dữ liệu định danh được bảo mật an toàn theo tiêu chuẩn riêng tư.</span>
+                    </div>
+
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <Field
-                        label="Họ tên pháp lý"
-                        value={form.individual_full_name}
-                        onChange={handleChange('individual_full_name')}
-                        placeholder="NGUYỄN VĂN A"
-                        required
-                      />
-                      <Field
-                        label="Số CCCD/Hộ chiếu"
-                        value={form.individual_identity_number}
-                        onChange={handleChange('individual_identity_number')}
-                        placeholder="12 số CCCD hoặc số hộ chiếu"
-                        required
-                      />
-                      <Field
-                        label="Mã số thuế cá nhân"
-                        value={form.individual_tax_code}
-                        onChange={handleChange('individual_tax_code')}
-                        placeholder="10 hoặc 13 chữ số"
-                        required
-                      />
+                      <div className="sm:col-span-2">
+                        <Field
+                          label="Họ và tên"
+                          value={form.individual_full_name}
+                          onChange={handleChange('individual_full_name')}
+                          placeholder="NGUYỄN VĂN A"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Field
+                          label="Số CCCD (12 chữ số)"
+                          value={form.individual_identity_number}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 12)
+                            setForm((prev) => ({ ...prev, individual_identity_number: val }))
+                          }}
+                          placeholder="Nhập 12 số CCCD"
+                          required
+                        />
+                        {/* Real-time C06 feedback */}
+                        {form.individual_identity_number && (
+                          <div className="mt-1.5">
+                            {form.individual_identity_number.length < 12 && (
+                              <div className="text-[11px]">
+                                {form.individual_identity_number.length >= 3 && CCCD_PROVINCE_CODES[form.individual_identity_number.slice(0, 3)] ? (
+                                  <span className="text-emerald-400 font-medium flex items-center gap-1">
+                                    <Check className="size-3" /> Nơi cấp: {CCCD_PROVINCE_CODES[form.individual_identity_number.slice(0, 3)]}
+                                  </span>
+                                ) : form.individual_identity_number.length >= 3 ? (
+                                  <span className="text-rose-400 font-medium flex items-center gap-1">
+                                    <AlertTriangle className="size-3" /> Mã tỉnh '{form.individual_identity_number.slice(0, 3)}' không hợp lệ
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
+
+                            {form.individual_identity_number.length === 12 && (
+                              (() => {
+                                const check = validateCccdStructure(
+                                  form.individual_identity_number,
+                                  form.individual_dob,
+                                  form.individual_gender
+                                )
+                                if (!check.valid) {
+                                  return (
+                                    <div className="mt-2 rounded-xl bg-rose-950/40 border border-rose-500/40 p-2.5 text-xs text-rose-300 flex items-start gap-2">
+                                      <AlertTriangle className="size-4 text-rose-400 shrink-0 mt-0.5" />
+                                      <span>{check.message}</span>
+                                    </div>
+                                  )
+                                }
+                                return (
+                                  <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-2.5 text-xs space-y-1.5">
+                                    <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                                      <Check className="size-3.5" />
+                                      <span>Thông tin giải mã chuẩn C06 Bộ Công An:</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 pt-0.5 text-[11px] text-slate-300">
+                                      <div>
+                                        <span className="text-slate-400 block text-[10px]">Nơi khai sinh:</span>
+                                        <strong className="text-white text-xs">{check.province}</strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400 block text-[10px]">Giới tính:</span>
+                                        <strong className="text-white text-xs">{check.gender}</strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400 block text-[10px]">Năm sinh:</span>
+                                        <strong className="text-white text-xs">{check.birthYear}</strong>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })()
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Field
+                            label="Ngày sinh"
+                            type="text"
+                            value={form.individual_dob}
+                            onChange={handleChange('individual_dob')}
+                            placeholder="DD/MM/YYYY"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block">
+                            <span className="text-sm font-semibold text-muted">
+                              Giới tính <RequiredMark />
+                            </span>
+                            <select
+                              value={form.individual_gender}
+                              onChange={handleChange('individual_gender')}
+                              className="cosmic-input w-full mt-2"
+                            >
+                              <option value="Nam">Nam</option>
+                              <option value="Nữ">Nữ</option>
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Field
+                          label="Nơi thường trú"
+                          value={form.individual_address}
+                          onChange={handleChange('individual_address')}
+                          placeholder="Địa chỉ theo CCCD"
+                          required
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Field
+                          label="Mã số thuế cá nhân (Tùy chọn)"
+                          value={form.individual_tax_code}
+                          onChange={handleChange('individual_tax_code')}
+                          placeholder="Mã số thuế (nếu có)"
+                        />
+                      </div>
                     </div>
                   </FormSection>
 
                   <FormSection
-                    title="Tài liệu xác minh cá nhân"
-                    description="Ảnh chụp cần rõ mặt, rõ số giấy tờ và không bị che khuất."
+                    title="Kênh truyền thông & Mạng xã hội"
+                    description="Cung cấp liên kết để ban quản trị đối chiếu và duyệt tài khoản nhanh hơn."
                   >
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-4">
+                      <div>
+                        <Field
+                          label="Link Mạng xã hội / Kênh truyền thông"
+                          value={form.individual_social_link}
+                          onChange={handleChange('individual_social_link')}
+                          placeholder="https://facebook.com/..."
+                          required
+                        />
+                        <p className="mt-1.5 text-xs text-slate-400">
+                          Link Facebook, Fanpage hoặc LinkedIn chính chủ của bạn.
+                        </p>
+                      </div>
+
+                      <div>
+                        <Field
+                          label="Minh chứng sự kiện / Portfolio (Tùy chọn)"
+                          value={form.individual_portfolio_url}
+                          onChange={handleChange('individual_portfolio_url')}
+                          placeholder="https://drive.google.com/..."
+                        />
+                        <p className="mt-1.5 text-xs text-slate-400">
+                          Link hình ảnh, bài viết hoặc video các sự kiện đã từng tham gia tổ chức.
+                        </p>
+                      </div>
+                    </div>
+                  </FormSection>
+
+                  <FormSection
+                    title="Ảnh chân dung"
+                    description="Tải ảnh chân dung rõ mặt để đối chiếu với thông tin khai báo."
+                  >
+                    <div className="max-w-xs">
                       <FileField
-                        label="CCCD mặt trước"
-                        required
-                        imageOnly
-                        file={selectedDocuments.individual_id_front_url}
-                        existingUrl={form.individual_id_front_url}
-                        onChange={handleDocumentChange('individual_id_front_url')}
-                      />
-                      <FileField
-                        label="CCCD mặt sau"
-                        required
-                        imageOnly
-                        file={selectedDocuments.individual_id_back_url}
-                        existingUrl={form.individual_id_back_url}
-                        onChange={handleDocumentChange('individual_id_back_url')}
-                      />
-                      <FileField
-                        label="Ảnh chân dung/Selfie"
+                        label="Ảnh chân dung / Selfie"
                         required
                         imageOnly
                         file={selectedDocuments.individual_selfie_url}
