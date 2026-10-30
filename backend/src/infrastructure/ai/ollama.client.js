@@ -16,18 +16,18 @@ const logger = require('../../core/logger');
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
-const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
-const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
-const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 8192);
-const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 12);
-const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 1024);
-const OLLAMA_NUM_GPU = Number(process.env.OLLAMA_NUM_GPU || 28);
+const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 600000);
+const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 200000);
+const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 4096);
+const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 2);
+const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 512);
+const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 8;
 
 
 /**
  * Base fetch wrapper with timeout and external cancellation support.
  */
-async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 1, externalSignal = null) {
+async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 0, externalSignal = null) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -64,6 +64,9 @@ async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 1, 
         abortErr.name = 'AbortError';
         abortErr.code = 'SCAN_CANCELLED';
         throw abortErr;
+      }
+      if (controller.signal.aborted) {
+        throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
       }
       if (err.name === 'AbortError') {
         throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
@@ -121,6 +124,7 @@ async function generate(prompt, options = {}) {
       num_batch: options.num_batch ?? OLLAMA_NUM_BATCH,
       ...(options.num_gpu !== undefined ? { num_gpu: options.num_gpu } : (OLLAMA_NUM_GPU ? { num_gpu: OLLAMA_NUM_GPU } : {})),
     },
+
   };
 
   if (Array.isArray(options.images) && options.images.length > 0) {
@@ -195,8 +199,10 @@ async function chat(messages, options = {}) {
   }
 
   let result;
+  const timeoutMs = options.timeoutMs || OLLAMA_TIMEOUT;
+  const retries = options.retries ?? 0;
   try {
-    result = await ollamaFetch('/api/chat', body, OLLAMA_TIMEOUT, 1, options.signal);
+    result = await ollamaFetch('/api/chat', body, timeoutMs, retries, options.signal);
   } catch (err) {
     if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || options.signal?.aborted) {
       throw err;
@@ -206,7 +212,7 @@ async function chat(messages, options = {}) {
       logger.info(`[OllamaClient] Model '${model}' does not support raw images input. Retrying with text-only payload.`);
       const textOnlyMessages = processedMessages.map(({ images, ...rest }) => rest);
       const textOnlyBody = { ...body, messages: textOnlyMessages };
-      result = await ollamaFetch('/api/chat', textOnlyBody, OLLAMA_TIMEOUT, 1, options.signal);
+      result = await ollamaFetch('/api/chat', textOnlyBody, timeoutMs, retries, options.signal);
     } else {
       throw err;
     }
@@ -479,55 +485,17 @@ async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eve
   }
 
   // 1. Nếu có ký tự tiếng Thái/Khmer hoặc chuỗi lặp rác -> làm sạch trước
-  let cleaned = sanitizeRawVisionOutput(rawDescription);
+  const cleaned = sanitizeRawVisionOutput(rawDescription);
 
   // Nếu sau khi làm sạch chuỗi còn quá ngắn hoặc rỗng do toàn bộ là mã rác
   if (cleaned.length < 15) {
     return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, chủ đề phù hợp và đảm bảo chất lượng hình ảnh.`;
   }
 
-  // 2. Nếu mô tả đã thuần tiếng Việt và có đầy đủ dấu câu, không chứa tiếng Anh -> giữ nguyên
-  if (!isEnglishOrForeignText(cleaned) && hasVietnameseDiacritics(cleaned)) {
-    return cleaned.trim();
-  }
-
-  // 3. Nếu mô tả là tiếng Anh (do Vision model xuất ra) -> Dùng mô hình ngôn ngữ EventHub để dịch & trau chuốt
-  try {
-    const prompt = `Bạn là Chuyên gia Thẩm định Hình ảnh & OCR Sự kiện EventHub tại Việt Nam.
-Dưới đây là kết quả nhận diện thị giác từ camera AI (tiếng Anh) cho ${sourceLabel || 'hình ảnh sự kiện'} của sự kiện "${eventTitle || 'Sự kiện EventHub'}":
-"""
-${cleaned}
-"""
-
-Hãy chuyển đổi và viết lại thành một bản nhận định TIẾNG VIỆT tự nhiên, chuẩn mực (2-3 câu):
-1. Nội dung trực quan: Mô tả đối tượng, người/nghệ sĩ, bối cảnh, màu sắc và phong cách thiết kế của ảnh.
-2. Thông tin chữ (OCR): Đọc tên sự kiện, nghệ sĩ biểu diễn, ngày giờ, địa điểm tổ chức nếu có trên ảnh.
-3. Tính thẩm mỹ & phù hợp: Nhận xét hình ảnh có hiển thị rõ nét, bố cục có đạt chuẩn và phù hợp với sự kiện "${eventTitle}" hay không.
-
-YÊU CẦU BẮT BUỘC:
-- Trả về DUY NHẤT một đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG dùng thẻ <think>, KHÔNG để sót từ tiếng Anh thừa, KHÔNG thêm lời chào).
-- Giữ nguyên chuẩn xác các tên riêng nghệ sĩ, thời gian, địa điểm nếu có.`;
-
-    const vietnameseText = await generate(prompt, {
-      model: OLLAMA_MODEL,
-      temperature: 0.1,
-      max_tokens: 200,
-      think: false,
-      signal,
-    });
-
-    if (vietnameseText && vietnameseText.length > 15 && !isForeignOrGibberishText(vietnameseText)) {
-      return vietnameseText.replace(/<\/?[a-zA-Z0-9_-]+>/g, '').trim();
-    }
-  } catch (err) {
-    if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || signal?.aborted || String(err.message || '').includes('aborted')) {
-      throw err;
-    }
-    logger.warn(`[OllamaClient] ensureVietnameseDescription fallback: ${err.message}`);
-  }
-
-  // Fallback an toàn nếu mô hình ngôn ngữ không phản hồi
-  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, thiết kế phù hợp và đạt tiêu chuẩn chất lượng hình ảnh.`;
+  // Trả về trực tiếp nội dung mô tả đã làm sạch để Stage 2 (Qwen3) đọc và tổng hợp vào kết quả tiếng Việt.
+  // Tránh gọi đệm mô hình LLM chính tại đây vì việc tráo đổi model (model swapping) liên tục giữa
+  // Moondream và Qwen3 trong VRAM (2GB) sẽ gây lỗi CUDA Out of Memory trên card Quadro P620!
+  return cleaned.trim();
 }
 
 /**
@@ -559,7 +527,7 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
     ? 'Examine this official document image in detail. Identify the document type, read the issuing authority name, decision number, organization name, effective dates, venue location, and look for official seals or signatures.'
     : 'Describe what you see in this event image in detail. Read any visible text, title, date, location, performers, and describe the background and visual style.');
 
-  const body = {
+    const body = {
     model: OLLAMA_VISION_MODEL,
     prompt,
     images: [base64Image],
@@ -569,8 +537,8 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
       temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
       repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
       num_predict: 250,
+      num_ctx: 2048,
       num_thread: OLLAMA_NUM_THREAD,
-      num_gpu: 99,           // Moondream chỉ 1.7GB, đưa 100% vào GPU VRAM (4GB) để xử lý ảnh cực nhanh
       num_batch: 512,
     },
   };
@@ -601,6 +569,13 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
  */
 async function describeImageBatch(images, eventTitle = '', signal = null) {
   if (!Array.isArray(images) || images.length === 0) return [];
+
+  // THÊM ĐOẠN NÀY: Ưu tiên tối đa 2 ảnh quan trọng nhất
+  const prioritizedImages = [...images].sort((a, b) => {
+    const aPermit = a.source && a.source.startsWith('PERMIT') ? 2 : (a.source === 'MAIN_POSTER' ? 1 : 0);
+    const bPermit = b.source && b.source.startsWith('PERMIT') ? 2 : (b.source === 'MAIN_POSTER' ? 1 : 0);
+    return bPermit - aPermit;
+  }).slice(0, 2);
 
   const results = [];
 
@@ -656,6 +631,8 @@ module.exports = {
   describeImageBatch,
   OLLAMA_MODEL,
   OLLAMA_VISION_MODEL,
+  OLLAMA_TIMEOUT,
+  OLLAMA_VISION_TIMEOUT,
   OLLAMA_NUM_CTX,
   OLLAMA_NUM_THREAD,
   OLLAMA_NUM_BATCH,
