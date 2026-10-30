@@ -31,7 +31,11 @@ const securityMiddlewares = (app) => {
             'Content-Type',
             'Authorization',
             'X-Organizer-Sensitive-Token',
-            'ngrok-skip-browser-warning'
+            'ngrok-skip-browser-warning',
+            'Idempotency-Key',
+            'idempotency-key',
+            'X-Idempotency-Key',
+            'x-idempotency-key'
         ]
     }));
 

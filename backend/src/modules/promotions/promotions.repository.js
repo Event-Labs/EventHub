@@ -30,7 +30,7 @@ class PromotionsRepository {
         WHEN matched_events.event_names IS NOT NULL THEN matched_events.event_names
         ELSE ${linkedEventAlias}.title
       END AS event_name,
-      (SELECT COUNT(*)::int FROM orders o WHERE o.promo_code_id = pc.id AND o.status = 'PAID') AS usage_count
+      (SELECT COUNT(*)::int FROM orders o WHERE o.promo_code_id = pc.id AND o.status IN ('PAID', 'CONFIRMED')) AS usage_count
     `;
   }
 

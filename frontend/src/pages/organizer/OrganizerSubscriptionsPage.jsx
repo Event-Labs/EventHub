@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Check, Clock, Crown, Layers, Loader2, Shield, Star, Users, Zap, X, CalendarDays } from 'lucide-react'
+import { Check, Clock, Crown, Layers, Loader2, Shield, Star, Users, Zap, X, CalendarDays, AlertTriangle } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { fetchSubscriptionsForOrganizer, fetchCurrentPlan, subscribeToPlan } from '@/services/subscriptions.js'
 import { Badge, Insight, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
@@ -34,7 +34,7 @@ export function OrganizerSubscriptionsPage() {
       if (result.requires_payment) {
         toast.success('Đã tạo yêu cầu thanh toán gói dịch vụ.')
         // PayOS flow — redirect to payment page
-        navigate(`/organizer/subscriptions/payment-result?paymentId=${result.payment_id}`)
+        navigate(`/organizer/subscriptions/payment-result?paymentId=${result.payment_id}`, { state: { returnTo } })
       } else {
         // Free plan / direct activation
         toast.success('Đã kích hoạt gói dịch vụ.')
@@ -58,6 +58,28 @@ export function OrganizerSubscriptionsPage() {
       title="Gói Dịch vụ"
       description="Xem các gói Organizer hiện có. Nâng cấp để mở khoá thêm tính năng và tăng giới hạn sử dụng."
     >
+      {redirectNotice && (
+        <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-warning/40 bg-warning/10 p-4 text-warning">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="size-5 shrink-0 mt-0.5 text-warning" />
+            <div>
+              <p className="font-bold text-sm">{redirectNotice}</p>
+              <p className="text-xs text-warning/80 mt-1">
+                Vui lòng chọn một gói dịch vụ phù hợp bên dưới để hoàn tất đăng ký và gửi duyệt sự kiện.
+              </p>
+            </div>
+          </div>
+          {returnTo && (
+            <button
+              type="button"
+              onClick={() => navigate(returnTo)}
+              className="shrink-0 text-xs font-semibold text-warning underline hover:text-white transition"
+            >
+              Quay lại sự kiện
+            </button>
+          )}
+        </div>
+      )}
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">

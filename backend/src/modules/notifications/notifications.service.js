@@ -2,8 +2,17 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const { sendEmail } = require('../../infrastructure/email/email.service');
+const db = require('../../infrastructure/database/db.client');
 const notificationsRepository = require('./notifications.repository');
 const notificationStream = require('./notifications.stream');
+const env = require('../../config/env');
+const {
+  formatReminderDate,
+  formatReminderTime,
+  formatVenueAddress,
+  buildEventReminderHtml,
+  buildEventReminderText,
+} = require('./eventReminderEmail.template');
 
 function mapNotification(row) {
   if (!row) return null;
@@ -202,29 +211,210 @@ class NotificationsService {
 
   async sendDueReminders() {
     const now = new Date();
-    const to = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const recipients = await notificationsRepository.findUpcomingReminderRecipients({ from: now, to });
-    let sent = 0;
+    let sentCount = 0;
 
-    for (const row of recipients) {
-      const content = `Sự kiện "${row.event_title}" sẽ bắt đầu lúc ${formatDateTime(row.start_time)}${venueLine(row) ? ` tại ${venueLine(row)}` : ''}. Hãy kiểm tra vé và chuẩn bị check-in đúng giờ.`;
+    // Milestone 1: 2h reminder (Events starting between 30 mins and 2.5 hours from now)
+    const from2h = new Date(now.getTime() + 30 * 60 * 1000);
+    const to2h = new Date(now.getTime() + 2.5 * 60 * 60 * 1000);
+    const recipients2h = await notificationsRepository.findUpcomingReminderRecipients({
+      from: from2h,
+      to: to2h,
+      milestone: '2h',
+    });
+
+    for (const row of recipients2h) {
+      const isSent = await this.dispatchReminderEmail(row, '2h');
+      if (isSent) sentCount += 1;
+    }
+
+    // Milestone 2: 24h reminder (Events starting between 2.5 hours and 26 hours from now)
+    const from24h = new Date(now.getTime() + 2.5 * 60 * 60 * 1000);
+    const to24h = new Date(now.getTime() + 26 * 60 * 60 * 1000);
+    const recipients24h = await notificationsRepository.findUpcomingReminderRecipients({
+      from: from24h,
+      to: to24h,
+      milestone: '24h',
+    });
+
+    for (const row of recipients24h) {
+      const isSent = await this.dispatchReminderEmail(row, '24h');
+      if (isSent) sentCount += 1;
+    }
+
+    if (sentCount > 0) {
+      logger.info(`Sent ${sentCount} event reminders (2h: ${recipients2h.length}, 24h: ${recipients24h.length})`);
+    }
+    return sentCount;
+  }
+
+  async dispatchReminderEmail(row, milestone = '24h') {
+    try {
+      const is2h = milestone === '2h';
+      const clientUrl = String(env.CLIENT_URL || '').replace(/\/$/, '');
+      const ticketLink = row.order_code
+        ? `${clientUrl}/my-tickets?order=${encodeURIComponent(row.order_code)}`
+        : `${clientUrl}/my-tickets`;
+
+      const isOnline = row.event_format === 'ONLINE' || (!row.venue_name && !row.address_line);
+      const formattedDate = formatReminderDate(row.start_time);
+      const formattedTime = formatReminderTime(row.start_time, row.end_time);
+
+      const emailSubject = is2h
+        ? `[EventHub] Nhắc lịch: "${row.event_title}" sắp bắt đầu sau 2 giờ nữa!`
+        : `[EventHub] Nhắc lịch: "${row.event_title}" sẽ diễn ra vào ngày mai (${formattedDate})`;
+
+      const notifTitle = is2h
+        ? `Nhắc lịch: "${row.event_title}" sắp diễn ra trong 2 giờ tới!`
+        : `Nhắc lịch: "${row.event_title}" diễn ra trong 24 giờ tới (${formattedDate})`;
+
+      const notifContent = `Sự kiện "${row.event_title}" sẽ bắt đầu lúc ${formattedTime}, ${formattedDate}${
+        isOnline ? ' (Trực tuyến)' : row.venue_name ? ` tại ${row.venue_name}` : ''
+      }. Hãy chuẩn bị vé điện tử để check-in đúng giờ.`;
+
+      const html = buildEventReminderHtml({
+        attendeeName: row.full_name || 'bạn',
+        eventTitle: row.event_title,
+        bannerUrl: row.banner_url || row.thumbnail_url,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        venueName: row.venue_name,
+        addressLine: row.address_line,
+        ward: row.ward,
+        district: row.district,
+        city: row.city,
+        isOnline,
+        ticketLink,
+        milestone,
+      });
+
+      const message = buildEventReminderText({
+        attendeeName: row.full_name || 'bạn',
+        eventTitle: row.event_title,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        venueName: row.venue_name,
+        addressLine: row.address_line,
+        ward: row.ward,
+        district: row.district,
+        city: row.city,
+        isOnline,
+        ticketLink,
+        milestone,
+      });
+
       await this.createAndDispatch(
         {
           userId: row.user_id,
           eventId: row.event_id,
-          title: 'Nhắc lịch sự kiện',
-          content,
+          title: notifTitle,
+          content: notifContent,
           type: 'EVENT',
         },
         {
           email: row.email,
+          subject: emailSubject,
+          message,
+          html,
         },
       );
-      sent += 1;
+      return true;
+    } catch (err) {
+      logger.error(`Failed to dispatch reminder to user ${row.user_id} (${row.email}):`, err);
+      return false;
     }
+  }
 
-    if (sent > 0) logger.info(`Sent ${sent} event reminders`);
-    return sent;
+  async notifyEventCancellation(eventId, { reason, title } = {}) {
+    try {
+      const { rows } = await db.query(`SELECT id, title, slug, organizer_id FROM events WHERE id = $1`, [eventId]);
+      const event = rows[0];
+      if (!event) return;
+
+      const attendees = await notificationsRepository.findEventAttendeeContacts(eventId);
+      const notifTitle = `Sự kiện "${event.title}" đã bị hủy`;
+      const reasonText = reason ? ` (Lý do: ${reason})` : '';
+      const notifContent = `Sự kiện "${event.title}" đã chính thức bị hủy${reasonText}. Hệ thống đã tự động tạo yêu cầu hoàn tiền 100%. Vui lòng vào mục "Vé của tôi" để kiểm tra và cung cấp thông tin tài khoản ngân hàng nhận tiền hoàn.`;
+
+      for (const att of attendees) {
+        if (att.user_id) {
+          await this.createAndDispatch(
+            {
+              userId: att.user_id,
+              eventId: event.id,
+              title: notifTitle,
+              content: notifContent,
+              type: 'EVENT',
+            },
+            att.email
+              ? {
+                  email: att.email,
+                  subject: `[EventHub] ${notifTitle}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                      <h2 style="color: #dc2626;">Thông báo hủy sự kiện</h2>
+                      <p>Kính gửi quý khách <strong>${att.full_name || 'Khách hàng'}</strong>,</p>
+                      <p>Sự kiện <strong>"${event.title}"</strong> đã chính thức bị hủy${reasonText}.</p>
+                      <p>Hệ thống đã tự động tạo yêu cầu hoàn trả 100% số tiền vé đã thanh toán cho bạn.</p>
+                      <p><strong>Hướng dẫn nhận tiền hoàn:</strong></p>
+                      <ol>
+                        <li>Đăng nhập vào EventHub và truy cập mục <strong>Vé của tôi</strong>.</li>
+                        <li>Chọn vé sự kiện và bấm <strong>Cung cấp thông tin nhận tiền</strong> (Số tài khoản & Tên ngân hàng).</li>
+                        <li>Ban tổ chức sẽ tiến hành chuyển khoản hoàn tiền cho bạn theo quy định.</li>
+                      </ol>
+                      <p style="margin-top: 20px; font-size: 13px; color: #666;">Trân trọng,<br>Đội ngũ EventHub</p>
+                    </div>
+                  `,
+                }
+              : {},
+          ).catch((e) => logger.warn(`[NOTIFY_CANCEL_ERR] ${e.message}`));
+        }
+      }
+    } catch (err) {
+      logger.error('[NOTIFY_EVENT_CANCELLATION_ERR]', err);
+    }
+  }
+
+  async notifyEventChange(eventId, { reason, changeClass } = {}) {
+    try {
+      const { rows } = await db.query(`SELECT id, title, slug FROM events WHERE id = $1`, [eventId]);
+      const event = rows[0];
+      if (!event) return;
+
+      const attendees = await notificationsRepository.findEventAttendeeContacts(eventId);
+      const notifTitle = `Cập nhật thông tin sự kiện "${event.title}"`;
+      const notifContent = `Sự kiện "${event.title}" vừa có cập nhật thông tin quan trọng${reason ? `: ${reason}` : ''}. Quý khách vui lòng kiểm tra lại vé và lịch trình tham dự trong mục "Vé của tôi".`;
+
+      for (const att of attendees) {
+        if (att.user_id) {
+          await this.createAndDispatch(
+            {
+              userId: att.user_id,
+              eventId: event.id,
+              title: notifTitle,
+              content: notifContent,
+              type: 'EVENT',
+            },
+            att.email
+              ? {
+                  email: att.email,
+                  subject: `[EventHub] ${notifTitle}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                      <h2 style="color: #f59e0b;">Thông báo cập nhật sự kiện</h2>
+                      <p>Kính gửi quý khách <strong>${att.full_name || 'Khách hàng'}</strong>,</p>
+                      <p>Sự kiện <strong>"${event.title}"</strong> vừa có cập nhật thông tin quan trọng${reason ? `: <em>${reason}</em>` : ''}.</p>
+                      <p>Vui lòng đăng nhập vào mục <strong>Vé của tôi</strong> để xem chi tiết thời gian và địa điểm mới nhất.</p>
+                      <p style="margin-top: 20px; font-size: 13px; color: #666;">Trân trọng,<br>Đội ngũ EventHub</p>
+                    </div>
+                  `,
+                }
+              : {},
+          ).catch((e) => logger.warn(`[NOTIFY_CHANGE_ERR] ${e.message}`));
+        }
+      }
+    } catch (err) {
+      logger.error('[NOTIFY_EVENT_CHANGE_ERR]', err);
+    }
   }
 }
 

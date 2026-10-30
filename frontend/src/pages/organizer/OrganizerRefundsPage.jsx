@@ -3,6 +3,7 @@ import {
   RotateCcw,
   Search,
   Eye,
+  AlertCircle,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -30,6 +31,7 @@ const STATUS_FILTERS = [
   { value: 'ALL', label: 'Tất cả' },
   { value: 'PENDING', label: 'Chờ duyệt' },
   { value: 'APPROVED', label: 'Đã duyệt' },
+  { value: 'PROCESSING', label: 'Đang xử lý' },
   { value: 'REFUNDED', label: 'Đã hoàn tiền' },
   { value: 'REJECTED', label: 'Từ chối' },
 ]
@@ -76,12 +78,20 @@ export function OrganizerRefundsPage() {
       all: rawList.length,
       pending: rawList.filter((r) => r.status === 'PENDING').length,
       approved: rawList.filter((r) => r.status === 'APPROVED').length,
+      processing: rawList.filter((r) => r.status === 'PROCESSING').length,
       refunded: rawList.filter((r) => r.status === 'REFUNDED').length,
       rejected: rawList.filter((r) => r.status === 'REJECTED').length,
     }
   }, [rawList])
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, disputed) => {
+    if (disputed) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
+          <AlertCircle className="size-3" /> Khiếu nại
+        </span>
+      )
+    }
     if (status === 'PENDING') {
       return <StatusBadge status={status} label="Chờ duyệt" tone="amber" />
     }
@@ -96,26 +106,32 @@ export function OrganizerRefundsPage() {
       <div className="space-y-6">
 
         {/* Summary Cards - Unified Light & Dark */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           {/* Card 1: Tổng yêu cầu */}
           <div className="rounded-2xl border border-white/15 bg-[#0f172a] p-4 sm:p-5 shadow-xl transition-all [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/90 [html.light_&]:shadow-md">
             <p className="text-sm font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">Tổng yêu cầu</p>
             <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight [html.light_&]:text-[#0D1B2A]">{counts.all}</p>
           </div>
 
-          {/* Card 2: Cần xử lý (Chờ duyệt) */}
+          {/* Card 2: Chờ duyệt */}
           <div className="rounded-2xl border border-amber-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-amber-500/10 transition-all [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-50/70 [html.light_&]:shadow-md">
-            <p className="text-sm font-bold uppercase tracking-wider text-amber-300 [html.light_&]:text-amber-800">Cần xử lý (Chờ duyệt)</p>
+            <p className="text-sm font-bold uppercase tracking-wider text-amber-300 [html.light_&]:text-amber-800">Chờ duyệt</p>
             <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-amber-400 tracking-tight [html.light_&]:text-amber-600">{counts.pending}</p>
           </div>
 
-          {/* Card 3: Đã hoàn tiền (Xanh lá) */}
+          {/* Card 3: Đang xử lý */}
+          <div className="rounded-2xl border border-orange-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-orange-500/10 transition-all [html.light_&]:border-orange-500/40 [html.light_&]:bg-orange-50/70 [html.light_&]:shadow-md">
+            <p className="text-sm font-bold uppercase tracking-wider text-orange-300 [html.light_&]:text-orange-800">Đang xử lý</p>
+            <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-orange-400 tracking-tight [html.light_&]:text-orange-600">{counts.processing}</p>
+          </div>
+
+          {/* Card 4: Đã hoàn tiền (Xanh lá) */}
           <div className="rounded-2xl border border-emerald-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-emerald-500/10 transition-all [html.light_&]:border-emerald-500/40 [html.light_&]:bg-emerald-50/70 [html.light_&]:shadow-md">
             <p className="text-sm font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-800">Đã hoàn tiền</p>
             <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight [html.light_&]:text-emerald-600">{counts.refunded}</p>
           </div>
 
-          {/* Card 4: Từ chối */}
+          {/* Card 5: Từ chối */}
           <div className="rounded-2xl border border-rose-500/40 bg-[#0f172a] p-4 sm:p-5 shadow-xl shadow-rose-500/10 transition-all [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-50/70 [html.light_&]:shadow-md">
             <p className="text-sm font-bold uppercase tracking-wider text-rose-300 [html.light_&]:text-rose-800">Từ chối</p>
             <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-rose-400 tracking-tight [html.light_&]:text-rose-600">{counts.rejected}</p>
@@ -204,7 +220,7 @@ export function OrganizerRefundsPage() {
                         </td>
                         <td className="whitespace-nowrap px-3.5 py-3 !text-left" style={{ textAlign: 'left' }}>
                           <div className="flex items-center justify-start text-left">
-                            {getStatusBadge(item.status)}
+                            {getStatusBadge(item.status, item.disputed)}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3.5 py-3 text-center">

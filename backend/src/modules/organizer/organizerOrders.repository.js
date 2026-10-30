@@ -275,7 +275,7 @@ class OrganizerOrdersRepository {
       LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
       LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE ${whereClause}
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         AND e.deleted_at IS NULL
       ORDER BY es.start_time ASC, t.attendee_name ASC
       LIMIT $${idx} OFFSET $${idx + 1}
@@ -290,7 +290,7 @@ class OrganizerOrdersRepository {
       JOIN event_sessions es ON es.id = t.event_session_id
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       WHERE ${whereClause}
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         AND e.deleted_at IS NULL
     `;
 
@@ -381,7 +381,7 @@ class OrganizerOrdersRepository {
       LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
       LEFT JOIN seats s ON s.id = ss.seat_id
       WHERE ${whereClause}
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         AND e.deleted_at IS NULL
       ORDER BY es.start_time ASC, t.attendee_name ASC
       `,
@@ -417,7 +417,7 @@ class OrganizerOrdersRepository {
         AND EXISTS (
           SELECT 1 FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status = 'PAID'
+          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
         )
       `,
       [eventId, organizerId],
@@ -441,7 +441,7 @@ class OrganizerOrdersRepository {
         AND EXISTS (
           SELECT 1 FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status = 'PAID'
+          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
         )
       WHERE es.event_id = $1
         AND e.organizer_id = $2
@@ -466,7 +466,7 @@ class OrganizerOrdersRepository {
         AND EXISTS (
           SELECT 1 FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status = 'PAID'
+          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
         )
       WHERE es.event_id = $1
       GROUP BY tt.id, tt.name, tt.price
@@ -495,7 +495,7 @@ class OrganizerOrdersRepository {
         AND EXISTS (
           SELECT 1 FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status = 'PAID'
+          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
         )
       ORDER BY t.checked_in_at DESC
       LIMIT 20
@@ -775,7 +775,7 @@ class OrganizerOrdersRepository {
           FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
           WHERE oi.id = t.order_item_id
-            AND o.status = 'PAID'
+            AND o.status IN ('PAID', 'CONFIRMED')
         )
       `,
       [organizerId],
@@ -803,7 +803,7 @@ class OrganizerOrdersRepository {
           JOIN event_sessions es ON es.id = tt.event_session_id
           WHERE es.event_id = e.id
             AND o.organizer_id = $1
-            AND o.status = 'PAID'
+            AND o.status IN ('PAID', 'CONFIRMED')
         ), 0)::int AS tickets_sold
       FROM events e
       WHERE e.organizer_id = $1
@@ -955,7 +955,7 @@ class OrganizerOrdersRepository {
    * - Daily sales trend (for chart)
    */
   async getTicketSalesAnalytics(organizerId, { eventId, dateFrom, dateTo } = {}) {
-    const baseConditions = ['o.organizer_id = $1', "o.status = 'PAID'"];
+    const baseConditions = ['o.organizer_id = $1', "o.status IN ('PAID', 'CONFIRMED')"];
     const params = [organizerId];
     let idx = 2;
 
@@ -1025,7 +1025,7 @@ class OrganizerOrdersRepository {
       LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
       LEFT JOIN orders o ON o.id = oi.order_id
         AND o.organizer_id = $1
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         ${eventId ? `AND EXISTS (
           SELECT 1 FROM order_items oi2
           JOIN ticket_types tt2 ON tt2.id = oi2.ticket_type_id
@@ -1070,7 +1070,7 @@ class OrganizerOrdersRepository {
       LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
       LEFT JOIN orders o ON o.id = oi.order_id
         AND o.organizer_id = $1
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         ${dateFrom ? `AND o.created_at >= $${params.indexOf(dateFrom) + 1}` : ''}
         ${dateTo   ? `AND o.created_at <= $${params.indexOf(dateTo) + 1}`   : ''}
       WHERE e.organizer_id = $1
@@ -1107,7 +1107,7 @@ class OrganizerOrdersRepository {
         LIMIT 1
       ) ev_ref ON true
       WHERE o.organizer_id = $1
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         AND o.created_at >= $2
         AND o.created_at <= $3
         ${eventId ? `AND ev_ref.event_id = $4` : ''}
@@ -1115,6 +1115,35 @@ class OrganizerOrdersRepository {
       ORDER BY day ASC
       `,
       dailyParams,
+    );
+
+    // Ticket breakdown by source & lifecycle status (Decision 2.10)
+    const breakdownRes = await db.query(
+      `
+      SELECT
+        COUNT(t.id)::int                                                       AS total_tickets_issued,
+        COUNT(t.id) FILTER (WHERE t.status IN ('VALID', 'USED'))::int          AS valid_tickets,
+        COUNT(t.id) FILTER (WHERE t.status = 'CANCELLED')::int                 AS cancelled_tickets,
+        COUNT(t.id) FILTER (WHERE t.checked_in_at IS NOT NULL)::int            AS checked_in_tickets,
+        COUNT(t.id) FILTER (WHERE t.ticket_source = 'STANDARD')::int           AS standard_tickets,
+        COUNT(t.id) FILTER (WHERE t.ticket_source = 'FREE')::int               AS free_tickets,
+        COUNT(t.id) FILTER (WHERE t.ticket_source = 'FULLY_DISCOUNTED')::int   AS fully_discounted_tickets,
+        COUNT(t.id) FILTER (WHERE t.ticket_source = 'COMPLIMENTARY')::int      AS complimentary_tickets,
+        COALESCE(SUM(t.discount_allocated), 0)::numeric                        AS total_discount_amount
+      FROM tickets t
+      JOIN order_items oi ON oi.id = t.order_item_id
+      JOIN orders o ON o.id = oi.order_id
+      JOIN LATERAL (
+        SELECT es_inner.event_id
+        FROM order_items oi_inner
+        JOIN ticket_types tt_inner ON tt_inner.id = oi_inner.ticket_type_id
+        JOIN event_sessions es_inner ON es_inner.id = tt_inner.event_session_id
+        WHERE oi_inner.order_id = o.id
+        LIMIT 1
+      ) ev_ref ON true
+      WHERE ${whereClause}
+      `,
+      params,
     );
 
     // Compute occupancy per event
@@ -1126,11 +1155,24 @@ class OrganizerOrdersRepository {
     }));
 
     return {
-      overall:       overallRes.rows[0] ?? {
-        total_tickets_sold: 0,
-        total_revenue:      0,
-        avg_ticket_price:   0,
-        total_orders:       0,
+      overall: {
+        ...(overallRes.rows[0] ?? {
+          total_tickets_sold: 0,
+          total_revenue:      0,
+          avg_ticket_price:   0,
+          total_orders:       0,
+        }),
+        ticket_breakdown: breakdownRes.rows[0] ?? {
+          total_tickets_issued: 0,
+          valid_tickets: 0,
+          cancelled_tickets: 0,
+          checked_in_tickets: 0,
+          standard_tickets: 0,
+          free_tickets: 0,
+          fully_discounted_tickets: 0,
+          complimentary_tickets: 0,
+          total_discount_amount: 0,
+        },
       },
       by_ticket_type: byTicketTypeRes.rows,
       by_event:        byEvent,

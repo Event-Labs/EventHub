@@ -33,12 +33,68 @@ function formatPrice(event) {
   return `${Number(min).toLocaleString('vi-VN')} đ`
 }
 
+function formatCategory(category) {
+  if (typeof category === 'string' && category.trim()) return category.trim()
+  if (category && typeof category === 'object' && typeof category.name === 'string' && category.name.trim()) {
+    return category.name.trim()
+  }
+  return 'Sự kiện'
+}
+
+function formatLocation(event) {
+  if (!event) return 'Địa điểm cập nhật sau'
+
+  if (typeof event.location === 'string' && event.location.trim()) {
+    return event.location.trim()
+  }
+
+  if (event.location && typeof event.location === 'object') {
+    if (typeof event.location.summary === 'string' && event.location.summary.trim()) {
+      return event.location.summary.trim()
+    }
+    const locParts = [
+      event.location.name,
+      event.location.address_line,
+      event.location.district,
+      event.location.city,
+    ].filter(Boolean)
+    if (locParts.length > 0) return locParts.join(', ')
+  }
+
+  if (typeof event.venue === 'string' && event.venue.trim()) {
+    return event.venue.trim()
+  }
+
+  if (event.venue && typeof event.venue === 'object') {
+    if (typeof event.venue.summary === 'string' && event.venue.summary.trim()) {
+      return event.venue.summary.trim()
+    }
+    const venueParts = [
+      event.venue.name,
+      event.venue.address_line,
+      event.venue.district,
+      event.venue.city,
+    ].filter(Boolean)
+    if (venueParts.length > 0) return venueParts.join(', ')
+  }
+
+  if (typeof event.venue_name === 'string' && event.venue_name.trim()) {
+    return event.venue_name.trim()
+  }
+
+  if (typeof event.location_name === 'string' && event.location_name.trim()) {
+    return event.location_name.trim()
+  }
+
+  return 'Địa điểm cập nhật sau'
+}
+
 function formatVenueText(venue) {
   if (!venue) return ''
-  if (typeof venue === 'string') return venue
+  if (typeof venue === 'string') return venue.trim()
   if (typeof venue === 'object') {
     return (
-      venue.summary ||
+      (typeof venue.summary === 'string' && venue.summary.trim()) ||
       [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') ||
       ''
     )
@@ -47,19 +103,16 @@ function formatVenueText(venue) {
 }
 
 function normalizeEvent(event) {
-  const venueLocation = formatVenueText(event.venue)
-  const stringLocation = typeof event.location === 'string' ? event.location : ''
-
   return {
     id: event.slug || event.id,
     title: event.title,
-    subtitle: event.subtitle || event.short_description,
+    subtitle: typeof (event.subtitle || event.short_description) === 'string' ? (event.subtitle || event.short_description) : '',
     image: event.thumbnail_url || event.banner_url || event.image,
-    category: event.category?.name || event.category || 'Sự kiện',
+    category: formatCategory(event.category),
     badgeColor: event.badgeColor || 'primary',
     date: event.date || formatDateRange(event.start_time, event.end_time),
     time: event.time || '',
-    location: stringLocation || venueLocation || 'Địa điểm cập nhật sau',
+    location: formatLocation(event),
     priceLabel: formatPrice(event),
     isFavorited: Boolean(event.is_favorited),
   }
@@ -122,9 +175,9 @@ export function EventCard({
               onFavoriteToggle(event)
             }}
             className={cn(
-              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/15 bg-black/50 backdrop-blur-md transition-all hover:border-[#C99A47]/60 hover:bg-[#C99A47]/15 hover:text-[#E6C17A] disabled:cursor-not-allowed disabled:opacity-70',
+              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/15 bg-black/50 backdrop-blur-md transition-all hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-70',
               item.isFavorited
-                ? 'border-[#C99A47]/60 bg-[#C99A47]/20 text-[#E6C17A] shadow-[0_0_14px_rgba(201,154,71,0.4)]'
+                ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
                 : 'text-white/70',
             )}
             aria-label={item.isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
@@ -132,7 +185,7 @@ export function EventCard({
             <Heart
               className={cn(
                 'size-5 transition-all',
-                item.isFavorited && 'fill-current drop-shadow-[0_0_6px_rgba(230,193,122,0.6)]',
+                item.isFavorited && 'fill-current drop-shadow-[0_0_6px_rgba(239,68,68,0.6)]',
               )}
             />
           </button>

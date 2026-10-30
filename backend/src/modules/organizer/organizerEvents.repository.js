@@ -256,7 +256,7 @@ class OrganizerEventsRepository {
           JOIN ticket_types tt ON tt.id = oi.ticket_type_id
           JOIN event_sessions es ON es.id = tt.event_session_id
           JOIN orders o ON o.id = oi.order_id
-          WHERE es.event_id = e.id AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED')
+          WHERE es.event_id = e.id AND o.status IN ('PAID', 'CONFIRMED', 'REFUND_REQUESTED', 'REFUNDED')
         ) AS paid_orders_count
       FROM events e
       LEFT JOIN event_categories c ON c.id = e.category_id
@@ -516,13 +516,13 @@ class OrganizerEventsRepository {
           JOIN orders o ON o.id = oi.order_id
           JOIN ticket_types tt ON tt.id = oi.ticket_type_id
           JOIN event_sessions es ON es.id = tt.event_session_id
-          WHERE es.event_id = e.id AND o.status = 'PAID'
+          WHERE es.event_id = e.id AND o.status IN ('PAID', 'CONFIRMED')
         ), 0)::int AS paid_tickets,
         COALESCE((
           SELECT json_object_agg(sales.ticket_type_id, sales.paid_quantity)
           FROM (
             SELECT tt.id AS ticket_type_id,
-              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS paid_quantity
+              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS paid_quantity
             FROM event_sessions es
             JOIN ticket_types tt ON tt.event_session_id = es.id
             LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   Check,
@@ -38,7 +39,7 @@ import {
 
 function formatPrice(value) {
   const number = Number(value)
-  if (!Number.isFinite(number)) return '0 \u0111'
+  if (!Number.isFinite(number) || number === 0) return 'Miễn phí'
   return `${number.toLocaleString('vi-VN')} \u0111`
 }
 
@@ -823,6 +824,7 @@ export function BookingSeatsPage() {
       toast.error('Sự kiện đang tạm dừng bán vé. Không thể thay đổi số lượng vé.')
       return
     }
+
     setCart((current) => {
       const coloredTicketType = {
         ...ticketType,
@@ -842,6 +844,7 @@ export function BookingSeatsPage() {
       const existing = itemIndex >= 0
         ? items[itemIndex]
         : { ticketType: coloredTicketType, quantity: 0, sessionSeatIds: [], seatLabels: [], session }
+
       const available = Math.max(0, Number(ticketType.available_quantity ?? ticketType.quantity ?? 0))
       const perOrder = Math.min(Math.max(1, Number(ticketType.max_per_order || 20)), maxTicketsAllowed)
       const maximum = available > 0 ? Math.min(available, perOrder) : perOrder
@@ -1733,8 +1736,21 @@ export function BookingPaymentPage() {
   }, [orderId, cart?.eventId, cart?.items?.length])
 
   const checkoutMutation = useMutation({
-    mutationFn: checkoutOrder,
+    mutationFn: (payload) => {
+      const idempotencyKey =
+        cart?.idempotencyKey ||
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+      return checkoutOrder({ ...payload, idempotency_key: idempotencyKey }, { idempotencyKey })
+    },
     onSuccess: (data) => {
+      if (data.is_completed || data.order?.status === 'CONFIRMED' || !data.requires_payment) {
+        toast.success('Đặt vé thành công! Vé của bạn đã sẵn sàng.')
+        clearBookingDraft()
+        navigate('/my-tickets', { replace: true })
+        return
+      }
       toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       setCheckout(data)
       const paymentCart = {
@@ -1749,7 +1765,7 @@ export function BookingPaymentPage() {
       navigate(`/booking/payment?orderId=${data.order.id}`, { replace: true, state: { cart: paymentCart, checkout: data } })
     },
     onError: (err) => {
-      const message = getApiMessage(err, 'Không thể tạo thanh toán PayOS. Vui lòng thử lại.')
+      const message = getApiMessage(err, 'Không thể tạo thanh toán. Vui lòng thử lại.')
       toast.error(message)
     },
   })
@@ -1842,7 +1858,13 @@ export function BookingPaymentPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
         <section className="space-y-5">
           <Panel>
-            {checkoutMutation.isPending && <p className="text-muted">{'\u0110ang gi\u1eef v\u00e9 v\u00e0 t\u1ea1o thanh to\u00e1n PayOS...'}</p>}
+            {checkoutMutation.isPending && (
+              <p className="text-muted">
+                {Number(cart?.totalAmount ?? 0) === 0
+                  ? 'Đang xác nhận đặt vé miễn phí...'
+                  : 'Đang giữ vé và tạo thanh toán PayOS...'}
+              </p>
+            )}
             {payment && (
               <div className="text-center">
                 <p className="text-sm font-bold uppercase tracking-widest text-muted">{'S\u1ed1 ti\u1ec1n c\u1ea7n thanh to\u00e1n'}</p>
@@ -2733,9 +2755,14 @@ function UnseatedTicketSelection({
             const quantity = Number(item?.quantity || 0)
             const availability = ticketAvailability(ticketType)
             const isSoldOut = availability.total > 0 && availability.available <= 0
-            const perOrder = Math.min(Math.max(1, Number(ticketType.max_per_order || 20)), maxTicketsAllowed)
+            const perOrder = Math.min(
+              Math.max(1, Number(ticketType.max_per_order || 20)),
+              maxTicketsAllowed,
+            )
             const maxLimit = availability.available > 0 ? Math.min(availability.available, perOrder) : perOrder
-            const isMaxReached = quantity >= maxLimit || currentTotalTickets >= maxTicketsAllowed
+            const isMaxReached =
+              quantity >= maxLimit ||
+              currentTotalTickets >= maxTicketsAllowed
 
             return (
               <div

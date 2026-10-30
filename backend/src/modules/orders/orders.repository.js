@@ -5,6 +5,85 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
 const { validateSelectedSeats } = require('../events/seatingRules');
 const fieldCrypto = require('../../core/security/fieldCrypto');
+const { COMPLETED_ORDER_STATUSES, TICKET_SOURCES } = require('./orders.constants');
+
+function validateIdempotencyPayload(existingOrder, { userId, eventId, promoCode, items }) {
+  if (existingOrder.user_id && existingOrder.user_id !== userId) {
+    throw new AppError('Khóa Idempotency không thuộc về tài khoản này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+  }
+
+  const orderEventId = existingOrder.event_info?.id;
+  if (orderEventId && orderEventId !== eventId) {
+    throw new AppError('Idempotency key đã được sử dụng với sự kiện khác.', 409, ErrorCodes.CONFLICT);
+  }
+
+  const existingPromo = (existingOrder.promo_code || '').trim().toUpperCase();
+  const incomingPromo = (promoCode || '').trim().toUpperCase();
+  if (existingPromo !== incomingPromo) {
+    throw new AppError('Idempotency key đã được sử dụng với mã giảm giá khác.', 409, ErrorCodes.CONFLICT);
+  }
+
+  const existingItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
+  const mapExisting = new Map();
+  for (const it of existingItems) {
+    mapExisting.set(it.ticket_type_id, (mapExisting.get(it.ticket_type_id) || 0) + Number(it.quantity));
+  }
+  const mapIncoming = new Map();
+  for (const it of items) {
+    mapIncoming.set(it.ticket_type_id, (mapIncoming.get(it.ticket_type_id) || 0) + Number(it.quantity));
+  }
+
+  if (mapExisting.size !== mapIncoming.size) {
+    throw new AppError('Idempotency key đã được sử dụng với danh sách vé khác.', 409, ErrorCodes.CONFLICT);
+  }
+
+  for (const [ttId, qty] of mapIncoming.entries()) {
+    if (mapExisting.get(ttId) !== qty) {
+      throw new AppError('Idempotency key đã được sử dụng với số lượng vé khác.', 409, ErrorCodes.CONFLICT);
+    }
+  }
+
+  return true;
+}
+
+function formatExistingOrderResponse(existingOrder) {
+  const isCompleted = existingOrder.status === 'CONFIRMED' || existingOrder.status === 'PAID';
+  const requiresPayment = existingOrder.status === 'PENDING';
+  return {
+    order: {
+      id: existingOrder.id,
+      order_code: existingOrder.order_code,
+      status: existingOrder.status,
+      subtotal: Number(existingOrder.subtotal || 0),
+      discount_amount: Number(existingOrder.discount_amount || 0),
+      platform_fee: Number(existingOrder.platform_fee || 0),
+      total_amount: Number(existingOrder.total_amount || 0),
+      expired_at: existingOrder.expired_at,
+      created_at: existingOrder.created_at,
+      event: existingOrder.event_info,
+    },
+    payment: existingOrder.payment_order_id
+      ? {
+          id: existingOrder.payment_order_id,
+          provider_order_code: existingOrder.provider_order_code,
+          status: existingOrder.payment_status,
+          checkout_url: existingOrder.checkout_url,
+          qr_code: existingOrder.qr_code,
+          amount: Number(existingOrder.payment_amount || 0),
+        }
+      : null,
+    items: (existingOrder.items || []).map((item) => ({
+      ticket_type_id: item.ticket_type_id,
+      ticket_type_name: item.ticket_type_name,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price || 0),
+      final_price: Number(item.final_price || 0),
+    })),
+    requires_payment: requiresPayment,
+    is_completed: isCompleted,
+    idempotent_replay: true,
+  };
+}
 
 const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
@@ -134,7 +213,7 @@ class OrdersRepository {
     );
   }
 
-  async createPendingCheckout({ userId, eventId, buyer, attendees = [], promoCode, items, totals, paymentChannel, requireEventTermsAcceptance = false, eventTermsAccepted = false }) {
+  async createPendingCheckout({ userId, eventId, buyer, attendees = [], promoCode, items, totals, paymentChannel, requireEventTermsAcceptance = false, eventTermsAccepted = false, idempotencyKey = null }) {
     const client = await db.getClient();
 
     try {
@@ -223,13 +302,22 @@ class OrdersRepository {
         );
       }
 
+      const effectiveSalesStatus =
+        firstTicket.event_status === 'PUBLISHED' && (!firstTicket.sales_status || firstTicket.sales_status === 'NOT_STARTED')
+          ? 'ON_SALE'
+          : firstTicket.sales_status;
+
       if (
-        firstTicket.sales_status !== 'ON_SALE' ||
+        effectiveSalesStatus !== 'ON_SALE' ||
         firstTicket.event_status !== 'PUBLISHED' ||
         firstTicket.visibility !== 'PUBLIC' ||
         firstTicket.approval_status !== 'APPROVED'
       ) {
         throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
+      }
+
+      if (firstTicket.sales_status === 'NOT_STARTED' && firstTicket.event_status === 'PUBLISHED') {
+        await client.query("UPDATE events SET sales_status = 'ON_SALE', updated_at = NOW() WHERE id = $1", [eventId]);
       }
 
       if (requireEventTermsAcceptance && String(firstTicket.additional_terms || '').trim() && !eventTermsAccepted) {
@@ -302,6 +390,7 @@ class OrdersRepository {
             AND (end_time IS NULL OR end_time >= now())
             AND (usage_limit IS NULL OR used_count < usage_limit)
           LIMIT 1
+          FOR UPDATE
           `,
           [eventId, promoCode, firstTicket.organizer_id],
         );
@@ -340,9 +429,10 @@ class OrdersRepository {
           discount_amount,
           platform_fee,
           total_amount,
-          expired_at
+          expired_at,
+          idempotency_key
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8, $9, 0, $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8, $9, 0, $10, $11, $12)
         RETURNING *
         `,
         [
@@ -357,6 +447,7 @@ class OrdersRepository {
           discountAmount,
           totalAmount,
           expiredAt,
+          idempotencyKey || null,
         ],
       );
 
@@ -417,7 +508,7 @@ class OrdersRepository {
                 JOIN orders o_sold ON o_sold.id = oi_sold.order_id
                 LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
                 WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                  AND o_sold.status = 'PAID'
+                  AND o_sold.status IN ('PAID', 'CONFIRMED')
                   AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
               ) AS has_paid_ticket
             FROM session_seats ss
@@ -453,7 +544,7 @@ class OrdersRepository {
                   JOIN orders o_sold ON o_sold.id = oi_sold.order_id
                   LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
                   WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                    AND o_sold.status = 'PAID'
+                    AND o_sold.status IN ('PAID', 'CONFIRMED')
                     AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
                 ) THEN 'SOLD'
                 WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -576,7 +667,7 @@ class OrdersRepository {
           const availabilityResult = await client.query(
             `
             SELECT
-              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
               COALESCE((
                 SELECT SUM(th.quantity)::int
                 FROM ticket_holds th
@@ -702,7 +793,7 @@ class OrdersRepository {
           tt.sale_start,
           tt.sale_end,
           tt.is_seated,
-          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
           COALESCE((
             SELECT SUM(th.quantity)::int
             FROM ticket_holds th
@@ -818,6 +909,315 @@ class OrdersRepository {
     }
 
     return [...events.values()];
+  }
+
+  /**
+   * Staff Complimentary Ticket Booking (Decision 2.8)
+   * Locking order: events (advisory lock) -> ticket_types (FOR UPDATE) -> orders -> tickets -> session_seats (FOR UPDATE)
+   */
+  async createStaffComplimentaryBooking({ staffId, staffRoles = [], buyer, complimentaryReason, internalNote, eventId, items, attendees = [] }) {
+    const client = await db.getClient();
+    const isAdmin = userIsAdmin(staffRoles);
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Validate staff account
+      const staffResult = await client.query(
+        'SELECT id, full_name, email FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [staffId],
+      );
+      const staff = staffResult.rows[0];
+      if (!staff) {
+        throw new AppError('Không tìm thấy tài khoản nhân sự.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      }
+
+      // 2. Validate event assignment
+      if (!isAdmin) {
+        const scopeResult = await client.query(
+          `
+          SELECT 1
+          FROM event_staffs es
+          JOIN events e ON e.id = es.event_id
+          WHERE es.event_id = $1
+            AND es.staff_id = $2
+            AND e.deleted_at IS NULL
+            AND e.status = 'PUBLISHED'
+          LIMIT 1
+          `,
+          [eventId, staffId],
+        );
+        if (scopeResult.rows.length === 0) {
+          throw new AppError('Bạn không được phân công quản lý sự kiện này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+        }
+      }
+
+      // 3. Advisory lock for event complimentary issuance
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtext('event_complimentary_' || $1::text))`,
+        [eventId],
+      );
+
+      // 4. Lock ticket types FOR UPDATE
+      const ticketTypeIds = [...new Set(items.map((item) => item.ticket_type_id))];
+      const ticketTypesResult = await client.query(
+        `
+        SELECT
+          tt.id,
+          tt.event_session_id,
+          tt.name,
+          tt.price,
+          tt.quantity,
+          tt.is_seated,
+          es.id AS session_id,
+          es.status AS session_status,
+          es.start_time AS session_start_time,
+          es.end_time AS session_end_time,
+          es.venue_id,
+          e.id AS event_id,
+          e.title AS event_title,
+          e.slug AS event_slug,
+          e.status AS event_status,
+          e.deleted_at,
+          e.seating_rules,
+          e.refund_policy AS event_refund_policy,
+          e.organizer_id
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
+        WHERE tt.id = ANY($1::uuid[])
+        FOR UPDATE OF tt
+        `,
+        [ticketTypeIds],
+      );
+
+      if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
+        throw new AppError('Thông tin vé không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      const firstTicket = ticketTypesResult.rows[0];
+      if (
+        !firstTicket ||
+        firstTicket.event_id !== eventId ||
+        firstTicket.deleted_at ||
+        firstTicket.event_status !== 'PUBLISHED'
+      ) {
+        throw new AppError('Sự kiện hiện không khả dụng để cấp vé mời.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      // 5. Check complimentary_quota if configured
+      const seatingRules = typeof firstTicket.seating_rules === 'string'
+        ? JSON.parse(firstTicket.seating_rules)
+        : (firstTicket.seating_rules || {});
+      const complimentaryQuota = seatingRules.complimentary_quota !== undefined && seatingRules.complimentary_quota !== null
+        ? Number(seatingRules.complimentary_quota)
+        : null;
+
+      const totalRequested = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+      if (complimentaryQuota !== null && complimentaryQuota >= 0) {
+        const { rows: [quotaRow] } = await client.query(
+          `
+          SELECT COUNT(*)::int AS count
+          FROM tickets t
+          WHERE t.event_id = $1
+            AND t.ticket_source = 'COMPLIMENTARY'
+            AND t.status IN ('VALID', 'USED')
+          `,
+          [eventId],
+        );
+        const currentComplimentaryCount = quotaRow?.count || 0;
+        if (currentComplimentaryCount + totalRequested > complimentaryQuota) {
+          throw new AppError(
+            `Hạn mức vé mời của sự kiện (${complimentaryQuota} vé) không đủ đáp ứng. Đã cấp: ${currentComplimentaryCount} vé.`,
+            400,
+            ErrorCodes.INVALID_INPUT,
+          );
+        }
+      }
+
+      // 6. Check inventory for each ticket type
+      const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
+      for (const item of items) {
+        const tt = ticketTypeMap.get(item.ticket_type_id);
+        const { rows: [soldRow] } = await client.query(
+          `
+          SELECT COUNT(t.id)::int AS sold
+          FROM tickets t
+          JOIN order_items oi ON oi.id = t.order_item_id
+          JOIN orders o ON o.id = oi.order_id
+          WHERE oi.ticket_type_id = $1
+            AND o.status IN ('PAID', 'CONFIRMED')
+            AND t.status IN ('VALID', 'USED')
+          `,
+          [tt.id],
+        );
+        const currentSold = soldRow?.sold || 0;
+        if (currentSold + item.quantity > tt.quantity) {
+          throw new AppError(
+            `Hạng vé "${tt.name}" đã hết số lượng khả dụng.`,
+            400,
+            ErrorCodes.ORDER_TICKET_UNAVAILABLE,
+          );
+        }
+      }
+
+      // 7. Check and lock seats if seated
+      const allSeatIds = items.flatMap((item) => item.session_seat_ids || []);
+      if (allSeatIds.length > 0) {
+        const { rows: lockedSeats } = await client.query(
+          `
+          SELECT id, status, held_by, held_until, order_id
+          FROM session_seats
+          WHERE id = ANY($1::uuid[])
+          FOR UPDATE
+          `,
+          [allSeatIds],
+        );
+        if (lockedSeats.length !== allSeatIds.length) {
+          throw new AppError('Một số ghế đã chọn không tồn tại.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+        for (const seat of lockedSeats) {
+          const isAvailable = seat.status === 'AVAILABLE' || (seat.held_by === staffId && seat.status === 'HELD');
+          if (!isAvailable) {
+            throw new AppError('Một số ghế đã chọn đã được đặt hoặc không khả dụng.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          }
+        }
+      }
+
+      // 8. Create order with CONFIRMED status and FREE payment method
+      const orderCode = `ORD_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const auditTrail = [
+        {
+          action: 'STAFF_COMPLIMENTARY_BOOKING',
+          issued_by: staffId,
+          roles: staffRoles,
+          reason: complimentaryReason.trim(),
+          internal_note: internalNote || null,
+          total_tickets: totalRequested,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+
+      const { rows: [order] } = await client.query(
+        `
+        INSERT INTO orders (
+          order_code, user_id, organizer_id,
+          buyer_name, buyer_email, buyer_phone,
+          subtotal, discount_amount, platform_fee, total_amount,
+          status, payment_method, complimentary_reason, staff_user_id,
+          audit_trail, created_at, updated_at
+        )
+        VALUES (
+          $1, $2, $3,
+          $4, $5, $6,
+          0, 0, 0, 0,
+          'CONFIRMED', 'FREE', $7, $8,
+          $9::jsonb, NOW(), NOW()
+        )
+        RETURNING *
+        `,
+        [
+          orderCode,
+          staffId,
+          firstTicket.organizer_id,
+          buyer.name,
+          buyer.email,
+          buyer.phone || null,
+          complimentaryReason.trim(),
+          staffId,
+          JSON.stringify(auditTrail),
+        ],
+      );
+
+      // 9. Create order items and issued tickets
+      const orderItems = [];
+      const issuedTickets = [];
+
+      let attendeeIndex = 0;
+      for (const item of items) {
+        const tt = ticketTypeMap.get(item.ticket_type_id);
+        const originalPrice = Number(tt.price || 0);
+
+        const { rows: [orderItem] } = await client.query(
+          `
+          INSERT INTO order_items (
+            order_id, ticket_type_id, quantity, unit_price, final_price, created_at
+          )
+          VALUES ($1, $2, $3, $4, 0, NOW())
+          RETURNING *
+          `,
+          [order.id, tt.id, item.quantity, originalPrice],
+        );
+        orderItems.push(orderItem);
+
+        for (let i = 0; i < item.quantity; i++) {
+          const seatId = item.session_seat_ids?.[i] || null;
+          const attendee = attendees[attendeeIndex] || {};
+          attendeeIndex++;
+
+          const ticketCode = `TK_${orderCode.slice(4)}_${Math.random().toString(36).slice(2, 6).toUpperCase()}_${i + 1}`;
+          const qrCode = `EH_TK_${ticketCode}`;
+
+          const { rows: [ticket] } = await client.query(
+            `
+            INSERT INTO tickets (
+              order_item_id, event_id, event_session_id, ticket_type_id,
+              session_seat_id, ticket_code, qr_code, status,
+              ticket_source, original_price, discount_allocated, payable_price,
+              attendee_name, attendee_email, refund_policy_snapshot, created_at
+            )
+            VALUES (
+              $1, $2, $3, $4,
+              $5, $6, $7, 'VALID',
+              'COMPLIMENTARY', $8, $8, 0,
+              $9, $10, $11::jsonb, NOW()
+            )
+            RETURNING *
+            `,
+            [
+              orderItem.id,
+              eventId,
+              tt.event_session_id,
+              tt.id,
+              seatId,
+              ticketCode,
+              qrCode,
+              originalPrice,
+              attendee.name || buyer.name,
+              attendee.email || buyer.email,
+              JSON.stringify(firstTicket.event_refund_policy || {}),
+            ],
+          );
+          issuedTickets.push(ticket);
+
+          if (seatId) {
+            await client.query(
+              `
+              UPDATE session_seats
+              SET status = 'SOLD', order_id = $1, held_by = NULL, held_until = NULL
+              WHERE id = $2
+              `,
+              [order.id, seatId],
+            );
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        order,
+        orderItems,
+        issuedTickets,
+        event: firstTicket,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async createStaffDirectBooking({ staffId, staffRoles = [], buyer, paymentMethod, internalNote, eventId, items }) {
@@ -1013,7 +1413,7 @@ class OrdersRepository {
         const availabilityResult = await client.query(
           `
           SELECT
-            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
             COALESCE((
               SELECT SUM(th.quantity)::int
               FROM ticket_holds th
@@ -2096,8 +2496,8 @@ class OrdersRepository {
         ORDER BY oi.id
         LIMIT 1
       ) event_info ON true
-      JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
-      WHERE o.id = $1 AND o.status = 'PAID' ORDER BY po.paid_at DESC NULLS LAST LIMIT 1`,
+      LEFT JOIN payment_orders po ON po.order_id = o.id AND po.status = 'PAID'
+      WHERE o.id = $1 AND o.status IN ('PAID', 'CONFIRMED') ORDER BY po.paid_at DESC NULLS LAST LIMIT 1`,
       [orderId],
     );
     const order = rows[0];
@@ -2139,6 +2539,640 @@ class OrdersRepository {
     );
     return rows[0] || null;
   }
+
+  async findOrderByIdempotencyKey(idempotencyKey) {
+    if (!idempotencyKey) return null;
+    const { rows } = await db.query(
+      `
+      SELECT
+        o.*,
+        pc.code AS promo_code,
+        po.id AS payment_order_id,
+        po.provider_order_code,
+        po.status AS payment_status,
+        po.amount AS payment_amount,
+        po.checkout_url,
+        po.qr_code,
+        COALESCE(
+          (
+            SELECT json_agg(json_build_object(
+              'id', oi.id,
+              'ticket_type_id', oi.ticket_type_id,
+              'ticket_type_name', tt.name,
+              'quantity', oi.quantity,
+              'unit_price', oi.unit_price,
+              'final_price', oi.final_price,
+              'session_seat_id', oi.session_seat_id
+            ))
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            WHERE oi.order_id = o.id
+          ),
+          '[]'::json
+        ) AS items,
+        (
+          SELECT json_build_object('id', e.id, 'title', e.title, 'slug', e.slug)
+          FROM order_items oi2
+          JOIN ticket_types tt2 ON tt2.id = oi2.ticket_type_id
+          JOIN event_sessions es2 ON es2.id = tt2.event_session_id
+          JOIN events e ON e.id = es2.event_id
+          WHERE oi2.order_id = o.id
+          LIMIT 1
+        ) AS event_info
+      FROM orders o
+      LEFT JOIN promo_codes pc ON pc.id = o.promo_code_id
+      LEFT JOIN payment_orders po ON po.order_id = o.id
+      WHERE o.idempotency_key = $1
+      ORDER BY po.created_at DESC NULLS LAST
+      LIMIT 1
+      `,
+      [idempotencyKey],
+    );
+    return rows[0] || null;
+  }
+
+  /**
+   * Confirms a zero-amount checkout in a SINGLE atomic transaction.
+   * Lock order:
+   * events (advisory lock) -> ticket_types (FOR UPDATE) -> promo_codes (FOR UPDATE)
+   * -> orders -> tickets -> session_seats (FOR UPDATE)
+   */
+  async confirmZeroAmountCheckout({
+    userId,
+    eventId,
+    buyer,
+    attendees = [],
+    promoCode = null,
+    items,
+    idempotencyKey = null,
+    requireEventTermsAcceptance = false,
+    eventTermsAccepted = false,
+  }) {
+    const client = await db.getClient();
+
+    try {
+      await client.query('BEGIN');
+      await this.ensureRequireAttendeeInfoColumn(client);
+      await this.ensureAttendeeInfoColumn(client);
+
+      // 1. Transaction-scoped Advisory Lock on (event_id, user_id)
+      if (userId) {
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `event_free_user_${eventId}_${userId}`,
+        ]);
+      }
+
+      // 2. Lock ticket_types FOR UPDATE
+      const ticketTypeIds = [...new Set(items.map((item) => item.ticket_type_id))];
+      const ticketTypesResult = await client.query(
+        `
+        SELECT
+          tt.id,
+          tt.event_session_id,
+          tt.name,
+          tt.price,
+          tt.quantity,
+          tt.max_per_order,
+          tt.sale_start,
+          tt.sale_end,
+          tt.is_seated,
+          es.id AS session_id,
+          es.status AS session_status,
+          es.start_time AS session_start_time,
+          es.end_time AS session_end_time,
+          e.id AS event_id,
+          e.title AS event_title,
+          e.slug AS event_slug,
+          e.end_time AS event_end_time,
+          e.organizer_id,
+          e.status AS event_status,
+          e.visibility,
+          e.approval_status,
+          e.deleted_at,
+          e.sales_status,
+          e.display_state,
+          e.sales_blocks,
+          e.seating_rules,
+          e.additional_terms,
+          e.require_attendee_info,
+          e.refund_policy
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        JOIN events e ON e.id = es.event_id
+        WHERE tt.id = ANY($1::uuid[])
+        FOR UPDATE OF tt
+        `,
+        [ticketTypeIds],
+      );
+
+      if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
+        throw new AppError('Thông tin vé không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+      }
+
+      const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
+      const firstTicket = ticketTypesResult.rows[0];
+
+      if (!firstTicket || firstTicket.event_id !== eventId || firstTicket.deleted_at) {
+        throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+      }
+
+      if (firstTicket.event_status === 'CANCELLED' || firstTicket.event_status === 'ENDED') {
+        throw new AppError('Sự kiện đã kết thúc hoặc đã bị hủy.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+      }
+
+      if (firstTicket.display_state === 'SUSPENDED_BY_ADMIN') {
+        throw new AppError('Sự kiện đang bị đình chỉ bởi Quản trị viên.', 403, ErrorCodes.SUSPENDED_BY_ADMIN);
+      }
+
+      const activeBlocks = Array.isArray(firstTicket.sales_blocks)
+        ? firstTicket.sales_blocks.filter((b) => b && !b.released_at)
+        : [];
+      if (firstTicket.sales_status === 'PAUSED' || activeBlocks.length > 0) {
+        throw new AppError('Sự kiện đang tạm dừng bán vé.', 400, ErrorCodes.SALES_PAUSED);
+      }
+
+      const effectiveSalesStatus =
+        firstTicket.event_status === 'PUBLISHED' && (!firstTicket.sales_status || firstTicket.sales_status === 'NOT_STARTED')
+          ? 'ON_SALE'
+          : firstTicket.sales_status;
+
+      if (
+        effectiveSalesStatus !== 'ON_SALE' ||
+        firstTicket.event_status !== 'PUBLISHED' ||
+        firstTicket.visibility !== 'PUBLIC' ||
+        firstTicket.approval_status !== 'APPROVED'
+      ) {
+        throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
+      }
+
+      if (firstTicket.sales_status === 'NOT_STARTED' && firstTicket.event_status === 'PUBLISHED') {
+        await client.query("UPDATE events SET sales_status = 'ON_SALE', updated_at = NOW() WHERE id = $1", [eventId]);
+      }
+
+      if (requireEventTermsAcceptance && String(firstTicket.additional_terms || '').trim() && !eventTermsAccepted) {
+        throw new AppError('Bạn cần đồng ý với điều khoản của sự kiện trước khi thanh toán.', 400, ErrorCodes.INVALID_INPUT);
+      }
+
+      if (firstTicket.event_end_time && new Date(firstTicket.event_end_time).getTime() < Date.now()) {
+        throw new AppError('Sự kiện đã kết thúc, không thể lấy vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+      }
+
+      // Free tickets require logged in user
+      const requestedFreeCount = items
+        .filter((item) => Number(ticketTypeMap.get(item.ticket_type_id)?.price || 0) === 0)
+        .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+      if (requestedFreeCount > 0 && !userId) {
+        throw new AppError('Vé miễn phí yêu cầu đăng nhập tài khoản.', 401, ErrorCodes.AUTH_REQUIRED);
+      }
+
+      // Subtotal calculation
+      let subtotal = 0;
+      for (const item of items) {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        const unitPrice = Number(ticketType.price || 0);
+        if (unitPrice < 0) {
+          throw new AppError('Giá vé không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+        }
+        subtotal += unitPrice * Number(item.quantity);
+      }
+
+      // 3. Lock promo_codes FOR UPDATE (if promoCode applied)
+      let promo = null;
+      let discountAmount = 0;
+      if (promoCode) {
+        await promotionsRepository.ensureSupportSchema(client);
+        const promoResult = await client.query(
+          `
+          SELECT *
+          FROM promo_codes
+          WHERE (
+              event_id = $1
+              OR $1 = ANY(event_ids)
+              OR (
+                event_id IS NULL
+                AND COALESCE(cardinality(event_ids), 0) = 0
+              )
+            )
+            AND organizer_id = $3
+            AND UPPER(code) = UPPER($2)
+            AND is_active = true
+            AND (start_time IS NULL OR start_time <= now())
+            AND (end_time IS NULL OR end_time >= now())
+            AND (usage_limit IS NULL OR used_count < usage_limit)
+          LIMIT 1
+          FOR UPDATE
+          `,
+          [eventId, promoCode, firstTicket.organizer_id],
+        );
+        promo = promoResult.rows[0];
+
+        if (!promo || subtotal < Number(promo.min_order_value || 0)) {
+          throw new AppError('Mã khuyến mãi không hợp lệ cho đơn hàng này.', 400, ErrorCodes.INVALID_INPUT);
+        }
+
+        if (promo.discount_type === 'PERCENTAGE') {
+          discountAmount = Math.round((subtotal * Number(promo.discount_value)) / 100);
+          if (promo.max_discount !== null && promo.max_discount !== undefined) {
+            discountAmount = Math.min(discountAmount, Number(promo.max_discount));
+          }
+        } else {
+          discountAmount = Number(promo.discount_value);
+        }
+
+        discountAmount = Math.min(discountAmount, subtotal);
+      }
+
+      const totalAmount = subtotal - discountAmount;
+      if (totalAmount !== 0) {
+        throw new AppError('Đơn hàng có số tiền phải thanh toán lớn hơn 0.', 400, ErrorCodes.INVALID_INPUT);
+      }
+
+      // 4. Validate inventory & seats
+      const attendeeQueues = new Map();
+      const attendeeKey = (ticketTypeId) => String(ticketTypeId);
+      for (const attendee of attendees) {
+        const key = attendeeKey(attendee.ticket_type_id);
+        if (!attendeeQueues.has(key)) attendeeQueues.set(key, []);
+        attendeeQueues.get(key).push(attendee);
+      }
+
+      for (const item of items) {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        const selectedSeatIds = item.session_seat_ids || [];
+
+        if (['UPCOMING', 'ONGOING'].includes(ticketType.session_status) === false) {
+          throw new AppError('Suất diễn hiện không khả dụng để đặt vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        }
+
+        if (ticketType.is_seated || selectedSeatIds.length > 0) {
+          if (selectedSeatIds.length !== item.quantity) {
+            throw new AppError('Số ghế đã chọn không khớp với số lượng vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          }
+
+          const seatsResult = await client.query(
+            `
+            SELECT
+              ss.id,
+              ss.status,
+              ss.held_until,
+              ss.held_by,
+              s.row_label,
+              s.seat_number,
+              EXISTS (
+                SELECT 1
+                FROM order_items oi_sold
+                JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+                LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+                WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+                  AND o_sold.status IN ('PAID', 'CONFIRMED')
+                  AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+              ) AS has_confirmed_ticket
+            FROM session_seats ss
+            JOIN seats s ON s.id = ss.seat_id
+            WHERE ss.id = ANY($1::uuid[])
+              AND ss.event_session_id = $2
+            FOR UPDATE OF ss
+            `,
+            [selectedSeatIds, ticketType.event_session_id],
+          );
+
+          if (seatsResult.rows.length !== selectedSeatIds.length) {
+            throw new AppError('Một hoặc nhiều ghế đã chọn không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          }
+
+          for (const seat of seatsResult.rows) {
+            if (seat.has_confirmed_ticket || seat.status === 'SOLD') {
+              throw new AppError(
+                `Ghế ${seat.row_label || ''}${seat.seat_number || ''} đã được mua. Vui lòng chọn ghế khác.`,
+                400,
+                ErrorCodes.ORDER_SEAT_HELD,
+              );
+            }
+            if (seat.status === 'HELD' && seat.held_until && new Date(seat.held_until).getTime() > Date.now()) {
+              if (userId && seat.held_by !== userId) {
+                throw new AppError(
+                  `Ghế ${seat.row_label || ''}${seat.seat_number || ''} đang được giữ bởi người khác.`,
+                  400,
+                  ErrorCodes.ORDER_SEAT_HELD,
+                );
+              }
+            }
+          }
+        } else {
+          // Unseated inventory check
+          const availabilityResult = await client.query(
+            `
+            SELECT
+              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
+              COALESCE((
+                SELECT SUM(th.quantity)::int
+                FROM ticket_holds th
+                WHERE th.ticket_type_id = $1
+                  AND th.status = 'ACTIVE'
+                  AND th.expires_at > now()
+              ), 0) AS active_hold_quantity
+            FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.ticket_type_id = $1
+            `,
+            [item.ticket_type_id],
+          );
+          const { sold_quantity, active_hold_quantity } = availabilityResult.rows[0];
+          if (sold_quantity + active_hold_quantity + item.quantity > Number(ticketType.quantity)) {
+            throw new AppError(
+              `Loại vé "${ticketType.name}" đã hết số lượng khả dụng.`,
+              400,
+              ErrorCodes.ORDER_OUT_OF_STOCK,
+            );
+          }
+        }
+      }
+
+      // 5. Insert order (status = 'CONFIRMED', payment_method = 'FREE', expired_at = NULL)
+      const auditTrail = [
+        {
+          action: 'ZERO_AMOUNT_CHECKOUT',
+          timestamp: new Date().toISOString(),
+          details: { subtotal, discountAmount, totalAmount: 0 },
+        },
+      ];
+
+      const orderResult = await client.query(
+        `
+        INSERT INTO orders (
+          user_id,
+          organizer_id,
+          buyer_name,
+          buyer_email,
+          buyer_phone,
+          order_code,
+          status,
+          payment_method,
+          promo_code_id,
+          subtotal,
+          discount_amount,
+          platform_fee,
+          total_amount,
+          expired_at,
+          idempotency_key,
+          audit_trail
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, 'CONFIRMED', 'FREE', $7, $8, $9, 0, 0, NULL, $10, $11::jsonb)
+        RETURNING *
+        `,
+        [
+          userId || null,
+          firstTicket.organizer_id,
+          buyer.name,
+          buyer.email,
+          buyer.phone || null,
+          orderCode(),
+          promo?.id || null,
+          subtotal,
+          discountAmount,
+          idempotencyKey || null,
+          JSON.stringify(auditTrail),
+        ],
+      );
+
+      const order = orderResult.rows[0];
+      const orderItems = [];
+
+      // 6. Discount allocation per ticket
+      const ticketSlots = [];
+      for (const item of items) {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        const selectedSeatIds = item.session_seat_ids || [];
+        const qty = Number(item.quantity);
+        const origPrice = Number(ticketType.price || 0);
+
+        const attendeeInfo = [];
+        if (firstTicket.require_attendee_info) {
+          const queue = attendeeQueues.get(attendeeKey(item.ticket_type_id));
+          if (!queue || queue.length < qty) {
+            throw new AppError('Thông tin người tham dự không khớp với số lượng vé.', 400, ErrorCodes.INVALID_INPUT);
+          }
+          attendeeInfo.push(...queue.splice(0, qty));
+        }
+
+        const itemResult = await client.query(
+          `
+          INSERT INTO order_items (order_id, ticket_type_id, session_seat_id, quantity, unit_price, final_price, attendee_info)
+          VALUES ($1, $2, NULL, $3, $4, $5, $6::jsonb)
+          RETURNING *
+          `,
+          [
+            order.id,
+            item.ticket_type_id,
+            qty,
+            origPrice,
+            origPrice * qty,
+            JSON.stringify(attendeeInfo),
+          ],
+        );
+        const createdOrderItem = { ...itemResult.rows[0], ticket_type_name: ticketType.name };
+        orderItems.push(createdOrderItem);
+
+        for (let i = 0; i < qty; i++) {
+          ticketSlots.push({
+            order_item_id: createdOrderItem.id,
+            ticket_type_id: item.ticket_type_id,
+            session_id: ticketType.session_id,
+            session_seat_id: selectedSeatIds[i] || null,
+            original_price: origPrice,
+            attendee: attendeeInfo[i] || null,
+            index: ticketSlots.length,
+          });
+        }
+      }
+
+      // Proportional discount distribution: floor + remainder 1đ by price DESC, id ASC
+      const totalDiscount = Math.round(Number(discountAmount || 0));
+      const orderSubtotal = Math.max(1, Math.round(Number(subtotal || 0)));
+      let allocatedSum = 0;
+
+      ticketSlots.forEach((slot) => {
+        if (slot.original_price === 0) {
+          slot.discount_allocated = 0;
+          slot.payable_price = 0;
+          slot.ticket_source = 'FREE';
+        } else {
+          const alloc = Math.min(slot.original_price, Math.floor((totalDiscount * slot.original_price) / orderSubtotal));
+          slot.discount_allocated = alloc;
+          allocatedSum += alloc;
+        }
+      });
+
+      let remainder = totalDiscount - allocatedSum;
+      const discountableSlots = [...ticketSlots]
+        .filter((s) => s.original_price > 0 && s.discount_allocated < s.original_price)
+        .sort((a, b) => b.original_price - a.original_price || a.index - b.index);
+
+      for (let i = 0; i < discountableSlots.length && remainder > 0; i++) {
+        discountableSlots[i].discount_allocated += 1;
+        remainder -= 1;
+      }
+
+      ticketSlots.forEach((slot) => {
+        if (slot.original_price > 0) {
+          slot.payable_price = Math.max(0, slot.original_price - slot.discount_allocated);
+          slot.ticket_source = slot.payable_price === 0 ? 'FULLY_DISCOUNTED' : 'STANDARD';
+        }
+      });
+
+      // 7. Insert tickets
+      const ticketsToInsert = ticketSlots.map((slot) => {
+        const code = ticketCode();
+        return [
+          slot.order_item_id,
+          eventId,
+          slot.session_id,
+          slot.ticket_type_id,
+          slot.session_seat_id,
+          code,
+          code,
+          slot.attendee?.name || buyer.name,
+          slot.attendee?.email || buyer.email,
+          firstTicket.refund_policy ? JSON.stringify(firstTicket.refund_policy) : null,
+          'VALID',
+          slot.ticket_source,
+          slot.original_price,
+          slot.discount_allocated,
+          slot.payable_price,
+        ];
+      });
+
+      const placeholders = ticketsToInsert
+        .map((_, idx) => {
+          const o = idx * 15;
+          return `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}, $${o + 7}, $${o + 8}, $${o + 9}, $${o + 10}::jsonb, $${o + 11}, $${o + 12}, $${o + 13}, $${o + 14}, $${o + 15})`;
+        })
+        .join(', ');
+
+      const ticketsResult = await client.query(
+        `
+        INSERT INTO tickets (
+          order_item_id,
+          event_id,
+          event_session_id,
+          ticket_type_id,
+          session_seat_id,
+          ticket_code,
+          qr_code,
+          attendee_name,
+          attendee_email,
+          refund_policy_snapshot,
+          status,
+          ticket_source,
+          original_price,
+          discount_allocated,
+          payable_price
+        )
+        VALUES ${placeholders}
+        RETURNING id, ticket_code, status, ticket_source, original_price, discount_allocated, payable_price, created_at
+        `,
+        ticketsToInsert.flat(),
+      );
+
+      const issuedTickets = ticketsResult.rows;
+
+      // 8. Update seats to 'SOLD'
+      const allSelectedSeatIds = items.flatMap((item) => item.session_seat_ids || []).filter(Boolean);
+      if (allSelectedSeatIds.length > 0) {
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'SOLD', order_id = $1, held_by = NULL, held_until = NULL
+          WHERE id = ANY($2::uuid[])
+          `,
+          [order.id, allSelectedSeatIds],
+        );
+      }
+
+      // 9. Increment promo code used_count
+      if (promo) {
+        await client.query(
+          `
+          UPDATE promo_codes
+          SET used_count = used_count + 1
+          WHERE id = $1
+          `,
+          [promo.id],
+        );
+      }
+
+      await client.query('COMMIT');
+      return { order, orderItems, issuedTickets, event: firstTicket };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      if (error.code === '23505' && idempotencyKey) {
+        const existing = await this.findOrderByIdempotencyKey(idempotencyKey);
+        if (existing) {
+          validateIdempotencyPayload(existing, { userId, eventId, promoCode, items });
+          return formatExistingOrderResponse(existing);
+        }
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Revert promo code usage for an order (Decision 2.6, Section 3)
+   * Locking order: orders (FOR UPDATE) -> promo_codes (FOR UPDATE)
+   * Only called when event is cancelled or rescheduled.
+   * Idempotent: checks audit_trail to ensure voucher is reverted at most once per order.
+   */
+  async revertPromoCodeUsageForOrder(orderId, client = db) {
+    // 1. Lock orders FOR UPDATE
+    const { rows: [order] } = await client.query(
+      `SELECT id, promo_code_id, audit_trail FROM orders WHERE id = $1 FOR UPDATE`,
+      [orderId],
+    );
+
+    if (!order || !order.promo_code_id) {
+      return { reverted: false, reason: 'NO_PROMO_CODE' };
+    }
+
+    // 2. Check audit_trail to avoid duplicate reversal
+    const audit = Array.isArray(order.audit_trail) ? order.audit_trail : [];
+    const alreadyReverted = audit.some((entry) => entry.action === 'REVERT_PROMO_CODE');
+    if (alreadyReverted) {
+      return { reverted: false, reason: 'ALREADY_REVERTED' };
+    }
+
+    // 3. Lock promo_codes FOR UPDATE and decrease used_count
+    const { rows: [promo] } = await client.query(
+      `SELECT id, code, used_count FROM promo_codes WHERE id = $1 FOR UPDATE`,
+      [order.promo_code_id],
+    );
+
+    if (promo) {
+      await client.query(
+        `UPDATE promo_codes SET used_count = GREATEST(0, used_count - 1) WHERE id = $1`,
+        [promo.id],
+      );
+    }
+
+    // 4. Record audit_trail entry on orders
+    const revertEntry = {
+      action: 'REVERT_PROMO_CODE',
+      promo_code_id: order.promo_code_id,
+      promo_code: promo?.code,
+      timestamp: new Date().toISOString(),
+    };
+
+    await client.query(
+      `UPDATE orders SET audit_trail = COALESCE(audit_trail, '[]'::jsonb) || $2::jsonb WHERE id = $1`,
+      [orderId, JSON.stringify([revertEntry])],
+    );
+
+    return { reverted: true, promoCode: promo?.code };
+  }
 }
 
 module.exports = new OrdersRepository();
+module.exports.validateIdempotencyPayload = validateIdempotencyPayload;
+module.exports.formatExistingOrderResponse = formatExistingOrderResponse;

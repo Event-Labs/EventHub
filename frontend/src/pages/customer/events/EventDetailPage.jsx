@@ -8,7 +8,6 @@ import {
   Heart,
   MapPin,
   PauseCircle,
-  ShieldCheck,
   UserCircle,
   XCircle,
 } from 'lucide-react'
@@ -57,15 +56,10 @@ function formatPrice(value) {
 
 function venueSummary(venue) {
   if (!venue) return 'Địa điểm cập nhật sau'
-  if (typeof venue === 'string') return venue
-  if (typeof venue === 'object') {
-    return (
-      venue.summary ||
-      [venue.name, venue.address_line, venue.district, venue.city].filter(Boolean).join(', ') ||
-      'Địa điểm cập nhật sau'
-    )
-  }
-  return 'Địa điểm cập nhật sau'
+  if (typeof venue === 'string' && venue.trim()) return venue.trim()
+  return [venue.name, venue.address_line, venue.district, venue.city]
+    .filter(Boolean)
+    .join(', ') || (typeof venue.summary === 'string' && venue.summary.trim()) || 'Địa điểm cập nhật sau'
 }
 
 function getGoogleMapUrl(venue) {
@@ -79,6 +73,13 @@ function isSaleOpen(ticketType, now) {
   const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null
   const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null
   return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now)
+}
+
+function formatOverviewHtml(content) {
+  if (!content || typeof content !== 'string') return ''
+  return content
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\u00A0/g, ' ')
 }
 
 function isPastTime(value, now) {
@@ -322,7 +323,8 @@ export function EventDetailPage() {
 
   const heroImage = event.banner_url || event.thumbnail_url
   const firstVenue = event.venues?.[0]
-  const overview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
+  const rawOverview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
+  const overview = formatOverviewHtml(rawOverview)
   const eventEndTime = getEventEndTime(event)
   const eventExpired = isPastTime(eventEndTime, currentTime)
   const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.end_time || eventEndTime, currentTime) : false
@@ -496,20 +498,20 @@ export function EventDetailPage() {
       <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
         <section className="min-w-0 space-y-10">
           {/* Tổng quan Bento Card */}
-          <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
+          <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-6 sm:p-7 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div>
-              <h2 className="font-display text-3xl font-black text-white">
+              <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Tổng quan
               </h2>
             </div>
             <div
-              className="mt-5 block w-full min-w-0 text-left ql-bubble"
+              className="mt-4 block w-full min-w-0 text-left ql-bubble"
             >
               <div
                 className={cn(
-                  'block max-w-full break-words text-lg leading-8 text-muted ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_a]:break-words [&_table]:block [&_table]:overflow-x-auto',
-                  overviewOpen ? '!overflow-visible' : 'line-clamp-5 !overflow-hidden',
+                  'block max-w-full text-sm sm:text-base leading-relaxed text-slate-300 font-normal ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [word-break:normal] [overflow-wrap:break-word] hyphens-none',
+                  overviewOpen ? '!overflow-visible' : 'line-clamp-6 !overflow-hidden',
                 )}
                 dangerouslySetInnerHTML={{ __html: overview }}
               />
@@ -528,7 +530,7 @@ export function EventDetailPage() {
           <section id="booking-section" className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-8 py-5">
-              <h2 className="font-display text-2xl font-black text-primary drop-shadow-md">
+              <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Lịch diễn
               </h2>
             </div>
@@ -642,7 +644,7 @@ export function EventDetailPage() {
                                         {isPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
                                       </span>
                                       {!saleOpen && !isPaused && (
-                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán')}>
                                           {soldOut ? 'Hết vé' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
                                       )}
@@ -724,29 +726,35 @@ export function EventDetailPage() {
 
         <aside className="glass-panel min-w-0 h-fit rounded-[24px] p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_60%)] opacity-20" />
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Vé sự kiện
               </h2>
             </div>
-            <ShieldCheck className="size-7 shrink-0 text-primary drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+            <button
+              type="button"
+              onClick={handleFavorite}
+              disabled={favoriteMutation.isPending}
+              className={cn(
+                'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
+                event.is_favorited
+                  ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
+                  : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
+              )}
+              title={event.is_favorited ? 'Bỏ yêu thích sự kiện' : 'Lưu vào danh sách yêu thích'}
+              aria-label={event.is_favorited ? 'Bỏ yêu thích' : 'Yêu thích'}
+            >
+              <Heart
+                className={cn(
+                  'size-5 transition-transform duration-200 active:scale-90',
+                  event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                )}
+              />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleFavorite}
-            disabled={favoriteMutation.isPending}
-            className={cn(
-              'mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-primary/40 py-3.5 font-bold text-primary transition-all hover:bg-primary/10 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] disabled:cursor-not-allowed disabled:opacity-70',
-              event.is_favorited && 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(6,182,212,0.2)]',
-            )}
-          >
-            <Heart className={cn('size-5', event.is_favorited && 'fill-current')} />
-            {event.is_favorited ? 'Đã yêu thích' : 'Yêu thích'}
-          </button>
-
-          <div className="mt-8 space-y-4">
+          <div className="mt-6 space-y-4">
             {selectedSession ? (
               <>
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-inner">

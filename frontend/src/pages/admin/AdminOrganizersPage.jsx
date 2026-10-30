@@ -170,11 +170,17 @@ export function AdminOrganizersPage() {
               email={organizer.owner_email}
               image={organizer.owner_avatar_url}
             />,
-            <div key="plan">
+            <div key="plan" className="flex flex-col items-start gap-1">
               {organizer.plan_name ? (
                 <>
-                  <p className="font-bold text-content">{organizer.plan_name}</p>
-                  <p className="text-xs text-subtle">Hết hạn {formatDate(organizer.plan_end_date)}</p>
+                  <Badge tone={getPlanTone(organizer.plan_name)}>
+                    {organizer.plan_name}
+                  </Badge>
+                  {organizer.plan_end_date && (
+                    <span className="text-[11px] font-medium text-subtle">
+                      Hết hạn {formatDate(organizer.plan_end_date)}
+                    </span>
+                  )}
                 </>
               ) : (
                 <Badge tone="gray">Chưa có gói</Badge>
@@ -285,6 +291,15 @@ function getPageItems(currentPage, totalPages) {
     }
     return [page]
   })
+}
+
+function getPlanTone(planName) {
+  if (!planName) return 'gray'
+  const name = String(planName).toLowerCase()
+  if (name.includes('doanh nghiệp') || name.includes('enterprise') || name.includes('vip')) return 'primary'
+  if (name.includes('chuyên nghiệp') || name.includes('pro')) return 'indigo'
+  if (name.includes('khởi nghiệp') || name.includes('starter') || name.includes('cơ bản')) return 'blue'
+  return 'blue'
 }
 
 function formatCurrency(value) {

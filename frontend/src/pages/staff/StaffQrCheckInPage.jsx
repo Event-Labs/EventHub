@@ -402,12 +402,12 @@ export function StaffQrCheckInPage() {
         <div className="space-y-5">
           {assignedEvents.length > 0 && (
             <StaffPanel className="!py-3.5">
-              <p className="text-xs font-bold uppercase text-muted">Vị trí phân công của bạn</p>
+              <p className="text-xs font-bold uppercase text-white">Vị trí phân công của bạn</p>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {assignedEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="flex flex-wrap items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft/60 px-3 py-2 text-xs"
+                    className="flex flex-wrap items-center gap-2 text-xs"
                   >
                     <span className="font-bold text-content">{event.title}</span>
                     <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
@@ -436,7 +436,7 @@ export function StaffQrCheckInPage() {
           <StaffPanel>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase text-muted">Soát vé bằng mã QR</p>
+                <p className="text-xs font-bold uppercase text-white">Soát vé bằng mã QR</p>
                 <h3 className="mt-1 text-lg font-extrabold text-content">Quét vé bằng camera máy tính</h3>
                 <p className="mt-1 text-sm text-subtle">{cameraMessage}</p>
               </div>

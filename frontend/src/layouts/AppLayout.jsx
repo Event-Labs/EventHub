@@ -267,9 +267,6 @@ export function AppLayout() {
   }, []);
 
   if (hasAdminRole) {
-    if (pathname === '/') {
-      return <Navigate to="/admin" replace />
-    }
     if (
       pathname.startsWith('/booking') ||
       pathname === '/my-tickets' ||
@@ -329,17 +326,18 @@ export function AppLayout() {
           {!loggedIn ? (
             <div className="flex items-center gap-3">
               <NavLink
-                className="rounded-md px-4 py-2 text-sm font-bold text-subtle hover:text-[#E6C17A]"
                 to="/login"
+                className="rounded-full border border-[#C99A47]/50 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#0D1B2A] active:scale-95"
               >
                 Đăng nhập
               </NavLink>
               <NavLink
-                className="btn-gold-primary rounded-full px-4 py-2 text-sm font-bold transition-all hover:brightness-110 active:scale-95"
-                style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 to="/register"
+                className="btn-led-border active:scale-95"
               >
-                Đăng ký
+                <span className="btn-led-inner">
+                  Đăng ký
+                </span>
               </NavLink>
             </div>
           ) : (
@@ -347,6 +345,7 @@ export function AppLayout() {
               {hasAdminRole && (
                 <NavLink
                   to="/admin"
+                  reloadDocument
                   className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
                 >
                   Trang quản trị
@@ -472,33 +471,6 @@ export function AppLayout() {
                   </div>
 
                   <div className="border-t border-border-soft py-1">
-                    {hasAdminRole && (
-                      <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
-                        to="/admin"
-                        onClick={() => setOpen(false)}
-                      >
-                        Quay lại trang quản trị
-                      </NavLink>
-                    )}
-                    {canOpenOrganizerPortal && (
-                      <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
-                        to="/organizer"
-                        onClick={() => setOpen(false)}
-                      >
-                        Quay lại trang tổ chức
-                      </NavLink>
-                    )}
-                    {canOpenStaffPortal && (
-                      <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-[#E6C17A] hover:bg-panel-soft hover:text-white"
-                        to="/staff"
-                        onClick={() => setOpen(false)}
-                      >
-                        Quay lại trang nhân sự
-                      </NavLink>
-                    )}
                     {!canOpenOrganizerPortal && !hasAdminRole && (
                       <NavLink
                         className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"

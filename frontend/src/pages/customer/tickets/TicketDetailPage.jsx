@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
-import { fetchTicketDetail } from '@/services/tickets.js'
+import { fetchTicketDetail, cancelFreeTicket } from '@/services/tickets.js'
 import {
   submitRefundRequest,
   fetchRefundPreview,
@@ -37,6 +37,7 @@ function formatDateTime(value) {
 
 function formatCurrency(value) {
   if (value === undefined || value === null) return 'N/A'
+  if (Number(value) === 0) return 'Miễn phí'
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -54,7 +55,8 @@ function venueLine(ticket) {
 }
 
 function statusText(ticket) {
-  if (ticket?.status === 'REFUND_REQUESTED') return 'Đang chờ hoàn vé'
+  if (ticket?.status === 'REFUND_REQUESTED' || ticket?.status === 'REFUND_PENDING') return 'Đang chờ hoàn vé'
+  if (ticket?.event?.status === 'CANCELLED' && ticket?.status !== 'REFUNDED') return 'Đang chờ hoàn vé'
   if (ticket?.status === 'REFUNDED') return 'Đã hoàn vé'
   if (ticket?.status === 'EXPIRED') return 'Hết hạn'
   if (ticket?.status === 'USED') return 'Đã dùng'
@@ -281,6 +283,8 @@ export function TicketDetailPage() {
     }
   }, [isAuthenticated, location.pathname, navigate])
 
+  const queryClient = useQueryClient()
+
   const ticketQuery = useQuery({
     queryKey: ['ticket-detail', ticketId],
     queryFn: () => fetchTicketDetail(ticketId),
@@ -343,18 +347,34 @@ export function TicketDetailPage() {
   const venue = venueLine(ticket)
   const seat = ticket.seat?.label || 'Không có ghế cố định'
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
-  const isOrderPaid = ['PAID', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
+  const isZeroAmountOrFree = ticket.order?.status === 'CONFIRMED' || Number(ticket.order?.total_amount) === 0 || ['FREE', 'FULLY_DISCOUNTED', 'COMPLIMENTARY'].includes(ticket.ticket_source)
+  const isOrderPaid = ['PAID', 'CONFIRMED', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
   const isEntryEligible = ticket.status === 'VALID'
+  const sessionStartTime = ticket.session?.start_time ? new Date(ticket.session.start_time).getTime() : 0
+  const isMoreThan2HoursBeforeSession = sessionStartTime > 0 && sessionStartTime - Date.now() > 2 * 60 * 60 * 1000
+  const isFreeOrDiscounted = ticket.order?.status === 'CONFIRMED' && ['FREE', 'FULLY_DISCOUNTED'].includes(ticket.ticket_source)
+  const canCancelFreeTicket = isFreeOrDiscounted && isEntryEligible && !ticket.checked_in_at && isMoreThan2HoursBeforeSession
   const collectAttendees = Boolean(ticket.event?.require_attendee_info)
   const activeRefundPolicy = ticket.refund_policy_snapshot || ticket.event?.refund_policy || {}
   const isRefundAllowedByPolicy = Boolean(activeRefundPolicy.allow_refund ?? activeRefundPolicy.allow_refunds)
-  const canRequestRefund = isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
+  const canRequestRefund = !isZeroAmountOrFree && isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
 
   const hasRefundInfo = Boolean(
     refundRequest ||
     ticket.status === 'REFUND_PENDING' ||
     ticket.status === 'REFUNDED' ||
-    ticket.status === 'REFUND_REQUESTED'
+    ticket.status === 'REFUND_REQUESTED' ||
+    ticket.event?.status === 'CANCELLED'
+  )
+
+  const isEventCancelled = ticket.event?.status === 'CANCELLED' || ticket.status === 'REFUND_REQUESTED' || ticket.status === 'CANCELLED'
+  const hasProvidedPayout = Boolean(refundRequest?.bank_account_number)
+  const needsPayoutInput = Boolean(
+    (isEventCancelled || refundRequest) &&
+    !hasProvidedPayout &&
+    refundRequest?.status !== 'REFUNDED' &&
+    refundRequest?.status !== 'REJECTED' &&
+    ticket.status !== 'REFUNDED'
   )
 
   return (
@@ -370,10 +390,10 @@ export function TicketDetailPage() {
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,620px)_360px] lg:items-start relative">
         <aside className="order-2 space-y-6 lg:order-2 lg:sticky lg:top-32">
           <Panel title="Thanh toán" icon={ReceiptText}>
-            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || 'N/A'} />
-            <Info label="Phương thức" value={ticket.payment?.provider || ticket.payment?.method || 'N/A'} />
+            <Info label="Mã giao dịch" value={ticket.payment?.transaction_code || (ticket.order?.status === 'CONFIRMED' ? 'Miễn phí' : 'N/A')} />
+            <Info label="Phương thức" value={ticket.order?.payment_method === 'FREE' || ticket.order?.status === 'CONFIRMED' ? 'Miễn phí' : (ticket.payment?.provider || ticket.payment?.method || 'N/A')} />
             <Info label="Tổng thanh toán" value={formatCurrency(ticket.order?.total_amount)} />
-            <Info label="Thanh toán lúc" value={formatDateTime(ticket.payment?.paid_at)} />
+            <Info label="Thanh toán lúc" value={ticket.payment?.paid_at ? formatDateTime(ticket.payment?.paid_at) : (ticket.order?.status === 'CONFIRMED' ? formatDateTime(ticket.order?.created_at) : 'N/A')} />
           </Panel>
           <Panel title="Thông tin check-in" icon={CheckCircle2}>
             <Info label="Trạng thái" value={statusText(ticket)} />
@@ -482,6 +502,17 @@ export function TicketDetailPage() {
           </section>
 
           <div className="mx-auto mt-8 max-w-[620px] space-y-4 lg:mx-0">
+            {needsPayoutInput && (
+              <button
+                type="button"
+                onClick={() => setRefundDetailOpen(true)}
+                className="w-full py-4 text-[15px] font-bold rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(245,158,11,0.35)] transition-all cursor-pointer"
+              >
+                <RotateCcw className="size-5" />
+                Cung cấp số tài khoản nhận tiền hoàn 100%
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleDownload}
@@ -500,7 +531,14 @@ export function TicketDetailPage() {
 
 
 
-            {canRequestRefund ? (
+            {canCancelFreeTicket ? (
+              <CancelFreeTicketButton
+                ticket={ticket}
+                onCancelled={() => {
+                  ticketQuery.refetch()
+                }}
+              />
+            ) : canRequestRefund ? (
               <RefundButton
                 ticket={ticket}
                 onRefundSubmitted={() => {
@@ -508,7 +546,11 @@ export function TicketDetailPage() {
                   refundsQuery.refetch()
                 }}
               />
-            ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy ? (
+            ) : isFreeOrDiscounted && isEntryEligible && !ticket.checked_in_at && !isMoreThan2HoursBeforeSession ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
+                Vé miễn phí chỉ có thể hủy trước giờ bắt đầu sự kiện ít nhất 2 giờ.
+              </div>
+            ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy && !isZeroAmountOrFree ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
                 Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.
               </div>
@@ -522,8 +564,106 @@ export function TicketDetailPage() {
         onClose={() => setRefundDetailOpen(false)}
         ticket={ticket}
         refundRequest={refundRequest}
+        onPayoutSubmitted={() => {
+          ticketQuery.refetch()
+          refundsQuery.refetch()
+          queryClient.invalidateQueries({ queryKey: ['my-refunds'] })
+          queryClient.invalidateQueries({ queryKey: ['ticket-detail'] })
+        }}
       />
     </div>
+  )
+}
+
+function CancelFreeTicketButton({ ticket, onCancelled }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const toast = useToast()
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelFreeTicket(ticket.id, reason.trim() || 'Khách hàng tự hủy vé miễn phí'),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Hủy vé miễn phí thành công')
+      setIsOpen(false)
+      onCancelled?.()
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Không thể hủy vé. Vui lòng thử lại sau.')
+    },
+  })
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="w-full rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3.5 text-sm font-bold text-rose-400 transition hover:bg-rose-500/20 hover:border-rose-500/50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+      >
+        <X className="size-4" />
+        Hủy vé miễn phí
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-[#0d172e] p-6 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <h3 className="font-display text-lg font-bold text-white flex items-center gap-2">
+                <AlertCircle className="size-5 text-rose-400" />
+                Xác nhận hủy vé miễn phí
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-full p-1 text-slate-400 hover:text-white"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-sm text-slate-300">
+              <p>
+                Bạn có chắc chắn muốn hủy vé <strong className="text-white font-mono">{ticket.ticket_code}</strong> cho sự kiện <strong className="text-white">{ticket.event?.title}</strong> không?
+              </p>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                <strong>Lưu ý:</strong> Vé sau khi hủy sẽ không thể khôi phục lại. Ghế ngồi hoặc lượt đặt sẽ được giải phóng cho khán giả khác. Nếu muốn tham gia, bạn sẽ phải tiến hành đặt lại vé nếu sự kiện còn chỗ.
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                  Lý do hủy (không bắt buộc)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Bận việc đột xuất, trùng lịch..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-rose-400 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                disabled={cancelMutation.isPending}
+                onClick={() => setIsOpen(false)}
+                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                Giữ lại vé
+              </button>
+              <button
+                type="button"
+                disabled={cancelMutation.isPending}
+                onClick={() => cancelMutation.mutate()}
+                className="rounded-xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-rose-500 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-rose-900/40"
+              >
+                {cancelMutation.isPending ? 'Đang hủy...' : 'Xác nhận hủy vé'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -969,16 +1109,29 @@ function Info({ label, value }) {
   )
 }
 
-function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
+function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSubmitted }) {
   if (!isOpen || !ticket) return null
 
   const toast = useToast()
   const status = refundRequest?.status || (ticket.status === 'REFUNDED' ? 'REFUNDED' : 'PENDING')
-  const [bankName, setBankName] = useState('')
+  const [bankName, setBankName] = useState(refundRequest?.bank_name || '')
   const [accountNumber, setAccountNumber] = useState('')
-  const [accountName, setAccountName] = useState('')
+  const [accountName, setAccountName] = useState(refundRequest?.bank_account_name || ticket.order?.buyer_name || '')
   const [submittingPayout, setSubmittingPayout] = useState(false)
-  const [confirmedReceived, setConfirmedReceived] = useState(Boolean(refundRequest?.audit_trail?.some?.((a) => a.action === 'CUSTOMER_CONFIRMED')))
+  const isCustomerConfirmed = Boolean(
+    refundRequest?.audit_trail?.some?.((a) => a.action === 'CONFIRM_REFUND_RECEIVED' || a.action === 'CUSTOMER_CONFIRMED')
+  )
+  const [confirmedReceived, setConfirmedReceived] = useState(isCustomerConfirmed)
+  useEffect(() => {
+    setConfirmedReceived(isCustomerConfirmed)
+  }, [isCustomerConfirmed])
+
+  const needsPayoutInfo = Boolean(
+    refundRequest &&
+    !refundRequest.bank_account_number &&
+    status !== 'REFUNDED' &&
+    status !== 'REJECTED'
+  )
 
   const handlePayoutSubmit = async (e) => {
     e.preventDefault()
@@ -995,6 +1148,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
         bank_account_name: accountName.trim().toUpperCase(),
       })
       toast.success('Đã lưu thông tin nhận tiền hoàn. Ban tổ chức sẽ tiến hành chuyển khoản.')
+      onPayoutSubmitted?.()
       onClose()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể lưu thông tin nhận tiền.')
@@ -1008,6 +1162,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
       await confirmReceivedRefund(refundRequest.id)
       setConfirmedReceived(true)
       toast.success('Cảm ơn bạn đã xác nhận đã nhận đủ tiền hoàn.')
+      onPayoutSubmitted?.()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể xác nhận đã nhận tiền.')
     }
@@ -1019,6 +1174,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
     try {
       await disputeRefund(refundRequest.id, reason.trim())
       toast.warning('Đã gửi khiếu nại chưa nhận được tiền. Ban tổ chức và Admin sẽ kiểm tra lại giao dịch.')
+      onPayoutSubmitted?.()
       onClose()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể gửi khiếu nại.')
@@ -1026,6 +1182,13 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
   }
 
   const getStatusBadge = () => {
+    if (needsPayoutInfo) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/40 bg-orange-500/15 px-3.5 py-1 text-xs font-bold text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.3)] animate-pulse">
+          <Clock3 className="size-3.5" /> Cần cung cấp STK nhận tiền
+        </span>
+      )
+    }
     switch (status) {
       case 'PENDING':
         return (
@@ -1108,8 +1271,8 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
             </div>
           </div>
 
-          {/* Form to submit payout info if CUSTOMER_INPUT */}
-          {status === 'CUSTOMER_INPUT' && (
+          {/* Form to submit payout info if needsPayoutInfo */}
+          {needsPayoutInfo && (
             <div className="rounded-[20px] border border-orange-500/30 bg-orange-500/10 p-5">
               <h4 className="text-xs font-bold text-orange-300 uppercase tracking-wider mb-2">
                 Cung cấp thông tin tài khoản nhận tiền hoàn
@@ -1128,7 +1291,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
                     <option value="">-- Chọn ngân hàng thụ hưởng --</option>
                     {VIETNAMESE_BANKS.map((b) => (
                       <option key={b.code} value={b.shortName}>
-                        {b.shortName} - {b.name}
+                        {b.shortName} - {b.fullName}
                       </option>
                     ))}
                   </select>
@@ -1156,11 +1319,26 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest }) {
                 <button
                   type="submit"
                   disabled={submittingPayout}
-                  className="w-full rounded-xl bg-orange-600 hover:bg-orange-500 py-2.5 text-xs font-bold text-white transition disabled:opacity-50"
+                  className="w-full rounded-xl bg-orange-600 hover:bg-orange-500 py-2.5 text-xs font-bold text-white transition disabled:opacity-50 cursor-pointer"
                 >
                   {submittingPayout ? 'Đang lưu...' : 'Xác nhận thông tin nhận tiền'}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* Display submitted bank account info if already provided */}
+          {!needsPayoutInfo && refundRequest?.bank_name && (
+            <div className="rounded-[20px] border border-blue-500/30 bg-blue-500/10 p-4">
+              <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-1">
+                Tài khoản nhận tiền hoàn đã ghi nhận
+              </h4>
+              <p className="text-xs text-blue-100">
+                Ngân hàng: <strong>{refundRequest.bank_name}</strong> — Số TK: <strong>{refundRequest.bank_account_number}</strong> — Chủ TK: <strong>{refundRequest.bank_account_name || 'N/A'}</strong>
+              </p>
+              <p className="text-[11px] text-blue-200/80 mt-1">
+                Ban tổ chức sẽ đối soát và thực hiện chuyển tiền hoàn 100% cho bạn theo quy định.
+              </p>
             </div>
           )}
 
