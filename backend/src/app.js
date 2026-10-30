@@ -6,6 +6,7 @@ try {
 } catch (e) {}
 
 const express = require('express');
+const path = require('path');
 const cookieParser = require('cookie-parser');
 const securityMiddlewares = require('./middlewares/security.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -98,6 +99,14 @@ app.use('/api/operations', operationsRoutes);
 // Health check
 app.get('/health', (req, res) => {
     res.status(200).json(ApiResponse.success(null, 'Máy chủ đang hoạt động bình thường'));
+});
+
+// Load test script distribution endpoint
+app.get('/test_300_seat_users.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'simulate_300_seat_users.js'));
+});
+app.get('/k6_test_eventhub.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'k6_test_eventhub.js'));
 });
 
 // 404 handler
