@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   CheckCircle2,
   ChevronDown,
@@ -14,6 +15,7 @@ import {
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import { fetchCheckinStats } from '@/services/organizerOrders.js'
 import { Badge, OrganizerPage, OrganizerPanel, StatCard } from './OrganizerComponents.jsx'
+import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -52,27 +54,39 @@ function ProgressBar({ value, color = 'bg-primary' }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerCheckinDashboardPage() {
+  const [searchParams] = useSearchParams()
+  const initialEventId = searchParams.get('eventId') || ''
+
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
-  const [selectedEventId, setSelectedEventId] = useState('')
+  const [selectedEventId, setSelectedEventId] = useState(initialEventId)
 
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastRefresh, setLastRefresh] = useState(null)
 
-  // Load event list (only published events)
+  // Load event list (published, completed, or events with ticket sales)
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
       .then((data) => {
-        const active = (data || []).filter((e) => e.status === 'PUBLISHED')
+        const active = (data || []).filter(
+          (e) =>
+            ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(e.status) ||
+            Number(e.paid_orders_count || 0) > 0 ||
+            (e.status !== 'DRAFT' && e.status !== 'PENDING_REVIEW')
+        )
         setEvents(active)
-        if (active.length > 0) setSelectedEventId(active[0].id)
+        if (initialEventId && active.some((ev) => ev.id === initialEventId)) {
+          setSelectedEventId(initialEventId)
+        } else if (active.length > 0) {
+          setSelectedEventId(active[0].id)
+        }
       })
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))
-  }, [])
+  }, [initialEventId])
 
   const loadStats = useCallback(async () => {
     if (!selectedEventId) return
@@ -107,47 +121,44 @@ export function OrganizerCheckinDashboardPage() {
       title="Theo dõi Check-in"
       description="Theo dõi tình trạng check-in theo thời gian thực cho sự kiện của bạn."
     >
-      {/* ── Event selector ── */}
-      <div className="mb-6">
+      {/* ── Event selector with Smart Event Picker ── */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end">
         {eventsLoading ? (
           <div className="flex items-center gap-2 text-sm text-subtle">
-            <Loader2 className="size-4 animate-spin" /> Đang tải sự kiện...
+            <Loader2 className="size-4 animate-spin text-primary" /> Đang tải sự kiện...
           </div>
         ) : events.length === 0 ? (
-          <p className="text-sm text-subtle">Chưa có sự kiện đã xuất bản nào.</p>
+          <p className="text-sm text-subtle">Chưa có sự kiện nào trong hệ thống.</p>
         ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
-            <div className="relative w-full sm:w-[420px]">
-              <select
-                className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                value={selectedEventId}
-                onChange={(e) => setSelectedEventId(e.target.value)}
-              >
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">
-                    {ev.title}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
-            </div>
-            <button
-              type="button"
-              onClick={loadStats}
-              disabled={loading || !selectedEventId}
-              className="org-btn-secondary inline-flex h-10 items-center gap-2 disabled:opacity-50"
-              title="Làm mới thống kê"
-            >
-              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            {lastRefresh && (
-              <p className="text-xs text-subtle">
-                Cập nhật: {lastRefresh.toLocaleTimeString('vi-VN')}
-              </p>
-            )}
+          <div className="flex-1 max-w-xl">
+            <OrganizerEventPicker
+              events={events}
+              selectedEventId={selectedEventId}
+              onSelectEvent={setSelectedEventId}
+              loading={eventsLoading}
+              label="Chọn sự kiện"
+              allowAll={false}
+              placeholder="Chọn sự kiện để theo dõi check-in..."
+            />
           </div>
         )}
+        <div className="flex items-center gap-2 pb-0.5">
+          <button
+            type="button"
+            onClick={loadStats}
+            disabled={loading || !selectedEventId}
+            className="org-btn-secondary inline-flex h-10 items-center gap-2 disabled:opacity-50"
+            title="Làm mới thống kê"
+          >
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="text-xs font-semibold">Làm mới</span>
+          </button>
+          {lastRefresh && (
+            <p className="text-xs text-subtle [html.light_&]:text-[#536b88]">
+              Cập nhật: {lastRefresh.toLocaleTimeString('vi-VN')}
+            </p>
+          )}
+        </div>
       </div>
 
       {error && (
