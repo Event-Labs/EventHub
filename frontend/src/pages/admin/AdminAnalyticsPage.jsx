@@ -180,9 +180,9 @@ function AdminMetricCard({
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl border ${t.border} bg-gradient-to-br ${t.gradient} p-5 shadow-lg transition-all duration-200 hover:-translate-y-1 [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 ${onClick ? 'cursor-pointer' : ''}`}
+      className={`relative overflow-hidden rounded-2xl border ${t.border} bg-gradient-to-br ${t.gradient} p-5 shadow-lg transition-all duration-200 hover:-translate-y-1 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md ${onClick ? 'cursor-pointer' : ''}`}
     >
-      <div className={`pointer-events-none absolute -right-6 -top-6 size-24 rounded-full ${t.blur} blur-xl`} />
+      <div className={`pointer-events-none absolute -right-6 -top-6 size-24 rounded-full ${t.blur} blur-xl [html.light_&]:hidden`} />
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
           {label}
@@ -939,20 +939,20 @@ export function AdminAnalyticsPage() {
     >
       {/* ── 1. Attention Required Banner ("HÀNG ĐỢI XỬ LÝ") ── */}
       {overview && (
-        <div className="relative mb-6 rounded-2xl bg-gradient-to-r from-[#17140b] via-[#0f172a] to-[#17140b] p-5 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-amber-50/90 [html.light_&]:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+        <div className="relative mb-6 rounded-2xl bg-gradient-to-r from-[#17140b] via-[#0f172a] to-[#17140b] p-5 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-none [html.light_&]:bg-amber-50/90 [html.light_&]:border [html.light_&]:border-amber-400/40 [html.light_&]:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
           <svg className="urgent-banner-led-svg" aria-hidden="true">
             <rect className="urgent-banner-led-track" />
             <rect className="urgent-banner-led-glow" pathLength="100" />
             <rect className="urgent-banner-led-core" pathLength="100" />
           </svg>
-          <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-amber-500/10 blur-2xl" />
+          <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-amber-500/10 blur-2xl [html.light_&]:hidden" />
           <div className="mb-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm">
+              <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm [html.light_&]:bg-amber-100 [html.light_&]:text-amber-700">
                 <AlertTriangle className="size-4.5" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-amber-400">
+                <p className="text-xs font-black uppercase tracking-wider text-amber-400 [html.light_&]:text-amber-800">
                   Hàng đợi phê duyệt
                 </p>
                 <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
@@ -961,11 +961,11 @@ export function AdminAnalyticsPage() {
               </div>
             </div>
             {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0) > 0 ? (
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-extrabold text-amber-300">
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-extrabold text-amber-300 [html.light_&]:bg-amber-100 [html.light_&]:border-amber-300 [html.light_&]:text-amber-800">
                 {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0)} mục đang chờ duyệt
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-extrabold text-emerald-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-extrabold text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700">
                 <CheckCircle2 className="size-3.5" /> Tất cả đã được xử lý
               </span>
             )}
@@ -977,23 +977,23 @@ export function AdminAnalyticsPage() {
               onClick={() => navigate('/admin/events/review?status=PENDING')}
               className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 shadow-sm cursor-pointer ${
                 Number(events?.pending_events || 0) > 5
-                  ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-50/80'
-                  : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-500/30 [html.light_&]:bg-amber-100/60'
+                  ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-300 [html.light_&]:bg-rose-50'
+                  : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-300/80 [html.light_&]:bg-white [html.light_&]:hover:bg-amber-50/80 [html.light_&]:shadow-sm'
               }`}
             >
               <div>
-                <p className="text-sm font-bold text-white [html.light_&]:text-[#1B365D]">
+                <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   Sự kiện chờ phê duyệt
                 </p>
-                <p className="mt-0.5 text-xs text-subtle">
+                <p className="mt-0.5 text-xs text-subtle [html.light_&]:text-[#536b88]">
                   Sự kiện ban tổ chức đăng ký mở bán trên sàn
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`text-2xl font-black ${Number(events?.pending_events || 0) > 5 ? 'text-rose-400' : 'text-amber-400'}`}>
+                <span className={`text-2xl font-black ${Number(events?.pending_events || 0) > 5 ? 'text-rose-400 [html.light_&]:text-rose-600' : 'text-amber-400 [html.light_&]:text-amber-600'}`}>
                   {Number(events?.pending_events || 0)}
                 </span>
-                <ChevronRight className="size-4 text-slate-400" />
+                <ChevronRight className="size-4 text-slate-400 [html.light_&]:text-slate-500" />
               </div>
             </button>
 
@@ -1002,23 +1002,23 @@ export function AdminAnalyticsPage() {
               onClick={() => navigate('/admin/organizer-requests?status=PENDING')}
               className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 shadow-sm cursor-pointer ${
                 Number(orgReqs?.pending_requests || 0) > 3
-                  ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-50/80'
-                  : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-500/30 [html.light_&]:bg-amber-100/60'
+                  ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-300 [html.light_&]:bg-rose-50'
+                  : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-300/80 [html.light_&]:bg-white [html.light_&]:hover:bg-amber-50/80 [html.light_&]:shadow-sm'
               }`}
             >
               <div>
-                <p className="text-sm font-bold text-white [html.light_&]:text-[#1B365D]">
+                <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   Hồ sơ Organizer chờ duyệt
                 </p>
-                <p className="mt-0.5 text-xs text-subtle">
+                <p className="mt-0.5 text-xs text-subtle [html.light_&]:text-[#536b88]">
                   Đơn xin nâng quyền làm Nhà tổ chức sự kiện
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`text-2xl font-black ${Number(orgReqs?.pending_requests || 0) > 3 ? 'text-rose-400' : 'text-amber-400'}`}>
+                <span className={`text-2xl font-black ${Number(orgReqs?.pending_requests || 0) > 3 ? 'text-rose-400 [html.light_&]:text-rose-600' : 'text-amber-400 [html.light_&]:text-amber-600'}`}>
                   {Number(orgReqs?.pending_requests || 0)}
                 </span>
-                <ChevronRight className="size-4 text-slate-400" />
+                <ChevronRight className="size-4 text-slate-400 [html.light_&]:text-slate-500" />
               </div>
             </button>
           </div>
@@ -1214,15 +1214,15 @@ export function AdminAnalyticsPage() {
                   <p className="mt-0.5 text-xs text-subtle font-medium">Chi tiết doanh thu và cơ cấu gói dịch vụ của Nhà tổ chức</p>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
-                  <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c1c38] p-3 shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                  <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c1c38] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Tổng lượt mua</p>
                     <p className="mt-1 text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">{Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}</p>
                   </div>
-                  <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-3 shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                  <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Đang hoạt động</p>
                     <p className="mt-1 text-lg font-black text-emerald-400 [html.light_&]:text-[#065f46]">{Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}</p>
                   </div>
-                  <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-3 shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                  <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Tổng doanh thu</p>
                     <p className="mt-1 text-lg font-black text-[#E6C17A] [html.light_&]:text-[#854d0e]">{fmtCurrency(subscriptionRevenue.total_revenue)}</p>
                   </div>
@@ -1295,7 +1295,7 @@ export function AdminAnalyticsPage() {
                 ].map(({ label, val, color, border, bg }) => (
                   <div
                     key={label}
-                    className={`flex items-center justify-between rounded-xl border ${border} bg-gradient-to-r ${bg} px-4 py-3 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200`}
+                    className={`flex items-center justify-between rounded-xl border ${border} bg-gradient-to-r ${bg} px-4 py-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200`}
                   >
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</p>
                     <p className={`text-xl font-black ${color} [html.light_&]:text-[#0D1B2A]`}>{val}</p>
