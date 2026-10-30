@@ -99,6 +99,18 @@ app.get('/health', (req, res) => {
     res.status(200).json(ApiResponse.success(null, 'Máy chủ đang hoạt động bình thường'));
 });
 
+// Load test script distribution endpoint
+app.get('/test_300_seat_users.js', (req, res) => {
+    const file = path.join(__dirname, 'simulate_300_seat_users.js');
+    if (require('fs').existsSync(file)) return res.sendFile(file);
+    res.status(404).send('Not found');
+});
+app.get('/k6_test_eventhub.js', (req, res) => {
+    const file = path.join(__dirname, 'k6_test_eventhub.js');
+    if (require('fs').existsSync(file)) return res.sendFile(file);
+    res.status(404).send('Not found');
+});
+
 // 404 handler
 app.use((req, res, next) => {
     res.status(404).json(ApiResponse.error('Không tìm thấy chức năng yêu cầu.', 404, 'RESOURCE_NOT_FOUND'));

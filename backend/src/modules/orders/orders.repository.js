@@ -134,16 +134,20 @@ function buildAttendeeQueues(attendees = []) {
 
 class OrdersRepository {
   async ensureRequireAttendeeInfoColumn(client = db) {
+    if (this._requireAttendeeInfoChecked) return;
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+    this._requireAttendeeInfoChecked = true;
   }
 
   async ensureAttendeeInfoColumn(client = db) {
+    if (this._attendeeInfoChecked) return;
     await client.query(
       `
       ALTER TABLE order_items
       ADD COLUMN IF NOT EXISTS attendee_info JSONB NOT NULL DEFAULT '[]'::jsonb
       `,
     );
+    this._attendeeInfoChecked = true;
   }
 
   async expirePendingOrders() {

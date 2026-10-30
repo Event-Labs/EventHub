@@ -16,12 +16,12 @@ const logger = require('../../core/logger');
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
-const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
-const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
-const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 16384);
-const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 12);
-const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 1024);
-const OLLAMA_NUM_GPU = Number(process.env.OLLAMA_NUM_GPU || 28);
+const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 600000);
+const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 200000);
+const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 4096);
+const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 2);
+const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 512);
+const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 8;
 
 
 /**
@@ -479,71 +479,12 @@ async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eve
   }
 
   // 1. Nếu có ký tự tiếng Thái/Khmer hoặc chuỗi lặp rác -> làm sạch trước
-  let cleaned = sanitizeRawVisionOutput(rawDescription);
+  const cleaned = sanitizeRawVisionOutput(rawDescription);
 
-  // Nếu sau khi làm sạch chuỗi còn quá ngắn hoặc rỗng do toàn bộ là mã rác
-  if (cleaned.length < 15) {
-    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, chủ đề phù hợp và đảm bảo chất lượng hình ảnh.`;
-  }
-
-  // 2. Nếu mô tả đã thuần tiếng Việt và có đầy đủ dấu câu, không chứa tiếng Anh -> giữ nguyên
-  if (!isEnglishOrForeignText(cleaned) && hasVietnameseDiacritics(cleaned)) {
-    return cleaned.trim();
-  }
-
-  // 3. Nếu mô tả là tiếng Anh (do Vision model xuất ra) -> Dùng mô hình ngôn ngữ EventHub để dịch & trau chuốt
-  try {
-    const prompt = `Bạn là Chuyên gia Thẩm định Hình ảnh & Visual OCR Sự kiện EventHub tại Việt Nam.
-Dưới đây là dữ liệu thô nhận diện thị giác (Raw Vision OCR) cho ${sourceLabel || 'hình ảnh sự kiện'} của sự kiện có tên đăng ký: "${eventTitle || 'Sự kiện EventHub'}".
-
-DỮ LIỆU THÔ TỪ VISION MODEL:
-"""
-${cleaned}
-"""
-
-BẠN BẮT BUỘC ÁP DỤNG QUY TRÌNH "VISUAL CHAIN-OF-THOUGHT (CoT) OCR" 4 BƯỚC ĐỂ GIẢI MÃ CHÍNH XÁC:
-
-1. BƯỚC 1 - PHÂN TÍCH BỐI CẢNH & CHỦ ĐỀ (Scene & Theme Context):
-   - Nhận diện thể loại sự kiện (kịch kinh dị, nhạc hội EDM, liveshow, hội thảo, triển lãm).
-   - Phân tích tông màu (u tối, đỏ máu, neon, trang nhã) và các yếu tố đồ họa để định hình từ vựng tiếng Việt tương ứng.
-
-2. BƯỚC 2 - QUÉT VÙNG CHỮ RÕ NÉT LÀM MỒI NGỮ CẢNH (Anchor Text Extraction):
-   - Đọc các dòng chữ có phông chữ in chuẩn, dễ đọc trước (tên đạo diễn, diễn viên, ngày giờ, địa điểm, thể loại sự kiện) để xác nhận ngôn ngữ chính là Tiếng Việt.
-
-3. BƯỚC 3 - GIẢI MÃ PHÔNG CHỮ BIẾN DẠNG & SỬA LỖI TỪ VỰNG (Stylized Typography Decoding):
-   - XỬ LÝ CHỮ NGHỆ THUẬT / UỐN LƯỢN / KINH DỊ:
-     * Banner kịch ma/kinh dị thường vẽ chữ tiêu đề uốn éo, chảy máu, khói sương hoặc vẽ cách điệu khiến AI thị giác dễ đọc nhầm thành chuỗi ký tự vô nghĩa (như 'Contra Nihoa...', 'Conti o\' papua...').
-     * TUYỆT ĐỐI KHÔNG dịch sang ký tự tượng hình (Thái, Lào, Khmer) hoặc giữ nguyên các từ vô nghĩa!
-     * Bóc tách các nét râu ria trang trí/máu giả/khói, đối chiếu hình dáng khung xương chữ cái (skeleton) với tên sự kiện "${eventTitle}" và bảng chữ cái Tiếng Việt có dấu.
-     * Sửa lỗi chính tả từ vựng (Lexical Correction) để khôi phục chính xác tên sự kiện tiếng Việt trên banner.
-
-4. BƯỚC 4 - ĐÁNH GIÁ KIỂM DUYỆT (Moderation Verdict):
-   - Phân biệt rõ: Hiệu ứng nghệ thuật của sự kiện (vết máu giả trên chữ kinh dị, khói ma mị, hình vẽ bộ xương sân khấu) là HOÀN TOÀN HỢP LỆ VÀ PHÙ HỢP NGỮ CẢNH sự kiện, KHÔNG ĐƯỢC coi là bạo lực máu me vi phạm cộng đồng.
-
-YÊU CẦU BẮT BUỘC:
-- Trả về DUY NHẤT một đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG dùng thẻ <think>, KHÔNG để sót từ tiếng Anh thừa, KHÔNG thêm lời chào).
-- Giữ nguyên chuẩn xác tên sự kiện tiếng Việt đã giải mã, tên riêng nghệ sĩ, thời gian, địa điểm.`;
-
-    const vietnameseText = await generate(prompt, {
-      model: OLLAMA_MODEL,
-      temperature: 0.1,
-      max_tokens: 200,
-      think: false,
-      signal,
-    });
-
-    if (vietnameseText && vietnameseText.length > 15 && !isForeignOrGibberishText(vietnameseText)) {
-      return vietnameseText.replace(/<\/?[a-zA-Z0-9_-]+>/g, '').trim();
-    }
-  } catch (err) {
-    if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || signal?.aborted || String(err.message || '').includes('aborted')) {
-      throw err;
-    }
-    logger.warn(`[OllamaClient] ensureVietnameseDescription fallback: ${err.message}`);
-  }
-
-  // Fallback an toàn nếu mô hình ngôn ngữ không phản hồi
-  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, thiết kế phù hợp và đạt tiêu chuẩn chất lượng hình ảnh.`;
+  // Trả về trực tiếp nội dung mô tả đã làm sạch để Stage 2 (Qwen3) đọc và tổng hợp vào kết quả tiếng Việt.
+  // Tránh gọi đệm mô hình LLM chính tại đây vì việc tráo đổi model (model swapping) liên tục giữa
+  // Moondream và Qwen3 trong VRAM (2GB) sẽ gây lỗi CUDA Out of Memory trên card Quadro P620!
+  return cleaned.trim();
 }
 
 /**
@@ -618,9 +559,16 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
 async function describeImageBatch(images, eventTitle = '', signal = null) {
   if (!Array.isArray(images) || images.length === 0) return [];
 
+  // Ưu tiên tối đa 2 ảnh quan trọng nhất (Giấy phép và Poster chính) để tránh quá tải
+  const prioritizedImages = [...images].sort((a, b) => {
+    const aPermit = a.source && a.source.startsWith('PERMIT') ? 2 : (a.source === 'MAIN_POSTER' ? 1 : 0);
+    const bPermit = b.source && b.source.startsWith('PERMIT') ? 2 : (b.source === 'MAIN_POSTER' ? 1 : 0);
+    return bPermit - aPermit;
+  }).slice(0, 2);
+
   const results = [];
 
-  for (const img of images) {
+  for (const img of prioritizedImages) {
     if (signal?.aborted) {
       const err = new Error('Scan aborted by user');
       err.name = 'AbortError';
