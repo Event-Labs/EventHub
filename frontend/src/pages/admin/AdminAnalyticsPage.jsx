@@ -8,6 +8,7 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  ChevronRight,
   CircleDollarSign,
   ClipboardList,
   Crown,
@@ -936,7 +937,7 @@ export function AdminAnalyticsPage() {
       title="Tổng quan Nền tảng"
       description="Thống kê toàn hệ thống: người dùng, sự kiện, giao dịch vé và doanh thu gói dịch vụ."
     >
-      {/* ── 1. Attention Required Banner ("CẦN XỬ LÝ NGAY") ── */}
+      {/* ── 1. Attention Required Banner ("HÀNG ĐỢI XỬ LÝ") ── */}
       {overview && (
         <div className="relative mb-6 rounded-2xl bg-gradient-to-r from-[#17140b] via-[#0f172a] to-[#17140b] p-5 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-amber-50/90 [html.light_&]:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
           <svg className="urgent-banner-led-svg" aria-hidden="true">
@@ -945,38 +946,81 @@ export function AdminAnalyticsPage() {
             <rect className="urgent-banner-led-core" pathLength="100" />
           </svg>
           <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-amber-500/10 blur-2xl" />
-          <div className="mb-3.5 flex items-center gap-2.5">
-            <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm">
-              <AlertTriangle className="size-4.5" />
+          <div className="mb-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm">
+                <AlertTriangle className="size-4.5" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-amber-400">
+                  Hàng đợi phê duyệt
+                </p>
+                <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
+                  Yêu cầu từ các đối tác cần Admin kiểm duyệt trước khi đưa lên sàn
+                </p>
+              </div>
             </div>
-            <p className="text-xs font-black uppercase tracking-wider text-amber-400">
-              Cần xử lý ngay
-            </p>
+            {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0) > 0 ? (
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-extrabold text-amber-300">
+                {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0)} mục đang chờ duyệt
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-extrabold text-emerald-400">
+                <CheckCircle2 className="size-3.5" /> Tất cả đã được xử lý
+              </span>
+            )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              ['Sự kiện chờ duyệt', Number(events?.pending_events || 0), Number(events?.pending_events || 0) > 5 ? 'critical' : 'warn', '/admin/events/review?status=PENDING'],
-              ['Yêu cầu Organizer', Number(orgReqs?.pending_requests || 0), Number(orgReqs?.pending_requests || 0) > 3 ? 'critical' : 'warn', '/admin/organizer-requests?status=PENDING'],
-              ['Sự kiện đã hủy', Number(events?.cancelled_events || 0), 'warn', '/admin/events/review?status=CANCELLED'],
-              ['Đơn hàng đang xử lý', Number(orders?.pending_orders || 0), 'warn', '/admin/platform-fee?status=PENDING'],
-            ].map(([label, count, severity, to]) => (
-              <button
-                type="button"
-                key={label}
-                onClick={() => navigate(to)}
-                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 shadow-sm ${
-                  severity === 'critical'
-                    ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-50/80'
-                    : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-500/30 [html.light_&]:bg-amber-100/60'
-                }`}
-              >
-                <span className="text-sm font-bold text-white [html.light_&]:text-[#1B365D]">{label}</span>
-                <span className={`shrink-0 text-xl font-black ${severity === 'critical' ? 'text-rose-400' : 'text-amber-400'}`}>
-                  {count}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/events/review?status=PENDING')}
+              className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 shadow-sm cursor-pointer ${
+                Number(events?.pending_events || 0) > 5
+                  ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-50/80'
+                  : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-500/30 [html.light_&]:bg-amber-100/60'
+              }`}
+            >
+              <div>
+                <p className="text-sm font-bold text-white [html.light_&]:text-[#1B365D]">
+                  Sự kiện chờ phê duyệt
+                </p>
+                <p className="mt-0.5 text-xs text-subtle">
+                  Sự kiện ban tổ chức đăng ký mở bán trên sàn
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`text-2xl font-black ${Number(events?.pending_events || 0) > 5 ? 'text-rose-400' : 'text-amber-400'}`}>
+                  {Number(events?.pending_events || 0)}
                 </span>
-              </button>
-            ))}
+                <ChevronRight className="size-4 text-slate-400" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/admin/organizer-requests?status=PENDING')}
+              className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 shadow-sm cursor-pointer ${
+                Number(orgReqs?.pending_requests || 0) > 3
+                  ? 'border-rose-500/40 bg-rose-950/40 hover:border-rose-400 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-50/80'
+                  : 'border-amber-500/30 bg-[#16233f] hover:border-amber-400 hover:bg-[#1b2b4e] [html.light_&]:border-amber-500/30 [html.light_&]:bg-amber-100/60'
+              }`}
+            >
+              <div>
+                <p className="text-sm font-bold text-white [html.light_&]:text-[#1B365D]">
+                  Hồ sơ Organizer chờ duyệt
+                </p>
+                <p className="mt-0.5 text-xs text-subtle">
+                  Đơn xin nâng quyền làm Nhà tổ chức sự kiện
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`text-2xl font-black ${Number(orgReqs?.pending_requests || 0) > 3 ? 'text-rose-400' : 'text-amber-400'}`}>
+                  {Number(orgReqs?.pending_requests || 0)}
+                </span>
+                <ChevronRight className="size-4 text-slate-400" />
+              </div>
+            </button>
           </div>
         </div>
       )}
@@ -987,13 +1031,13 @@ export function AdminAnalyticsPage() {
         </Panel>
       ) : overview ? (
         <>
-          {/* ── 2. KPI Cards Row 1: Users & System Ops ── */}
-          <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* ── 2. KPI Cards: 6 chỉ số cốt lõi (3 cột x 2 hàng) ── */}
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <AdminMetricCard
               icon={Users}
               label="Tổng người dùng"
               value={Number(users.total_users).toLocaleString('vi-VN')}
-              sub={`${Number(users.active_users).toLocaleString()} hoạt động · ${Number(users.locked_users).toLocaleString()} bị khóa`}
+              sub={`${Number(users.active_users).toLocaleString('vi-VN')} đang hoạt động · ${Number(users.new_users_30d || 0).toLocaleString('vi-VN')} mới trong tháng`}
               theme="cyan"
               onClick={() => navigate('/admin/accounts')}
             />
@@ -1001,58 +1045,39 @@ export function AdminAnalyticsPage() {
               icon={Building2}
               label="Nhà tổ chức"
               value={Number(users.total_organizers).toLocaleString('vi-VN')}
-              sub={`${Number(users.total_staff).toLocaleString()} nhân viên`}
+              sub={`${Number(users.total_staff).toLocaleString('vi-VN')} nhân sự vận hành sự kiện`}
               theme="purple"
               onClick={() => navigate('/admin/organizers')}
             />
             <AdminMetricCard
               icon={Calendar}
-              label="Sự kiện đã đăng"
-              value={Number(events.published_events).toLocaleString('vi-VN')}
-              sub={`${Number(events.pending_events).toLocaleString()} đang chờ duyệt`}
+              label="Sự kiện trên hệ thống"
+              value={Number(events.total_events).toLocaleString('vi-VN')}
+              sub={`${Number(events.published_events).toLocaleString('vi-VN')} đang mở bán · ${Number(events.completed_events).toLocaleString('vi-VN')} kết thúc`}
               theme="emerald"
               onClick={() => navigate('/admin/events/review')}
             />
             <AdminMetricCard
-              icon={ClipboardList}
-              label="Yêu cầu Organizer"
-              value={Number(orgReqs.total_requests).toLocaleString('vi-VN')}
-              sub={`${Number(orgReqs.pending_requests).toLocaleString()} đang chờ xử lý`}
-              theme="amber"
-              onClick={() => navigate('/admin/organizer-requests')}
-            />
-          </div>
-
-          {/* ── 3. KPI Cards Row 2: Ticket GMV & Subscriptions ── */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <AdminMetricCard
               icon={CircleDollarSign}
-              label="Tổng giao dịch vé"
+              label="Tổng giao dịch vé (GMV)"
               value={fmtShort(orders.gross_revenue)}
-              sub="Tiền vé đã thanh toán, không phải doanh thu EventHub"
+              sub={`Dòng tiền vé bán qua sàn: ${fmtCurrency(orders.gross_revenue)}`}
               theme="emerald"
             />
             <AdminMetricCard
               icon={TrendingUp}
               label="Doanh thu gói dịch vụ"
               value={fmtShort(subscriptionRevenue?.total_revenue)}
-              sub={fmtCurrency(subscriptionRevenue?.total_revenue)}
+              sub={`Doanh thu thực nhận EventHub: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`}
               theme="amber"
               onClick={() => navigate('/admin/plans')}
             />
             <AdminMetricCard
               icon={Ticket}
-              label="Đơn đã thanh toán"
+              label="Đơn vé đã thanh toán"
               value={Number(orders.paid_orders).toLocaleString('vi-VN')}
-              sub={`/${Number(orders.total_orders).toLocaleString()} tổng đơn`}
+              sub={`Tỷ lệ thanh toán ${Math.round((Number(orders.paid_orders) / (Number(orders.total_orders) || 1)) * 100)}% (${Number(orders.total_orders).toLocaleString('vi-VN')} tổng đơn)`}
               theme="blue"
-            />
-            <AdminMetricCard
-              icon={BarChart3}
-              label="Sự kiện (toàn hệ thống)"
-              value={Number(events.total_events).toLocaleString('vi-VN')}
-              sub={`${Number(events.completed_events).toLocaleString()} hoàn thành`}
-              theme="purple"
             />
           </div>
 
@@ -1263,10 +1288,10 @@ export function AdminAnalyticsPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 {[
-                  { label: 'Tổng đơn', val: Number(orders.total_orders).toLocaleString('vi-VN'), color: 'text-white', border: 'border-sky-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#0e2142]' },
+                  { label: 'Tổng đơn khởi tạo', val: Number(orders.total_orders).toLocaleString('vi-VN'), color: 'text-white', border: 'border-sky-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#0e2142]' },
                   { label: 'Đã thanh toán', val: Number(orders.paid_orders).toLocaleString('vi-VN'), color: 'text-emerald-400', border: 'border-emerald-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#0c2e22]' },
-                  { label: 'Đang xử lý', val: Number(orders.pending_orders).toLocaleString('vi-VN'), color: 'text-amber-300', border: 'border-amber-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#251a08]' },
-                  { label: 'Đã hủy', val: Number(orders.cancelled_orders).toLocaleString('vi-VN'), color: 'text-rose-400', border: 'border-rose-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#2b0e1a]' },
+                  { label: 'Chờ thanh toán', val: Number(orders.pending_orders).toLocaleString('vi-VN'), color: 'text-amber-300', border: 'border-amber-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#251a08]' },
+                  { label: 'Đã hủy / Quá hạn', val: Number(orders.cancelled_orders).toLocaleString('vi-VN'), color: 'text-rose-400', border: 'border-rose-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#2b0e1a]' },
                 ].map(({ label, val, color, border, bg }) => (
                   <div
                     key={label}

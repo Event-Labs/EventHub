@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, CheckCheck, ChevronRight, Home, LogOut, Moon, Settings, Sun } from 'lucide-react'
-import { clearAuthSession, getAuthToken } from '@/lib/auth.js'
+import { clearAuthSession, getAuthToken, isAdminUser } from '@/lib/auth.js'
 import {
   fetchNotifications,
   getNotificationStreamUrl,
@@ -340,6 +340,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme }) {
 
 function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme }) {
   const isLight = theme === 'light'
+  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên'
 
   return (
     <header className={`fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b px-8 py-4 backdrop-blur-xl transition-colors duration-500 ${isLight
@@ -347,7 +348,12 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
       : 'border-white/10 bg-slate-950/80 text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)]'
       }`}>
       <div className="flex items-center gap-5">
-        <NavLink to="/" reloadDocument title="Về trang chủ" className="shrink-0 transition opacity-90 hover:opacity-100">
+        <NavLink
+          to={isAdmin ? '/admin' : '/'}
+          reloadDocument={!isAdmin}
+          title={isAdmin ? 'Về trang quản trị' : 'Về trang chủ'}
+          className="shrink-0 transition opacity-90 hover:opacity-100"
+        >
           <img
             src={logoSrc}
             alt="EventHub"
@@ -358,18 +364,20 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-3">
-        <NavLink
-          to="/"
-          reloadDocument
-          className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-bold transition-all ${isLight
-            ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
-            : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
-            }`}
-          title="Chuyển sang trang khách hàng"
-        >
-          <Home className="size-4" />
-          <span>Trang khách hàng</span>
-        </NavLink>
+        {!isAdmin && (
+          <NavLink
+            to="/"
+            reloadDocument
+            className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-bold transition-all ${isLight
+              ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
+              : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
+              }`}
+            title="Chuyển sang trang khách hàng"
+          >
+            <Home className="size-4" />
+            <span>Trang khách hàng</span>
+          </NavLink>
+        )}
         <div className={`glass-panel flex h-[44px] items-center gap-1 rounded-full px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
           }`}>
           <TopBarIconButton
@@ -485,6 +493,16 @@ function PortalNotificationBell({ theme }) {
 
     const title = (notification.title || '').toLowerCase()
     const content = (notification.content || '').toLowerCase()
+    const isAdminPortal = location.pathname.startsWith('/admin')
+    if (isAdminPortal) {
+      if (title.includes('organizer')) {
+        navigate('/admin/organizer-requests')
+        return
+      }
+      navigate('/admin/event-review')
+      return
+    }
+
     if (title.includes('organizer') || content.includes('organizer')) {
       if (title.includes('đã được duyệt') || content.includes('phê duyệt')) {
         navigate('/organizer')
