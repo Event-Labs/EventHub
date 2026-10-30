@@ -14,6 +14,7 @@ import {
   Copy,
   ExternalLink,
   Eye,
+  FileSpreadsheet,
   Layers,
   Loader2,
   Printer,
@@ -37,6 +38,8 @@ import {
 import { OrganizerPage, OrganizerPanel, TableActionButton } from './OrganizerComponents.jsx'
 import { getEventOperationalStatus } from './eventStatusUtil.js'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
+import { getStoredUser } from '@/lib/auth.js'
+import { exportOrganizerRevenueToExcel } from '@/utils/exportRevenueExcel.js'
 
 // ─── Formatters & Utilities ──────────────────────────────────────────────────
 
@@ -725,18 +728,12 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
     <div className="space-y-4">
       {/* Portfolio Health Pills */}
       <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-        <h3 className="mb-3 font-bold text-white">Trạng thái danh mục sự kiện</h3>
+        <h3 className="mb-3 font-bold text-white">Trạng thái sự kiện</h3>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-center">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Công khai</p>
+            <p className="text-[10px] font-bold uppercase text-slate-400">Đang mở bán</p>
             <p className="mt-1 font-display text-xl font-black text-cyan-400">
               {fmtNumber(dashboard.published_events)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Đang diễn ra</p>
-            <p className="mt-1 font-display text-xl font-black text-emerald-400">
-              {fmtNumber(dashboard.running_events)}
             </p>
           </div>
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center">
@@ -749,6 +746,12 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
             <p className="text-[10px] font-bold uppercase text-slate-400">Bản nháp</p>
             <p className="mt-1 font-display text-xl font-black text-slate-300">
               {fmtNumber(dashboard.draft_events)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
+            <p className="text-[10px] font-bold uppercase text-slate-400">Đã kết thúc</p>
+            <p className="mt-1 font-display text-xl font-black text-emerald-400">
+              {fmtNumber(dashboard.completed_events)}
             </p>
           </div>
         </div>
@@ -783,7 +786,7 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
           </div>
         ) : (
           <div className="rounded-xl border border-white/5 bg-slate-900/40 p-4 text-center text-xs text-slate-400">
-            Chưa có sự kiện công khai sắp diễn ra.
+            Chưa có sự kiện nào sắp diễn ra.
           </div>
         )}
 
@@ -1274,6 +1277,28 @@ export function OrganizerDashboardPage() {
     ? Math.round(Number(overall.gross_revenue || 0) / Number(overall.total_orders))
     : 0
 
+  const [isExportingExcel, setIsExportingExcel] = useState(false)
+
+  const handleExportExcel = async () => {
+    setIsExportingExcel(true)
+    try {
+      await exportOrganizerRevenueToExcel({
+        overall,
+        dashboard,
+        dailyRevenue,
+        byEvent,
+        tiers: singleEventTiers,
+        activeEvent,
+        activeRangeLabel,
+        organizerUser: getStoredUser(),
+      })
+    } catch (err) {
+      console.error('Lỗi khi xuất báo cáo doanh thu Excel:', err)
+    } finally {
+      setIsExportingExcel(false)
+    }
+  }
+
   return (
     <OrganizerPage
       title="Tổng quan"
@@ -1623,11 +1648,26 @@ export function OrganizerDashboardPage() {
                     <BarChart3 className="size-5 text-[#E6C17A]" />
                     <div>
                       <h3 className="font-bold text-white">
-                        {selectedEventId ? 'Tốc độ doanh thu sự kiện theo ngày' : 'Doanh thu ròng toàn hệ thống theo ngày'}
+                        {selectedEventId ? 'Doanh thu sự kiện theo ngày' : 'Doanh thu bán vé theo ngày'}
                       </h3>
                       <p className="text-xs text-slate-400">{activeRangeLabel}</p>
                     </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    disabled={isExportingExcel || !stats}
+                    title="Xuất bảng số liệu và biểu đồ ra file Excel (.xlsx)"
+                    className="inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 text-xs font-bold text-emerald-300 shadow-sm transition hover:bg-emerald-500/20 hover:border-emerald-500/60 disabled:opacity-50 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-400 [html.light_&]:text-emerald-700"
+                  >
+                    {isExportingExcel ? (
+                      <Loader2 className="size-4 animate-spin text-emerald-400" />
+                    ) : (
+                      <FileSpreadsheet className="size-4 text-emerald-400" />
+                    )}
+                    <span>{isExportingExcel ? 'Đang xuất Excel...' : 'Xuất Excel'}</span>
+                  </button>
                 </div>
 
                 <InteractiveRevenueChart
