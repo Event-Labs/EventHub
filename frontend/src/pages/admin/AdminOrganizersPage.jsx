@@ -10,6 +10,7 @@ import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, KpiGrid, Page, Panel, Status, Table, TableActionButton, UserCell } from './AdminComponents.jsx'
 import { ConfirmSuspendOrganizerModal } from './ConfirmSuspendOrganizerModal.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 
 export function AdminOrganizersPage() {
   const toast = useToast()
@@ -109,26 +110,28 @@ export function AdminOrganizersPage() {
           />
         </div>
 
-        <select
+        <CosmicSelect
           value={filters.status}
-          onChange={(e) => updateFilter({ status: e.target.value })}
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
-        >
-          <option value="" className="bg-surface text-content">Mọi trạng thái</option>
-          <option value="ACTIVE" className="bg-surface text-content">Hoạt động</option>
-          <option value="SUSPENDED" className="bg-surface text-content">Tạm ngưng</option>
-        </select>
+          onChange={(val) => updateFilter({ status: val })}
+          options={[
+            { value: '', label: 'Mọi trạng thái' },
+            { value: 'ACTIVE', label: 'Hoạt động' },
+            { value: 'SUSPENDED', label: 'Tạm ngưng' },
+          ]}
+          minWidth="min-w-[150px]"
+        />
 
-        <select
+        <CosmicSelect
           value={filters.sortBy}
-          onChange={(e) => updateFilter({ sortBy: e.target.value })}
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
-        >
-          <option value="created_at" className="bg-surface text-content">Mới nhất</option>
-          <option value="organization_name" className="bg-surface text-content">Tên organizer</option>
-          <option value="gross_revenue" className="bg-surface text-content">Doanh thu</option>
-          <option value="total_events" className="bg-surface text-content">Số sự kiện</option>
-        </select>
+          onChange={(val) => updateFilter({ sortBy: val })}
+          options={[
+            { value: 'created_at', label: 'Mới nhất' },
+            { value: 'organization_name', label: 'Tên organizer' },
+            { value: 'gross_revenue', label: 'Doanh thu' },
+            { value: 'total_events', label: 'Số sự kiện' },
+          ]}
+          minWidth="min-w-[160px]"
+        />
 
         <button
           type="button"

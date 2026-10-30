@@ -25,6 +25,7 @@ import {
   OrganizerTable,
   TableActionButton,
 } from './OrganizerComponents.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import {
   cancelOrganizerEvent,
   deleteOrganizerDraftEvent,
@@ -947,17 +948,12 @@ export function OrganizerEventsPage() {
               </button>
             )}
           </div>
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
+          <CosmicSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            {EVENT_STATUS_FILTERS.map((f) => (
-              <option key={f.value} value={f.value} className="bg-[#0b1329] text-white">
-                {f.label}
-              </option>
-            ))}
-          </select>
+            onChange={setStatusFilter}
+            options={EVENT_STATUS_FILTERS}
+            minWidth="min-w-[170px]"
+          />
           <button type="button" onClick={loadEvents} className="org-btn-secondary shrink-0">
             <RefreshCw className="size-4" />
           </button>

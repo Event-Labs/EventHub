@@ -16,6 +16,7 @@ import {
   OrganizerTable,
   TableActionButton,
 } from './OrganizerComponents.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import { Modal } from '../../components/Modal.jsx'
 import promotionService from '../../services/promotions'
 import { fetchOrganizerEvents } from '../../services/organizerEvents'
@@ -372,16 +373,13 @@ export function OrganizerPromosPage() {
             />
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-white">Trạng thái:</span>
-            <select
-              className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary min-w-[140px]"
+            <span className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Trạng thái:</span>
+            <CosmicSelect
               value={filters.status}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value} className="bg-[#0b1329] text-white">{option.label}</option>
-              ))}
-            </select>
+              onChange={(val) => handleFilterChange('status', val)}
+              options={STATUS_OPTIONS}
+              minWidth="min-w-[160px]"
+            />
           </div>
         </div>
       </div>
