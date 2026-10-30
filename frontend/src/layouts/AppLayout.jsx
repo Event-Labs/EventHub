@@ -275,22 +275,8 @@ export function AppLayout() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  if (hasAdminRole) {
-    if (
-      pathname.startsWith('/booking') ||
-      pathname === '/my-tickets' ||
-      pathname.startsWith('/tickets') ||
-      pathname === '/favorites' ||
-      pathname === '/feedback'
-    ) {
-      return <Navigate to="/admin" replace />
-    }
-    if (pathname === '/organizer-request' || pathname.startsWith('/organizer-request/')) {
-      return <Navigate to="/admin/organizer-requests" replace />
-    }
-    if (pathname === '/profile') {
-      return <Navigate to="/admin/profile" replace />
-    }
+  if (loggedIn && hasAdminRole) {
+    return <Navigate to="/admin" replace />
   }
 
   return (
