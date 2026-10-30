@@ -30,6 +30,8 @@ import {
   Square,
   LayoutGrid,
   Table,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -53,7 +55,7 @@ import {
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { Page, Panel, Badge, ImagePlaceholder } from './AdminComponents.jsx'
+import { Page, Panel, Badge, StatusBadge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
 
@@ -833,13 +835,12 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
           <ImageIcon className="size-4 text-slate-400" />
           Kiểm duyệt Hình ảnh ({items.length || visionItems.length} ảnh)
         </span>
-        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-          overallVerdict === 'VIOLATION'
+        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
             : overallVerdict === 'WARNING'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
               : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-        }`}>
+          }`}>
           {overallVerdict === 'VIOLATION' ? 'Có vi phạm' : overallVerdict === 'WARNING' ? 'Cần lưu ý' : 'An toàn'}
         </span>
       </div>
@@ -853,7 +854,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
                 <span className="font-semibold text-slate-100">{getSourceLabel(img.source)}</span>
                 {getStatusBadge(img.status)}
               </div>
-              
+
               {img.analysis && (
                 <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
               )}
@@ -1259,9 +1260,13 @@ export function AdminEventReviewDetailPage() {
   // -------------------------------------------------------------------------
   // Mutations
   // -------------------------------------------------------------------------
-  const { register, handleSubmit, setValue, getValues } = useForm({
+  const { register, handleSubmit, setValue, getValues, watch } = useForm({
     defaultValues: { review_note: '' },
   })
+  const [isNoteExpanded, setIsNoteExpanded] = useState(false)
+  const reviewNoteWatch = watch('review_note') || ''
+  const hasNote = Boolean(reviewNoteWatch.trim())
+  const noteLinesCount = reviewNoteWatch.split('\n').filter(Boolean).length
 
   const reviewMutation = useMutation({
     mutationFn: (payload) => reviewAdminEvent(eventId, payload),
@@ -1338,6 +1343,7 @@ export function AdminEventReviewDetailPage() {
     } else {
       setValue('review_note', `- ${text}`)
     }
+    setIsNoteExpanded(true)
     toast.success('Đã thêm vào ghi chú kiểm duyệt!')
   }
 
@@ -1370,6 +1376,7 @@ export function AdminEventReviewDetailPage() {
     } else {
       setValue('review_note', lines.join('\n'))
     }
+    setIsNoteExpanded(true)
     toast.success('Đã sao chép toàn bộ đánh giá AI vào Ghi chú!')
   }
 
@@ -1569,61 +1576,65 @@ export function AdminEventReviewDetailPage() {
   const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
 
   return (
-    <div className="flex h-[calc(100vh-130px)] flex-col overflow-hidden bg-slate-950 rounded-[32px] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.3)]">
-      {/* Top Header */}
-      <div className="shrink-0 p-6 pb-2 relative z-20">
-        <header className="flex h-16 items-center justify-between rounded-full border border-white/10 bg-slate-900/60 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <button
-              onClick={() => navigate('/admin/events/review')}
-              className="grid size-10 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white shadow-inner"
-            >
-              <ArrowLeft className="size-5" />
-            </button>
-            <h1 className="font-display text-lg font-black text-white drop-shadow-sm truncate max-w-md">
-              {event.title}
-            </h1>
-            <Badge tone="blue">{event.status}</Badge>
-            {event.display_state === 'SUSPENDED_BY_ADMIN' && (
-              <Badge tone="red">Bị đình chỉ</Badge>
-            )}
-            {event.sales_status === 'PAUSED' && (
-              <Badge tone="amber">Tạm dừng bán vé</Badge>
-            )}
-            {event.cancel_request?.status === 'PENDING' && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-                Yêu cầu hủy sự kiện
-              </span>
-            )}
-          </div>
+    <div className="flex h-[calc(100vh-130px)] flex-col gap-4">
+      {/* Top Header - Tách hoàn toàn ra ngoài khung lớn, không viền khung bọc */}
+      <div className="flex shrink-0 items-center justify-between gap-4 px-1 py-1">
+        <div className="flex items-center gap-3.5 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => navigate('/admin/events/review')}
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white border border-white/10 shadow-sm cursor-pointer"
+            title="Quay lại danh sách duyệt sự kiện"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
+          <h1 className="font-display text-xl font-black text-white drop-shadow-sm truncate max-w-2xl">
+            {event.title}
+          </h1>
+          {event.pending_revision && event.pending_revision.status === 'SUBMITTED' ? (
+            <Badge tone="amber">Sửa đổi chờ duyệt</Badge>
+          ) : (
+            <StatusBadge status={event.status} />
+          )}
+          {event.display_state === 'SUSPENDED_BY_ADMIN' && (
+            <Badge tone="red">Bị đình chỉ</Badge>
+          )}
+          {event.sales_status === 'PAUSED' && (
+            <Badge tone="amber">Tạm dừng bán vé</Badge>
+          )}
+          {event.cancel_request?.status === 'PENDING' && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+              Yêu cầu hủy sự kiện
+            </span>
+          )}
+        </div>
 
-          <div className="flex items-center gap-2">
-            {(event.display_state === 'VISIBLE' || event.display_state === 'PUBLIC' || !event.display_state) && event.status === 'PUBLISHED' && (
-              <button
-                type="button"
-                onClick={handleSuspendEvent}
-                className="rounded-full bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20"
-              >
-                Đình chỉ sự kiện
-              </button>
-            )}
-            {event.display_state === 'SUSPENDED_BY_ADMIN' && (
-              <button
-                type="button"
-                onClick={handleUnsuspendEvent}
-                className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
-              >
-                Mở lại đình chỉ
-              </button>
-            )}
-          </div>
-        </header>
+        <div className="flex items-center gap-2 shrink-0">
+          {(event.display_state === 'VISIBLE' || event.display_state === 'PUBLIC' || !event.display_state) && event.status === 'PUBLISHED' && (
+            <button
+              type="button"
+              onClick={handleSuspendEvent}
+              className="rounded-full bg-rose-500/10 border border-rose-500/30 px-3.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition cursor-pointer"
+            >
+              Đình chỉ sự kiện
+            </button>
+          )}
+          {event.display_state === 'SUSPENDED_BY_ADMIN' && (
+            <button
+              type="button"
+              onClick={handleUnsuspendEvent}
+              className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition cursor-pointer"
+            >
+              Mở lại đình chỉ
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Split Screen */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 gap-5 overflow-hidden">
         {/* Left Column: Event Details */}
-        <div className={`overflow-y-auto p-6 ${customScrollbar} ${isPendingReview ? 'w-1/2 min-w-0 flex-1 rounded-bl-[32px]' : 'w-full max-w-5xl mx-auto rounded-b-[32px]'}`}>
+        <div className={`overflow-y-auto pr-1.5 flex-1 min-w-0 ${customScrollbar} ${!isPendingReview ? 'max-w-5xl mx-auto' : ''}`}>
           {/* Cancellation Request Banner */}
           {event.cancel_request?.status === 'PENDING' && (
             <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-950/30 p-5 shadow-lg backdrop-blur-xl">
@@ -1801,25 +1812,16 @@ export function AdminEventReviewDetailPage() {
               </div>
             )}
             <div className="p-6">
-              <div className="mb-4 flex flex-wrap gap-2">
-                <Badge tone="gray">
-                  <Tag className="mr-1.5 size-3" />
-                  {typeof event.category_id === 'object' ? event.category_id?.name || 'Danh mục' : event.category_id || 'Danh mục trống'}
-                </Badge>
-                <Badge tone="indigo">
-                  {isOnline ? <Video className="mr-1.5 size-3" /> : <MapPin className="mr-1.5 size-3" />}
-                  {isOnline ? 'Sự kiện Online' : 'Sự kiện Offline'}
-                </Badge>
-              </div>
 
-                <h2 className="mb-2 font-display text-3xl font-black tracking-tight text-white drop-shadow-md">
-                  {typeof event.title === 'string' ? event.title : 'Chi tiết sự kiện'}
-                </h2>
-                {event.short_description && (
-                  <p className="mb-8 text-base font-medium text-slate-400">
-                    {typeof event.short_description === 'string' ? event.short_description : ''}
-                  </p>
-                )}
+
+              <h2 className="mb-2 font-display text-3xl font-black tracking-tight text-white drop-shadow-md">
+                {typeof event.title === 'string' ? event.title : 'Chi tiết sự kiện'}
+              </h2>
+              {event.short_description && (
+                <p className="mb-8 text-base font-medium text-slate-400">
+                  {typeof event.short_description === 'string' ? event.short_description : ''}
+                </p>
+              )}
 
               <div className="mb-8 grid gap-4 sm:grid-cols-2">
                 <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04]">
@@ -1894,14 +1896,14 @@ export function AdminEventReviewDetailPage() {
                       </div>
 
                       {permitsList.length > 0 ? (
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex flex-col gap-2.5">
                           {permitsList.map((rawPermit, idx) => {
                             const permit = resolvePermit(rawPermit, idx)
                             if (!permit) return null
                             return (
                               <div
                                 key={permit.id || idx}
-                                className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3 transition hover:border-white/15 hover:bg-white/[0.06]"
+                                className="group flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04]"
                               >
                                 <div className="flex items-center gap-3 overflow-hidden min-w-0">
                                   <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
@@ -1914,10 +1916,10 @@ export function AdminEventReviewDetailPage() {
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <span className="truncate block text-xs font-semibold text-slate-200 group-hover:text-white transition" title={permit.name}>
+                                    <span className="truncate block text-sm font-bold text-white group-hover:text-indigo-200 transition" title={permit.name}>
                                       {permit.name}
                                     </span>
-                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
                                       <span>{permit.type.includes('pdf') ? 'PDF' : permit.type.includes('image') ? 'Ảnh' : 'Tài liệu'}</span>
                                       {permit.size && (
                                         <>
@@ -1942,23 +1944,22 @@ export function AdminEventReviewDetailPage() {
                                           )
                                           const matchingVision = aiData?.vision_analysis?.find(
                                             (v) => (permit.url && v.url === permit.url) ||
-                                                   (permit.name && v.fileName === permit.name) ||
-                                                   (v.source && v.source.includes(String(idx + 1)))
+                                              (permit.name && v.fileName === permit.name) ||
+                                              (v.source && v.source.includes(String(idx + 1)))
                                           )
                                           setPreviewDoc({
                                             ...permit,
                                             extractedText: matchingDocAnalysis?.extractedText || matchingVision?.extractedText || null,
                                           })
                                         }}
-                                        className="flex items-center gap-1 rounded-lg bg-indigo-500/20 px-2.5 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition shadow-sm"
+                                        className="grid size-8 place-items-center rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition shadow-sm cursor-pointer"
                                         title="Xem tài liệu trực tiếp & văn bản AI trích xuất"
                                       >
-                                        <Eye className="size-3" />
-                                        <span>Xem</span>
+                                        <Eye className="size-4" />
                                       </button>
                                     </>
                                   ) : (
-                                    <span className="text-[11px] text-slate-500 italic">Không có link</span>
+                                    <span className="text-xs text-slate-500 italic">Không có link</span>
                                   )}
                                 </div>
                               </div>
@@ -1976,7 +1977,7 @@ export function AdminEventReviewDetailPage() {
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
                   <div className="flex items-center gap-2 border-b border-white/10 pb-3">
                     <Calendar className="size-5 text-indigo-400" />
-                    <h3 className="font-display text-base font-black text-white">Lịch trình các phiên (Sessions)</h3>
+                    <h3 className="font-display text-base font-black text-white">Lịch trình các phiên</h3>
                   </div>
                   {event.sessions && event.sessions.length > 0 ? (
                     <div className="space-y-3">
@@ -1987,9 +1988,9 @@ export function AdminEventReviewDetailPage() {
                           : `Phiên ${idx + 1}`
 
                         return (
-                          <div key={idx} className="rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs text-slate-300">
-                            <div className="font-bold text-white">{sessionTitle}</div>
-                            <div className="mt-1 text-slate-400">
+                          <div key={idx} className="rounded-xl border border-white/5 bg-white/[0.03] p-3.5 text-slate-300">
+                            <div className="text-sm font-bold text-white">{sessionTitle}</div>
+                            <div className="mt-1 text-xs sm:text-[13px] font-medium text-slate-300">
                               {formatDate(session?.start_time)} - {formatDate(session?.end_time)}
                             </div>
                           </div>
@@ -2324,23 +2325,23 @@ export function AdminEventReviewDetailPage() {
                     {typeof event.refund_policy === 'string'
                       ? event.refund_policy
                       : event.refund_policy?.description ||
-                        (event.refund_policy && typeof event.refund_policy === 'object' && Object.keys(event.refund_policy).length > 0
-                          ? (event.refund_policy.allow_refund
-                              ? `Cho phép hoàn vé trước ${event.refund_policy.refund_before_days || 0} ngày (Tỷ lệ: ${event.refund_policy.refund_rate || 100}%)`
-                              : 'Sự kiện không hỗ trợ hoàn tiền.')
-                          : 'Áp dụng chính sách hoàn vé tiêu chuẩn của EventHub.')}
+                      (event.refund_policy && typeof event.refund_policy === 'object' && Object.keys(event.refund_policy).length > 0
+                        ? (event.refund_policy.allow_refund
+                          ? `Cho phép hoàn vé trước ${event.refund_policy.refund_before_days || 0} ngày (Tỷ lệ: ${event.refund_policy.refund_rate || 100}%)`
+                          : 'Sự kiện không hỗ trợ hoàn tiền.')
+                        : 'Áp dụng chính sách hoàn vé tiêu chuẩn của EventHub.')}
                   </p>
 
                   {event.refund_policy?.policy_file_url && (
-                    <div className="mt-2 flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3 transition hover:border-white/15">
+                    <div className="mt-2 flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04]">
                       <div className="flex items-center gap-3 overflow-hidden min-w-0">
                         <FileText className="size-5 shrink-0 text-indigo-400" />
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-slate-200">
+                          <p className="truncate text-sm font-bold text-white">
                             {event.refund_policy.policy_file_name || 'Tài liệu chính sách hoàn tiền đính kèm.pdf'}
                           </p>
                           {event.refund_policy.policy_file_size && (
-                            <p className="text-[10px] text-slate-400">
+                            <p className="text-xs text-slate-400 mt-0.5">
                               {formatFileSize(event.refund_policy.policy_file_size)}
                             </p>
                           )}
@@ -2355,19 +2356,19 @@ export function AdminEventReviewDetailPage() {
                             type: 'application/pdf',
                             size: event.refund_policy.policy_file_size,
                           })}
-                          className="flex items-center gap-1 rounded-lg bg-indigo-500/20 px-2.5 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition"
+                          className="grid size-8 place-items-center rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition cursor-pointer"
+                          title="Xem tài liệu"
                         >
-                          <Eye className="size-3" />
-                          <span>Xem</span>
+                          <Eye className="size-4" />
                         </button>
                         <a
                           href={event.refund_policy.policy_file_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex size-7 items-center justify-center rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 transition"
+                          className="grid size-8 place-items-center rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 transition"
                           title="Mở trong tab mới"
                         >
-                          <ExternalLink className="size-3" />
+                          <ExternalLink className="size-4" />
                         </a>
                       </div>
                     </div>
@@ -2377,318 +2378,369 @@ export function AdminEventReviewDetailPage() {
             </div>
           </div>
         </div>
-
         {/* Right Column: AI Assistant & Actions - ONLY FOR PENDING_REVIEW */}
         {isPendingReview && (
-          <div className="flex w-1/2 min-w-0 shrink-0 flex-col border-l border-white/10 bg-slate-900/40 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] rounded-br-[32px]">
-          {/* AI Info Area */}
-          <div className={`flex-1 overflow-y-auto p-5 ${customScrollbar}`}>
-            {/* AI Assistant Header */}
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid size-9 place-items-center rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20 text-indigo-400">
-                  <Bot className="size-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-display text-sm font-black text-white drop-shadow-sm tracking-tight uppercase">
+          <div className="flex w-[440px] xl:w-[480px] 2xl:w-[500px] shrink-0 flex-col gap-4 min-h-0">
+            {/* Top Card: AI Review Panel */}
+            <div className="flex flex-1 flex-col overflow-hidden bg-slate-950/80 rounded-[28px] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-xl min-h-0">
+              {/* AI Assistant Header (Fixed on top of AI card) */}
+              <div className="shrink-0 px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="grid size-8 place-items-center rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20 text-indigo-400 shrink-0">
+                    <Bot className="size-4" />
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h2 className="font-display text-xs sm:text-sm font-black text-white drop-shadow-sm tracking-tight uppercase truncate">
                       AI Review Assistant
                     </h2>
-                    <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">
+                    <span className="hidden sm:inline-block rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300 shrink-0">
                       eventhub-qwen3
                     </span>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsCriteriaOpen(true)}
-                    className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 underline transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-slate-200 shadow-sm transition hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-95 cursor-pointer whitespace-nowrap"
+                    title="Cấu hình bộ tiêu chí & điều khoản AI"
                   >
-                    <ShieldCheck className="size-3" />
-                    <span>Cấu hình điều khoản AI</span>
+                    <ShieldCheck className="size-3.5 text-indigo-400 shrink-0" />
+                    <span>Điều khoản AI</span>
                   </button>
-                </div>
-              </div>
 
-              {isScanningThisEvent ? (
-                <button
-                  type="button"
-                  onClick={handleCancelAi}
-                  disabled={cancelAiMutation.isPending}
-                  className="inline-flex items-center gap-2 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-4 py-2 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 hover:shadow-rose-600/30 active:scale-95 disabled:opacity-50"
-                  title="Dừng và hủy ngay tiến trình quét AI đang chạy"
-                >
-                  <Square className="size-3.5 fill-white text-white animate-pulse" />
-                  <span>{cancelAiMutation.isPending ? 'Đang dừng...' : 'Hủy tiến trình quét'}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleStartAi}
-                  disabled={runAiMutation.isPending || aiReviewQuery.isLoading}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:opacity-50"
-                >
-                  <RefreshCw className={`size-3.5 ${runAiMutation.isPending ? 'animate-spin' : ''}`} />
-                  {rawAiReview ? 'Chạy lại AI' : 'Chạy AI Đánh giá'}
-                </button>
-              )}
-            </div>
-
-            {/* Active AI Scanning Progress State */}
-            {isScanningThisEvent && (
-              <div className="mb-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md">
-                <div className="flex items-start gap-3">
-                  <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 mt-0.5">
-                    <RefreshCw className="size-4 animate-spin" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-indigo-300">
-                        AI đang phân tích & kiểm duyệt sự kiện...
-                      </h4>
-                      <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg">
-                        <span className="size-1.5 rounded-full bg-rose-400 animate-ping" />
-                        Có thể bấm "Hủy tiến trình quét" ở trên để dừng
-                      </span>
-                    </div>
-                    <div className="mt-2 space-y-1.5 text-xs text-slate-300">
-                      <p className="flex items-center gap-2">
-                        <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
-                        <span><strong>Giai đoạn 1:</strong> Vision Model quét và kiểm tra an toàn từng hình ảnh...</span>
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="inline-block size-1.5 rounded-full bg-amber-400 animate-ping" />
-                        <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả & đối chiếu bộ điều khoản...</span>
-                      </p>
-                    </div>
-                    <p className="mt-2 text-[10px] text-slate-400 italic">
-                      Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút "Hủy tiến trình quét" ở trên nếu bạn muốn dừng ngay lập tức.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Empty State: AI Review Not Run Yet */}
-            {!aiData && !isScanningThisEvent && (
-              <div className="my-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-8 text-center backdrop-blur-sm">
-                <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
-                  <Bot className="size-6" />
-                </div>
-                <h3 className="font-display text-base font-bold text-white">Chưa chạy AI Đánh giá</h3>
-                <p className="mt-1 text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                  Sự kiện này chưa được AI kiểm duyệt. Bấm nút bên dưới để AI quét hình ảnh bằng Vision, soát lỗi chính tả và đối chiếu chính sách nền tảng.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleStartAi}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500"
-                >
-                  <Sparkles className="size-4" />
-                  Bắt đầu Phân tích AI ngay
-                </button>
-              </div>
-            )}
-
-            {/* Full AI Review Results */}
-            {aiData && (
-              <>
-                {/* Recommendation Banner */}
-                <StatusBanner recommendation={aiData.recommendation} summary={aiData.summary} />
-
-                {/* Quality & Risk Meters */}
-                <div className="mb-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5">
-                  <div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-medium">Chất lượng thông tin</span>
-                      <span className="font-bold text-emerald-400">{aiData.quality_score}/100</span>
-                    </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, Math.max(0, aiData.quality_score))}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-medium">Chỉ số rủi ro</span>
-                      <span className={`font-bold ${aiData.risk_score > 50 ? 'text-rose-400' : aiData.risk_score > 20 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                        {aiData.risk_score}/100
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${aiData.risk_score > 50 ? 'bg-rose-500' : aiData.risk_score > 20 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                        style={{ width: `${Math.min(100, Math.max(0, aiData.risk_score))}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick action header */}
-                <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Chi tiết phân tích chính sách
-                  </span>
-                  {totalIssuesCount > 0 && (
+                  {isScanningThisEvent ? (
                     <button
                       type="button"
-                      onClick={handleCopyAllIssues}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 hover:underline"
+                      onClick={handleCancelAi}
+                      disabled={cancelAiMutation.isPending}
+                      className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-3 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 active:scale-95 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                      title="Dừng và hủy ngay tiến trình quét AI đang chạy"
                     >
-                      <FileCheck className="size-3" />
-                      Sao chép tất cả lỗi
+                      <Square className="size-3.5 fill-white text-white animate-pulse shrink-0" />
+                      <span>{cancelAiMutation.isPending ? 'Đang dừng...' : 'Hủy quét'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStartAi}
+                      disabled={runAiMutation.isPending || aiReviewQuery.isLoading}
+                      className="btn-led-gold-sm active:scale-95 cursor-pointer h-8"
+                      title="Chạy lại kiểm duyệt tự động bằng AI"
+                    >
+                      <span className="btn-led-gold-sm-inner !py-1 !px-2.5 !text-xs whitespace-nowrap">
+                        <RefreshCw className={`size-3.5 ${runAiMutation.isPending ? 'animate-spin' : ''} shrink-0`} />
+                        <span>{rawAiReview ? 'Chạy lại AI' : 'Chạy AI'}</span>
+                      </span>
                     </button>
                   )}
                 </div>
+              </div>
 
-                <div className="space-y-4">
-                  {/* 🔴 CRITICAL VIOLATIONS (MÀU ĐỎ) */}
-                  {aiData.critical_violations && aiData.critical_violations.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
-                          <ShieldAlert className="size-3.5" />
-                          Vi phạm nghiêm trọng ({aiData.critical_violations.length})
-                        </span>
+              {/* AI Info Scrollable Area */}
+              <div className={`flex-1 overflow-y-auto p-5 ${customScrollbar}`}>
+                {/* Active AI Scanning Progress State */}
+                {isScanningThisEvent && (
+                  <div className="mb-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md">
+                    <div className="flex items-start gap-3">
+                      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 mt-0.5">
+                        <RefreshCw className="size-4 animate-spin" />
                       </div>
-                      <div className="space-y-2">
-                        {aiData.critical_violations.map((v, idx) => (
-                          <PolicyViolationCard key={idx} item={v} onClick={handleWarningClick} />
-                        ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-indigo-300">
+                            AI đang phân tích & kiểm duyệt sự kiện...
+                          </h4>
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg">
+                            <span className="size-1.5 rounded-full bg-rose-400 animate-ping" />
+                            Có thể bấm "Hủy quét" ở trên để dừng
+                          </span>
+                        </div>
+                        <div className="mt-2 space-y-1.5 text-xs text-slate-300">
+                          <p className="flex items-center gap-2">
+                            <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
+                            <span><strong>Giai đoạn 1:</strong> Vision Model quét và kiểm tra an toàn từng hình ảnh...</span>
+                          </p>
+                          <p className="flex items-center gap-2">
+                            <span className="inline-block size-1.5 rounded-full bg-amber-400 animate-ping" />
+                            <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả & đối chiếu bộ điều khoản...</span>
+                          </p>
+                        </div>
+                        <p className="mt-2 text-[10px] text-slate-400 italic">
+                          Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút "Hủy quét" ở trên nếu bạn muốn dừng ngay lập tức.
+                        </p>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Empty State: AI Review Not Run Yet */}
+                {!aiData && !isScanningThisEvent && (
+                  <div className="my-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-8 text-center backdrop-blur-sm">
+                    <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
+                      <Bot className="size-6" />
+                    </div>
+                    <h3 className="font-display text-base font-bold text-white">Chưa chạy AI Đánh giá</h3>
+                    <p className="mt-1 text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                      Sự kiện này chưa được AI kiểm duyệt. Bấm nút bên dưới để AI quét hình ảnh bằng Vision, soát lỗi chính tả và đối chiếu chính sách nền tảng.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleStartAi}
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 cursor-pointer"
+                    >
+                      <Sparkles className="size-4" />
+                      Bắt đầu Phân tích AI ngay
+                    </button>
+                  </div>
+                )}
+
+                {/* Full AI Review Results */}
+                {aiData && (
+                  <>
+                    {/* Recommendation Banner */}
+                    <StatusBanner recommendation={aiData.recommendation} summary={aiData.summary} />
+
+                    {/* Quality & Risk Meters */}
+                    <div className="mb-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5">
+                      <div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-medium">Chất lượng thông tin</span>
+                          <span className="font-bold text-emerald-400">{aiData.quality_score}/100</span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.max(0, aiData.quality_score))}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-medium">Chỉ số rủi ro</span>
+                          <span className={`font-bold ${aiData.risk_score > 50 ? 'text-rose-400' : aiData.risk_score > 20 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {aiData.risk_score}/100
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${aiData.risk_score > 50 ? 'bg-rose-500' : aiData.risk_score > 20 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                            style={{ width: `${Math.min(100, Math.max(0, aiData.risk_score))}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick action header */}
+                    <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Chi tiết phân tích chính sách
+                      </span>
+                      {totalIssuesCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleCopyAllIssues}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
+                          title="Sao chép toàn bộ lỗi vi phạm và cảnh báo vào ô ghi chú kiểm duyệt"
+                        >
+                          <FileCheck className="size-3" />
+                          <span>Sao chép tất cả lỗi</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* 🔴 CRITICAL VIOLATIONS (MÀU ĐỎ) */}
+                      {aiData.critical_violations && aiData.critical_violations.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
+                              <ShieldAlert className="size-3.5" />
+                              Vi phạm nghiêm trọng ({aiData.critical_violations.length})
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {aiData.critical_violations.map((v, idx) => (
+                              <PolicyViolationCard key={idx} item={v} onClick={handleWarningClick} />
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-slate-900/80 px-3 py-2.5 text-xs text-emerald-300 font-medium">
+                          <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
+                          <span>Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)</span>
+                        </div>
+                      )}
+
+                      {/* 🟡 WARNINGS / CAUTIONS (MÀU VÀNG) */}
+                      {aiData.warnings && aiData.warnings.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
+                              <AlertTriangle className="size-3.5" />
+                              Cảnh báo & Cần lưu ý ({aiData.warnings.length})
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {aiData.warnings.map((w, idx) => (
+                              <PolicyWarningCard key={idx} item={w} onClick={handleWarningClick} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 📝 SOÁT LỖI TIÊU ĐỀ, MÔ TẢ & CHÍNH TẢ */}
+                      {aiData.content_review && (
+                        <ContentSpellingAuditCard
+                          contentReview={aiData.content_review}
+                          event={event}
+                          onClick={handleWarningClick}
+                        />
+                      )}
+
+                      {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP (ĐỘC LẬP VỚI HÌNH ẢNH) */}
+                      {(aiData.document_review || aiData.document_analysis) && (
+                        <DocumentModerationAuditCard
+                          documentReview={aiData.document_review}
+                          documentAnalysis={aiData.document_analysis}
+                          onPreviewDoc={setPreviewDoc}
+                          onClick={handleWarningClick}
+                        />
+                      )}
+
+                      {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & OCR */}
+                      {(aiData.image_review || aiData.vision_analysis) && (
+                        <ImageModerationAuditCard
+                          imageReview={aiData.image_review}
+                          visionAnalysis={aiData.vision_analysis}
+                          onClick={handleWarningClick}
+                        />
+                      )}
+
+                      {/* 🟢 COMPLIANT CHECKS (MÀU XANH LÁ) */}
+                      {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                            <CheckCircle2 className="size-3.5" />
+                            Tiêu chí đạt chuẩn ({aiData.compliant_checks.length})
+                          </span>
+                          <div className="space-y-1.5">
+                            {aiData.compliant_checks.map((c, idx) => (
+                              <CompliantCheckItem key={idx} check={c} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 💡 SUGGESTIONS (MÀU VÀNG HỔ PHÁCH) */}
+                      {aiData.suggestions && aiData.suggestions.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
+                            <Sparkles className="size-3.5" />
+                            Gợi ý điều chỉnh cho BTC ({aiData.suggestions.length})
+                          </span>
+                          <div className="space-y-1.5">
+                            {aiData.suggestions.map((s, idx) => (
+                              <SuggestionCard key={idx} suggestion={s} onClick={handleWarningClick} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="mt-4 text-center text-[10px] text-slate-500 italic">
+                      Bấm vào từng mục để tự động chèn vào ghi chú kiểm duyệt bên dưới.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Card: Admin Action Form Area (Tách thành 1 khối riêng bên dưới) */}
+            <div className="shrink-0 bg-slate-950/95 rounded-[22px] border border-white/10 p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300">
+              {/* Header: Note toggle & AI suggestion */}
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsNoteExpanded(!isNoteExpanded)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white transition group cursor-pointer"
+                  title={isNoteExpanded ? 'Bấm để thu gọn ô ghi chú' : 'Bấm để mở rộng ô ghi chú'}
+                >
+                  <FileText className="size-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                  <span>Ghi chú kiểm duyệt</span>
+                  {hasNote ? (
+                    <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black px-2 py-0.5 border border-amber-500/30 animate-pulse">
+                      {noteLinesCount} mục
+                    </span>
                   ) : (
-                    <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-slate-900/80 px-3 py-2.5 text-xs text-emerald-300 font-medium">
-                      <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
-                      <span>Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)</span>
-                    </div>
+                    <span className="text-[10px] text-slate-500 font-normal group-hover:text-slate-400">
+                      (Tùy chọn)
+                    </span>
                   )}
+                  {isNoteExpanded ? (
+                    <ChevronUp className="size-3.5 text-slate-400 group-hover:text-white transition-transform" />
+                  ) : (
+                    <ChevronDown className="size-3.5 text-slate-400 group-hover:text-white transition-transform" />
+                  )}
+                </button>
 
-                  {/* 🟡 WARNINGS / CAUTIONS (MÀU VÀNG) */}
-                  {aiData.warnings && aiData.warnings.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
-                          <AlertTriangle className="size-3.5" />
-                          Cảnh báo & Cần lưu ý ({aiData.warnings.length})
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {aiData.warnings.map((w, idx) => (
-                          <PolicyWarningCard key={idx} item={w} onClick={handleWarningClick} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                {aiData?.recommendation && (
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${aiData.recommendation === 'APPROVE'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                      : aiData.recommendation === 'REJECT'
+                        ? 'border-rose-500/30 bg-rose-500/10 text-rose-400'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                    }`}>
+                    Gợi ý AI: {aiData.recommendation === 'APPROVE' ? 'Phê duyệt' : aiData.recommendation === 'REJECT' ? 'Từ chối' : 'Cần sửa đổi'}
+                  </span>
+                )}
+              </div>
 
-                  {/* 📝 SOÁT LỖI TIÊU ĐỀ, MÔ TẢ & CHÍNH TẢ */}
-                  {aiData.content_review && (
-                    <ContentSpellingAuditCard
-                      contentReview={aiData.content_review}
-                      event={event}
-                      onClick={handleWarningClick}
-                    />
-                  )}
-
-                  {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP (ĐỘC LẬP VỚI HÌNH ẢNH) */}
-                  {(aiData.document_review || aiData.document_analysis) && (
-                    <DocumentModerationAuditCard
-                      documentReview={aiData.document_review}
-                      documentAnalysis={aiData.document_analysis}
-                      onPreviewDoc={setPreviewDoc}
-                      onClick={handleWarningClick}
-                    />
-                  )}
-
-                  {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & OCR */}
-                  {(aiData.image_review || aiData.vision_analysis) && (
-                    <ImageModerationAuditCard
-                      imageReview={aiData.image_review}
-                      visionAnalysis={aiData.vision_analysis}
-                      onClick={handleWarningClick}
-                    />
-                  )}
-
-                  {/* 🟢 COMPLIANT CHECKS (MÀU XANH LÁ) */}
-                  {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                        <CheckCircle2 className="size-3.5" />
-                        Tiêu chí đạt chuẩn ({aiData.compliant_checks.length})
-                      </span>
-                      <div className="space-y-1.5">
-                        {aiData.compliant_checks.map((c, idx) => (
-                          <CompliantCheckItem key={idx} check={c} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 💡 SUGGESTIONS (MÀU VÀNG HỔ PHÁCH) */}
-                  {aiData.suggestions && aiData.suggestions.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
-                        <Sparkles className="size-3.5" />
-                        Gợi ý điều chỉnh cho BTC ({aiData.suggestions.length})
-                      </span>
-                      <div className="space-y-1.5">
-                        {aiData.suggestions.map((s, idx) => (
-                          <SuggestionCard key={idx} suggestion={s} onClick={handleWarningClick} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              {/* Expandable Note Textarea */}
+              {isNoteExpanded && (
+                <div className="mb-2.5">
+                  <div className="mb-1 text-[10px] text-slate-400">
+                    <span>Nhập hoặc bấm gợi ý AI ở trên để tự chèn vào ghi chú</span>
+                  </div>
+                  <textarea
+                    {...register('review_note')}
+                    placeholder="Nhập ghi chú gửi cho Ban tổ chức..."
+                    className={`h-20 w-full resize-y rounded-xl border border-white/10 bg-black/50 p-2.5 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-amber-400/50 focus:bg-black/70 focus:ring-1 focus:ring-amber-400/50 ${customScrollbar}`}
+                  />
                 </div>
+              )}
 
-                <p className="mt-4 text-center text-[10px] text-slate-500 italic">
-                  Bấm vào từng mục để tự động chèn vào ghi chú kiểm duyệt bên dưới.
-                </p>
-              </>
-            )}
-          </div>
-
-          {/* Admin Action Form Area */}
-          <div className="shrink-0 border-t border-white/5 bg-slate-900/80 p-5 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] backdrop-blur-xl rounded-br-[32px]">
-            <h3 className="mb-2 font-display text-xs font-black tracking-widest uppercase text-slate-300">
-              Ghi chú & Quyết định kiểm duyệt
-            </h3>
-            
-            <textarea
-              {...register('review_note')}
-              placeholder="Nhập ghi chú hoặc bấm vào các cảnh báo/gợi ý AI ở trên để tự động điền..."
-              className={`mb-3.5 min-h-[75px] w-full resize-y rounded-[16px] border border-white/10 bg-black/20 p-3 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-tertiary focus:bg-black/40 focus:ring-1 focus:ring-tertiary ${customScrollbar}`}
-            />
-
-            <div className="grid gap-3 grid-cols-2">
-              <button
-                type="button"
-                onClick={() => onSubmitReview('APPROVED')}
-                disabled={isPending}
-                className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0"
-              >
-                {event?.cancel_request?.status === 'PENDING'
-                  ? 'Phê duyệt hủy'
-                  : event?.pending_revision
-                    ? 'Phê duyệt sửa đổi'
-                    : 'Phê duyệt'}
-              </button>
-              <button
-                type="button"
-                onClick={() => onSubmitReview('REJECTED')}
-                disabled={isPending}
-                className="admin-danger w-full disabled:cursor-not-allowed disabled:opacity-50 !bg-error/10 hover:!bg-error/20 !border-error/30 !text-error !px-0 !py-2.5 text-xs font-bold"
-              >
-                {event?.cancel_request?.status === 'PENDING'
-                  ? 'Từ chối hủy'
-                  : event?.pending_revision
-                    ? 'Từ chối sửa đổi'
-                    : 'Từ chối'}
-              </button>
+              {/* Decision Action Buttons */}
+              <div className="grid gap-2.5 grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => onSubmitReview('REJECTED')}
+                  disabled={isPending}
+                  className="admin-danger w-full disabled:cursor-not-allowed disabled:opacity-50 !bg-rose-500/10 hover:!bg-rose-500/20 !border-rose-500/30 !text-rose-400 !px-0 !py-2.5 rounded-xl text-xs font-black shadow-sm transition cursor-pointer"
+                >
+                  {event?.cancel_request?.status === 'PENDING'
+                    ? 'Từ chối hủy'
+                    : event?.pending_revision
+                      ? 'Từ chối sửa đổi'
+                      : 'Từ chối'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSubmitReview('APPROVED')}
+                  disabled={isPending}
+                  className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0 !py-2.5 rounded-xl font-black text-xs shadow-lg cursor-pointer"
+                >
+                  {event?.cancel_request?.status === 'PENDING'
+                    ? 'Phê duyệt hủy'
+                    : event?.pending_revision
+                      ? 'Phê duyệt sửa đổi'
+                      : 'Phê duyệt'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         )}
       </div>
 
@@ -2882,11 +2934,10 @@ function DocumentPreviewModal({ doc, onClose }) {
                 <button
                   type="button"
                   onClick={() => setActiveTab('preview')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    activeTab === 'preview'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'preview'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                    }`}
                 >
                   <Eye className="size-3.5" />
                   <span>Xem trực tiếp</span>
@@ -2894,11 +2945,10 @@ function DocumentPreviewModal({ doc, onClose }) {
                 <button
                   type="button"
                   onClick={() => setActiveTab('ai_text')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    activeTab === 'ai_text'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'ai_text'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                    }`}
                 >
                   <Sparkles className="size-3.5" />
                   <span>Văn bản AI trích xuất</span>

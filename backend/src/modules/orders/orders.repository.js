@@ -2717,43 +2717,13 @@ class OrdersRepository {
         throw new AppError('Sự kiện đã kết thúc, không thể lấy vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
       }
 
-      // Check Free Tickets Quota (max 2 per user per event, seating_rules override)
+      // Free tickets require logged in user
       const requestedFreeCount = items
         .filter((item) => Number(ticketTypeMap.get(item.ticket_type_id)?.price || 0) === 0)
         .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
-      const seatingRules =
-        typeof firstTicket.seating_rules === 'string'
-          ? JSON.parse(firstTicket.seating_rules)
-          : firstTicket.seating_rules || {};
-
-      if (requestedFreeCount > 0) {
-        if (!userId) {
-          throw new AppError('Vé miễn phí yêu cầu đăng nhập tài khoản.', 401, ErrorCodes.AUTH_REQUIRED);
-        }
-        const maxFreePerUser = Number(seatingRules?.max_free_tickets_per_user ?? 2);
-        const { rows: freeCountRows } = await client.query(
-          `
-          SELECT count(t.id)::int AS count
-          FROM tickets t
-          JOIN order_items oi ON oi.id = t.order_item_id
-          JOIN orders o ON o.id = oi.order_id
-          WHERE t.event_id = $1
-            AND o.user_id = $2
-            AND t.ticket_source = 'FREE'
-            AND t.status IN ('VALID', 'USED')
-          `,
-          [eventId, userId],
-        );
-        const existingFreeCount = Number(freeCountRows[0]?.count || 0);
-        if (existingFreeCount + requestedFreeCount > maxFreePerUser) {
-          const remaining = Math.max(0, maxFreePerUser - existingFreeCount);
-          throw new AppError(
-            `Bạn chỉ được nhận tối đa ${maxFreePerUser} vé miễn phí cho sự kiện này (bạn còn ${remaining} lượt khả dụng).`,
-            400,
-            ErrorCodes.ORDER_INVALID_ITEMS,
-          );
-        }
+      if (requestedFreeCount > 0 && !userId) {
+        throw new AppError('Vé miễn phí yêu cầu đăng nhập tài khoản.', 401, ErrorCodes.AUTH_REQUIRED);
       }
 
       // Subtotal calculation

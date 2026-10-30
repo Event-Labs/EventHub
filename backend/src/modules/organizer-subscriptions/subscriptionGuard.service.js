@@ -75,7 +75,7 @@ class SubscriptionGuardService {
       throw new AppError(
         NEW_ACTIVITY_LOCK_MESSAGE,
         403,
-        ErrorCodes.AUTH_FORBIDDEN,
+        ErrorCodes.SUBSCRIPTION_REQUIRED,
         { action },
       );
     }
