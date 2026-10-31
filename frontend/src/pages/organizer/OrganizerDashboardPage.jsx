@@ -449,8 +449,8 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
   const maxGross = Math.max(...eventsRevenue.map((e) => Number(e.gross_revenue || 0)), 1)
 
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0d172e]/60">
-      <table className="w-full text-left text-sm table-fixed">
+    <div className="w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#0d172e]/60">
+      <table className="w-full min-w-[560px] text-left text-sm table-fixed">
         <thead>
           <tr className="border-b border-white/10 bg-[#121c38] text-[11px] font-bold uppercase tracking-wider text-slate-300">
             <th className="px-3.5 py-3 w-[40%]">Sự kiện</th>
@@ -821,7 +821,8 @@ function SingleEventTicketTiersTable({ tiers = [] }) {
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
       <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Hiệu suất phân bổ theo hạng vé (Tier Mix)</h3>
-      <table className="w-full text-left text-sm table-fixed">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[500px] text-left text-sm table-fixed">
         <thead>
           <tr className="border-b border-white/10 bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/20 [html.light_&]:text-[#536b88]">
             <th className="px-3 py-2.5 w-[30%]">Hạng vé</th>
@@ -861,6 +862,7 @@ function SingleEventTicketTiersTable({ tiers = [] }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
