@@ -987,16 +987,16 @@ export function AdminEventReviewDetailPage() {
     <div className="flex h-[calc(100vh-130px)] flex-col gap-4">
       {/* Top Header - Tách hoàn toàn ra ngoài khung lớn, không viền khung bọc */}
       <div className="flex shrink-0 items-center justify-between gap-4 px-1 py-1">
-        <div className="flex items-center gap-3.5 overflow-hidden">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3.5 min-w-0">
           <button
             type="button"
             onClick={() => navigate('/admin/events/review')}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white border border-white/10 shadow-sm cursor-pointer"
+            className="grid size-9 sm:size-10 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white border border-white/10 shadow-sm cursor-pointer"
             title="Quay lại danh sách duyệt sự kiện"
           >
-            <ArrowLeft className="size-5" />
+            <ArrowLeft className="size-4 sm:size-5" />
           </button>
-          <h1 className="font-display text-xl font-black text-white drop-shadow-sm truncate max-w-2xl">
+          <h1 className="font-display text-base sm:text-xl font-black text-white drop-shadow-sm line-clamp-2 max-w-2xl">
             {event.title}
           </h1>
           {event.pending_revision && event.pending_revision.status === 'SUBMITTED' ? (

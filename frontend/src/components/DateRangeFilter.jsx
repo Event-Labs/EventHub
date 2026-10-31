@@ -299,7 +299,12 @@ export function DateRangeFilter({
         Math.max(16, Math.round(triggerCenter - width / 2)),
         window.innerWidth - width - 16,
       )
-      const top = Math.min(rect.bottom + 8, window.innerHeight - 120)
+      let top = rect.bottom + 8
+      if (top + 400 > window.innerHeight && rect.top > 350) {
+        top = Math.max(16, rect.top - 420)
+      } else {
+        top = Math.max(16, Math.min(top, window.innerHeight - 200))
+      }
 
       setPopupStyle({ left, top, width })
     }
@@ -365,7 +370,7 @@ export function DateRangeFilter({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="mt-1 flex h-10 min-w-72 items-center justify-between gap-3 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:border-[#E6C17A]/50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
+        className="mt-1 flex h-10 w-full sm:w-auto min-w-0 sm:min-w-72 items-center justify-between gap-3 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:border-[#E6C17A]/50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
       >
         <span className="flex min-w-0 items-center gap-2">
           <CalendarRange className="size-4 shrink-0 text-[#E6C17A]" />
@@ -391,7 +396,7 @@ export function DateRangeFilter({
           }}
         >
           <div className="grid md:grid-cols-[220px_1fr]">
-            <div className="date-range-filter-scroll max-h-[420px] overflow-y-auto overscroll-contain border-b border-white/10 bg-[#070d1e] py-1 md:border-b-0 md:border-r [html.light_&]:bg-[#FAF4EB] [html.light_&]:border-[#C99A47]/20">
+            <div className="date-range-filter-scroll max-h-[200px] md:max-h-[420px] overflow-y-auto overscroll-contain border-b border-white/10 bg-[#070d1e] py-1 md:border-b-0 md:border-r [html.light_&]:bg-[#FAF4EB] [html.light_&]:border-[#C99A47]/20">
               {DATE_RANGE_OPTIONS.map((option) => (
                 <button
                   key={option.value}

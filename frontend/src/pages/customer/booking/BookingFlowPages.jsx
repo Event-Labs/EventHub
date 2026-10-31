@@ -4,9 +4,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  ChevronRight,
   Clock,
   ExternalLink,
   FileText,
+  Loader2,
   Minus,
   Plus,
   RefreshCw,
@@ -532,13 +534,15 @@ export function BookingSeatsPage() {
     const cols = Number(seatsQuery.data?.seat_map?.cols_count || 8)
     const estimatedSeatMapWidth = layout?.width || cols * (SEAT_WIDTH + SEAT_X_GAP) + SEAT_LAYOUT_PADDING * 2
     const viewportWidth = seatMapViewportRef.current.clientWidth
-    const nextZoom = clamp((viewportWidth - 8) / estimatedSeatMapWidth, 0.45, 1)
+    const nextZoom = clamp((viewportWidth - 8) / estimatedSeatMapWidth, 0.35, 1)
     setSeatZoom(Number(nextZoom.toFixed(2)))
   }, [seatsQuery.data?.seat_map, seatsQuery.data?.seats])
 
   useEffect(() => {
     if (!seatsQuery.data?.seats?.length) return
     fitSeatMapToViewport()
+    window.addEventListener('resize', fitSeatMapToViewport)
+    return () => window.removeEventListener('resize', fitSeatMapToViewport)
   }, [fitSeatMapToViewport, seatsQuery.data?.seats?.length])
 
   const seatingRules = cart?.seatingRules || cart?.seating_rules || {}
@@ -877,8 +881,8 @@ export function BookingSeatsPage() {
           </div>
         </div>
       )}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
-        <section className="space-y-5">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start w-full max-w-full">
+        <section className="space-y-4 sm:space-y-5 min-w-0 w-full max-w-full">
           {!hasSeatMap ? (
             seatsQuery.isLoading ? (
               <div className="glass-panel rounded-[24px] border border-primary/20 bg-slate-900/60 p-12 text-center shadow-xl backdrop-blur-md">
@@ -899,13 +903,13 @@ export function BookingSeatsPage() {
                 <p className="text-muted">{'Đang tải sơ đồ ghế...'}</p>
               ) : seatsQuery.data?.seats?.length ? (
                 <>
-                  <div className="mb-5 flex flex-wrap justify-center gap-4 text-xs text-muted">
+                  <div className="mb-3 sm:mb-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted">
                     <Legend color="bg-primary" label={'Đang chọn'} />
                     <Legend color="bg-panel-soft" label={'Còn trống'} />
                     <Legend color="bg-slate-700" label={'Đã giữ/bán'} />
                   </div>
-                  <div className="flex items-start gap-3 rounded-lg bg-surface/60 p-4">
-                    <div ref={seatMapViewportRef} className="min-w-0 flex-1 overflow-auto">
+                  <div className="relative rounded-xl bg-surface/60 p-2 sm:p-4 border border-white/5 w-full max-w-full overflow-hidden">
+                    <div ref={seatMapViewportRef} className="min-w-0 w-full overflow-auto touch-pan-x touch-pan-y no-scrollbar">
                       <SeatMapCanvas
                         seats={seatsQuery.data?.seats || []}
                         ticketTypes={ticketTypes}
@@ -923,40 +927,40 @@ export function BookingSeatsPage() {
                         }}
                       />
                     </div>
-                    <div className="flex shrink-0 flex-col gap-1.5">
+                    <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-10 bg-slate-950/80 p-1 rounded-full border border-white/10 backdrop-blur-md shadow-lg">
                       <button
                         type="button"
-                        onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.5, 1.6))}
-                        className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                        onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.35, 1.6))}
+                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
                         disabled={seatZoom >= 1.6}
                         title={'Phóng to'}
                       >
-                        <Plus className="size-4" />
+                        <Plus className="size-3.5 sm:size-4" />
                       </button>
                       <button
                         type="button"
                         onClick={fitSeatMapToViewport}
-                        className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
+                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
                         title={'Vừa khung'}
                       >
-                        <RefreshCw className="size-3.5" />
+                        <RefreshCw className="size-3 sm:size-3.5" />
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.5, 1.6))}
-                        className="grid size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
-                        disabled={seatZoom <= 0.5}
+                        onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.35, 1.6))}
+                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                        disabled={seatZoom <= 0.35}
                         title={'Thu nhỏ'}
                       >
-                        <Minus className="size-4" />
+                        <Minus className="size-3.5 sm:size-4" />
                       </button>
                     </div>
                   </div>
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+                  <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-muted">
                     <p>
                       Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
                     </p>
-                    <span className="text-xs text-subtle">
+                    <span className="text-[11px] sm:text-xs text-subtle">
                       (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
                     </span>
                   </div>
@@ -988,6 +992,34 @@ export function BookingSeatsPage() {
           onClose={() => setStandingTicketType(null)}
         />
       )}
+      {/* Mobile Sticky Floating Action Bar for Step 1 */}
+      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-[#081126]/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.8)] backdrop-blur-xl lg:hidden">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 text-xs text-slate-300">
+              <Ticket className="size-3.5 text-[#E6C17A]" />
+              <span className="truncate">
+                {displayItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0) > 0
+                  ? `${displayItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} vé đã chọn`
+                  : 'Chưa chọn vé'}
+              </span>
+            </div>
+            <p className="mt-0.5 text-base sm:text-lg font-black text-[#E6C17A] truncate">
+              {formatPrice(payableTotal(displayCart))}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={continueFlow}
+            disabled={isPaused || checkingAvailability || displayItems.length === 0 || Boolean(seatRuleIssue)}
+            className="btn-gold-primary inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-5 text-xs font-bold text-slate-950 shadow-[0_0_15px_rgba(201,154,71,0.4)] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
+          >
+            {checkingAvailability ? <Loader2 className="size-4 animate-spin" /> : (canFastForward ? 'Thanh toán' : 'Tiếp tục')}
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+      </div>
     </BookingShell>
   )
 }
@@ -1214,7 +1246,7 @@ export function BookingAttendeesPage() {
           </div>
         </div>
       )}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start w-full max-w-full">
         <section className="space-y-3 sm:space-y-3.5">
           <Panel>
             <div className="mb-4">
@@ -1490,8 +1522,8 @@ export function BookingReviewPage() {
           </div>
         </div>
       )}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
-        <section className="space-y-5">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start w-full max-w-full">
+        <section className="space-y-4 sm:space-y-5 min-w-0 w-full max-w-full">
           <Panel>
             <h2 className="mb-4 font-display text-xl font-bold text-white">{'Thông tin sự kiện'}</h2>
             <div className="grid gap-3 text-sm text-muted md:grid-cols-2">
@@ -1855,8 +1887,8 @@ export function BookingPaymentPage() {
 
   return (
     <BookingShell step={4} cart={cart}>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
-        <section className="space-y-5">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start w-full max-w-full">
+        <section className="space-y-4 sm:space-y-5 min-w-0 w-full max-w-full">
           <Panel>
             {checkoutMutation.isPending && (
               <p className="text-muted">
@@ -2023,12 +2055,12 @@ function BookingShell({ step, cart, children }) {
   }[step] || 'Quay về bước trước'
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-transparent text-content pt-20 sm:pt-24">
+    <div className="min-h-0 bg-transparent text-content pt-4 sm:pt-8 pb-20 sm:pb-12 w-full max-w-full overflow-x-hidden">
       <div className="bg-transparent">
-        <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl px-3 sm:px-6 lg:px-8 py-2 sm:py-5">
           <div className="relative flex items-center justify-between">
             {/* Đường line nối 4 bước */}
-            <div className="absolute top-[22px] left-8 sm:left-10 right-8 sm:right-10 -translate-y-1/2 h-[2px] bg-white/10 z-0 pointer-events-none">
+            <div className="absolute top-[16px] sm:top-[22px] left-6 sm:left-10 right-6 sm:right-10 -translate-y-1/2 h-[2px] bg-white/10 z-0 pointer-events-none">
               <div
                 className="h-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-[0_0_8px_rgba(201,154,71,0.6)] transition-all duration-500"
                 style={{ width: `${Math.min(100, Math.max(0, ((step - 1) / (labels.length - 1)) * 100))}%` }}
@@ -2049,20 +2081,20 @@ function BookingShell({ step, cart, children }) {
                       navigate(stepPaths[stepNum], { state: { cart } })
                     }
                   }}
-                  className={`relative z-10 w-16 sm:w-20 flex flex-col items-center gap-2 transition ${done ? 'cursor-pointer group' : 'cursor-default'}`}
+                  className={`relative z-10 w-14 sm:w-20 flex flex-col items-center gap-1.5 sm:gap-2 transition ${done ? 'cursor-pointer group' : 'cursor-default'}`}
                 >
                   <div
-                    className={`grid size-11 place-items-center rounded-full text-sm font-bold transition-all duration-300 ${active
-                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-slate-950 shadow-[0_0_20px_rgba(201,154,71,0.5)] scale-110'
+                    className={`grid size-8 sm:size-11 place-items-center rounded-full text-xs sm:text-sm font-bold transition-all duration-300 ${active
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-slate-950 shadow-[0_0_20px_rgba(201,154,71,0.5)] scale-105 sm:scale-110'
                       : done
                         ? 'bg-[#0b132b] text-[#E6C17A] border border-[#E6C17A]/40 group-hover:scale-105 group-hover:bg-[#C99A47]/20 group-hover:border-[#E6C17A]'
                         : 'bg-[#0b132b] text-slate-500 border border-white/10'
                       }`}
                   >
-                    {done ? <Check className="size-5 text-[#E6C17A]" /> : stepNum}
+                    {done ? <Check className="size-4 sm:size-5 text-[#E6C17A]" /> : stepNum}
                   </div>
                   <span
-                    className={`text-xs sm:text-sm font-bold transition-colors whitespace-nowrap ${active
+                    className={`text-[10px] sm:text-sm font-bold transition-colors whitespace-nowrap ${active
                       ? 'text-white drop-shadow-md'
                       : done
                         ? 'text-[#E6C17A] group-hover:underline'
@@ -2077,29 +2109,29 @@ function BookingShell({ step, cart, children }) {
           </div>
         </div>
       </div>
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-2 sm:py-8">
+        <div className="mb-2.5 sm:mb-6">
           <button
             type="button"
             onClick={goBackStep}
-            className="inline-flex items-center gap-2.5 px-4 py-2 text-sm font-bold text-slate-300 backdrop-blur-md transition hover:border-primary/40 hover:text-primary"
+            className="inline-flex items-center gap-2 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-slate-300 backdrop-blur-md transition hover:border-primary/40 hover:text-primary"
           >
-            <ArrowLeft className="size-4 text-primary" />
+            <ArrowLeft className="size-4 text-primary shrink-0" />
             <span>{stepBackLabel}</span>
           </button>
         </div>
         {cart?.eventTitle && (
-          <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-primary/25 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md">
+          <div className="mb-3.5 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 rounded-xl sm:rounded-2xl border border-primary/25 bg-slate-900/70 p-3 sm:p-5 shadow-xl backdrop-blur-md">
             <div className="min-w-0 flex-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                 Sự kiện đang đặt vé
               </span>
-              <h2 className="mt-1 font-display text-xl sm:text-2xl font-black text-white drop-shadow-sm truncate">
+              <h2 className="mt-1 font-display text-lg sm:text-2xl font-black text-white drop-shadow-sm line-clamp-2">
                 {cart.eventTitle}
               </h2>
             </div>
             {holdExpiresAt && secondsLeft(holdExpiresAt) > 0 && (
-              <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto rounded-xl border border-white/20 bg-white/5 px-3.5 py-1.5 font-mono text-lg sm:text-xl font-black text-white shadow-[0_0_12px_rgba(255,255,255,0.1)]">
+              <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto rounded-xl border border-white/20 bg-white/5 px-3 py-1 sm:px-3.5 sm:py-1.5 font-mono text-base sm:text-xl font-black text-white shadow-[0_0_12px_rgba(255,255,255,0.1)]">
                 <Clock className="size-4 sm:size-5 text-white animate-pulse shrink-0" />
                 <span className="text-white">{formatCountdown(remaining)}</span>
               </div>
@@ -2160,7 +2192,7 @@ function OrderCard({
     })
 
   return (
-    <aside className="glass-panel relative overflow-hidden h-fit rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-6 sm:p-7 lg:sticky lg:top-32">
+    <aside className="glass-panel relative overflow-hidden h-fit rounded-2xl sm:rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-4 sm:p-7 lg:sticky lg:top-32">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
       <div className="mb-5 flex items-center justify-between gap-2 flex-nowrap">
         <h2 className="font-display text-lg sm:text-xl font-black text-white whitespace-nowrap">{'Thông tin đặt vé'}</h2>
@@ -2631,7 +2663,7 @@ function ModalFrame({ children }) {
 
 function Panel({ children, unstyled = false, className = '' }) {
   return (
-    <section className={unstyled ? className : `rounded-2xl border border-white/10 bg-slate-900/70 p-6 shadow-xl backdrop-blur-md transition ${className}`}>
+    <section className={unstyled ? className : `rounded-2xl border border-white/10 bg-slate-900/70 p-3.5 sm:p-6 shadow-xl backdrop-blur-md transition min-w-0 max-w-full overflow-hidden ${className}`}>
       {children}
     </section>
   )
@@ -2979,9 +3011,9 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
 }
 function Legend({ color, label }) {
   return (
-    <span className="inline-flex items-center gap-2">
-      <span className={`size-3 rounded-sm ${color}`} />
-      {label}
+    <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+      <span className={`size-3 shrink-0 rounded-sm ${color}`} />
+      <span>{label}</span>
     </span>
   )
 }

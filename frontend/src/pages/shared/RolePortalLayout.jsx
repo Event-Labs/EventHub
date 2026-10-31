@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, ChevronRight, Home, LogOut, Moon, Settings, Sun } from 'lucide-react'
+import { Bell, CheckCheck, ChevronRight, Home, LogOut, Menu, Moon, Settings, Sun, X } from 'lucide-react'
 import { clearAuthSession, getAuthToken, isAdminUser } from '@/lib/auth.js'
 import {
   fetchNotifications,
@@ -44,6 +44,7 @@ export function RolePortalLayout({
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const themeKey = useMemo(() => getPortalThemeKey(user), [user])
   const [theme, setTheme] = useState(() => getStoredPortalTheme(getPortalThemeKey(user)))
   const token = getAuthToken()
@@ -52,6 +53,25 @@ export function RolePortalLayout({
     applyPortalTheme(theme)
     return () => document.documentElement.classList.remove('light')
   }, [theme])
+
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname])
+
+  const quickMobileItems = useMemo(() => {
+    const list = []
+    for (const sec of navSections || []) {
+      const items = sec.group ? sec.children : sec.items
+      if (items) {
+        for (const it of items) {
+          if (!list.some(l => l.to === it.to)) {
+            list.push(it)
+          }
+        }
+      }
+    }
+    return list.slice(0, 4)
+  }, [navSections])
 
   const setPortalTheme = (newTheme) => {
     setTheme(newTheme)
@@ -95,8 +115,9 @@ export function RolePortalLayout({
         </div>
       </div>
 
+      {/* ── Desktop Floating Sidebar (Visible on lg: >= 1024px) ── */}
       <aside
-        className={`fixed bottom-0 left-0 top-[80px] z-50 flex flex-col items-center gap-4 bg-transparent px-3 pb-6 transition-[width] duration-300 ease-out will-change-[width] ${sidebarExpanded ? 'w-[240px]' : 'w-20'
+        className={`hidden lg:flex fixed bottom-0 left-0 top-[80px] z-30 flex-col items-center gap-4 bg-transparent px-3 pb-6 transition-[width] duration-300 ease-out will-change-[width] ${sidebarExpanded ? 'w-[240px]' : 'w-20'
           }`}
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
@@ -169,12 +190,95 @@ export function RolePortalLayout({
         </div>
       </aside>
 
-      {/* Spacer for fixed sidebar */}
+      {/* Spacer for fixed desktop sidebar */}
       <div
-        className="shrink-0 transition-[width] duration-300 ease-out"
+        className="hidden lg:block shrink-0 transition-[width] duration-300 ease-out"
         style={{ width: sidebarExpanded ? expandedWidth : collapsedWidth }}
       />
 
+      {/* ── Mobile Off-Canvas Drawer Backdrop ── */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile Off-Canvas Drawer (Slide from left) ── */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[290px] max-w-[85vw] flex-col overflow-hidden shadow-2xl transition-transform duration-300 ease-out lg:hidden ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${
+          theme === 'light'
+            ? 'border-r border-[#C99A47]/30 bg-[#FDFBF7] text-[#0D1B2A]'
+            : 'border-r border-white/10 bg-[#081126] text-white'
+        }`}
+      >
+        {/* Drawer Header */}
+        <div className={`flex items-center justify-between border-b px-4 py-4 ${
+          theme === 'light' ? 'border-[#C99A47]/20 bg-[#F5EBDD]/60' : 'border-white/10 bg-slate-900/60'
+        }`}>
+          <div className="flex items-center gap-3">
+            <img src={logoSrc} alt="EventHub" className="h-8 w-auto object-contain" />
+            <span className={`text-[11px] font-extrabold uppercase tracking-wider rounded-md px-2 py-0.5 ${
+              theme === 'light' ? 'bg-[#C99A47]/20 text-[#1B365D]' : 'bg-primary/20 text-primary'
+            }`}>
+              {roleLabel}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`grid size-9 place-items-center rounded-xl transition ${
+              theme === 'light' ? 'hover:bg-[#C99A47]/20 text-[#1B365D]' : 'hover:bg-white/10 text-white'
+            }`}
+            aria-label="Đóng menu"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Scrollable Navigation */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+          {navSections.map((section, sectionIndex) => (
+            <SidebarSection
+              key={section.label}
+              section={section}
+              expanded={true}
+              showDivider={sectionIndex > 0}
+              pathname={location.pathname}
+              theme={theme}
+              onItemClick={() => setMobileMenuOpen(false)}
+            />
+          ))}
+        </div>
+
+        {/* Drawer Bottom Actions */}
+        <div className={`border-t px-3 py-3 space-y-1 ${
+          theme === 'light' ? 'border-[#C99A47]/20 bg-[#F5EBDD]/40' : 'border-white/10 bg-slate-900/40'
+        }`}>
+          {bottomItems.map((item) => (
+            <SidebarItem
+              key={item.label}
+              item={item}
+              expanded={true}
+              active={isItemActive(item, location.pathname)}
+              theme={theme}
+              onClick={() => setMobileMenuOpen(false)}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={logout}
+            className={`group flex h-11 w-full items-center gap-3 rounded-[18px] px-4 text-sm font-semibold text-error transition-all hover:bg-error/10`}
+          >
+            <LogOut className="size-5 shrink-0" />
+            <span>Đăng xuất</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main Content Area ── */}
       <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-x-hidden transition-all duration-300 ease-out">
         <PortalTopBar
           user={user}
@@ -183,18 +287,57 @@ export function RolePortalLayout({
           profileTo={profileTo}
           theme={theme}
           onToggleTheme={() => setPortalTheme(theme === 'light' ? 'dark' : 'light')}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
         />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden pt-20 w-full min-w-0">
-          <div className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8 min-w-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pt-16 sm:pt-20 pb-20 lg:pb-6 w-full min-w-0">
+          <div className="mx-auto w-full max-w-[1320px] px-3 sm:px-6 lg:px-8 py-4 sm:py-6 min-w-0">
             <Outlet />
           </div>
         </div>
       </main>
+
+      {/* ── Mobile Bottom Navigation Bar (Thumb Dock for Phones) ── */}
+      <nav className={`fixed bottom-0 inset-x-0 z-40 flex h-16 items-center justify-around border-t backdrop-blur-xl lg:hidden pb-[env(safe-area-inset-bottom)] ${
+        theme === 'light'
+          ? 'border-[#C99A47]/30 bg-[#FDFBF7]/95 text-[#0D1B2A] shadow-[0_-4px_20px_rgba(27,54,93,0.08)]'
+          : 'border-white/10 bg-[#081126]/95 text-white shadow-[0_-4px_20px_rgba(0,0,0,0.5)]'
+      }`}>
+        {quickMobileItems.map((item) => {
+          const active = isItemActive(item, location.pathname)
+          const Icon = item.icon
+          return (
+            <NavLink
+              key={item.label}
+              to={item.to}
+              end={item.end}
+              className={`flex flex-1 flex-col items-center justify-center py-1 transition-all ${
+                active
+                  ? (theme === 'light' ? 'text-[#C99A47] font-black' : 'text-primary font-black')
+                  : (theme === 'light' ? 'text-[#1B365D]/70 hover:text-[#0D1B2A]' : 'text-white/70 hover:text-white')
+              }`}
+            >
+              {Icon && <Icon className={`size-5 transition-transform ${active ? 'scale-110 drop-shadow' : ''}`} />}
+              <span className="text-[10px] mt-1 font-semibold leading-none truncate max-w-[64px] text-center">{item.label}</span>
+            </NavLink>
+          )
+        })}
+        {/* Button to open full mobile drawer */}
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          className={`flex flex-1 flex-col items-center justify-center py-1 transition-all ${
+            theme === 'light' ? 'text-[#1B365D]/70 hover:text-[#0D1B2A]' : 'text-white/70 hover:text-white'
+          }`}
+        >
+          <Menu className="size-5" />
+          <span className="text-[10px] mt-1 font-semibold leading-none">Menu</span>
+        </button>
+      </nav>
     </div>
   )
 }
 
-function SidebarSection({ section, expanded, showDivider, pathname, theme }) {
+function SidebarSection({ section, expanded, showDivider, pathname, theme, onItemClick }) {
   const Icon = getSectionIcon(section)
   const items = section.group ? section.children : section.items
 
@@ -213,6 +356,7 @@ function SidebarSection({ section, expanded, showDivider, pathname, theme }) {
             active={isItemActive(item, pathname)}
             fallbackIcon={Icon}
             theme={theme}
+            onClick={onItemClick}
           />
         ))}
       </div>
@@ -237,6 +381,7 @@ function SidebarSection({ section, expanded, showDivider, pathname, theme }) {
             expanded={expanded}
             active={isItemActive(item, pathname)}
             theme={theme}
+            onClick={onItemClick}
           />
         ))}
       </div>
@@ -244,7 +389,7 @@ function SidebarSection({ section, expanded, showDivider, pathname, theme }) {
   )
 }
 
-function SidebarItem({ item, expanded, active, fallbackIcon, theme }) {
+function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
   const Icon = item.icon || fallbackIcon
   const isLight = theme === 'light'
 
@@ -254,6 +399,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme }) {
         to={item.to}
         end={item.end}
         title={item.label}
+        onClick={onClick}
         className={({ isActive }) => {
           const current = active ?? isActive
           if (isLight) {
@@ -290,6 +436,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme }) {
       to={item.to}
       end={item.end}
       title={item.label}
+      onClick={onClick}
       className={({ isActive }) => {
         const current = active ?? isActive
         if (isLight) {
@@ -338,37 +485,49 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme }) {
   )
 }
 
-function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme }) {
+function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme, onOpenMobileMenu }) {
   const isLight = theme === 'light'
   const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên'
 
   return (
-    <header className={`fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 border-b px-8 py-4 backdrop-blur-xl transition-colors duration-500 ${isLight
+    <header className={`fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-2 sm:gap-4 border-b px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 backdrop-blur-xl transition-colors duration-500 ${isLight
       ? 'border-[#C99A47]/30 bg-[#F5EBDD]/90 text-[#0D1B2A] shadow-[0_8px_32px_rgba(27,54,93,0.06)]'
       : 'border-white/10 bg-slate-950/80 text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)]'
       }`}>
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-2 sm:gap-5 min-w-0">
+        {/* Mobile Hamburger Drawer Trigger */}
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          className={`grid size-9 sm:size-10 shrink-0 place-items-center rounded-xl lg:hidden transition ${
+            isLight ? 'text-[#1B365D] hover:bg-[#C99A47]/15' : 'text-white hover:bg-white/10'
+          }`}
+          aria-label="Mở menu điều hướng"
+        >
+          <Menu className="size-5" />
+        </button>
+
         <NavLink
           to={isAdmin ? '/admin' : '/'}
           reloadDocument={!isAdmin}
           title={isAdmin ? 'Về trang quản trị' : 'Về trang chủ'}
-          className="shrink-0 transition opacity-90 hover:opacity-100"
+          className="shrink-0 transition opacity-90 hover:opacity-100 flex items-center"
         >
           <img
             src={logoSrc}
             alt="EventHub"
-            className="logo-fixed h-10 w-[176px] shrink-0 object-cover object-center"
+            className="logo-fixed h-8 sm:h-10 w-auto shrink-0 object-contain"
             style={{ filter: 'none' }}
           />
         </NavLink>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-3">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
         {!isAdmin && (
           <NavLink
             to="/"
             reloadDocument
-            className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-bold transition-all ${isLight
+            className={`hidden md:inline-flex items-center gap-2 rounded-full border px-4 lg:px-5 py-2 lg:py-2.5 text-xs lg:text-[13px] font-bold transition-all ${isLight
               ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
               : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
               }`}
@@ -378,7 +537,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
             <span>Trang khách hàng</span>
           </NavLink>
         )}
-        <div className={`glass-panel flex h-[44px] items-center gap-1 rounded-full px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
+        <div className={`glass-panel flex h-[38px] sm:h-[44px] items-center gap-0.5 sm:gap-1 rounded-full px-1.5 sm:px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
           }`}>
           <TopBarIconButton
             icon={theme === 'light' ? Sun : Moon}
@@ -390,7 +549,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
         </div>
         <NavLink
           to={profileTo}
-          className={`glass-panel flex h-[44px] items-center gap-3 rounded-full pl-2 pr-4 shadow-inner transition-all ${isLight
+          className={`glass-panel flex h-[38px] sm:h-[44px] items-center gap-1.5 sm:gap-3 rounded-full pl-1.5 sm:pl-2 pr-2.5 sm:pr-4 shadow-inner transition-all ${isLight
             ? 'border-[#C99A47]/30 bg-white/70 hover:border-[#C99A47] hover:bg-white/95'
             : 'border-white/10 hover:border-primary/50 hover:bg-white/5'
             }`}
@@ -405,7 +564,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
               {roleLabel}
             </p>
           </div>
-          <ChevronRight className={`size-4 ${isLight ? 'text-[#1B365D]/60' : 'text-slate-400'}`} />
+          <ChevronRight className={`size-3.5 sm:size-4 ${isLight ? 'text-[#1B365D]/60' : 'text-slate-400'}`} />
         </NavLink>
       </div>
     </header>

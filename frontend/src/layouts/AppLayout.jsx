@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, NavLink, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, CheckCheck } from 'lucide-react'
+import { Bell, CheckCheck, Compass, Heart, Home, Ticket, User } from 'lucide-react'
 import {
   fetchNotifications,
   getNotificationStreamUrl,
@@ -283,17 +283,17 @@ export function AppLayout() {
     <div className="force-dark flex min-h-screen flex-col text-content bg-transparent relative">
       <CosmicStarryBackground />
       <div className="pointer-events-none fixed inset-0 z-50 transition-opacity duration-300 mouse-glow-overlay" />
-      <header className="force-dark fixed top-4 left-0 right-0 z-50 mx-auto w-[96%] max-w-7xl rounded-full border border-border-soft bg-panel/70 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300">
-        <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
-          <NavLink to="/" className="flex items-center gap-3">
+      <header className="force-dark fixed top-2 sm:top-4 left-0 right-0 z-50 mx-auto w-[94%] sm:w-[96%] max-w-7xl rounded-full border border-border-soft bg-panel/70 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300">
+        <div className="flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-3 px-3 sm:px-6 lg:px-8">
+          <NavLink to="/" className="flex items-center shrink-0 gap-2 sm:gap-3">
             <img
               src={logoSrc}
               alt="EventHub"
-              className="h-12 sm:h-13 w-auto object-contain mix-blend-screen transition-opacity hover:opacity-80"
+              className="h-8 sm:h-12 w-auto object-contain mix-blend-screen transition-opacity hover:opacity-80"
             />
           </NavLink>
 
-          <nav ref={navRef} className="relative hidden items-center justify-center gap-1 md:flex">
+          <nav ref={navRef} className="relative hidden items-center justify-center gap-1 md:flex flex-1">
             <span
               className="absolute bottom-0 h-0.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-[0_0_10px_rgba(201,154,71,0.6)] transition-all duration-300 ease-out"
               style={{
@@ -319,24 +319,24 @@ export function AppLayout() {
           </nav>
 
           {!loggedIn ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <NavLink
                 to="/login"
-                className="rounded-full border border-[#C99A47]/50 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#0D1B2A] active:scale-95"
+                className="rounded-full border border-[#C99A47]/50 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#0D1B2A] active:scale-95"
               >
                 Đăng nhập
               </NavLink>
               <NavLink
                 to="/register"
-                className="btn-led-border active:scale-95"
+                className="btn-led-border active:scale-95 text-xs sm:text-sm"
               >
-                <span className="btn-led-inner">
+                <span className="btn-led-inner !px-3 sm:!px-5 !py-1.5 sm:!py-2 !text-xs sm:!text-sm">
                   Đăng ký
                 </span>
               </NavLink>
             </div>
           ) : (
-            <div ref={userActionsRef} className="relative flex items-center gap-3">
+            <div ref={userActionsRef} className="relative flex items-center justify-end gap-2 sm:gap-3 shrink-0">
               {hasAdminRole && (
                 <NavLink
                   to="/admin"
@@ -398,7 +398,7 @@ export function AppLayout() {
                 />
               </button>
               {notificationOpen && (
-                <div className="absolute right-12 top-full mt-4 w-[360px] overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl">
+                <div className="fixed sm:absolute inset-x-3 sm:inset-x-auto sm:right-12 top-20 sm:top-full mt-0 sm:mt-4 w-auto sm:w-[360px] overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl z-50">
                   <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
                     <div>
                       <p className="font-display text-lg font-bold text-white">Thông báo</p>
@@ -454,7 +454,7 @@ export function AppLayout() {
                 </div>
               )}
               {open && (
-                <div className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl">
+                <div className="absolute right-0 top-full mt-3 sm:mt-4 w-56 sm:w-64 overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl z-50">
                   <div className="py-1">
                     <NavLink
                       className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
@@ -492,10 +492,30 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className={`flex-1 ${pathname === '/' || /^\/events\/[^/]+$/.test(pathname) ? '' : 'pt-16'}`}>
+      <main
+        className={`flex-1 ${
+          pathname.startsWith('/booking')
+            ? 'pb-24 lg:pb-0'
+            : 'pb-20 md:pb-0'
+        } ${
+          pathname === '/' || /^\/events\/[^/]+$/.test(pathname)
+            ? ''
+            : 'pt-20 sm:pt-24 lg:pt-28'
+        }`}
+      >
         <Outlet />
       </main>
-      <footer className="relative border-t border-border-soft bg-panel-soft/30 backdrop-blur-md">
+      <footer
+        className={`relative border-t border-border-soft bg-panel-soft/30 backdrop-blur-md pb-16 md:pb-0 ${
+          pathname.startsWith('/booking') ||
+          pathname === '/profile' ||
+          pathname === '/my-tickets' ||
+          pathname === '/favorites' ||
+          pathname === '/feedback'
+            ? 'hidden md:block'
+            : ''
+        }`}
+      >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_70%)] opacity-[0.03]" />
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
           <div>
@@ -532,6 +552,92 @@ export function AppLayout() {
       </footer>
       <ActiveHoldFloatingBar />
       <CustomerAiAssistantWidget key={getStoredUserKey(currentUser) || 'guest'} enabled={loggedIn && !hasAdminRole} />
+
+      {/* ── Mobile Customer Bottom Navigation Bar ── */}
+      {!pathname.startsWith('/booking') && (
+        <nav className="fixed bottom-0 inset-x-0 z-40 flex h-16 items-center justify-around border-t border-white/10 bg-[#081126]/95 backdrop-blur-xl md:hidden pb-[env(safe-area-inset-bottom)] text-white shadow-[0_-4px_20px_rgba(0,0,0,0.6)]">
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center py-1 transition-all ${
+                isActive ? 'text-[#E6C17A] font-black' : 'text-slate-400 hover:text-white'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Home className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
+                <span className="text-[10px] mt-1 font-semibold leading-none">Trang chủ</span>
+              </>
+            )}
+          </NavLink>
+
+          <NavLink
+            to="/events"
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center py-1 transition-all ${
+                isActive ? 'text-[#E6C17A] font-black' : 'text-slate-400 hover:text-white'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Compass className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
+                <span className="text-[10px] mt-1 font-semibold leading-none">Khám phá</span>
+              </>
+            )}
+          </NavLink>
+
+          <NavLink
+            to="/my-tickets"
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center py-1 transition-all ${
+                isActive ? 'text-[#E6C17A] font-black' : 'text-slate-400 hover:text-white'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Ticket className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
+                <span className="text-[10px] mt-1 font-semibold leading-none">Vé của tôi</span>
+              </>
+            )}
+          </NavLink>
+
+          <NavLink
+            to="/favorites"
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center py-1 transition-all ${
+                isActive ? 'text-[#E6C17A] font-black' : 'text-slate-400 hover:text-white'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Heart className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
+                <span className="text-[10px] mt-1 font-semibold leading-none">Yêu thích</span>
+              </>
+            )}
+          </NavLink>
+
+          <NavLink
+            to={loggedIn ? (hasAdminRole ? '/admin' : '/profile') : '/login'}
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center py-1 transition-all ${
+                isActive ? 'text-[#E6C17A] font-black' : 'text-slate-400 hover:text-white'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <User className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
+                <span className="text-[10px] mt-1 font-semibold leading-none">{loggedIn ? 'Tôi' : 'Tài khoản'}</span>
+              </>
+            )}
+          </NavLink>
+        </nav>
+      )}
     </div>
   )
 }

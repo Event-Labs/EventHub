@@ -48,7 +48,7 @@ export function FavoriteEventsPage() {
   const events = favoritesQuery.data || []
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <SectionHeader
         title="Sự kiện Yêu thích"
         description="Các sự kiện bạn đã lưu để xem lại và đặt vé sau"
@@ -64,7 +64,7 @@ export function FavoriteEventsPage() {
         <EmptyText />
       )}
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 sm:mt-6 grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {events.map((event) => (
           <EventCard
             key={event.id}

@@ -128,7 +128,7 @@ export function RegisterPage() {
 
     return (
         <AuthShell>
-            <div className="force-dark glass-panel relative overflow-hidden mx-auto w-full max-w-xl rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+            <div className="force-dark glass-panel relative overflow-hidden mx-auto w-full max-w-xl rounded-[20px] sm:rounded-[24px] border-primary/20 p-5 sm:p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                 <div className="text-center">
                     <h1 className="font-display text-3xl font-extrabold text-white">
@@ -146,8 +146,6 @@ export function RegisterPage() {
                             setError(message)
                             toast.error(message)
                         }}
-                        useOneTap
-                        width="100%"
                         theme="outline"
                         size="large"
                         text="continue_with"
