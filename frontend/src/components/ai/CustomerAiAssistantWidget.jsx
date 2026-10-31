@@ -8,7 +8,7 @@ import { fetchEventDetail } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
 
-function ActionMessage({ content, navigate, setInput }) {
+function ActionMessage({ content, navigate, setInput, onSendMessage }) {
   const actionRegex = /\[ACTION:([A-Z_]+):?([^\]]*)\]/g;
   const parts = [];
   let lastIndex = 0;
@@ -479,7 +479,7 @@ function ActionMessage({ content, navigate, setInput }) {
                   <span className="transition-transform group-hover:translate-x-1">➔</span>
                 </button>
 
-                <div className="flex items-center justify-between text-[11px] px-1 text-slate-400">
+                <div className="flex flex-wrap items-center justify-between gap-y-1.5 text-[11px] px-1 text-slate-400">
                   {proposal.hasSeatMap ? (
                     <button
                       type="button"
@@ -501,6 +501,20 @@ function ActionMessage({ content, navigate, setInput }) {
                       {proposal.hasSeatMap ? '✏️ Đổi hàng ghế khác' : '✏️ Đổi loại vé / số lượng'}
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onSendMessage) {
+                        onSendMessage('Tôi muốn đổi sang sự kiện khác');
+                      } else if (setInput) {
+                        setInput('Tôi muốn đổi sang sự kiện khác');
+                      }
+                    }}
+                    className="hover:text-rose-300 underline transition-colors cursor-pointer"
+                  >
+                    🔄 Đổi sự kiện khác
+                  </button>
                 </div>
               </div>
             </div>
@@ -1118,14 +1132,14 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 z-40 grid size-14 place-items-center rounded-full bg-gradient-to-r from-primary to-indigo-500 text-white shadow-lg shadow-primary/20 transition-all hover:scale-105 hover:shadow-xl ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+        className={`fixed bottom-[76px] right-4 sm:bottom-6 sm:right-6 z-40 grid size-12 sm:size-14 place-items-center rounded-full bg-gradient-to-r from-primary to-indigo-500 text-white shadow-lg shadow-primary/20 transition-all hover:scale-105 hover:shadow-xl ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
         aria-label="Mở trợ lý AI"
       >
-        <Sparkles className="size-6" />
+        <Sparkles className="size-5 sm:size-6" />
       </button>
 
       <div
-        className={`fixed bottom-6 right-6 z-50 flex h-[600px] w-[400px] max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-[#090f1f] shadow-[0_20px_50px_rgba(0,0,0,0.85)] transition-all duration-300 ${
+        className={`fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 flex h-[100dvh] sm:h-[620px] w-full sm:w-[420px] max-w-none sm:max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border border-slate-700 bg-[#090f1f] shadow-[0_20px_50px_rgba(0,0,0,0.85)] transition-all duration-300 ${
           isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-10 opacity-0'
         }`}
       >
@@ -1268,7 +1282,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                   {msg.role === 'user' ? (
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
                   ) : (
-                    <ActionMessage content={msg.content} navigate={navigate} setInput={setInput} />
+                    <ActionMessage content={msg.content} navigate={navigate} setInput={setInput} onSendMessage={handleSendMessage} />
                   )}
                 </div>
               </div>
@@ -1293,7 +1307,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         </div>
 
         {/* Input Form */}
-        <div className="border-t border-slate-800 bg-[#0d162e] p-3">
+        <div className="border-t border-slate-800 bg-[#0d162e] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           {/* Speech Recognition Error Alert */}
           {speechError && (
             <div className="mb-2.5 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-950/70 px-3 py-2 text-xs text-amber-200 animate-in fade-in">

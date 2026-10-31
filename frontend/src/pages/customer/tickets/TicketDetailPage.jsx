@@ -378,7 +378,7 @@ export function TicketDetailPage() {
   )
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-5xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
       <Link
         to="/my-tickets"
         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary backdrop-blur-md transition"

@@ -143,18 +143,18 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
 
   return (
     <div
-      className={`glass-panel flex flex-col justify-between rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 ${toneStyles.border}`}
+      className={`glass-panel flex flex-col justify-between rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 ${toneStyles.border} [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md`}
     >
       <div>
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">{label}</p>
           {Icon && (
             <div className={`grid size-8 place-items-center rounded-xl border ${toneStyles.iconBg}`}>
               <Icon className="size-4" />
             </div>
           )}
         </div>
-        <p className="mt-2.5 truncate font-display text-2xl font-black text-white drop-shadow-sm sm:text-3xl">
+        <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
           {value}
         </p>
       </div>
@@ -162,7 +162,7 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
       <div className="mt-4">
         {progressBar !== undefined && (
           <div className="mb-2">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800 [html.light_&]:bg-slate-200">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-500"
                 style={{ width: `${Math.min(100, Math.max(0, Number(progressBar) || 0))}%` }}
@@ -172,20 +172,20 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
         )}
 
         {sub && (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-300">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-300 [html.light_&]:text-[#536b88]">
             {trend === 'up' && (
-              <span className="inline-flex items-center gap-0.5 font-bold text-emerald-400">
+              <span className="inline-flex items-center gap-0.5 font-bold text-emerald-400 [html.light_&]:text-emerald-600">
                 <ArrowUpRight className="size-3.5" />
                 {trendValue}
               </span>
             )}
             {trend === 'down' && (
-              <span className="inline-flex items-center gap-0.5 font-bold text-rose-400">
+              <span className="inline-flex items-center gap-0.5 font-bold text-rose-400 [html.light_&]:text-rose-600">
                 <ArrowDownRight className="size-3.5" />
                 {trendValue}
               </span>
             )}
-            <span className="truncate text-slate-400">{sub}</span>
+            <span className="truncate text-slate-400 [html.light_&]:text-[#536b88]">{sub}</span>
           </div>
         )}
       </div>
@@ -449,8 +449,8 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
   const maxGross = Math.max(...eventsRevenue.map((e) => Number(e.gross_revenue || 0)), 1)
 
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0d172e]/60">
-      <table className="w-full text-left text-sm table-fixed">
+    <div className="w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#0d172e]/60">
+      <table className="w-full min-w-[560px] text-left text-sm table-fixed">
         <thead>
           <tr className="border-b border-white/10 bg-[#121c38] text-[11px] font-bold uppercase tracking-wider text-slate-300">
             <th className="px-3.5 py-3 w-[40%]">Sự kiện</th>
@@ -727,30 +727,30 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
   return (
     <div className="space-y-4">
       {/* Portfolio Health Pills */}
-      <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-        <h3 className="mb-3 font-bold text-white">Trạng thái sự kiện</h3>
+      <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+        <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Trạng thái sự kiện</h3>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-center">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Đang mở bán</p>
-            <p className="mt-1 font-display text-xl font-black text-cyan-400">
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-center [html.light_&]:bg-cyan-50/70 [html.light_&]:border-cyan-200">
+            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Đang mở bán</p>
+            <p className="mt-1 font-display text-xl font-black text-cyan-400 [html.light_&]:text-cyan-700">
               {fmtNumber(dashboard.published_events)}
             </p>
           </div>
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Chờ duyệt</p>
-            <p className="mt-1 font-display text-xl font-black text-amber-400">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center [html.light_&]:bg-amber-50/70 [html.light_&]:border-amber-200">
+            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Chờ duyệt</p>
+            <p className="mt-1 font-display text-xl font-black text-amber-400 [html.light_&]:text-amber-700">
               {fmtNumber(dashboard.pending_review_events)}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-3 text-center">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Bản nháp</p>
-            <p className="mt-1 font-display text-xl font-black text-slate-300">
+          <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-3 text-center [html.light_&]:bg-slate-100/70 [html.light_&]:border-slate-300">
+            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Bản nháp</p>
+            <p className="mt-1 font-display text-xl font-black text-slate-300 [html.light_&]:text-slate-800">
               {fmtNumber(dashboard.draft_events)}
             </p>
           </div>
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Đã kết thúc</p>
-            <p className="mt-1 font-display text-xl font-black text-emerald-400">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center [html.light_&]:bg-emerald-50/70 [html.light_&]:border-emerald-200">
+            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Đã kết thúc</p>
+            <p className="mt-1 font-display text-xl font-black text-emerald-400 [html.light_&]:text-emerald-700">
               {fmtNumber(dashboard.completed_events)}
             </p>
           </div>
@@ -758,23 +758,23 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
       </div>
 
       {/* Next Upcoming Event */}
-      <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+      <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-bold text-white">Sự kiện sắp diễn ra gần nhất</h3>
-          <Calendar className="size-4 text-cyan-400" />
+          <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Sự kiện sắp diễn ra gần nhất</h3>
+          <Calendar className="size-4 text-cyan-400 [html.light_&]:text-cyan-600" />
         </div>
 
         {nextEvent ? (
-          <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3.5">
-            <p className="truncate font-bold text-white">{nextEvent.title}</p>
-            <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
+          <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+            <p className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">{nextEvent.title}</p>
+            <div className="mt-1 flex items-center justify-between text-xs text-slate-400 [html.light_&]:text-[#536b88]">
               <span>{fmtDate(nextEvent.start_time)}</span>
-              <span className="font-semibold text-cyan-400">
+              <span className="font-semibold text-cyan-400 [html.light_&]:text-cyan-700">
                 {fmtNumber(nextEvent.tickets_sold)} / {fmtNumber(nextEvent.capacity)} vé
               </span>
             </div>
             {Number(nextEvent.capacity) > 0 && (
-              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-800 [html.light_&]:bg-slate-200">
                 <div
                   className="h-full rounded-full bg-cyan-400"
                   style={{
@@ -785,20 +785,20 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
             )}
           </div>
         ) : (
-          <div className="rounded-xl border border-white/5 bg-slate-900/40 p-4 text-center text-xs text-slate-400">
+          <div className="rounded-xl border border-white/5 bg-slate-900/40 p-4 text-center text-xs text-slate-400 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-500">
             Chưa có sự kiện nào sắp diễn ra.
           </div>
         )}
 
         {/* Current Plan Card */}
-        <div className="mt-3 rounded-xl border border-white/10 bg-slate-900/40 p-3.5">
+        <div className="mt-3 rounded-xl border border-white/10 bg-slate-900/40 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Gói dịch vụ</p>
-            <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Gói dịch vụ</p>
+            <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 [html.light_&]:bg-purple-100 [html.light_&]:border-purple-300 [html.light_&]:text-purple-700">
               {plan?.name || 'Gói cơ bản'}
             </span>
           </div>
-          <p className="mt-1 text-xs text-slate-300">
+          <p className="mt-1 text-xs text-slate-300 [html.light_&]:text-[#536b88]">
             {plan ? `Hết hạn ${fmtDate(plan.end_date)}` : 'Nâng cấp gói để mở khóa toàn bộ tính năng và giới hạn.'}
           </p>
         </div>
@@ -812,18 +812,19 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
 function SingleEventTicketTiersTable({ tiers = [] }) {
   if (!tiers.length) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 text-center text-sm text-slate-400">
+      <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 text-center text-sm text-slate-400 [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-slate-500">
         Chưa có cấu hình hạng vé cho sự kiện này.
       </div>
     )
   }
 
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-      <h3 className="mb-3 font-bold text-white">Hiệu suất phân bổ theo hạng vé (Tier Mix)</h3>
-      <table className="w-full text-left text-sm table-fixed">
+    <div className="w-full overflow-hidden rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+      <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Hiệu suất phân bổ theo hạng vé (Tier Mix)</h3>
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[500px] text-left text-sm table-fixed">
         <thead>
-          <tr className="border-b border-white/10 bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          <tr className="border-b border-white/10 bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/20 [html.light_&]:text-[#536b88]">
             <th className="px-3 py-2.5 w-[30%]">Hạng vé</th>
             <th className="px-3 py-2.5 text-right w-[22%]">Giá vé</th>
             <th className="px-2 py-2.5 text-center w-[20%]">Đã bán</th>
@@ -831,7 +832,7 @@ function SingleEventTicketTiersTable({ tiers = [] }) {
             <th className="px-3 py-2.5 text-right w-[15%]">Doanh thu</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5 text-slate-300">
+        <tbody className="divide-y divide-white/5 text-slate-300 [html.light_&]:divide-[#C99A47]/15 [html.light_&]:text-[#0D1B2A]">
           {tiers.map((t) => {
             const occupancy = Number(t.occupancy_rate || 0)
             const sold = Number(t.sold_quantity ?? t.sold ?? 0)
@@ -840,20 +841,20 @@ function SingleEventTicketTiersTable({ tiers = [] }) {
             const revenue = Number(t.revenue || sold * price)
 
             return (
-              <tr key={t.ticket_type_id || t.id || t.name} className="hover:bg-white/[0.02]">
-                <td className="px-3 py-3 truncate font-bold text-white text-sm" title={t.ticket_type_name || t.name}>
+              <tr key={t.ticket_type_id || t.id || t.name} className="hover:bg-white/[0.02] [html.light_&]:hover:bg-amber-50/40">
+                <td className="px-3 py-3 truncate font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm" title={t.ticket_type_name || t.name}>
                   {t.ticket_type_name || t.name}
                 </td>
-                <td className="px-3 py-3 text-right font-semibold text-slate-300 whitespace-nowrap">
+                <td className="px-3 py-3 text-right font-semibold text-slate-300 [html.light_&]:text-[#536b88] whitespace-nowrap">
                   {fmtCurrency(price)}
                 </td>
-                <td className="px-2 py-3 text-center text-xs text-slate-300 whitespace-nowrap">
+                <td className="px-2 py-3 text-center text-xs text-slate-300 [html.light_&]:text-[#536b88] whitespace-nowrap">
                   {sold} / {capacity}
                 </td>
                 <td className="px-2 py-3 text-center">
-                  <span className="text-xs font-bold text-cyan-300">{occupancy}%</span>
+                  <span className="text-xs font-bold text-cyan-300 [html.light_&]:text-cyan-700">{occupancy}%</span>
                 </td>
-                <td className="px-3 py-3 text-right font-bold text-emerald-400 whitespace-nowrap">
+                <td className="px-3 py-3 text-right font-bold text-emerald-400 [html.light_&]:text-[#065f46] whitespace-nowrap">
                   {fmtCurrency(revenue)}
                 </td>
               </tr>
@@ -861,6 +862,7 @@ function SingleEventTicketTiersTable({ tiers = [] }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
@@ -1719,15 +1721,15 @@ export function OrganizerDashboardPage() {
 
               {/* In Single Event Mode: Show Quick Operations Actions */}
               {selectedEventId && (
-                <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-                  <h3 className="mb-3 font-bold text-white">Quản trị sự kiện nhanh</h3>
+                <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+                  <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Quản trị sự kiện nhanh</h3>
                   <div className="space-y-2 text-xs font-semibold">
                     <Link
                       to={`/organizer/checkin-dashboard?eventId=${selectedEventId}`}
-                      className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 p-3 text-slate-200 transition hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300"
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 p-3 text-slate-200 transition hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-cyan-50/80 [html.light_&]:hover:text-cyan-800"
                     >
                       <span className="flex items-center gap-2">
-                        <TicketCheck className="size-4 text-cyan-400" />
+                        <TicketCheck className="size-4 text-cyan-400 [html.light_&]:text-cyan-600" />
                         <span>Mở màn hình Check-in soát vé</span>
                       </span>
                       <ArrowRight className="size-3.5" />
@@ -1735,10 +1737,10 @@ export function OrganizerDashboardPage() {
 
                     <Link
                       to={`/organizer/attendees?eventId=${selectedEventId}`}
-                      className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 p-3 text-slate-200 transition hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300"
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 p-3 text-slate-200 transition hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-cyan-50/80 [html.light_&]:hover:text-cyan-800"
                     >
                       <span className="flex items-center gap-2">
-                        <Users className="size-4 text-purple-400" />
+                        <Users className="size-4 text-purple-400 [html.light_&]:text-purple-600" />
                         <span>Danh sách người tham dự & Xuất CSV</span>
                       </span>
                       <ArrowRight className="size-3.5" />
@@ -1746,10 +1748,10 @@ export function OrganizerDashboardPage() {
 
                     <Link
                       to={`/organizer/events/${selectedEventId}`}
-                      className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 p-3 text-slate-200 transition hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300"
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 p-3 text-slate-200 transition hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-cyan-50/80 [html.light_&]:hover:text-cyan-800"
                     >
                       <span className="flex items-center gap-2">
-                        <ExternalLink className="size-4 text-emerald-400" />
+                        <ExternalLink className="size-4 text-emerald-400 [html.light_&]:text-emerald-600" />
                         <span>Cài đặt thông tin sự kiện & Vé</span>
                       </span>
                       <ArrowRight className="size-3.5" />

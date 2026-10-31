@@ -21,6 +21,8 @@ import {
   OrganizerPage,
   OrganizerPanel,
 } from './OrganizerComponents.jsx'
+import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -97,14 +99,19 @@ export function OrganizerAttendeesPage() {
     return params
   }, [page, selectedSessionId, selectedTicketTypeId, selectedStatus, search])
 
-  // Load events once (only published events)
+  // Load events once (published, completed, or events with ticket sales)
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
       .then((data) => {
-        const publishedEvents = (data || []).filter((ev) => ev.status === 'PUBLISHED')
-        setEvents(publishedEvents)
-        if (!initialEventId && publishedEvents.length > 0) setSelectedEventId(publishedEvents[0].id)
+        const eligibleEvents = (data || []).filter(
+          (ev) =>
+            ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(ev.status) ||
+            Number(ev.paid_orders_count || 0) > 0 ||
+            (ev.status !== 'DRAFT' && ev.status !== 'PENDING_REVIEW')
+        )
+        setEvents(eligibleEvents)
+        if (!initialEventId && eligibleEvents.length > 0) setSelectedEventId(eligibleEvents[0].id)
       })
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))
@@ -204,8 +211,8 @@ export function OrganizerAttendeesPage() {
       title="Người tham dự"
       description="Xem danh sách người tham dự từ vé đã bán cho sự kiện của bạn."
     >
-      {/* ── Event selector ── */}
-      <div className="mb-5">
+      {/* ── Event selector with Smart Event Picker ── */}
+      <div className="mb-6 max-w-xl">
         {eventsLoading ? (
           <div className="flex items-center gap-2 text-sm text-subtle">
             <Loader2 className="size-4 animate-spin text-primary" />
@@ -214,23 +221,15 @@ export function OrganizerAttendeesPage() {
         ) : events.length === 0 ? (
           <p className="text-sm text-subtle">Bạn chưa có sự kiện nào.</p>
         ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
-            <div className="relative w-full sm:w-[420px]">
-              <select
-                className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                value={selectedEventId}
-                onChange={(e) => setSelectedEventId(e.target.value)}
-              >
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">
-                    {ev.title}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
-            </div>
-          </div>
+          <OrganizerEventPicker
+            events={events}
+            selectedEventId={selectedEventId}
+            onSelectEvent={setSelectedEventId}
+            loading={eventsLoading}
+            label="Chọn sự kiện"
+            allowAll={false}
+            placeholder="Chọn sự kiện để xem người tham dự..."
+          />
         )}
       </div>
 
@@ -278,48 +277,43 @@ export function OrganizerAttendeesPage() {
 
               {/* Session filter */}
               {sessions.length > 0 && (
-                <select
-                  className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-52"
+                <CosmicSelect
                   value={selectedSessionId}
-                  onChange={(e) => setSelectedSessionId(e.target.value)}
-                >
-                  <option value="" className="bg-[#0b1329] text-white">Tất cả phiên</option>
-                  {sessions.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-[#0b1329] text-white">
-                      {s.session_name || new Date(s.start_time).toLocaleDateString('vi-VN')}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedSessionId}
+                  options={[
+                    { value: '', label: 'Tất cả phiên' },
+                    ...sessions.map((s) => ({
+                      value: s.id,
+                      label: s.session_name || new Date(s.start_time).toLocaleDateString('vi-VN'),
+                    })),
+                  ]}
+                  minWidth="min-w-[170px]"
+                />
               )}
 
               {/* Ticket type filter */}
               {ticketTypes.length > 0 && (
-                <select
-                  className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-44"
+                <CosmicSelect
                   value={selectedTicketTypeId}
-                  onChange={(e) => setSelectedTicketTypeId(e.target.value)}
-                >
-                  <option value="" className="bg-[#0b1329] text-white">Tất cả loại vé</option>
-                  {ticketTypes.map((tt) => (
-                    <option key={tt.id} value={tt.id} className="bg-[#0b1329] text-white">
-                      {tt.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedTicketTypeId}
+                  options={[
+                    { value: '', label: 'Tất cả loại vé' },
+                    ...ticketTypes.map((tt) => ({
+                      value: tt.id,
+                      label: tt.name,
+                    })),
+                  ]}
+                  minWidth="min-w-[160px]"
+                />
               )}
 
               {/* Status filter */}
-              <select
-                className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-44"
+              <CosmicSelect
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                {TICKET_STATUSES.map((s) => (
-                  <option key={s.value} value={s.value} className="bg-[#0b1329] text-white">
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedStatus}
+                options={TICKET_STATUSES}
+                minWidth="min-w-[160px]"
+              />
 
               <button
                 type="button"

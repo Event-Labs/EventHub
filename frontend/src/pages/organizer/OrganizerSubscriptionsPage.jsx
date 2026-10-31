@@ -10,6 +10,13 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 export function OrganizerSubscriptionsPage() {
   const toast = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = location.state?.returnTo || null
+  const redirectNotice =
+    location.state?.message ||
+    location.state?.error ||
+    location.state?.redirectNotice ||
+    null
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState('')

@@ -212,13 +212,13 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
 
 function PolicyPdfViewer({ policy, document }) {
   return (
-    <section className="overflow-hidden rounded-md border border-[#30363d] bg-[#262626] shadow-2xl">
-      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-[#3d3d3d] bg-[#333] px-4 py-3 text-white">
+    <section className="force-dark policy-pdf-viewer overflow-hidden rounded-xl border border-[#30363d] bg-[#262626] shadow-2xl">
+      <div className="pdf-header flex min-h-14 items-center justify-between gap-4 border-b border-[#3d3d3d] bg-[#333] px-4 py-3 text-white">
         <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold">
+          <p className="truncate text-sm font-extrabold text-white [html.light_&]:!text-white">
             {document.file_name || document.title || policy.title}
           </p>
-          <p className="mt-1 truncate text-xs text-white/70">
+          <p className="mt-1 truncate text-xs text-slate-300 [html.light_&]:!text-slate-300">
             {policy.title}
           </p>
         </div>
@@ -226,9 +226,9 @@ function PolicyPdfViewer({ policy, document }) {
           href={document.file_url}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/10"
+          className="btn-open-tab inline-flex shrink-0 items-center gap-2 rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/10 [html.light_&]:!text-white [html.light_&]:!border-white/20 hover:[html.light_&]:!bg-white/10"
         >
-          <ExternalLink className="size-4" />
+          <ExternalLink className="size-4 text-white [html.light_&]:!text-white" />
           Mở tab mới
         </a>
       </div>

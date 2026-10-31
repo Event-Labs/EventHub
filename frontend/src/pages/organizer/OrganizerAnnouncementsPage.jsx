@@ -45,7 +45,14 @@ export function OrganizerAnnouncementsPage() {
 
   const rawEvents = eventsQuery.data || EMPTY_ITEMS
   const events = useMemo(
-    () => rawEvents.filter((e) => !e.status || e.status === 'PUBLISHED'),
+    () =>
+      rawEvents.filter(
+        (e) =>
+          ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(e.status) ||
+          Number(e.paid_orders_count || 0) > 0 ||
+          (e.status !== 'DRAFT' && e.status !== 'PENDING_REVIEW') ||
+          !e.status
+      ),
     [rawEvents],
   )
   const announcements = announcementsQuery.data || EMPTY_ITEMS
@@ -107,7 +114,7 @@ export function OrganizerAnnouncementsPage() {
                   <option value="" className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
                   {events.map((event) => (
                     <option key={event.id} value={event.id} className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">
-                      {event.title}
+                      {event.title}{event.status === 'COMPLETED' ? ' (Đã kết thúc)' : ''}
                     </option>
                   ))}
                 </select>

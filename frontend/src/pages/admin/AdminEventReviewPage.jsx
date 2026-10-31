@@ -495,28 +495,33 @@ export function AdminEventReviewPage() {
                   ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
                   : 'border-border-soft/60 bg-panel text-subtle'
             }`}>
-              <Bot className="size-6" />
+              <Bot className="size-5 sm:size-6" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="inline-flex items-center gap-2 shrink-0">
-                  <h2 className="font-display text-base font-black tracking-wide text-content">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <h2 className="font-display text-sm sm:text-base font-black tracking-wide text-content break-words">
                     Hệ thống AI Tự động Thẩm định & Duyệt Sự kiện
                   </h2>
-                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                     <Sparkles className="size-3 text-indigo-400 shrink-0" />
                     AI Agent
                   </span>
                 </div>
                 {autoReviewSettings.auto_review_enabled ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-400 shadow-sm shadow-emerald-500/20">
-                    <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
-                    {autoReviewSettings.auto_approve_enabled ? 'ĐANG BẬT (QUÉT 15P + TỰ ĐỘNG DUYỆT)' : 'ĐANG BẬT (QUÉT 15P REVIEW TRƯỚC)'}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 sm:px-2.5 py-0.5 text-[11px] sm:text-xs font-bold text-emerald-400 shadow-sm shadow-emerald-500/20">
+                    <span className="size-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                    <span className="sm:hidden">
+                      {autoReviewSettings.auto_approve_enabled ? 'BẬT (QUÉT 15P + TỰ DUYỆT)' : 'BẬT (QUÉT 15P REVIEW)'}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {autoReviewSettings.auto_approve_enabled ? 'ĐANG BẬT (QUÉT 15P + TỰ ĐỘNG DUYỆT)' : 'ĐANG BẬT (QUÉT 15P REVIEW TRƯỚC)'}
+                    </span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-500/30 bg-zinc-500/10 px-2.5 py-0.5 text-xs font-bold text-zinc-400">
-                    <span className="size-2 rounded-full bg-zinc-400" />
-                    ĐANG TẮT (DUYỆT THỦ CÔNG)
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-500/30 bg-zinc-500/10 px-2 sm:px-2.5 py-0.5 text-[11px] sm:text-xs font-bold text-zinc-400">
+                    <span className="size-2 rounded-full bg-zinc-400 shrink-0" />
+                    <span>ĐANG TẮT (DUYỆT THỦ CÔNG)</span>
                   </span>
                 )}
               </div>
@@ -611,7 +616,7 @@ export function AdminEventReviewPage() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 px-3 py-2 text-xs font-black text-indigo-300 shadow-md transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-900/50 hover:text-white"
             >
               <ShieldCheck className="size-4 text-indigo-400 shrink-0" />
-              <span className="truncate">Điều khoản duyệt AI</span>
+              <span className="sm:hidden">Điều khoản</span><span className="hidden sm:inline">Điều khoản duyệt AI</span>
               {criteriaList.length > 0 && (
                 <span className="rounded-full bg-indigo-500/30 px-1.5 py-0.5 text-[10px] font-black text-indigo-200 border border-indigo-500/40 shrink-0">
                   {activeCriteriaCount}
@@ -629,7 +634,7 @@ export function AdminEventReviewPage() {
             key={tab.value}
             type="button"
             onClick={() => { setActiveStatus(tab.value); setPage(1) }}
-            className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${activeStatus === tab.value
+            className={`inline-flex min-w-20 sm:min-w-28 items-center justify-center rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${activeStatus === tab.value
                 ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
                 : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
               }`}
@@ -1070,7 +1075,7 @@ function EventReviewModal({
                   return (
                     <div key={ticket.key} className="flex flex-col gap-2 rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="font-bold text-content">{ticket.name}</p>
                           <p className="mt-1 text-xs text-subtle">
                             {ticket.is_seated ? 'Vé theo ghế' : 'Vé thường'}
@@ -1564,7 +1569,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
         <div className="mt-4 space-y-4 text-xs">
           {/* Recommendation Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-950/60 border border-slate-800 p-3">
-            <div>{getRecBadge(aiData.recommendation)}</div>
+            <div className="min-w-0 flex-1">{getRecBadge(aiData.recommendation)}</div>
             <div className="flex items-center gap-3 text-slate-300 text-xs">
               <span>Chất lượng: <strong className="text-emerald-400">{aiData.quality_score}/100</strong></span>
               <span className="text-slate-600">|</span>
@@ -1740,7 +1745,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                     onClick={() => handleApplySingle(`[VI PHẠM] ${v.issue}${v.highlighted_text ? ` (Trích đoạn: "${v.highlighted_text}")` : ''}`)}
                     className="flex w-full cursor-pointer items-start justify-between rounded-xl border border-rose-500/20 bg-slate-900/90 p-3 text-left text-xs text-slate-200 hover:bg-rose-950/30 transition shadow-sm"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <span className="font-bold text-rose-300">[{v.policy_code || 'VI PHẠM'}]: </span>
                       <span>{v.issue}</span>
                       {v.highlighted_text && <p className="mt-1 text-[11px] text-rose-300/80 italic">&ldquo;{v.highlighted_text}&rdquo;</p>}
@@ -1767,7 +1772,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                     onClick={() => handleApplySingle(`[LƯU Ý] ${w.issue}${w.highlighted_text ? ` (Trích đoạn: "${w.highlighted_text}")` : ''}`)}
                     className="flex w-full cursor-pointer items-start justify-between rounded-xl border border-amber-500/20 bg-slate-900/90 p-3 text-left text-xs text-slate-200 hover:bg-amber-950/30 transition shadow-sm"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <span className="font-bold text-amber-300">[{w.policy_code || 'LƯU Ý'}]: </span>
                       <span>{w.issue}</span>
                       {w.highlighted_text && <p className="mt-1 text-[11px] text-amber-300/80 italic">&ldquo;{w.highlighted_text}&rdquo;</p>}
@@ -1872,7 +1877,7 @@ function ConfirmModal({
             <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconWrap}`}>
               <ToneIcon className="size-6" />
             </span>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="text-xl font-black text-white">{title}</h3>
               {subtitle ? (
                 <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
@@ -1982,7 +1987,7 @@ function AiAutoReviewSettingsModal({
             <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/30">
               <Bot className="size-5" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="font-display text-lg font-black text-white">
                 Cài đặt Hệ thống AI Tự động Duyệt & Cảnh báo
               </h3>
@@ -2007,7 +2012,7 @@ function AiAutoReviewSettingsModal({
             <div className="flex items-center justify-between rounded-xl border border-indigo-500/30 bg-indigo-950/40 p-3.5">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck className="size-4 text-indigo-400" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-white">Quản lý Bộ Điều khoản & Tiêu chí Duyệt AI</p>
                   <p className="text-[11px] text-slate-400">Thêm, sửa, xóa các quy tắc kiểm tra (Giấy phép PDF, Hình ảnh, Giá vé...)</p>
                 </div>
