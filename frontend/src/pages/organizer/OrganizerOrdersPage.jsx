@@ -18,6 +18,8 @@ import {
   OrganizerPage,
   OrganizerPanel,
 } from './OrganizerComponents.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
+import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -134,10 +136,19 @@ export function OrganizerOrdersPage() {
     }
   }, [page, selectedEventId, selectedStatus, search])
 
-  // Load events for filter dropdown (only published events)
+  // Load events for filter dropdown (published, completed, or events with sales)
   useEffect(() => {
     fetchOrganizerEvents()
-      .then((data) => setEvents((data || []).filter((ev) => ev.status === 'PUBLISHED')))
+      .then((data) =>
+        setEvents(
+          (data || []).filter(
+            (ev) =>
+              ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(ev.status) ||
+              Number(ev.paid_orders_count || 0) > 0 ||
+              (ev.status !== 'DRAFT' && ev.status !== 'PENDING_REVIEW')
+          )
+        )
+      )
       .catch(() => setEvents([]))
   }, [])
 
@@ -188,32 +199,25 @@ export function OrganizerOrdersPage() {
             )}
           </form>
 
-          {/* Event filter */}
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-64"
-            value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-          >
-            <option value="" className="bg-[#0b1329] text-white">Tất cả sự kiện</option>
-            {events.map((ev) => (
-              <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">
-                {ev.title}
-              </option>
-            ))}
-          </select>
+          {/* Event filter with smart picker */}
+          <div className="w-full lg:w-72">
+            <OrganizerEventPicker
+              events={events}
+              selectedEventId={selectedEventId}
+              onSelectEvent={setSelectedEventId}
+              allowAll={true}
+              label={null}
+              placeholder="Tất cả sự kiện"
+            />
+          </div>
 
           {/* Status filter */}
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-52"
+          <CosmicSelect
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-          >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s.value} value={s.value} className="bg-[#0b1329] text-white">
-                {s.label}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedStatus}
+            options={ORDER_STATUSES}
+            minWidth="min-w-[170px]"
+          />
 
           <button
             type="button"

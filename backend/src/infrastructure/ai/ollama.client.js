@@ -116,7 +116,7 @@ async function generate(prompt, options = {}) {
     keep_alive: options.keep_alive || '60m',
     ...(options.format ? { format: options.format } : {}),
     options: {
-      temperature: options.temperature ?? 0.3,
+      temperature: options.temperature ?? 0.15,
       top_p: options.top_p ?? 0.9,
       num_predict: options.max_tokens ?? 2048,
       num_ctx: options.num_ctx ?? OLLAMA_NUM_CTX,
@@ -182,7 +182,7 @@ async function chat(messages, options = {}) {
     keep_alive: options.keep_alive || '60m',
     think,
     options: {
-      temperature: options.temperature ?? 0.25,
+      temperature: options.temperature ?? 0.15,
       top_p:       options.top_p       ?? 0.85,
       num_predict: options.max_tokens  ?? 1200,
       num_ctx:     options.num_ctx      ?? OLLAMA_NUM_CTX,
@@ -487,11 +487,6 @@ async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eve
   // 1. Nếu có ký tự tiếng Thái/Khmer hoặc chuỗi lặp rác -> làm sạch trước
   const cleaned = sanitizeRawVisionOutput(rawDescription);
 
-  // Nếu sau khi làm sạch chuỗi còn quá ngắn hoặc rỗng do toàn bộ là mã rác
-  if (cleaned.length < 15) {
-    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, chủ đề phù hợp và đảm bảo chất lượng hình ảnh.`;
-  }
-
   // Trả về trực tiếp nội dung mô tả đã làm sạch để Stage 2 (Qwen3) đọc và tổng hợp vào kết quả tiếng Việt.
   // Tránh gọi đệm mô hình LLM chính tại đây vì việc tráo đổi model (model swapping) liên tục giữa
   // Moondream và Qwen3 trong VRAM (2GB) sẽ gây lỗi CUDA Out of Memory trên card Quadro P620!
@@ -570,7 +565,7 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
 async function describeImageBatch(images, eventTitle = '', signal = null) {
   if (!Array.isArray(images) || images.length === 0) return [];
 
-  // THÊM ĐOẠN NÀY: Ưu tiên tối đa 2 ảnh quan trọng nhất
+  // Ưu tiên tối đa 2 ảnh quan trọng nhất (Giấy phép và Poster chính) để tránh quá tải
   const prioritizedImages = [...images].sort((a, b) => {
     const aPermit = a.source && a.source.startsWith('PERMIT') ? 2 : (a.source === 'MAIN_POSTER' ? 1 : 0);
     const bPermit = b.source && b.source.startsWith('PERMIT') ? 2 : (b.source === 'MAIN_POSTER' ? 1 : 0);
@@ -579,7 +574,7 @@ async function describeImageBatch(images, eventTitle = '', signal = null) {
 
   const results = [];
 
-  for (const img of images) {
+  for (const img of prioritizedImages) {
     if (signal?.aborted) {
       const err = new Error('Scan aborted by user');
       err.name = 'AbortError';

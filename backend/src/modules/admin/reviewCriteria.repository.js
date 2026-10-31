@@ -179,6 +179,7 @@ Xử lý vi phạm: Nếu phát hiện dấu hiệu mạo danh bảo trợ của
 
 class ReviewCriteriaRepository {
   async ensureTable() {
+    if (this._tableChecked) return;
     try {
       await db.query(`
         CREATE TABLE IF NOT EXISTS event_review_criteria (
@@ -213,6 +214,7 @@ class ReviewCriteriaRepository {
     } catch (err) {
       logger.warn(`[ReviewCriteriaRepository] ensureTable warning: ${err.message}`);
     }
+    this._tableChecked = true;
   }
 
   async findAll(filter = {}) {

@@ -2166,12 +2166,37 @@ html.light [class*="bg-[#182b4a]"],
 html.light [class*="bg-[#0D1B2A]"],
 html.light [class*="bg-[#1B365D]"],
 html.light [class*="bg-[#1e2a4a]"],
+html.light [class*="bg-[#0e172e]"],
+html.light [class*="bg-[#16233f]"],
+html.light [class*="bg-[#1b2b4e]"],
+html.light [class*="bg-[#0e2744]"],
+html.light [class*="bg-[#14375f]"],
+html.light [class*="bg-[#0c3124]"],
+html.light [class*="bg-[#124533]"],
+html.light [class*="bg-[#080e1e]"],
+html.light [class*="bg-[#091124]"],
+html.light [class*="bg-[#0d1527]"],
+html.light [class*="bg-[#1e293b]"],
+html.light [class*="bg-[#101a33]"],
 html.light [class*="bg-slate-950"],
 html.light [class*="bg-slate-900"],
 html.light [class*="bg-sky-950"],
+html.light [class*="from-slate-950"],
 html.light [class*="from-slate-900"],
+html.light [class*="from-sky-950"],
 html.light [class*="from-purple-950"],
+html.light [class*="from-indigo-950"],
+html.light [class*="from-amber-950"],
+html.light [class*="from-emerald-950"],
+html.light [class*="from-rose-950"],
+html.light [class*="from-red-950"],
 html.light [class*="from-[#0d172e]"],
+html.light [class*="from-[#0e172e]"],
+html.light [class*="from-[#17140b]"],
+html.light [class*="from-[#0b2038]"],
+html.light [class*="from-[#142042]"],
+html.light [class*="from-[#101a33]"],
+html.light [class*="from-[#030712]"],
 html.light .portal-table,
 html.light .modal-solid,
 html.light .dialog-solid {
@@ -2412,7 +2437,8 @@ html.light .text-rose-300 {
   color: #be123c !important;
 }
 html.light .text-amber-400,
-html.light .text-amber-300 {
+html.light .text-amber-300,
+html.light [class*="text-[#E6C17A]"]:not(.btn-gold-primary *):not([class*="bg-gradient-to-r"] *) {
   color: #b45309 !important;
 }
 html.light .text-purple-400,
@@ -2717,6 +2743,42 @@ html.light .force-dark .btn-gold-primary {
 
 html.light .force-dark svg text {
   fill: #f8fafc !important;
+}
+
+/* Policy PDF Viewer: preserve dark theme and light text in both light and dark mode */
+html.light .policy-pdf-viewer,
+html.light .policy-pdf-viewer .pdf-header {
+  background-color: #333333 !important;
+  border-color: #3d3d3d !important;
+  color: #ffffff !important;
+}
+
+html.light .policy-pdf-viewer .text-white,
+html.light .policy-pdf-viewer [class*="text-white/"],
+html.light .policy-pdf-viewer p,
+html.light .policy-pdf-viewer span,
+html.light .policy-pdf-viewer a {
+  color: #ffffff !important;
+}
+
+html.light .policy-pdf-viewer .text-slate-300,
+html.light .policy-pdf-viewer .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+html.light .policy-pdf-viewer .btn-open-tab {
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background-color: transparent !important;
+}
+
+html.light .policy-pdf-viewer .btn-open-tab:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html.light .policy-pdf-viewer svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 /* LED BORDER BUTTON EFFECT - PURE GOLD LUXURY */

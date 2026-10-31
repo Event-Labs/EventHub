@@ -390,28 +390,28 @@ export function OrganizerPaymentSettingsPage() {
       description="Cấu hình Kênh thu để nhận tiền bán vé và Kênh chi để tự động hoàn tiền vé cho khách hàng qua PayOS."
     >
       {/* Channel Switcher Buttons - Below Title, Same Row, Right-aligned */}
-      <div className="mb-5 flex items-center justify-end gap-3">
+      <div className="mb-5 flex flex-wrap sm:flex-nowrap items-center justify-start sm:justify-end gap-2 sm:gap-3">
         <button
           type="button"
           onClick={() => setActiveTab('inbound')}
-          className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs sm:text-sm font-extrabold transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap ${activeTab === 'inbound'
+          className={`inline-flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-full border px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-extrabold transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap ${activeTab === 'inbound'
             ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 ring-1 ring-[#E6C17A]/60'
             : 'border-[#C99A47]/45 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-white [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#C99A47]/25'
             }`}
         >
-          <ArrowDownLeft className={`size-4 ${activeTab === 'inbound' ? 'text-[#0D1B2A]' : 'text-[#E6C17A]'}`} />
-          <span>Kênh thu (Nhận tiền bán vé)</span>
+          <ArrowDownLeft className={`size-3.5 sm:size-4 shrink-0 ${activeTab === 'inbound' ? 'text-[#0D1B2A]' : 'text-[#E6C17A]'}`} />
+          <span><span className="sm:hidden">Kênh thu (Bán vé)</span><span className="hidden sm:inline">Kênh thu (Nhận tiền bán vé)</span></span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('payout')}
-          className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs sm:text-sm font-extrabold transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap ${activeTab === 'payout'
+          className={`inline-flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-full border px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-extrabold transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap ${activeTab === 'payout'
             ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 ring-1 ring-[#E6C17A]/60'
             : 'border-[#C99A47]/45 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-white [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#C99A47]/25'
             }`}
         >
-          <ArrowUpRight className={`size-4 ${activeTab === 'payout' ? 'text-[#0D1B2A]' : 'text-[#E6C17A]'}`} />
+          <ArrowUpRight className={`size-3.5 sm:size-4 shrink-0 ${activeTab === 'payout' ? 'text-[#0D1B2A]' : 'text-[#E6C17A]'}`} />
           <span>Kênh chi (Hoàn tiền)</span>
         </button>
       </div>

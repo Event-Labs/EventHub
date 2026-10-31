@@ -1,6 +1,6 @@
 import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Filter, RotateCcw, Search } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Filter, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
@@ -86,6 +86,18 @@ export function EventsPage() {
     onSettled: () => refreshFavoriteQueries(queryClient),
   })
 
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (draft.location) count++
+    if (draft.category_slug) count++
+    if (draft.start_date || draft.end_date) count++
+    if (draft.min_price || draft.max_price) count++
+    if (draft.sort_by && draft.sort_by !== 'start_time') count++
+    return count
+  }, [draft])
+
   const submitFilters = (event) => {
     event.preventDefault()
     setSearchParams(buildQuery({ ...draft, page: '1' }))
@@ -128,110 +140,159 @@ export function EventsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <form
-        className="glass-panel mb-8 rounded-lg border-primary/15 p-5 shadow-[0_18px_60px_rgba(56,189,248,0.08)]"
-        onSubmit={submitFilters}
+        className="glass-panel mb-6 sm:mb-8 rounded-2xl border-primary/15 p-4 sm:p-5 shadow-[0_18px_60px_rgba(56,189,248,0.08)]"
+        onSubmit={(e) => {
+          submitFilters(e)
+          setMobileFilterOpen(false)
+        }}
       >
-        <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.72fr)_minmax(180px,0.85fr)_minmax(330px,1.35fr)]">
-          <label className="flex flex-col gap-2.5">
-            <span className="text-base font-semibold text-white">Từ khóa</span>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
+        {/* Mobile Search & Filter Toggle Bar */}
+        <div className="flex flex-col gap-3 lg:hidden">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/50" />
               <input
                 value={draft.keyword}
                 onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
                 placeholder="Tìm sự kiện..."
-                className="h-12 w-full rounded-md border border-white/15 bg-[#0d172e] py-3 pl-10 pr-3 font-normal text-white placeholder:text-white/50 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-11 w-full rounded-xl border border-white/15 bg-[#0d172e] py-2 pl-9 pr-3 text-sm font-normal text-white placeholder:text-white/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
-          </label>
-
-          <Select
-            label="Địa điểm"
-            value={draft.location}
-            onChange={(value) => setDraft({ ...draft, location: value })}
-            options={LOCATION_OPTIONS}
-          />
-
-          <Select
-            label="Danh mục"
-            value={draft.category_slug}
-            onChange={(value) => setDraft({ ...draft, category_slug: value })}
-            options={[
-              ['', categoriesQuery.isLoading ? 'Đang tải danh mục...' : 'Tất cả danh mục'],
-              ...categories.map((category) => [category.slug, category.name]),
-            ]}
-            disabled={categoriesQuery.isLoading}
-          />
-
-          <div className="flex flex-col gap-2.5">
-            <span className="flex items-center gap-2 text-base font-semibold text-white">
-              Thời gian
-            </span>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                type="date"
-                value={draft.start_date}
-                onChange={(value) => setDraft({ ...draft, start_date: value })}
-                placeholder="dd/mm/yyyy"
-                aria-label="Từ ngày"
-              />
-              <Input
-                type="date"
-                value={draft.end_date}
-                onChange={(value) => setDraft({ ...draft, end_date: value })}
-                placeholder="dd/mm/yyyy"
-                aria-label="Đến ngày"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid items-end gap-4 lg:grid-cols-[minmax(170px,0.9fr)_minmax(170px,0.9fr)_minmax(190px,0.95fr)_auto]">
-          <Input
-            label="Giá từ"
-            type="number"
-            min="0"
-            value={draft.min_price}
-            onChange={(value) => setDraft({ ...draft, min_price: value })}
-          />
-          <Input
-            label="Giá đến"
-            type="number"
-            min="0"
-            value={draft.max_price}
-            onChange={(value) => setDraft({ ...draft, max_price: value })}
-          />
-          <label className="flex flex-col gap-2.5">
-            <span className="text-base font-semibold text-white">Sắp xếp</span>
-            <select
-              value={draft.sort_by}
-              onChange={(event) => setDraft({ ...draft, sort_by: event.target.value, sort_order: event.target.value === 'created_at' ? 'desc' : 'asc' })}
-              className="h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {SORT_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
             <button
-              className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-full px-5 font-bold transition-all hover:brightness-110 hover:shadow-[0_0_20px_rgba(201,154,71,0.5)] active:scale-95"
+              type="submit"
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl px-4 text-xs font-bold transition-all hover:brightness-110 active:scale-95"
               style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              <Filter className="size-4" />
-              Tìm sự kiện
+              Tìm
             </button>
             <button
               type="button"
-              onClick={clearFilters}
-              className="inline-flex h-12 min-w-32 items-center justify-center gap-2 rounded-full border border-[#C99A47]/60 px-4 font-bold backdrop-blur-md transition-all hover:bg-[#C99A47]/15 hover:border-[#C99A47] hover:shadow-[0_0_14px_rgba(201,154,71,0.35)] active:scale-95"
-              style={{ color: '#E6C17A' }}
+              onClick={() => setMobileFilterOpen((prev) => !prev)}
+              className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-all ${
+                mobileFilterOpen || activeFilterCount > 0
+                  ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
+                  : 'border-white/15 bg-white/5 text-slate-300 hover:border-white/30'
+              }`}
             >
-              <RotateCcw className="size-4" />
-              Xóa bộ lọc
+              <SlidersHorizontal className="size-3.5" />
+              <span>Bộ lọc</span>
+              {activeFilterCount > 0 && (
+                <span className="grid size-4 place-items-center rounded-full bg-[#E6C17A] text-[10px] font-black text-[#0D1B2A]">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown className={`size-3.5 transition-transform duration-200 ${mobileFilterOpen ? 'rotate-180' : ''}`} />
             </button>
+          </div>
+        </div>
+
+        {/* Detailed Filters (collapsible on mobile, always visible on desktop) */}
+        <div className={`${mobileFilterOpen ? 'block mt-4 pt-4 border-t border-white/10' : 'hidden'} lg:block lg:mt-0 lg:pt-0 lg:border-0`}>
+          <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.72fr)_minmax(180px,0.85fr)_minmax(330px,1.35fr)]">
+            <label className="hidden lg:flex flex-col gap-2.5">
+              <span className="text-base font-semibold text-white">Từ khóa</span>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
+                <input
+                  value={draft.keyword}
+                  onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
+                  placeholder="Tìm sự kiện..."
+                  className="h-12 w-full rounded-md border border-white/15 bg-[#0d172e] py-3 pl-10 pr-3 font-normal text-white placeholder:text-white/50 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </label>
+
+            <Select
+              label="Địa điểm"
+              value={draft.location}
+              onChange={(value) => setDraft({ ...draft, location: value })}
+              options={LOCATION_OPTIONS}
+            />
+
+            <Select
+              label="Danh mục"
+              value={draft.category_slug}
+              onChange={(value) => setDraft({ ...draft, category_slug: value })}
+              options={[
+                ['', categoriesQuery.isLoading ? 'Đang tải danh mục...' : 'Tất cả danh mục'],
+                ...categories.map((category) => [category.slug, category.name]),
+              ]}
+              disabled={categoriesQuery.isLoading}
+            />
+
+            <div className="flex flex-col gap-2.5">
+              <span className="flex items-center gap-2 text-base font-semibold text-white">
+                Thời gian
+              </span>
+              <div className="grid gap-2 grid-cols-2">
+                <Input
+                  type="date"
+                  value={draft.start_date}
+                  onChange={(value) => setDraft({ ...draft, start_date: value })}
+                  placeholder="dd/mm/yyyy"
+                  aria-label="Từ ngày"
+                />
+                <Input
+                  type="date"
+                  value={draft.end_date}
+                  onChange={(value) => setDraft({ ...draft, end_date: value })}
+                  placeholder="dd/mm/yyyy"
+                  aria-label="Đến ngày"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid items-end gap-4 lg:grid-cols-[minmax(170px,0.9fr)_minmax(170px,0.9fr)_minmax(190px,0.95fr)_auto]">
+            <div className="grid grid-cols-2 gap-3 lg:contents">
+              <Input
+                label="Giá từ"
+                type="number"
+                min="0"
+                value={draft.min_price}
+                onChange={(value) => setDraft({ ...draft, min_price: value })}
+              />
+              <Input
+                label="Giá đến"
+                type="number"
+                min="0"
+                value={draft.max_price}
+                onChange={(value) => setDraft({ ...draft, max_price: value })}
+              />
+            </div>
+            <label className="flex flex-col gap-2.5">
+              <span className="text-base font-semibold text-white">Sắp xếp</span>
+              <select
+                value={draft.sort_by}
+                onChange={(event) => setDraft({ ...draft, sort_by: event.target.value, sort_order: event.target.value === 'created_at' ? 'desc' : 'asc' })}
+                className="h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              >
+                {SORT_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="submit"
+                className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-full px-5 font-bold transition-all hover:brightness-110 hover:shadow-[0_0_20px_rgba(201,154,71,0.5)] active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+              >
+                <Filter className="size-4" />
+                Tìm sự kiện
+              </button>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex h-12 min-w-32 items-center justify-center gap-2 rounded-full border border-[#C99A47]/60 px-4 font-bold backdrop-blur-md transition-all hover:bg-[#C99A47]/15 hover:border-[#C99A47] hover:shadow-[0_0_14px_rgba(201,154,71,0.35)] active:scale-95"
+                style={{ color: '#E6C17A' }}
+              >
+                <RotateCcw className="size-4" />
+                Xóa bộ lọc
+              </button>
+            </div>
           </div>
         </div>
       </form>

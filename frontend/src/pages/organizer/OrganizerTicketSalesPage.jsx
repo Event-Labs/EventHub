@@ -1893,7 +1893,16 @@ export function OrganizerTicketSalesPage() {
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
-      .then((data) => setEvents((data || []).filter((ev) => ev.status === 'PUBLISHED')))
+      .then((data) =>
+        setEvents(
+          (data || []).filter(
+            (ev) =>
+              ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(ev.status) ||
+              Number(ev.paid_orders_count || 0) > 0 ||
+              (ev.status !== 'DRAFT' && ev.status !== 'PENDING_REVIEW')
+          )
+        )
+      )
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))
   }, [])
@@ -2009,8 +2018,8 @@ export function OrganizerTicketSalesPage() {
           {/* ── KPI Metric Cards (Ambient glow & high contrast) ── */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* KPI 1: Tổng vé đã bán */}
-            <div className="relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c1c38] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-cyan-500/40 [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-cyan-500/10 blur-xl" />
+            <div className="relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c1c38] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-cyan-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-cyan-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
                   Tổng vé đã bán
@@ -2028,8 +2037,8 @@ export function OrganizerTicketSalesPage() {
             </div>
 
             {/* KPI 2: Doanh thu từ vé */}
-            <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-amber-500/40 [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-amber-500/10 blur-xl" />
+            <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-amber-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-amber-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
                   Doanh thu từ vé
@@ -2047,8 +2056,8 @@ export function OrganizerTicketSalesPage() {
             </div>
 
             {/* KPI 3: Giá vé trung bình */}
-            <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-emerald-500/40 [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-emerald-500/10 blur-xl" />
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-emerald-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-emerald-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
                   Giá vé trung bình
@@ -2066,8 +2075,8 @@ export function OrganizerTicketSalesPage() {
             </div>
 
             {/* KPI 4: Quy mô đơn hàng */}
-            <div className="relative overflow-hidden rounded-2xl border border-purple-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#1e1338] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-purple-500/40 [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-purple-500/10 blur-xl" />
+            <div className="relative overflow-hidden rounded-2xl border border-purple-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#1e1338] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-purple-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-purple-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
                   Quy mô đơn hàng

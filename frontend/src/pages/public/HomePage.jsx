@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BriefcaseBusiness,
   CalendarDays,
+  ChevronLeft,
   ChevronRight,
   MapPin,
   Martini,
   Music,
   Palette,
   Search,
+  Sparkles,
   Trophy,
   Utensils,
   Waves,
@@ -280,7 +282,7 @@ export function HomePage() {
 
   return (
     <div className="force-dark overflow-hidden text-content bg-transparent relative">
-      <section className="relative min-h-[100dvh] w-full flex flex-col justify-start items-center overflow-hidden pt-24 sm:pt-28 pb-12 snap-start shrink-0 bg-transparent">
+      <section className="relative min-h-0 sm:min-h-[100dvh] w-full flex flex-col justify-start items-center overflow-hidden pt-24 sm:pt-32 pb-6 sm:pb-12 snap-start shrink-0 bg-transparent">
         <SeamlessVideoBackground />
 
         <div
@@ -322,30 +324,41 @@ export function HomePage() {
           </p>
         </div>
 
-        {/* 3D True Perspective Carousel Ring Section with generous breathing room */}
-        <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center mt-8 sm:mt-12 lg:mt-14 mb-4 sm:mb-6">
+        {/* Featured Events Showcase: 3D Ring on Desktop, Touch Slider on Mobile */}
+        <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center mt-6 sm:mt-12 lg:mt-14 mb-4 sm:mb-6">
           {featuredQuery.isLoading ? (
             <StatePanel message="Đang tải sự kiện nổi bật..." />
           ) : featuredQuery.isError ? (
             <StatePanel message="Không thể tải sự kiện nổi bật." tone="error" />
           ) : heroEvents.length ? (
-            <div className="w-full flex flex-col items-center">
-              <VertexCarouselRing
-                events={heroEvents}
-                onSelectEvent={(evt) => navigate(eventPath(evt))}
-              />
-            </div>
+            <>
+              {/* Desktop view: Original 3D True Perspective Carousel Ring */}
+              <div className="hidden sm:flex w-full flex-col items-center">
+                <VertexCarouselRing
+                  events={heroEvents}
+                  onSelectEvent={(evt) => navigate(eventPath(evt))}
+                />
+              </div>
+
+              {/* Mobile view: Touch-friendly Modern Showcase Slider */}
+              <div className="block sm:hidden w-full">
+                <FeaturedEventSlider
+                  events={heroEvents}
+                  onSelectEvent={(evt) => navigate(eventPath(evt))}
+                />
+              </div>
+            </>
           ) : (
             <StatePanel message="Chưa có sự kiện nổi bật." />
           )}
         </div>
       </section>
 
-      <section id="explore-section" className="relative w-full flex flex-col justify-start pt-2 sm:pt-4 pb-12 -mt-16 sm:-mt-20 lg:-mt-24">
+      <section id="explore-section" className="relative w-full flex flex-col justify-start pt-2 sm:pt-4 pb-12 mt-2 sm:-mt-20 lg:-mt-24">
         <ScrollReveal>
           <form
             onSubmit={handleSearch}
-            className="relative z-20 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mb-8"
+            className="relative z-20 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mb-6 sm:mb-8"
           >
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="relative flex-1">
@@ -409,14 +422,14 @@ export function HomePage() {
                   <button
                     type="button"
                     onClick={() => handleCategorySearch(category.slug)}
-                    className="group relative flex h-full min-h-[196px] w-full flex-col items-center justify-center rounded-[24px] p-5 text-center bg-slate-950/60 border border-white/10 backdrop-blur-xl transition-all duration-400 ease-out hover:border-cyan-400/50 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(6,182,212,0.25)] sm:min-h-[208px] lg:min-h-[196px] cursor-pointer"
+                    className="group relative flex h-full min-h-[140px] sm:min-h-[196px] w-full flex-col items-center justify-center rounded-[18px] sm:rounded-[24px] p-3.5 sm:p-5 text-center bg-slate-950/60 border border-white/10 backdrop-blur-xl transition-all duration-400 ease-out hover:border-cyan-400/50 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(6,182,212,0.25)] cursor-pointer"
                   >
-                    <div className="vertex-card-edge absolute inset-0 pointer-events-none rounded-[24px]" />
-                    <span className="mx-auto grid size-14 place-items-center rounded-full bg-cyan-500/10 text-cyan-400 transition-all duration-400 group-hover:scale-110 group-hover:bg-cyan-500/20 group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-                      <Icon className="size-6" />
+                    <div className="vertex-card-edge absolute inset-0 pointer-events-none rounded-[18px] sm:rounded-[24px]" />
+                    <span className="mx-auto grid size-11 sm:size-14 place-items-center rounded-full bg-cyan-500/10 text-cyan-400 transition-all duration-400 group-hover:scale-110 group-hover:bg-cyan-500/20 group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+                      <Icon className="size-5 sm:size-6" />
                     </span>
-                    <span className="mt-4 block font-bold text-white group-hover:text-cyan-300 transition-colors">{category.name}</span>
-                    <span className="mt-1 block text-xs text-slate-400">{category.event_count || 0} sự kiện</span>
+                    <span className="mt-3 sm:mt-4 block text-xs sm:text-base font-bold text-white group-hover:text-cyan-300 transition-colors">{category.name}</span>
+                    <span className="mt-0.5 sm:mt-1 block text-[10px] sm:text-xs text-slate-400">{category.event_count || 0} sự kiện</span>
                   </button>
                 </ScrollReveal>
               )
@@ -613,6 +626,207 @@ function VertexCarouselRing({ events, onSelectEvent }) {
   )
 }
 
+function FeaturedEventSlider({ events, onSelectEvent }) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isHovered, setIsHovered] = useState(false)
+  const touchStartXRef = useRef(null)
+  const touchDeltaXRef = useRef(0)
+
+  const count = events?.length || 0
+
+  useEffect(() => {
+    if (!count || count <= 1 || isHovered) return undefined
+    const timer = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % count)
+    }, 4500)
+    return () => clearInterval(timer)
+  }, [count, isHovered])
+
+  if (!count) return null
+
+  const handlePrev = (e) => {
+    e?.stopPropagation()
+    setActiveIndex((prev) => (prev - 1 + count) % count)
+  }
+
+  const handleNext = (e) => {
+    e?.stopPropagation()
+    setActiveIndex((prev) => (prev + 1) % count)
+  }
+
+  const handleTouchStart = (e) => {
+    if (e.touches && e.touches[0]) {
+      touchStartXRef.current = e.touches[0].clientX
+      touchDeltaXRef.current = 0
+      setIsHovered(true)
+    }
+  }
+
+  const handleTouchMove = (e) => {
+    if (touchStartXRef.current !== null && e.touches && e.touches[0]) {
+      touchDeltaXRef.current = e.touches[0].clientX - touchStartXRef.current
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (touchDeltaXRef.current < -40) {
+      handleNext()
+    } else if (touchDeltaXRef.current > 40) {
+      handlePrev()
+    }
+    touchStartXRef.current = null
+    touchDeltaXRef.current = 0
+    setIsHovered(false)
+  }
+
+  return (
+    <div
+      className="relative w-full max-w-4xl mx-auto px-3 sm:px-6 select-none"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Slider Frame */}
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-white/15 bg-slate-950/80 shadow-[0_16px_48px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+        <div
+          className="flex transition-transform duration-500 ease-out"
+          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+        >
+          {events.map((event, idx) => {
+            const img = eventImage(event) || eventThumbnail(event)
+            const dateStr = formatDateTime(event.start_time)
+            const locationStr = eventLocation(event)
+            const priceStr = formatPrice(event)
+
+            return (
+              <div
+                key={event.id || idx}
+                onClick={() => onSelectEvent(event)}
+                className="relative min-w-full h-[320px] sm:h-[380px] lg:h-[420px] cursor-pointer group shrink-0 overflow-hidden"
+              >
+                {/* Background Image with subtle zoom on hover */}
+                {img ? (
+                  <img
+                    src={img}
+                    alt={event.title}
+                    className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    onError={(e) => {
+                      if (event.banner_url && e.target.src !== event.banner_url) {
+                        e.target.src = event.banner_url
+                      } else {
+                        e.target.style.display = 'none'
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-[#020617]" />
+                )}
+
+                {/* Cinematic Overlays: Top shadow and bottom content shadow */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/75 via-50% to-slate-950/30" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--color-primary)_0%,_transparent_50%)] opacity-20 pointer-events-none" />
+
+                {/* Top Badges */}
+                <div className="absolute top-3.5 sm:top-5 inset-x-3.5 sm:inset-x-6 flex items-center justify-between gap-2 z-10">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1 text-[11px] font-black text-slate-950 shadow-lg shadow-[#C99A47]/30">
+                    <Sparkles className="size-3 fill-slate-950" />
+                    NỔI BẬT
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/70 px-3 py-1 text-[11px] font-bold text-slate-200 backdrop-blur-md">
+                    {event.category?.name || event.category_name || 'Sự kiện'}
+                  </span>
+                </div>
+
+                {/* Bottom Content Area */}
+                <div className="absolute inset-x-0 bottom-0 p-4 sm:p-7 flex flex-col justify-end z-10">
+                  <h3 className="font-['Plus_Jakarta_Sans',var(--font-display)] text-lg sm:text-2xl lg:text-3xl font-black text-white line-clamp-2 leading-snug drop-shadow-md group-hover:text-[#E6C17A] transition-colors">
+                    {event.title}
+                  </h3>
+
+                  <div className="mt-2.5 sm:mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm text-slate-300">
+                    <span className="inline-flex items-center gap-1.5 text-cyan-300 font-semibold">
+                      <CalendarDays className="size-4 shrink-0 text-primary" />
+                      <span>{dateStr}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-slate-300 truncate max-w-[260px] sm:max-w-md">
+                      <MapPin className="size-4 shrink-0 text-primary" />
+                      <span className="truncate">{locationStr}</span>
+                    </span>
+                  </div>
+
+                  <div className="mt-3.5 sm:mt-4 flex items-center justify-between gap-3 pt-3 border-t border-white/10">
+                    <div>
+                      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 block">
+                        Giá vé
+                      </span>
+                      <p className="font-extrabold text-sm sm:text-lg text-[#E6C17A]">
+                        {priceStr}
+                      </p>
+                    </div>
+
+                    <div
+                      className="inline-flex items-center gap-1.5 rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-slate-950 shadow-md group-hover:brightness-110 transition-all active:scale-95"
+                      style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
+                    >
+                      <span>Đặt vé ngay</span>
+                      <ChevronRight className="size-4 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Previous & Next Buttons */}
+        {count > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={handlePrev}
+              aria-label="Sự kiện trước"
+              className="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 z-20 grid size-8 sm:size-10 place-items-center rounded-full border border-white/20 bg-slate-950/70 text-white shadow-xl backdrop-blur-md transition hover:border-[#E6C17A] hover:text-[#E6C17A] hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="size-4 sm:size-5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              aria-label="Sự kiện tiếp theo"
+              className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-20 grid size-8 sm:size-10 place-items-center rounded-full border border-white/20 bg-slate-950/70 text-white shadow-xl backdrop-blur-md transition hover:border-[#E6C17A] hover:text-[#E6C17A] hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="size-4 sm:size-5" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Pagination Indicator Pills */}
+      {count > 1 && (
+        <div className="mt-3.5 sm:mt-5 flex items-center justify-center gap-1.5 sm:gap-2">
+          {events.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setActiveIndex(idx)
+              }}
+              aria-label={`Chuyển đến sự kiện ${idx + 1}`}
+              className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                activeIndex === idx
+                  ? 'w-6 sm:w-8 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-[0_0_10px_rgba(201,154,71,0.6)]'
+                  : 'w-1.5 sm:w-2 bg-white/25 hover:bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function ScrollReveal({ as: Component = 'div', children, className = '', delay = 0 }) {
   const ref = useRef(null)

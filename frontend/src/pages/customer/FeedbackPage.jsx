@@ -84,7 +84,7 @@ export function FeedbackPage() {
   if (!isAuthenticated) return null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-5xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <div className="mb-10 text-center">
         <h1 className="font-display text-3xl font-black text-white md:text-4xl drop-shadow-lg">
           Phản hồi <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Sự kiện</span>

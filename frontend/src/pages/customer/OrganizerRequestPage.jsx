@@ -816,7 +816,7 @@ export function OrganizerRequestPage() {
 
   if (profileQuery.isLoading || requestQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
         <SectionHeader
           title="Đăng ký trở thành ban tổ chức"
           description="Đang tải dữ liệu từ hệ thống..."
@@ -828,7 +828,7 @@ export function OrganizerRequestPage() {
 
   if (isOrganizer) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
         <SectionHeader
           title="Đăng ký trở thành ban tổ chức"
           description="Tài khoản của bạn đã có quyền Organizer"
@@ -850,7 +850,7 @@ export function OrganizerRequestPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-6xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
       <SectionHeader
         title="Đăng ký trở thành ban tổ chức"
         description="Gửi thông tin tổ chức để Admin xét duyệt và cấp quyền Organizer"

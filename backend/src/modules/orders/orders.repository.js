@@ -140,12 +140,14 @@ class OrdersRepository {
   }
 
   async ensureAttendeeInfoColumn(client = db) {
+    if (this._attendeeInfoChecked) return;
     await client.query(
       `
       ALTER TABLE order_items
       ADD COLUMN IF NOT EXISTS attendee_info JSONB NOT NULL DEFAULT '[]'::jsonb
       `,
     );
+    this._attendeeInfoChecked = true;
   }
 
   async expirePendingOrders() {

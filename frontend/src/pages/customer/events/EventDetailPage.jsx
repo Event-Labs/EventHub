@@ -529,13 +529,13 @@ export function EventDetailPage() {
           {/* Lịch diễn Bento Card */}
           <section id="booking-section" className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
-            <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-8 py-5">
-              <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
+            <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-4 sm:px-8 py-4 sm:py-5">
+              <h2 className="font-display text-xl sm:text-2xl font-black text-white drop-shadow-md">
                 Lịch diễn
               </h2>
             </div>
 
-            <div className="space-y-4 p-8">
+            <div className="space-y-4 p-4 sm:p-8">
               {event.sessions?.length ? (
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
@@ -724,7 +724,7 @@ export function EventDetailPage() {
           )}
         </section>
 
-        <aside className="glass-panel min-w-0 h-fit rounded-[24px] p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
+        <aside className="glass-panel min-w-0 h-fit rounded-[20px] sm:rounded-[24px] p-5 sm:p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_60%)] opacity-20" />
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -852,6 +852,48 @@ export function EventDetailPage() {
             </button>
           </div>
         </aside>
+      </div>
+
+      {/* ── Sticky Mobile Booking Bar (visible on < lg) ── */}
+      <div className="fixed bottom-16 inset-x-0 z-30 flex items-center justify-between border-t border-white/10 bg-[#081126]/95 px-4 py-3 backdrop-blur-xl lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+        <div className="min-w-0 flex-1 pr-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+            {selectedSession ? formatShortDate(selectedSession.start_time) : 'Giá vé từ'}
+          </p>
+          <p className="text-base font-extrabold text-[#E6C17A] truncate">
+            {selectedSessionTickets.length > 0
+              ? formatPrice(Math.min(...selectedSessionTickets.map(t => Number(t.price || 0))))
+              : formatPrice(event.min_price || event.price_range?.min || 0)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (selectedSession) {
+              handleBook()
+            } else {
+              const el = document.getElementById('booking-section')
+              if (el) el.scrollIntoView({ behavior: 'smooth' })
+            }
+          }}
+          disabled={isPaused || isCancelled || isSuspended || isEnded || selectedSessionExpired}
+          className="rounded-full px-5 py-2.5 text-sm font-extrabold shadow-md transition-all active:scale-95 disabled:opacity-50"
+          style={
+            (isPaused || isCancelled || isSuspended || isEnded)
+              ? { background: '#1e293b', color: '#94a3b8' }
+              : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }
+          }
+        >
+          {isPaused
+            ? 'Tạm dừng'
+            : isCancelled
+              ? 'Đã hủy'
+              : isEnded
+                ? 'Đã kết thúc'
+                : selectedSession
+                  ? 'Đặt vé ngay'
+                  : 'Chọn suất diễn'}
+        </button>
       </div>
     </div>
   )

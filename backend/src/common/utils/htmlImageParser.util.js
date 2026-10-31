@@ -257,10 +257,11 @@ function extractTextFromDocxBuffer(buffer) {
   return null;
 }
 
+const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 
 /**
- * Tải và phân tích toàn diện nội dung tài liệu đính kèm (Bắt buộc PDF, trích xuất text)
+ * Tải và phân tích toàn diện nội dung tài liệu đính kèm (Hỗ trợ PDF, Word/DOCX, Hình ảnh, Text)
  * @param {string} documentUrl
  * @param {object} fileMeta - { fileName, mimeType, etc. }
  * @param {number} timeoutMs
@@ -277,7 +278,9 @@ async function fetchDocumentContent(documentUrl, fileMeta = {}, timeoutMs = 1500
     const lowerName = fileName.toLowerCase();
 
     const isPdfByExt = lowerUrl.includes('.pdf') || lowerName.endsWith('.pdf') || fileType.includes('pdf');
-    
+    const isDocxByExt = lowerUrl.includes('.docx') || lowerName.endsWith('.docx') || fileType.includes('word') || fileType.includes('openxmlformats');
+    const isImageByExt = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(lowerUrl) || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(lowerName) || fileType.includes('image');
+
     // 1. Tải binary buffer của tệp từ link Cloudinary / Web
     const rawResponse = await fetch(trimmed, {
       signal: AbortSignal.timeout(timeoutMs),
@@ -299,18 +302,65 @@ async function fetchDocumentContent(documentUrl, fileMeta = {}, timeoutMs = 1500
     const buffer = Buffer.from(arrayBuffer);
     const magic = buffer.subarray(0, 5).toString('latin1');
     const isActualPdf = magic.startsWith('%PDF-') || isPdfByExt;
+    const isActualDocx = magic.startsWith('PK\x03\x04') || isDocxByExt;
+    const isActualImage = magic.startsWith('\xFF\xD8\xFF') || magic.startsWith('\x89PNG') || magic.startsWith('RIFF') || isImageByExt;
 
-    // Nếu KHÔNG PHẢI định dạng PDF -> Đánh dấu rõ ràng lỗi định dạng
+    // 2. Tệp định dạng Word (.docx) -> Trích xuất văn bản qua mammoth hoặc zip xml
+    if (isActualDocx && !isActualPdf) {
+      let docxText = '';
+      try {
+        const parsed = await mammoth.extractRawText({ buffer });
+        docxText = (parsed?.value || '').trim();
+      } catch (mErr) {
+        logger.warn(`[htmlImageParser] mammoth extraction failed, falling back to manual zip xml: ${mErr.message}`);
+        docxText = extractTextFromDocxBuffer(buffer) || '';
+      }
+
+      const cleanDocxText = docxText.replace(/\s+/g, ' ').trim();
+      return {
+        type: 'WORD_DOCUMENT',
+        isWord: true,
+        isPdf: false,
+        format: 'DOCX',
+        text: cleanDocxText,
+        size: buffer.length,
+        fileName,
+        hasText: cleanDocxText.length >= 20,
+      };
+    }
+
+    // 3. Tệp định dạng Hình ảnh (PNG/JPG/WEBP) tải lên làm tài liệu -> Trả về base64 để Vision OCR
+    if (isActualImage && !isActualPdf) {
+      const format = magic.startsWith('\x89PNG') ? 'PNG' : magic.startsWith('\xFF\xD8\xFF') ? 'JPEG' : 'IMAGE';
+      return {
+        type: 'IMAGE_DOCUMENT',
+        isImage: true,
+        isPdf: false,
+        format,
+        text: '',
+        size: buffer.length,
+        fileName,
+        hasText: false,
+        imageBase64Fallback: buffer.toString('base64'),
+      };
+    }
+
+    // 4. Nếu không phải PDF và không phải DOCX / Ảnh -> Ghi nhận định dạng
     if (!isActualPdf) {
-      let detectedFormat = 'Không phải PDF';
-      if (magic.startsWith('PK\x03\x04')) {
-        detectedFormat = 'Word/DOCX';
-      } else if (lowerUrl.includes('.doc') || lowerName.endsWith('.doc')) {
-        detectedFormat = 'Word/DOC';
-      } else if (magic.startsWith('\xFF\xD8\xFF') || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) {
-        detectedFormat = 'Ảnh JPG/JPEG';
-      } else if (magic.startsWith('\x89PNG') || lowerUrl.includes('.png')) {
-        detectedFormat = 'Ảnh PNG';
+      let detectedFormat = 'Tài liệu khác';
+      if (lowerUrl.includes('.doc') || lowerName.endsWith('.doc')) {
+        detectedFormat = 'Word/DOC cũ';
+      } else if (lowerUrl.includes('.txt') || lowerName.endsWith('.txt')) {
+        const text = buffer.toString('utf8').replace(/\s+/g, ' ').trim();
+        return {
+          type: 'TEXT_DOCUMENT',
+          isText: true,
+          format: 'TXT',
+          text,
+          size: buffer.length,
+          fileName,
+          hasText: text.length >= 20,
+        };
       }
 
       return {
@@ -319,11 +369,11 @@ async function fetchDocumentContent(documentUrl, fileMeta = {}, timeoutMs = 1500
         detectedFormat,
         fileName,
         size: buffer.length,
-        error: `Tệp tải lên không đúng định dạng PDF (.pdf). Định dạng phát hiện: ${detectedFormat}.`,
+        error: `Tệp tải lên thuộc định dạng ${detectedFormat}, không trích xuất được lớp văn bản tự động.`,
       };
     }
 
-    // 2. Tệp đúng định dạng PDF -> Trích xuất văn bản (Text extraction) bằng pdf-parse
+    // 5. Tệp đúng định dạng PDF -> Trích xuất văn bản (Text extraction) bằng pdf-parse
     let extractedText = '';
     let numPages = 1;
 
@@ -338,7 +388,7 @@ async function fetchDocumentContent(documentUrl, fileMeta = {}, timeoutMs = 1500
     // Làm sạch khoảng trắng thừa
     const cleanText = extractedText.replace(/\s+/g, ' ').trim();
 
-    // 3. Nếu PDF là dạng scan (chỉ có hình ảnh scan không có text layer) -> lấy ảnh trang 1 từ Cloudinary để Vision OCR
+    // 6. Nếu PDF là dạng scan (chỉ có hình ảnh scan không có text layer) -> lấy ảnh trang 1 từ Cloudinary để Vision OCR
     let imageBase64Fallback = null;
     if (cleanText.length < 20 && trimmed.includes('res.cloudinary.com') && trimmed.includes('/upload/')) {
       const previewJpgUrl = trimmed
@@ -361,6 +411,7 @@ async function fetchDocumentContent(documentUrl, fileMeta = {}, timeoutMs = 1500
     return {
       type: 'PDF_DOCUMENT',
       isPdf: true,
+      format: 'PDF',
       text: cleanText,
       numPages,
       size: buffer.length,

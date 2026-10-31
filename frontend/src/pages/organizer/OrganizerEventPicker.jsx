@@ -35,6 +35,9 @@ export function OrganizerEventPicker({
   onSelectEvent,
   loading = false,
   className = '',
+  label = 'Phạm vi sự kiện',
+  allowAll = true,
+  placeholder = 'Chọn sự kiện...',
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -145,28 +148,35 @@ export function OrganizerEventPicker({
     setSearchQuery('')
   }
 
-  const tabs = [
-    { key: 'ALL', label: 'Tất cả', count: counts.ALL },
-    { key: 'RUNNING', label: 'Đang diễn ra', count: counts.RUNNING, isLive: true },
-    { key: 'UPCOMING', label: 'Sắp tới', count: counts.UPCOMING },
-    { key: 'ENDED', label: 'Đã kết thúc', count: counts.ENDED },
-    { key: 'DRAFT', label: 'Bản nháp & Chờ duyệt', count: counts.DRAFT },
-  ]
+  const tabs = useMemo(() => {
+    const list = [
+      { key: 'ALL', label: 'Tất cả', count: counts.ALL },
+      { key: 'RUNNING', label: 'Đang diễn ra', count: counts.RUNNING, isLive: true },
+      { key: 'UPCOMING', label: 'Sắp tới', count: counts.UPCOMING },
+      { key: 'ENDED', label: 'Đã kết thúc', count: counts.ENDED },
+    ]
+    if (counts.DRAFT > 0) {
+      list.push({ key: 'DRAFT', label: 'Bản nháp & Chờ duyệt', count: counts.DRAFT })
+    }
+    return list
+  }, [counts])
 
   return (
     <div ref={containerRef} className={`relative min-w-0 ${className}`}>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Phạm vi sự kiện</span>
-        {selectedEvent && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:underline"
-          >
-            Quay lại tất cả
-          </button>
-        )}
-      </div>
+      {label && (
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">{label}</span>
+          {allowAll && selectedEvent && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:underline"
+            >
+              Quay lại tất cả
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Trigger Button - Height 10 to match DateRangeFilter */}
       <button
@@ -191,33 +201,41 @@ export function OrganizerEventPicker({
               ) : (
                 <Calendar className="size-4 shrink-0 text-cyan-400" />
               )}
-              <span className="truncate font-bold text-white">
+              <span className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
                 {selectedEvent.title}
               </span>
               <span
-                className={`hidden shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold sm:inline-flex ${selectedStatus?.badgeClass}`}
+                className={`hidden shrink-0 whitespace-nowrap items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold sm:inline-flex ${selectedStatus?.badgeClass}`}
               >
                 <span className={`size-1.5 rounded-full ${selectedStatus?.dotClass}`} />
                 {selectedStatus?.label}
               </span>
             </>
-          ) : (
+          ) : allowAll ? (
             <>
               <div className="grid size-5 shrink-0 place-items-center rounded-md bg-cyan-500/10 text-cyan-400">
                 <Layers className="size-3.5" />
               </div>
-              <span className="truncate font-bold text-white">
-                Tất cả sự kiện <span className="text-xs font-normal text-slate-400">({events.length})</span>
+              <span className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                Tất cả sự kiện <span className="text-xs font-normal text-slate-400 [html.light_&]:text-[#536b88]">({events.length})</span>
               </span>
-              <span className="hidden rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300 sm:inline-block">
+              <span className="hidden shrink-0 whitespace-nowrap items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[9.5px] font-bold text-cyan-300 [html.light_&]:bg-cyan-50 [html.light_&]:text-cyan-800 [html.light_&]:border-cyan-300 sm:inline-flex">
+                <span className="size-1.5 rounded-full bg-cyan-400 [html.light_&]:bg-cyan-600" />
                 Tổng quan
+              </span>
+            </>
+          ) : (
+            <>
+              <Calendar className="size-4 shrink-0 text-slate-400 [html.light_&]:text-slate-500" />
+              <span className="truncate font-semibold text-slate-400 [html.light_&]:text-slate-500">
+                {placeholder}
               </span>
             </>
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          {selectedEvent && (
+          {allowAll && selectedEvent && (
             <span
               role="button"
               tabIndex={0}
@@ -305,27 +323,28 @@ export function OrganizerEventPicker({
             {/* List Container */}
             <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
               {/* Status Header / Reset to All Option */}
-              {selectedEventId ? (
-                <button
-                  type="button"
-                  onClick={() => handleSelect('')}
-                  className="mb-2 flex w-full items-center justify-between rounded-xl border border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/10 px-3 py-2 text-left text-xs font-bold text-[#E6C17A] transition hover:from-[#C99A47]/25 hover:to-[#E6C17A]/20 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/45 [html.light_&]:text-[#1B365D]"
-                >
-                  <span className="flex items-center gap-2">
-                    <Layers className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
-                    <span>Chọn lại tất cả sự kiện</span>
-                  </span>
-                  <span className="text-[11px] font-normal opacity-80">({events.length} sự kiện)</span>
-                </button>
-              ) : (
-                <div className="mb-2 flex items-center justify-between rounded-xl border border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/20 via-[#E6C17A]/15 to-[#C99A47]/20 px-3 py-1.5 text-xs font-bold text-[#E6C17A] shadow-sm [html.light_&]:bg-[#FAF4EB] [html.light_&]:border-[#C99A47]/50 [html.light_&]:text-[#0D1B2A]">
-                  <span className="flex items-center gap-2">
-                    <Check className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
-                    <span>Đang chọn: Tất cả sự kiện</span>
-                  </span>
-                  <span className="text-[11px] font-normal text-[#FFF6DC] [html.light_&]:text-[#536b88]">({events.length} sự kiện)</span>
-                </div>
-              )}
+              {allowAll &&
+                (selectedEventId ? (
+                  <button
+                    type="button"
+                    onClick={() => handleSelect('')}
+                    className="mb-2 flex w-full items-center justify-between rounded-xl border border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/10 px-3 py-2 text-left text-xs font-bold text-[#E6C17A] transition hover:from-[#C99A47]/25 hover:to-[#E6C17A]/20 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/45 [html.light_&]:text-[#1B365D]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Layers className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
+                      <span>Chọn lại tất cả sự kiện</span>
+                    </span>
+                    <span className="text-[11px] font-normal opacity-80">({events.length} sự kiện)</span>
+                  </button>
+                ) : (
+                  <div className="mb-2 flex items-center justify-between rounded-xl border border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/20 via-[#E6C17A]/15 to-[#C99A47]/20 px-3 py-1.5 text-xs font-bold text-[#E6C17A] shadow-sm [html.light_&]:bg-[#FAF4EB] [html.light_&]:border-[#C99A47]/50 [html.light_&]:text-[#0D1B2A]">
+                    <span className="flex items-center gap-2">
+                      <Check className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
+                      <span>Đang chọn: Tất cả sự kiện</span>
+                    </span>
+                    <span className="text-[11px] font-normal text-[#FFF6DC] [html.light_&]:text-[#536b88]">({events.length} sự kiện)</span>
+                  </div>
+                ))}
 
               {/* Events List */}
               {filteredEvents.map((ev) => {

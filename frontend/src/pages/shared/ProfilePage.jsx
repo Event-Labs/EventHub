@@ -163,10 +163,10 @@ export function ProfilePage() {
   }
 
   return (
-    <div className={`mx-auto px-4 py-10 sm:px-6 lg:px-8 ${isOrganizer ? 'max-w-[1440px]' : 'max-w-6xl'}`}>
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className={`mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12 ${isOrganizer ? 'max-w-[1440px]' : 'max-w-6xl'}`}>
+      <div className="mb-4 sm:mb-8 flex flex-col gap-2.5 sm:gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="font-display text-4xl font-black text-white drop-shadow-sm tracking-tight">
+          <h1 className="font-display text-2xl sm:text-4xl font-black text-white drop-shadow-sm tracking-tight">
             {renderCosmicTitle(isOrganizer ? 'Hồ sơ Nhà tổ chức' : 'Hồ sơ Cá nhân')}
           </h1>
           <p className="mt-2 text-slate-400">
@@ -1134,9 +1134,9 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {/* Header Profile Section - Exactly as in user reference image */}
-      <section className="customer-profile-hero relative overflow-hidden rounded-2xl border border-sky-400/20 p-6 shadow-2xl sm:p-8">
+      <section className="customer-profile-hero relative overflow-hidden rounded-2xl border border-sky-400/20 p-3.5 sm:p-8 shadow-2xl">
         <div className="customer-profile-hero-bg absolute inset-0 pointer-events-none" />
         <div className="customer-profile-hero-wave absolute inset-0 pointer-events-none" />
         <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -1225,7 +1225,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
       </section>
 
       {/* Main Grid: Compact Account Aside & Information / Edit Area */}
-      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[300px_1fr]">
         {/* Compact "Tài khoản của tôi" card with navigatable links */}
         <aside className="customer-profile-panel h-fit rounded-2xl border border-white/10 bg-slate-900/60 p-5 text-content backdrop-blur-md shadow-xl space-y-4">
           <div className="flex items-center gap-2.5 pb-1 border-b border-white/5">
@@ -1328,7 +1328,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
             </>
           ) : (
             <form onSubmit={handleSaveEdit} className="space-y-4">
-              <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-content backdrop-blur-md shadow-xl">
+              <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6 text-content backdrop-blur-md shadow-xl">
                 <div className="mb-5 flex items-center gap-3">
                   <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                     <UserCircle className="size-5" />
@@ -1361,7 +1361,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                 </div>
               </section>
 
-              <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-content backdrop-blur-md shadow-xl">
+              <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6 text-content backdrop-blur-md shadow-xl">
                 <div className="mb-5 flex items-center gap-3">
                   <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                     <Phone className="size-5" />
@@ -1426,8 +1426,8 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
 
 function CustomerInfoSection({ title, icon: Icon, children }) {
   return (
-    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-content backdrop-blur-md shadow-xl">
-      <div className="mb-5 flex items-center gap-3">
+    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-3.5 sm:p-6 text-content backdrop-blur-md shadow-xl">
+      <div className="mb-3.5 sm:mb-5 flex items-center gap-3">
         <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
           <Icon className="size-5" />
         </span>
@@ -1565,8 +1565,8 @@ function AccountSecurityPanel({ user }) {
   const total = Number(security.total ?? items.length)
 
   return (
-    <section className="customer-profile-panel rounded-lg border p-5 text-content">
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-3.5 sm:p-6 text-content backdrop-blur-md shadow-xl">
+      <div className="mb-3.5 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-3">
           <span className="customer-section-icon customer-tone-green grid size-10 place-items-center rounded-md">
             <ShieldCheck className="size-5" />

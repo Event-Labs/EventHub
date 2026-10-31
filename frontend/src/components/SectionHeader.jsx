@@ -2,18 +2,18 @@ import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 
 export function SectionHeader({ eyebrow, title, description, action }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="mb-3.5 sm:mb-6 flex flex-col gap-1.5 sm:gap-3 md:flex-row md:items-end md:justify-between">
       <div>
         {eyebrow && (
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-primary">
+          <p className="mb-1.5 sm:mb-2 text-xs font-bold uppercase tracking-widest text-primary">
             {eyebrow}
           </p>
         )}
-        <h2 className="font-display text-3xl font-black tracking-tight">
+        <h2 className="font-display text-2xl sm:text-3xl font-black tracking-tight">
           {renderCosmicTitle(title)}
         </h2>
         {description && (
-          <p className="mt-2 text-slate-400" style={{ color: '#94a3b8' }}>
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-slate-400" style={{ color: '#94a3b8' }}>
             {description}
           </p>
         )}
