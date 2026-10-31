@@ -8,7 +8,7 @@ import { fetchEventDetail } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
 
-function ActionMessage({ content, navigate, setInput }) {
+function ActionMessage({ content, navigate, setInput, onSendMessage }) {
   const actionRegex = /\[ACTION:([A-Z_]+):?([^\]]*)\]/g;
   const parts = [];
   let lastIndex = 0;
@@ -479,7 +479,7 @@ function ActionMessage({ content, navigate, setInput }) {
                   <span className="transition-transform group-hover:translate-x-1">➔</span>
                 </button>
 
-                <div className="flex items-center justify-between text-[11px] px-1 text-slate-400">
+                <div className="flex flex-wrap items-center justify-between gap-y-1.5 text-[11px] px-1 text-slate-400">
                   {proposal.hasSeatMap ? (
                     <button
                       type="button"
@@ -501,6 +501,20 @@ function ActionMessage({ content, navigate, setInput }) {
                       {proposal.hasSeatMap ? '✏️ Đổi hàng ghế khác' : '✏️ Đổi loại vé / số lượng'}
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onSendMessage) {
+                        onSendMessage('Tôi muốn đổi sang sự kiện khác');
+                      } else if (setInput) {
+                        setInput('Tôi muốn đổi sang sự kiện khác');
+                      }
+                    }}
+                    className="hover:text-rose-300 underline transition-colors cursor-pointer"
+                  >
+                    🔄 Đổi sự kiện khác
+                  </button>
                 </div>
               </div>
             </div>
@@ -1268,7 +1282,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                   {msg.role === 'user' ? (
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
                   ) : (
-                    <ActionMessage content={msg.content} navigate={navigate} setInput={setInput} />
+                    <ActionMessage content={msg.content} navigate={navigate} setInput={setInput} onSendMessage={handleSendMessage} />
                   )}
                 </div>
               </div>
