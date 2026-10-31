@@ -16,12 +16,12 @@ const logger = require('../../core/logger');
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
-const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
-const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120000);
-const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 8192);
-const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 12);
-const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 1024);
-const OLLAMA_NUM_GPU = Number(process.env.OLLAMA_NUM_GPU || 28);
+const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 600000);
+const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 200000);
+const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 4096);
+const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 2);
+const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 512);
+const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 8;
 
 
 /**
@@ -113,7 +113,7 @@ async function generate(prompt, options = {}) {
     keep_alive: options.keep_alive || '60m',
     ...(options.format ? { format: options.format } : {}),
     options: {
-      temperature: options.temperature ?? 0.3,
+      temperature: options.temperature ?? 0.15,
       top_p: options.top_p ?? 0.9,
       num_predict: options.max_tokens ?? 2048,
       num_ctx: options.num_ctx ?? OLLAMA_NUM_CTX,
@@ -178,7 +178,7 @@ async function chat(messages, options = {}) {
     keep_alive: options.keep_alive || '60m',
     think,
     options: {
-      temperature: options.temperature ?? 0.25,
+      temperature: options.temperature ?? 0.15,
       top_p:       options.top_p       ?? 0.85,
       num_predict: options.max_tokens  ?? 1200,
       num_ctx:     options.num_ctx      ?? OLLAMA_NUM_CTX,
@@ -479,55 +479,12 @@ async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eve
   }
 
   // 1. Nếu có ký tự tiếng Thái/Khmer hoặc chuỗi lặp rác -> làm sạch trước
-  let cleaned = sanitizeRawVisionOutput(rawDescription);
+  const cleaned = sanitizeRawVisionOutput(rawDescription);
 
-  // Nếu sau khi làm sạch chuỗi còn quá ngắn hoặc rỗng do toàn bộ là mã rác
-  if (cleaned.length < 15) {
-    return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" có bố cục trực quan rõ nét, chủ đề phù hợp và đảm bảo chất lượng hình ảnh.`;
-  }
-
-  // 2. Nếu mô tả đã thuần tiếng Việt và có đầy đủ dấu câu, không chứa tiếng Anh -> giữ nguyên
-  if (!isEnglishOrForeignText(cleaned) && hasVietnameseDiacritics(cleaned)) {
-    return cleaned.trim();
-  }
-
-  // 3. Nếu mô tả là tiếng Anh (do Vision model xuất ra) -> Dùng mô hình ngôn ngữ EventHub để dịch & trau chuốt
-  try {
-    const prompt = `Bạn là Chuyên gia Thẩm định Hình ảnh & OCR Sự kiện EventHub tại Việt Nam.
-Dưới đây là kết quả nhận diện thị giác từ camera AI (tiếng Anh) cho ${sourceLabel || 'hình ảnh sự kiện'} của sự kiện "${eventTitle || 'Sự kiện EventHub'}":
-"""
-${cleaned}
-"""
-
-Hãy chuyển đổi và viết lại thành một bản nhận định TIẾNG VIỆT tự nhiên, chuẩn mực (2-3 câu):
-1. Nội dung trực quan: Mô tả đối tượng, người/nghệ sĩ, bối cảnh, màu sắc và phong cách thiết kế của ảnh.
-2. Thông tin chữ (OCR): Đọc tên sự kiện, nghệ sĩ biểu diễn, ngày giờ, địa điểm tổ chức nếu có trên ảnh.
-3. Tính thẩm mỹ & phù hợp: Nhận xét hình ảnh có hiển thị rõ nét, bố cục có đạt chuẩn và phù hợp với sự kiện "${eventTitle}" hay không.
-
-YÊU CẦU BẮT BUỘC:
-- Trả về DUY NHẤT một đoạn văn bản tiếng Việt hoàn chỉnh (100% tiếng Việt, KHÔNG dùng thẻ <think>, KHÔNG để sót từ tiếng Anh thừa, KHÔNG thêm lời chào).
-- Giữ nguyên chuẩn xác các tên riêng nghệ sĩ, thời gian, địa điểm nếu có.`;
-
-    const vietnameseText = await generate(prompt, {
-      model: OLLAMA_MODEL,
-      temperature: 0.1,
-      max_tokens: 200,
-      think: false,
-      signal,
-    });
-
-    if (vietnameseText && vietnameseText.length > 15 && !isForeignOrGibberishText(vietnameseText)) {
-      return vietnameseText.replace(/<\/?[a-zA-Z0-9_-]+>/g, '').trim();
-    }
-  } catch (err) {
-    if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || signal?.aborted || String(err.message || '').includes('aborted')) {
-      throw err;
-    }
-    logger.warn(`[OllamaClient] ensureVietnameseDescription fallback: ${err.message}`);
-  }
-
-  // Fallback an toàn nếu mô hình ngôn ngữ không phản hồi
-  return `Ảnh ${sourceLabel || 'sự kiện'} của sự kiện "${eventTitle || 'sự kiện'}" hiển thị bố cục trực quan đầy đủ, thiết kế phù hợp và đạt tiêu chuẩn chất lượng hình ảnh.`;
+  // Trả về trực tiếp nội dung mô tả đã làm sạch để Stage 2 (Qwen3) đọc và tổng hợp vào kết quả tiếng Việt.
+  // Tránh gọi đệm mô hình LLM chính tại đây vì việc tráo đổi model (model swapping) liên tục giữa
+  // Moondream và Qwen3 trong VRAM (2GB) sẽ gây lỗi CUDA Out of Memory trên card Quadro P620!
+  return cleaned.trim();
 }
 
 /**
@@ -602,9 +559,16 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
 async function describeImageBatch(images, eventTitle = '', signal = null) {
   if (!Array.isArray(images) || images.length === 0) return [];
 
+  // Ưu tiên tối đa 2 ảnh quan trọng nhất (Giấy phép và Poster chính) để tránh quá tải
+  const prioritizedImages = [...images].sort((a, b) => {
+    const aPermit = a.source && a.source.startsWith('PERMIT') ? 2 : (a.source === 'MAIN_POSTER' ? 1 : 0);
+    const bPermit = b.source && b.source.startsWith('PERMIT') ? 2 : (b.source === 'MAIN_POSTER' ? 1 : 0);
+    return bPermit - aPermit;
+  }).slice(0, 2);
+
   const results = [];
 
-  for (const img of images) {
+  for (const img of prioritizedImages) {
     if (signal?.aborted) {
       const err = new Error('Scan aborted by user');
       err.name = 'AbortError';
