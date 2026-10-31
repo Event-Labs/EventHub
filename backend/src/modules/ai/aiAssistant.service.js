@@ -187,11 +187,14 @@ function detectCategory(queryOrMessage) {
 
 function extractPhoneNumber(text) {
   if (!text) return '';
-  const candidates = text.match(/(?:(?:\+84)|0)[0-9\.\-\s]{8,15}/g) || [];
+  const candidates = text.match(/(?:(?:\+84)|84|0)[0-9\.\-\s]{8,15}/g) || [];
   for (const cand of candidates) {
     const clean = cand.replace(/[\.\-\s]/g, '');
     if (/^(?:\+84|0)(?:3|5|7|8|9)\d{8}$/.test(clean)) {
       return clean.startsWith('+84') ? '0' + clean.slice(3) : clean;
+    }
+    if (/^84(?:3|5|7|8|9)\d{8}$/.test(clean)) {
+      return '0' + clean.slice(2);
     }
     if (/^0\d{9,10}$/.test(clean)) {
       return clean;
@@ -212,19 +215,19 @@ function parseQuantityFromText(text, prevQuantity = null) {
 
   // 1. Explicit target TOTAL expressions (HIGHEST PRIORITY):
   // 'tong cong la 3 ve', 'tong cong 3 ve', 'tong la 3 ve', 'tong 3 ve', 'tat ca 3 ve', 'thanh 3 ve', 'doi thanh 3 ve'
-  const totalDigitMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat)?\b/i);
+  const totalDigitMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
   if (totalDigitMatch) {
     return parseInt(totalDigitMatch[1], 10);
   }
 
-  const totalWordMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat)?\b/i);
+  const totalWordMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
   if (totalWordMatch && VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]]) {
     return VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]];
   }
 
   // 2. Relative ADDITION / REDUCTION when previous quantity is known:
   // 'them 1 ve nua', 'dat them 1 ve', 'mua them 2 ve', 'lay them 1'
-  const addMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(\d+)\s*(?:ve|cho|ghe|ticket|suat)?(?:\s*nua)?\b/i);
+  const addMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?(?:\s*nua)?\b/i);
   if (addMatch) {
     const addCount = parseInt(addMatch[1], 10);
     if (prevQuantity && prevQuantity > 0) {
@@ -232,7 +235,7 @@ function parseQuantityFromText(text, prevQuantity = null) {
     }
   }
 
-  const addWordMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat)?(?:\s*nua)?\b/i);
+  const addWordMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?(?:\s*nua)?\b/i);
   if (addWordMatch && VIETNAMESE_WORD_TO_NUM[addWordMatch[1]]) {
     const addCount = VIETNAMESE_WORD_TO_NUM[addWordMatch[1]];
     if (prevQuantity && prevQuantity > 0) {
@@ -240,9 +243,15 @@ function parseQuantityFromText(text, prevQuantity = null) {
     }
   }
 
-  const subMatch = norm.match(/(?:bot|giam|huy\s*bot)\s+(\d+)\s*(?:ve|cho|ghe|ticket|suat)?\b/i);
+  const subMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
   if (subMatch && prevQuantity && prevQuantity > 0) {
     const subCount = parseInt(subMatch[1], 10);
+    return Math.max(1, prevQuantity - subCount);
+  }
+
+  const subWordMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
+  if (subWordMatch && VIETNAMESE_WORD_TO_NUM[subWordMatch[1]] && prevQuantity && prevQuantity > 0) {
+    const subCount = VIETNAMESE_WORD_TO_NUM[subWordMatch[1]];
     return Math.max(1, prevQuantity - subCount);
   }
 
@@ -250,22 +259,22 @@ function parseQuantityFromText(text, prevQuantity = null) {
   const capMatch = norm.match(/(\d+)\s*(?:cap|doi)\b/i);
   if (capMatch) return parseInt(capMatch[1], 10) * 2;
 
-  // 4. Action verb or modification verb followed by digits: "dat 2", "mua 3", "lay 1", "doi sang 2", "doi thanh 2", "thanh 3"
-  const actionDigitMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi)\s+(\d+)\b/i);
+  // 4. Action verb or modification verb followed by digits: "dat 2", "mua 3", "lay 1", "doi sang 2", "doi thanh 2", "thanh 3", "cho minh 2", "di 4"
+  const actionDigitMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|di|nhom)\s+(?:cho\s*)?(\d+)\b/i);
   if (actionDigitMatch) return parseInt(actionDigitMatch[1], 10);
 
-  // 5. Check digit + ticket unit: "1 ve", "2 ve", "3 cho", "4 ghe", "2 ticket", "1 suat"
-  const digitUnitMatch = norm.match(/(\d+)\s*(?:ve|cho|ghe|ticket|suat)\b/i);
+  // 5. Check digit + ticket unit: "1 ve", "2 ve", "3 cho", "4 ghe", "2 ticket", "1 suat", "3 nguoi", "cho 3 nguoi"
+  const digitUnitMatch = norm.match(/(?:cho\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)\b/i);
   if (digitUnitMatch) return parseInt(digitUnitMatch[1], 10);
 
-  // 6. Check numeral word + ticket unit: "mot ve", "hai ve", "ba ve", "bon ve", "nam ve"
-  const wordUnitMatch = norm.match(/\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat)\b/i);
+  // 6. Check numeral word + ticket unit: "mot ve", "hai ve", "ba ve", "bon ve", "nam ve", "hai nguoi", "ba nguoi"
+  const wordUnitMatch = norm.match(/(?:cho\s*)?\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)\b/i);
   if (wordUnitMatch && VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]]) {
     return VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]];
   }
 
-  // 7. Action verb or modification verb followed by numeral word: "dat mot", "mua hai", "doi sang hai"
-  const actionWordMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi)\s+(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\b/i);
+  // 7. Action verb or modification verb followed by numeral word: "dat mot", "mua hai", "doi sang hai", "di hai", "nhom ba"
+  const actionWordMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|di|nhom)\s+(?:cho\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\b/i);
   if (actionWordMatch && VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]]) {
     return VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]];
   }
@@ -484,7 +493,7 @@ function extractAttendeesFromText(text, userProfile = null) {
     if (m && m.length === 1) {
       if (/(?:email|mail).*(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi)/i.test(lNorm) ||
           /(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi).*(?:email|mail)/i.test(lNorm) ||
-          /^(?:email|mail)\s*[:\-]/i.test(lNorm)) {
+          /(?:dung\s*chung|ghi\s*chung)\s*(?:email|mail)/i.test(lNorm)) {
         sharedEmail = m[0].trim();
         break;
       }
@@ -503,11 +512,15 @@ function extractAttendeesFromText(text, userProfile = null) {
   };
 
   // Helper to clean a name candidate
+  const phoneRegex = /(?:(?:\+84|84|0)[35789]\d{8}|0\d{9,10})\b/g;
+
   const cleanName = (str) => {
     return str
       .replace(emailRegex, '')
+      .replace(phoneRegex, '')
       .replace(/^(?:[\d\.\-\*\•\)\:]|v[eé]\s*\d*|ng[uư][oờ]i\s*\d*|\-|\:)+/gi, '')
-      .replace(/(?:email|mail|sdt|s[oố]\s*đi[eệ]n\s*tho[aạ]i)\s*[:\-]?\s*.*$/gi, '')
+      .replace(/^(?:h[oọ]\s*(?:v[aà]\s*)?t[eê]n|t[eê]n|kh[aá]ch|ng[uư][oờ]i\s*(?:tham\s*gia)?)\s*[:\-]?\s*/gi, '')
+      .replace(/(?:email|mail|sdt|s[oố]\s*đi[eệ]n\s*tho[aạ]i|phone)\s*[:\-]?\s*.*$/gi, '')
       .replace(/[\(\)\[\],\-–:]+/g, ' ')
       .trim();
   };
@@ -541,7 +554,7 @@ function extractAttendeesFromText(text, userProfile = null) {
 
     // If this line is the shared email declaration, mark it processed so it's not treated as a person's name
     if (sharedEmail && line.toLowerCase().includes(sharedEmail.toLowerCase())) {
-      if (/(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi|ghi\s*chung)/i.test(lNorm) || /^(?:email|mail)\s*[:\-]/i.test(lNorm)) {
+      if (/(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi|ghi\s*chung|dung\s*chung)/i.test(lNorm)) {
         processedLineIndices.add(i);
         continue;
       }
@@ -568,7 +581,20 @@ function extractAttendeesFromText(text, userProfile = null) {
       }
 
       if (nameCandidate && isValidPersonName(nameCandidate)) {
-        pairedAttendees.push({ name: nameCandidate, email });
+        let phoneMatch = line.match(/(?:(?:\+84|84|0)[35789]\d{8}|0\d{9,10})\b/);
+        if (!phoneMatch && i + 1 < lines.length && !processedLineIndices.has(i + 1)) {
+          const nextL = lines[i + 1];
+          const nextMatch = nextL.match(/(?:(?:\+84|84|0)[35789]\d{8}|0\d{9,10})\b/);
+          if (nextMatch && /(?:sdt|phone|so\s*dien\s*thoai|dien\s*thoai|tel)/i.test(normalizeText(nextL))) {
+            phoneMatch = nextMatch;
+            processedLineIndices.add(i + 1);
+          }
+        }
+        pairedAttendees.push({
+          name: nameCandidate,
+          email,
+          ...(phoneMatch ? { phone: phoneMatch[0].trim() } : {})
+        });
         processedLineIndices.add(i);
       }
     } else if (emailsInLine.length > 1) {
@@ -579,7 +605,12 @@ function extractAttendeesFromText(text, userProfile = null) {
           const email = m[0].trim();
           const nameCandidate = cleanName(part);
           if (nameCandidate && isValidPersonName(nameCandidate)) {
-            pairedAttendees.push({ name: nameCandidate, email });
+            const phoneMatch = part.match(/(?:(?:\+84|84|0)[35789]\d{8}|0\d{9,10})\b/);
+            pairedAttendees.push({
+              name: nameCandidate,
+              email,
+              ...(phoneMatch ? { phone: phoneMatch[0].trim() } : {})
+            });
           }
         }
       }
@@ -644,6 +675,174 @@ function getRemainingTicketsDescription(detectedTickets, filledCount) {
   return Object.entries(counts).map(([name, count]) => `- ${count} vé ${name}`).join('\n');
 }
 
+function detectEventChangeIntent(message) {
+  if (!message) return { isChange: false, isCancelOnly: false, targetQuery: '' };
+  const norm = normalizeText(message);
+
+  // If user is just changing seats, rows, or ticket tiers within the same event, NOT an event change:
+  const isSeatOrTierOnly = (
+    /(?:hang|day|row)\s*(?:ghe\s*)?[a-z\d]/i.test(norm) ||
+    /(?:doi|chuyen|sang|chon)\s*(?:sang\s*)?(?:hang|day|row|ghe|vi\s*tri|cho\s*ngoi)\b/i.test(norm) ||
+    /(?:ghe|hang|day|cho\s*ngoi|vi\s*tri)\s*khac\b/i.test(norm) ||
+    /(?:doi|chuyen)\s*(?:sang\s*)?(?:\d+\s*)?(?:ve\s*)?(?:vip|vvip|svip|regular|standard|eco|economy|premium|ga|early\s*bird|thuong|tieu chuan|pho thong|dong|bac|vang|kim cuong)\b/i.test(norm) ||
+    /(?:doi|chuyen)\s*(?:sang\s*)?(?:loai\s*ve|hang\s*ve|khu\s*vuc)\b/i.test(norm) ||
+    /(?:doi|chuyen)\s*(?:thanh|sang)?\s*\d+\s*(?:ve|cho|ghe)\b/i.test(norm)
+  );
+
+  // 1. Pure cancellation:
+  const isCancel = (
+    /(?:thoi\s*(?:toi|minh)?\s*(?:khong|dung)\s*(?:dat|mua)|huy\s*(?:dat\s*)?ve|dung\s*dat\s*ve|khong\s*(?:muon\s*)?(?:dat|mua)\s*(?:ve\s*)?(?:nay\s*)?nua|khong\s*mua\s*(?:nua\s*dau|nua)?|bo\s*qua\s*dat\s*ve)/i.test(norm)
+  );
+
+  // 2. Explicit change event:
+  // "đổi sự kiện", "đổi sự kiện muốn đặt", "thay đổi sự kiện", "đổi sang sự kiện khác", "chọn sự kiện khác", "xem sự kiện khác", "tìm sự kiện khác", "quay lại chọn sự kiện"
+  const isExplicitChangeEvent = (
+    /(?:thay\s*doi|doi|chuyen|chon|xem|tim|quay\s*lai)\s*(?:sang\s*|qua\s*|lai\s*)?(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|concert|buoi\s*dien|danh\s*sach\s*su\s*kien)\s*(?:muon\s*dat|khac|moi)?\b/i.test(norm) ||
+    /(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|concert)\s*khac\b/i.test(norm) ||
+    /(?:khong\s*(?:muon\s*)?(?:dat|mua|xem)\s*(?:ve\s*)?(?:su\s*kien|show|vo|chuong\s*trinh)\s*(?:nay|do)?\s*nua)/i.test(norm) ||
+    /(?:huy\s*(?:dat\s*)?(?:su\s*kien|ve\s*su\s*kien)\s*(?:nay)?)/i.test(norm) ||
+    /(?:doi\s*y\s*roi|khong\s*thich\s*su\s*kien\s*nay|tim\s*cai\s*khac)/i.test(norm) ||
+    /(?:co\s*(?:su\s*kien|show|chuong\s*trinh)\s*nao\s*khac)/i.test(norm)
+  );
+
+  // 3. User says "đổi sang [event name/query]" or "chuyển sang [event name/query]":
+  const switchTargetMatch = message.match(/(?:đổi|chuyển|chọn)\s*(?:sang|qua)\s*(?:sự\s*kiện|show|chương\s*trình|vở\s*kịch|concert|buổi\s*diễn)?\s*(.+)/i) ||
+    norm.match(/(?:doi|chuyen|chon)\s*(?:sang|qua)\s*(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|concert|buoi\s*dien)?\s*(.+)/i);
+
+  let targetQuery = '';
+  if (switchTargetMatch && !isSeatOrTierOnly) {
+    let candidate = switchTargetMatch[1].trim();
+    candidate = candidate.replace(/^(?:xem|coi|dat|mua)\s+/i, '').trim();
+    if (!/^(hàng|dãy|ghế|vé|loại|hạng|khu|khác|\d+|vip|vvip|svip|regular|standard|eco|premium|ga|early\s*bird|tiêu\s*chuẩn|phổ\s*thông|thường|đồng|bạc|vàng|kim\s*cương)/i.test(candidate)) {
+      targetQuery = candidate;
+    }
+  }
+
+  if (isSeatOrTierOnly && !isExplicitChangeEvent) {
+    return { isChange: false, isCancelOnly: false, targetQuery: '' };
+  }
+
+  if (isCancel && !isExplicitChangeEvent && !targetQuery) {
+    return { isChange: true, isCancelOnly: true, targetQuery: '' };
+  }
+
+  if (isExplicitChangeEvent || targetQuery) {
+    return { isChange: true, isCancelOnly: false, targetQuery };
+  }
+
+  return { isChange: false, isCancelOnly: false, targetQuery: '' };
+}
+
+function findMatchingSession(messageOrQuery, sessions = []) {
+  if (!messageOrQuery || !sessions || sessions.length === 0) return sessions[0] || null;
+  if (sessions.length === 1) return sessions[0];
+
+  const norm = normalizeText(messageOrQuery);
+
+  // 1. Direct ID match
+  const directId = sessions.find(s => String(s.id) === String(messageOrQuery).trim());
+  if (directId) return directId;
+
+  // 2. Ordinal match: "suất 1", "suất 2", "suất thứ 2", "suất đầu", v.v. (single digit 1-9)
+  const ordMatch = norm.match(/(?:suat|buoi|ca)\s*(?:so|thu)?\s*([1-9])\b/i) ||
+    norm.match(/(?:suat|buoi|ca)\s*(mot|hai|ba|bon|nam)\b/i);
+  if (ordMatch) {
+    let idx = -1;
+    if (/^\d+$/.test(ordMatch[1])) {
+      idx = parseInt(ordMatch[1], 10) - 1;
+    } else {
+      idx = (VIETNAMESE_WORD_TO_NUM[ordMatch[1].toLowerCase()] || 1) - 1;
+    }
+    if (idx >= 0 && idx < sessions.length) {
+      return sessions[idx];
+    }
+  }
+
+  if (/(?:suat\s*dau|suat\s*dau\s*tien|buoi\s*dau)/i.test(norm)) {
+    return sessions[0];
+  }
+  if (/(?:suat\s*cuoi|suat\s*cuoi\s*cung|buoi\s*cuoi)/i.test(norm)) {
+    return sessions[sessions.length - 1];
+  }
+
+  // Helper to extract year, month, day directly from date string without timezone skew
+  const getSessionDate = (startTimeStr) => {
+    if (!startTimeStr) return null;
+    const m = String(startTimeStr).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    const year = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10);
+    const day = parseInt(m[3], 10);
+    const dow = new Date(year, month - 1, day).getDay();
+    return { year, month, day, dow };
+  };
+
+  // 3. Date match: match DD/MM or DD-MM or "ngay DD"
+  for (const s of sessions) {
+    const sDate = getSessionDate(s.start_time);
+    if (!sDate) continue;
+
+    const dayStr = String(sDate.day).padStart(2, '0');
+    const monthStr = String(sDate.month).padStart(2, '0');
+
+    const datePatterns = [
+      `${dayStr}/${monthStr}`,
+      `${sDate.day}/${sDate.month}`,
+      `${dayStr}-${monthStr}`,
+      `${sDate.day}-${sDate.month}`,
+      `${sDate.day}\\s*thang\\s*${sDate.month}`,
+      `${sDate.day}\\s*thang\\s*${monthStr}`,
+      `ngay\\s*${dayStr}\\b`,
+      `ngay\\s*${sDate.day}\\b`
+    ];
+    const isDateMatched = datePatterns.some(p => new RegExp(`(?:^|\\s|suat\\s*)${p}(?:\\s|$|[.,!?])`, 'i').test(norm));
+    if (isDateMatched) {
+      return s;
+    }
+  }
+
+  // 4. Day of week match:
+  const dayOfWeekMap = {
+    'chu nhat': 0, 'cn': 0,
+    'thu hai': 1, 'thu 2': 1, 't2': 1,
+    'thu ba': 2, 'thu 3': 2, 't3': 2,
+    'thu tu': 3, 'thu 4': 3, 't4': 3,
+    'thu nam': 4, 'thu 5': 4, 't5': 4,
+    'thu sau': 5, 'thu 6': 5, 't6': 5,
+    'thu bay': 6, 'thu 7': 6, 't7': 6
+  };
+  for (const [dayName, dayNum] of Object.entries(dayOfWeekMap)) {
+    if (new RegExp(`\\b${dayName}\\b`, 'i').test(norm)) {
+      const matched = sessions.find(s => {
+        const sDate = getSessionDate(s.start_time);
+        return sDate && sDate.dow === dayNum;
+      });
+      if (matched) return matched;
+    }
+  }
+
+  // 5. Session name / keyword match (e.g. "Gala", "chung kết", session_name)
+  const sessionStopWords = new Set([
+    'suat', 'buoi', 'ngay', 'dem', 'toi', 'minh', 'cho', 'muon', 'chieu', 'sang', 'chuyen', 'doi', 'xem', 'lay', 'dat', 've', 'cac', 'co'
+  ]);
+
+  for (const s of sessions) {
+    if (s.session_name) {
+      const sNorm = normalizeText(s.session_name);
+      if (sNorm && (norm.includes(sNorm) || sNorm.includes(norm))) {
+        return s;
+      }
+      const sTokens = sNorm.split(/\s+/).filter(w => w.length >= 3 && !sessionStopWords.has(w));
+      const hasDistinctiveToken = sTokens.some(tok => norm.includes(tok));
+      if (hasDistinctiveToken) {
+        return s;
+      }
+    }
+  }
+
+  return sessions[0] || null;
+}
+
 function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
   if (!queryOrMessage || !eventsList || eventsList.length === 0) return null;
   const allowSemanticTopic = options.allowSemanticTopic !== false;
@@ -660,7 +859,7 @@ function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
   const normInput = normalize(queryOrMessage);
   if (!normInput || normInput.length < 3) return null;
 
-  // 1. Direct contains check:
+  // 1a. Direct contains check:
   for (const e of eventsList) {
     const normTitle = normalize(e.title);
     const normSlug = normalize(e.slug);
@@ -672,6 +871,26 @@ function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
     }
     if (normSlug && normSlug.length >= 6) {
       if (normInput.includes(normSlug)) {
+        return e;
+      }
+    }
+  }
+
+  // 1b. Direct subtitle / artist / distinct phrase match:
+  const strippedInput = normInput.replace(/^(su\s*kien|show|chuong\s*trinh|vo\s*kich|concert|buoi\s*dien|ve)\s*/i, '').trim();
+  const isGenericCategoryQuery = (
+    /^(ca\s*nhac|am\s*nhac|nhac|kich|hai\s*kich|kich\s*noi|san\s*khau|hoi\s*thao|giao\s*duc|workshop|the\s*thao|le\s*hoi|van\s*hoa|trien\s*lam|hoi\s*cho)$/i.test(strippedInput) ||
+    /^(?:cac|nhung|tim|goi\s*y|xem|co)?\s*(?:su\s*kien|show|chuong\s*trinh|hoat\s*dong)?\s*(?:ve|lien\s*quan\s*den)?\s*(?:ca\s*nhac|am\s*nhac|nhac|kich|hai\s*kich|kich\s*noi|san\s*khau|hoi\s*thao|giao\s*duc|workshop|the\s*thao|le\s*hoi|van\s*hoa|trien\s*lam|hoi\s*cho)(?:\s*(?:nao|gi|hay|hot|moi|sap\s*toi|khong|a|nhi|the))?$/i.test(normInput)
+  );
+  if (isGenericCategoryQuery) {
+    return null;
+  }
+
+  if (strippedInput.length >= 4) {
+    for (const e of eventsList) {
+      const normTitle = normalize(e.title);
+      const normSlug = normalize(e.slug);
+      if (normTitle.includes(strippedInput) || normSlug.includes(strippedInput.replace(/\s+/g, '-'))) {
         return e;
       }
     }
@@ -702,7 +921,7 @@ function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
     'xem', 've', 'o', 'eve', 'oi', 'co', 'gi', 'nao', 'dang', 'khong',
     'bao', 'nhieu', 'suat', 'dien', 'tien', 'gia', 'loai', 'mot', 'hai', 'ba',
     'bon', 'nam', 'sau', 'bay', 'tam', 'chin', 'muoi', 'thong', 'tin', 'cua',
-    'ban', 'anh', 'chi', 'em', 'nguoi', 'tham', 'gia', 'dung', 'sdt', 'email',
+    'ban', 'anh', 'chi', 'em', 'nguoi', 'tham', 'gia', 'sdt', 'email',
     'so', 'dien', 'thoai', 'xin', 'chao', 'tro', 'ly', 'nhe', 'nha', 'a', 'da',
     'voi', 'la', 'cac', 'nhung', 'de', 'duoc', 'con', 'lai', 'gio', 'ngay', 'thang',
     'va', 'thi', 'ma', 'trong', 'ngoai', 'tren', 'duoi', 'den', 'tu', 'cung', 'nhu',
@@ -1969,21 +2188,53 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
     // Pre-flight Grounding Optimization:
     // Check if the user is asking about or wanting to book a specific named event in EventHub:
     const publishedEvents = await getPublishedEventsCache();
-    const currentMatchedEvent = findMatchingPublishedEvent(message, publishedEvents, { allowSemanticTopic: false });
+    const eventChangeInfo = detectEventChangeIntent(message);
 
-    // Look back in cleanHistory to find the active event if not mentioned in the current turn
+    // If user asked to switch to a target ("Đổi sang sự kiện Hoàng Dũng"), try to match that target query first!
+    const queryForMatching = eventChangeInfo.targetQuery || message;
+    const currentMatchedEvent = findMatchingPublishedEvent(
+      queryForMatching,
+      publishedEvents,
+      { allowSemanticTopic: true }
+    );
+
+    // Look back in cleanHistory to find the previous active event:
     // IMPORTANT: ONLY scan user messages! Assistant messages contain event lists & generic instructions
-    let activeEvent = currentMatchedEvent;
-    if (!activeEvent && cleanHistory.length > 0) {
+    let previousActiveEvent = null;
+    if (cleanHistory.length > 0) {
       for (let i = cleanHistory.length - 1; i >= 0; i--) {
         const hMsg = cleanHistory[i];
         if (hMsg.role !== 'user') continue;
-        const found = findMatchingPublishedEvent(hMsg.content, publishedEvents, { allowSemanticTopic: false });
+        const hChange = detectEventChangeIntent(hMsg.content);
+        if (hChange.isChange && !hChange.targetQuery) {
+          // An earlier message in history broke the active event binding
+          break;
+        }
+        const found = findMatchingPublishedEvent(hChange.targetQuery || hMsg.content, publishedEvents, { allowSemanticTopic: false });
         if (found) {
-          activeEvent = found;
+          previousActiveEvent = found;
           break;
         }
       }
+    }
+
+    // Determine effective activeEvent for this turn:
+    let activeEvent = null;
+    let isEventSwitched = false;
+
+    if (eventChangeInfo.isCancelOnly) {
+      // User cancelled booking entirely
+      activeEvent = null;
+    } else if (eventChangeInfo.isChange && !currentMatchedEvent) {
+      // User asked to change/abandon event without specifying the new event title yet
+      activeEvent = null;
+    } else if (currentMatchedEvent) {
+      activeEvent = currentMatchedEvent;
+      if (previousActiveEvent && previousActiveEvent.slug !== currentMatchedEvent.slug) {
+        isEventSwitched = true;
+      }
+    } else {
+      activeEvent = previousActiveEvent;
     }
 
     let requireAttendeeInfo = false;
@@ -2010,6 +2261,9 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
       } catch (err) {
         logger.warn(`[AiAssistant] Error fetching activeEvent detail: ${err.message}`);
       }
+
+      const matchedSession = findMatchingSession(message, sessionList);
+      const activeSessionId = matchedSession?.id || sessionList[0]?.id || '';
 
       const sessionCount = sessionList.length;
       const activeEventDesc = stripHtml(eventDetail?.description || activeEvent.description || '');
@@ -2047,14 +2301,14 @@ QUY TẮC HỖ TRỢ ĐẶT VÉ LINH HOẠT (HYBRID AGENT):
    - TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc gọi action tag khi khách chỉ đang hỏi thông tin!
 2. CHẾ ĐỘ 1 - TỰ ĐỘNG HÓA THÔNG MINH (KHI KHÁCH NHỜ ĐẶT VÉ, ĐẶT LUÔN HOẶC CHỈ ĐỊNH SỐ LƯỢNG / HÀNG GHẾ):
    - Khi khách nói: "đặt giúp tôi 3 vé sự kiện ABC ưu tiên hàng C", "đặt luôn 2 vé", "chọn cho tôi 3 vé hàng C", "lấy 2 vé", "đổi sang hàng D":
-   - BẮT BUỘC GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: <số vé>, preferredRow: "<hàng ghế nếu có>" })!
+   - BẮT BUỘC GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: <số vé>, preferredRow: "<hàng ghế nếu có>" })!
    - Tool sẽ tự động phân bổ ghế tối ưu theo quy tắc của Ban tổ chức, giữ chỗ tạm thời và tạo Thẻ Đề Xuất Đặt Vé (Booking Proposal) ngay trong chat.
    - NẾU SỰ KIỆN CÓ YÊU CẦU THÔNG TIN NGƯỜI THAM GIA (${requireAttendeeInfo ? 'CÓ YÊU CẦU' : 'KHÔNG YÊU CẦU'}):
      * Sau khi tool giữ ghế thành công, nếu khách chưa cung cấp đủ Họ tên + Email cho từng vé, hãy vui vẻ thông báo ghế đã chọn và xin bổ sung Họ tên + Email cho các vé còn lại (khách có thể nhắn "dùng thông tin của tôi" nếu tự đi một mình).
    - NẾU KHÁCH YÊU CẦU ĐỔI HÀNG GHẾ (VD: "đổi sang hàng D"): Tiếp tục gọi proposeSmartBooking với preferredRow mới để cập nhật đề xuất!
 3. CHẾ ĐỘ 2 - TỰ CHỌN GHẾ TRÊN SƠ ĐỒ (KHI KHÁCH MUỐN TỰ TAY CHỌN):
    - Khi khách nói: "để tôi tự chọn ghế", "mở sơ đồ ghế", "cho tôi tự chọn", "tự vào sơ đồ":
-   - Gọi ngay generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}" }) để mở sơ đồ ghế cho khách!`;
+   - Gọi ngay generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }) để mở sơ đồ ghế cho khách!`;
       } else {
         dynamicSystemPrompt += `\n\nSỰ KIỆN KHÁCH HÀNG ĐANG XEM / ĐẶT VÉ TRONG ĐOẠN CHAT:
 - Tên sự kiện: ${activeEvent.title}
@@ -2100,7 +2354,54 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
       { role: 'user', content: message }
     ];
 
-    if (currentMatchedEvent) {
+    if (eventChangeInfo.isCancelOnly) {
+      messages.push({
+        role: 'system',
+        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa thông báo không muốn đặt vé nữa / muốn dừng đặt vé.
+Bạn hãy vui vẻ xác nhận đã dừng quy trình đặt vé và chúc khách một ngày tốt lành, sẵn sàng hỗ trợ bất cứ khi nào khách cần. TUYỆT ĐỐI KHÔNG gọi tool đặt vé hay tạo action tag đặt vé nữa!`
+      });
+    } else if (eventChangeInfo.isChange && !currentMatchedEvent) {
+      logger.info(`[AiAssistant] User requested event change/abandonment without naming new event yet. Loading new events...`);
+      const searchRes = await this.executeTool(userId, 'searchEvents', { query: '', limit: 5 });
+      messages.push({
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: 'call_auto_search', function: { name: 'searchEvents', arguments: { query: '' } } }]
+      });
+      messages.push({
+        role: 'tool',
+        name: 'searchEvents',
+        tool_call_id: 'call_auto_search',
+        content: JSON.stringify(searchRes)
+      });
+      messages.push({
+        role: 'system',
+        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa yêu cầu đổi sự kiện / không muốn đặt vé cho sự kiện "${previousActiveEvent?.title || 'trước đó'}" nữa.
+Hệ thống đã dừng quy trình đặt vé cho sự kiện cũ và tải danh sách sự kiện mới.
+Bạn hãy vui vẻ xác nhận đã dừng đặt vé cho sự kiện cũ, sau đó gợi ý các sự kiện nổi bật hiện có (từ kết quả tool searchEvents) hoặc hỏi xem khách hàng muốn tham gia thể loại sự kiện nào (ca nhạc, kịch nghệ, workshop, triển lãm...) để Eve hỗ trợ tìm nhé! 🥰
+TUYỆT ĐỐI KHÔNG gọi tool đặt vé hoặc tạo proposal cho sự kiện cũ!`
+      });
+    } else if (isEventSwitched && activeEvent) {
+      logger.info(`[AiAssistant] User switched from "${previousActiveEvent?.title}" to "${activeEvent.title}". Pre-fetching new event details...`);
+      const detailRes = await this.executeTool(userId, 'getEventDetails', { eventId: activeEvent.slug }, { message });
+      messages.push({
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: 'call_auto_detail', function: { name: 'getEventDetails', arguments: { eventId: activeEvent.slug } } }]
+      });
+      messages.push({
+        role: 'tool',
+        name: 'getEventDetails',
+        tool_call_id: 'call_auto_detail',
+        content: JSON.stringify(detailRes)
+      });
+      messages.push({
+        role: 'system',
+        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa chuyển từ sự kiện "${previousActiveEvent?.title || 'cũ'}" sang sự kiện "${activeEvent.title}".
+Hệ thống đã chuyển sang sự kiện mới và hủy bỏ toàn bộ đề xuất của sự kiện cũ.
+Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", giới thiệu thông tin sự kiện mới và các hạng vé hiện có để hỗ trợ khách nhé!`
+      });
+    } else if (currentMatchedEvent) {
       // User just named or asked for this specific event in the current message
       logger.info(`[AiAssistant] User specified event: "${currentMatchedEvent.title}" (${currentMatchedEvent.slug}). Pre-fetching event details...`);
       const detailRes = await this.executeTool(userId, 'getEventDetails', { eventId: currentMatchedEvent.slug }, { message });
@@ -2160,16 +2461,20 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
     const hasSaidUseMyInfo = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi|thong\s+tin\s+nhu\s+tren/i.test(allUserNorm);
 
     // 1. Detect user intents from current message early:
-    const wantsDifferentTier = /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(message) ||
+    const wantsDifferentTier = !eventChangeInfo.isChange && (
+      /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(message) ||
       /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang|loai\s*ve|loai|vung)\s*khac\b/i.test(normMsg) ||
       /(?:đổi\s*khu|đổi\s*khu\s*vực|chuyển\s*khu|chuyển\s*khu\s*vực|khu\s*vực\s*khác|loại\s*vé\s*khác|hạng\s*vé\s*khác|loại\s*khác|hạng\s*khác)/i.test(message) ||
-      /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normMsg);
+      /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normMsg)
+    );
 
-    const isChangeRowRequest = /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(message) ||
+    const isChangeRowRequest = !eventChangeInfo.isChange && (
+      /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(message) ||
       /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(normMsg) ||
-      /(?:hàng\s*khác|hang\s*khac)/i.test(normMsg);
+      /(?:hàng\s*khác|hang\s*khac)/i.test(normMsg)
+    );
 
-    const isSeatAdjustmentRequest = (
+    const isSeatAdjustmentRequest = !eventChangeInfo.isChange && (
       /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai)/i.test(message) ||
       /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai)/i.test(normMsg) ||
       wantsDifferentTier ||
@@ -2177,23 +2482,33 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
     );
 
     const isAutonomousBookingRequest = (
-      /(?:đặt|đạt|dat|mua|lấy|lay|chọn|chon|đổi|doi|chuyển|chuyen|book|booking|order|giữ\s*chỗ|giu\s*cho|cho\s*mình|cho\s*minh|cho\s*tôi|cho\s*toi|cho\s*em|cho\s*anh|lấy\s*hộ|lay\s*ho|lấy\s*giúp|lay\s*giup|cần|can|muốn\s*đặt|muon\s*dat|muốn\s*mua|muon\s*mua|đăng\s*ký|dang\s*ky)\s*(?:giúp\s*tôi|giup\s*toi|giúp\s*mình|giup\s*minh|hộ\s*tôi|ho\s*toi|hộ\s*mình|ho\s*minh|luôn|luon|ngay|lại|lai|sang)?\s*(?:\d+|một|mot|hai|ba|bốn|bon|năm|nam|cặp|cap|đôi|doi)?\s*(?:vé|ve|chỗ|cho|ghế|ghe|ticket|suất|suat)?/i.test(message) ||
-      /(?:dat|mua|lay|book|booking|order|giu cho|cho minh|cho toi)\s*(\d+|mot|hai|ba|bon|nam|cap|doi|ve|cho|ghe|ticket)/i.test(normMsg)
-    ) && !/(?:tự\s*chọn|tu\s*chon|sơ\s*đồ\s*ghế|so\s*do\s*ghe|mở\s*sơ\s*đồ|mo\s*so\s*do|cho\s*tôi\s*tự\s*chọn|cho\s*toi\s*tu\s*chon|tự\s*vào\s*chọn|tu\s*vao\s*chon)/i.test(normMsg);
+      !eventChangeInfo.isChange &&
+      !eventChangeInfo.isCancelOnly &&
+      (
+        /(?:đặt|đạt|dat|mua|lấy|lay|chọn|chon|đổi|doi|chuyển|chuyen|book|booking|order|giữ\s*chỗ|giu\s*cho|cho\s*mình|cho\s*minh|cho\s*tôi|cho\s*toi|cho\s*em|cho\s*anh|lấy\s*hộ|lay\s*ho|lấy\s*giúp|lay\s*giup|cần|can|muốn\s*đặt|muon\s*dat|muốn\s*mua|muon\s*mua|đăng\s*ký|dang\s*ky)\s*(?:giúp\s*tôi|giup\s*toi|giúp\s*mình|giup\s*minh|hộ\s*tôi|ho\s*toi|hộ\s*mình|ho\s*minh|luôn|luon|ngay|lại|lai|sang)?\s*(?:\d+|một|mot|hai|ba|bốn|bon|năm|nam|cặp|cap|đôi|doi)?\s*(?:vé|ve|chỗ|cho|ghế|ghe|ticket|suất|suat)?/i.test(message) ||
+        /(?:dat|mua|lay|book|booking|order|giu cho|cho minh|cho toi)\s*(\d+|mot|hai|ba|bon|nam|cap|doi|ve|cho|ghe|ticket)/i.test(normMsg)
+      ) && !/(?:tự\s*chọn|tu\s*chon|sơ\s*đồ\s*ghế|so\s*do\s*ghe|mở\s*sơ\s*đồ|mo\s*so\s*do|cho\s*tôi\s*tự\s*chọn|cho\s*toi\s*tu\s*chon|tự\s*vào\s*chọn|tu\s*vao\s*chon)/i.test(normMsg)
+    );
 
     const isManualSeatMapRequest = /(?:tự\s*chọn|tu\s*chon|sơ\s*đồ\s*ghế|so\s*do\s*ghe|mở\s*sơ\s*đồ|mo\s*so\s*do|cho\s*tôi\s*tự\s*chọn|cho\s*toi\s*tu\s*chon|tự\s*vào\s*chọn|tu\s*vao\s*chon)/i.test(normMsg);
 
-    // 2. Extract last proposal from history:
+    // 2. Extract last proposal from history (ignore old proposal if switching/abandoning event):
     const ticketTypesList = eventDetail?.ticket_types || [];
-    const lastProposal = findLastBookingProposal(cleanHistory, ticketTypesList);
+    const lastProposal = (isEventSwitched || eventChangeInfo.isChange)
+      ? null
+      : findLastBookingProposal(cleanHistory, ticketTypesList);
     const prevProposalQty = lastProposal?.quantity || null;
     const firstSeat = lastProposal?.seats?.[0];
     const firstSeatLabel = typeof firstSeat === 'string' ? firstSeat : (firstSeat?.label || '');
     const prevRow = firstSeatLabel ? firstSeatLabel.charAt(0).toUpperCase() : null;
     const excludeRow = isChangeRowRequest ? prevRow : null;
 
+    const userTextForCurrentEvent = (isEventSwitched || eventChangeInfo.isChange)
+      ? message
+      : allUserMessages;
+
     const ticketsFromCurrentMsg = parseTicketsFromText(message, ticketTypesList);
-    const detectedTickets = parseTicketsFromText(allUserMessages, ticketTypesList);
+    const detectedTickets = parseTicketsFromText(userTextForCurrentEvent, ticketTypesList);
 
     const collectedAttendees = extractAttendeesFromText(allUserMessages, userProfile);
 
@@ -2205,7 +2520,7 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
         if (prevProposalQty && prevProposalQty > 0) return prevProposalQty;
       }
       if (detectedTickets.length > 0) return detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
-      const parsedQ = parseQuantityFromText(allUserMessages);
+      const parsedQ = parseQuantityFromText(userTextForCurrentEvent);
       if (parsedQ && parsedQ > 0) return parsedQ;
       if (collectedAttendees.length > 0) return collectedAttendees.length;
       return prevProposalQty || 1;
@@ -2333,6 +2648,8 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
 
     const isBookingFlowActive = Boolean(
       activeEvent &&
+      !eventChangeInfo.isChange &&
+      !eventChangeInfo.isCancelOnly &&
       !isManualSeatMapRequest &&
       (isAutonomousBookingRequest || hasChosenTickets || isSeatAdjustmentRequest || isTierOrPriceResponse || /(?:đặt luôn|đặt vé|chọn vé|dat luon|dat ve|chon ve)/i.test(message))
     );
@@ -2360,7 +2677,7 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
         role: 'system',
         content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng yêu cầu đặt vé tự động hoặc điều chỉnh ghế cho sự kiện "${activeEvent.title}" (Số lượng: ${effQty} vé${rowDesc}${tierDesc}).
 ${!hasSpecificTier && hasMultiplePriceTiers && !matchedTierInMsg && !wantsCheapestInMsg ? `Khách chưa chọn hạng vé cụ thể -> Hệ thống tự động chọn hạng vé tiết kiệm nhất: "${cheapestTicket?.name}" (${Number(cheapestTicket?.price || 0).toLocaleString('vi-VN')} VNĐ). Sau khi gọi tool, bạn hãy giới thiệu rõ đã chọn trước hạng vé này cho khách và gợi ý khách có thể đổi sang các hạng khác nếu muốn nhé!` : ''}
-Bạn BẮT BUỘC PHẢI GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: ${effQty}${ticketsParam}${rowParam}${excludeRowParam}${tierParam} }) để hệ thống phân bổ lại ghế tối ưu và tạo Đề Xuất Đặt Vé cho khách duyệt! TUYỆT ĐỐI không bảo khách tự mở sơ đồ chọn ghế khi khách đã nhờ đặt!`
+Bạn BẮT BUỘC PHẢI GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${effQty}${ticketsParam}${rowParam}${excludeRowParam}${tierParam} }) để hệ thống phân bổ lại ghế tối ưu và tạo Đề Xuất Đặt Vé cho khách duyệt! TUYỆT ĐỐI không bảo khách tự mở sơ đồ chọn ghế khi khách đã nhờ đặt!`
       });
     } else if (activeEvent && isChangeTierInquiry && targetCandidateTickets.length > 1) {
       messages.push({
@@ -2373,7 +2690,7 @@ Bạn hãy liệt kê các hạng vé và mức giá trên một cách thân thi
     } else if (activeEvent && isManualSeatMapRequest) {
       messages.push({
         role: 'system',
-        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn TỰ CHỌN GHẾ trên sơ đồ. Bạn hãy gọi tool generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}" }) để mở sơ đồ ghế cho khách!`
+        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn TỰ CHỌN GHẾ trên sơ đồ. Bạn hãy gọi tool generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }) để mở sơ đồ ghế cho khách!`
       });
     }
 
@@ -2385,13 +2702,13 @@ Bạn hãy liệt kê các hạng vé và mức giá trên một cách thân thi
         if (!requireAttendeeInfo) {
           messages.push({
             role: 'system',
-            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Sự kiện có sơ đồ chỗ ngồi và KHÔNG yêu cầu thông tin người tham gia. Bạn PHẢI GỌI NGAY tool generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}" }) để mở sơ đồ chọn ghế cho khách!`
+            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Sự kiện có sơ đồ chỗ ngồi và KHÔNG yêu cầu thông tin người tham gia. Bạn PHẢI GỌI NGAY tool generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }) để mở sơ đồ chọn ghế cho khách!`
           });
         } else {
           if (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0) {
             messages.push({
               role: 'system',
-              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}) và đã cung cấp đủ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Bạn PHẢI GỌI NGAY tool generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: ${seatedOrderQty} }) để tạo nút chọn ghế trên sơ đồ cho khách!`
+              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}) và đã cung cấp đủ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Bạn PHẢI GỌI NGAY tool generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${seatedOrderQty} }) để tạo nút chọn ghế trên sơ đồ cho khách!`
             });
           } else {
             messages.push({
@@ -2410,7 +2727,7 @@ Bạn hãy liệt kê các hạng vé và mức giá trên một cách thân thi
           messages.push({
             role: 'system',
             content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã cung cấp ĐỦ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản: ${userProfile?.full_name || 'Khách hàng'} (${userProfile?.email || ''}, SĐT: ${effectivePhone}).
-Sự kiện có sơ đồ chỗ ngồi. Bạn BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${sessionList[0]?.id || ''}", quantity: ${seatedOrderQty} }) ngay lập tức để hoàn tất tạo thông tin vé cho khách!
+Sự kiện có sơ đồ chỗ ngồi. Bạn BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${seatedOrderQty} }) ngay lập tức để hoàn tất tạo thông tin vé cho khách!
 TUYỆT ĐỐI KHÔNG được trả lời dạng hứa hẹn "đang chuyển bạn đến trang thanh toán", "vui lòng đợi" mà BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction!`
           });
         }
@@ -2530,7 +2847,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
             logger.info(`[AgentLoop] Directly triggering proposeSmartBooking as AI model fallback...`);
             await this.executeTool(userId, 'proposeSmartBooking', {
               eventId: activeEvent.slug,
-              sessionId: sessionList[0]?.id || '',
+              sessionId: activeSessionId,
               quantity: effQty,
               preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
               excludeRow,
@@ -2657,7 +2974,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         logger.info(`[AgentLoop] Auto-triggering proposeSmartBooking because user requested autonomous booking but model skipped tool call.`);
         await this.executeTool(userId, 'proposeSmartBooking', {
           eventId: activeEvent.slug,
-          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+          sessionId: activeSessionId || (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
           quantity: effAutoQty,
           preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
           ticketTypeId: targetTier?.id || null,
@@ -2689,7 +3006,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         logger.info(`[AgentLoop] Auto-triggering generatePrefillBookingAction (hasSeatMap=${hasSeatMap}, qty=${autoPrefillQty}) because all requirements are met but model skipped tool call.`);
         await this.executeTool(userId, 'generatePrefillBookingAction', {
           eventId: activeEvent.slug,
-          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+          sessionId: activeSessionId || (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
           quantity: autoPrefillQty
         }, toolExecutionContext);
       }
@@ -2923,5 +3240,7 @@ serviceInstance.getPublishedEventsCache = getPublishedEventsCache;
 serviceInstance.normalizeText = normalizeText;
 serviceInstance.parseQuantityFromText = parseQuantityFromText;
 serviceInstance.findLastBookingProposal = findLastBookingProposal;
+serviceInstance.detectEventChangeIntent = detectEventChangeIntent;
+serviceInstance.findMatchingSession = findMatchingSession;
 
 module.exports = serviceInstance;
