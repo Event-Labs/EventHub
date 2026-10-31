@@ -94,7 +94,7 @@ export function BookingCheckoutPage() {
   if (!cart?.items?.length) return null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-5xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
       <SectionHeader
         title="Xác nhận đặt vé"
         description={`Đơn hàng cho sự kiện: ${cart.eventTitle}`}
