@@ -187,14 +187,16 @@ function detectCategory(queryOrMessage) {
 
 function extractPhoneNumber(text) {
   if (!text) return '';
-  const candidates = text.match(/(?:(?:\+84)|84|0)[0-9\.\-\s]{8,15}/g) || [];
+  const candidates = text.match(/(?:\(\+?84\)|\+84|84|0)[0-9\.\-\s\(\)]{8,17}/g) || [];
   for (const cand of candidates) {
-    const clean = cand.replace(/[\.\-\s]/g, '');
-    if (/^(?:\+84|0)(?:3|5|7|8|9)\d{8}$/.test(clean)) {
-      return clean.startsWith('+84') ? '0' + clean.slice(3) : clean;
-    }
-    if (/^84(?:3|5|7|8|9)\d{8}$/.test(clean)) {
-      return '0' + clean.slice(2);
+    let clean = cand.replace(/[\.\-\s\(\)]/g, '');
+    if (clean.startsWith('+840')) clean = clean.slice(3);
+    else if (clean.startsWith('840')) clean = clean.slice(2);
+    else if (clean.startsWith('+84')) clean = '0' + clean.slice(3);
+    else if (clean.startsWith('84') && clean.length === 11) clean = '0' + clean.slice(2);
+
+    if (/^0(?:3|5|7|8|9)\d{8}$/.test(clean)) {
+      return clean;
     }
     if (/^0\d{9,10}$/.test(clean)) {
       return clean;
@@ -214,20 +216,20 @@ function parseQuantityFromText(text, prevQuantity = null) {
   const norm = normalizeText(text);
 
   // 1. Explicit target TOTAL expressions (HIGHEST PRIORITY):
-  // 'tong cong la 3 ve', 'tong cong 3 ve', 'tong la 3 ve', 'tong 3 ve', 'tat ca 3 ve', 'thanh 3 ve', 'doi thanh 3 ve'
-  const totalDigitMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
+  // 'tong cong la 3 ve', 'tong cong 3 ve', 'tong la 3 ve', 'tong 3 ve', 'tat ca 3 ve', 'thanh 3 ve', 'doi thanh 3 ve', 'thanh 2 slot'
+  const totalDigitMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
   if (totalDigitMatch) {
     return parseInt(totalDigitMatch[1], 10);
   }
 
-  const totalWordMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
+  const totalWordMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
   if (totalWordMatch && VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]]) {
     return VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]];
   }
 
   // 2. Relative ADDITION / REDUCTION when previous quantity is known:
-  // 'them 1 ve nua', 'dat them 1 ve', 'mua them 2 ve', 'lay them 1'
-  const addMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?(?:\s*nua)?\b/i);
+  // 'them 1 ve nua', 'dat them 1 ve', 'mua them 2 ve', 'lay them 1', 'them 1 slot'
+  const addMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(?:cho\s*(?:minh|toi|tui|em|anh)\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?(?:\s*nua)?\b/i);
   if (addMatch) {
     const addCount = parseInt(addMatch[1], 10);
     if (prevQuantity && prevQuantity > 0) {
@@ -235,7 +237,7 @@ function parseQuantityFromText(text, prevQuantity = null) {
     }
   }
 
-  const addWordMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?(?:\s*nua)?\b/i);
+  const addWordMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(?:cho\s*(?:minh|toi|tui|em|anh)\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?(?:\s*nua)?\b/i);
   if (addWordMatch && VIETNAMESE_WORD_TO_NUM[addWordMatch[1]]) {
     const addCount = VIETNAMESE_WORD_TO_NUM[addWordMatch[1]];
     if (prevQuantity && prevQuantity > 0) {
@@ -243,13 +245,13 @@ function parseQuantityFromText(text, prevQuantity = null) {
     }
   }
 
-  const subMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
+  const subMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
   if (subMatch && prevQuantity && prevQuantity > 0) {
     const subCount = parseInt(subMatch[1], 10);
     return Math.max(1, prevQuantity - subCount);
   }
 
-  const subWordMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)?\b/i);
+  const subWordMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
   if (subWordMatch && VIETNAMESE_WORD_TO_NUM[subWordMatch[1]] && prevQuantity && prevQuantity > 0) {
     const subCount = VIETNAMESE_WORD_TO_NUM[subWordMatch[1]];
     return Math.max(1, prevQuantity - subCount);
@@ -259,22 +261,22 @@ function parseQuantityFromText(text, prevQuantity = null) {
   const capMatch = norm.match(/(\d+)\s*(?:cap|doi)\b/i);
   if (capMatch) return parseInt(capMatch[1], 10) * 2;
 
-  // 4. Action verb or modification verb followed by digits: "dat 2", "mua 3", "lay 1", "doi sang 2", "doi thanh 2", "thanh 3", "cho minh 2", "di 4"
-  const actionDigitMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|di|nhom)\s+(?:cho\s*)?(\d+)\b/i);
+  // 4. Action verb or modification verb followed by digits: "dat 2", "mua 3", "lay 1", "doi sang 2", "cho minh 2", "cho 2 slot", "nhom 3 dua", "2 dua tui"
+  const actionDigitMatch = norm.match(/(?:dat|mua|lay|book|cham|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|cho\s*tui|cho|di|nhom|tui\s*minh|chung\s*minh)\s+(?:(?:giup|ho|gium|cho)\s*)?(?:minh|toi|tui|em|anh|chi|mik|b|fen|sop|shop|ad)?\s*(\d+)\b/i);
   if (actionDigitMatch) return parseInt(actionDigitMatch[1], 10);
 
-  // 5. Check digit + ticket unit: "1 ve", "2 ve", "3 cho", "4 ghe", "2 ticket", "1 suat", "3 nguoi", "cho 3 nguoi"
-  const digitUnitMatch = norm.match(/(?:cho\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi)\b/i);
+  // 5. Check digit + ticket unit: "1 ve", "2 ve", "3 cho", "4 ghe", "2 ticket", "1 suat", "3 nguoi", "cho 3 nguoi", "2 slot", "3 dua", "2 ban", "2 mang"
+  const digitUnitMatch = norm.match(/(?:cho\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)\b/i);
   if (digitUnitMatch) return parseInt(digitUnitMatch[1], 10);
 
-  // 6. Check numeral word + ticket unit: "mot ve", "hai ve", "ba ve", "bon ve", "nam ve", "hai nguoi", "ba nguoi"
-  const wordUnitMatch = norm.match(/(?:cho\s*)?\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi)\b/i);
+  // 6. Check numeral word + ticket unit: "mot ve", "hai ve", "ba ve", "hai nguoi", "hai slot"
+  const wordUnitMatch = norm.match(/(?:cho\s*)?\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)\b/i);
   if (wordUnitMatch && VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]]) {
     return VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]];
   }
 
-  // 7. Action verb or modification verb followed by numeral word: "dat mot", "mua hai", "doi sang hai", "di hai", "nhom ba"
-  const actionWordMatch = norm.match(/(?:dat|mua|lay|book|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|di|nhom)\s+(?:cho\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\b/i);
+  // 7. Action verb or modification verb followed by numeral word: "dat mot", "mua hai", "cho hai", "di hai"
+  const actionWordMatch = norm.match(/(?:dat|mua|lay|book|cham|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|cho\s*tui|cho|di|nhom|tui\s*minh|chung\s*minh)\s+(?:(?:giup|ho|gium|cho)\s*)?(?:minh|toi|tui|em|anh|chi|mik|b|fen|sop|shop|ad)?\s*(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\b/i);
   if (actionWordMatch && VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]]) {
     return VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]];
   }
@@ -355,6 +357,17 @@ function parseTicketsFromText(allUserText, ticketTypes) {
 
     for (const cand of candidates) {
       const escaped = cand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Pattern 0: "N cặp/đôi [vé] <candidate>" e.g. "2 cặp vé VIP", "1 cặp VIP", "3 đôi vé thường"
+      const reCap = new RegExp('(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau)\\b)?\\s*(?:c[aặ]p|cap|d[oô]i|doi)\\s*(?:v[eé]|ve)?\\s*(?:h[aà]ng|hang|lo[aạ]i|loai)?\\s*' + escaped + '\\b', 'i');
+      const mCap = normUserText.match(reCap);
+      if (mCap) {
+        let mult = 1;
+        if (mCap[1]) mult = parseInt(mCap[1], 10);
+        else if (mCap[2]) mult = VIETNAMESE_WORD_TO_NUM[mCap[2].toLowerCase()] || 1;
+        matchedQty = mult * 2;
+        break;
+      }
 
       // Pattern A: "<number|word> [ve] [hang] <candidate>" e.g. "2 ve khu vuc 1", "1 ve vip", "2 ve 50k", "mot ve thuong"
       const reA = new RegExp('(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|cap|doi)\\b)\\s*(?:v[eé]|ve)?\\s*(?:h[aà]ng|hang|lo[aạ]i|loai)?\\s*' + escaped + '\\b', 'i');
@@ -472,8 +485,8 @@ function extractAttendeesFromText(text, userProfile = null) {
 
   // 1. Check if user explicitly asked to use their own profile info
   const normText = normalizeText(text);
-  const hasUseMyInfo = /(?:dung|lay|su\s*dung|giong|nhu)\s+(?:thong\s*tin\s*cua\s*(?:toi|minh|em|anh)|thong\s*tin\s*tai\s*khoan|tai\s*khoan|profile|info)/i.test(normText) ||
-    /(?:thong\s*tin\s*(?:cua\s*)?(?:toi|minh)|lay\s*(?:info|profile)|tu\s*di\s*mot\s*minh|di\s*mot\s*minh|minh\s*di\s*mot\s*minh|cho\s*chinh\s*toi|cho\s*chinh\s*minh)/i.test(normText);
+  const hasUseMyInfo = /(?:dung|lay|su\s*dung|giong|nhu)\s+(?:thong\s*tin\s*cua\s*(?:toi|minh|tui|em|anh)|thong\s*tin\s*(?:tai\s*khoan|cu|nhu\s*cu)|tai\s*khoan|profile|info)/i.test(normText) ||
+    /(?:thong\s*tin\s*(?:cua\s*)?(?:toi|minh|tui|em|anh)|lay\s*(?:info|profile)|(?:tu\s*di|di)\s*(?:1|mot)\s*minh(?:\s*en)?|cho\s*chinh\s*(?:toi|minh|tui|em|anh)|thong\s*tin\s*nhu\s*cu)/i.test(normText);
 
   if (hasUseMyInfo && userProfile?.email) {
     attendees.push({
@@ -493,7 +506,7 @@ function extractAttendeesFromText(text, userProfile = null) {
     if (m && m.length === 1) {
       if (/(?:email|mail).*(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi)/i.test(lNorm) ||
           /(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi).*(?:email|mail)/i.test(lNorm) ||
-          /(?:dung\s*chung|ghi\s*chung)\s*(?:email|mail)/i.test(lNorm)) {
+          /(?:dung\s*chung|ghi\s*chung|gui\s*(?:het\s*)?(?:ve\s*)?|chung\s*(?:1\s*)?)\s*(?:email|mail)/i.test(lNorm)) {
         sharedEmail = m[0].trim();
         break;
       }
@@ -505,8 +518,10 @@ function extractAttendeesFromText(text, userProfile = null) {
     const lNorm = normalizeText(line);
     if (!lNorm) return true;
     if (/(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi/i.test(lNorm)) return true;
-    if (/^(?:email|mail|sdt|so\s*dien\s*thoai|phone|suat|ve|hang|tong)\b/i.test(lNorm)) return true;
-    if (/^\d+\s*ve\b/i.test(lNorm)) return true;
+    if (/^(?:email|mail|sdt|so\s*dien\s*thoai|phone|zalo|dt|tel|suat|ve|hang|tong)\b/i.test(lNorm)) return true;
+    if (/^(?:\d+\s*)?(?:ve|nguoi|dua|ban|slot|cho|ghe)\b/i.test(lNorm)) return true;
+    if (/^(?:info|tt|thong\s*tin|ds|danh\s*sach|nguoi\s*di|khach|dua\s*tui|nguoi\s*tui)\b/i.test(lNorm)) return true;
+    if (/(?:ne|nha|ah|ạ|a|nhen)$/i.test(lNorm) && /(?:dua|nguoi|ban|slot|ve|info|tt)/i.test(lNorm)) return true;
     if (/(?:gom|sau\s*day|danh\s*sach|cac\s*loai\s*ve|thong\s*tin)\s*[:\-]?$/i.test(lNorm)) return true;
     return false;
   };
@@ -518,10 +533,13 @@ function extractAttendeesFromText(text, userProfile = null) {
     return str
       .replace(emailRegex, '')
       .replace(phoneRegex, '')
+      .replace(/^(?:(?:info|tt|thong\s*tin|danh\s*sach|nguoi\s*di|ve|khach)\s*[^:\-–\n]*[:\-–]\s*)/gi, '')
       .replace(/^(?:[\d\.\-\*\•\)\:]|v[eé]\s*\d*|ng[uư][oờ]i\s*\d*|\-|\:)+/gi, '')
-      .replace(/^(?:h[oọ]\s*(?:v[aà]\s*)?t[eê]n|t[eê]n|kh[aá]ch|ng[uư][oờ]i\s*(?:tham\s*gia)?)\s*[:\-]?\s*/gi, '')
-      .replace(/(?:email|mail|sdt|s[oố]\s*đi[eệ]n\s*tho[aạ]i|phone)\s*[:\-]?\s*.*$/gi, '')
+      .replace(/^\s*(?:h[oọ]\s*(?:v[aà]\s*)?t[eê]n|t[eê]n|kh[aá]ch|ng[uư][oờ]i\s*(?:tham\s*gia)?)\s*[:\-]?\s*/gi, '')
+      .replace(/^\s*(?:anh|ch[iị]|em|b[aạ]n)\s+(?=[^\s]+\s+[^\s]+)/i, '')
+      .replace(/(?:email|mail|sdt|s[oố]\s*đi[eệ]n\s*tho[aạ]i|phone|zalo|dt)\s*[:\-]?\s*.*$/gi, '')
       .replace(/[\(\)\[\],\-–:]+/g, ' ')
+      .replace(/\b(?:nha|nhe|nhen|nhé|sóp|sop|shop|ad|admin)\s*$/gi, '')
       .trim();
   };
 
@@ -532,8 +550,8 @@ function extractAttendeesFromText(text, userProfile = null) {
     if (!lNorm) return false;
     if (isSectionOrMetaLine(candidate)) return false;
 
-    // Reject conversational, inquiry, and ticket booking words
-    const chatWordsRegex = /\b(muon|dat|mua|ban|ve|suat|cho|ghe|tim|kiem|hoi|xem|co|khong|gi|nao|sao|bao\s*nhieu|the\s*nao|su\s*kien|show|kich|hat|nhac|ca\s*si|ca\s*nhac|rap|gia|tien|vnd|dong|alo|chao|xin\s*chao|eve|tro\s*ly|ad|admin|nhe|nha|da|vang|ok|duoc|cam\s*on|thank|thanks|lien\s*he|sdt|so\s*dien\s*thoai|email|mail|thong\s*tin|dia\s*chi|thoi\s*gian|ngay|gio|phut|thang|nam|linh\s*vuc|the\s*loai|danh\s*sach|chi\s*tiet|ngoai\s*truyen|san\s*khau|idecaf|theater|theatre|concert|festival|workshop)\b/i;
+    // Reject conversational, inquiry, and ticket booking words that are NOT common Vietnamese names
+    const chatWordsRegex = /\b(muon|mua|ve|suat|cho|ghe|tim|kiem|hoi|xem|co|khong|gi|nao|sao|bao\s*nhieu|the\s*nao|su\s*kien|show|kich|hat|nhac|ca\s*si|ca\s*nhac|rap|vnd|alo|chao|xin\s*chao|eve|tro\s*ly|ad|admin|nhe|da|vang|ok|duoc|cam\s*on|thank|thanks|lien\s*he|sdt|so\s*dien\s*thoai|email|mail|thong\s*tin|dia\s*chi|thoi\s*gian|linh\s*vuc|the\s*loai|danh\s*sach|chi\s*tiet|ngoai\s*truyen|san\s*khau|idecaf|theater|theatre|concert|festival|workshop|(?:dat\s*ve|dat\s*cho|dat\s*hang|nguoi\s*dat)|(?:tien\s*ve|tong\s*tien|chuyen\s*tien|thanh\s*tien|bao\s*nhieu\s*tien|gia\s*tien|hoan\s*tien)|(?:gia\s*ve|gia\s*tien|muc\s*gia|bao\s*gia|ha\s*gia|tang\s*gia|bang\s*gia)|(?:dong\s*tien|dong\s*gia|\d+\s*dong)|(?:thang\s*\d+|thang\s*sau|thang\s*nay|thang\s*toi|thang\s*truoc)|(?:ban\s*ve|ban\s*oi|nguoi\s*ban))\b/i;
     if (chatWordsRegex.test(lNorm)) return false;
 
     // Names in VN or INT are 2 to 5 words
@@ -554,7 +572,7 @@ function extractAttendeesFromText(text, userProfile = null) {
 
     // If this line is the shared email declaration, mark it processed so it's not treated as a person's name
     if (sharedEmail && line.toLowerCase().includes(sharedEmail.toLowerCase())) {
-      if (/(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi|ghi\s*chung|dung\s*chung)/i.test(lNorm)) {
+      if (/(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi|ghi\s*chung)/i.test(lNorm) || /^(?:email|mail)\s*[:\-]/i.test(lNorm)) {
         processedLineIndices.add(i);
         continue;
       }
@@ -585,7 +603,7 @@ function extractAttendeesFromText(text, userProfile = null) {
         if (!phoneMatch && i + 1 < lines.length && !processedLineIndices.has(i + 1)) {
           const nextL = lines[i + 1];
           const nextMatch = nextL.match(/(?:(?:\+84|84|0)[35789]\d{8}|0\d{9,10})\b/);
-          if (nextMatch && /(?:sdt|phone|so\s*dien\s*thoai|dien\s*thoai|tel)/i.test(normalizeText(nextL))) {
+          if (nextMatch && (/(?:sdt|phone|so\s*dien\s*thoai|dien\s*thoai|tel|zalo|dt|lh|lien\s*he)/i.test(normalizeText(nextL)) || nextL.trim() === nextMatch[0])) {
             phoneMatch = nextMatch;
             processedLineIndices.add(i + 1);
           }
@@ -624,6 +642,7 @@ function extractAttendeesFromText(text, userProfile = null) {
     if (processedLineIndices.has(i)) continue;
     const line = lines[i];
     if (emailRegex.test(line)) continue;
+    if (isSectionOrMetaLine(line)) continue;
 
     // Must look like a bullet item, numbered item, or person label, OR be sent in a message declaring a shared email
     const isBulletOrNumbered = /^[\-\*\•\+]\s+|\b(?:ng[uư][oờ]i|khach|v[eé])\s*\d*[\:\-]?|^\d+[\.\)]\s+/i.test(line);
@@ -679,41 +698,46 @@ function detectEventChangeIntent(message) {
   if (!message) return { isChange: false, isCancelOnly: false, targetQuery: '' };
   const norm = normalizeText(message);
 
-  // If user is just changing seats, rows, or ticket tiers within the same event, NOT an event change:
+  // If user is just changing seats, rows, session/showtimes, or ticket tiers within the same event, NOT an event change:
   const isSeatOrTierOnly = (
     /(?:hang|day|row)\s*(?:ghe\s*)?[a-z\d]/i.test(norm) ||
-    /(?:doi|chuyen|sang|chon)\s*(?:sang\s*)?(?:hang|day|row|ghe|vi\s*tri|cho\s*ngoi)\b/i.test(norm) ||
+    /(?:doi|chuyen|sang|chon)\s*(?:sang\s*|len\s*|xuong\s*)?(?:hang|day|row|ghe|vi\s*tri|cho\s*ngoi)\b/i.test(norm) ||
     /(?:ghe|hang|day|cho\s*ngoi|vi\s*tri)\s*khac\b/i.test(norm) ||
+    /(?:doi|chuyen)\s*(?:sang\s*|qua\s*)?(?:suat|ca|buoi|ngay|khung\s*gio|gio\s*chieu)\b/i.test(norm) ||
+    /(?:suat|ca|khung\s*gio|gio\s*chieu)\s*khac\b/i.test(norm) ||
+    /(?:huy|bo|xoa)\s*(?:ghe|cho|hang|suat|\d+\s*ve|bot\s*\d+\s*ve)\b/i.test(norm) ||
+    /(?:bot|giam)\s*(?:\d+\s*)?(?:ve|cho|slot)\b/i.test(norm) ||
     /(?:doi|chuyen)\s*(?:sang\s*)?(?:\d+\s*)?(?:ve\s*)?(?:vip|vvip|svip|regular|standard|eco|economy|premium|ga|early\s*bird|thuong|tieu chuan|pho thong|dong|bac|vang|kim cuong)\b/i.test(norm) ||
-    /(?:doi|chuyen)\s*(?:sang\s*)?(?:loai\s*ve|hang\s*ve|khu\s*vuc)\b/i.test(norm) ||
-    /(?:doi|chuyen)\s*(?:thanh|sang)?\s*\d+\s*(?:ve|cho|ghe)\b/i.test(norm)
+    /(?:doi|chuyen)\s*(?:sang\s*)?(?:loai\s*ve|hang\s*ve|khu\s*vuc|ve\s*re|ve\s*dat)\b/i.test(norm) ||
+    /(?:doi|chuyen)\s*(?:thanh|sang)?\s*\d+\s*(?:ve|cho|ghe|slot)\b/i.test(norm) ||
+    /(?:re\s*hon|dat\s*hon|gan\s*san\s*khau|xa\s*san\s*khau)/i.test(norm)
   );
 
   // 1. Pure cancellation:
   const isCancel = (
-    /(?:thoi\s*(?:toi|minh)?\s*(?:khong|dung)\s*(?:dat|mua)|huy\s*(?:dat\s*)?ve|dung\s*dat\s*ve|khong\s*(?:muon\s*)?(?:dat|mua)\s*(?:ve\s*)?(?:nay\s*)?nua|khong\s*mua\s*(?:nua\s*dau|nua)?|bo\s*qua\s*dat\s*ve)/i.test(norm)
+    /(?:thoi|thui)\s*(?:toi|minh|tui|e|em|k|ko|khong)?\s*(?:khong|dung|khoi|k|ko)?\s*(?:dat|mua|lay)|huy\s*(?:dat\s*)?ve|dung\s*dat\s*ve|khoi\s*(?:dat|mua)|khong\s*(?:muon\s*)?(?:dat|mua)\s*(?:ve\s*)?(?:nay\s*)?nua|khong\s*mua\s*(?:nua\s*dau|nua)?|(?:k|ko|khong)\s*(?:dat|mua)\s*(?:nua|nua\s*dau)?|bo\s*qua\s*(?:dat\s*ve|di)?|(?:thoi|thui)\s*dep\s*di|dep\s*di|bo\s*di\s*(?:ban|nhe)?|cancel\b|huy\s*keo|bung\s*keo|thoi\s*khoi\s*mua|thoi\s*khoi\s*dat/i.test(norm)
   );
 
   // 2. Explicit change event:
-  // "đổi sự kiện", "đổi sự kiện muốn đặt", "thay đổi sự kiện", "đổi sang sự kiện khác", "chọn sự kiện khác", "xem sự kiện khác", "tìm sự kiện khác", "quay lại chọn sự kiện"
+  // "đổi sự kiện", "đổi sự kiện muốn đặt", "thay đổi sự kiện", "đổi sang sự kiện khác", "chọn sự kiện khác", "xem sự kiện khác", "tìm sự kiện khác", "quay lại chọn sự kiện", "đổi qua show khác ik"
   const isExplicitChangeEvent = (
-    /(?:thay\s*doi|doi|chuyen|chon|xem|tim|quay\s*lai)\s*(?:sang\s*|qua\s*|lai\s*)?(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|concert|buoi\s*dien|danh\s*sach\s*su\s*kien)\s*(?:muon\s*dat|khac|moi)?\b/i.test(norm) ||
-    /(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|concert)\s*khac\b/i.test(norm) ||
-    /(?:khong\s*(?:muon\s*)?(?:dat|mua|xem)\s*(?:ve\s*)?(?:su\s*kien|show|vo|chuong\s*trinh)\s*(?:nay|do)?\s*nua)/i.test(norm) ||
+    /(?:thay\s*doi|doi|chuyen|chon|xem|tim|quay\s*lai)\s*(?:sang\s*|qua\s*|lai\s*)?(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|tuong|kich|concert|buoi\s*dien|ca\s*nhac|danh\s*sach\s*su\s*kien)\s*(?:muon\s*dat|khac|moi)?(?:\s*ik|\s*nha|\s*di|\s*nhen)?\b/i.test(norm) ||
+    /(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|tuong|kich|concert)\s*khac\b/i.test(norm) ||
+    /(?:khong|k|ko)\s*(?:muon\s*)?(?:dat|mua|xem)\s*(?:ve\s*)?(?:su\s*kien|show|vo|chuong\s*trinh)\s*(?:nay|do)?\s*nua/i.test(norm) ||
     /(?:huy\s*(?:dat\s*)?(?:su\s*kien|ve\s*su\s*kien)\s*(?:nay)?)/i.test(norm) ||
     /(?:doi\s*y\s*roi|khong\s*thich\s*su\s*kien\s*nay|tim\s*cai\s*khac)/i.test(norm) ||
     /(?:co\s*(?:su\s*kien|show|chuong\s*trinh)\s*nao\s*khac)/i.test(norm)
   );
 
   // 3. User says "đổi sang [event name/query]" or "chuyển sang [event name/query]":
-  const switchTargetMatch = message.match(/(?:đổi|chuyển|chọn)\s*(?:sang|qua)\s*(?:sự\s*kiện|show|chương\s*trình|vở\s*kịch|concert|buổi\s*diễn)?\s*(.+)/i) ||
-    norm.match(/(?:doi|chuyen|chon)\s*(?:sang|qua)\s*(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|concert|buoi\s*dien)?\s*(.+)/i);
+  const switchTargetMatch = message.match(/(?:đổi|chuyển|chọn)\s*(?:sang|qua)\s*(?:sự\s*kiện|show|chương\s*trình|vở\s*kịch|tuồng|kịch|ca\s*nhạc|concert|buổi\s*diễn)?\s*(.+)/i) ||
+    norm.match(/(?:doi|chuyen|chon)\s*(?:sang|qua)\s*(?:su\s*kien|show|chuong\s*trinh|vo\s*kich|tuong|kich|ca\s*nhac|concert|buoi\s*dien)?\s*(.+)/i);
 
   let targetQuery = '';
   if (switchTargetMatch && !isSeatOrTierOnly) {
     let candidate = switchTargetMatch[1].trim();
-    candidate = candidate.replace(/^(?:xem|coi|dat|mua)\s+/i, '').trim();
-    if (!/^(hàng|dãy|ghế|vé|loại|hạng|khu|khác|\d+|vip|vvip|svip|regular|standard|eco|premium|ga|early\s*bird|tiêu\s*chuẩn|phổ\s*thông|thường|đồng|bạc|vàng|kim\s*cương)/i.test(candidate)) {
+    candidate = candidate.replace(/^(?:xem|coi|dat|mua|kich|vo\s*kich|tuong)\s+/i, '').trim();
+    if (!/^(hàng|dãy|ghế|vé|loại|hạng|khu|suất|ca|buổi|ngày|khác|\d+|vip|vvip|svip|regular|standard|eco|premium|ga|early\s*bird|tiêu\s*chuẩn|phổ\s*thông|thường|đồng|bạc|vàng|kim\s*cương)/i.test(candidate)) {
       targetQuery = candidate;
     }
   }
@@ -821,6 +845,48 @@ function findMatchingSession(messageOrQuery, sessions = []) {
     }
   }
 
+  // 4b. Weekend match: "cuối tuần" (Saturday or Sunday)
+  if (/\bcuoi\s*tuan\b/i.test(norm)) {
+    const matched = sessions.find(s => {
+      const sDate = getSessionDate(s.start_time);
+      return sDate && (sDate.dow === 6 || sDate.dow === 0);
+    });
+    if (matched) return matched;
+  }
+
+  // 4c. Time of day match: "suất tối", "buổi chiều", "suất sáng"
+  if (/(?:suat|buoi|ca)\s*toi\b/i.test(norm)) {
+    const matched = sessions.find(s => {
+      const sNorm = normalizeText(s.session_name || '');
+      if (/(?:toi|dem)/i.test(sNorm)) return true;
+      const m = String(s.start_time || '').match(/T(\d{2}):/);
+      return m && parseInt(m[1], 10) >= 18;
+    });
+    if (matched) return matched;
+  }
+
+  if (/(?:suat|buoi|ca)\s*chieu\b/i.test(norm)) {
+    const matched = sessions.find(s => {
+      const sNorm = normalizeText(s.session_name || '');
+      if (/chieu/i.test(sNorm)) return true;
+      const m = String(s.start_time || '').match(/T(\d{2}):/);
+      if (!m) return false;
+      const h = parseInt(m[1], 10);
+      return h >= 12 && h < 18;
+    });
+    if (matched) return matched;
+  }
+
+  if (/(?:suat|buoi|ca)\s*sang\b/i.test(norm)) {
+    const matched = sessions.find(s => {
+      const sNorm = normalizeText(s.session_name || '');
+      if (/sang/i.test(sNorm)) return true;
+      const m = String(s.start_time || '').match(/T(\d{2}):/);
+      return m && parseInt(m[1], 10) < 12;
+    });
+    if (matched) return matched;
+  }
+
   // 5. Session name / keyword match (e.g. "Gala", "chung kết", session_name)
   const sessionStopWords = new Set([
     'suat', 'buoi', 'ngay', 'dem', 'toi', 'minh', 'cho', 'muon', 'chieu', 'sang', 'chuyen', 'doi', 'xem', 'lay', 'dat', 've', 'cac', 'co'
@@ -879,7 +945,7 @@ function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
   // 1b. Direct subtitle / artist / distinct phrase match:
   const strippedInput = normInput.replace(/^(su\s*kien|show|chuong\s*trinh|vo\s*kich|concert|buoi\s*dien|ve)\s*/i, '').trim();
   const isGenericCategoryQuery = (
-    /^(ca\s*nhac|am\s*nhac|nhac|kich|hai\s*kich|kich\s*noi|san\s*khau|hoi\s*thao|giao\s*duc|workshop|the\s*thao|le\s*hoi|van\s*hoa|trien\s*lam|hoi\s*cho)$/i.test(strippedInput) ||
+    /^(?:ca\s*nhac|am\s*nhac|nhac|kich|hai\s*kich|kich\s*noi|san\s*khau|hoi\s*thao|giao\s*duc|workshop|the\s*thao|le\s*hoi|van\s*hoa|trien\s*lam|hoi\s*cho)$/i.test(strippedInput) ||
     /^(?:cac|nhung|tim|goi\s*y|xem|co)?\s*(?:su\s*kien|show|chuong\s*trinh|hoat\s*dong)?\s*(?:ve|lien\s*quan\s*den)?\s*(?:ca\s*nhac|am\s*nhac|nhac|kich|hai\s*kich|kich\s*noi|san\s*khau|hoi\s*thao|giao\s*duc|workshop|the\s*thao|le\s*hoi|van\s*hoa|trien\s*lam|hoi\s*cho)(?:\s*(?:nao|gi|hay|hot|moi|sap\s*toi|khong|a|nhi|the))?$/i.test(normInput)
   );
   if (isGenericCategoryQuery) {
@@ -2241,6 +2307,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
     let hasSeatMap = false;
     let eventDetail = null;
     let sessionList = [];
+    let activeSessionId = '';
 
     if (activeEvent) {
       let sessionText = '';
@@ -2263,7 +2330,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
       }
 
       const matchedSession = findMatchingSession(message, sessionList);
-      const activeSessionId = matchedSession?.id || sessionList[0]?.id || '';
+      activeSessionId = matchedSession?.id || sessionList[0]?.id || '';
 
       const sessionCount = sessionList.length;
       const activeEventDesc = stripHtml(eventDetail?.description || activeEvent.description || '');
@@ -2974,7 +3041,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         logger.info(`[AgentLoop] Auto-triggering proposeSmartBooking because user requested autonomous booking but model skipped tool call.`);
         await this.executeTool(userId, 'proposeSmartBooking', {
           eventId: activeEvent.slug,
-          sessionId: activeSessionId || (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
           quantity: effAutoQty,
           preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
           ticketTypeId: targetTier?.id || null,
@@ -3006,7 +3073,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         logger.info(`[AgentLoop] Auto-triggering generatePrefillBookingAction (hasSeatMap=${hasSeatMap}, qty=${autoPrefillQty}) because all requirements are met but model skipped tool call.`);
         await this.executeTool(userId, 'generatePrefillBookingAction', {
           eventId: activeEvent.slug,
-          sessionId: activeSessionId || (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
           quantity: autoPrefillQty
         }, toolExecutionContext);
       }
