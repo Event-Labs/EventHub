@@ -233,7 +233,7 @@ export function NotificationsPage() {
   const filteredNotifications = displayNotifications
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 xl:px-12 lg:py-10">
+    <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 xl:px-12 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <SectionHeader
         title="Trung tâm thông báo"
         description="Theo dõi cập nhật sự kiện, thanh toán và lời mời dành cho bạn."
