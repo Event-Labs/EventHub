@@ -6,6 +6,7 @@ try {
 } catch (e) {}
 
 const express = require('express');
+const path = require('path');
 const cookieParser = require('cookie-parser');
 const securityMiddlewares = require('./middlewares/security.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -46,6 +47,7 @@ const operationsRoutes = require('./modules/operations/operations.routes');
 const ApiResponse = require('./core/response/ApiResponse');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Security Middlewares
 securityMiddlewares(app);

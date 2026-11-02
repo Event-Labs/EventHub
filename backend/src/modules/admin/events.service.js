@@ -1710,6 +1710,7 @@ Hãy đối chiếu toàn bộ thông tin sự kiện và kết quả phân tíc
         temperature: 0.15,
         max_tokens: 1100,
         num_ctx: ollamaClient.OLLAMA_NUM_CTX,
+        timeoutMs: ollamaClient.OLLAMA_TIMEOUT,
         signal: effectiveSignal,
       });
 

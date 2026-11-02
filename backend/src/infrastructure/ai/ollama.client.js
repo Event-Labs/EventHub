@@ -27,7 +27,7 @@ const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process
 /**
  * Base fetch wrapper with timeout and external cancellation support.
  */
-async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 1, externalSignal = null) {
+async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 0, externalSignal = null) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -64,6 +64,9 @@ async function ollamaFetch(path, body, timeoutMs = OLLAMA_TIMEOUT, retries = 1, 
         abortErr.name = 'AbortError';
         abortErr.code = 'SCAN_CANCELLED';
         throw abortErr;
+      }
+      if (controller.signal.aborted) {
+        throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
       }
       if (err.name === 'AbortError') {
         throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
@@ -121,6 +124,7 @@ async function generate(prompt, options = {}) {
       num_batch: options.num_batch ?? OLLAMA_NUM_BATCH,
       ...(options.num_gpu !== undefined ? { num_gpu: options.num_gpu } : (OLLAMA_NUM_GPU ? { num_gpu: OLLAMA_NUM_GPU } : {})),
     },
+
   };
 
   if (Array.isArray(options.images) && options.images.length > 0) {
@@ -195,8 +199,10 @@ async function chat(messages, options = {}) {
   }
 
   let result;
+  const timeoutMs = options.timeoutMs || OLLAMA_TIMEOUT;
+  const retries = options.retries ?? 0;
   try {
-    result = await ollamaFetch('/api/chat', body, OLLAMA_TIMEOUT, 1, options.signal);
+    result = await ollamaFetch('/api/chat', body, timeoutMs, retries, options.signal);
   } catch (err) {
     if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || options.signal?.aborted) {
       throw err;
@@ -206,7 +212,7 @@ async function chat(messages, options = {}) {
       logger.info(`[OllamaClient] Model '${model}' does not support raw images input. Retrying with text-only payload.`);
       const textOnlyMessages = processedMessages.map(({ images, ...rest }) => rest);
       const textOnlyBody = { ...body, messages: textOnlyMessages };
-      result = await ollamaFetch('/api/chat', textOnlyBody, OLLAMA_TIMEOUT, 1, options.signal);
+      result = await ollamaFetch('/api/chat', textOnlyBody, timeoutMs, retries, options.signal);
     } else {
       throw err;
     }
@@ -516,7 +522,7 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
     ? 'Examine this official document image in detail. Identify the document type, read the issuing authority name, decision number, organization name, effective dates, venue location, and look for official seals or signatures.'
     : 'Describe what you see in this event image in detail. Read any visible text, title, date, location, performers, and describe the background and visual style.');
 
-  const body = {
+    const body = {
     model: OLLAMA_VISION_MODEL,
     prompt,
     images: [base64Image],
@@ -526,8 +532,8 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
       temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
       repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
       num_predict: 250,
+      num_ctx: 2048,
       num_thread: OLLAMA_NUM_THREAD,
-      num_gpu: 99,           // Moondream chỉ 1.7GB, đưa 100% vào GPU VRAM (4GB) để xử lý ảnh cực nhanh
       num_batch: 512,
     },
   };
@@ -620,6 +626,8 @@ module.exports = {
   describeImageBatch,
   OLLAMA_MODEL,
   OLLAMA_VISION_MODEL,
+  OLLAMA_TIMEOUT,
+  OLLAMA_VISION_TIMEOUT,
   OLLAMA_NUM_CTX,
   OLLAMA_NUM_THREAD,
   OLLAMA_NUM_BATCH,
