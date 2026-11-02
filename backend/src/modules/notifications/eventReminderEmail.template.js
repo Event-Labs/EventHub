@@ -89,9 +89,24 @@ function formatVenueAddress(input = {}) {
   return result;
 }
 
+const EVENTHUB_LOGO_URL = 'https://res.cloudinary.com/dookztwec/image/upload/v1793597424/eventhub/brand/eventhub_logo.png';
+
+const REMINDER_EMAIL_ICONS = {
+  logo: EVENTHUB_LOGO_URL,
+  calendar: 'https://res.cloudinary.com/dookztwec/image/upload/v1793597621/eventhub/icons/icon_calendar.png',
+  clock: 'https://res.cloudinary.com/dookztwec/image/upload/v1793597622/eventhub/icons/icon_clock.png',
+  mapPin: 'https://res.cloudinary.com/dookztwec/image/upload/v1793597624/eventhub/icons/icon_map_pin.png',
+  check: 'https://res.cloudinary.com/dookztwec/image/upload/v1793597626/eventhub/icons/icon_check.png',
+  ticket: 'https://res.cloudinary.com/dookztwec/image/upload/v1793597628/eventhub/icons/icon_ticket.png',
+  clipboard: 'https://res.cloudinary.com/dookztwec/image/upload/v1793597632/eventhub/icons/icon_clipboard.png',
+};
+
 function getLogoUrl() {
-  const clientUrl = String(env.CLIENT_URL || 'https://eventhub.com').replace(/\/$/, '');
-  return `${clientUrl}/images/LogoEH.png`;
+  if (process.env.EVENTHUB_LOGO_URL) return process.env.EVENTHUB_LOGO_URL;
+  if (env.CLIENT_URL && !env.CLIENT_URL.includes('localhost') && !env.CLIENT_URL.includes('127.0.0.1')) {
+    return `${String(env.CLIENT_URL).replace(/\/$/, '')}/images/LogoEH.png`;
+  }
+  return EVENTHUB_LOGO_URL;
 }
 
 function buildEventReminderHtml(data) {
@@ -197,10 +212,14 @@ function buildEventReminderHtml(data) {
         <!-- Row 1: NGÀY DIỄN RA -->
         <table width="100%" cellpadding="12" cellspacing="0" border="0" style="border-bottom: 1px solid #f1f5f9;">
           <tr>
-            <td width="36" style="vertical-align: top; padding-left: 0;">
-              <div style="width: 36px; height: 36px; border-radius: 9px; background-color: #e0e7ff; text-align: center; line-height: 36px; font-size: 18px;">
-                📅
-              </div>
+            <td width="40" style="vertical-align: top; padding-left: 0;">
+              <table cellpadding="0" cellspacing="0" border="0" width="38" height="38" style="width: 38px; height: 38px; border-radius: 10px; background-color: #eff6ff; border: 1px solid #dbeafe;">
+                <tr>
+                  <td align="center" valign="middle">
+                    <img src="${REMINDER_EMAIL_ICONS.calendar}" width="20" height="20" alt="Ngày" style="display: block; width: 20px; height: 20px; border: 0;" />
+                  </td>
+                </tr>
+              </table>
             </td>
             <td style="vertical-align: middle; padding-right: 0;">
               <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase;">
@@ -216,10 +235,14 @@ function buildEventReminderHtml(data) {
         <!-- Row 2: THỜI GIAN -->
         <table width="100%" cellpadding="12" cellspacing="0" border="0" style="border-bottom: 1px solid #f1f5f9;">
           <tr>
-            <td width="36" style="vertical-align: top; padding-left: 0;">
-              <div style="width: 36px; height: 36px; border-radius: 9px; background-color: #e0e7ff; text-align: center; line-height: 36px; font-size: 18px;">
-                ⏰
-              </div>
+            <td width="40" style="vertical-align: top; padding-left: 0;">
+              <table cellpadding="0" cellspacing="0" border="0" width="38" height="38" style="width: 38px; height: 38px; border-radius: 10px; background-color: #eff6ff; border: 1px solid #dbeafe;">
+                <tr>
+                  <td align="center" valign="middle">
+                    <img src="${REMINDER_EMAIL_ICONS.clock}" width="20" height="20" alt="Thời gian" style="display: block; width: 20px; height: 20px; border: 0;" />
+                  </td>
+                </tr>
+              </table>
             </td>
             <td style="vertical-align: middle; padding-right: 0;">
               <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase;">
@@ -238,10 +261,14 @@ function buildEventReminderHtml(data) {
         <!-- Row 3: ĐỊA ĐIỂM -->
         <table width="100%" cellpadding="12" cellspacing="0" border="0">
           <tr>
-            <td width="36" style="vertical-align: top; padding-left: 0;">
-              <div style="width: 36px; height: 36px; border-radius: 9px; background-color: #e0e7ff; text-align: center; line-height: 36px; font-size: 18px;">
-                📍
-              </div>
+            <td width="40" style="vertical-align: top; padding-left: 0;">
+              <table cellpadding="0" cellspacing="0" border="0" width="38" height="38" style="width: 38px; height: 38px; border-radius: 10px; background-color: #eff6ff; border: 1px solid #dbeafe;">
+                <tr>
+                  <td align="center" valign="middle">
+                    <img src="${REMINDER_EMAIL_ICONS.mapPin}" width="20" height="20" alt="Địa điểm" style="display: block; width: 20px; height: 20px; border: 0;" />
+                  </td>
+                </tr>
+              </table>
             </td>
             <td style="vertical-align: middle; padding-right: 0;">
               <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase;">
@@ -261,20 +288,35 @@ function buildEventReminderHtml(data) {
 
       <!-- Checklist Box (Trước khi tham dự) -->
       <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 14px; padding: 16px 18px; margin-bottom: 24px;">
-        <div style="font-size: 14px; font-weight: 800; color: #92400e; margin-bottom: 10px; display: flex; align-items: center;">
-          📋 Trước khi tham dự
-        </div>
+        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+          <tr>
+            <td style="vertical-align: middle; padding-right: 8px;">
+              <img src="${REMINDER_EMAIL_ICONS.clipboard}" width="16" height="16" alt="" style="display: block; width: 16px; height: 16px;" />
+            </td>
+            <td style="vertical-align: middle;">
+              <span style="font-size: 13px; font-weight: 800; color: #92400e; letter-spacing: 0.5px; text-transform: uppercase;">
+                Lưu ý trước khi tham dự
+              </span>
+            </td>
+          </tr>
+        </table>
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size: 13px; color: #78350f; line-height: 1.6;">
           <tr>
-            <td width="20" style="vertical-align: top; padding-bottom: 6px;">✔</td>
-            <td style="padding-bottom: 6px;">Mở vé điện tử và chuẩn bị mã QR để check-in.</td>
+            <td width="24" style="vertical-align: top; padding-bottom: 8px;">
+              <img src="${REMINDER_EMAIL_ICONS.check}" width="16" height="16" alt="•" style="display: block; margin-top: 3px; width: 16px; height: 16px;" />
+            </td>
+            <td style="padding-bottom: 8px;">Mở vé điện tử và chuẩn bị mã QR để check-in.</td>
           </tr>
           <tr>
-            <td width="20" style="vertical-align: top; padding-bottom: 6px;">✔</td>
-            <td style="padding-bottom: 6px;">Kiểm tra thời gian và địa điểm trên vé của bạn.</td>
+            <td width="24" style="vertical-align: top; padding-bottom: 8px;">
+              <img src="${REMINDER_EMAIL_ICONS.check}" width="16" height="16" alt="•" style="display: block; margin-top: 3px; width: 16px; height: 16px;" />
+            </td>
+            <td style="padding-bottom: 8px;">Kiểm tra thời gian và địa điểm trên vé của bạn.</td>
           </tr>
           <tr>
-            <td width="20" style="vertical-align: top;">✔</td>
+            <td width="24" style="vertical-align: top;">
+              <img src="${REMINDER_EMAIL_ICONS.check}" width="16" height="16" alt="•" style="display: block; margin-top: 3px; width: 16px; height: 16px;" />
+            </td>
             <td>Đến sớm để có đủ thời gian hoàn tất thủ tục vào cửa.</td>
           </tr>
         </table>
@@ -282,8 +324,9 @@ function buildEventReminderHtml(data) {
 
       <!-- Action Button (Mobile-friendly, large touch area) -->
       <div style="text-align: center; margin: 24px 0 10px;">
-        <a href="${escapeHtml(finalTicketLink)}" target="_blank" rel="noopener noreferrer" style="display: block; width: 100%; box-sizing: border-box; background-color: #1e3a8a; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 800; padding: 14px 20px; border-radius: 10px; text-align: center; box-shadow: 0 4px 14px rgba(30, 58, 138, 0.35);">
-          🎟️ Xem vé điện tử của tôi &nbsp;›
+        <a href="${escapeHtml(finalTicketLink)}" target="_blank" rel="noopener noreferrer" style="display: block; width: 100%; box-sizing: border-box; background-color: #1e3a8a; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 800; padding: 14px 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 14px rgba(30, 58, 138, 0.35);">
+          <img src="${REMINDER_EMAIL_ICONS.ticket}" width="18" height="18" alt="" style="display: inline-block; vertical-align: -3px; margin-right: 8px; width: 18px; height: 18px;" />
+          Xem vé điện tử của tôi &nbsp;›
         </a>
         <p style="margin: 8px 0 0; font-size: 11px; color: #94a3b8; text-align: center;">
           Nút này liên kết tới trang chi tiết vé của người nhận.
