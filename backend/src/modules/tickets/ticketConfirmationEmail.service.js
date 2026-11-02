@@ -21,8 +21,14 @@ function qrUrl(ticket) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=2&data=${encodeURIComponent(payload)}`;
 }
 
+const DEFAULT_LOGO_URL = 'https://res.cloudinary.com/dookztwec/image/upload/v1793597424/eventhub/brand/eventhub_logo.png';
+
 function logoUrl() {
-  return `${String(env.CLIENT_URL || '').replace(/\/$/, '')}/images/LogoEH.png`;
+  if (process.env.EVENTHUB_LOGO_URL) return process.env.EVENTHUB_LOGO_URL;
+  if (env.CLIENT_URL && !env.CLIENT_URL.includes('localhost') && !env.CLIENT_URL.includes('127.0.0.1')) {
+    return `${String(env.CLIENT_URL).replace(/\/$/, '')}/images/LogoEH.png`;
+  }
+  return DEFAULT_LOGO_URL;
 }
 
 function ticketCard(ticket, order, options = {}) {
