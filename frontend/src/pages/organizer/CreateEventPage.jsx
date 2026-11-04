@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers } from 'lucide-react'
 import { fetchEventCategories } from '@/services/events.js'
 import {
@@ -3574,6 +3574,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
 export function CreateEventPage() {
   const toast = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
   const { eventId: routeEventId } = useParams()
   const [currentStep, setCurrentStep] = useState(1)
   const [maxCompletedStep, setMaxCompletedStep] = useState(1)
@@ -3595,6 +3596,17 @@ export function CreateEventPage() {
   const [aiDraftBanner, setAiDraftBanner] = useState(false)
 
   const isEditMode = Boolean(routeEventId)
+
+  useEffect(() => {
+    if (location.state?.message) {
+      toast.success(location.state.message)
+      window.history.replaceState({}, document.title)
+    }
+    if (location.state?.error) {
+      toast.error(location.state.error)
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state, toast])
   const completeness = useMemo(() => calculateEventCompleteness(formData), [formData])
   const pageTopRef = useRef(null)
 
@@ -3642,7 +3654,8 @@ export function CreateEventPage() {
       .then(([cats, vns, plan]) => {
         setCategories(cats)
         setVenues(vns)
-        if (!plan) setSubscriptionRequired(true)
+        const hasActivePlan = Boolean(plan?.active && plan?.plan)
+        if (!hasActivePlan) setSubscriptionRequired(true)
       })
       .catch((err) => {
         console.error(err)
@@ -4413,7 +4426,7 @@ export function CreateEventPage() {
     setPaymentSetupRequired(false)
 
     try {
-      if (isEditMode) {
+      if (eventId) {
         await updateOrganizerEvent(eventId, {
           title: formData.title,
           category_id: formData.category_id,
@@ -4434,6 +4447,21 @@ export function CreateEventPage() {
         await syncZoneAssignments()
       }
 
+      // Kiểm tra gói dịch vụ (Subscription) của Organizer trước khi gửi duyệt
+      const planRes = await fetchCurrentPlan().catch(() => null)
+      const hasActivePlan = Boolean(planRes?.active && planRes?.plan)
+      if (!hasActivePlan) {
+        setSubscriptionRequired(true)
+        toast.error('Tài khoản của bạn chưa đăng ký gói dịch vụ. Đang chuyển hướng sang trang mua gói...')
+        navigate('/organizer/subscriptions', {
+          state: {
+            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events',
+            message: 'Tài khoản chưa có gói dịch vụ hoạt động. Vui lòng mua hoặc kích hoạt gói dịch vụ để có thể gửi duyệt sự kiện.',
+          },
+        })
+        return
+      }
+
       await submitOrganizerEvent(eventId)
       navigate('/organizer/events', {
         state: { message: 'Đã gửi sự kiện để duyệt.' },
@@ -4444,6 +4472,8 @@ export function CreateEventPage() {
         console.error('[CreateEventPage handleSubmit] Backend Response:', JSON.stringify(err.response.data, null, 2))
       }
       const errorCode = err.response?.data?.errorCode
+      const errorMessage = err.response?.data?.message || ''
+
       if (errorCode === 'PAYOS_NOT_CONFIGURED') {
         setPaymentSetupRequired(true)
         navigate('/organizer/settings/payment', {
@@ -4454,6 +4484,25 @@ export function CreateEventPage() {
         })
         return
       }
+
+      if (
+        errorCode === 'SUBSCRIPTION_REQUIRED' ||
+        errorCode === 'STAFF_SUBSCRIPTION_REQUIRED' ||
+        errorMessage.includes('gói dịch vụ') ||
+        errorMessage.includes('mua hoặc gia hạn gói') ||
+        errorMessage.includes('nâng cấp gói')
+      ) {
+        setSubscriptionRequired(true)
+        toast.error(errorMessage || 'Tài khoản của bạn chưa có gói dịch vụ đang hoạt động. Đang chuyển hướng sang trang mua gói...')
+        navigate('/organizer/subscriptions', {
+          state: {
+            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events/create',
+            error: errorMessage || 'Tài khoản chưa có gói dịch vụ hoạt động. Vui lòng mua hoặc gia hạn gói để gửi duyệt sự kiện.',
+          },
+        })
+        return
+      }
+
       toast.error(getApiMessage(err, 'Không thể gửi sự kiện.'))
     } finally {
       setLoading(false)

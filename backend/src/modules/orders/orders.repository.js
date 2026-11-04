@@ -134,16 +134,20 @@ function buildAttendeeQueues(attendees = []) {
 
 class OrdersRepository {
   async ensureRequireAttendeeInfoColumn(client = db) {
+    if (this._requireAttendeeInfoChecked) return;
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+    this._requireAttendeeInfoChecked = true;
   }
 
   async ensureAttendeeInfoColumn(client = db) {
+    if (this._attendeeInfoChecked) return;
     await client.query(
       `
       ALTER TABLE order_items
       ADD COLUMN IF NOT EXISTS attendee_info JSONB NOT NULL DEFAULT '[]'::jsonb
       `,
     );
+    this._attendeeInfoChecked = true;
   }
 
   async expirePendingOrders() {
@@ -289,14 +293,28 @@ class OrdersRepository {
       const activeBlocks = Array.isArray(firstTicket.sales_blocks)
         ? firstTicket.sales_blocks.filter((b) => b && !b.released_at)
         : [];
-      if (firstTicket.sales_status === 'PAUSED' || activeBlocks.length > 0) {
+      const isPausedForItems =
+        firstTicket.sales_status === 'PAUSED' ||
+        activeBlocks.some((b) => {
+          if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+            return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          return true;
+        });
+      if (isPausedForItems) {
         const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
-        const reasons = activeBlocks
+        const relevantBlocks = activeBlocks.filter((b) => {
+          if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+            return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          return true;
+        });
+        const reasons = relevantBlocks
           .map((b) => b.metadata?.note || b.note || b.metadata?.reason)
           .filter((r) => r && !SYSTEM_CODES.includes(String(r).trim()))
           .join(', ');
         throw new AppError(
-          `Sự kiện đang tạm dừng bán vé${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
+          `Sự kiện hoặc loại vé đã chọn đang tạm dừng bán${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
           400,
           ErrorCodes.SALES_PAUSED,
         );
@@ -2687,8 +2705,16 @@ class OrdersRepository {
       const activeBlocks = Array.isArray(firstTicket.sales_blocks)
         ? firstTicket.sales_blocks.filter((b) => b && !b.released_at)
         : [];
-      if (firstTicket.sales_status === 'PAUSED' || activeBlocks.length > 0) {
-        throw new AppError('Sự kiện đang tạm dừng bán vé.', 400, ErrorCodes.SALES_PAUSED);
+      const isPausedForItems =
+        firstTicket.sales_status === 'PAUSED' ||
+        activeBlocks.some((b) => {
+          if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+            return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          return true;
+        });
+      if (isPausedForItems) {
+        throw new AppError('Sự kiện hoặc loại vé đã chọn đang tạm dừng bán.', 400, ErrorCodes.SALES_PAUSED);
       }
 
       const effectiveSalesStatus =
@@ -2717,43 +2743,13 @@ class OrdersRepository {
         throw new AppError('Sự kiện đã kết thúc, không thể lấy vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
       }
 
-      // Check Free Tickets Quota (max 2 per user per event, seating_rules override)
+      // Free tickets require logged in user
       const requestedFreeCount = items
         .filter((item) => Number(ticketTypeMap.get(item.ticket_type_id)?.price || 0) === 0)
         .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
-      const seatingRules =
-        typeof firstTicket.seating_rules === 'string'
-          ? JSON.parse(firstTicket.seating_rules)
-          : firstTicket.seating_rules || {};
-
-      if (requestedFreeCount > 0) {
-        if (!userId) {
-          throw new AppError('Vé miễn phí yêu cầu đăng nhập tài khoản.', 401, ErrorCodes.AUTH_REQUIRED);
-        }
-        const maxFreePerUser = Number(seatingRules?.max_free_tickets_per_user ?? 2);
-        const { rows: freeCountRows } = await client.query(
-          `
-          SELECT count(t.id)::int AS count
-          FROM tickets t
-          JOIN order_items oi ON oi.id = t.order_item_id
-          JOIN orders o ON o.id = oi.order_id
-          WHERE t.event_id = $1
-            AND o.user_id = $2
-            AND t.ticket_source = 'FREE'
-            AND t.status IN ('VALID', 'USED')
-          `,
-          [eventId, userId],
-        );
-        const existingFreeCount = Number(freeCountRows[0]?.count || 0);
-        if (existingFreeCount + requestedFreeCount > maxFreePerUser) {
-          const remaining = Math.max(0, maxFreePerUser - existingFreeCount);
-          throw new AppError(
-            `Bạn chỉ được nhận tối đa ${maxFreePerUser} vé miễn phí cho sự kiện này (bạn còn ${remaining} lượt khả dụng).`,
-            400,
-            ErrorCodes.ORDER_INVALID_ITEMS,
-          );
-        }
+      if (requestedFreeCount > 0 && !userId) {
+        throw new AppError('Vé miễn phí yêu cầu đăng nhập tài khoản.', 401, ErrorCodes.AUTH_REQUIRED);
       }
 
       // Subtotal calculation

@@ -24,6 +24,7 @@ const REQUEST_SELECT = `
   r.individual_id_back_url,
   r.individual_selfie_url,
   r.individual_tax_code,
+  r.kyc_ocr_data,
   r.terms_accepted,
   r.terms_accepted_at,
   r.request_action,
@@ -156,6 +157,7 @@ class OrganizerRequestsRepository {
     individualIdBackUrl,
     individualSelfieUrl,
     individualTaxCode,
+    kycOcrData = null,
     termsAccepted,
     requestAction = 'APPLICATION',
     changeSummary = null,
@@ -185,12 +187,13 @@ class OrganizerRequestsRepository {
         individual_id_back_url,
         individual_selfie_url,
         individual_tax_code,
+        kyc_ocr_data,
         terms_accepted,
         terms_accepted_at,
         request_action,
         change_summary
       )
-      VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $6 THEN now() ELSE NULL END, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, CASE WHEN $22 THEN now() ELSE NULL END, $23, $24)
+      VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $6 THEN now() ELSE NULL END, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23, CASE WHEN $23 THEN now() ELSE NULL END, $24, $25)
       RETURNING id
       `,
       [
@@ -215,6 +218,7 @@ class OrganizerRequestsRepository {
         individualIdBackUrl || null,
         individualSelfieUrl || null,
         individualTaxCode || null,
+        kycOcrData ? JSON.stringify(kycOcrData) : null,
         Boolean(termsAccepted),
         requestAction || 'APPLICATION',
         changeSummary || null,
@@ -246,6 +250,7 @@ class OrganizerRequestsRepository {
     individualIdBackUrl,
     individualSelfieUrl,
     individualTaxCode,
+    kycOcrData = null,
     termsAccepted,
   }) {
     const { rows } = await db.query(
@@ -273,6 +278,7 @@ class OrganizerRequestsRepository {
         individual_id_back_url = $20,
         individual_selfie_url = $21,
         individual_tax_code = $22,
+        kyc_ocr_data = COALESCE($24::jsonb, kyc_ocr_data),
         terms_accepted = $23,
         terms_accepted_at = CASE WHEN $23 THEN COALESCE(terms_accepted_at, now()) ELSE NULL END,
         status = 'PENDING',
@@ -309,6 +315,7 @@ class OrganizerRequestsRepository {
         individualSelfieUrl || null,
         individualTaxCode || null,
         Boolean(termsAccepted),
+        kycOcrData ? JSON.stringify(kycOcrData) : null,
       ],
     );
 
@@ -394,6 +401,7 @@ class OrganizerRequestsRepository {
           individual_id_back_url,
           individual_selfie_url,
           individual_tax_code,
+          kyc_ocr_data,
           terms_accepted,
           terms_accepted_at,
           request_action,
@@ -511,11 +519,12 @@ class OrganizerRequestsRepository {
             individual_id_back_url,
             individual_selfie_url,
             individual_tax_code,
+            kyc_ocr_data,
             terms_accepted,
             terms_accepted_at,
             status
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, 'ACTIVE')
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23, $24, 'ACTIVE')
           ON CONFLICT (user_id) DO UPDATE
           SET
             request_type = EXCLUDED.request_type,
@@ -537,6 +546,7 @@ class OrganizerRequestsRepository {
             individual_id_back_url = EXCLUDED.individual_id_back_url,
             individual_selfie_url = EXCLUDED.individual_selfie_url,
             individual_tax_code = EXCLUDED.individual_tax_code,
+            kyc_ocr_data = EXCLUDED.kyc_ocr_data,
             terms_accepted = EXCLUDED.terms_accepted,
             terms_accepted_at = EXCLUDED.terms_accepted_at,
             status = 'ACTIVE',
@@ -563,6 +573,7 @@ class OrganizerRequestsRepository {
             request.individual_id_back_url || null,
             request.individual_selfie_url || null,
             request.individual_tax_code || null,
+            request.kyc_ocr_data ? JSON.stringify(request.kyc_ocr_data) : null,
             Boolean(request.terms_accepted),
             request.terms_accepted_at || null,
           ],

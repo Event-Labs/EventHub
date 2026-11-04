@@ -5,20 +5,20 @@ import {
   ChevronRight,
   Eye,
   Loader2,
-  RefreshCw,
   Search,
   X,
 } from 'lucide-react'
 import { fetchOrganizerOrders, fetchOrganizerOrderDetail } from '@/services/organizerOrders.js'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import {
-  AvatarInitials,
   Badge,
   StatusBadge,
   TableActionButton,
   OrganizerPage,
   OrganizerPanel,
 } from './OrganizerComponents.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
+import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -135,10 +135,19 @@ export function OrganizerOrdersPage() {
     }
   }, [page, selectedEventId, selectedStatus, search])
 
-  // Load events for filter dropdown (only published events)
+  // Load events for filter dropdown (published, completed, or events with sales)
   useEffect(() => {
     fetchOrganizerEvents()
-      .then((data) => setEvents((data || []).filter((ev) => ev.status === 'PUBLISHED')))
+      .then((data) =>
+        setEvents(
+          (data || []).filter(
+            (ev) =>
+              ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(ev.status) ||
+              Number(ev.paid_orders_count || 0) > 0 ||
+              (ev.status !== 'DRAFT' && ev.status !== 'PENDING_REVIEW')
+          )
+        )
+      )
       .catch(() => setEvents([]))
   }, [])
 
@@ -189,41 +198,25 @@ export function OrganizerOrdersPage() {
             )}
           </form>
 
-          {/* Event filter */}
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-64"
-            value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-          >
-            <option value="" className="bg-[#0b1329] text-white">Tất cả sự kiện</option>
-            {events.map((ev) => (
-              <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">
-                {ev.title}
-              </option>
-            ))}
-          </select>
+          {/* Event filter with smart picker */}
+          <div className="w-full lg:w-72">
+            <OrganizerEventPicker
+              events={events}
+              selectedEventId={selectedEventId}
+              onSelectEvent={setSelectedEventId}
+              allowAll={true}
+              label={null}
+              placeholder="Tất cả sự kiện"
+            />
+          </div>
 
           {/* Status filter */}
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-52"
+          <CosmicSelect
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-          >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s.value} value={s.value} className="bg-[#0b1329] text-white">
-                {s.label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            className="org-btn-secondary flex items-center gap-2"
-            onClick={loadOrders}
-            disabled={loading}
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+            onChange={setSelectedStatus}
+            options={ORDER_STATUSES}
+            minWidth="min-w-[170px]"
+          />
         </div>
       </div>
 
@@ -267,15 +260,9 @@ export function OrganizerOrdersPage() {
                       </span>
                     </td>
                     <td className="max-w-[170px] xl:max-w-[210px] px-3 py-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <AvatarInitials
-                          name={order.buyer_name || order.buyer_email || 'K'}
-                          className="size-8 shrink-0 animate-pulse-slow"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-content" title={order.buyer_name}>{order.buyer_name}</p>
-                          <p className="truncate text-xs text-subtle" title={order.buyer_email}>{order.buyer_email}</p>
-                        </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-content" title={order.buyer_name}>{order.buyer_name}</p>
+                        <p className="truncate text-xs text-subtle" title={order.buyer_email}>{order.buyer_email}</p>
                       </div>
                     </td>
                     <td className="max-w-[160px] xl:max-w-[200px] px-3 py-3">

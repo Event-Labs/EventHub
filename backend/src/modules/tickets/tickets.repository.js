@@ -55,7 +55,9 @@ const STAFF_TICKET_SELECT = `
 
 class TicketsRepository {
   async ensureRequireAttendeeInfoColumn(client = db) {
+    if (this._requireAttendeeInfoChecked) return;
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+    this._requireAttendeeInfoChecked = true;
   }
 
   async findTicketsByUserId(userId, filters = {}) {
@@ -90,6 +92,7 @@ class TicketsRepository {
         oi.final_price AS order_item_final_price,
         oi.session_seat_id AS order_item_session_seat_id,
         e.id AS event_id,
+        e.status AS event_status,
         e.title AS event_title,
         e.slug AS event_slug,
         e.short_description AS event_short_description,
@@ -177,6 +180,7 @@ class TicketsRepository {
         oi.final_price AS order_item_final_price,
         oi.session_seat_id AS order_item_session_seat_id,
         e.id AS event_id,
+        e.status AS event_status,
         e.title AS event_title,
         e.slug AS event_slug,
         e.short_description AS event_short_description,

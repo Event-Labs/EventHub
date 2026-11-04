@@ -6,8 +6,10 @@ try {
 }
 
 const crypto = require('crypto');
+const axios = require('axios');
 const logger = require('../../core/logger');
 const organizerEgressService = require('../egress/organizerEgress.service');
+const { assertEgressIp, payoutAxiosConfig } = require('../payments/payoutEgress');
 
 const PAYOS_BASE_URL = process.env.PAYOS_BASE_URL || 'https://api-merchant.payos.vn';
 
@@ -146,7 +148,8 @@ class PayOSRefundService {
     const providerOrderCode = paymentOrder?.provider_order_code;
     const refundAmount = Math.round(Number(amount || refundRequest.refund_amount || 0));
 
-    const organizerId = refundRequest?.organizer_id || channel?.organizer_id || paymentOrder?.organizer_id;
+    const cryptoOrgId = channel?.organizer_id || paymentOrder?.organizer_id || refundRequest?.organizer_id;
+    const organizerId = cryptoOrgId || refundRequest?.organizer_id;
     let activeClientId = null;
     let activeApiKey = null;
     let activeChecksumKey = null;
@@ -180,12 +183,29 @@ class PayOSRefundService {
       const rawApi = hasDedicatedPayout ? channel.payout_api_key_encrypted : channel?.api_key_encrypted;
       const rawChecksum = hasDedicatedPayout ? channel.payout_checksum_key_encrypted : channel?.checksum_key_encrypted;
       const fieldCrypto = require('../../core/security/fieldCrypto');
-      activeApiKey = fieldCrypto.isEncrypted(rawApi)
-        ? fieldCrypto.decrypt(rawApi, organizerId, hasDedicatedPayout ? 'payos_payout_api_key' : 'payos_api_key', { allowLegacy: true })
-        : rawApi;
-      activeChecksumKey = fieldCrypto.isEncrypted(rawChecksum)
-        ? fieldCrypto.decrypt(rawChecksum, organizerId, hasDedicatedPayout ? 'payos_payout_checksum_key' : 'payos_checksum_key', { allowLegacy: true })
-        : rawChecksum;
+
+      const decryptWithFallback = (val, fieldName) => {
+        if (!val || !fieldCrypto.isEncrypted(val)) return val;
+        if (channel?.organizer_id) {
+          try {
+            return fieldCrypto.decrypt(val, channel.organizer_id, fieldName, { allowLegacy: true });
+          } catch (_) {}
+        }
+        if (organizerId && organizerId !== channel?.organizer_id) {
+          try {
+            return fieldCrypto.decrypt(val, organizerId, fieldName, { allowLegacy: true });
+          } catch (_) {}
+        }
+        if (refundRequest?.organizer_id && refundRequest.organizer_id !== organizerId) {
+          try {
+            return fieldCrypto.decrypt(val, refundRequest.organizer_id, fieldName, { allowLegacy: true });
+          } catch (_) {}
+        }
+        return fieldCrypto.decrypt(val, organizerId, fieldName, { allowLegacy: true });
+      };
+
+      activeApiKey = decryptWithFallback(rawApi, hasDedicatedPayout ? 'payos_payout_api_key' : 'payos_api_key');
+      activeChecksumKey = decryptWithFallback(rawChecksum, hasDedicatedPayout ? 'payos_payout_checksum_key' : 'payos_checksum_key');
     }
 
     logger.info(
@@ -333,29 +353,21 @@ class PayOSRefundService {
       headers['x-signature'] = createPayoutSignature(requestBody, activeChecksumKey);
     }
 
-    let timeoutId;
     try {
-      const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-
-      let response;
-      try {
-        const outboundDispatcher = organizerId ? await organizerEgressService.getOutboundDispatcher(organizerId) : null;
-        const fetchOptions = {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        };
-        if (outboundDispatcher) {
-          fetchOptions.dispatcher = outboundDispatcher;
-        }
-        response = await fetch(endpoint, fetchOptions);
-      } finally {
-        clearTimeout(timeoutId);
+      if (process.env.PAYOS_STATIC_PROXY_URL) {
+        await assertEgressIp();
       }
 
-      const json = await response.json().catch(() => ({}));
+      const response = await axios.post(endpoint, requestBody, {
+        headers,
+        timeout: 15000,
+        validateStatus: () => true,
+        ...payoutAxiosConfig(),
+      });
+
+      const json = response.data || {};
+      const status = response.status;
+      const isHttpOk = status >= 200 && status < 300;
 
       const isCodeSuccess = json.code === '00' || json.code === '0' || json.code === 0;
       const approvalState = json.data?.approvalState;
@@ -368,7 +380,7 @@ class PayOSRefundService {
         firstTxState === 'FAILED' ||
         firstTxState === 'CANCELLED';
 
-      if (!response.ok || !isCodeSuccess || isStateFailed) {
+      if (!isHttpOk || !isCodeSuccess || isStateFailed) {
         let errorDesc = firstTx?.errorMessage || json.desc || json.message || '';
 
         // Map known PayOS responses to clear, actionable Vietnamese messages
@@ -388,19 +400,19 @@ class PayOSRefundService {
           errorDesc.toLowerCase().includes('địa chỉ ip') ||
           errorDesc.toLowerCase().includes('ip không được phép') ||
           errorDesc.toLowerCase().includes('ip') ||
-          (response.status === 403 && (String(json.code) === '403' || String(json.code) === 'IP_BLOCKED'))
+          (status === 403 && (String(json.code) === '403' || String(json.code) === 'IP_BLOCKED'))
         ) {
           const realIp = await organizerEgressService.getRealPublicIp();
           errorDesc = `Cổng PayOS từ chối lệnh chi do IP chưa được thêm vào IP Whitelist (${json.desc || errorDesc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound thực tế của máy chủ là: "${realIp}". Vui lòng vào my.payos.vn > Kênh chi > Cài đặt > thêm chính xác địa chỉ IP "${realIp}" vào danh sách "IP Whitelist" (xóa bỏ IP 198.51.100.1 nếu có), hoặc chọn phương thức "Chuyển khoản thủ công".`;
         } else if (
-          response.status === 404 ||
+          status === 404 ||
           errorDesc.toLowerCase().includes('endpoint not found') ||
           errorDesc.toLowerCase().includes('not found')
         ) {
           errorDesc =
             'Cổng PayOS chưa kích hoạt Kênh chi (Payouts) cho tài khoản này (hoặc tính năng chi hộ tự động chưa được mở). Do PayOS nhận tiền trực tiếp về tài khoản ngân hàng và không hỗ trợ hoàn tiền đảo chiều tự động trên link thanh toán, vui lòng chọn phương thức "Chuyển khoản thủ công" để hoàn tiền cho khách hàng.';
         } else if (
-          response.status === 403 ||
+          status === 403 ||
           errorDesc.toLowerCase().includes('forbidden') ||
           errorDesc.toLowerCase().includes('permission')
         ) {
@@ -413,17 +425,17 @@ class PayOSRefundService {
         ) {
           errorDesc = `Số dư tài khoản Chi hộ PayOS không đủ để thực hiện hoàn tiền (${errorDesc}). Vui lòng nạp thêm tiền vào ví Bảo Kim hoặc chọn phương thức "Chuyển khoản thủ công".`;
         } else if (!errorDesc) {
-          errorDesc = `Lỗi từ cổng PayOS (${response.status}): ${response.statusText || 'Giao dịch không thành công'}`;
+          errorDesc = `Lỗi từ cổng PayOS (${status}): ${response.statusText || 'Giao dịch không thành công'}`;
         }
 
         logger.error(
-          `[PAYOS_REFUND] PayOS refund API returned error refundId=${refundId} status=${response.status} code=${json.code} desc=${errorDesc}`,
+          `[PAYOS_REFUND] PayOS refund API returned error refundId=${refundId} status=${status} code=${json.code} desc=${errorDesc}`,
         );
 
         return {
           success: false,
           error: errorDesc,
-          errorCode: firstTx?.errorCode || json.code || `HTTP_${response.status}`,
+          errorCode: firstTx?.errorCode || json.code || `HTTP_${status}`,
           rawData: json,
         };
       }
@@ -448,7 +460,7 @@ class PayOSRefundService {
         rawData: json.data || json,
       };
     } catch (err) {
-      const isTimeout = err.name === 'AbortError';
+      const isTimeout = err.code === 'ECONNABORTED' || err.name === 'AbortError' || err.message?.includes('timeout');
       const errorMessage = isTimeout
         ? 'Kết nối tới cổng PayOS quá thời gian chờ (Timeout).'
         : `Lỗi kết nối PayOS: ${err.message}`;

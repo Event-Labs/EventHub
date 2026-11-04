@@ -213,3 +213,62 @@ export function uploadEventThumbnail(file) {
 export function uploadEventBanner(file) {
   return uploadEventImage(file, 'banner')
 }
+
+const ANNOUNCEMENT_ATTACHMENT_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'text/plain',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+]
+
+export async function uploadAnnouncementAttachment(file) {
+  if (!file) return null
+
+  // Max 25MB file
+  const maxSize = 25 * 1024 * 1024
+  if (file.size > maxSize) {
+    throw new Error('Dung lượng tệp đính kèm không được vượt quá 25MB')
+  }
+
+  const signatureResponse = await http.post('/uploads/cloudinary/announcement-attachment/signature')
+  const { upload_url: uploadUrl, fields } = signatureResponse.data.data
+  const formData = new FormData()
+
+  Object.entries(fields).forEach(([key, value]) => {
+    formData.append(key, value)
+  })
+  formData.append('file', file)
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!uploadResponse.ok) {
+    const errorData = await uploadResponse.json().catch(() => ({}))
+    throw new Error(errorData.error?.message || 'Không thể tải tệp đính kèm lên đám mây')
+  }
+
+  const data = await uploadResponse.json()
+
+  return {
+    public_id: data.public_id,
+    filename: file.name,
+    path: data.secure_url,
+    url: data.secure_url,
+    secure_url: data.secure_url,
+    size: file.size,
+    contentType: file.type || 'application/octet-stream',
+    format: data.format,
+  }
+}

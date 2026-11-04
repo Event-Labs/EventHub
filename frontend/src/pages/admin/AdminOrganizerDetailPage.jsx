@@ -94,7 +94,7 @@ export function AdminOrganizerDetailPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-xl font-extrabold text-white [html.light_&]:text-[#0D1B2A]">{organizer.organization_name}</h2>
                 <Status value={organizer.status} />
-                {organizer.plan_name ? <Badge tone="blue">{organizer.plan_name}</Badge> : <Badge tone="gray">Chưa có gói</Badge>}
+                {organizer.plan_name ? <Badge tone={getPlanTone(organizer.plan_name)}>{organizer.plan_name}</Badge> : <Badge tone="gray">Chưa có gói</Badge>}
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-300 [html.light_&]:text-[#536b88]">{organizer.description || 'Organizer chưa cập nhật mô tả.'}</p>
             </div>
@@ -220,8 +220,21 @@ export function AdminOrganizerDetailPage() {
                   {request.legal_document_url && <DocLink href={request.legal_document_url} label="Đăng ký kinh doanh" />}
                   {request.business_license_url && <DocLink href={request.business_license_url} label="Giấy phép" />}
                   {request.legal_representative_id_url && <DocLink href={request.legal_representative_id_url} label="Đại diện pháp lý" />}
+                  {request.individual_selfie_url && <DocLink href={request.individual_selfie_url} label="Ảnh chân dung (Selfie)" />}
+                  {request.kyc_ocr_data?.social_link && <DocLink href={request.kyc_ocr_data.social_link} label="Kênh truyền thông / MXH" />}
+                  {request.kyc_ocr_data?.portfolio_url && <DocLink href={request.kyc_ocr_data.portfolio_url} label="Minh chứng / Portfolio" />}
                   {request.individual_id_front_url && <DocLink href={request.individual_id_front_url} label="CCCD mặt trước" />}
                   {request.individual_id_back_url && <DocLink href={request.individual_id_back_url} label="CCCD mặt sau" />}
+                  {request.kyc_ocr_data && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      <ShieldCheck className="size-3.5" />{' '}
+                      {request.kyc_ocr_data?.verification_method === 'PARTNER_VETTING' || request.kyc_ocr_data?.algorithm_checked
+                        ? 'Định danh số & Uy tín (Không lưu ảnh CCCD)'
+                        : request.kyc_ocr_data?.scan_method === 'VNEID_GATEWAY' || request.kyc_ocr_data?.verified
+                        ? 'Xác thực qua VNeID Mức 2'
+                        : 'Xác thực định danh số'}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -287,6 +300,15 @@ function DocLink({ href, label }) {
       {label} <ExternalLink className="size-3" />
     </a>
   )
+}
+
+function getPlanTone(planName) {
+  if (!planName) return 'gray'
+  const name = String(planName).toLowerCase()
+  if (name.includes('doanh nghiệp') || name.includes('enterprise') || name.includes('vip')) return 'primary'
+  if (name.includes('chuyên nghiệp') || name.includes('pro')) return 'indigo'
+  if (name.includes('khởi nghiệp') || name.includes('starter') || name.includes('cơ bản')) return 'blue'
+  return 'blue'
 }
 
 function formatCurrency(value) {

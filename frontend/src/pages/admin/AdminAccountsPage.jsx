@@ -12,6 +12,7 @@ import {
 import adminUserService from '@/services/adminUser'
 import { UserDetailView, LockUserModal } from './UserManagementComponents'
 import { Modal } from '@/components/Modal'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import { Search, RotateCcw, AlertTriangle, Eye, Unlock, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export function AdminAccountsPage() {
@@ -193,28 +194,30 @@ export function AdminAccountsPage() {
             />
         </div>
           
-        <select 
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
+        <CosmicSelect
           value={filters.role}
-          onChange={handleRoleChange}
-        >
-          <option value="" className="bg-surface text-content">Tất cả vai trò</option>
-          <option value="ADMIN" className="bg-surface text-content">Admin</option>
-          <option value="ORGANIZER" className="bg-surface text-content">Organizer</option>
-          <option value="CUSTOMER" className="bg-surface text-content">Customer</option>
-          <option value="STAFF" className="bg-surface text-content">Staff</option>
-        </select>
+          onChange={(val) => setFilters((prev) => ({ ...prev, role: val, page: 1 }))}
+          options={[
+            { value: '', label: 'Tất cả vai trò' },
+            { value: 'ADMIN', label: 'Admin' },
+            { value: 'ORGANIZER', label: 'Organizer' },
+            { value: 'CUSTOMER', label: 'Customer' },
+            { value: 'STAFF', label: 'Staff' },
+          ]}
+          minWidth="min-w-[150px]"
+        />
 
-        <select 
-          className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition hover:border-[#C99A47] focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
+        <CosmicSelect
           value={filters.status}
-          onChange={handleStatusChange}
-        >
-          <option value="" className="bg-surface text-content">Mọi trạng thái</option>
-          <option value="ACTIVE" className="bg-surface text-content">Hoạt động</option>
-          <option value="LOCKED" className="bg-surface text-content">Đã khóa</option>
-          <option value="PENDING" className="bg-surface text-content">Chờ xác nhận</option>
-        </select>
+          onChange={(val) => setFilters((prev) => ({ ...prev, status: val, page: 1 }))}
+          options={[
+            { value: '', label: 'Mọi trạng thái' },
+            { value: 'ACTIVE', label: 'Hoạt động' },
+            { value: 'LOCKED', label: 'Đã khóa' },
+            { value: 'PENDING', label: 'Chờ xác nhận' },
+          ]}
+          minWidth="min-w-[150px]"
+        />
 
         <button 
           type="button"

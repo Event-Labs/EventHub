@@ -2,12 +2,19 @@ const organizerPaymentsService = require('./organizerPayments.service');
 const organizerPaymentsRepository = require('./organizerPayments.repository');
 const organizerEventsRepository = require('../organizer/organizerEvents.repository');
 const fieldCrypto = require('../../core/security/fieldCrypto');
+const axios = require('axios');
 
+jest.mock('axios');
 jest.mock('./organizerPayments.repository');
 jest.mock('../organizer/organizerEvents.repository');
 jest.mock('../egress/organizerEgress.service', () => ({
   ensureEgressGateway: jest.fn().mockResolvedValue({ egress_ip: '203.0.113.195' }),
   updateStatus: jest.fn().mockResolvedValue({}),
+  getRealPublicIp: jest.fn().mockResolvedValue('198.23.243.226'),
+}));
+jest.mock('../payments/payoutEgress', () => ({
+  assertEgressIp: jest.fn().mockResolvedValue(),
+  payoutAxiosConfig: jest.fn().mockReturnValue({}),
 }));
 
 const FORBIDDEN_FIELDS = [
@@ -247,7 +254,11 @@ describe('OrganizerPaymentsService - Security & Encryption Suite', () => {
         payout_status: 'SAME_AS_INBOUND',
       });
 
-      // Global fetch mock to simulate PayOS call
+      // Mock axios call to simulate PayOS call
+      axios.get = jest.fn().mockResolvedValue({
+        status: 200,
+        data: { code: '00', data: { balance: 5000000 } },
+      });
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ code: '00', data: { balance: 5000000 } }),
@@ -257,7 +268,7 @@ describe('OrganizerPaymentsService - Security & Encryption Suite', () => {
       try {
         const res = await organizerPaymentsService.testPayoutConnection(mockUserId);
         expect(res.mock).toBeUndefined(); // Không được là mock!
-        expect(global.fetch).toHaveBeenCalled(); // Phải gọi fetch thật đến PayOS
+        expect(axios.get).toHaveBeenCalled(); // Phải gọi HTTP thật đến PayOS
       } finally {
         process.env.NODE_ENV = prevEnv;
         process.env.PAYOS_MOCK_REFUND = prevMock;

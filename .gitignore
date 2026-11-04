@@ -15,6 +15,7 @@ pnpm-debug.log*
 *.bin
 *.pt
 *.safetensors
+*.traineddata
 ai/datasets/
 ai/checkpoints/
 ai/merged_model/

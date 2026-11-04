@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock3,
   CreditCard,
+  FileEdit,
   Inbox,
   Loader2,
   Megaphone,
@@ -39,6 +40,24 @@ function isStaffInvitationNotification(notification) {
 
 function isStaffInvitationStoreNotification(notification) {
   return notification.title === 'STAFF_INVITATION'
+}
+
+function isOrganizerRejectedNotification(notification) {
+  const t = (notification.title || '').toLowerCase()
+  const c = (notification.content || '').toLowerCase()
+  return (
+    (t.includes('organizer') || c.includes('organizer')) &&
+    (t.includes('chưa được duyệt') || t.includes('từ chối') || c.includes('chưa được phê duyệt') || c.includes('chưa được duyệt') || c.includes('cập nhật thông tin'))
+  )
+}
+
+function isOrganizerApprovedNotification(notification) {
+  const t = (notification.title || '').toLowerCase()
+  const c = (notification.content || '').toLowerCase()
+  return (
+    (t.includes('organizer') || c.includes('organizer')) &&
+    (t.includes('đã được duyệt') || t.includes('phê duyệt') || c.includes('phê duyệt thành công') || c.includes('chúc mừng'))
+  )
 }
 
 function eventDetailPath(item) {
@@ -214,7 +233,7 @@ export function NotificationsPage() {
   const filteredNotifications = displayNotifications
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 xl:px-12 lg:py-10">
+    <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 xl:px-12 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <SectionHeader
         title="Trung tâm thông báo"
         description="Theo dõi cập nhật sự kiện, thanh toán và lời mời dành cho bạn."
@@ -291,6 +310,8 @@ export function NotificationsPage() {
           const canOpenStaffPortal = isStaffInvitationStoreNotification(notification)
             && (invitationStatus === 'ACCEPTED'
               || (acceptedInvitationId === notification.id && acceptInvitationMutation.isSuccess))
+          const isOrganizerRejected = isOrganizerRejectedNotification(notification)
+          const isOrganizerApproved = isOrganizerApprovedNotification(notification)
 
           return (
             <article
@@ -328,7 +349,14 @@ export function NotificationsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle">{content}</p>
+                      {typeof content === 'string' && /<[a-z][\s\S]*>/i.test(content) ? (
+                        <div
+                          className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:rounded-lg"
+                          dangerouslySetInnerHTML={{ __html: content }}
+                        />
+                      ) : (
+                        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{content}</p>
+                      )}
                       {invitationDetails?.expires_at && invitationStatus === 'PENDING' && (
                         <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-warning">
                           <Clock3 className="size-3.5" /> Hết hạn {formatDateTime(invitationDetails.expires_at)}
@@ -343,6 +371,32 @@ export function NotificationsPage() {
                     {eventPath && (
                       <Link className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={eventPath}>
                         Xem sự kiện <ChevronRight className="size-4" />
+                      </Link>
+                    )}
+                    {isOrganizerRejected && (
+                      <Link
+                        to="/organizer-request?mode=edit"
+                        onClick={() => {
+                          if (!notification.is_read) {
+                            markReadMutation.mutate(notification.id)
+                          }
+                        }}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
+                      >
+                        <FileEdit className="size-3.5" /> Cập nhật hồ sơ
+                      </Link>
+                    )}
+                    {isOrganizerApproved && (
+                      <Link
+                        to="/organizer"
+                        onClick={() => {
+                          if (!notification.is_read) {
+                            markReadMutation.mutate(notification.id)
+                          }
+                        }}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 text-xs font-extrabold text-emerald-300 transition hover:bg-emerald-500/25 active:scale-95 cursor-pointer"
+                      >
+                        Vào trang Organizer <ChevronRight className="size-3.5" />
                       </Link>
                     )}
                     {canRespondToInvitation && (

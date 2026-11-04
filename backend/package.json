@@ -19,6 +19,7 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^7.8.0",
+    "axios": "^1.21.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -28,6 +29,7 @@
     "google-auth-library": "^10.6.2",
     "helmet": "^8.2.0",
     "hpp": "^0.2.3",
+    "https-proxy-agent": "^7.0.6",
     "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.12.3",
     "multer": "^2.4.0",

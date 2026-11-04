@@ -71,7 +71,14 @@ function resolveBankBin(bankInput) {
   return null
 }
 
-function getStatusBadge(status) {
+function getStatusBadge(status, disputed) {
+  if (disputed) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/15 px-3 py-1 text-xs font-bold text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]">
+        <AlertCircle className="size-3.5" /> Khách khiếu nại
+      </span>
+    )
+  }
   if (status === 'PENDING') {
     return <StatusBadge status={status} label="Chờ duyệt" tone="amber" />
   }
@@ -120,6 +127,11 @@ export function OrganizerRefundDetailPage() {
     queryFn: () => fetchOrganizerRefundDetail(refundId),
     enabled: Boolean(refundId),
   })
+
+  const isCustomerConfirmed = Boolean(
+    item?.audit_trail?.some?.((a) => a.action === 'CONFIRM_REFUND_RECEIVED' || a.action === 'CUSTOMER_CONFIRMED')
+  )
+  const isDisputed = Boolean(item?.disputed)
 
   // Calculation breakdown
   const defaultRefundAmount = Number(item?.refund_amount || 0)
@@ -187,7 +199,8 @@ export function OrganizerRefundDetailPage() {
 
   const isPending = item?.status === 'PENDING'
   const isFailed = item?.status === 'FAILED'
-  const canProcess = isPending || isFailed
+  const isApprovedOrProcessing = item?.status === 'APPROVED' || item?.status === 'PROCESSING'
+  const canProcess = isPending || isFailed || isApprovedOrProcessing
 
   // Copy helper
   const handleCopy = (text, fieldName, label) => {
@@ -363,7 +376,7 @@ export function OrganizerRefundDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {getStatusBadge(item.status)}
+          {getStatusBadge(item.status, item.disputed)}
         </div>
       </div>
 
@@ -1120,10 +1133,77 @@ export function OrganizerRefundDetailPage() {
                     Chi tiết giao dịch và đối soát đã được lưu trữ trong hệ thống
                   </p>
                 </div>
-                {getStatusBadge(item.status)}
+                {getStatusBadge(item.status, item.disputed)}
               </div>
 
+              {/* Status banner for customer confirmation or dispute */}
+              {isDisputed && (
+                <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 [html.light_&]:bg-rose-50 [html.light_&]:border-rose-300 p-4 flex items-start gap-3 text-xs text-rose-300 [html.light_&]:text-rose-800 shadow-[0_0_15px_rgba(244,63,94,0.12)]">
+                  <AlertCircle className="size-5 text-rose-400 [html.light_&]:text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-rose-200 [html.light_&]:text-rose-900 text-sm">
+                      Khách hàng khiếu nại: Chưa nhận được tiền hoàn
+                    </p>
+                    <p className="text-rose-300/90 [html.light_&]:text-rose-700 leading-relaxed">
+                      Lý do khiếu nại: <strong>{item.dispute_reason || 'Khách hàng báo chưa nhận được tiền vào tài khoản ngân hàng.'}</strong>
+                    </p>
+                    <p className="text-slate-400 [html.light_&]:text-slate-600 text-[11px] mt-1">
+                      Thời gian khiếu nại: {formatDateTime(item.disputed_at || item.updated_at)}. Vui lòng tra soát lại mã giao dịch chuyển tiền hoặc liên hệ khách hàng để đối chiếu.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {isCustomerConfirmed && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 p-4 flex items-center gap-3 text-xs text-emerald-300 [html.light_&]:text-emerald-800">
+                  <CheckCircle className="size-5 text-emerald-400 [html.light_&]:text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-emerald-200 [html.light_&]:text-emerald-900">
+                      Khách hàng đã bấm xác nhận đã nhận đủ tiền hoàn
+                    </p>
+                    <p className="text-emerald-300/80 [html.light_&]:text-emerald-700 mt-0.5">
+                      Người mua vé đã xác nhận nhận tiền thành công trên trang chi tiết vé. Hồ sơ hoàn tiền đã hoàn tất mỹ mãn.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {item.status === 'REFUNDED' && !isCustomerConfirmed && !isDisputed && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-300 p-4 flex items-center gap-3 text-xs text-amber-300 [html.light_&]:text-amber-800">
+                  <Clock className="size-5 text-amber-400 [html.light_&]:text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-amber-200 [html.light_&]:text-amber-900">
+                      Đang chờ khách hàng kiểm tra tài khoản và xác nhận nhận tiền
+                    </p>
+                    <p className="text-amber-300/80 [html.light_&]:text-amber-700 mt-0.5">
+                      Lệnh hoàn tiền đã thực hiện. Khách hàng có thể bấm &quot;Tôi đã nhận được tiền&quot; tại trang chi tiết vé của họ.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="rounded-xl border border-white/5 bg-[#121c33] p-3.5 space-y-1 [html.light_&]:border-[#C99A47]/20 [html.light_&]:bg-[#FDFBF7] [html.light_&]:shadow-sm">
+                  <span className="text-slate-400 [html.light_&]:text-[#536b88]">Xác nhận từ người mua:</span>
+                  <div className="font-bold text-xs pt-0.5">
+                    {isCustomerConfirmed ? (
+                      <span className="text-emerald-400 [html.light_&]:text-emerald-600 flex items-center gap-1.5">
+                        <CheckCircle className="size-4" /> Đã xác nhận nhận tiền
+                      </span>
+                    ) : isDisputed ? (
+                      <span className="text-rose-400 [html.light_&]:text-rose-600 flex items-center gap-1.5">
+                        <AlertCircle className="size-4" /> Có khiếu nại chưa nhận
+                      </span>
+                    ) : item.status === 'REFUNDED' ? (
+                      <span className="text-amber-400 [html.light_&]:text-amber-600 flex items-center gap-1.5">
+                        <Clock className="size-4" /> Chờ khách xác nhận
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 [html.light_&]:text-slate-500">Chưa hoàn tất chi tiền</span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="rounded-xl border border-white/5 bg-[#121c33] p-3.5 space-y-1 [html.light_&]:border-[#C99A47]/20 [html.light_&]:bg-[#FDFBF7] [html.light_&]:shadow-sm">
                   <span className="text-slate-400 [html.light_&]:text-[#536b88]">Phương thức hoàn tiền:</span>
                   <p className="font-bold text-white [html.light_&]:text-[#0D1B2A]">

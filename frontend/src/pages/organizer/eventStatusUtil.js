@@ -7,7 +7,7 @@ export function getEventOperationalStatus(ev) {
     return {
       key: 'DRAFT',
       label: 'Bản nháp',
-      badgeClass: 'border-slate-600/40 bg-slate-800/80 text-slate-300',
+      badgeClass: 'border-slate-500/40 bg-slate-800/80 text-slate-300 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-300',
       dotClass: 'bg-slate-400',
       group: 'DRAFT',
     }
@@ -27,8 +27,8 @@ export function getEventOperationalStatus(ev) {
     return {
       key: 'ENDED',
       label: 'Đã kết thúc',
-      badgeClass: 'border-slate-600/30 bg-slate-800/60 text-slate-400',
-      dotClass: 'bg-slate-500',
+      badgeClass: 'border-purple-500/40 bg-purple-500/20 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.2)] [html.light_&]:bg-[#f3e8ff] [html.light_&]:text-[#6b21a8] [html.light_&]:border-[#a855f7]',
+      dotClass: 'bg-purple-400',
       group: 'ENDED',
     }
   }
@@ -37,7 +37,7 @@ export function getEventOperationalStatus(ev) {
     return {
       key: 'DRAFT',
       label: 'Bản nháp',
-      badgeClass: 'border-slate-600/40 bg-slate-800/80 text-slate-300',
+      badgeClass: 'border-slate-500/40 bg-slate-800/80 text-slate-300 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-300',
       dotClass: 'bg-slate-400',
       group: 'DRAFT',
     }
@@ -57,8 +57,8 @@ export function getEventOperationalStatus(ev) {
     return {
       key: 'HIDDEN',
       label: 'Đang ẩn',
-      badgeClass: 'border-slate-600/40 bg-slate-800/80 text-slate-300',
-      dotClass: 'bg-slate-400',
+      badgeClass: 'border-zinc-500/30 bg-zinc-800/60 text-zinc-400 [html.light_&]:bg-zinc-100 [html.light_&]:text-zinc-600 [html.light_&]:border-zinc-300',
+      dotClass: 'bg-zinc-400',
       group: 'DRAFT',
     }
   }
@@ -113,8 +113,8 @@ export function getEventOperationalStatus(ev) {
     return {
       key: 'ENDED',
       label: 'Đã kết thúc',
-      badgeClass: 'border-slate-600/30 bg-slate-800/60 text-slate-400',
-      dotClass: 'bg-slate-500',
+      badgeClass: 'border-purple-500/40 bg-purple-500/20 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.2)] [html.light_&]:bg-[#f3e8ff] [html.light_&]:text-[#6b21a8] [html.light_&]:border-[#a855f7]',
+      dotClass: 'bg-purple-400',
       group: 'ENDED',
     }
   }
@@ -123,8 +123,8 @@ export function getEventOperationalStatus(ev) {
     return {
       key: 'ENDED',
       label: 'Đã kết thúc',
-      badgeClass: 'border-slate-600/30 bg-slate-800/60 text-slate-400',
-      dotClass: 'bg-slate-500',
+      badgeClass: 'border-purple-500/40 bg-purple-500/20 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.2)] [html.light_&]:bg-[#f3e8ff] [html.light_&]:text-[#6b21a8] [html.light_&]:border-[#a855f7]',
+      dotClass: 'bg-purple-400',
       group: 'ENDED',
     }
   }

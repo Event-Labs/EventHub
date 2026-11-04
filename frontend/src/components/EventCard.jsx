@@ -175,9 +175,9 @@ export function EventCard({
               onFavoriteToggle(event)
             }}
             className={cn(
-              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/15 bg-black/50 backdrop-blur-md transition-all hover:border-[#C99A47]/60 hover:bg-[#C99A47]/15 hover:text-[#E6C17A] disabled:cursor-not-allowed disabled:opacity-70',
+              'absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/15 bg-black/50 backdrop-blur-md transition-all hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-70',
               item.isFavorited
-                ? 'border-[#C99A47]/60 bg-[#C99A47]/20 text-[#E6C17A] shadow-[0_0_14px_rgba(201,154,71,0.4)]'
+                ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
                 : 'text-white/70',
             )}
             aria-label={item.isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
@@ -185,7 +185,7 @@ export function EventCard({
             <Heart
               className={cn(
                 'size-5 transition-all',
-                item.isFavorited && 'fill-current drop-shadow-[0_0_6px_rgba(230,193,122,0.6)]',
+                item.isFavorited && 'fill-current drop-shadow-[0_0_6px_rgba(239,68,68,0.6)]',
               )}
             />
           </button>

@@ -8,7 +8,6 @@ import {
   Heart,
   MapPin,
   PauseCircle,
-  ShieldCheck,
   UserCircle,
   XCircle,
 } from 'lucide-react'
@@ -188,10 +187,13 @@ export function EventDetailPage() {
     return ticketsBySession.get(String(selectedSessionId)) || []
   }, [selectedSessionId, ticketsBySession])
 
+  const activeEventBlocks = (Array.isArray(event?.sales_blocks) ? event.sales_blocks : []).filter(
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+  )
   const isPaused = Boolean(
-    event?.is_paused ||
-    event?.sales_status === 'PAUSED' ||
-    (Array.isArray(event?.sales_blocks) && event.sales_blocks.some((b) => !b.released_at))
+    (event?.is_paused && activeEventBlocks.length > 0) ||
+    (event?.sales_status === 'PAUSED' && activeEventBlocks.length > 0) ||
+    activeEventBlocks.length > 0
   )
   const SYSTEM_REASON_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING']
   const rawPauseReason = event?.pause_note || event?.pause_reason
@@ -502,7 +504,7 @@ export function EventDetailPage() {
           <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-6 sm:p-7 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div>
-              <h2 className="font-display text-2xl font-black text-white">
+              <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Tổng quan
               </h2>
             </div>
@@ -530,13 +532,13 @@ export function EventDetailPage() {
           {/* Lịch diễn Bento Card */}
           <section id="booking-section" className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
-            <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-8 py-5">
-              <h2 className="font-display text-2xl font-black text-primary drop-shadow-md">
+            <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-4 sm:px-8 py-4 sm:py-5">
+              <h2 className="font-display text-xl sm:text-2xl font-black text-white drop-shadow-md">
                 Lịch diễn
               </h2>
             </div>
 
-            <div className="space-y-4 p-8">
+            <div className="space-y-4 p-4 sm:p-8">
               {event.sessions?.length ? (
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
@@ -614,8 +616,12 @@ export function EventDetailPage() {
                           <div className="space-y-3">
                             {tickets.length ? (
                               tickets.map((ticketType) => {
+                                const isSpecificPaused = Array.isArray(event?.sales_blocks) && event.sales_blocks.some(
+                                  (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+                                )
+                                const isTicketPaused = isPaused || isSpecificPaused
                                 const soldOut = isSoldOut(ticketType)
-                                const saleOpen = !sessionExpired && !isPaused && isSaleOpen(ticketType, currentTime) && !soldOut
+                                const saleOpen = !sessionExpired && !isTicketPaused && isSaleOpen(ticketType, currentTime) && !soldOut
                                 const totalQuantity = ticketTotal(ticketType)
                                 const availableQuantity = ticketAvailable(ticketType)
                                 return (
@@ -623,10 +629,10 @@ export function EventDetailPage() {
                                     key={ticketType.id}
                                     className={cn(
                                       'grid min-h-20 w-full gap-4 rounded-xl border px-5 py-4 text-left md:grid-cols-[minmax(0,1fr)_170px]',
-                                      isPaused && 'border-amber-500/20 bg-amber-950/20 text-slate-300',
-                                      !isPaused && saleOpen && 'border-primary/30 bg-primary/5 text-white',
-                                      !isPaused && !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
-                                      !isPaused && soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
+                                      isTicketPaused && 'border-amber-500/20 bg-amber-950/20 text-slate-300',
+                                      !isTicketPaused && saleOpen && 'border-primary/30 bg-primary/5 text-white',
+                                      !isTicketPaused && !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
+                                      !isTicketPaused && soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
                                     )}
                                   >
                                     <div className="max-w-3xl min-w-0">
@@ -641,11 +647,11 @@ export function EventDetailPage() {
                                       <p className={cn('font-display text-xl font-bold', saleOpen ? 'text-white' : 'text-inherit')}>
                                         {formatPrice(ticketType.price)}
                                       </p>
-                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', isPaused ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
-                                        {isPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
+                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', isTicketPaused ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                        {isTicketPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
                                       </span>
                                       {!saleOpen && !isPaused && (
-                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán')}>
                                           {soldOut ? 'Hết vé' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
                                       )}
@@ -725,31 +731,37 @@ export function EventDetailPage() {
           )}
         </section>
 
-        <aside className="glass-panel min-w-0 h-fit rounded-[24px] p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
+        <aside className="glass-panel min-w-0 h-fit rounded-[20px] sm:rounded-[24px] p-5 sm:p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_60%)] opacity-20" />
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Vé sự kiện
               </h2>
             </div>
-            <ShieldCheck className="size-7 shrink-0 text-primary drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+            <button
+              type="button"
+              onClick={handleFavorite}
+              disabled={favoriteMutation.isPending}
+              className={cn(
+                'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
+                event.is_favorited
+                  ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
+                  : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
+              )}
+              title={event.is_favorited ? 'Bỏ yêu thích sự kiện' : 'Lưu vào danh sách yêu thích'}
+              aria-label={event.is_favorited ? 'Bỏ yêu thích' : 'Yêu thích'}
+            >
+              <Heart
+                className={cn(
+                  'size-5 transition-transform duration-200 active:scale-90',
+                  event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                )}
+              />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleFavorite}
-            disabled={favoriteMutation.isPending}
-            className={cn(
-              'mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-primary/40 py-3.5 font-bold text-primary transition-all hover:bg-primary/10 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] disabled:cursor-not-allowed disabled:opacity-70',
-              event.is_favorited && 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(6,182,212,0.2)]',
-            )}
-          >
-            <Heart className={cn('size-5', event.is_favorited && 'fill-current')} />
-            {event.is_favorited ? 'Đã yêu thích' : 'Yêu thích'}
-          </button>
-
-          <div className="mt-8 space-y-4">
+          <div className="mt-6 space-y-4">
             {selectedSession ? (
               <>
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-inner">
@@ -847,6 +859,48 @@ export function EventDetailPage() {
             </button>
           </div>
         </aside>
+      </div>
+
+      {/* ── Sticky Mobile Booking Bar (visible on < lg) ── */}
+      <div className="fixed bottom-16 inset-x-0 z-30 flex items-center justify-between border-t border-white/10 bg-[#081126]/95 px-4 py-3 backdrop-blur-xl lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+        <div className="min-w-0 flex-1 pr-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+            {selectedSession ? formatShortDate(selectedSession.start_time) : 'Giá vé từ'}
+          </p>
+          <p className="text-base font-extrabold text-[#E6C17A] truncate">
+            {selectedSessionTickets.length > 0
+              ? formatPrice(Math.min(...selectedSessionTickets.map(t => Number(t.price || 0))))
+              : formatPrice(event.min_price || event.price_range?.min || 0)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (selectedSession) {
+              handleBook()
+            } else {
+              const el = document.getElementById('booking-section')
+              if (el) el.scrollIntoView({ behavior: 'smooth' })
+            }
+          }}
+          disabled={isPaused || isCancelled || isSuspended || isEnded || selectedSessionExpired}
+          className="rounded-full px-5 py-2.5 text-sm font-extrabold shadow-md transition-all active:scale-95 disabled:opacity-50"
+          style={
+            (isPaused || isCancelled || isSuspended || isEnded)
+              ? { background: '#1e293b', color: '#94a3b8' }
+              : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }
+          }
+        >
+          {isPaused
+            ? 'Tạm dừng'
+            : isCancelled
+              ? 'Đã hủy'
+              : isEnded
+                ? 'Đã kết thúc'
+                : selectedSession
+                  ? 'Đặt vé ngay'
+                  : 'Chọn suất diễn'}
+        </button>
       </div>
     </div>
   )

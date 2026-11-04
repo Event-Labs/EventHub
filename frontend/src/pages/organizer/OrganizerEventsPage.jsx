@@ -2,17 +2,18 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  Archive,
+  ArchiveRestore,
   CalendarDays,
   CheckCircle2,
-  DollarSign,
+  ChevronLeft,
+  ChevronRight,
   Edit,
   Eye,
-  EyeOff,
   Globe,
   PauseCircle,
   PlayCircle,
   Plus,
-  RefreshCw,
   RotateCcw,
   Search,
   ShieldAlert,
@@ -25,6 +26,8 @@ import {
   OrganizerTable,
   TableActionButton,
 } from './OrganizerComponents.jsx'
+import { EventActionsDropdown } from './EventActionsDropdown.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import {
   cancelOrganizerEvent,
   deleteOrganizerDraftEvent,
@@ -41,25 +44,85 @@ import { getDisplayStateInfo, getSalesStatusInfo, isEventEnded } from './eventSt
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
-const STATUS_LABELS = {
-  DRAFT: 'Bản nháp',
-  PENDING_REVIEW: 'Chờ duyệt',
-  APPROVED: 'Đã duyệt',
-  PUBLISHED: 'Đã xuất bản',
-  HIDDEN: 'Đã ẩn',
-  CANCELLED: 'Đã hủy',
-  COMPLETED: 'Đã kết thúc',
+export function getPrimaryEventStatus(event) {
+  if (!event) return { key: 'UNKNOWN', label: 'Không xác định', tone: 'slate' }
+
+  // 1. Đã hủy (Cao nhất)
+  if (event.status === 'CANCELLED') {
+    return { key: 'CANCELLED', label: 'Đã hủy', tone: 'red' }
+  }
+
+  // 2. Chờ duyệt hủy
+  if (event.cancel_request?.status === 'PENDING') {
+    return { key: 'CANCEL_REQUESTED', label: 'Chờ duyệt hủy', tone: 'red' }
+  }
+
+  // 3. Bị đình chỉ bởi Admin
+  if (event.display_state === 'SUSPENDED_BY_ADMIN') {
+    return { key: 'SUSPENDED', label: 'Bị đình chỉ', tone: 'red' }
+  }
+
+  // 4. Đã kết thúc (quá thời gian sự kiện hoặc trạng thái COMPLETED)
+  const ended = isEventEnded(event)
+  if (ended || (event.status === 'COMPLETED' && event.approval_status !== 'APPROVED')) {
+    return { key: 'COMPLETED', label: 'Đã kết thúc', tone: 'purple' }
+  }
+
+  // 5. Đã ẩn (BTC chủ động ẩn sự kiện)
+  if (event.display_state === 'HIDDEN_BY_ORGANIZER' || event.status === 'HIDDEN') {
+    return { key: 'HIDDEN', label: 'Đã ẩn', tone: 'neutral' }
+  }
+
+  // 6. Tạm dừng bán vé
+  if (event.sales_status === 'PAUSED') {
+    return { key: 'PAUSED', label: 'Tạm dừng bán', tone: 'orange' }
+  }
+
+  // 7. Sửa đổi chờ duyệt
+  if (event.pending_revision && event.pending_revision.status === 'SUBMITTED') {
+    return { key: 'REVISION_PENDING', label: 'Sửa đổi chờ duyệt', tone: 'amber' }
+  }
+
+  // 8. Đã duyệt (Chờ BTC bấm xuất bản)
+  const isApprovedAwaitingPublish = !ended && (
+    (event.status === 'COMPLETED' && event.approval_status === 'APPROVED') ||
+    event.status === 'APPROVED'
+  )
+  if (isApprovedAwaitingPublish) {
+    return { key: 'APPROVED', label: 'Chờ xuất bản', tone: 'cyan' }
+  }
+
+  // 9. Đang bán vé (Sự kiện công khai, mở bán vé bình thường)
+  if (event.status === 'PUBLISHED') {
+    return { key: 'ON_SALE', label: 'Đang bán vé', tone: 'green' }
+  }
+
+  // 10. Chờ duyệt (Sự kiện mới gửi Admin xét duyệt)
+  if (event.status === 'PENDING_REVIEW') {
+    return { key: 'PENDING_REVIEW', label: 'Chờ duyệt', tone: 'amber' }
+  }
+
+  // 11. Bản nháp
+  if (event.status === 'DRAFT') {
+    return { key: 'DRAFT', label: 'Bản nháp', tone: 'slate' }
+  }
+
+  return { key: event.status, label: event.status, tone: 'slate' }
 }
 
-const STATUS_TONES = {
-  DRAFT: 'gray',
-  PENDING_REVIEW: 'amber',
-  APPROVED: 'green',
-  PUBLISHED: 'green',
-  HIDDEN: 'gray',
-  CANCELLED: 'gray',
-  COMPLETED: 'gray',
-}
+const EVENT_STATUS_FILTERS = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'ON_SALE', label: 'Đang bán vé' },
+  { value: 'PAUSED', label: 'Tạm dừng bán' },
+  { value: 'HIDDEN', label: 'Đã ẩn' },
+  { value: 'APPROVED', label: 'Chờ xuất bản' },
+  { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+  { value: 'REVISION_PENDING', label: 'Sửa đổi chờ duyệt' },
+  { value: 'DRAFT', label: 'Bản nháp' },
+  { value: 'COMPLETED', label: 'Đã kết thúc' },
+  { value: 'CANCEL_REQUESTED', label: 'Chờ duyệt hủy' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+]
 
 function formatEventDate(iso) {
   if (!iso) return '—'
@@ -121,11 +184,11 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 rounded-xl bg-success px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-success/80 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                 Đang xuất bản...
               </span>
             ) : (
@@ -327,11 +390,11 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
             <button
               type="submit"
               disabled={!isFormValid || loading}
-              className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-50 ${hasPaidOrders ? 'bg-amber-600 hover:bg-amber-500' : 'bg-error hover:bg-error/80'}`}
+              className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                   Đang xử lý...
                 </span>
               ) : hasPaidOrders ? (
@@ -364,7 +427,7 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
         {/* Header */}
         <div className="flex items-start gap-3">
           <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${isCurrentlyHidden ? 'bg-primary/15 text-primary' : 'bg-amber-500/15 text-amber-400'}`}>
-            {isCurrentlyHidden ? <Eye className="size-5" /> : <EyeOff className="size-5" />}
+            {isCurrentlyHidden ? <ArchiveRestore className="size-5" /> : <Archive className="size-5" />}
           </span>
           <div>
             <h3 className="text-xl font-black text-white">
@@ -406,7 +469,10 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
           {isCurrentlyHidden ? (
             <p>💡 Người dùng có thể tìm thấy sự kiện và tiếp tục xem thông tin bình thường sau khi mở lại.</p>
           ) : (
-            <p>⚠️ Khi tạm ẩn, khách hàng đang có link trực tiếp vẫn có thể xem được vé đã mua, nhưng sự kiện sẽ không xuất hiện tại trang khám phá.</p>
+            <div className="space-y-1">
+              <p>⚠️ <strong>Lưu ý:</strong> Khi tạm ẩn sự kiện, tính năng bán vé sẽ <strong>tự động tạm dừng</strong>.</p>
+              <p className="text-amber-300/80">Bạn cần hiện lại sự kiện trước nếu muốn tiếp tục mở bán vé cho khách hàng.</p>
+            </div>
           )}
         </div>
 
@@ -424,11 +490,11 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-60 ${isCurrentlyHidden ? 'bg-primary hover:bg-primary/80' : 'bg-amber-600 hover:bg-amber-500'}`}
+            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                 Đang xử lý...
               </span>
             ) : isCurrentlyHidden ? (
@@ -448,6 +514,7 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
 // ---------------------------------------------------------------------------
 function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) {
   const isCurrentlyPaused = event?.sales_status === 'PAUSED'
+  const isHidden = event?.display_state === 'HIDDEN_BY_ORGANIZER' || event?.status === 'HIDDEN'
   const [reasonNote, setReasonNote] = useState('')
 
   const handleConfirm = () => {
@@ -482,7 +549,16 @@ function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) {
           </p>
         </div>
 
-        {!isCurrentlyPaused && (
+        {isCurrentlyPaused && isHidden ? (
+          <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/15 p-3.5 text-xs text-rose-200">
+            <p className="font-bold flex items-center gap-1.5 text-rose-300 mb-1">
+              <AlertTriangle className="size-4 shrink-0" /> Sự kiện đang ở trạng thái TẠM ẨN
+            </p>
+            <p>
+              Không thể kích hoạt bán vé khi sự kiện đang bị ẩn khỏi hệ thống. Vui lòng sử dụng tính năng <strong>&quot;Hiện lại sự kiện&quot;</strong> trước.
+            </p>
+          </div>
+        ) : !isCurrentlyPaused ? (
           <div className="mt-4">
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Lý do tạm dừng bán (Tùy chọn)
@@ -495,16 +571,18 @@ function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) {
               className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-primary"
             />
           </div>
-        )}
+        ) : null}
 
         {/* Warning / Note */}
-        <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyPaused ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
-          {isCurrentlyPaused ? (
-            <p>💡 Các loại vé còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
-          ) : (
-            <p>⚠️ Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái "Tạm dừng bán".</p>
-          )}
-        </div>
+        {!isHidden && (
+          <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyPaused ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
+            {isCurrentlyPaused ? (
+              <p>💡 Các loại vé còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
+            ) : (
+              <p>⚠️ Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái "Tạm dừng bán".</p>
+            )}
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="mt-6 flex gap-3">
@@ -519,12 +597,12 @@ function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) {
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={loading}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-60 ${isCurrentlyPaused ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'}`}
+            disabled={loading || (isCurrentlyPaused && isHidden)}
+            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
                 Đang xử lý...
               </span>
             ) : isCurrentlyPaused ? (
@@ -794,7 +872,13 @@ export function OrganizerEventsPage() {
   }
 
   // ---- Pause / Resume Sales modal handlers ----
-  const openSalesModal = (event) => setSalesTarget(event)
+  const openSalesModal = (event) => {
+    if (event?.sales_status === 'PAUSED' && (event?.display_state === 'HIDDEN_BY_ORGANIZER' || event?.status === 'HIDDEN')) {
+      toast.warning('Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.')
+      return
+    }
+    setSalesTarget(event)
+  }
   const closeSalesModal = () => {
     if (salesLoading) return
     setSalesTarget(null)
@@ -802,13 +886,44 @@ export function OrganizerEventsPage() {
 
   const confirmToggleSales = async (payload = {}) => {
     if (!salesTarget || salesLoading) return
+
+    if (salesTarget.sales_status === 'PAUSED' && (salesTarget.display_state === 'HIDDEN_BY_ORGANIZER' || salesTarget.status === 'HIDDEN')) {
+      toast.warning('Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.')
+      setSalesTarget(null)
+      return
+    }
+
     setSalesLoading(true)
     try {
-      if (salesTarget.sales_status === 'PAUSED') {
-        await resumeSalesOrganizerEvent(salesTarget.id)
-        toast.success(`Đã mở bán lại vé cho "${salesTarget.title}".`)
+      if (payload.action === 'RESUME_TICKET_TYPE' && payload.ticketTypeId) {
+        await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeId: payload.ticketTypeId })
+        toast.success(`Đã mở bán lại cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+      } else if (payload.action === 'RESUME_ALL_TICKETS' && Array.isArray(payload.ticketTypeIds)) {
+        await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeIds: payload.ticketTypeIds })
+        toast.success('Đã mở bán lại cho tất cả các hạng vé đã chọn.')
+      } else if (payload.scope === 'SPECIFIC' && (payload.ticketTypeIds?.length || payload.ticketTypeId)) {
+        const ticketTypeIds = payload.ticketTypeIds || [payload.ticketTypeId]
+        await pauseSalesOrganizerEvent(salesTarget.id, {
+          scope: 'SPECIFIC',
+          ticketTypeIds,
+          ticketTypes: payload.ticketTypes,
+          ticketTypeName: payload.ticketTypeName,
+          reason: payload.reason,
+        })
+        const count = ticketTypeIds.length
+        toast.info(count > 1 ? `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+      } else if (salesTarget.sales_status === 'PAUSED' || payload.action === 'RESUME_ALL') {
+        const res = await resumeSalesOrganizerEvent(salesTarget.id)
+        if (res?.event?.sales_status === 'PAUSED' || (res?.remainingBlocks && res.remainingBlocks.length > 0)) {
+          toast.warning(res?.message || 'Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.')
+        } else {
+          toast.success(`Đã mở bán lại vé cho "${salesTarget.title}".`)
+        }
       } else {
-        await pauseSalesOrganizerEvent(salesTarget.id, payload.reason || '')
+        await pauseSalesOrganizerEvent(salesTarget.id, {
+          scope: 'ALL',
+          reason: payload.reason || '',
+        })
         toast.info(`Đã tạm dừng bán vé cho "${salesTarget.title}".`)
       }
       setSalesTarget(null)
@@ -846,6 +961,9 @@ export function OrganizerEventsPage() {
     }
   }
 
+  const PAGE_SIZE = 8
+  const [page, setPage] = useState(1)
+
   const filtered = useMemo(() => {
     return events.filter((event) => {
       const q = search.toLowerCase()
@@ -853,13 +971,23 @@ export function OrganizerEventsPage() {
         !q ||
         event.title?.toLowerCase().includes(q) ||
         event.category_name?.toLowerCase().includes(q)
-      const ended = isEventEnded(event)
-      const isApprovedAwaitingPublish = !ended && event.status === 'COMPLETED' && event.approval_status === 'APPROVED'
-      const effectiveStatus = ended ? 'COMPLETED' : (isApprovedAwaitingPublish ? 'APPROVED' : event.status)
-      const matchStatus = !statusFilter || effectiveStatus === statusFilter || (statusFilter === 'COMPLETED' && ended) || (statusFilter === 'APPROVED' && isApprovedAwaitingPublish)
+      const primaryStatus = getPrimaryEventStatus(event)
+      const matchStatus = !statusFilter || primaryStatus.key === statusFilter
       return matchSearch && matchStatus
     })
   }, [events, search, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginatedEvents = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filtered.slice(start, start + PAGE_SIZE)
+  }, [filtered, page])
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(1)
+    }
+  }, [totalPages, page])
 
   return (
     <OrganizerPage
@@ -876,34 +1004,34 @@ export function OrganizerEventsPage() {
               className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-8 text-sm font-normal text-white outline-none placeholder:text-white/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
               placeholder="Tìm theo tên sự kiện..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
             />
             {search && (
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
-                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white cursor-pointer"
+                onClick={() => {
+                  setSearch('')
+                  setPage(1)
+                }}
                 title="Xóa tìm kiếm"
               >
                 <X className="size-4" />
               </button>
             )}
           </div>
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
+          <CosmicSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="" className="bg-[#0b1329] text-white">Tất cả trạng thái</option>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value} className="bg-[#0b1329] text-white">
-                {label}
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={loadEvents} className="org-btn-secondary shrink-0">
-            <RefreshCw className="size-4" />
-          </button>
+            onChange={(val) => {
+              setStatusFilter(val)
+              setPage(1)
+            }}
+            options={EVENT_STATUS_FILTERS}
+            minWidth="min-w-[170px]"
+          />
         </div>
       </div>
 
@@ -926,167 +1054,106 @@ export function OrganizerEventsPage() {
           )}
         </div>
       ) : (
-        <OrganizerTable
-          headers={['Sự kiện', 'Ngày diễn ra', 'Trạng thái', 'Danh mục', 'Cập nhật', 'Thao tác']}
-          rows={filtered.map((event) => [
-            /* Thumbnail + title */
-            <div key="event" className="flex items-center gap-3">
-              {event.thumbnail_url ? (
-                <img src={event.thumbnail_url} alt="" className="size-10 rounded-md object-cover" />
-              ) : (
-                <span className="grid size-10 place-items-center rounded-xl bg-tertiary/15 text-primary">
-                  <CalendarDays className="size-5" />
-                </span>
-              )}
-              <div className="min-w-0">
-                <span className="font-bold text-[13px] text-white block hover:text-primary transition leading-snug">{event.title}</span>
-                {event.format && <p className="text-[11px] text-subtle mt-0.5">{event.format}</p>}
-              </div>
-            </div>,
+        <>
+          <OrganizerTable
+            headers={['Sự kiện', 'Ngày diễn ra', 'Trạng thái', 'Danh mục', 'Cập nhật', 'Thao tác']}
+            rows={paginatedEvents.map((event) => [
+              /* Thumbnail + title */
+              <div key="event" className="flex items-center gap-3">
+                {event.thumbnail_url ? (
+                  <img src={event.thumbnail_url} alt="" className="size-10 rounded-md object-cover" />
+                ) : (
+                  <span className="grid size-10 place-items-center rounded-xl bg-tertiary/15 text-primary">
+                    <CalendarDays className="size-5" />
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <span className="font-bold text-[13px] text-white block hover:text-primary transition leading-snug">{event.title}</span>
+                  {event.format && <p className="text-[11px] text-subtle mt-0.5">{event.format}</p>}
+                </div>
+              </div>,
 
-            <span key="date" className="whitespace-nowrap">{formatEventDate(event.start_time)}</span>,
+              <span key="date" className="whitespace-nowrap">{formatEventDate(event.start_time)}</span>,
 
-            (() => {
-              const ended = isEventEnded(event)
-              const isApprovedAwaitingPublish = !ended && event.status === 'COMPLETED' && event.approval_status === 'APPROVED'
-              return (
-                <div key="status" className="flex flex-col gap-1 items-start">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge tone={ended ? 'gray' : (isApprovedAwaitingPublish ? 'green' : (STATUS_TONES[event.status] || 'gray'))}>
-                      {ended ? 'Đã kết thúc' : (isApprovedAwaitingPublish ? 'Đã duyệt' : (STATUS_LABELS[event.status] || event.status))}
+              (() => {
+                const statusInfo = getPrimaryEventStatus(event)
+                return (
+                  <div key="status" className="flex items-center">
+                    <Badge tone={statusInfo.tone}>
+                      {statusInfo.label}
                     </Badge>
-                    {event.cancel_request?.status === 'PENDING' && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 animate-pulse">
-                        Chờ duyệt hủy
-                      </span>
-                    )}
-                    {event.pending_revision && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                        Bản sửa đổi chờ duyệt
-                      </span>
-                    )}
                   </div>
-                  {ended ? (
-                    <div className="flex items-center gap-1 flex-wrap text-[11px] mt-0.5">
-                      <span className="text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700 text-[10px]">
-                        Đã đóng bán
-                      </span>
-                    </div>
-                  ) : isApprovedAwaitingPublish ? (
-                    <div className="flex items-center gap-1 flex-wrap text-[11px] mt-0.5">
-                      <span className="text-cyan-300 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-700 text-[10px]">
-                        Chờ xuất bản
-                      </span>
-                    </div>
-                  ) : (event.status === 'PUBLISHED' || event.status === 'HIDDEN' || event.display_state === 'HIDDEN_BY_ORGANIZER' || event.display_state === 'SUSPENDED_BY_ADMIN') ? (
-                    <div className="flex items-center gap-1 flex-wrap text-[11px] mt-0.5">
-                      {event.display_state === 'SUSPENDED_BY_ADMIN' ? (
-                        <span className="text-rose-300 bg-rose-950 px-1.5 py-0.5 rounded border border-rose-800 text-[10px] font-bold">Đình chỉ bởi Admin</span>
-                      ) : (event.display_state === 'HIDDEN_BY_ORGANIZER' || event.status === 'HIDDEN') ? (
-                        <span className="text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 text-[10px]">Đã ẩn</span>
-                      ) : null}
-                      {event.sales_status === 'PAUSED' ? (
-                        <span className="text-amber-300 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-700 text-[10px]">Tạm dừng bán</span>
-                      ) : (
-                        <span className="text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-700 text-[10px]">Đang bán vé</span>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })(),
+                )
+              })(),
 
-            <span key="cat" className="whitespace-nowrap">{event.category_name || '—'}</span>,
+              <span key="cat" className="whitespace-nowrap">{event.category_name || '—'}</span>,
 
-            <span key="updated" className="whitespace-nowrap">{formatEventDate(event.updated_at)}</span>,
+              <span key="updated" className="whitespace-nowrap">{formatEventDate(event.updated_at)}</span>,
 
-            /* Actions */
-            (() => {
-              const ended = isEventEnded(event)
-              return (
-                <div key="actions" className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-                  <TableActionButton
-                    to={`/organizer/events/${event.id}`}
-                    title="Xem chi tiết"
-                    icon={Eye}
-                    tone="default"
-                  />
-                  <TableActionButton
-                    to={`/organizer/events/${event.id}/edit`}
-                    title="Chỉnh sửa sự kiện"
-                    icon={Edit}
-                    tone="primary"
-                  />
-                  {!ended && (event.status === 'PUBLISHED' || event.status === 'HIDDEN' || event.display_state === 'HIDDEN_BY_ORGANIZER') && (
-                    <>
-                      {/* Toggle Hide/Unhide */}
-                      {event.display_state !== 'SUSPENDED_BY_ADMIN' && (
-                        <TableActionButton
-                          onClick={() => openHideModal(event)}
-                          title={event.display_state === 'HIDDEN_BY_ORGANIZER' ? 'Hiện lại sự kiện' : 'Ẩn sự kiện'}
-                          icon={event.display_state === 'HIDDEN_BY_ORGANIZER' ? Eye : EyeOff}
-                          tone="default"
-                        />
-                      )}
+              /* Actions */
+              <div key="actions" className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <TableActionButton
+                  to={`/organizer/events/${event.id}`}
+                  title="Xem chi tiết"
+                  icon={Eye}
+                  tone="default"
+                />
+                <EventActionsDropdown
+                  event={event}
+                  onToggleHide={openHideModal}
+                  onToggleSales={openSalesModal}
+                  onWithdrawCancel={openWithdrawModal}
+                  onCancel={openCancelModal}
+                  onPublish={openPublishModal}
+                  onDelete={openDeleteModal}
+                />
+              </div>,
+            ])}
+          />
 
-                      {/* Toggle Pause/Resume Sales */}
-                      {event.display_state !== 'SUSPENDED_BY_ADMIN' && (
-                        <TableActionButton
-                          onClick={() => openSalesModal(event)}
-                          title={event.sales_status === 'PAUSED' ? 'Mở bán lại vé' : 'Tạm dừng bán vé'}
-                          icon={event.sales_status === 'PAUSED' ? PlayCircle : PauseCircle}
-                          tone={event.sales_status === 'PAUSED' ? 'success' : 'warning'}
-                        />
-                      )}
-
-                      {/* Cancel / Request Cancel / Withdraw Cancel */}
-                      {event.cancel_request?.status === 'PENDING' ? (
-                        <TableActionButton
-                          onClick={() => openWithdrawModal(event)}
-                          title="Rút lại yêu cầu hủy sự kiện"
-                          icon={RotateCcw}
-                          tone="warning"
-                        />
-                      ) : (
-                        <TableActionButton
-                          onClick={() => openCancelModal(event)}
-                          title={Number(event.paid_orders_count || 0) > 0 ? 'Yêu cầu hủy sự kiện' : 'Hủy sự kiện'}
-                          icon={AlertTriangle}
-                          tone="danger"
-                        />
-                      )}
-                    </>
-                  )}
-                  {!ended && event.status === 'COMPLETED' && event.approval_status === 'APPROVED' && (
-                    <TableActionButton
-                      onClick={() => openPublishModal(event)}
-                      title="Xuất bản sự kiện"
-                      icon={Globe}
-                      tone="success"
-                    />
-                  )}
-                  {event.status === 'DRAFT' && (
-                    <TableActionButton
-                      onClick={() => openDeleteModal(event)}
-                      title="Xóa bản nháp"
-                      icon={Trash2}
-                      tone="danger"
-                    />
-                  )}
-                  {/* If event is cancelled or has refund obligations, link to refunds */}
-                  {(event.status === 'CANCELLED' || event.refund_obligation_status) && (
-                    <TableActionButton
-                      to={`/organizer/refunds?eventId=${event.id}`}
-                      title="Đối soát danh sách hoàn tiền"
-                      icon={DollarSign}
-                      tone="warning"
-                    />
-                  )}
-                </div>
-              )
-            })(),
-          ])}
-        />
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 px-2 py-3 border-t border-white/5">
+              <span className="text-xs text-subtle font-medium">
+                Hiển thị {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filtered.length)} trong tổng số {filtered.length} sự kiện
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  title="Trang trước"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
+                  <button
+                    key={pNum}
+                    type="button"
+                    onClick={() => setPage(pNum)}
+                    className={`size-8 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      page === pNum
+                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                        : 'border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary'
+                    }`}
+                  >
+                    {pNum}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  title="Trang kế tiếp"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Publish confirm modal */}
@@ -1171,9 +1238,9 @@ export function OrganizerEventsPage() {
                 type="button"
                 disabled={withdrawLoading}
                 onClick={confirmWithdrawCancellationRequest}
-                className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-amber-500 disabled:opacity-50 inline-flex items-center gap-1.5"
+                className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
               >
-                {withdrawLoading && <span className="size-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                {withdrawLoading && <span className="size-3 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />}
                 Xác nhận rút lại
               </button>
             </div>

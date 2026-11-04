@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { RefreshCw } from 'lucide-react'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel, StaffTable } from './StaffComponents.jsx'
 
@@ -40,12 +39,6 @@ export function StaffCheckInCountPage() {
     <StaffPage
       title="Thống kê Soát vé"
       description="Dữ liệu thời gian thực của tất cả sự kiện bạn được phân công."
-      action={(
-        <button className="admin-primary" onClick={() => reportQuery.refetch()} disabled={reportQuery.isFetching}>
-          <RefreshCw className={`size-4 ${reportQuery.isFetching ? 'animate-spin' : ''}`} />
-          Làm mới
-        </button>
-      )}
     >
       {reportQuery.isError && (
         <div className="mb-5 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">

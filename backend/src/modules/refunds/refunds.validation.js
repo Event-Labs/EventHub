@@ -29,7 +29,7 @@ const requestRefundSchema = z
     customer_note: z.string().trim().max(500, 'Ghi chú không được vượt quá 500 ký tự').optional().nullable(),
     refund_method: z.string().optional().default('PAYOS'),
     bank_name: z.string().trim().max(100).optional().nullable(),
-    bank_account_number: z.string().trim().max(50).optional().nullable(),
+    bank_account_number: z.string().trim().max(100).optional().nullable(),
     bank_account_name: z.string().trim().max(255).optional().nullable(),
     bank_info: z
       .object({

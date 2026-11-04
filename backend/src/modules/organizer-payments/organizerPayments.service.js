@@ -8,6 +8,8 @@ try {
 const organizerPaymentsRepository = require('./organizerPayments.repository');
 const organizerEventsRepository = require('../organizer/organizerEvents.repository');
 const organizerEgressService = require('../egress/organizerEgress.service');
+const { assertEgressIp, payoutAxiosConfig } = require('../payments/payoutEgress');
+const axios = require('axios');
 const fieldCrypto = require('../../core/security/fieldCrypto');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
@@ -316,63 +318,113 @@ class OrganizerPaymentsService {
     }
 
     try {
+      if (process.env.PAYOS_STATIC_PROXY_URL) {
+        await assertEgressIp();
+      }
+
       // Giải mã apiKey ngay trước khi gọi fetch, không giữ ở biến phạm vi rộng, không đưa vào log/error
       const apiKey = this._dec(channel, apiKeyColumn, apiKeyField);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      let balance = null;
+      let verified = false;
 
-      const res = await fetch('https://api-merchant.payos.vn/v1/payouts-account/balance', {
-        method: 'GET',
-        headers: {
-          'x-client-id': clientId,
-          'x-api-key': apiKey,
-        },
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timeoutId));
+      // Bước 1: Thử kiểm tra số dư ví Bảo Kim qua payouts-account/balance
+      try {
+        const balRes = await axios.get('https://api-merchant.payos.vn/v1/payouts-account/balance', {
+          headers: {
+            'x-client-id': clientId,
+            'x-api-key': apiKey,
+          },
+          timeout: 4000,
+          validateStatus: () => true,
+          ...payoutAxiosConfig(),
+        });
 
-      const json = await res.json().catch(() => ({}));
+        const balJson = balRes.data || {};
 
-      if (res.ok && (json.code === '00' || json.code === '0' || json.code === 0)) {
+        if (balRes.status === 200 && (balJson.code === '00' || balJson.code === '0' || balJson.code === 0)) {
+          verified = true;
+          balance = balJson.data?.balance;
+        } else if (balJson.code === '601' || balJson.code === 601) {
+          throw new AppError(
+            'Tài khoản PayOS của Ban tổ chức chưa kích hoạt dịch vụ Chi hộ (Payouts) trên payOS (Lỗi 601: API key chưa có quyền Kênh chi). Vui lòng đăng nhập my.payos.vn > Thiết lập > Hồ sơ > Thay đổi dịch vụ để bật Kênh chi và liên kết ví Bảo Kim.',
+            400,
+            ErrorCodes.PAYMENT_PROVIDER_ERROR,
+          );
+        } else if (
+          String(balJson.code) === '403' ||
+          balRes.status === 403 ||
+          balJson.desc?.toLowerCase().includes('địa chỉ ip') ||
+          balJson.desc?.toLowerCase().includes('ip')
+        ) {
+          const realIp = await organizerEgressService.getRealPublicIp();
+          throw new AppError(
+            `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${balJson.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound cố định của máy chủ/proxy là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist".`,
+            400,
+            ErrorCodes.PAYMENT_PROVIDER_ERROR,
+          );
+        }
+      } catch (balErr) {
+        if (balErr instanceof AppError) throw balErr;
+        // Nếu balance endpoint bị timeout hoặc lỗi upstream từ Bảo Kim, tiếp tục sang Bước 2 xác thực trực tiếp
+      }
+
+      // Bước 2: Xác thực trực tiếp quyền chi hộ & IP Whitelist qua endpoint Payouts của PayOS
+      if (!verified) {
+        const verifyRes = await axios.get('https://api-merchant.payos.vn/v1/payouts/EH_VERIFY', {
+          headers: {
+            'x-client-id': clientId,
+            'x-api-key': apiKey,
+          },
+          timeout: 8000,
+          validateStatus: () => true,
+          ...payoutAxiosConfig(),
+        });
+
+        const verifyJson = verifyRes.data || {};
+
+        // Mã 608: "Mã payout không tồn tại" => PayOS xác thực Client ID, API Key và IP Whitelist đều hợp lệ 100%!
+        if (verifyJson.code === '608' || verifyJson.code === '00' || verifyJson.code === 0 || verifyJson.code === '0') {
+          verified = true;
+        } else if (verifyJson.code === '601' || verifyJson.code === 601) {
+          throw new AppError(
+            'Tài khoản PayOS của Ban tổ chức chưa kích hoạt dịch vụ Chi hộ (Payouts) trên payOS (Lỗi 601: API key chưa có quyền Kênh chi). Vui lòng đăng nhập my.payos.vn > Thiết lập > Hồ sơ > Thay đổi dịch vụ để bật Kênh chi và liên kết ví Bảo Kim.',
+            400,
+            ErrorCodes.PAYMENT_PROVIDER_ERROR,
+          );
+        } else if (
+          String(verifyJson.code) === '403' ||
+          verifyRes.status === 403 ||
+          verifyJson.desc?.toLowerCase().includes('địa chỉ ip') ||
+          verifyJson.desc?.toLowerCase().includes('ip')
+        ) {
+          const realIp = await organizerEgressService.getRealPublicIp();
+          throw new AppError(
+            `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${verifyJson.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound cố định của máy chủ/proxy là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist".`,
+            400,
+            ErrorCodes.PAYMENT_PROVIDER_ERROR,
+          );
+        } else {
+          throw new AppError(
+            verifyJson.desc || 'Không thể kết nối Kênh chi PayOS. Vui lòng kiểm tra lại thông tin Client ID và API Key.',
+            400,
+            ErrorCodes.PAYMENT_PROVIDER_ERROR,
+          );
+        }
+      }
+
+      if (verified) {
         await organizerPaymentsRepository.updatePayoutStatus(organizerId, 'ACTIVE');
         await organizerEgressService.updateStatus(organizerId, 'ACTIVE');
         return {
           success: true,
-          balance: json.data?.balance,
+          balance,
           message: 'Kết nối Kênh chi PayOS thành công. Kênh chi đã kích hoạt.',
         };
       }
-
-      if (json.code === '601' || json.code === 601) {
-        throw new AppError(
-          'Tài khoản PayOS của Ban tổ chức chưa kích hoạt dịch vụ Chi hộ (Payouts) trên payOS (Lỗi 601: API key chưa có quyền Kênh chi). Vui lòng đăng nhập my.payos.vn > Thiết lập > Hồ sơ > Thay đổi dịch vụ để bật Kênh chi và liên kết ví Bảo Kim.',
-          400,
-          ErrorCodes.PAYMENT_PROVIDER_ERROR,
-        );
-      }
-
-      if (
-        String(json.code) === '403' ||
-        res.status === 403 ||
-        json.desc?.toLowerCase().includes('địa chỉ ip') ||
-        json.desc?.toLowerCase().includes('ip')
-      ) {
-        const realIp = await organizerEgressService.getRealPublicIp();
-        throw new AppError(
-          `Cổng PayOS từ chối do IP chưa được thêm vào IP Whitelist (${json.desc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound thực tế của máy chủ là "${realIp}". Vui lòng đăng nhập my.payos.vn > Kênh chi > Cài đặt > thêm chính xác IP "${realIp}" vào danh sách "IP Whitelist" (xóa bỏ IP mock 198.51.100.1 nếu có).`,
-          400,
-          ErrorCodes.PAYMENT_PROVIDER_ERROR,
-        );
-      }
-
-      throw new AppError(
-        json.desc || 'Không thể kết nối Kênh chi PayOS. Vui lòng kiểm tra lại thông tin Client ID và API Key.',
-        400,
-        ErrorCodes.PAYMENT_PROVIDER_ERROR,
-      );
     } catch (err) {
       if (err instanceof AppError) throw err;
-      if (err.name === 'AbortError') {
+      if (err.name === 'AbortError' || err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         throw new AppError('Hết thời gian kết nối đến cổng PayOS (Timeout). Vui lòng thử lại sau.', 504, ErrorCodes.PAYMENT_PROVIDER_ERROR);
       }
       throw new AppError(`Lỗi kết nối Kênh chi PayOS: ${err.message}`, 500, ErrorCodes.PAYMENT_PROVIDER_ERROR);

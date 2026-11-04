@@ -3,7 +3,10 @@ const pool = require('../../infrastructure/database/db.client');
 class OrganizerPaymentsRepository {
   async findChannelByOrganizerId(organizerId) {
     const { rows } = await pool.query(
-      `SELECT * FROM organizer_payment_channels WHERE organizer_id = $1`,
+      `SELECT * FROM organizer_payment_channels 
+       WHERE organizer_id = $1 
+          OR organizer_id IN (SELECT id FROM organizers WHERE user_id = $1)
+       ORDER BY updated_at DESC LIMIT 1`,
       [organizerId]
     );
     return rows[0] || null;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import {
   CheckCircle2,
   Clock3,
@@ -35,6 +35,8 @@ function formatCountdown(seconds) {
 
 export function OrganizerSubscriptionPaymentPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = location.state?.returnTo
   const [searchParams] = useSearchParams()
   const paymentId  = searchParams.get('paymentId')
   const cancelled  = searchParams.get('cancelled') === 'true'
@@ -76,7 +78,13 @@ export function OrganizerSubscriptionPaymentPage() {
   // Auto-redirect on paid
   useEffect(() => {
     if (data?.status === 'PAID') {
-      const timer = setTimeout(() => navigate('/organizer/subscriptions', { replace: true }), 2500)
+      const timer = setTimeout(() => {
+        const dest = returnTo || '/organizer/subscriptions'
+        navigate(dest, {
+          replace: true,
+          state: { message: 'Thanh toán gói dịch vụ thành công! Bạn có thể gửi duyệt sự kiện ngay bây giờ.' }
+        })
+      }, 2500)
       return () => clearTimeout(timer)
     }
   }, [data?.status, navigate])

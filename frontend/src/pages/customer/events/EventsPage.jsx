@@ -1,7 +1,7 @@
 import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Filter, RotateCcw, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, Filter, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
@@ -86,6 +86,25 @@ export function EventsPage() {
     onSettled: () => refreshFavoriteQueries(queryClient),
   })
 
+  const [showFilters, setShowFilters] = useState(false)
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (draft.location) count++
+    if (draft.category_slug) count++
+    if (draft.start_date || draft.end_date) count++
+    if (draft.min_price || draft.max_price) count++
+    if (draft.sort_by && draft.sort_by !== 'start_time') count++
+    return count
+  }, [draft])
+
+  // Automatically expand filters if user landed with specific filter parameters
+  useEffect(() => {
+    if (activeFilterCount > 0) {
+      setShowFilters(true)
+    }
+  }, []) // only on mount
+
   const submitFilters = (event) => {
     event.preventDefault()
     setSearchParams(buildQuery({ ...draft, page: '1' }))
@@ -128,112 +147,175 @@ export function EventsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <form
-        className="glass-panel mb-8 rounded-lg border-primary/15 p-5 shadow-[0_18px_60px_rgba(56,189,248,0.08)]"
-        onSubmit={submitFilters}
+        className="glass-panel mb-6 sm:mb-8 rounded-2xl border-primary/15 p-3.5 sm:p-5 shadow-[0_18px_60px_rgba(56,189,248,0.08)] transition-all"
+        onSubmit={(e) => {
+          submitFilters(e)
+        }}
       >
-        <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.72fr)_minmax(180px,0.85fr)_minmax(330px,1.35fr)]">
-          <label className="flex flex-col gap-2.5">
-            <span className="text-base font-semibold text-white">Từ khóa</span>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
-              <input
-                value={draft.keyword}
-                onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
-                placeholder="Tìm sự kiện..."
-                className="h-12 w-full rounded-md border border-white/15 bg-[#0d172e] py-3 pl-10 pr-3 font-normal text-white placeholder:text-white/50 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-          </label>
-
-          <Select
-            label="Địa điểm"
-            value={draft.location}
-            onChange={(value) => setDraft({ ...draft, location: value })}
-            options={LOCATION_OPTIONS}
-          />
-
-          <Select
-            label="Danh mục"
-            value={draft.category_slug}
-            onChange={(value) => setDraft({ ...draft, category_slug: value })}
-            options={[
-              ['', categoriesQuery.isLoading ? 'Đang tải danh mục...' : 'Tất cả danh mục'],
-              ...categories.map((category) => [category.slug, category.name]),
-            ]}
-            disabled={categoriesQuery.isLoading}
-          />
-
-          <div className="flex flex-col gap-2.5">
-            <span className="flex items-center gap-2 text-base font-semibold text-white">
-              Thời gian
-            </span>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                type="date"
-                value={draft.start_date}
-                onChange={(value) => setDraft({ ...draft, start_date: value })}
-                placeholder="dd/mm/yyyy"
-                aria-label="Từ ngày"
-              />
-              <Input
-                type="date"
-                value={draft.end_date}
-                onChange={(value) => setDraft({ ...draft, end_date: value })}
-                placeholder="dd/mm/yyyy"
-                aria-label="Đến ngày"
-              />
-            </div>
+        {/* Always-visible Outer Search Bar with Filter Toggle */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/50" />
+            <input
+              value={draft.keyword}
+              onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
+              placeholder="Tìm kiếm sự kiện, danh mục, địa điểm..."
+              className="h-11 sm:h-12 w-full rounded-xl border border-white/15 bg-[#0d172e] py-2.5 pl-10 pr-4 text-sm font-normal text-white placeholder:text-white/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-inner"
+            />
           </div>
-        </div>
 
-        <div className="mt-4 grid items-end gap-4 lg:grid-cols-[minmax(170px,0.9fr)_minmax(170px,0.9fr)_minmax(190px,0.95fr)_auto]">
-          <Input
-            label="Giá từ"
-            type="number"
-            min="0"
-            value={draft.min_price}
-            onChange={(value) => setDraft({ ...draft, min_price: value })}
-          />
-          <Input
-            label="Giá đến"
-            type="number"
-            min="0"
-            value={draft.max_price}
-            onChange={(value) => setDraft({ ...draft, max_price: value })}
-          />
-          <label className="flex flex-col gap-2.5">
-            <span className="text-base font-semibold text-white">Sắp xếp</span>
-            <select
-              value={draft.sort_by}
-              onChange={(event) => setDraft({ ...draft, sort_by: event.target.value, sort_order: event.target.value === 'created_at' ? 'desc' : 'asc' })}
-              className="h-12 w-full rounded-md border border-border-soft bg-surface p-3 text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {SORT_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-full px-5 font-bold transition-all hover:brightness-110 hover:shadow-[0_0_20px_rgba(201,154,71,0.5)] active:scale-95"
+              type="submit"
+              className="inline-flex h-11 sm:h-12 flex-1 sm:flex-none items-center justify-center gap-2 rounded-xl px-5 sm:px-6 text-xs sm:text-sm font-extrabold transition-all hover:brightness-110 active:scale-95 shadow-md shadow-[#C99A47]/20 cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              <Filter className="size-4" />
-              Tìm sự kiện
+              <Search className="size-4" />
+              <span>Tìm kiếm</span>
             </button>
+
             <button
               type="button"
-              onClick={clearFilters}
-              className="inline-flex h-12 min-w-32 items-center justify-center gap-2 rounded-full border border-[#C99A47]/60 px-4 font-bold backdrop-blur-md transition-all hover:bg-[#C99A47]/15 hover:border-[#C99A47] hover:shadow-[0_0_14px_rgba(201,154,71,0.35)] active:scale-95"
-              style={{ color: '#E6C17A' }}
+              onClick={() => setShowFilters((prev) => !prev)}
+              className={`inline-flex h-11 sm:h-12 items-center gap-2 rounded-xl border px-3.5 sm:px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                showFilters || activeFilterCount > 0
+                  ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A] shadow-[0_0_15px_rgba(201,154,71,0.25)]'
+                  : 'border-white/15 bg-white/5 text-slate-300 hover:border-white/30 hover:bg-white/10'
+              }`}
+              title="Bộ lọc nâng cao"
             >
-              <RotateCcw className="size-4" />
-              Xóa bộ lọc
+              <SlidersHorizontal className="size-4" />
+              <span className="hidden xs:inline">Bộ lọc</span>
+              {activeFilterCount > 0 && (
+                <span className="grid size-5 place-items-center rounded-full bg-[#E6C17A] text-[11px] font-black text-[#0D1B2A]">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown className={`size-4 transition-transform duration-200 ${showFilters ? 'rotate-180 text-[#E6C17A]' : ''}`} />
             </button>
+
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="grid size-11 sm:size-12 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20 transition-all cursor-pointer"
+                title="Xóa bộ lọc"
+              >
+                <RotateCcw className="size-4" />
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Collapsible Detailed Filter Panel */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-white/10 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="grid items-end gap-3.5 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <Select
+                label="Địa điểm"
+                value={draft.location}
+                onChange={(value) => setDraft({ ...draft, location: value })}
+                options={LOCATION_OPTIONS}
+              />
+
+              <Select
+                label="Danh mục"
+                value={draft.category_slug}
+                onChange={(value) => setDraft({ ...draft, category_slug: value })}
+                options={[
+                  ['', categoriesQuery.isLoading ? 'Đang tải danh mục...' : 'Tất cả danh mục'],
+                  ...categories.map((category) => [category.slug, category.name]),
+                ]}
+                disabled={categoriesQuery.isLoading}
+              />
+
+              <div className="flex flex-col gap-2">
+                <span className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-white">
+                  Khoảng ngày diễn ra
+                </span>
+                <div className="grid gap-2 grid-cols-2">
+                  <Input
+                    type="date"
+                    value={draft.start_date}
+                    onChange={(value) => setDraft({ ...draft, start_date: value })}
+                    placeholder="dd/mm/yyyy"
+                    aria-label="Từ ngày"
+                  />
+                  <Input
+                    type="date"
+                    value={draft.end_date}
+                    onChange={(value) => setDraft({ ...draft, end_date: value })}
+                    placeholder="dd/mm/yyyy"
+                    aria-label="Đến ngày"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <span className="text-xs sm:text-sm font-semibold text-white">Khoảng giá (VNĐ)</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Giá từ..."
+                    value={draft.min_price}
+                    onChange={(value) => setDraft({ ...draft, min_price: value })}
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Đến giá..."
+                    value={draft.max_price}
+                    onChange={(value) => setDraft({ ...draft, max_price: value })}
+                  />
+                </div>
+              </div>
+
+              <label className="flex flex-col gap-2">
+                <span className="text-xs sm:text-sm font-semibold text-white">Sắp xếp theo</span>
+                <select
+                  value={draft.sort_by}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      sort_by: event.target.value,
+                      sort_order: event.target.value === 'created_at' ? 'desc' : 'asc',
+                    })
+                  }
+                  className="h-11 sm:h-12 w-full rounded-md border border-white/15 bg-[#0d172e] p-2.5 text-sm text-white outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  {SORT_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value} className="bg-[#0d172e] text-white">
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Action Buttons inside Expanded Panel */}
+              <div className="flex items-center gap-2 sm:gap-3 pt-2 sm:pt-0">
+                <button
+                  type="submit"
+                  className="inline-flex h-11 sm:h-12 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold transition-all hover:brightness-110 active:scale-95 cursor-pointer shadow-md shadow-[#C99A47]/20"
+                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+                >
+                  <Filter className="size-4" />
+                  Áp dụng bộ lọc
+                </button>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex h-11 sm:h-12 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-3.5 sm:px-4 text-xs sm:text-sm font-bold text-slate-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
+                >
+                  <RotateCcw className="size-3.5" />
+                  Xóa lọc
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </form>
 
       <section>

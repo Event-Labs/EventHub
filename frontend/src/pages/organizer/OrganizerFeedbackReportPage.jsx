@@ -11,6 +11,7 @@ import {
   OrganizerTable,
   resolveStatusConfig,
 } from './OrganizerComponents.jsx'
+import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 
 const EVENT_STATUS_LABELS = {
   PUBLISHED: 'Đã xuất bản',
@@ -49,7 +50,14 @@ export function OrganizerFeedbackReportPage() {
   })
 
   const events = useMemo(
-    () => (eventsQuery.data || []).filter((e) => !e.status || e.status === 'PUBLISHED'),
+    () =>
+      (eventsQuery.data || []).filter(
+        (e) =>
+          ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(e.status) ||
+          Number(e.feedback_count || 0) > 0 ||
+          (e.status !== 'DRAFT' && e.status !== 'PENDING_REVIEW') ||
+          !e.status
+      ),
     [eventsQuery.data],
   )
 
@@ -74,39 +82,26 @@ export function OrganizerFeedbackReportPage() {
       title="Báo cáo Phản hồi"
       description="Theo dõi đánh giá và nhận xét từ khách tham dự"
     >
-      <div className="mb-5">
-        {eventsQuery.isLoading && (
+      {/* ── Event selector with Smart Event Picker ── */}
+      <div className="mb-6 max-w-xl">
+        {eventsQuery.isLoading ? (
           <p className="text-sm text-muted animate-pulse">Đang tải sự kiện...</p>
-        )}
-        {eventsQuery.isError && (
+        ) : eventsQuery.isError ? (
           <p className="text-sm text-error">Không thể tải danh sách sự kiện.</p>
-        )}
-        {!eventsQuery.isLoading && events.length === 0 && (
+        ) : events.length === 0 ? (
           <p className="text-sm text-muted">
             Bạn chưa có sự kiện nào trong hệ thống.
           </p>
-        )}
-        {events.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
-            <div className="relative w-full sm:w-[420px]">
-              <select
-                className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                value={eventId}
-                onChange={(e) => setEventId(e.target.value)}
-              >
-                {events.map((event) => (
-                  <option key={event.id} value={event.id} className="bg-[#0b1329] text-white">
-                    {event.title}
-                    {event.average_rating != null
-                      ? ` — ★ ${event.average_rating} (${event.feedback_count})`
-                      : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
-            </div>
-          </div>
+        ) : (
+          <OrganizerEventPicker
+            events={events}
+            selectedEventId={eventId}
+            onSelectEvent={setEventId}
+            loading={eventsQuery.isLoading}
+            label="Chọn sự kiện"
+            allowAll={false}
+            placeholder="Chọn sự kiện để xem báo cáo phản hồi..."
+          />
         )}
       </div>
 

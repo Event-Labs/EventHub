@@ -25,12 +25,14 @@ function mapCard(row) {
   const maxPrice = toNumber(row.max_price);
 
   const salesBlocks = Array.isArray(row.sales_blocks) ? row.sales_blocks : [];
-  const activeBlock = salesBlocks.find((b) => !b.released_at);
-  const isPaused = row.sales_status === 'PAUSED' || Boolean(activeBlock);
+  const activeEventBlock = salesBlocks.find(
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && (b.metadata?.ticket_type_id || b.metadata?.ticket_type_ids))
+  );
+  const isPaused = Boolean(activeEventBlock);
 
   const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
-  const rawNote = activeBlock
-    ? (activeBlock.metadata?.note || activeBlock.note || activeBlock.metadata?.reason || null)
+  const rawNote = activeEventBlock
+    ? (activeEventBlock.metadata?.note || activeEventBlock.note || activeEventBlock.metadata?.reason || null)
     : null;
   const humanPauseNote = rawNote && !SYSTEM_CODES.includes(String(rawNote).trim())
     ? String(rawNote).trim()
@@ -45,7 +47,7 @@ function mapCard(row) {
     banner_url: row.banner_url,
     status: row.status,
     display_state: row.display_state || 'VISIBLE',
-    sales_status: isPaused ? 'PAUSED' : (row.sales_status || 'ON_SALE'),
+    sales_status: isPaused ? 'PAUSED' : (row.sales_status === 'PAUSED' && !activeEventBlock ? 'ON_SALE' : (row.sales_status || 'ON_SALE')),
     sales_blocks: salesBlocks,
     is_paused: isPaused,
     pause_reason: humanPauseNote,

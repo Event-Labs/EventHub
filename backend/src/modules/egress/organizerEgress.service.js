@@ -2,22 +2,25 @@ const db = require('../../infrastructure/database/db.client');
 const organizerEgressRepository = require('./organizerEgress.repository');
 const logger = require('../../core/logger');
 
-let cachedRealIp = '116.99.175.78';
-let lastRealIpTime = Date.now();
+let cachedRealIp = null;
+let lastRealIpTime = 0;
 
 class OrganizerEgressService {
   /**
    * Dynamically fetch the current actual outbound public IP.
-   * Caches for 10 minutes to avoid high-latency external lookups on every request.
+   * Caches for 5 minutes to avoid high-latency external lookups on every request.
    */
   async getRealPublicIp() {
+    if (process.env.PAYOS_EXPECTED_EGRESS_IP) {
+      return process.env.PAYOS_EXPECTED_EGRESS_IP.trim();
+    }
     const now = Date.now();
-    if (cachedRealIp && now - lastRealIpTime < 600000) {
+    if (cachedRealIp && now - lastRealIpTime < 300000) {
       return cachedRealIp;
     }
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
+      const timeout = setTimeout(() => controller.abort(), 3000);
       const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal }).finally(() =>
         clearTimeout(timeout)
       );
@@ -30,7 +33,7 @@ class OrganizerEgressService {
     } catch (e) {
       // ignore
     }
-    return cachedRealIp || '116.99.175.78';
+    return cachedRealIp || '171.254.141.132';
   }
 
   /**
@@ -73,7 +76,6 @@ class OrganizerEgressService {
 
   /**
    * Ensure the real egress gateway is provisioned and synchronised with the real public IP.
-   * Optimized with zero-latency fast-path when already provisioned in database.
    */
   async ensureEgressGateway(rawOrgId, options = {}) {
     if (!rawOrgId) {
@@ -85,23 +87,20 @@ class OrganizerEgressService {
       throw new Error(`Organizer record not found for id/user_id: ${rawOrgId}`);
     }
 
-    // FAST PATH: Return immediately from DB in <1ms without calling external IP services
-    const existing = await organizerEgressRepository.findByOrganizerId(canonicalId);
-    if (existing && existing.egress_ip && !existing.is_mock) {
-      return existing;
-    }
-
     const realIp = await this.getRealPublicIp();
+    const existing = await organizerEgressRepository.findByOrganizerId(canonicalId);
 
     if (existing) {
-      // Update mock/legacy IP to real IP
-      const updated = await organizerEgressRepository.update(existing.id, {
-        egress_ip: realIp,
-        is_mock: false,
-        gateway_type: 'REAL_OUTBOUND',
-        status: 'ACTIVE',
-      });
-      return updated || { ...existing, egress_ip: realIp, is_mock: false };
+      if (existing.egress_ip !== realIp || existing.is_mock) {
+        const updated = await organizerEgressRepository.update(existing.id, {
+          egress_ip: realIp,
+          is_mock: false,
+          gateway_type: 'REAL_OUTBOUND',
+          status: 'ACTIVE',
+        });
+        return updated || { ...existing, egress_ip: realIp, is_mock: false };
+      }
+      return existing;
     }
 
     // Not existing: create with REAL outbound IP
@@ -131,14 +130,14 @@ class OrganizerEgressService {
 
   /**
    * Verify if the gateway is operational and ready to send requests.
-   * Instant return without network overhead.
    */
   async verifyGatewayReady(rawOrgId) {
     const gateway = await this.getEgressByOrganizerId(rawOrgId);
+    const realIp = await this.getRealPublicIp();
     return {
       ready: true,
       is_mock: false,
-      egress_ip: gateway?.egress_ip || cachedRealIp || '116.99.175.78',
+      egress_ip: gateway?.egress_ip || realIp,
       message: 'Gateway ready with real public outbound IP.',
     };
   }
