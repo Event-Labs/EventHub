@@ -21,12 +21,23 @@ const notificationIdSchema = z.object({
 });
 
 const createAnnouncementSchema = z.object({
-  event_id: z.string().uuid(),
-  title: z.string().trim().min(3).max(255),
-  content: z.string().trim().min(5).max(5000),
+  event_id: z.string().min(1, 'Vui lòng chọn sự kiện'),
+  title: z.string().trim().min(3, 'Tiêu đề phải có ít nhất 3 ký tự').max(255, 'Tiêu đề không quá 255 ký tự'),
+  content: z.string().min(5, 'Nội dung thông báo phải có ít nhất 5 ký tự'),
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string(),
+        path: z.string(),
+        contentType: z.string().optional(),
+        size: z.number().optional(),
+      })
+    )
+    .optional()
+    .default([]),
   channels: z
     .array(z.enum(['web', 'email']))
-    .min(1)
+    .min(1, 'Vui lòng chọn ít nhất một kênh gửi (Website hoặc Email)')
     .default(['web', 'email']),
 });
 
