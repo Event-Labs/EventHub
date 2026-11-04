@@ -349,7 +349,14 @@ export function NotificationsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{content}</p>
+                      {typeof content === 'string' && /<[a-z][\s\S]*>/i.test(content) ? (
+                        <div
+                          className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:rounded-lg"
+                          dangerouslySetInnerHTML={{ __html: content }}
+                        />
+                      ) : (
+                        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{content}</p>
+                      )}
                       {invitationDetails?.expires_at && invitationStatus === 'PENDING' && (
                         <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-warning">
                           <Clock3 className="size-3.5" /> Hết hạn {formatDateTime(invitationDetails.expires_at)}

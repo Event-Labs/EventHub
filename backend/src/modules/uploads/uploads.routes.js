@@ -9,5 +9,6 @@ router.post('/cloudinary/avatar/signature', protect, uploadsController.createAva
 router.post('/cloudinary/organizer-avatar/signature', protect, uploadsController.createOrganizerAvatarSignature);
 router.post('/cloudinary/organizer-document/signature', protect, uploadsController.createOrganizerDocumentSignature);
 router.post('/cloudinary/policy-pdf/signature', protect, uploadsController.createPolicyPdfSignature);
+router.post('/cloudinary/announcement-attachment/signature', protect, uploadsController.createAnnouncementAttachmentSignature);
 
 module.exports = router;
