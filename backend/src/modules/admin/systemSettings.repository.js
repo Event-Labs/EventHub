@@ -12,6 +12,7 @@ const DEFAULT_AI_AUTO_REVIEW_SETTINGS = {
 
 class SystemSettingsRepository {
   async ensureTable() {
+    if (this._tableChecked) return;
     try {
       await db.query(`
         CREATE TABLE IF NOT EXISTS system_settings (
@@ -24,6 +25,7 @@ class SystemSettingsRepository {
     } catch (err) {
       logger.warn(`[SystemSettingsRepository] ensureTable warning: ${err.message}`);
     }
+    this._tableChecked = true;
   }
 
   async getSetting(key, defaultValue = null) {

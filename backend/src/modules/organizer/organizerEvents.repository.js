@@ -49,10 +49,13 @@ const ORGANIZER_REQUEST_SELECT = `
 
 class OrganizerEventsRepository {
   async ensureRequireAttendeeInfoColumn(client = db) {
+    if (this._requireAttendeeInfoChecked) return;
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+    this._requireAttendeeInfoChecked = true;
   }
 
   async ensureAiImageReviewColumns(client = db) {
+    if (this._aiImageReviewColumnsChecked) return;
     await client.query(`
       ALTER TABLE events
         ADD COLUMN IF NOT EXISTS review_status VARCHAR(50) DEFAULT 'PENDING',
@@ -60,6 +63,7 @@ class OrganizerEventsRepository {
         ADD COLUMN IF NOT EXISTS ai_extracted_text TEXT DEFAULT '',
         ADD COLUMN IF NOT EXISTS ai_image_review_results JSONB DEFAULT '{}'::jsonb
     `);
+    this._aiImageReviewColumnsChecked = true;
   }
 
   async findOrganizerByUserId(userId) {

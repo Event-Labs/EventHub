@@ -55,7 +55,9 @@ const STAFF_TICKET_SELECT = `
 
 class TicketsRepository {
   async ensureRequireAttendeeInfoColumn(client = db) {
+    if (this._requireAttendeeInfoChecked) return;
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+    this._requireAttendeeInfoChecked = true;
   }
 
   async findTicketsByUserId(userId, filters = {}) {

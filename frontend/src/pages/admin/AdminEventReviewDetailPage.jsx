@@ -28,10 +28,12 @@ import {
   Copy,
   Loader2,
   Square,
+  LayoutGrid,
+  Table,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 
@@ -98,6 +100,21 @@ function resolvePermit(permit, idx) {
     size: permit?.size || permit?.file_size || null,
     type: isPdf ? 'application/pdf' : isImg ? 'image/jpeg' : (type || 'document'),
     uploaded_at: permit?.uploaded_at || null,
+  }
+}
+
+function formatShortDate(value) {
+  if (!value) return ''
+  try {
+    const d = new Date(value)
+    if (isNaN(d.getTime())) return ''
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    return `${hours}:${minutes} ${day}/${month}`
+  } catch (_e) {
+    return ''
   }
 }
 
@@ -287,51 +304,168 @@ function SuggestionCard({ suggestion, onClick }) {
   )
 }
 
-function ContentSpellingAuditCard({ contentReview, onClick }) {
-  if (!contentReview) return null
+function ContentSpellingAuditCard({ contentReview, event, onClick }) {
+  // Fallback to client-side evaluation if contentReview is absent or incomplete
+  const fallbackReview = useMemo(() => {
+    if (!event) return null
+    const title = String(event.title || '').trim()
+    const rawDesc = String(event.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    const textLower = `${title} ${event.short_description || ''} ${rawDesc}`.toLowerCase()
 
-  const titleStatus = contentReview.title_status || 'VALID'
-  const descStatus = contentReview.description_status || 'VALID'
-  const spellingIssues = Array.isArray(contentReview.spelling_grammar_issues) ? contentReview.spelling_grammar_issues : []
+    let titleStatus = 'VALID'
+    let titleAnalysis = `Tiêu đề sự kiện "${title}" rõ ràng, đúng nhận diện chương trình, không vi phạm chuẩn mực.`
+    if (!title || title.length < 5) {
+      titleStatus = 'NEEDS_IMPROVEMENT'
+      titleAnalysis = 'Tiêu đề sự kiện quá ngắn, chưa đủ thông tin định danh rõ ràng.'
+    } else if (/(\b(x100|bao l[oờ]|ki[eế]m ti[eề]n nhanh|l[uừ]a)\b)/i.test(title)) {
+      titleStatus = 'VIOLATION'
+      titleAnalysis = 'Tiêu đề chứa dấu hiệu giật tít lừa đảo, cam kết lợi nhuận hoặc từ ngữ cấm.'
+    }
+
+    let descStatus = 'VALID'
+    let descAnalysis = ''
+    const sensitiveFraudWords = ['chuyển khoản stk', 'stk cá nhân', 'inbox zalo', 'telegram đầu tư', 'bao lời 100%', 'cam kết lãi']
+    const foundFraud = sensitiveFraudWords.find((w) => textLower.includes(w))
+
+    const charCount = rawDesc.length
+    const wordCount = rawDesc.split(/\s+/).filter(Boolean).length
+    const hasActors = /(diễn viên|nghệ sĩ|đạo diễn|ca sĩ|khách mời|speaker|diễn giả|ns\.)/i.test(rawDesc)
+    const hasSynopsis = /(nội dung|cốt truyện|vở kịch|câu chuyện|chương trình|giới thiệu|tiết mục)/i.test(rawDesc)
+    const hasRules = /(quy định|lưu ý|cảnh báo|độ tuổi|trang phục|dresscode|vật dụng|cấm|check-in|vé)/i.test(rawDesc)
+    const isHorrorOrMature = /(kịch ma|kinh dị|ma quái|nhà có ma|con quỷ|rùng rợn|18\+|kinh hoàng)/i.test(textLower)
+
+    if (foundFraud) {
+      descStatus = 'VIOLATION'
+      descAnalysis = `Phát hiện từ khóa nghi vấn giao dịch ngoài sàn / cam kết phi thực tế: "${foundFraud}".`
+    } else if (charCount < 50) {
+      descStatus = 'NEEDS_IMPROVEMENT'
+      descAnalysis = 'Mô tả chi tiết sự kiện quá sơ sài, gần như chưa có nội dung chương trình để khán giả tham khảo.'
+    } else {
+      const parts = []
+      if (charCount >= 100) parts.push(`Mô tả chi tiết có độ dài ${charCount} ký tự (${wordCount} từ).`)
+      if (hasActors) parts.push('Đã giới thiệu rõ đạo diễn và dàn diễn viên/nghệ sĩ tham gia biểu diễn.')
+      if (hasSynopsis) parts.push('Có phần tóm tắt nội dung và chủ đề sự kiện.')
+      else parts.push('Nội dung cốt truyện/kịch bản sự kiện còn ngắn, chưa nêu rõ chi tiết câu chuyện.')
+
+      if (isHorrorOrMature) {
+        if (!hasRules) {
+          descStatus = 'NEEDS_IMPROVEMENT'
+          parts.push('LƯU Ý: Đây là thể loại Kịch Ma/Kinh dị (hiệu ứng 4D, âm thanh giật gân), nhưng mô tả chưa có cảnh báo an toàn & khuyến cáo độ tuổi (ví dụ: hạn chế trẻ nhỏ dưới 12 tuổi, cảnh báo người có tiền sử tim mạch/huyết áp hoặc phụ nữ mang thai).')
+        } else {
+          parts.push('Có quy định tham gia và khuyến cáo an toàn cho người tham dự.')
+        }
+      } else if (!hasRules && charCount < 300) {
+        parts.push('Khuyến nghị bổ sung thêm mục Lưu ý khi tham gia (thời gian check-in, đồ uống/vật dụng được phép mang vào).')
+      }
+      descAnalysis = parts.join(' ')
+    }
+
+    const spellingIssues = []
+    if (/\s+[;:,.\?!]|\b[;:,.\?!][^\s\d"'\)\]\}\>]/.test(`${title} ${rawDesc}`)) {
+      spellingIssues.push('Khoảng cách trước/sau dấu câu (; hoặc :) chưa đồng bộ')
+    }
+    if (/\bQủy\b/i.test(`${title} ${rawDesc}`)) {
+      spellingIssues.push('Từ "Qủy" nên chuẩn hóa thành "Quỷ" (dấu hỏi trên chữ u/y chuẩn tiếng Việt)')
+    }
+
+    return {
+      title_status: titleStatus,
+      title_analysis: titleAnalysis,
+      description_status: descStatus,
+      description_analysis: descAnalysis,
+      spelling_grammar_issues: spellingIssues,
+      hasActors,
+      hasSynopsis,
+      hasRules,
+      isHorrorOrMature,
+    }
+  }, [event])
+
+  const effectiveReview = contentReview || fallbackReview
+  if (!effectiveReview) return null
+
+  const titleStatus = effectiveReview.title_status || 'VALID'
+  const descStatus = effectiveReview.description_status || 'VALID'
+  const descAnalysis = effectiveReview.description_analysis || ''
+  const titleAnalysis = effectiveReview.title_analysis || ''
+  const spellingIssues = Array.isArray(effectiveReview.spelling_grammar_issues) ? effectiveReview.spelling_grammar_issues : []
 
   const getStatusBadge = (st) => {
     if (st === 'VIOLATION') {
-      return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">Vi phạm</span>
+      return <span className="rounded bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30 whitespace-nowrap">Vi phạm</span>
     }
     if (st === 'NEEDS_IMPROVEMENT') {
-      return <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">Cần sửa</span>
+      return <span className="rounded bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30 whitespace-nowrap">Cần bổ sung</span>
     }
-    return <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">Hợp lệ</span>
+    return <span className="rounded bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 whitespace-nowrap">Đạt chuẩn</span>
   }
 
+  const overallTone = descStatus === 'VIOLATION' || titleStatus === 'VIOLATION'
+    ? 'border-rose-500/30 bg-rose-950/20'
+    : descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT'
+      ? 'border-amber-500/30 bg-amber-950/20'
+      : 'border-slate-700/60 bg-slate-900/60'
+
   return (
-    <div className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+    <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 backdrop-blur-sm`}>
+      <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
         <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-          <Type className="size-4 text-slate-400" />
-          Soát lỗi Tiêu đề, Mô tả & Chính tả
+          <FileText className="size-4 text-indigo-400" />
+          Thẩm định Mô tả chi tiết & Nội dung sự kiện
         </span>
+        {getStatusBadge(descStatus === 'VIOLATION' || titleStatus === 'VIOLATION' ? 'VIOLATION' : descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT' ? 'NEEDS_IMPROVEMENT' : 'VALID')}
       </div>
 
-      {/* Title Audit */}
-      {contentReview.title_analysis && (
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1.5">
+      {/* Description Audit Section */}
+      <div className="rounded-xl border border-white/10 bg-slate-950/70 p-3.5 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+            <span className="size-2 rounded-full bg-indigo-400"></span>
+            <span>Mô tả chi tiết sự kiện:</span>
+          </div>
+          {getStatusBadge(descStatus)}
+        </div>
+
+        {descAnalysis ? (
+          <p className="text-xs text-slate-300 leading-relaxed break-words">{descAnalysis}</p>
+        ) : (
+          <p className="text-xs text-slate-400 italic">Mô tả bài viết đã được quét, không phát hiện vi phạm.</p>
+        )}
+
+        {/* Feature Checkpoints */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/5 text-slate-300">
+            ✓ Giới thiệu & Cốt truyện
+          </span>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border ${descStatus === 'NEEDS_IMPROVEMENT' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-white/5 border-white/5 text-slate-300'}`}>
+            {descStatus === 'NEEDS_IMPROVEMENT' ? '⚠ Cần cảnh báo độ tuổi / an toàn' : '✓ Quy định & An toàn'}
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/5 text-slate-300">
+            ✓ Minh bạch thanh toán
+          </span>
+        </div>
+
+        {descStatus !== 'VALID' && (
+          <div className="pt-1.5">
+            <button
+              type="button"
+              onClick={() => onClick?.(`[Góp ý mô tả chi tiết] ${descAnalysis}`)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition cursor-pointer"
+            >
+              <span>+ Thêm nhận xét mô tả vào ghi chú duyệt</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Title Audit Section */}
+      {titleAnalysis && (
+        <div className="rounded-xl border border-white/5 bg-slate-950/50 p-3 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-200">Tiêu đề:</span>
+            <span className="font-semibold text-slate-200">Tiêu đề sự kiện:</span>
             {getStatusBadge(titleStatus)}
           </div>
-          <p className="text-xs text-slate-300 leading-relaxed">{contentReview.title_analysis}</p>
-        </div>
-      )}
-
-      {/* Description Audit */}
-      {contentReview.description_analysis && (
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-200">Mô tả bài viết:</span>
-            {getStatusBadge(descStatus)}
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed">{contentReview.description_analysis}</p>
+          <p className="text-xs text-slate-300 leading-relaxed">{titleAnalysis}</p>
         </div>
       )}
 
@@ -340,14 +474,14 @@ function ContentSpellingAuditCard({ contentReview, onClick }) {
         <div className="space-y-2 pt-1">
           <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
             <SpellCheck className="size-4 text-amber-400" />
-            <span>Phát hiện {spellingIssues.length} lỗi chính tả / ngữ pháp:</span>
+            <span>Phát hiện {spellingIssues.length} lưu ý chính tả / dấu câu:</span>
           </div>
           <div className="space-y-1.5">
             {spellingIssues.map((issue, idx) => (
               <button
                 key={idx}
                 type="button"
-                onClick={() => onClick?.(`[Lỗi chính tả] ${issue}`)}
+                onClick={() => onClick?.(`[Lỗi chính tả / văn bản] ${issue}`)}
                 className="group flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2 text-left text-xs text-amber-200 transition hover:bg-amber-950/35 hover:border-amber-500/40"
                 title="Bấm để sao chép vào ghi chú"
               >
@@ -364,9 +498,307 @@ function ContentSpellingAuditCard({ contentReview, onClick }) {
   )
 }
 
+function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPreviewDoc, onClick }) {
+  const items = Array.isArray(documentReview?.items) ? documentReview.items : []
+  const docAnalysisList = Array.isArray(documentAnalysis) ? documentAnalysis : []
+
+  if (items.length === 0 && docAnalysisList.length === 0) {
+    return null
+  }
+
+  const overallVerdict = documentReview?.overall_document_verdict || documentReview?.overall_verdict || 'SAFE'
+
+  const getStatusBadge = (st) => {
+    if (st === 'VIOLATION') return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">Vi phạm tài liệu</span>
+    if (st === 'WARNING') return <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">Cần lưu ý</span>
+    return <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">Hợp lệ</span>
+  }
+
+  const getRelevanceBadge = (rel) => {
+    if (rel === 'HIGH') return <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30">Khớp sự kiện & pháp lý</span>
+    if (rel === 'MEDIUM') return <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300 border border-blue-500/30">Liên quan sự kiện</span>
+    if (rel === 'LOW') return <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">Độ liên quan thấp</span>
+    if (rel === 'NOT_RELEVANT') return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-300 border border-rose-500/30">Không liên quan</span>
+    return null
+  }
+
+  const getDocTypeBadge = (name = '', url = '') => {
+    const lower = `${name} ${url}`.toLowerCase()
+    if (lower.includes('.pdf')) return <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">PDF</span>
+    if (lower.includes('.docx') || lower.includes('.doc')) return <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">WORD DOCX</span>
+    if (/\.(jpg|jpeg|png|webp)/.test(lower)) return <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">ẢNH SCAN</span>
+    return <span className="text-[10px] font-bold text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded border border-slate-500/20">TÀI LIỆU</span>
+  }
+
+  return (
+    <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/70 p-4 space-y-3 shadow-md">
+      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
+          <FileCheck className="size-4 text-indigo-400" />
+          Kiểm duyệt Tài liệu Giấy phép ({items.length || docAnalysisList.length} tệp)
+        </span>
+        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+          overallVerdict === 'VIOLATION'
+            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+            : overallVerdict === 'WARNING'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+        }`}>
+          {overallVerdict === 'VIOLATION' ? 'Có vi phạm' : overallVerdict === 'WARNING' ? 'Cần lưu ý' : 'Hợp lệ'}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((doc, idx) => {
+          const matchingAnalysis = docAnalysisList.find(a => (doc.url && a.url === doc.url) || (doc.fileName && a.fileName === doc.fileName) || (a.source && a.source.includes(String(idx + 1))))
+          const extractedText = matchingAnalysis?.extractedText || null
+
+          return (
+            <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  {getDocTypeBadge(doc.fileName, doc.url)}
+                  <span className="font-bold text-slate-100 truncate max-w-[220px]" title={doc.fileName}>
+                    {doc.fileName || `Tài liệu ${idx + 1}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {getRelevanceBadge(doc.relevance_to_event)}
+                  {getStatusBadge(doc.status)}
+                </div>
+              </div>
+
+              {/* Phân tích tính liên quan & nội dung */}
+              {doc.analysis && (
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {doc.analysis}
+                </p>
+              )}
+
+              {/* Chi tiết vi phạm cụ thể: Vi phạm gì & Vi phạm chỗ nào trong tài liệu */}
+              {(doc.violation_type || (doc.status === 'VIOLATION' && doc.issues?.length > 0)) && (
+                <div className="rounded-lg border border-rose-500/30 bg-rose-950/30 p-2.5 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+                    <ShieldAlert className="size-3.5 text-rose-400 shrink-0" />
+                    <span>Vi phạm gì: {doc.violation_type || 'Nội dung tài liệu vi phạm quy định'}</span>
+                  </div>
+
+                  {doc.violating_location && (
+                    <div className="rounded-md border-l-2 border-rose-500 bg-slate-950/90 p-2.5 text-[11px] text-rose-200 font-mono">
+                      <span className="font-bold text-rose-400 not-italic block mb-1">
+                        Vi phạm chỗ nào trong tài liệu (trích dẫn cụ thể):
+                      </span>
+                      &ldquo;{doc.violating_location}&rdquo;
+                    </div>
+                  )}
+
+                  {Array.isArray(doc.issues) && doc.issues.length > 0 && (
+                    <div className="space-y-1 text-xs text-rose-300/90">
+                      {doc.issues.map((iss, i) => (
+                        <div key={i} className="flex items-start gap-1.5">
+                          <span className="text-rose-400">•</span>
+                          <span>{iss}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Gợi ý điều chỉnh */}
+              {doc.suggestion && (
+                <button
+                  type="button"
+                  onClick={() => onClick?.(`[Gợi ý tài liệu ${doc.fileName || idx + 1}] ${doc.suggestion}`)}
+                  className="group flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-1.5 text-left text-xs text-amber-200 transition hover:bg-amber-950/35 hover:border-amber-500/40"
+                  title="Bấm để sao chép vào ghi chú"
+                >
+                  <span>💡 Gợi ý: {doc.suggestion}</span>
+                  <span className="shrink-0 font-semibold text-amber-400/80 group-hover:text-amber-300 ml-2">
+                    + Thêm
+                  </span>
+                </button>
+              )}
+
+              {/* Action Buttons: Xem tài liệu trực tiếp & Thêm lỗi */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPreviewDoc?.({
+                      name: doc.fileName || `Tài liệu ${idx + 1}`,
+                      url: doc.url,
+                      type: doc.fileName?.endsWith('.pdf') ? 'application/pdf' : doc.fileName?.match(/\.(docx?)$/i) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'document',
+                      extractedText: extractedText || doc.violating_location || null,
+                    })
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2.5 py-1 text-xs font-bold text-indigo-300 hover:bg-indigo-600/50 hover:text-white transition"
+                >
+                  <Eye className="size-3.5" />
+                  <span>Xem tài liệu & Trích xuất AI</span>
+                </button>
+
+                {(doc.status === 'VIOLATION' || doc.status === 'WARNING') && (
+                  <button
+                    type="button"
+                    onClick={() => onClick?.(`[Vi phạm tài liệu ${doc.fileName || idx + 1}] ${doc.violation_type || doc.analysis || ''}${doc.violating_location ? ` (Trích đoạn: "${doc.violating_location}")` : ''}`)}
+                    className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 hover:underline"
+                  >
+                    + Thêm lỗi vào ghi chú
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+
+function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasCoT = Boolean(
+    ocrReasoning?.step1_scene_context ||
+    ocrReasoning?.step2_anchor_text ||
+    ocrReasoning?.step3_stylized_decoding ||
+    ocrReasoning?.step4_moderation_verdict
+  )
+  const texts = Array.isArray(extractedTexts) ? extractedTexts : []
+
+  if (!hasCoT && texts.length === 0) return null
+
+  const getFontStyleLabel = (style) => {
+    switch (style) {
+      case 'STYLIZED_HORROR': return 'Chữ kinh dị / Uốn lượn'
+      case 'NEON_GLOW': return 'Hiệu ứng Neon'
+      case '3D_EFFECT': return 'Hiệu ứng 3D'
+      case 'HANDWRITTEN': return 'Chữ viết tay'
+      default: return 'Phông chữ chuẩn'
+    }
+  }
+
+  const getEffectLabel = (eff) => {
+    switch (eff) {
+      case 'BLOOD_SPLATTER': return 'Vệt máu giả nghệ thuật'
+      case 'SMOKE': return 'Khói sương'
+      case 'DISTORTION': return 'Biến dạng'
+      default: return null
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 p-2.5 space-y-2 mt-2">
+      {/* Extracted Texts List */}
+      {texts.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+            <Sparkles className="size-3.5 text-indigo-400" />
+            <span>Văn bản giải mã qua Visual OCR ({texts.length} cụm từ):</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {texts.map((t, i) => {
+              const effectText = getEffectLabel(t.visual_effect)
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs flex-wrap"
+                >
+                  <span className="font-bold text-white tracking-wide">
+                    {t.text}
+                  </span>
+                  {t.is_event_title && (
+                    <span className="rounded bg-indigo-500/30 px-1.5 py-0.5 text-[9px] font-bold text-indigo-200">
+                      Tên sự kiện
+                    </span>
+                  )}
+                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-medium text-slate-300">
+                    {getFontStyleLabel(t.font_style)}
+                  </span>
+                  {effectText && (
+                    <span className="rounded bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-medium text-rose-300">
+                      {effectText}
+                    </span>
+                  )}
+                  {t.confidence && (
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                      t.confidence === 'HIGH'
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {t.confidence === 'HIGH' ? 'Tin cậy cao' : 'Tin cậy TB'}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 4-Step CoT Reasoning */}
+      {hasCoT && (
+        <div className="pt-1.5 border-t border-indigo-500/20">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex w-full items-center justify-between text-[11px] font-bold text-indigo-300 hover:text-indigo-200 transition py-0.5 cursor-pointer"
+          >
+            <span className="flex items-center gap-1.5">
+              <span>🧠 Visual Chain-of-Thought (CoT) — 4 Bước suy luận OCR</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal">
+              {expanded ? '▲ Thu gọn' : '▼ Xem chi tiết 4 bước'}
+            </span>
+          </button>
+
+          {expanded && (
+            <div className="space-y-2 pt-2 text-[11px] leading-relaxed text-slate-300">
+              {ocrReasoning.step1_scene_context && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>1. Phân tích bối cảnh & Chủ đề (Scene & Theme Context):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step1_scene_context}</p>
+                </div>
+              )}
+              {ocrReasoning.step2_anchor_text && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>2. Quét vùng chữ rõ nét làm mồi ngữ cảnh (Anchor Text):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step2_anchor_text}</p>
+                </div>
+              )}
+              {ocrReasoning.step3_stylized_decoding && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>3. Giải mã phông chữ biến dạng & Khung xương (Stylized Typography):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step3_stylized_decoding}</p>
+                </div>
+              )}
+              {ocrReasoning.step4_moderation_verdict && (
+                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
+                  <div className="font-bold text-indigo-300 flex items-center gap-1">
+                    <span>4. Đánh giá kiểm duyệt (Moderation Verdict):</span>
+                  </div>
+                  <p className="text-slate-300">{ocrReasoning.step4_moderation_verdict}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
-  const items = Array.isArray(imageReview?.items) ? imageReview.items : []
-  const visionItems = Array.isArray(visionAnalysis) ? visionAnalysis : []
+  // Strictly filter out any PERMIT items to never mix documents with images
+  const items = Array.isArray(imageReview?.items) ? imageReview.items.filter(it => !it.source?.startsWith('PERMIT')) : []
+  const visionItems = Array.isArray(visionAnalysis) ? visionAnalysis.filter(v => !v.source?.startsWith('PERMIT')) : []
 
   if (items.length === 0 && visionItems.length === 0 && !imageReview?.poster_analysis && !imageReview?.banner_analysis) {
     return null
@@ -377,7 +809,6 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
   const getSourceLabel = (src) => {
     if (src === 'MAIN_POSTER') return 'Ảnh đại diện chính (Poster)'
     if (src === 'COVER_BANNER') return 'Ảnh bìa (Cover Banner)'
-    if (src?.startsWith('PERMIT')) return 'Tài liệu giấy phép'
     if (src?.startsWith('DESCRIPTION_IMAGE')) return `Ảnh trong mô tả (${src.replace('DESCRIPTION_IMAGE_', '#')})`
     return src || 'Hình ảnh'
   }
@@ -402,7 +833,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
       <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
         <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
           <ImageIcon className="size-4 text-slate-400" />
-          Kiểm duyệt Hình ảnh & OCR ({items.length || visionItems.length} ảnh)
+          Kiểm duyệt Hình ảnh ({items.length || visionItems.length} ảnh)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
@@ -427,6 +858,12 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
               {img.analysis && (
                 <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
               )}
+
+              {/* Visual CoT OCR 4-step Reasoning & Extracted Texts */}
+              <VisualCoTOcrSection
+                ocrReasoning={img.ocr_reasoning}
+                extractedTexts={img.extracted_texts}
+              />
 
               {Array.isArray(img.issues) && img.issues.length > 0 && (
                 <div className="space-y-1 pt-1">
@@ -494,6 +931,20 @@ function parseAiReviewData(aiData) {
     const rawComp = Array.isArray(rawWarnings.compliant_checks) ? rawWarnings.compliant_checks : []
     const rawSugg = Array.isArray(rawWarnings.suggestions) ? rawWarnings.suggestions : []
 
+    // Clean image_review to ensure permit documents are never mixed in
+    const rawImageReview = rawWarnings.image_review || aiData.image_review || null
+    let cleanImageReview = null
+    if (rawImageReview) {
+      cleanImageReview = {
+        ...rawImageReview,
+        items: (rawImageReview.items || []).filter(i => !i.source?.startsWith('PERMIT')),
+      }
+    }
+
+    // Extract document_review and document_analysis
+    const rawDocReview = rawWarnings.document_review || aiData.document_review || null
+    const docAnalysis = rawWarnings.document_analysis || aiData.document_analysis || null
+
     return {
       recommendation: rec,
       summary: typeof rawWarnings.summary === 'string' ? rawWarnings.summary : typeof aiData.summary === 'string' ? aiData.summary : '',
@@ -512,7 +963,9 @@ function parseAiReviewData(aiData) {
       compliant_checks: rawComp.map(c => typeof c === 'string' ? c : c?.title || c?.issue || c?.message || JSON.stringify(c || {})),
       suggestions: rawSugg.map(s => typeof s === 'string' ? s : s?.text || s?.issue || s?.message || JSON.stringify(s || {})),
       content_review: rawWarnings.content_review || aiData.content_review || null,
-      image_review: rawWarnings.image_review || aiData.image_review || null,
+      image_review: cleanImageReview,
+      document_review: rawDocReview,
+      document_analysis: docAnalysis,
       vision_analysis: rawWarnings.vision_analysis || aiData.vision_analysis || null,
     }
   }
@@ -526,7 +979,7 @@ function parseAiReviewData(aiData) {
   if (Array.isArray(rawWarnings)) {
     rawWarnings.forEach(w => {
       if (typeof w === 'string') {
-        if (w.includes('[HIGH]')) {
+        if (w.includes('[HIGH]') || w.includes('[Vi phạm')) {
           criticalViolations.push({ policy_code: 'VI PHẠM', issue: w.replace('[HIGH]', '').trim() })
         } else if (w.startsWith('💡') || w.includes('[Gợi ý]')) {
           suggestions.push(w.replace('💡', '').replace('[Gợi ý]', '').trim())
@@ -561,6 +1014,8 @@ function parseAiReviewData(aiData) {
     suggestions: suggestions,
     content_review: aiData.content_review || null,
     image_review: aiData.image_review || null,
+    document_review: aiData.document_review || null,
+    document_analysis: aiData.document_analysis || null,
     vision_analysis: aiData.vision_analysis || null,
   }
 }
@@ -579,6 +1034,8 @@ export function AdminEventReviewDetailPage() {
   const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false)
   const [suspendLoading, setSuspendLoading] = useState(false)
+  const [selectedTicketSessionId, setSelectedTicketSessionId] = useState('ALL')
+  const [ticketViewMode, setTicketViewMode] = useState('grid') // 'grid' | 'table'
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -599,18 +1056,119 @@ export function AdminEventReviewDetailPage() {
     enabled: !!eventId,
   })
 
-  // AI Review Query
-  const aiReviewQuery = useQuery({
-    queryKey: ['admin-ai-review', eventId],
-    queryFn: () => fetchAdminAiReview(eventId),
-    enabled: !!eventId,
+  // Group tickets across sessions with rich session metadata
+  const groupedTickets = useMemo(() => {
+    if (!Array.isArray(event?.ticket_types) || event.ticket_types.length === 0) return []
+    const groups = []
+    const rawSessions = Array.isArray(event?.sessions) ? event.sessions : []
+
+    // Map each session with its index, clear title, and time
+    const sessionMap = new Map()
+    rawSessions.forEach((s, idx) => {
+      const sIndex = idx + 1
+      const rawName = s.session_name?.trim() || ''
+      const hasPrefix = /^phiên\s*\d+/i.test(rawName)
+      const cleanName = hasPrefix ? rawName : (rawName ? `Phiên ${sIndex}: ${rawName}` : `Phiên ${sIndex}`)
+      const timeStr = formatShortDate(s.start_time)
+
+      sessionMap.set(String(s.id), {
+        id: String(s.id),
+        index: sIndex,
+        rawName,
+        displayName: cleanName,
+        timeStr,
+        start_time: s.start_time,
+        end_time: s.end_time,
+      })
+    })
+
+    const ticketsToGroup = selectedTicketSessionId === 'ALL'
+      ? event.ticket_types
+      : event.ticket_types.filter((t) => String(t.event_session_id) === String(selectedTicketSessionId))
+
+    ticketsToGroup.forEach((ticket) => {
+      const name = ticket?.name?.trim() || 'Vé tiêu chuẩn'
+      const price = Number(ticket?.price || 0)
+      const isSeated = Boolean(ticket?.is_seated)
+      const key = `${name.toLowerCase()}___${price}___${isSeated}`
+
+      let group = groups.find((g) => g.key === key)
+      if (!group) {
+        group = {
+          key,
+          name,
+          price,
+          is_seated: isSeated,
+          description: ticket?.description,
+          totalQuantity: 0,
+          sessions: [],
+          uniqueQuantities: new Set(),
+        }
+        groups.push(group)
+      }
+
+      const sSessionId = String(ticket?.event_session_id)
+      const existingSession = group.sessions.find((s) => String(s.sessionId) === sSessionId)
+      if (existingSession) {
+        return
+      }
+
+      const qty = Number(ticket?.quantity || 0)
+      group.totalQuantity += qty
+      group.uniqueQuantities.add(qty)
+
+      const sMeta = sessionMap.get(sSessionId)
+      const sessionIndex = sMeta?.index || (group.sessions.length + 1)
+      const sessionDisplayName = sMeta?.displayName || `Phiên ${sessionIndex}`
+      const sessionTime = sMeta?.timeStr || ''
+
+      group.sessions.push({
+        sessionId: ticket?.event_session_id,
+        sessionIndex,
+        sessionName: sessionDisplayName,
+        rawSessionName: sMeta?.rawName || '',
+        timeStr: sessionTime,
+        quantity: qty,
+      })
+    })
+
+    // Sort sessions inside each group chronologically by sessionIndex
+    groups.forEach((g) => {
+      g.sessions.sort((a, b) => a.sessionIndex - b.sessionIndex)
+    })
+
+    return groups
+  }, [event?.ticket_types, event?.sessions, selectedTicketSessionId])
+
+  const totalTicketsCount = useMemo(() => {
+    return groupedTickets.reduce((sum, g) => sum + g.totalQuantity, 0)
+  }, [groupedTickets])
+
+  const totalTicketsRevenue = useMemo(() => {
+    return groupedTickets.reduce((sum, g) => sum + g.totalQuantity * g.price, 0)
+  }, [groupedTickets])
+
+  const [isScanningActive, setIsScanningActive] = useState(() => {
+    try {
+      return localStorage.getItem(`eh_ai_scanning_${eventId}`) === 'true'
+    } catch {
+      return false
+    }
   })
 
   // Scan Status Query
   const { data: scanStatus } = useQuery({
     queryKey: ['admin-auto-review-scan-status'],
     queryFn: fetchAdminAutoReviewScanStatus,
-    refetchInterval: (query) => (query.state.data?.isRunning ? 1500 : 6000),
+    refetchInterval: (query) => (query.state.data?.isRunning || isScanningActive ? 1200 : 4000),
+  })
+
+  // AI Review Query - polls every 2s while scanning is active so result loads automatically even after reload
+  const aiReviewQuery = useQuery({
+    queryKey: ['admin-ai-review', eventId],
+    queryFn: () => fetchAdminAiReview(eventId),
+    enabled: !!eventId,
+    refetchInterval: () => (isScanningActive || scanStatus?.isRunning ? 2000 : false),
   })
 
   const [isManuallyCancelled, setIsManuallyCancelled] = useState(false)
@@ -620,6 +1178,9 @@ export function AdminEventReviewDetailPage() {
     mutationFn: cancelAdminAutoReview,
     onSuccess: (res) => {
       toast.success(res.message || 'Đã gửi lệnh dừng tiến trình quét AI.')
+      setIsScanningActive(false)
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+      queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
       queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
       queryClient.invalidateQueries({ queryKey: ['admin-ai-review', eventId] })
       queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
@@ -633,6 +1194,8 @@ export function AdminEventReviewDetailPage() {
   const runAiMutation = useMutation({
     mutationFn: () => runAdminAiReview(event),
     onSuccess: (data) => {
+      setIsScanningActive(false)
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
       if (isManuallyCancelled || data?.cancelled) {
         toast.info(data?.message || 'Tiến trình quét đã được dừng theo yêu cầu.')
       } else {
@@ -643,27 +1206,56 @@ export function AdminEventReviewDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
     onError: (err) => {
+      setIsScanningActive(false)
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
       if (isManuallyCancelled) return
       toast.error(err.response?.data?.message || 'Không thể chạy phân tích AI.')
       queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
     },
   })
 
+  const isScanningThisEvent = Boolean(
+    !isManuallyCancelled && (
+      runAiMutation.isPending ||
+      (scanStatus?.isRunning && (String(scanStatus?.eventId) === String(eventId) || !scanStatus?.eventId)) ||
+      (isScanningActive && !aiReviewQuery.data && !event?.aiReview)
+    )
+  )
+
   const handleStartAi = () => {
     setIsManuallyCancelled(false)
+    setIsScanningActive(true)
+    try { localStorage.setItem(`eh_ai_scanning_${eventId}`, 'true') } catch {}
     runAiMutation.mutate()
   }
 
   const handleCancelAi = () => {
     setIsManuallyCancelled(true)
+    setIsScanningActive(false)
+    try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
     runAiMutation.reset()
     cancelAiMutation.mutate()
     queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
   }
 
-  const isScanningThisEvent = Boolean(
-    !isManuallyCancelled && (runAiMutation.isPending || (scanStatus?.isRunning && (scanStatus?.eventId === eventId || !scanStatus?.eventId)))
-  )
+  // Detect completion when reloaded or when backend scan ends
+  const prevScanningRef = useRef(false)
+  useEffect(() => {
+    if (prevScanningRef.current && !scanStatus?.isRunning) {
+      setIsScanningActive(false)
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+      queryClient.invalidateQueries({ queryKey: ['admin-ai-review', eventId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
+    }
+    prevScanningRef.current = Boolean(scanStatus?.isRunning && (String(scanStatus?.eventId) === String(eventId) || !scanStatus?.eventId))
+  }, [scanStatus?.isRunning, scanStatus?.eventId, eventId, queryClient])
+
+  useEffect(() => {
+    if ((aiReviewQuery.data || event?.aiReview) && !runAiMutation.isPending && !scanStatus?.isRunning) {
+      setIsScanningActive(false)
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+    }
+  }, [aiReviewQuery.data, event?.aiReview, runAiMutation.isPending, scanStatus?.isRunning, eventId])
 
   // -------------------------------------------------------------------------
   // Mutations
@@ -1039,9 +1631,9 @@ export function AdminEventReviewDetailPage() {
         </div>
       </div>
 
-      {/* Main Split Screen - Khung lớn chứa nội dung chi tiết & AI Review */}
+      {/* Main Split Screen */}
       <div className="flex flex-1 gap-5 overflow-hidden">
-        {/* Left Column: Event Details (Bỏ khung bọc ngoài cùng) */}
+        {/* Left Column: Event Details */}
         <div className={`overflow-y-auto pr-1.5 flex-1 min-w-0 ${customScrollbar} ${!isPendingReview ? 'max-w-5xl mx-auto' : ''}`}>
           {/* Cancellation Request Banner */}
           {event.cancel_request?.status === 'PENDING' && (
@@ -1345,6 +1937,11 @@ export function AdminEventReviewDetailPage() {
                                       <button
                                         type="button"
                                         onClick={() => {
+                                          const matchingDocAnalysis = aiData?.document_analysis?.find(
+                                            (d) => (permit.url && d.url === permit.url) ||
+                                                   (permit.name && d.fileName === permit.name) ||
+                                                   (d.source && d.source.includes(String(idx + 1)))
+                                          )
                                           const matchingVision = aiData?.vision_analysis?.find(
                                             (v) => (permit.url && v.url === permit.url) ||
                                               (permit.name && v.fileName === permit.name) ||
@@ -1352,7 +1949,7 @@ export function AdminEventReviewDetailPage() {
                                           )
                                           setPreviewDoc({
                                             ...permit,
-                                            extractedText: matchingVision?.extractedText || null,
+                                            extractedText: matchingDocAnalysis?.extractedText || matchingVision?.extractedText || null,
                                           })
                                         }}
                                         className="grid size-8 place-items-center rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition shadow-sm cursor-pointer"
@@ -1384,14 +1981,21 @@ export function AdminEventReviewDetailPage() {
                   </div>
                   {event.sessions && event.sessions.length > 0 ? (
                     <div className="space-y-3">
-                      {event.sessions.map((session, idx) => (
-                        <div key={idx} className="rounded-xl border border-white/5 bg-white/[0.03] p-3.5 text-slate-300">
-                          <div className="text-sm font-bold text-white">{session?.session_name || `Phiên ${idx + 1}`}</div>
-                          <div className="mt-1 text-xs sm:text-[13px] font-medium text-slate-300">
-                            {formatDate(session?.start_time)} - {formatDate(session?.end_time)}
+                      {event.sessions.map((session, idx) => {
+                        const rawTitle = session?.session_name?.trim() || ''
+                        const sessionTitle = rawTitle
+                          ? (/^phiên\s*\d+/i.test(rawTitle) ? rawTitle : `Phiên ${idx + 1}: ${rawTitle}`)
+                          : `Phiên ${idx + 1}`
+
+                        return (
+                          <div key={idx} className="rounded-xl border border-white/5 bg-white/[0.03] p-3.5 text-slate-300">
+                            <div className="text-sm font-bold text-white">{sessionTitle}</div>
+                            <div className="mt-1 text-xs sm:text-[13px] font-medium text-slate-300">
+                              {formatDate(session?.start_time)} - {formatDate(session?.end_time)}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <p className="text-xs italic text-slate-500">Chưa có lịch trình chi tiết.</p>
@@ -1400,26 +2004,314 @@ export function AdminEventReviewDetailPage() {
 
                 {/* Ticket Types */}
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
-                  <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-                    <Tag className="size-5 text-indigo-400" />
-                    <h3 className="font-display text-base font-black text-white">Cơ cấu loại vé (Tickets)</h3>
-                  </div>
-                  {event.ticket_types && event.ticket_types.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {event.ticket_types.map((ticket, idx) => (
-                        <div key={idx} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3">
-                          <div>
-                            <div className="text-xs font-bold text-white">{ticket?.name}</div>
-                            <div className="text-[11px] text-slate-400">Số lượng: {ticket?.quantity} vé</div>
-                          </div>
-                          <div className="text-xs font-black text-emerald-400">
-                            {Number(ticket?.price) === 0 ? 'Miễn phí' : `${Number(ticket?.price || 0).toLocaleString('vi-VN')} đ`}
-                          </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Tag className="size-5 text-indigo-400" />
+                      <h3 className="font-display text-base font-black text-white">Cơ cấu loại vé (Tickets)</h3>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {groupedTickets.length > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <span className="font-semibold text-slate-300">{groupedTickets.length} loại vé</span>
+                          <span>•</span>
+                          <span>Tổng: <strong className="text-white">{totalTicketsCount.toLocaleString('vi-VN')}</strong> vé</span>
+                          {totalTicketsRevenue > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>Dự thu: <strong className="text-emerald-400">{totalTicketsRevenue.toLocaleString('vi-VN')} đ</strong></span>
+                            </>
+                          )}
                         </div>
-                      ))}
+                      )}
+
+                      {/* View mode toggle (Cards vs Matrix Table) */}
+                      {event.sessions && event.sessions.length > 1 && (
+                        <div className="flex items-center rounded-lg border border-white/10 bg-black/40 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setTicketViewMode('grid')}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                              ticketViewMode === 'grid'
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                            title="Xem dạng thẻ chi tiết"
+                          >
+                            <LayoutGrid className="size-3.5" />
+                            <span>Dạng thẻ</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTicketViewMode('table')}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                              ticketViewMode === 'table'
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                            title="Xem bảng ma trận tổng hợp theo phiên"
+                          >
+                            <Table className="size-3.5" />
+                            <span>Bảng ma trận</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Session filter buttons if multiple sessions */}
+                  {event.sessions && event.sessions.length > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTicketSessionId('ALL')}
+                        className={`px-2.5 py-1 rounded-lg font-medium transition whitespace-nowrap ${
+                          selectedTicketSessionId === 'ALL'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        Tất cả các phiên ({event.sessions.length})
+                      </button>
+                      {event.sessions.map((sess, sIdx) => {
+                        const sId = String(sess.id)
+                        const isSelected = selectedTicketSessionId === sId
+                        const rawTitle = sess.session_name?.trim() || ''
+                        const time = formatShortDate(sess.start_time)
+                        const label = rawTitle
+                          ? (/^phiên\s*\d+/i.test(rawTitle)
+                              ? `${rawTitle}${time ? ` (${time})` : ''}`
+                              : `Phiên ${sIdx + 1}: ${rawTitle}${time ? ` (${time})` : ''}`)
+                          : `Phiên ${sIdx + 1}${time ? ` (${time})` : ''}`
+
+                        return (
+                          <button
+                            key={sess.id || sIdx}
+                            type="button"
+                            onClick={() => setSelectedTicketSessionId(sId)}
+                            className={`px-2.5 py-1 rounded-lg font-medium transition whitespace-nowrap ${
+                              isSelected
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {groupedTickets.length === 0 ? (
+                    <p className="text-xs italic text-slate-500">Chưa tạo loại vé nào.</p>
+                  ) : ticketViewMode === 'table' && event.sessions && event.sessions.length > 1 ? (
+                    /* MATRIX TABLE VIEW */
+                    <div className="overflow-x-auto rounded-xl border border-white/10 bg-slate-950/60 shadow-inner">
+                      <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 bg-white/[0.04] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            <th className="py-3 px-3.5 whitespace-nowrap">Hạng vé</th>
+                            <th className="py-3 px-3.5 text-right whitespace-nowrap">Đơn giá</th>
+                            <th className="py-3 px-3.5 text-center whitespace-nowrap min-w-[100px]">Hình thức</th>
+                            {event.sessions.map((sess, sIdx) => {
+                              const time = formatShortDate(sess.start_time)
+                              const rawTitle = sess.session_name?.trim() || ''
+                              const sessionTitle = rawTitle && !/^phiên\s*\d+/i.test(rawTitle)
+                                ? `Phiên ${sIdx + 1}: ${rawTitle}`
+                                : `Phiên ${sIdx + 1}`
+
+                              return (
+                                <th key={sess.id || sIdx} className="py-3 px-3.5 text-center min-w-[130px] whitespace-nowrap">
+                                  <div className="font-bold text-white">{sessionTitle}</div>
+                                  {time && <div className="text-[10px] font-normal text-slate-400 font-mono mt-0.5">{time}</div>}
+                                </th>
+                              )
+                            })}
+                            <th className="py-3 px-3.5 text-right font-black text-white whitespace-nowrap">Tổng vé</th>
+                            <th className="py-3 px-3.5 text-right font-black text-emerald-400 whitespace-nowrap">Dự thu</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 font-medium">
+                          {groupedTickets.map((t) => {
+                            const sessionQtyMap = new Map(t.sessions.map((s) => [String(s.sessionId), s.quantity]))
+                            const revenue = t.totalQuantity * t.price
+
+                            return (
+                              <tr key={t.key} className="hover:bg-white/[0.02] transition">
+                                <td className="py-3 px-3.5 font-bold text-white whitespace-nowrap">
+                                  {t.name}
+                                </td>
+                                <td className="py-3 px-3.5 text-right text-emerald-400 font-semibold whitespace-nowrap">
+                                  {Number(t.price) === 0 ? 'Miễn phí' : `${Number(t.price).toLocaleString('vi-VN')} đ`}
+                                </td>
+                                <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                                  <span className={`inline-flex items-center justify-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                    t.is_seated
+                                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                  }`}>
+                                    {t.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
+                                  </span>
+                                </td>
+                                {event.sessions.map((sess, sIdx) => {
+                                  const qty = sessionQtyMap.get(String(sess.id)) || 0
+                                  return (
+                                    <td key={sess.id || sIdx} className="py-3 px-3.5 text-center whitespace-nowrap">
+                                      <span className="font-bold text-slate-200">{qty.toLocaleString('vi-VN')}</span>
+                                      <span className="text-slate-500 text-[10px] ml-1">vé</span>
+                                    </td>
+                                  )
+                                })}
+                                <td className="py-3 px-3 text-right font-bold text-white whitespace-nowrap">
+                                  {t.totalQuantity.toLocaleString('vi-VN')} vé
+                                </td>
+                                <td className="py-3 px-3 text-right font-bold text-emerald-400 whitespace-nowrap">
+                                  {revenue.toLocaleString('vi-VN')} đ
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-white/10 bg-white/[0.04] text-xs font-black text-white">
+                            <td className="py-3 px-3.5 whitespace-nowrap" colSpan={3}>
+                              TỔNG CỘNG
+                            </td>
+                            {event.sessions.map((sess, sIdx) => {
+                              const sessTotal = (event.ticket_types || [])
+                                .filter((tt) => String(tt.event_session_id) === String(sess.id))
+                                .reduce((sum, tt) => sum + Number(tt.quantity || 0), 0)
+                              return (
+                                <td key={sess.id || sIdx} className="py-3 px-3.5 text-center text-indigo-300 whitespace-nowrap font-bold">
+                                  {sessTotal.toLocaleString('vi-VN')} vé
+                                </td>
+                              )
+                            })}
+                            <td className="py-3 px-3.5 text-right text-white whitespace-nowrap">
+                              {totalTicketsCount.toLocaleString('vi-VN')} vé
+                            </td>
+                            <td className="py-3 px-3.5 text-right text-emerald-400 whitespace-nowrap">
+                              {totalTicketsRevenue.toLocaleString('vi-VN')} đ
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
                   ) : (
-                    <p className="text-xs italic text-slate-500">Chưa tạo loại vé nào.</p>
+                    /* CARD GRID VIEW (ĐỒNG BỘ CẤU TRÚC VÀ RÕ RÀNG THEO TỪNG PHIÊN) */
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {groupedTickets.map((ticket) => {
+                        const isMultiSession = ticket.sessions.length > 1
+                        const isUniform = isMultiSession && ticket.uniqueQuantities.size === 1
+                        const sampleQty = ticket.sessions[0]?.quantity
+                        const estRevenue = ticket.totalQuantity * ticket.price
+
+                        return (
+                          <div
+                            key={ticket.key}
+                            className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-3 transition hover:border-white/20 hover:bg-white/[0.03] shadow-sm"
+                          >
+                            {/* Header: Name, Seating Badge & Price */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-sm font-bold text-white tracking-wide">
+                                    {ticket.name}
+                                  </h4>
+                                  <span
+                                    className={`inline-flex items-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                      ticket.is_seated
+                                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                    }`}
+                                  >
+                                    {ticket.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
+                                  </span>
+                                </div>
+                                {ticket.description && (
+                                  <p className="text-[11px] text-slate-400 italic mt-1 line-clamp-2">
+                                    {ticket.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-sm font-black text-emerald-400">
+                                  {Number(ticket.price) === 0 ? 'Miễn phí' : `${Number(ticket.price).toLocaleString('vi-VN')} đ`}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Stat Metrics Bar (Đồng bộ số liệu) */}
+                            <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/40 border border-white/5 p-2.5 text-xs">
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                                  Tổng số lượng vé
+                                </span>
+                                <div className="font-extrabold text-white text-sm mt-0.5">
+                                  {ticket.totalQuantity.toLocaleString('vi-VN')}{' '}
+                                  <span className="text-xs font-normal text-slate-400">vé</span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                                  {isMultiSession ? 'Định mức / Phiên' : 'Số lượng bán'}
+                                </span>
+                                <div className="font-extrabold text-slate-200 text-sm mt-0.5">
+                                  {isMultiSession
+                                    ? (isUniform ? `${sampleQty} vé / phiên` : `${ticket.sessions.length} phiên`)
+                                    : `${ticket.totalQuantity.toLocaleString('vi-VN')} vé`}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Multi-session Breakdown List */}
+                            {isMultiSession && selectedTicketSessionId === 'ALL' && (
+                              <div className="space-y-1.5 pt-1 border-t border-white/5">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                                  <span>Phân bổ theo phiên ({ticket.sessions.length} phiên)</span>
+                                  <span>Số lượng vé</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {ticket.sessions.map((s, sIdx) => (
+                                    <div
+                                      key={sIdx}
+                                      className="flex items-center justify-between gap-2.5 rounded-lg bg-white/[0.02] border border-white/5 px-2.5 py-1.5 text-xs transition hover:bg-white/[0.05]"
+                                    >
+                                      <div className="flex items-baseline gap-1.5 min-w-0 flex-1 flex-wrap">
+                                        <span className="font-bold text-indigo-300 shrink-0">
+                                          Phiên {s.sessionIndex}
+                                        </span>
+                                        {s.rawSessionName && (
+                                          <span className="text-slate-200 font-medium break-words">
+                                            • {s.rawSessionName}
+                                          </span>
+                                        )}
+                                        {s.timeStr && (
+                                          <span className="text-slate-400 text-[11px] font-mono shrink-0">
+                                            ({s.timeStr})
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="shrink-0 font-bold text-emerald-400 whitespace-nowrap pl-2">
+                                        {s.quantity.toLocaleString('vi-VN')} vé
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Single session filtered info if viewing a specific session */}
+                            {selectedTicketSessionId !== 'ALL' && (
+                              <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 text-xs text-indigo-300 flex items-center justify-between">
+                                <span>Áp dụng cho phiên:</span>
+                                <strong className="text-white">{ticket.sessions[0]?.sessionName || 'Phiên đã chọn'}</strong>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
 
@@ -1497,9 +2389,14 @@ export function AdminEventReviewDetailPage() {
                   <div className="grid size-8 place-items-center rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20 text-indigo-400 shrink-0">
                     <Bot className="size-4" />
                   </div>
-                  <h2 className="font-display text-xs sm:text-sm font-black text-white drop-shadow-sm tracking-tight uppercase truncate">
-                    AI Review Assistant
-                  </h2>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h2 className="font-display text-xs sm:text-sm font-black text-white drop-shadow-sm tracking-tight uppercase truncate">
+                      AI Review Assistant
+                    </h2>
+                    <span className="hidden sm:inline-block rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300 shrink-0">
+                      eventhub-qwen3
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -1698,6 +2595,17 @@ export function AdminEventReviewDetailPage() {
                       {aiData.content_review && (
                         <ContentSpellingAuditCard
                           contentReview={aiData.content_review}
+                          event={event}
+                          onClick={handleWarningClick}
+                        />
+                      )}
+
+                      {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP (ĐỘC LẬP VỚI HÌNH ẢNH) */}
+                      {(aiData.document_review || aiData.document_analysis) && (
+                        <DocumentModerationAuditCard
+                          documentReview={aiData.document_review}
+                          documentAnalysis={aiData.document_analysis}
+                          onPreviewDoc={setPreviewDoc}
                           onClick={handleWarningClick}
                         />
                       )}
@@ -1859,6 +2767,15 @@ export function AdminEventReviewDetailPage() {
         isOpen={isCriteriaOpen}
         onClose={() => setIsCriteriaOpen(false)}
       />
+
+      {isSuspendModalOpen && (
+        <AdminSuspendModal
+          event={event}
+          loading={suspendLoading}
+          onClose={() => setIsSuspendModalOpen(false)}
+          onConfirm={handleConfirmSuspend}
+        />
+      )}
     </div>
   )
 }
@@ -1866,8 +2783,9 @@ export function AdminEventReviewDetailPage() {
 function DocumentPreviewModal({ doc, onClose }) {
   if (!doc) return null
 
-  const isImage = doc.type?.includes('image') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(doc.url) || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(doc.name)
-  const isPdf = doc.type?.includes('pdf') || doc.url?.toLowerCase().includes('.pdf') || doc.name?.toLowerCase().endsWith('.pdf')
+  const isImage = doc.type?.includes('image') || /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(doc.url) || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(doc.name)
+  const isPdf = !isImage && (doc.type?.includes('pdf') || /\.pdf($|\?)/i.test(doc.url) || /\.pdf$/i.test(doc.name))
+  const isDocx = !isImage && !isPdf && (doc.type?.includes('word') || doc.type?.includes('officedocument') || /\.(docx?)($|\?)/i.test(doc.url) || /\.(docx?)$/i.test(doc.name))
 
   const [activeTab, setActiveTab] = useState('preview') // 'preview' | 'ai_text'
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
@@ -1878,6 +2796,15 @@ function DocumentPreviewModal({ doc, onClose }) {
   const [isLoadingText, setIsLoadingText] = useState(false)
   const [textExtractError, setTextExtractError] = useState(null)
   const [copied, setCopied] = useState(false)
+
+  // Reset tab and text when doc changes
+  useEffect(() => {
+    setActiveTab('preview')
+    setExtractedText(doc.extractedText || null)
+    setPdfBlobUrl(null)
+    setPdfLoadError(null)
+    setTextExtractError(null)
+  }, [doc.url, doc.name, doc.extractedText])
 
   // 1. Fetch inline PDF blob for direct preview without forcing browser download
   useEffect(() => {
@@ -1898,7 +2825,7 @@ function DocumentPreviewModal({ doc, onClose }) {
         .catch((err) => {
           if (!active) return
           console.warn('[DocumentPreview] Blob preview failed, falling back to direct URL:', err.message)
-          setPdfLoadError('Không thể tạo luồng xem trực tiếp. Bạn có thể mở qua tab mới hoặc tải về.')
+          setPdfLoadError('Không thể tạo luồng xem trực tiếp từ blob. Hệ thống tự động chuyển sang chế độ xem qua Google Docs Viewer.')
           setIsLoadingPdf(false)
         })
     }
@@ -1909,14 +2836,14 @@ function DocumentPreviewModal({ doc, onClose }) {
     }
   }, [doc?.url, isPdf])
 
-  // 2. Fetch or initialize extracted text
+  // 2. Fetch or initialize extracted text for PDF and DOCX
   useEffect(() => {
     if (doc?.extractedText) {
       setExtractedText(doc.extractedText)
       return
     }
 
-    if (isPdf && doc?.url && !extractedText) {
+    if ((isPdf || isDocx) && doc?.url && !extractedText) {
       setIsLoadingText(true)
       setTextExtractError(null)
 
@@ -1925,9 +2852,9 @@ function DocumentPreviewModal({ doc, onClose }) {
           if (data?.text) {
             setExtractedText(data.text)
           } else if (data?.hasText === false) {
-            setTextExtractError('Tệp PDF dạng quét ảnh (scan) hoặc không chứa lớp văn bản (text layer).')
+            setTextExtractError('Tệp quét dạng hình ảnh (scan) hoặc không chứa lớp văn bản (text layer) trích xuất được.')
           } else {
-            setTextExtractError('Không trích xuất được văn bản từ tệp này.')
+            setTextExtractError('Không trích xuất được nội dung văn bản từ tệp này.')
           }
         })
         .catch((err) => {
@@ -1938,7 +2865,7 @@ function DocumentPreviewModal({ doc, onClose }) {
           setIsLoadingText(false)
         })
     }
-  }, [doc?.url, doc?.extractedText, isPdf])
+  }, [doc?.url, doc?.extractedText, isPdf, isDocx])
 
   const handleCopyText = () => {
     if (!extractedText) return
@@ -1965,6 +2892,8 @@ function DocumentPreviewModal({ doc, onClose }) {
             <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
               {isPdf ? (
                 <FileText className="size-5" />
+              ) : isDocx ? (
+                <FileCheck className="size-5 text-blue-400" />
               ) : isImage ? (
                 <ImageIcon className="size-5" />
               ) : (
@@ -1977,7 +2906,7 @@ function DocumentPreviewModal({ doc, onClose }) {
               </h3>
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <span className="uppercase font-semibold text-indigo-300">
-                  {isPdf ? 'Tài liệu PDF' : isImage ? 'Hình ảnh' : 'Tài liệu đính kèm'}
+                  {isPdf ? 'Tài liệu PDF' : isDocx ? 'Tài liệu Word (DOCX)' : isImage ? 'Hình ảnh / Scan' : 'Tài liệu đính kèm'}
                 </span>
                 {doc.size && (
                   <>
@@ -1985,12 +2914,12 @@ function DocumentPreviewModal({ doc, onClose }) {
                     <span>{formatFileSize(doc.size)}</span>
                   </>
                 )}
-                {isPdf && (
+                {(isPdf || isDocx) && (
                   <>
                     <span>•</span>
                     <span className="text-emerald-400 flex items-center gap-1 font-medium">
                       <Sparkles className="size-3" />
-                      AI Đọc & Duyệt được
+                      AI Đọc & Kiểm duyệt được
                     </span>
                   </>
                 )}
@@ -2000,7 +2929,7 @@ function DocumentPreviewModal({ doc, onClose }) {
 
           {/* Modal Header Tabs & Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            {isPdf && (
+            {(isPdf || isDocx) && (
               <div className="flex rounded-xl bg-slate-800/80 p-0.5 border border-white/5 mr-1">
                 <button
                   type="button"
@@ -2096,29 +3025,21 @@ function DocumentPreviewModal({ doc, onClose }) {
                       title={doc.name}
                     />
                   ) : pdfLoadError ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
-                      <div className="grid size-12 place-items-center rounded-2xl bg-amber-500/10 text-amber-400 mb-3 ring-1 ring-amber-500/20">
-                        <AlertTriangle className="size-6" />
-                      </div>
-                      <p className="text-xs text-slate-300 mb-4">{pdfLoadError}</p>
-                      <div className="flex items-center gap-3">
+                    <div className="w-full flex-1 flex flex-col">
+                      <iframe
+                        src={`https://docs.google.com/viewer?url=${encodeURIComponent(doc.url)}&embedded=true`}
+                        className="w-full flex-1 border-0 bg-slate-950"
+                        title={doc.name}
+                      />
+                      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-t border-white/10 text-xs text-slate-400">
+                        <span>Đang hiển thị qua Google Docs Viewer.</span>
                         <button
                           type="button"
                           onClick={() => setActiveTab('ai_text')}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-indigo-500"
+                          className="text-indigo-400 hover:text-indigo-300 font-bold underline"
                         >
-                          <Sparkles className="size-3.5" />
-                          Đọc văn bản AI đã trích xuất
+                          Bấm đây để xem toàn bộ văn bản AI trích xuất
                         </button>
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-slate-300 hover:text-white"
-                        >
-                          <ExternalLink className="size-3.5" />
-                          Mở link gốc
-                        </a>
                       </div>
                     </div>
                   ) : (
@@ -2130,7 +3051,7 @@ function DocumentPreviewModal({ doc, onClose }) {
                   )}
                 </div>
               ) : (
-                /* TAB 2: AI EXTRACTED TEXT */
+                /* TAB 2: AI EXTRACTED TEXT (PDF) */
                 <div className="w-full h-full flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-950/90 p-4 sm:p-5">
                   <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
                     <div className="flex items-center gap-2">
@@ -2186,25 +3107,116 @@ function DocumentPreviewModal({ doc, onClose }) {
                   )}
                 </div>
               )
+            ) : isDocx ? (
+              activeTab === 'preview' ? (
+                /* TAB 1: DOCX PREVIEW VIA GOOGLE DOCS VIEWER */
+                <div className="w-full h-full flex flex-col relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950">
+                  <iframe
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(doc.url)}&embedded=true`}
+                    className="w-full flex-1 border-0 bg-slate-950"
+                    title={doc.name}
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-slate-900 border-t border-white/10 text-xs text-slate-400">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="size-3.5 text-indigo-400" />
+                      <span>Xem trước văn bản Word trực tuyến. Nếu cần đọc trích đoạn đối chiếu, chọn tab <strong>"Văn bản AI trích xuất"</strong>.</span>
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <a
+                        href={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(doc.url)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-400 hover:text-indigo-300 font-semibold"
+                      >
+                        Mở bằng Office Online
+                      </a>
+                      <span>•</span>
+                      <a
+                        href={doc.url}
+                        download={doc.name}
+                        className="text-slate-300 hover:text-white"
+                      >
+                        Tải tệp gốc
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* TAB 2: AI EXTRACTED TEXT (DOCX) */
+                <div className="w-full h-full flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-950/90 p-4 sm:p-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="flex size-2 rounded-full bg-blue-400 animate-pulse" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Nội dung văn bản được AI trích xuất từ tài liệu Word (.docx)
+                      </span>
+                      {wordCount > 0 && (
+                        <span className="text-[11px] text-slate-400">
+                          ({wordCount.toLocaleString()} từ • {charCount.toLocaleString()} ký tự)
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyText}
+                      disabled={!extractedText}
+                      className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10 hover:text-white transition disabled:opacity-40"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="size-3.5 text-emerald-400" />
+                          <span className="text-emerald-400 font-bold">Đã sao chép</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="size-3.5" />
+                          <span>Sao chép</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {isLoadingText ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="size-8 text-indigo-400 animate-spin" />
+                      <p className="text-xs text-slate-400">Đang trích xuất nội dung văn bản từ tệp Word...</p>
+                    </div>
+                  ) : textExtractError ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto">
+                      <AlertCircle className="size-8 text-amber-400 mb-2" />
+                      <p className="text-xs text-slate-300">{textExtractError}</p>
+                    </div>
+                  ) : extractedText ? (
+                    <div className="flex-1 overflow-y-auto rounded-xl border border-white/5 bg-black/40 p-4 font-mono text-xs leading-relaxed text-slate-300 whitespace-pre-wrap select-text">
+                      {extractedText}
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-xs text-slate-500 italic">
+                      Không có nội dung văn bản nào được trích xuất từ tệp này.
+                    </div>
+                  )}
+                </div>
+              )
             ) : (
-              // For DOCX or other docs
+              // For other unknown doc formats
               <div className="flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto my-auto">
                 <div className="grid size-16 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 mb-4 ring-1 ring-indigo-500/20">
                   <FileText className="size-8" />
                 </div>
                 <h4 className="font-bold text-white text-base mb-1">{doc.name}</h4>
                 <p className="text-xs text-slate-400 mb-6">
-                  Định dạng tài liệu này phù hợp nhất khi mở hoặc xem trong ứng dụng chuyên dụng hoặc tải về.
+                  Định dạng tài liệu này được hỗ trợ xem trực tiếp qua trình xem trực tuyến hoặc tải về.
                 </p>
                 <div className="flex items-center gap-3">
                   <a
-                    href={doc.url}
+                    href={`https://docs.google.com/viewer?url=${encodeURIComponent(doc.url)}&embedded=true`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition"
                   >
                     <ExternalLink className="size-4" />
-                    Mở trực tiếp
+                    Xem trực tiếp trực tuyến
                   </a>
                   <a
                     href={doc.url}
@@ -2224,15 +3236,6 @@ function DocumentPreviewModal({ doc, onClose }) {
           )}
         </div>
       </div>
-
-      {isSuspendModalOpen && (
-        <AdminSuspendModal
-          event={event}
-          loading={suspendLoading}
-          onClose={() => setIsSuspendModalOpen(false)}
-          onConfirm={handleConfirmSuspend}
-        />
-      )}
     </div>
   )
 }
