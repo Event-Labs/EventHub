@@ -206,8 +206,11 @@ class OrdersService {
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
 
-    // Zero-Amount Checkout bypass (behind feature flag ZERO_AMOUNT_CHECKOUT_ENABLED)
-    if (ZERO_AMOUNT_CHECKOUT_ENABLED) {
+    // Zero-Amount Checkout bypass (enabled by default unless explicitly disabled)
+
+    const isZeroAmountEnabled = ZERO_AMOUNT_CHECKOUT_ENABLED !== false;
+
+    if (isZeroAmountEnabled) {
       const couldBeZero = subtotal === 0 || Boolean(payload.promo_code);
 
       if (couldBeZero) {
@@ -311,7 +314,27 @@ class OrdersService {
       idempotencyKey,
     });
 
+    // Safety guard: If total payable amount is 0, never call PayOS
+
+    if (mapMoney(created.order.total_amount) === 0 || mapMoney(created.paymentOrder?.amount) === 0) {
+
+      await ordersRepository.cancelOrder(created.order.id);
+
+      throw new AppError(
+
+        'Đơn hàng miễn phí không thể tạo thanh toán qua PayOS.',
+
+        400,
+
+        ErrorCodes.INVALID_INPUT,
+
+      );
+
+    }
+
+
     try {
+
       created.paymentOrder = await paymentsService.createTicketOrderPayosLink({
         paymentOrder: created.paymentOrder,
         channel: paymentChannel,
@@ -571,5 +594,4 @@ class OrdersService {
 }
 
 module.exports = new OrdersService();
-
 
