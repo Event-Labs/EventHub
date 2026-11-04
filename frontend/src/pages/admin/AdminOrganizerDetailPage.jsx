@@ -228,7 +228,9 @@ export function AdminOrganizerDetailPage() {
                   {request.kyc_ocr_data && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                       <ShieldCheck className="size-3.5" />{' '}
-                      {request.kyc_ocr_data?.verification_method === 'PARTNER_VETTING' || request.kyc_ocr_data?.algorithm_checked
+                      {request.kyc_ocr_data?.scan_method === 'AI_OCR_AND_QR' || request.kyc_ocr_data?.has_qr_cross_check
+                        ? 'AI OCR + QR C06 Khớp (' + Math.round((request.kyc_ocr_data?.overall_confidence || 0.95) * 100) + '%)'
+                        : request.kyc_ocr_data?.verification_method === 'PARTNER_VETTING' || request.kyc_ocr_data?.algorithm_checked
                         ? 'Định danh số & Uy tín (Không lưu ảnh CCCD)'
                         : request.kyc_ocr_data?.scan_method === 'VNEID_GATEWAY' || request.kyc_ocr_data?.verified
                         ? 'Xác thực qua VNeID Mức 2'

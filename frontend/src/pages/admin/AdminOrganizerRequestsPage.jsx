@@ -459,9 +459,16 @@ export function AdminOrganizerRequestsPage() {
                                     </p>
                                   </div>
                                 </div>
-                                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0 self-start sm:self-auto">
-                                  <Check className="size-3" /> Thuật toán C06 Hợp lệ
-                                </span>
+                                <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+                                  {(kyc.scan_method === 'AI_OCR_AND_QR' || kyc.has_qr_cross_check) && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                                      <Check className="size-3" /> AI OCR + QR Khớp ({Math.round((kyc.overall_confidence || 0.95) * 100)}%)
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    <Check className="size-3" /> Thuật toán C06 Hợp lệ
+                                  </span>
+                                </div>
                               </div>
 
                               <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/20 px-3.5 py-2 text-xs text-emerald-300 flex items-center gap-2">
