@@ -84,13 +84,15 @@ export async function unhideOrganizerEvent(eventId) {
   return response.data.data
 }
 
-export async function pauseSalesOrganizerEvent(eventId, reason = '') {
-  const response = await http.post(`/organizer/events/${eventId}/sales/pause`, { reason })
+export async function pauseSalesOrganizerEvent(eventId, payload = '') {
+  const body = typeof payload === 'string' ? { reason: payload } : (payload || {})
+  const response = await http.post(`/organizer/events/${eventId}/sales/pause`, body)
   return response.data.data
 }
 
-export async function resumeSalesOrganizerEvent(eventId) {
-  const response = await http.post(`/organizer/events/${eventId}/sales/resume`)
+export async function resumeSalesOrganizerEvent(eventId, payload = {}) {
+  const body = typeof payload === 'string' ? { reason: payload } : (payload || {})
+  const response = await http.post(`/organizer/events/${eventId}/sales/resume`, body)
   return response.data.data
 }
 

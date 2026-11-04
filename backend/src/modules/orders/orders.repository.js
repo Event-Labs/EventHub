@@ -293,14 +293,28 @@ class OrdersRepository {
       const activeBlocks = Array.isArray(firstTicket.sales_blocks)
         ? firstTicket.sales_blocks.filter((b) => b && !b.released_at)
         : [];
-      if (firstTicket.sales_status === 'PAUSED' || activeBlocks.length > 0) {
+      const isPausedForItems =
+        firstTicket.sales_status === 'PAUSED' ||
+        activeBlocks.some((b) => {
+          if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+            return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          return true;
+        });
+      if (isPausedForItems) {
         const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
-        const reasons = activeBlocks
+        const relevantBlocks = activeBlocks.filter((b) => {
+          if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+            return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          return true;
+        });
+        const reasons = relevantBlocks
           .map((b) => b.metadata?.note || b.note || b.metadata?.reason)
           .filter((r) => r && !SYSTEM_CODES.includes(String(r).trim()))
           .join(', ');
         throw new AppError(
-          `Sự kiện đang tạm dừng bán vé${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
+          `Sự kiện hoặc loại vé đã chọn đang tạm dừng bán${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
           400,
           ErrorCodes.SALES_PAUSED,
         );
@@ -2691,8 +2705,16 @@ class OrdersRepository {
       const activeBlocks = Array.isArray(firstTicket.sales_blocks)
         ? firstTicket.sales_blocks.filter((b) => b && !b.released_at)
         : [];
-      if (firstTicket.sales_status === 'PAUSED' || activeBlocks.length > 0) {
-        throw new AppError('Sự kiện đang tạm dừng bán vé.', 400, ErrorCodes.SALES_PAUSED);
+      const isPausedForItems =
+        firstTicket.sales_status === 'PAUSED' ||
+        activeBlocks.some((b) => {
+          if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+            return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          return true;
+        });
+      if (isPausedForItems) {
+        throw new AppError('Sự kiện hoặc loại vé đã chọn đang tạm dừng bán.', 400, ErrorCodes.SALES_PAUSED);
       }
 
       const effectiveSalesStatus =

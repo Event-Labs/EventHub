@@ -17,7 +17,6 @@ import {
   Loader2,
   Percent,
   PieChart,
-  RefreshCw,
   ShoppingCart,
   Sparkles,
   Tag,
@@ -1983,19 +1982,7 @@ export function OrganizerTicketSalesPage() {
           />
         </div>
 
-        {/* Quick Refresh Action */}
-        <div className="flex items-center gap-2 self-end">
-          <button
-            type="button"
-            onClick={loadAnalytics}
-            disabled={loading}
-            title="Làm mới dữ liệu phân tích"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-[#0d172e] px-4 text-xs font-bold text-slate-200 shadow-sm transition hover:border-[#C99A47]/40 hover:text-[#E6C17A] disabled:opacity-50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin text-[#E6C17A]' : ''}`} />
-            <span className="hidden sm:inline">Làm mới</span>
-          </button>
-        </div>
+
       </div>
 
       {error && (

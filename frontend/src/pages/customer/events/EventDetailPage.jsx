@@ -187,10 +187,13 @@ export function EventDetailPage() {
     return ticketsBySession.get(String(selectedSessionId)) || []
   }, [selectedSessionId, ticketsBySession])
 
+  const activeEventBlocks = (Array.isArray(event?.sales_blocks) ? event.sales_blocks : []).filter(
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+  )
   const isPaused = Boolean(
-    event?.is_paused ||
-    event?.sales_status === 'PAUSED' ||
-    (Array.isArray(event?.sales_blocks) && event.sales_blocks.some((b) => !b.released_at))
+    (event?.is_paused && activeEventBlocks.length > 0) ||
+    (event?.sales_status === 'PAUSED' && activeEventBlocks.length > 0) ||
+    activeEventBlocks.length > 0
   )
   const SYSTEM_REASON_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING']
   const rawPauseReason = event?.pause_note || event?.pause_reason
@@ -613,8 +616,12 @@ export function EventDetailPage() {
                           <div className="space-y-3">
                             {tickets.length ? (
                               tickets.map((ticketType) => {
+                                const isSpecificPaused = Array.isArray(event?.sales_blocks) && event.sales_blocks.some(
+                                  (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+                                )
+                                const isTicketPaused = isPaused || isSpecificPaused
                                 const soldOut = isSoldOut(ticketType)
-                                const saleOpen = !sessionExpired && !isPaused && isSaleOpen(ticketType, currentTime) && !soldOut
+                                const saleOpen = !sessionExpired && !isTicketPaused && isSaleOpen(ticketType, currentTime) && !soldOut
                                 const totalQuantity = ticketTotal(ticketType)
                                 const availableQuantity = ticketAvailable(ticketType)
                                 return (
@@ -622,10 +629,10 @@ export function EventDetailPage() {
                                     key={ticketType.id}
                                     className={cn(
                                       'grid min-h-20 w-full gap-4 rounded-xl border px-5 py-4 text-left md:grid-cols-[minmax(0,1fr)_170px]',
-                                      isPaused && 'border-amber-500/20 bg-amber-950/20 text-slate-300',
-                                      !isPaused && saleOpen && 'border-primary/30 bg-primary/5 text-white',
-                                      !isPaused && !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
-                                      !isPaused && soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
+                                      isTicketPaused && 'border-amber-500/20 bg-amber-950/20 text-slate-300',
+                                      !isTicketPaused && saleOpen && 'border-primary/30 bg-primary/5 text-white',
+                                      !isTicketPaused && !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
+                                      !isTicketPaused && soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
                                     )}
                                   >
                                     <div className="max-w-3xl min-w-0">
@@ -640,8 +647,8 @@ export function EventDetailPage() {
                                       <p className={cn('font-display text-xl font-bold', saleOpen ? 'text-white' : 'text-inherit')}>
                                         {formatPrice(ticketType.price)}
                                       </p>
-                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', isPaused ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
-                                        {isPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
+                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', isTicketPaused ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                        {isTicketPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
                                       </span>
                                       {!saleOpen && !isPaused && (
                                         <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán')}>

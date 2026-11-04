@@ -13,6 +13,10 @@ const {
   buildEventReminderHtml,
   buildEventReminderText,
 } = require('./eventReminderEmail.template');
+const {
+  buildFeedbackInvitationHtml,
+  buildFeedbackInvitationText,
+} = require('./feedbackInvitationEmail.template');
 
 function mapNotification(row) {
   if (!row) return null;
@@ -414,6 +418,76 @@ class NotificationsService {
       }
     } catch (err) {
       logger.error('[NOTIFY_EVENT_CHANGE_ERR]', err);
+    }
+  }
+
+  async sendTwoThirdsFeedbackInvitations() {
+    const recipients = await notificationsRepository.findTwoThirdsFeedbackRecipients();
+    let sentCount = 0;
+
+    for (const row of recipients) {
+      const isSent = await this.dispatchFeedbackInvitation(row);
+      if (isSent) sentCount += 1;
+    }
+
+    if (sentCount > 0) {
+      logger.info(`[NotificationsService] Sent ${sentCount} feedback invitation(s) for events at 2/3 milestone.`);
+    }
+    return sentCount;
+  }
+
+  async dispatchFeedbackInvitation(row) {
+    try {
+      const clientUrl = String(env.CLIENT_URL || '').replace(/\/$/, '');
+      const feedbackLink = `${clientUrl}/feedback?event_id=${encodeURIComponent(row.event_id)}`;
+      const isOnline = row.event_format === 'ONLINE' || (!row.venue_name && !row.address_line);
+
+      const emailSubject = `[EventHub] Bạn cảm thấy thế nào về sự kiện "${row.event_title}"? Chia sẻ cảm nhận nhé!`;
+      const notifTitle = `Đánh giá sự kiện: "${row.event_title}"`;
+      const notifContent = `Sự kiện "${row.event_title}" đã đi qua 2/3 thời gian. Hãy chia sẻ cảm nhận và phản hồi của bạn để ban tổ chức ngày càng hoàn thiện hơn nhé!`;
+
+      const html = buildFeedbackInvitationHtml({
+        attendeeName: row.full_name || 'bạn',
+        eventTitle: row.event_title,
+        bannerUrl: row.banner_url || row.thumbnail_url,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        venueName: row.venue_name,
+        addressLine: row.address_line,
+        ward: row.ward,
+        district: row.district,
+        city: row.city,
+        isOnline,
+        feedbackLink,
+      });
+
+      const message = buildFeedbackInvitationText({
+        attendeeName: row.full_name || 'bạn',
+        eventTitle: row.event_title,
+        feedbackLink,
+      });
+
+      // 1. Send email safely to customer email
+      await sendEmailSafely({
+        email: row.email,
+        subject: emailSubject,
+        message,
+        html,
+      });
+
+      // 2. Create in-app notification & dispatch via SSE
+      await this.createAndDispatch({
+        userId: row.user_id,
+        eventId: row.event_id,
+        title: notifTitle,
+        content: notifContent,
+        type: 'EVENT',
+      });
+
+      return true;
+    } catch (error) {
+      logger.error(`Failed to dispatch feedback invitation for user ${row.user_id}, event ${row.event_id}:`, error);
+      return false;
     }
   }
 }

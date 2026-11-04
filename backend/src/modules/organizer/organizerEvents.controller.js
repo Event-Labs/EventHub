@@ -174,7 +174,7 @@ class OrganizerEventsController {
 
   resumeSales = async (req, res, next) => {
     try {
-      const data = await eventBusinessRulesService.resumeSales(req.user.sub, req.params.eventId);
+      const data = await eventBusinessRulesService.resumeSales(req.user.sub, req.params.eventId, req.body || {});
       res.status(200).json(ApiResponse.success(data, data.message || 'Đã mở bán lại vé'));
     } catch (err) {
       next(err);

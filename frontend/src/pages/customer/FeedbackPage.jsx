@@ -11,6 +11,17 @@ import {
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
+function formatEventDate(item) {
+  if (!item) return ''
+  const d = item.start_time || item.end_time
+  if (!d) return ''
+  return new Date(d).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
 export function FeedbackPage() {
   const toast = useToast()
   const navigate = useNavigate()
@@ -18,7 +29,10 @@ export function FeedbackPage() {
   const queryClient = useQueryClient()
   const isAuthenticated = hasAuthSession()
 
-  const [eventId, setEventId] = useState('')
+  const searchParams = new URLSearchParams(location.search)
+  const queryEventId = searchParams.get('event_id') || searchParams.get('eventId') || ''
+
+  const [eventId, setEventId] = useState(queryEventId)
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [content, setContent] = useState('')
@@ -37,9 +51,9 @@ export function FeedbackPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
     }
-  }, [isAuthenticated, location.pathname, navigate])
+  }, [isAuthenticated, location.pathname, location.search, navigate])
 
   const eligibleQuery = useQuery({
     queryKey: ['feedback-eligible-events'],
@@ -48,6 +62,15 @@ export function FeedbackPage() {
   })
 
   const events = eligibleQuery.data || []
+
+  useEffect(() => {
+    const paramId = new URLSearchParams(location.search).get('event_id') || new URLSearchParams(location.search).get('eventId')
+    if (paramId && events.some((e) => String(e.id) === String(paramId))) {
+      setEventId(paramId)
+    } else if (!eventId && events.length > 0) {
+      setEventId(paramId || events[0].id)
+    }
+  }, [location.search, events, eventId])
 
   const submitMutation = useMutation({
     mutationFn: submitEventFeedback,
@@ -107,8 +130,8 @@ export function FeedbackPage() {
 
           {!eligibleQuery.isLoading && !eligibleQuery.isError && events.length === 0 && (
             <p className="text-sm text-muted">
-              Hiện chưa có sự kiện nào có thể gửi phản hồi. Khi bạn đã tham dự một sự kiện kết thúc
-              và chưa từng đánh giá sự kiện đó, sự kiện sẽ xuất hiện tại đây.
+              Hiện chưa có sự kiện nào có thể gửi phản hồi. Khi sự kiện bạn có vé bắt đầu diễn ra
+              hoặc đã kết thúc và bạn chưa từng đánh giá, sự kiện sẽ xuất hiện tại đây.
             </p>
           )}
 
@@ -122,7 +145,7 @@ export function FeedbackPage() {
                 >
                   <span className="truncate pr-4">
                     {events.find(e => e.id === eventId) 
-                      ? `${events.find(e => e.id === eventId).title} — ${new Date(events.find(e => e.id === eventId).end_time).toLocaleDateString('vi-VN')}`
+                      ? `${events.find(e => e.id === eventId).title} — ${formatEventDate(events.find(e => e.id === eventId))}`
                       : 'Chọn sự kiện...'}
                   </span>
                   <ChevronDown className={`size-5 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -147,7 +170,7 @@ export function FeedbackPage() {
                             }}
                           >
                             <span className="truncate">
-                              {item.title} — {new Date(item.end_time).toLocaleDateString('vi-VN')}
+                              {item.title} — {formatEventDate(item)}
                             </span>
                             {isSelected && <Check className="ml-2 size-4 shrink-0" />}
                           </li>
@@ -212,7 +235,7 @@ export function FeedbackPage() {
         <aside className="glass-panel h-fit rounded-[24px] border-secondary/20 bg-secondary/5 p-6 shadow-[0_8px_32px_0_rgba(59,130,246,0.05)]">
           <h3 className="font-display text-xl font-bold text-secondary">Lưu ý quan trọng</h3>
           <ul className="mt-4 space-y-3 text-sm leading-relaxed text-slate-300">
-            <li className="flex gap-2"><span className="text-secondary shrink-0">•</span> <span>Bạn có thể gửi phản hồi sau khi sự kiện kết thúc.</span></li>
+            <li className="flex gap-2"><span className="text-secondary shrink-0">•</span> <span>Bạn có thể gửi phản hồi ngay khi sự kiện bắt đầu diễn ra hoặc sau khi kết thúc.</span></li>
             <li className="flex gap-2"><span className="text-secondary shrink-0">•</span> <span>Mỗi sự kiện chỉ gửi phản hồi một lần duy nhất.</span></li>
             <li className="flex gap-2"><span className="text-secondary shrink-0">•</span> <span>Hệ thống chỉ cho phép đánh giá khi bạn có vé hợp lệ hoặc đã check-in.</span></li>
             <li className="flex gap-2"><span className="text-secondary shrink-0">•</span> <span>Nội dung phản hồi sẽ được gửi trực tiếp đến ban tổ chức để cải thiện chất lượng chương trình.</span></li>

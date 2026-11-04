@@ -12,6 +12,12 @@ function startNotificationScheduler() {
     } catch (error) {
       logger.error('Event reminder scheduler failed:', error);
     }
+
+    try {
+      await notificationsService.sendTwoThirdsFeedbackInvitations();
+    } catch (error) {
+      logger.error('Feedback invitation scheduler failed:', error);
+    }
   };
 
   run();

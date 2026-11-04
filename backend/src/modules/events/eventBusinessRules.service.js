@@ -322,7 +322,7 @@ class EventBusinessRulesService {
   /**
    * Pause Sales (Organizer)
    */
-  async pauseSales(userId, eventId, { reason, note }) {
+  async pauseSales(userId, eventId, { reason, note, scope, ticketTypeId, ticketTypeIds, ticketTypeName, ticketTypes } = {}) {
     const organizerId = await this.resolveOrganizerId(userId);
     const client = await db.getClient();
     try {
@@ -330,34 +330,80 @@ class EventBusinessRulesService {
       const event = await this.assertOwnsEvent(client, eventId, organizerId);
 
       const humanNote = (note || reason || '').trim() || null;
-      const { updatedBlocks } = addSalesBlock(event.sales_blocks, {
-        reason: SALES_BLOCK_REASONS.ORGANIZER_PAUSE,
-        source: 'ORGANIZER',
-        createdBy: userId,
-        metadata: { reason: humanNote, note: humanNote },
-      });
+      const targetIds = Array.isArray(ticketTypeIds) && ticketTypeIds.length > 0
+        ? ticketTypeIds.map(String)
+        : (ticketTypeId ? [String(ticketTypeId)] : []);
+      const isSpecific = scope === 'SPECIFIC' && targetIds.length > 0;
+
+      let updatedBlocks = Array.isArray(event.sales_blocks) ? [...event.sales_blocks] : [];
+
+      if (isSpecific) {
+        const nameMap = new Map();
+        if (Array.isArray(ticketTypes)) {
+          ticketTypes.forEach((t) => nameMap.set(String(t.id), t.name));
+        }
+
+        for (const tId of targetIds) {
+          const alreadyActive = updatedBlocks.find(
+            (b) => b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE && !b.released_at && String(b.metadata?.ticket_type_id) === tId,
+          );
+          if (!alreadyActive) {
+            const tName = nameMap.get(tId) || ticketTypeName || 'Hạng vé cụ thể';
+            updatedBlocks.push({
+              id: require('crypto').randomUUID(),
+              reason: SALES_BLOCK_REASONS.ORGANIZER_PAUSE,
+              source: 'ORGANIZER',
+              created_by: userId,
+              created_at: new Date().toISOString(),
+              released_by: null,
+              released_at: null,
+              metadata: {
+                reason: humanNote,
+                note: humanNote,
+                scope: 'SPECIFIC',
+                ticket_type_id: tId,
+                ticket_type_name: tName,
+              },
+            });
+          }
+        }
+      } else {
+        const res = addSalesBlock(updatedBlocks, {
+          reason: SALES_BLOCK_REASONS.ORGANIZER_PAUSE,
+          source: 'ORGANIZER',
+          createdBy: userId,
+          metadata: { reason: humanNote, note: humanNote, scope: 'ALL' },
+        });
+        updatedBlocks = res.updatedBlocks;
+      }
+
+      // Check if there is still an event-wide block active
+      const hasEventWideBlock = updatedBlocks.some(
+        (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+      );
+      const newSalesStatus = hasEventWideBlock ? 'PAUSED' : 'ON_SALE';
 
       const auditTrail = appendAuditTrail(event.audit_trail, {
         userId,
         role: 'ORGANIZER',
-        action: 'PAUSE_SALES',
-        reason: humanNote || 'Tạm dừng bán vé',
+        action: isSpecific ? 'PAUSE_TICKET_SALES' : 'PAUSE_SALES',
+        reason: humanNote || (isSpecific ? `Tạm dừng bán vé cho ${targetIds.length} loại vé` : 'Tạm dừng bán vé'),
         stateBefore: { sales_status: event.sales_status },
-        stateAfter: { sales_status: 'PAUSED' },
+        stateAfter: { sales_status: newSalesStatus },
       });
 
       const { rows } = await client.query(
         `
         UPDATE events
-        SET sales_status = 'PAUSED',
-            sales_blocks = $2::jsonb,
-            audit_trail = $3::jsonb,
+        SET sales_status = $2,
+            sales_blocks = $3::jsonb,
+            audit_trail = $4::jsonb,
             version = version + 1,
             updated_at = NOW()
         WHERE id = $1
         RETURNING *
         `,
-        [eventId, JSON.stringify(updatedBlocks), JSON.stringify(auditTrail)],
+        [eventId, newSalesStatus, JSON.stringify(updatedBlocks), JSON.stringify(auditTrail)],
       );
 
       await client.query('COMMIT');
@@ -373,7 +419,7 @@ class EventBusinessRulesService {
   /**
    * Resume Sales (Organizer)
    */
-  async resumeSales(userId, eventId) {
+  async resumeSales(userId, eventId, { ticketTypeId, ticketTypeIds } = {}) {
     const organizerId = await this.resolveOrganizerId(userId);
     const client = await db.getClient();
     try {
@@ -384,22 +430,54 @@ class EventBusinessRulesService {
         throw new AppError('Sự kiện bị đình chỉ bởi Quản trị viên, Ban tổ chức không thể tự mở lại.', 403, ErrorCodes.SUSPENDED_BY_ADMIN);
       }
 
-      const { updatedBlocks, remainingActive } = releaseSalesBlock(event.sales_blocks, {
-        reason: SALES_BLOCK_REASONS.ORGANIZER_PAUSE,
-        releasedBy: userId,
-        userRole: 'ORGANIZER',
-      });
+      if (event.display_state === 'HIDDEN_BY_ORGANIZER' || event.status === 'HIDDEN' || (event.sales_blocks || []).some((b) => b.reason === 'HIDE' && !b.released_at)) {
+        throw new AppError('Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.', 400, ErrorCodes.EVENT_INVALID_STATE);
+      }
 
+      let updatedBlocks = Array.isArray(event.sales_blocks) ? [...event.sales_blocks] : [];
+      const targetResumeIds = Array.isArray(ticketTypeIds) && ticketTypeIds.length > 0
+        ? ticketTypeIds.map(String)
+        : (ticketTypeId ? [String(ticketTypeId)] : null);
+
+      if (targetResumeIds && targetResumeIds.length > 0) {
+        updatedBlocks = updatedBlocks.map((b) => {
+          if (
+            b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE &&
+            !b.released_at &&
+            targetResumeIds.includes(String(b.metadata?.ticket_type_id))
+          ) {
+            return {
+              ...b,
+              released_by: userId,
+              released_at: new Date().toISOString(),
+            };
+          }
+          return b;
+        });
+      } else {
+        updatedBlocks = updatedBlocks.map((b) => {
+          if (b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE && !b.released_at) {
+            return {
+              ...b,
+              released_by: userId,
+              released_at: new Date().toISOString(),
+            };
+          }
+          return b;
+        });
+      }
+
+      const remainingActive = updatedBlocks.filter((b) => !b.released_at);
       const newSalesStatus = computeSalesStatus({
         status: event.status,
-        salesBlocks: updatedBlocks,
+        salesBlocks: remainingActive,
         currentSalesStatus: event.sales_status,
       });
 
       const auditTrail = appendAuditTrail(event.audit_trail, {
         userId,
         role: 'ORGANIZER',
-        action: 'RESUME_SALES',
+        action: targetResumeIds ? 'RESUME_TICKET_SALES' : 'RESUME_SALES',
         stateBefore: { sales_status: event.sales_status },
         stateAfter: { sales_status: newSalesStatus },
       });

@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Clock,
   Loader2,
-  RefreshCw,
   ScanLine,
   TicketCheck,
   TrendingUp,
@@ -142,23 +141,13 @@ export function OrganizerCheckinDashboardPage() {
             />
           </div>
         )}
-        <div className="flex items-center gap-2 pb-0.5">
-          <button
-            type="button"
-            onClick={loadStats}
-            disabled={loading || !selectedEventId}
-            className="org-btn-secondary inline-flex h-10 items-center gap-2 disabled:opacity-50"
-            title="Làm mới thống kê"
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="text-xs font-semibold">Làm mới</span>
-          </button>
-          {lastRefresh && (
+        {lastRefresh && (
+          <div className="flex items-center gap-2 pb-0.5">
             <p className="text-xs text-subtle [html.light_&]:text-[#536b88]">
               Cập nhật: {lastRefresh.toLocaleTimeString('vi-VN')}
             </p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {error && (

@@ -174,6 +174,16 @@ function rowLabel(seat) {
   return String(seat?.row_label || '')
 }
 
+function getSeatDisplayName(seat) {
+  if (seat?.row_label != null && seat?.seat_number != null && seat?.seat_number !== '') {
+    return `${seat.row_label}${seat.seat_number}`
+  }
+  if (seat?.label && seat?.label !== seat?.row_label) {
+    return String(seat.label)
+  }
+  return String(seat?.label || seat?.row_label || '?')
+}
+
 function isSeatAvailable(seat) {
   return !seat?.is_disabled && seat?.status === 'AVAILABLE'
 }
@@ -460,13 +470,25 @@ export function BookingSeatsPage() {
     refetchInterval: 10_000,
   })
 
+  const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+  )
   const isPaused = Boolean(
-    eventDetail?.is_paused ||
-    eventDetail?.sales_status === 'PAUSED' ||
+    (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
+    (eventDetail?.sales_status === 'PAUSED' && activeEventBlocks.length > 0) ||
     cart?.is_paused ||
     cart?.sales_status === 'PAUSED' ||
-    (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some((b) => !b.released_at))
+    activeEventBlocks.length > 0
   )
+
+  const pausedTicketTypeIds = useMemo(() => {
+    const blocks = Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []
+    return new Set(
+      blocks
+        .filter((b) => !b.released_at && (b.metadata?.scope === 'SPECIFIC' || b.metadata?.ticket_type_id) && b.metadata?.ticket_type_id)
+        .map((b) => String(b.metadata.ticket_type_id))
+    )
+  }, [eventDetail?.sales_blocks])
 
   const allAvailableTickets = (cart?.availableTicketTypes && cart.availableTicketTypes.length > 0)
     ? cart.availableTicketTypes
@@ -606,7 +628,11 @@ export function BookingSeatsPage() {
           }
         }
         groups[ticketType.id].sessionSeatIds.push(seatId)
-        groups[ticketType.id].seatLabels.push(seat.label)
+        const displayName = getSeatDisplayName(seat)
+        groups[ticketType.id].seatLabels.push(displayName)
+        groups[ticketType.id].seatLabels.sort((a, b) =>
+          a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+        )
       }
     })
 
@@ -802,6 +828,19 @@ export function BookingSeatsPage() {
       return
     }
     const isDeselecting = selectedSeatIds.includes(seatId)
+    if (!isDeselecting) {
+      const targetSeat = (seatsQuery.data?.seats || []).find((s) => s.session_seat_id === seatId || s.id === seatId)
+      if (targetSeat) {
+        const mappedTicketTypeIds = targetSeat.ticket_type_ids || []
+        const ticketType = mappedTicketTypeIds.length
+          ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
+          : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
+        if (ticketType && pausedTicketTypeIds.has(String(ticketType.id))) {
+          toast.warning(`Hạng vé "${ticketType.name}" đang tạm dừng bán. Vui lòng chọn ghế khác.`)
+          return
+        }
+      }
+    }
     if (!isDeselecting && selectedSeatIds.length >= maxTicketsAllowed) {
       toast.error(`Bạn chỉ được chọn tối đa ${maxTicketsAllowed} ghế trong một lần đặt.`)
       return
@@ -919,29 +958,37 @@ export function BookingSeatsPage() {
                         colsCount={seatsQuery.data?.seat_map?.cols_count || 8}
                         seatMap={seatsQuery.data?.seat_map}
                         invalidSeatId={invalidSeatId}
+                        pausedTicketTypeIds={pausedTicketTypeIds}
                         onSelectStandingArea={(area, index) => {
                           const ticketType = selectableTicketTypes.find(
                             (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
                           ) || selectableTicketTypes[index]
+                          if (ticketType && pausedTicketTypeIds.has(String(ticketType.id))) {
+                            toast.warning(`Khu vực "${ticketType.name}" đang tạm dừng bán.`)
+                            return
+                          }
                           if (ticketType) setStandingTicketType(ticketType)
                         }}
                       />
                     </div>
-                    <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-10 bg-slate-950/80 p-1 rounded-full border border-white/10 backdrop-blur-md shadow-lg">
+                    <div className="absolute bottom-3 right-3 flex flex-col items-center gap-1.5 z-10 bg-slate-950/85 p-1 rounded-full border border-white/10 backdrop-blur-md shadow-lg">
                       <button
                         type="button"
                         onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.35, 1.6))}
                         className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
                         disabled={seatZoom >= 1.6}
-                        title={'Phóng to'}
+                        title={'Phóng to để xem chi tiết số ghế'}
                       >
                         <Plus className="size-3.5 sm:size-4" />
                       </button>
+                      <span className="text-[10px] font-black text-primary/90 text-center select-none py-0.5" title="Độ phóng đại">
+                        {Math.round(seatZoom * 100)}%
+                      </span>
                       <button
                         type="button"
                         onClick={fitSeatMapToViewport}
                         className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
-                        title={'Vừa khung'}
+                        title={'Vừa khung (xem tổng quan)'}
                       >
                         <RefreshCw className="size-3 sm:size-3.5" />
                       </button>
@@ -1037,13 +1084,25 @@ export function BookingAttendeesPage() {
     refetchInterval: 10_000,
   })
 
+  const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+  )
   const isPaused = Boolean(
-    eventDetail?.is_paused ||
-    eventDetail?.sales_status === 'PAUSED' ||
+    (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
+    (eventDetail?.sales_status === 'PAUSED' && activeEventBlocks.length > 0) ||
     cart?.is_paused ||
     cart?.sales_status === 'PAUSED' ||
-    (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some((b) => !b.released_at))
+    activeEventBlocks.length > 0
   )
+
+  const pausedTicketTypeIds = useMemo(() => {
+    const blocks = Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []
+    return new Set(
+      blocks
+        .filter((b) => !b.released_at && (b.metadata?.scope === 'SPECIFIC' || b.metadata?.ticket_type_id) && b.metadata?.ticket_type_id)
+        .map((b) => String(b.metadata.ticket_type_id))
+    )
+  }, [eventDetail?.sales_blocks])
 
   const collectAttendees = Boolean(
     cart?.requireAttendeeInfo ??
@@ -1343,13 +1402,25 @@ export function BookingReviewPage() {
     refetchInterval: 10_000,
   })
 
+  const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+  )
   const isPaused = Boolean(
-    eventDetail?.is_paused ||
-    eventDetail?.sales_status === 'PAUSED' ||
+    (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
+    (eventDetail?.sales_status === 'PAUSED' && activeEventBlocks.length > 0) ||
     cart?.is_paused ||
     cart?.sales_status === 'PAUSED' ||
-    (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some((b) => !b.released_at))
+    activeEventBlocks.length > 0
   )
+
+  const pausedTicketTypeIds = useMemo(() => {
+    const blocks = Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []
+    return new Set(
+      blocks
+        .filter((b) => !b.released_at && (b.metadata?.scope === 'SPECIFIC' || b.metadata?.ticket_type_id) && b.metadata?.ticket_type_id)
+        .map((b) => String(b.metadata.ticket_type_id))
+    )
+  }, [eventDetail?.sales_blocks])
 
   useEffect(() => {
     if (!cart?.items?.length) return
@@ -2781,6 +2852,10 @@ function UnseatedTicketSelection({
       ) : (
         <div className="divide-y divide-dashed divide-white/15">
           {ticketTypes.map((ticketType) => {
+            const isSpecificPaused = Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some(
+              (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+            )
+            const isTicketPaused = isPaused || isSpecificPaused
             const item = (cart?.items || []).find(
               (i) => String(i.ticketType?.id) === String(ticketType.id),
             )
@@ -2809,7 +2884,11 @@ function UnseatedTicketSelection({
                     <span className="font-bold text-primary text-sm sm:text-base">
                       {formatPrice(ticketType.price)}
                     </span>
-                    {isSoldOut ? (
+                    {isTicketPaused ? (
+                      <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-300">
+                        Tạm dừng bán
+                      </span>
+                    ) : isSoldOut ? (
                       <span className="inline-flex items-center rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
                         Hết vé
                       </span>
@@ -2825,7 +2904,7 @@ function UnseatedTicketSelection({
                   quantity={quantity}
                   onDecrease={() => onUpdateQuantity(ticketType, -1)}
                   onIncrease={() => onUpdateQuantity(ticketType, 1)}
-                  disabledIncrease={isSoldOut || isMaxReached}
+                  disabledIncrease={isTicketPaused || isSoldOut || isMaxReached}
                 />
               </div>
             )
@@ -2874,16 +2953,28 @@ function stageShapeStyle(shape) {
   return { borderRadius: 8 }
 }
 
-function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatZoom, colsCount, seatMap, invalidSeatId }) {
+function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatZoom, colsCount, seatMap, invalidSeatId, pausedTicketTypeIds }) {
   const metrics = seatMapMetrics(seats, seatMap)
   const renderSeat = (seat, style = {}) => {
     const selected = selectedSeatIds.includes(seat.session_seat_id)
-    const disabled = seat.status !== 'AVAILABLE' && !selected
     const mappedTicketTypeIds = seat.ticket_type_ids || []
     const ticketType = mappedTicketTypeIds.length
       ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
       : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
-    const title = `${seat.label}${ticketType ? ` - ${ticketType.name}` : ''}${seat.zone?.name ? ` - ${seat.zone.name}` : ''}`
+
+    const isTicketTypePaused = Boolean(
+      (ticketType && pausedTicketTypeIds?.has(String(ticketType.id))) ||
+      (Array.isArray(mappedTicketTypeIds) && mappedTicketTypeIds.length > 0 && mappedTicketTypeIds.every((id) => pausedTicketTypeIds?.has(String(id))))
+    )
+    const disabled = (seat.status !== 'AVAILABLE' || isTicketTypePaused) && !selected
+    const isDetailedZoom = Number(seatZoom || 1) >= 0.95
+    const showSeatNumber = isDetailedZoom || selected
+    const seatLabel = getSeatDisplayName(seat)
+    const rowName = seat.row_label || seatLabel.replace(/\d+$/, '') || seatLabel
+    const labelLen = seatLabel.length
+    const fontSize = labelLen <= 2 ? '9.5px' : labelLen === 3 ? '8px' : '7px'
+    const letterSpacing = labelLen >= 3 ? '-0.04em' : '-0.01em'
+    const title = `${seatLabel}${ticketType ? ` · ${ticketType.name}` : ''}${seat.zone?.name ? ` · ${seat.zone.name}` : ''}${isTicketTypePaused ? ' (Hạng vé đang tạm dừng bán)' : disabled ? ' (Đã giữ/bán)' : ''}`
     const zoneColor = seat.zone?.color || seat.seat_type?.color
 
     return (
@@ -2891,19 +2982,64 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
         key={seat.session_seat_id}
         type="button"
         disabled={disabled}
-        onClick={() => onToggleSeat(seat.session_seat_id)}
+        onClick={() => !isTicketTypePaused && onToggleSeat(seat.session_seat_id)}
         title={title}
         style={{ width: SEAT_WIDTH, height: SEAT_HEIGHT, ...style }}
-        className={`rounded-md border text-[10px] font-bold transition ${String(invalidSeatId) === String(seat.session_seat_id) ? 'ring-2 ring-error/70 ' : ''}${selected
-          ? 'border-primary bg-primary text-slate-950 shadow-md shadow-primary/30'
-          : disabled
-            ? 'cursor-not-allowed border-slate-700 bg-slate-700 text-slate-500'
-            : 'border-border-soft bg-panel-soft text-subtle hover:border-primary hover:text-primary'
-          }`}
+        className={`group relative flex flex-col items-center justify-center rounded-[7px] border transition-all duration-150 select-none ${
+          String(invalidSeatId) === String(seat.session_seat_id) ? 'ring-2 ring-error/70 ' : ''
+        }${
+          selected
+            ? 'border-[#38bdf8] bg-gradient-to-b from-[#38bdf8] to-[#0284c7] text-[#030712] font-black shadow-[0_0_12px_rgba(56,189,248,0.5)] z-10 scale-[1.05]'
+            : isTicketTypePaused
+              ? 'cursor-not-allowed border-amber-900/50 bg-amber-950/30 text-amber-500/50 opacity-60'
+              : disabled
+                ? 'cursor-not-allowed border-slate-800 bg-slate-800/80 text-slate-500'
+                : 'border-white/15 bg-slate-900/90 text-slate-200 hover:border-primary hover:text-white hover:bg-slate-800 hover:scale-[1.06] hover:shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+        }`}
       >
-        <span className="block truncate px-0.5 leading-4">{seat.row_label || seat.label}</span>
+        {showSeatNumber ? (
+          <span
+            className="font-bold leading-none select-none text-center pointer-events-none"
+            style={{
+              fontSize,
+              letterSpacing,
+              transform: !selected && !disabled && zoneColor ? 'translateY(-1px)' : 'none',
+            }}
+          >
+            {seatLabel}
+          </span>
+        ) : (
+          <>
+            <span
+              className="font-bold leading-none select-none text-center pointer-events-none group-hover:hidden"
+              style={{
+                fontSize: '10px',
+                transform: !selected && !disabled && zoneColor ? 'translateY(-1px)' : 'none',
+              }}
+            >
+              {rowName}
+            </span>
+            <span
+              className="hidden font-bold leading-none select-none text-center pointer-events-none group-hover:block"
+              style={{
+                fontSize,
+                letterSpacing,
+                transform: !selected && !disabled && zoneColor ? 'translateY(-1px)' : 'none',
+              }}
+            >
+              {seatLabel}
+            </span>
+          </>
+        )}
         {!selected && !disabled && zoneColor && (
-          <span className="mx-auto mt-0.5 block h-0.5 w-4 rounded-full" style={{ backgroundColor: zoneColor }} />
+          <span
+            className="absolute bottom-[2px] h-[2.5px] rounded-full pointer-events-none transition-opacity"
+            style={{
+              backgroundColor: zoneColor,
+              width: '14px',
+              boxShadow: `0 0 4px ${zoneColor}80`,
+            }}
+          />
         )}
       </button>
     )

@@ -16,7 +16,6 @@ import {
   LineChart,
   Loader2,
   PieChart,
-  RefreshCw,
   ShoppingCart,
   Sparkles,
   Ticket,
@@ -1120,16 +1119,6 @@ export function AdminAnalyticsPage() {
                   ))}
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={load}
-                disabled={loading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-[#151d34] px-4 text-sm font-bold text-white transition hover:border-[#E6C17A]/60 hover:text-[#E6C17A] disabled:opacity-50 [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#1B365D]"
-              >
-                <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-                Làm mới
-              </button>
             </div>
           </div>
 
