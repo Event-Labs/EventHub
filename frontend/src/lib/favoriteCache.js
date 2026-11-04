@@ -6,19 +6,23 @@ const FAVORITE_QUERY_ROOTS = new Set([
 ])
 
 function updateEvent(event, eventId, isFavorited) {
-  if (!event || String(event.id) !== String(eventId)) return event
+  if (!event) return event
+  const idStr = String(eventId)
+  const matches = String(event.id) === idStr || (event.slug && String(event.slug) === idStr)
+  if (!matches) return event
   return { ...event, is_favorited: isFavorited }
 }
 
 function updateQueryData(data, queryKey, event, isFavorited) {
   if (!data) return data
-  const eventId = event.id
+  const eventId = event?.id || event
 
   if (queryKey[0] === 'favorite-events' && Array.isArray(data)) {
+    const idStr = String(eventId)
     if (!isFavorited) {
-      return data.filter((item) => String(item.id) !== String(eventId))
+      return data.filter((item) => String(item.id) !== idStr && String(item.slug || '') !== idStr)
     }
-    const exists = data.some((item) => String(item.id) === String(eventId))
+    const exists = data.some((item) => String(item.id) === idStr || (item.slug && String(item.slug) === idStr))
     return exists
       ? data.map((item) => updateEvent(item, eventId, true))
       : [{ ...event, is_favorited: true }, ...data]

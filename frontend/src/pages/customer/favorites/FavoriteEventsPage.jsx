@@ -36,6 +36,11 @@ export function FavoriteEventsPage() {
       toast.success(isFavorited ? '\u0110\u00e3 l\u01b0u s\u1ef1 ki\u1ec7n v\u00e0o y\u00eau th\u00edch.' : '\u0110\u00e3 b\u1ecf s\u1ef1 ki\u1ec7n kh\u1ecfi y\u00eau th\u00edch.')
       return { snapshots }
     },
+    onSuccess: (data, event) => {
+      if (data && typeof data.is_favorited === 'boolean') {
+        optimisticallySetFavorite(queryClient, event, data.is_favorited)
+      }
+    },
     onError: (err, _event, context) => {
       restoreFavoriteSnapshots(queryClient, context?.snapshots)
       toast.error(getApiMessage(err, 'Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt danh s\u00e1ch y\u00eau th\u00edch.'))

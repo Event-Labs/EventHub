@@ -4,7 +4,6 @@ const ordersRepository = require('./orders.repository');
 const paymentsService = require('../payments/payments.service');
 const env = require('../../config/env');
 const logger = require('../../core/logger');
-const { ZERO_AMOUNT_CHECKOUT_ENABLED } = require('../../config/features');
 const { validateIdempotencyPayload, formatExistingOrderResponse } = ordersRepository;
 
 function normalizePhone(phone) {
@@ -206,11 +205,9 @@ class OrdersService {
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
 
-    // Zero-Amount Checkout bypass (behind feature flag ZERO_AMOUNT_CHECKOUT_ENABLED)
-    if (ZERO_AMOUNT_CHECKOUT_ENABLED) {
-      const couldBeZero = subtotal === 0 || Boolean(payload.promo_code);
-
-      if (couldBeZero) {
+    // Đơn hàng miễn phí (giá 0đ hoặc áp dụng voucher) -> xác nhận trực tiếp không qua cổng thanh toán
+    const couldBeZero = subtotal === 0 || Boolean(payload.promo_code);
+    if (couldBeZero) {
         try {
           const confirmed = await ordersRepository.confirmZeroAmountCheckout({
             userId,
@@ -281,7 +278,6 @@ class OrdersService {
           }
         }
       }
-    }
 
     const paymentChannel = await paymentsService.getOrganizerPayosChannelForEvent(payload.event_id);
 
@@ -311,7 +307,18 @@ class OrdersService {
       idempotencyKey,
     });
 
+    // Safety guard: Nếu số tiền thanh toán là 0đ thì không gọi PayOS
+    if (mapMoney(created.order.total_amount) === 0 || mapMoney(created.paymentOrder?.amount) === 0) {
+      await ordersRepository.cancelOrder(created.order.id);
+      throw new AppError(
+        'Đơn hàng miễn phí không thể tạo thanh toán qua PayOS.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
     try {
+
       created.paymentOrder = await paymentsService.createTicketOrderPayosLink({
         paymentOrder: created.paymentOrder,
         channel: paymentChannel,
@@ -571,5 +578,4 @@ class OrdersService {
 }
 
 module.exports = new OrdersService();
-
 
