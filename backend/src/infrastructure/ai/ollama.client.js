@@ -21,7 +21,7 @@ const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 120
 const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 8192);
 const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 12);
 const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 1024);
-const OLLAMA_NUM_GPU = Number(process.env.OLLAMA_NUM_GPU || 28);
+const OLLAMA_NUM_GPU = Number(process.env.OLLAMA_NUM_GPU || 99);
 
 
 /**
