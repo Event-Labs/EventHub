@@ -18,10 +18,10 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
 const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 600000);
 const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 200000);
-const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 4096);
-const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 2);
-const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 512);
-const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 8;
+const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 8192);
+const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 12);
+const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 1024);
+const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 99;
 
 
 /**
