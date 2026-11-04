@@ -140,7 +140,7 @@ export function AppLayout() {
     }
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.classList.remove('light')
   }, [pathname])
 

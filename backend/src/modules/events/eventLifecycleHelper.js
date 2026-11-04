@@ -112,7 +112,10 @@ function computeSalesStatus({ status, salesBlocks, currentSalesStatus }) {
   }
 
   const active = getActiveSalesBlocks(salesBlocks);
-  if (active.length > 0) {
+  const activeEventBlocks = active.filter(
+    (b) => !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+  );
+  if (activeEventBlocks.length > 0) {
     return 'PAUSED';
   }
 

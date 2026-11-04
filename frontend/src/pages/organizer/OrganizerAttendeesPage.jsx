@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Download,
   Loader2,
-  RefreshCw,
   Search,
   X,
 } from 'lucide-react'
@@ -327,16 +326,6 @@ export function OrganizerAttendeesPage() {
                   <Download className="size-4" />
                 )}
                 <span>Xuất danh sách</span>
-              </button>
-
-              <button
-                type="button"
-                className="org-btn-secondary flex items-center gap-2"
-                onClick={loadAttendees}
-                disabled={loading}
-                title="Làm mới"
-              >
-                <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>

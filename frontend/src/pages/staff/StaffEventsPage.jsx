@@ -254,7 +254,6 @@ export function NoAssignedEventsPage() {
         </p>
         <div className="mt-7 flex flex-wrap justify-center gap-3">
           <Link to="/" className="admin-primary">Về trang khách hàng</Link>
-          <button className="admin-secondary" onClick={() => window.location.reload()}>Làm mới</button>
         </div>
       </div>
     </div>

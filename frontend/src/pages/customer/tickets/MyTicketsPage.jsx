@@ -1,6 +1,6 @@
 import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, MapPin, Ticket } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, MapPin, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
@@ -155,44 +155,81 @@ export function MyTicketsPage() {
       </div>
 
       {ticketsQuery.isLoading && (
-        <p className="mt-8 text-sm text-muted">Đang tải vé...</p>
+        <div className="flex items-center justify-center py-20 text-sm gap-2.5" style={{ color: '#94a3b8' }}>
+          <div className="size-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          <span>Đang tải danh sách vé...</span>
+        </div>
       )}
 
       {ticketsQuery.isError && (
-        <p className="mt-8 text-sm text-error">Không thể tải danh sách vé.</p>
+        <div className="flex items-center justify-center py-20 text-sm text-rose-400 gap-2">
+          <span>Không thể tải danh sách vé. Vui lòng thử lại sau.</span>
+        </div>
       )}
 
       {!ticketsQuery.isLoading && !ticketsQuery.isError && tickets.length === 0 && (
         <div className="grid min-h-[340px] place-items-center py-12">
-          <div className="flex flex-col items-center gap-4 text-center px-4">
-            <div className="grid size-16 place-items-center rounded-full border border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] shadow-[0_0_20px_rgba(201,154,71,0.15)]">
-              <Ticket className="size-7 opacity-80" />
+          <div className="empty-tickets-box flex flex-col items-center gap-3.5 text-center px-6 sm:px-10 py-8 sm:py-10 max-w-lg w-full rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl backdrop-blur-md">
+            <div
+              className="grid size-16 place-items-center rounded-2xl border shadow-lg"
+              style={{
+                borderColor: 'rgba(201, 154, 71, 0.45)',
+                backgroundColor: 'rgba(201, 154, 71, 0.15)',
+                boxShadow: '0 0 25px rgba(201, 154, 71, 0.25)',
+              }}
+            >
+              <Ticket className="size-8" style={{ color: '#E6C17A' }} />
             </div>
+            <h3
+              className="font-display text-xl sm:text-2xl font-black tracking-tight mt-1 text-white"
+              style={{ color: '#ffffff', display: 'block' }}
+            >
+              Hiện chưa có vé
+            </h3>
             <p
-              className="text-base italic font-medium leading-relaxed max-w-lg select-none"
-              style={{ color: '#e2e8f0' }}
+              className="text-sm font-normal leading-relaxed text-slate-300 max-w-md mx-auto"
+              style={{ color: '#cbd5e1', display: 'block' }}
             >
               {status === 'ALL' ? (
-                'Hiện chưa có vé sự kiện nào.'
+                'Bạn chưa có vé sự kiện nào. Hãy khám phá và đặt vé cho sự kiện bạn yêu thích ngay hôm nay!'
               ) : (
                 <>
                   Hiện không có vé sự kiện nào thuộc mục{' '}
-                  <span className="font-bold not-italic" style={{ color: '#E6C17A' }}>
+                  <span className="font-bold text-[#E6C17A]" style={{ color: '#E6C17A' }}>
                     &ldquo;{FILTERS.find((f) => f.value === status)?.label || status}&rdquo;
                   </span>
                   .
                 </>
               )}
             </p>
+            {status !== 'ALL' ? (
+              <button
+                type="button"
+                onClick={() => setStatus('ALL')}
+                className="btn-gold-primary mt-3 inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-bold transition-all cursor-pointer hover:brightness-110 active:scale-95"
+              >
+                Xem tất cả vé
+              </button>
+            ) : (
+              <Link
+                to="/events"
+                className="btn-gold-primary mt-4 inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-extrabold transition-all hover:brightness-110 active:scale-95 cursor-pointer shadow-lg shadow-[#C99A47]/30"
+              >
+                <Compass className="size-4" />
+                Khám phá sự kiện ngay
+              </Link>
+            )}
           </div>
         </div>
       )}
 
-      <div className="mt-4 sm:mt-8 grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
-        {paginatedTickets.map((ticket) => (
-          <TicketCard key={ticket.id} ticket={ticket} />
-        ))}
-      </div>
+      {paginatedTickets.length > 0 && (
+        <div className="mt-4 sm:mt-8 grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+          {paginatedTickets.map((ticket) => (
+            <TicketCard key={ticket.id} ticket={ticket} />
+          ))}
+        </div>
+      )}
 
       {!ticketsQuery.isLoading && !ticketsQuery.isError && totalPages > 1 && (
         <nav className="mt-10 flex flex-col items-center gap-3" aria-label="Phân trang vé của tôi">

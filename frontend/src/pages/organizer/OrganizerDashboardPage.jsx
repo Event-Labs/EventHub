@@ -19,7 +19,6 @@ import {
   Loader2,
   Printer,
   ReceiptText,
-  RefreshCw,
   ShieldAlert,
   Sparkles,
   TicketCheck,
@@ -634,7 +633,7 @@ function TicketOperationsPanel({ dashboard = {}, isSingleEvent = false, checkinS
     },
     {
       id: 'valid',
-      label: 'Còn hiệu lực',
+      label: 'Chưa check-in',
       value: valid,
       pct: ((valid / total) * 100).toFixed(0),
       barClass: 'bg-gradient-to-r from-blue-500 to-indigo-500',
@@ -1338,13 +1337,17 @@ export function OrganizerDashboardPage() {
         <div className="flex items-center gap-2.5 self-end">
           <button
             type="button"
-            onClick={loadStats}
-            disabled={loading}
-            title="Làm mới dữ liệu"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-[#0d172e] px-4 text-xs font-bold text-slate-200 shadow-sm transition hover:border-[#C99A47]/60 hover:text-[#E6C17A] disabled:opacity-50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel || !stats}
+            title="Xuất bảng số liệu và biểu đồ doanh thu ra file Excel (.xlsx)"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 sm:px-4 text-xs font-bold text-emerald-300 shadow-sm transition hover:bg-emerald-500/20 hover:border-emerald-500/60 active:scale-95 disabled:opacity-50 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-400 [html.light_&]:text-emerald-700"
           >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin text-[#E6C17A]' : ''}`} />
-            <span className="hidden sm:inline">Làm mới</span>
+            {isExportingExcel ? (
+              <Loader2 className="size-4 animate-spin text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="size-4 text-emerald-400" />
+            )}
+            <span>{isExportingExcel ? 'Đang xuất Excel...' : 'Xuất báo cáo'}</span>
           </button>
 
           <button
@@ -1655,21 +1658,6 @@ export function OrganizerDashboardPage() {
                       <p className="text-xs text-slate-400">{activeRangeLabel}</p>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleExportExcel}
-                    disabled={isExportingExcel || !stats}
-                    title="Xuất bảng số liệu và biểu đồ ra file Excel (.xlsx)"
-                    className="inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 text-xs font-bold text-emerald-300 shadow-sm transition hover:bg-emerald-500/20 hover:border-emerald-500/60 disabled:opacity-50 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-400 [html.light_&]:text-emerald-700"
-                  >
-                    {isExportingExcel ? (
-                      <Loader2 className="size-4 animate-spin text-emerald-400" />
-                    ) : (
-                      <FileSpreadsheet className="size-4 text-emerald-400" />
-                    )}
-                    <span>{isExportingExcel ? 'Đang xuất Excel...' : 'Xuất Excel'}</span>
-                  </button>
                 </div>
 
                 <InteractiveRevenueChart

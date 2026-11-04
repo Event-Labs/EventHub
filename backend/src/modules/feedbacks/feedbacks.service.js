@@ -24,6 +24,7 @@ function mapEligibleEvent(row) {
     id: row.id,
     title: row.title,
     slug: row.slug,
+    start_time: row.start_time,
     end_time: row.end_time,
     thumbnail_url: row.thumbnail_url,
   };
@@ -76,7 +77,7 @@ class FeedbacksService {
       throw new AppError('Không tìm thấy sự kiện.', 404, ErrorCodes.FEEDBACK_EVENT_NOT_FOUND);
     }
 
-    if (event.status !== 'PUBLISHED' || event.approval_status !== 'APPROVED') {
+    if (!['PUBLISHED', 'COMPLETED'].includes(event.status) || event.approval_status !== 'APPROVED') {
       throw new AppError(
         'Sự kiện này hiện chưa cho phép gửi phản hồi.',
         400,
@@ -84,9 +85,10 @@ class FeedbacksService {
       );
     }
 
-    if (new Date(event.end_time) > new Date()) {
+    const eventStartTime = event.start_time ? new Date(event.start_time) : (event.end_time ? new Date(event.end_time) : null);
+    if (eventStartTime && eventStartTime > new Date()) {
       throw new AppError(
-        'Bạn chỉ có thể gửi phản hồi sau khi sự kiện kết thúc.',
+        'Bạn chỉ có thể gửi phản hồi khi sự kiện bắt đầu diễn ra.',
         400,
         ErrorCodes.FEEDBACK_NOT_ELIGIBLE,
       );

@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Eye,
   Loader2,
-  RefreshCw,
   Search,
   X,
 } from 'lucide-react'
@@ -218,15 +217,6 @@ export function OrganizerOrdersPage() {
             options={ORDER_STATUSES}
             minWidth="min-w-[170px]"
           />
-
-          <button
-            type="button"
-            className="org-btn-secondary flex items-center gap-2"
-            onClick={loadOrders}
-            disabled={loading}
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 

@@ -802,14 +802,28 @@ class EventsRepository {
         const activeBlocks = Array.isArray(ticketType.sales_blocks)
           ? ticketType.sales_blocks.filter((b) => b && !b.released_at)
           : [];
-        if (ticketType.sales_status === 'PAUSED' || activeBlocks.length > 0) {
+        const isTicketPaused =
+          ticketType.sales_status === 'PAUSED' ||
+          activeBlocks.some((b) => {
+            if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+              return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
+            }
+            return true;
+          });
+        if (isTicketPaused) {
           const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
-          const reasons = activeBlocks
+          const relevantBlocks = activeBlocks.filter((b) => {
+            if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+              return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
+            }
+            return true;
+          });
+          const reasons = relevantBlocks
             .map((b) => b.metadata?.note || b.note || b.metadata?.reason)
             .filter((r) => r && !SYSTEM_CODES.includes(String(r).trim()))
             .join(', ');
           throw new AppError(
-            `Sự kiện đang tạm dừng bán vé${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
+            `Vé "${ticketType.name}" đang tạm dừng bán${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
             400,
             ErrorCodes.SALES_PAUSED,
           );
