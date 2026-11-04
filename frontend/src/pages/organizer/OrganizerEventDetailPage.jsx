@@ -1,8 +1,17 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
     fetchOrganizerEvent,
     fetchDemandPrediction,
+    publishOrganizerEvent,
+    hideOrganizerEvent,
+    unhideOrganizerEvent,
+    pauseSalesOrganizerEvent,
+    resumeSalesOrganizerEvent,
+    cancelOrganizerEvent,
+    submitCancellationRequest,
+    withdrawCancellationRequest,
+    deleteOrganizerDraftEvent,
 } from '@/services/organizerEvents.js'
 import {
     fetchCheckinStats,
@@ -30,7 +39,17 @@ import {
     Sparkles,
     ChevronDown,
     ChevronUp,
+    Pencil,
 } from 'lucide-react'
+import {
+    PublishConfirmModal,
+    ToggleHideConfirmModal,
+    ToggleSalesConfirmModal,
+    CancelOrRequestCancelModal,
+    WithdrawCancelConfirmModal,
+    DeleteDraftConfirmModal,
+} from './OrganizerEventModals.jsx'
+import { EventActionsDropdown } from './EventActionsDropdown.jsx'
 import '@/components/RichTextEditor.css'
 
 const STATUS_LABELS = {
@@ -43,12 +62,12 @@ const STATUS_LABELS = {
 }
 
 const STATUS_TONES = {
-    DRAFT: 'gray',
+    DRAFT: 'slate',
     PENDING_REVIEW: 'amber',
     PUBLISHED: 'green',
-    HIDDEN: 'gray',
-    CANCELLED: 'gray',
-    COMPLETED: 'green',
+    HIDDEN: 'neutral',
+    CANCELLED: 'red',
+    COMPLETED: 'purple',
 }
 
 function DemandPredictionCard({ eventId }) {
@@ -157,6 +176,7 @@ function DemandPredictionCard({ eventId }) {
 
 export function OrganizerEventDetailPage() {
     const { eventId } = useParams()
+    const navigate = useNavigate()
     const toast = useToast()
 
     const [event, setEvent] = useState(null)
@@ -164,6 +184,21 @@ export function OrganizerEventDetailPage() {
     const [checkinStats, setCheckinStats] = useState(null)
     const [revenueStats, setRevenueStats] = useState(null)
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
+
+    // Modal states
+    const [publishTarget, setPublishTarget] = useState(null)
+    const [publishLoading, setPublishLoading] = useState(false)
+    const [hideTarget, setHideTarget] = useState(null)
+    const [hideLoading, setHideLoading] = useState(false)
+    const [salesTarget, setSalesTarget] = useState(null)
+    const [salesLoading, setSalesLoading] = useState(false)
+    const [cancelTarget, setCancelTarget] = useState(null)
+    const [cancelLoading, setCancelLoading] = useState(false)
+    const [cancelError, setCancelError] = useState(null)
+    const [withdrawTarget, setWithdrawTarget] = useState(null)
+    const [withdrawLoading, setWithdrawLoading] = useState(false)
+    const [deleteTarget, setDeleteTarget] = useState(null)
+    const [deleteLoading, setDeleteLoading] = useState(false)
 
     const loadData = useCallback(async () => {
         setLoading(true)
@@ -184,6 +219,177 @@ export function OrganizerEventDetailPage() {
             setLoading(false)
         }
     }, [eventId, toast])
+
+    // Action handlers
+    const openPublishModal = (ev) => setPublishTarget(ev)
+    const closePublishModal = () => !publishLoading && setPublishTarget(null)
+    const confirmPublish = async () => {
+        if (!publishTarget || publishLoading) return
+        setPublishLoading(true)
+        try {
+            await publishOrganizerEvent(publishTarget.id)
+            setPublishTarget(null)
+            toast.success(`Đã xuất bản thành công "${publishTarget.title}".`)
+            await loadData()
+        } catch (err) {
+            console.error(err)
+            toast.error(getApiMessage(err, 'Không thể xuất bản sự kiện.'))
+        } finally {
+            setPublishLoading(false)
+        }
+    }
+
+    const openHideModal = (ev) => setHideTarget(ev)
+    const closeHideModal = () => !hideLoading && setHideTarget(null)
+    const confirmToggleHide = async (payload = {}) => {
+        if (!hideTarget || hideLoading) return
+        setHideLoading(true)
+        try {
+            const isCurrentlyHidden = hideTarget.display_state === 'HIDDEN_BY_ORGANIZER'
+            if (isCurrentlyHidden) {
+                await unhideOrganizerEvent(hideTarget.id)
+                toast.success(`Đã hiển thị lại sự kiện "${hideTarget.title}".`)
+            } else {
+                await hideOrganizerEvent(hideTarget.id, payload.reason || 'Tạm ẩn theo yêu cầu của ban tổ chức')
+                toast.info(`Đã ẩn sự kiện "${hideTarget.title}" khỏi tìm kiếm và trang chủ.`)
+            }
+            setHideTarget(null)
+            await loadData()
+        } catch (err) {
+            console.error(err)
+            toast.error(getApiMessage(err, 'Không thể thay đổi trạng thái hiển thị.'))
+        } finally {
+            setHideLoading(false)
+        }
+    }
+
+    const openSalesModal = (ev) => {
+        if (ev?.sales_status === 'PAUSED' && (ev?.display_state === 'HIDDEN_BY_ORGANIZER' || ev?.status === 'HIDDEN')) {
+            toast.warning('Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.')
+            return
+        }
+        setSalesTarget(ev)
+    }
+    const closeSalesModal = () => !salesLoading && setSalesTarget(null)
+    const confirmToggleSales = async (payload = {}) => {
+        if (!salesTarget || salesLoading) return
+        if (salesTarget.sales_status === 'PAUSED' && (salesTarget.display_state === 'HIDDEN_BY_ORGANIZER' || salesTarget.status === 'HIDDEN')) {
+            toast.warning('Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.')
+            setSalesTarget(null)
+            return
+        }
+        setSalesLoading(true)
+        try {
+            if (payload.action === 'RESUME_TICKET_TYPE' && payload.ticketTypeId) {
+                await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeId: payload.ticketTypeId })
+                toast.success(`Đã mở bán lại vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+            } else if (payload.action === 'RESUME_ALL_TICKETS' && Array.isArray(payload.ticketTypeIds)) {
+                await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeIds: payload.ticketTypeIds })
+                toast.success('Đã mở bán lại cho tất cả các hạng vé đã chọn.')
+            } else if (payload.scope === 'SPECIFIC' && (payload.ticketTypeIds?.length || payload.ticketTypeId)) {
+                const ticketTypeIds = payload.ticketTypeIds || [payload.ticketTypeId]
+                await pauseSalesOrganizerEvent(salesTarget.id, {
+                    scope: 'SPECIFIC',
+                    ticketTypeIds,
+                    ticketTypes: payload.ticketTypes,
+                    ticketTypeName: payload.ticketTypeName,
+                    reason: payload.reason,
+                })
+                const count = ticketTypeIds.length
+                toast.info(count > 1 ? `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+            } else if (salesTarget.sales_status === 'PAUSED' || payload.action === 'RESUME_ALL') {
+                const res = await resumeSalesOrganizerEvent(salesTarget.id)
+                if (res?.event?.sales_status === 'PAUSED' || (res?.remainingBlocks && res.remainingBlocks.length > 0)) {
+                    toast.warning(res?.message || 'Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.')
+                } else {
+                    toast.success(`Đã mở bán lại vé cho "${salesTarget.title}".`)
+                }
+            } else {
+                await pauseSalesOrganizerEvent(salesTarget.id, {
+                    scope: 'ALL',
+                    reason: payload.reason || '',
+                })
+                toast.info(`Đã tạm dừng bán vé cho "${salesTarget.title}".`)
+            }
+            setSalesTarget(null)
+            await loadData()
+        } catch (err) {
+            console.error(err)
+            toast.error(getApiMessage(err, 'Không thể thay đổi trạng thái bán vé.'))
+        } finally {
+            setSalesLoading(false)
+        }
+    }
+
+    const openCancelModal = (ev) => {
+        setCancelError(null)
+        setCancelTarget(ev)
+    }
+    const closeCancelModal = () => !cancelLoading && setCancelTarget(null)
+    const confirmCancel = async (payload) => {
+        if (!cancelTarget || cancelLoading) return
+        setCancelLoading(true)
+        setCancelError(null)
+        try {
+            if (payload.is_request) {
+                await submitCancellationRequest(cancelTarget.id, {
+                    reason_code: payload.reason_code,
+                    reason_note: payload.reason_note,
+                    refund_mode: payload.refund_mode,
+                    commitment_accepted: payload.commitment_accepted,
+                })
+                toast.success('Đã gửi yêu cầu hủy sự kiện tới Quản trị viên để xét duyệt.')
+            } else {
+                await cancelOrganizerEvent(cancelTarget.id, payload.reason)
+                toast.success(`Đã hủy sự kiện "${cancelTarget.title}".`)
+            }
+            setCancelTarget(null)
+            await loadData()
+        } catch (err) {
+            console.error(err)
+            const msg = getApiMessage(err, 'Không thể thực hiện hủy sự kiện.')
+            setCancelError(msg)
+            toast.error(msg)
+        } finally {
+            setCancelLoading(false)
+        }
+    }
+
+    const openWithdrawModal = (ev) => setWithdrawTarget(ev)
+    const closeWithdrawModal = () => !withdrawLoading && setWithdrawTarget(null)
+    const confirmWithdrawCancellationRequest = async () => {
+        if (!withdrawTarget || withdrawLoading) return
+        setWithdrawLoading(true)
+        try {
+            await withdrawCancellationRequest(withdrawTarget.id)
+            toast.success(`Đã rút lại yêu cầu hủy sự kiện "${withdrawTarget.title}".`)
+            setWithdrawTarget(null)
+            await loadData()
+        } catch (err) {
+            console.error(err)
+            toast.error(getApiMessage(err, 'Không thể rút lại yêu cầu hủy sự kiện.'))
+        } finally {
+            setWithdrawLoading(false)
+        }
+    }
+
+    const openDeleteModal = (ev) => setDeleteTarget(ev)
+    const closeDeleteModal = () => !deleteLoading && setDeleteTarget(null)
+    const confirmDelete = async () => {
+        if (!deleteTarget || deleteLoading) return
+        setDeleteLoading(true)
+        try {
+            await deleteOrganizerDraftEvent(deleteTarget.id)
+            setDeleteTarget(null)
+            toast.success(`Đã xóa vĩnh viễn bản nháp "${deleteTarget.title}".`)
+            navigate('/organizer/events')
+        } catch (err) {
+            console.error(err)
+            toast.error(getApiMessage(err, 'Không thể xóa bản nháp sự kiện.'))
+        } finally {
+            setDeleteLoading(false)
+        }
+    }
 
     useEffect(() => {
         loadData()
@@ -225,6 +431,29 @@ export function OrganizerEventDetailPage() {
             title="Chi tiết sự kiện"
             backLink="/organizer/events"
             backLabel="Quay lại"
+            action={(
+                <div className="flex flex-wrap items-center gap-2.5">
+                    <Link
+                        to={`/organizer/events/${event.id}/edit`}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3.5 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95"
+                    >
+                        <Pencil className="size-3.5" />
+                        Chỉnh sửa sự kiện
+                    </Link>
+                    <EventActionsDropdown
+                        event={event}
+                        variant="button"
+                        label="Tác vụ"
+                        includeEdit={false}
+                        onToggleHide={openHideModal}
+                        onToggleSales={openSalesModal}
+                        onWithdrawCancel={openWithdrawModal}
+                        onCancel={openCancelModal}
+                        onPublish={openPublishModal}
+                        onDelete={openDeleteModal}
+                    />
+                </div>
+            )}
         >
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 {/* Left column: Event info */}
@@ -239,8 +468,8 @@ export function OrganizerEventDetailPage() {
                                 </div>
                             )}
                             <div className="absolute left-4 top-4">
-                                <Badge tone={STATUS_TONES[event.status] || 'gray'}>
-                                    {STATUS_LABELS[event.status] || event.status}
+                                <Badge tone={event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? 'green' : (STATUS_TONES[event.status] || 'gray')}>
+                                    {event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? 'Đã duyệt' : (STATUS_LABELS[event.status] || event.status)}
                                 </Badge>
                             </div>
                         </div>
@@ -359,12 +588,24 @@ export function OrganizerEventDetailPage() {
                                 <div key={session.id} className="border-b border-border-soft/20 pb-3 last:border-0 last:pb-0">
                                     <p className="text-sm font-semibold truncate" title={session.name}>{session.name}</p>
                                     <div className="mt-2 space-y-2 text-xs">
-                                        {(session.ticket_types || []).map((tt) => (
-                                            <div key={tt.id} className="flex items-center justify-between">
-                                                <span className="text-subtle">{tt.name}</span>
-                                                <span className="font-semibold text-content">{formatCurrency(tt.price)}</span>
-                                            </div>
-                                        ))}
+                                        {(session.ticket_types || []).map((tt) => {
+                                            const isTtPaused = (event?.sales_blocks || []).some(
+                                                (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(tt.id)
+                                            )
+                                            return (
+                                                <div key={tt.id} className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-subtle">{tt.name}</span>
+                                                        {isTtPaused && (
+                                                            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+                                                                Tạm dừng bán
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="font-semibold text-content">{formatCurrency(tt.price)}</span>
+                                                </div>
+                                            )
+                                        })}
                                         {(!session.ticket_types || session.ticket_types.length === 0) && (
                                             <p className="text-subtle italic">Chưa có hạng vé</p>
                                         )}
@@ -393,6 +634,57 @@ export function OrganizerEventDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Action Modals */}
+            {publishTarget && (
+                <PublishConfirmModal
+                    event={publishTarget}
+                    onConfirm={confirmPublish}
+                    onClose={closePublishModal}
+                    loading={publishLoading}
+                />
+            )}
+            {hideTarget && (
+                <ToggleHideConfirmModal
+                    event={hideTarget}
+                    onConfirm={confirmToggleHide}
+                    onClose={closeHideModal}
+                    loading={hideLoading}
+                />
+            )}
+            {salesTarget && (
+                <ToggleSalesConfirmModal
+                    event={salesTarget}
+                    onConfirm={confirmToggleSales}
+                    onClose={closeSalesModal}
+                    loading={salesLoading}
+                />
+            )}
+            {cancelTarget && (
+                <CancelOrRequestCancelModal
+                    event={cancelTarget}
+                    onConfirm={confirmCancel}
+                    onClose={closeCancelModal}
+                    loading={cancelLoading}
+                    error={cancelError}
+                />
+            )}
+            {withdrawTarget && (
+                <WithdrawCancelConfirmModal
+                    event={withdrawTarget}
+                    onConfirm={confirmWithdrawCancellationRequest}
+                    onClose={closeWithdrawModal}
+                    loading={withdrawLoading}
+                />
+            )}
+            {deleteTarget && (
+                <DeleteDraftConfirmModal
+                    event={deleteTarget}
+                    onConfirm={confirmDelete}
+                    onClose={closeDeleteModal}
+                    loading={deleteLoading}
+                />
+            )}
         </OrganizerPage>
     )
 }

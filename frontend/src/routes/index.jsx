@@ -14,7 +14,6 @@ import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
 import { OrganizerBusinessEmailVerifyPage } from '@/pages/customer/OrganizerBusinessEmailVerifyPage.jsx'
 import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
-import { getStoredUser, isAdminUser } from '@/lib/auth.js'
 import { LoginPage } from '@/pages/auth/LoginPage.jsx'
 import { LockedAccountPage } from '@/pages/auth/LockedAccountPage.jsx'
 import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
@@ -70,14 +69,6 @@ import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage.jsx'
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage.jsx'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage.jsx'
 import { TicketDetailPage } from '@/pages/customer/tickets/TicketDetailPage.jsx'
-
-function HomePageRoute() {
-  const user = getStoredUser()
-  if (isAdminUser(user)) {
-    return <Navigate to="/admin" replace />
-  }
-  return <HomePage />
-}
 
 export const router = createBrowserRouter([
   {
@@ -316,7 +307,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePageRoute />,
+        element: <HomePage />,
       },
       {
         path: 'events',

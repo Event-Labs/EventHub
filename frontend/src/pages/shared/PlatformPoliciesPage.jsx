@@ -1,328 +1,511 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink, FileText } from 'lucide-react'
+import {
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  ChevronRight,
+  ExternalLink,
+  Eye,
+  FileDown,
+  FileText,
+  HelpCircle,
+  Layers,
+  Shield,
+  Sparkles,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import {
   fetchActivePlatformPolicies,
   fetchOrganizerPlatformPolicies,
 } from '@/services/platformFinance.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+import staticPoliciesData from './platformPoliciesData.json'
 
-const policyLabels = {
-  TERMS_CUSTOMER: 'Điều khoản sử dụng dành cho Khách hàng',
-  TERMS_ORGANIZER: 'Điều khoản sử dụng dành cho Nhà tổ chức',
-  TERMS_STAFF: 'Điều khoản sử dụng dành cho Staff',
-  PRIVACY_POLICY: 'Chính sách bảo mật thông tin cá nhân',
-  PAYMENT_SECURITY_POLICY: 'Chính sách bảo mật thanh toán',
-  PAYMENT_POLICY: 'Chính sách thanh toán',
-  REFUND_POLICY: 'Chính sách hoàn tiền',
-  EVENT_POLICY: 'Chính sách sự kiện',
-  TICKET_POLICY: 'Chính sách đặt vé và sử dụng vé',
-  CHECKIN_POLICY: 'Chính sách check-in và chống vé giả',
-  SUBSCRIPTION_POLICY: 'Chính sách gói dịch vụ Organizer',
-  FEE_POLICY: 'Chính sách phí nền tảng',
-  COMPLAINT_POLICY: 'Chính sách khiếu nại và giải quyết tranh chấp',
-  AI_POLICY: 'Chính sách sử dụng AI',
+// Category groupings matching the Footer navigation
+const POLICY_GROUPS = [
+  {
+    key: 'about',
+    title: 'Về nền tảng chúng tôi',
+    icon: Shield,
+    color: 'from-amber-500/20 to-yellow-500/10 border-amber-500/30 text-[#E6C17A]',
+    types: ['SYSTEM_POLICY', 'PRIVACY_POLICY', 'AI_POLICY', 'COMPLAINT_POLICY'],
+  },
+  {
+    key: 'customer',
+    title: 'Dành cho Khách hàng',
+    icon: Users,
+    color: 'from-cyan-500/20 to-blue-500/10 border-cyan-500/30 text-cyan-300',
+    types: ['TERMS_CUSTOMER', 'TICKET_POLICY', 'PAYMENT_POLICY', 'PAYMENT_SECURITY_POLICY', 'REFUND_POLICY'],
+  },
+  {
+    key: 'organizer',
+    title: 'Dành cho BTC',
+    icon: Layers,
+    color: 'from-purple-500/20 to-indigo-500/10 border-purple-500/30 text-purple-300',
+    types: ['TERMS_ORGANIZER', 'EVENT_POLICY', 'SUBSCRIPTION_POLICY', 'FEE_POLICY'],
+  },
+  {
+    key: 'staff',
+    title: 'Dành cho Nhân sự',
+    icon: CheckCircle2,
+    color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-300',
+    types: ['TERMS_STAFF', 'CHECKIN_POLICY'],
+  },
+]
+
+const POLICY_LABELS = {
   SYSTEM_POLICY: 'Chính sách hệ thống',
+  PRIVACY_POLICY: 'Bảo mật thông tin cá nhân',
+  AI_POLICY: 'Chính sách sử dụng AI',
+  COMPLAINT_POLICY: 'Khiếu nại và tranh chấp',
+  TERMS_CUSTOMER: 'Điều khoản dành cho Khách hàng',
+  TICKET_POLICY: 'Chính sách vé',
+  PAYMENT_POLICY: 'Chính sách thanh toán',
+  PAYMENT_SECURITY_POLICY: 'Bảo mật thanh toán',
+  REFUND_POLICY: 'Chính sách hoàn tiền',
+  TERMS_ORGANIZER: 'Điều khoản dành cho Nhà tổ chức',
+  EVENT_POLICY: 'Chính sách sự kiện',
+  SUBSCRIPTION_POLICY: 'Gói dịch vụ Organizer',
+  FEE_POLICY: 'Chính sách phí nền tảng',
+  TERMS_STAFF: 'Điều khoản dành cho Nhân sự',
+  CHECKIN_POLICY: 'Soát vé và chống vé giả',
   GENERAL_TERMS: 'Điều khoản sử dụng chung',
 }
 
-const policyAliases = {
-  GENERAL_TERMS: ['SYSTEM_POLICY', 'TERMS_CUSTOMER'],
-  CUSTOMER_TERMS: ['TERMS_CUSTOMER'],
-  ORGANIZER_TERMS: ['TERMS_ORGANIZER'],
-  STAFF_TERMS: ['TERMS_STAFF'],
-  PRIVACY_PERSONAL_DATA: ['PRIVACY_POLICY'],
-  PAYMENT_SECURITY: ['PAYMENT_SECURITY_POLICY'],
-  PAYMENT: ['PAYMENT_POLICY'],
-  REFUND: ['REFUND_POLICY'],
-  EVENT_CREATION_REVIEW: ['EVENT_POLICY'],
-  EVENT_POSTPONEMENT_CANCELLATION: ['EVENT_POLICY'],
-  TICKET_BOOKING: ['TICKET_POLICY'],
-  ELECTRONIC_TICKET_USAGE: ['TICKET_POLICY'],
-  CHECKIN_ANTI_FRAUD: ['CHECKIN_POLICY'],
-  ORGANIZER_SERVICE_PLAN: ['SUBSCRIPTION_POLICY'],
-  SERVICE_FEE: ['FEE_POLICY'],
-  COMPLAINT_DISPUTE_RESOLUTION: ['COMPLAINT_POLICY'],
-  AI_POLICY: ['AI_POLICY'],
-  SYSTEM_POLICY: ['SYSTEM_POLICY'],
-}
-
-const policyKeywords = {
-  TERMS_CUSTOMER: ['khach hang'],
-  TERMS_ORGANIZER: ['nha to chuc', 'organizer'],
-  TERMS_STAFF: ['staff'],
-  PRIVACY_POLICY: ['bao mat', 'ca nhan'],
-  PAYMENT_SECURITY_POLICY: ['bao mat', 'thanh toan'],
-  PAYMENT_POLICY: ['thanh toan'],
-  REFUND_POLICY: ['hoan tien'],
-  EVENT_POLICY: ['su kien'],
-  TICKET_POLICY: ['ve'],
-  CHECKIN_POLICY: ['check in'],
-  SUBSCRIPTION_POLICY: ['goi', 'dich vu'],
-  FEE_POLICY: ['phi'],
-  COMPLAINT_POLICY: ['khieu nai', 'tranh chap'],
-  AI_POLICY: ['ai'],
-  SYSTEM_POLICY: ['he thong'],
-  GENERAL_TERMS: ['chung'],
-  CUSTOMER_TERMS: ['khach hang'],
-  ORGANIZER_TERMS: ['nha to chuc'],
-  STAFF_TERMS: ['staff'],
-  PRIVACY_PERSONAL_DATA: ['bao mat', 'ca nhan'],
-  PAYMENT_SECURITY: ['bao mat thanh toan'],
-  PAYMENT: ['thanh toan'],
-  REFUND: ['hoan tien'],
-  EVENT_CREATION_REVIEW: ['su kien'],
-  EVENT_POSTPONEMENT_CANCELLATION: ['su kien'],
-  TICKET_BOOKING: ['ve'],
-  ELECTRONIC_TICKET_USAGE: ['ve'],
-  CHECKIN_ANTI_FRAUD: ['check in'],
-  ORGANIZER_SERVICE_PLAN: ['goi dich vu'],
-  COMPLAINT_DISPUTE_RESOLUTION: ['khieu nai', 'tranh chap'],
-}
-
-const configLabels = {
-  priority: 'Thứ tự ưu tiên',
-  review_cycle_days: 'Chu kỳ rà soát định kỳ (ngày)',
-  requires_acceptance: 'Yêu cầu người dùng xác nhận đồng ý',
-  applies_to: 'Đối tượng áp dụng',
-  summary: 'Tóm tắt điều khoản/chính sách',
-  public_note: 'Ghi chú công khai',
+const POLICY_ALIASES = {
+  GENERAL_TERMS: 'SYSTEM_POLICY',
+  CUSTOMER_TERMS: 'TERMS_CUSTOMER',
+  ORGANIZER_TERMS: 'TERMS_ORGANIZER',
+  STAFF_TERMS: 'TERMS_STAFF',
+  PRIVACY_PERSONAL_DATA: 'PRIVACY_POLICY',
+  PAYMENT_SECURITY: 'PAYMENT_SECURITY_POLICY',
+  PAYMENT: 'PAYMENT_POLICY',
+  REFUND: 'REFUND_POLICY',
+  EVENT_CREATION_REVIEW: 'EVENT_POLICY',
+  EVENT_POSTPONEMENT_CANCELLATION: 'EVENT_POLICY',
+  TICKET_BOOKING: 'TICKET_POLICY',
+  ELECTRONIC_TICKET_USAGE: 'TICKET_POLICY',
+  CHECKIN_ANTI_FRAUD: 'CHECKIN_POLICY',
+  ORGANIZER_SERVICE_PLAN: 'SUBSCRIPTION_POLICY',
+  SERVICE_FEE: 'FEE_POLICY',
+  COMPLAINT_DISPUTE_RESOLUTION: 'COMPLAINT_POLICY',
 }
 
 export function PlatformPoliciesPage({ audience = 'public' }) {
-  const [searchParams] = useSearchParams()
-  const selectedPolicyType = searchParams.get('policy_type') || undefined
+  const [searchParams, setSearchParams] = useSearchParams()
+  const rawType = searchParams.get('policy_type') || (audience === 'organizer' ? 'TERMS_ORGANIZER' : 'SYSTEM_POLICY')
+  const activeType = POLICY_ALIASES[rawType] || rawType
+  const [viewMode, setViewMode] = useState('text') // 'text' | 'pdf'
+
   const policiesQuery = useQuery({
     queryKey: ['active-platform-policies', audience],
     queryFn: () =>
       audience === 'organizer'
         ? fetchOrganizerPlatformPolicies()
         : fetchActivePlatformPolicies(),
+    staleTime: 5 * 60 * 1000,
   })
 
-  const allPolicies = policiesQuery.data || []
-  let policies = selectedPolicyType
-    ? filterPolicies(allPolicies, selectedPolicyType)
-    : allPolicies
+  // Merge static fallback policies with live API policies
+  const policiesMap = useMemo(() => {
+    const map = new Map()
 
-  if (audience === 'organizer') {
-    const allowed = ['TERMS_ORGANIZER', 'EVENT_POLICY', 'SUBSCRIPTION_POLICY', 'FEE_POLICY']
-    policies = policies
-      .filter((p) => allowed.includes(p.policy_type))
-      .sort((a, b) => allowed.indexOf(a.policy_type) - allowed.indexOf(b.policy_type))
-  }
-  const selectedPdfPolicy = selectedPolicyType
-    ? policies.find((policy) => (policy.documents || []).some(isPdfDocument))
-    : null
-  const selectedPdf = selectedPdfPolicy?.documents?.find(isPdfDocument)
+    // 1. Populate with static fallback first
+    for (const item of staticPoliciesData) {
+      map.set(item.policy_type, {
+        id: item.policy_type,
+        policy_type: item.policy_type,
+        title: item.title,
+        description: item.description,
+        markdown: item.markdown,
+        file_url: item.file_url,
+        file_name: item.file_name,
+        effective_from: '2026-06-10T13:00:00.000Z',
+      })
+    }
 
-  if (!policiesQuery.isLoading && !policiesQuery.isError && selectedPdfPolicy && selectedPdf) {
+    // 2. Override with live API data if available
+    const apiData = Array.isArray(policiesQuery.data) ? policiesQuery.data : []
+    for (const item of apiData) {
+      const existing = map.get(item.policy_type) || {}
+      const doc = Array.isArray(item.documents) && item.documents.length > 0 ? item.documents[0] : null
+      map.set(item.policy_type, {
+        ...existing,
+        ...item,
+        title: item.title || existing.title,
+        description: item.description || existing.description,
+        markdown: item.config?.content_markdown || existing.markdown || '',
+        file_url: doc?.file_url || existing.file_url || '',
+        file_name: doc?.file_name || doc?.title || existing.file_name || '',
+        effective_from: item.effective_from || existing.effective_from,
+      })
+    }
+
+    return map
+  }, [policiesQuery.data])
+
+  const activePolicy = useMemo(() => {
     return (
-      <div className={audience === 'organizer' ? '' : 'mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8'}>
-        <PolicyPdfViewer policy={selectedPdfPolicy} document={selectedPdf} />
-      </div>
+      policiesMap.get(activeType) ||
+      policiesMap.get('SYSTEM_POLICY') ||
+      policiesMap.values().next().value
     )
+  }, [policiesMap, activeType])
+
+  // Select a policy
+  const handleSelectPolicy = (type) => {
+    setSearchParams({ policy_type: type })
+    setViewMode('text')
+    window.scrollTo({ top: 120, behavior: 'smooth' })
   }
+
+  // Scroll to top on mount or when active policy changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [activeType])
+
+  // If audience is organizer, filter groups to relevant BTC policies
+  const visibleGroups = useMemo(() => {
+    if (audience !== 'organizer') return POLICY_GROUPS
+    return POLICY_GROUPS.filter((g) => g.key === 'organizer')
+  }, [audience])
 
   return (
-    <div className={audience === 'organizer' ? '' : 'mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8'}>
-      <div className="mb-6">
-        <h1 className="mt-1 font-display text-3xl font-black text-white drop-shadow-sm tracking-tight">
-          {renderCosmicTitle(selectedPolicyType ? policyLabels[selectedPolicyType] || 'Chính sách' : 'Chính sách Đang áp dụng')}
+    <div className={`force-dark mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pb-16 ${audience === 'organizer' ? 'pt-2' : 'pt-2 sm:pt-4'}`}>
+      {/* Page Header */}
+      <div className="mb-4 sm:mb-6 text-center sm:text-left">
+        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-[#E6C17A] mb-2 sm:mb-3 shadow-[0_0_15px_rgba(201,154,71,0.2)]">
+          <Sparkles className="size-3.5" />
+          <span>Trung tâm Điều khoản & Chính sách Nền tảng EventHub</span>
+        </div>
+        <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+          {renderCosmicTitle('Chính sách & Quy định EventHub')}
         </h1>
-        {audience !== 'organizer' && (
-          <p className="mt-2 max-w-2xl text-[15px] leading-6 text-slate-400">
-            Các điều khoản và tài liệu PDF/DOCX chính thức được EventHub công khai
-          </p>
-        )}
+        <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm lg:text-base text-slate-400 max-w-3xl">
+          Tổng hợp các quy định pháp lý, điều khoản sử dụng, chính sách bảo vệ quyền lợi khách hàng, nhà tổ chức và chuẩn mực bảo mật vận hành trên nền tảng.
+        </p>
       </div>
 
-      {policiesQuery.isLoading && (
-        <PolicyPanel>
-          <p className="text-sm font-semibold text-[#434655]">Đang tải chính sách...</p>
-        </PolicyPanel>
-      )}
-
-      {policiesQuery.isError && (
-        <PolicyPanel>
-          <p className="text-sm font-semibold text-error">Không thể tải chính sách đang áp dụng.</p>
-        </PolicyPanel>
-      )}
-
-      {!policiesQuery.isLoading && !policiesQuery.isError && policies.length === 0 && (
-        <PolicyPanel>
-          <p className="text-sm font-semibold text-[#434655]">Chưa có chính sách công khai cho mục này.</p>
-        </PolicyPanel>
-      )}
-
-      <div className="grid gap-6">
-        {policies.map((policy) => {
-          if (audience === 'organizer') {
-            const primaryPdf = (policy.documents || []).find(isPdfDocument)
-            if (!primaryPdf) return null
+      {/* Main Layout: 2-columns (Sidebar Navigation + Policy Reader) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
+        {/* Navigation Sidebar */}
+        <aside className="space-y-4 lg:sticky lg:top-28">
+          {visibleGroups.map((group) => {
+            const GroupIcon = group.icon
             return (
-              <div key={policy.id} className="flex flex-col gap-2">
-                <PolicyPdfViewer policy={policy} document={primaryPdf} />
+              <div
+                key={group.key}
+                className="rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-3 sm:p-4 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+              >
+                <div className="flex items-center gap-2 px-2 pb-2.5 mb-1.5 border-b border-white/5 text-xs font-extrabold uppercase tracking-wider text-slate-300">
+                  <GroupIcon className="size-4 text-[#E6C17A]" />
+                  <span>{group.title}</span>
+                </div>
+                <div className="space-y-1">
+                  {group.types.map((type) => {
+                    const policy = policiesMap.get(type)
+                    const isSelected = activePolicy?.policy_type === type
+                    const label = POLICY_LABELS[type] || policy?.title || type
+
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleSelectPolicy(type)}
+                        className={`w-full flex items-center justify-between text-left px-3 py-2.5 rounded-xl text-xs sm:text-[13px] font-semibold transition-all duration-200 cursor-pointer ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-md shadow-[#C99A47]/30 scale-[1.01]'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <span className="truncate pr-2">{label}</span>
+                        <ChevronRight className={`size-3.5 shrink-0 transition-transform ${isSelected ? 'translate-x-0.5 text-[#0D1B2A]' : 'opacity-40'}`} />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )
-          }
+          })}
+        </aside>
 
-          return (
-            <PolicyPanel key={policy.id}>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        {/* Policy Content Viewer */}
+        <main className="rounded-2xl border border-white/10 bg-slate-900/70 backdrop-blur-2xl p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
+          {activePolicy ? (
+            <div>
+              {/* Policy Header Bar */}
+              <div className="flex flex-col gap-4 pb-6 border-b border-white/10 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <span className="inline-flex rounded bg-[#dbe1ff] px-2 py-1 text-xs font-bold uppercase text-[#003ea8]">
-                    {policyLabels[policy.policy_type] || policy.policy_type}
-                  </span>
-                  <h2 className="mt-3 text-xl font-extrabold text-[#111827]">{policy.title}</h2>
-                  {policy.description && (
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#434655]">
-                      {policy.description}
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-0.5 text-[11px] font-bold text-[#E6C17A]">
+                      {POLICY_LABELS[activePolicy.policy_type] || activePolicy.policy_type}
+                    </span>
+                    <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <Calendar className="size-3 text-[#E6C17A]" />
+                      Hiệu lực từ:{' '}
+                      {activePolicy.effective_from
+                        ? new Date(activePolicy.effective_from).toLocaleDateString('vi-VN')
+                        : 'Hiện tại'}
+                    </span>
+                  </div>
+
+                  <h2 className="font-display text-xl sm:text-2xl font-black text-white leading-snug">
+                    {activePolicy.title}
+                  </h2>
+
+                  {activePolicy.description && (
+                    <p className="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed max-w-2xl">
+                      {activePolicy.description}
                     </p>
                   )}
                 </div>
-                <p className="text-xs font-semibold text-[#737686]">
-                  Hiệu lực từ {policy.effective_from ? new Date(policy.effective_from).toLocaleDateString('vi-VN') : 'hiện tại'}
-                </p>
+
+                {/* View Actions (Text vs PDF, Open in New Tab) */}
+                <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+                  {activePolicy.file_url && (
+                    <div className="flex rounded-xl bg-slate-950/80 p-1 border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('text')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          viewMode === 'text'
+                            ? 'bg-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <BookOpen className="size-3.5" />
+                        <span>Văn bản</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('pdf')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          viewMode === 'pdf'
+                            ? 'bg-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Eye className="size-3.5" />
+                        <span>Xem PDF</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {activePolicy.file_url && (
+                    <a
+                      href={activePolicy.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#C99A47]/40 bg-[#C99A47]/10 px-3.5 py-2 text-xs font-bold text-[#E6C17A] transition-all hover:bg-[#C99A47]/20 hover:border-[#E6C17A] hover:shadow-[0_0_15px_rgba(201,154,71,0.3)] active:scale-95"
+                    >
+                      <ExternalLink className="size-3.5" />
+                      <span>Mở PDF tab mới</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
-              {Object.keys(policy.config || {}).length > 0 && (
-                <dl className="mt-4 grid gap-3 rounded-md bg-[#f2f4f6] p-4 sm:grid-cols-2">
-                  {Object.entries(policy.config).map(([key, value]) => (
-                    <div key={key}>
-                      <dt className="text-xs font-bold uppercase text-[#737686]">
-                        {configLabels[key] || key}
-                      </dt>
-                      <dd className="mt-1 text-sm font-semibold text-[#191c1e]">
-                        {formatConfigValue(value)}
-                      </dd>
+              {/* View Mode: PDF Frame or Formatted Text */}
+              {viewMode === 'pdf' && activePolicy.file_url ? (
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 text-xs text-[#E6C17A]">
+                    <span className="flex items-center gap-2 font-medium">
+                      <FileText className="size-4 shrink-0" />
+                      Tài liệu gốc: {activePolicy.file_name || `${activePolicy.policy_type}.pdf`}
+                    </span>
+                    <a
+                      href={activePolicy.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline font-bold hover:text-white"
+                    >
+                      Tải / Xem riêng
+                    </a>
+                  </div>
+                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1e29] shadow-inner">
+                    <iframe
+                      title={activePolicy.title}
+                      src={`${activePolicy.file_url}#toolbar=1&navpanes=1&view=FitH`}
+                      className="h-[75vh] min-h-[580px] w-full bg-[#1a1e29]"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* Formatted Text Reader */
+                <div className="mt-6">
+                  {activePolicy.markdown ? (
+                    <PolicyMarkdownViewer content={activePolicy.markdown} />
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-white/15 p-8 text-center">
+                      <p className="text-sm text-slate-400">
+                        Nội dung chi tiết của điều khoản này được cung cấp dưới dạng văn bản PDF đính kèm.
+                      </p>
+                      {activePolicy.file_url && (
+                        <a
+                          href={activePolicy.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold text-[#0D1B2A] transition-all hover:brightness-110"
+                          style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
+                        >
+                          <FileDown className="size-4" />
+                          Xem toàn bộ tài liệu PDF
+                        </a>
+                      )}
                     </div>
-                  ))}
-                </dl>
+                  )}
+                </div>
               )}
-
-              <PolicyDocuments documents={policy.documents || []} />
-            </PolicyPanel>
-          )
-        })}
+            </div>
+          ) : (
+            <div className="py-16 text-center text-slate-400">
+              <HelpCircle className="size-10 mx-auto text-slate-500 mb-3" />
+              <p className="text-sm font-semibold">Vui lòng chọn một điều khoản từ danh sách bên trái.</p>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   )
 }
 
-function PolicyPdfViewer({ policy, document }) {
+/**
+ * Lightweight, high-contrast, beautiful Markdown renderer for policy text
+ */
+function PolicyMarkdownViewer({ content = '' }) {
+  const blocks = useMemo(() => {
+    return parseMarkdownToBlocks(content)
+  }, [content])
+
   return (
-    <section className="overflow-hidden rounded-md border border-[#30363d] bg-[#262626] shadow-2xl">
-      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-[#3d3d3d] bg-[#333] px-4 py-3 text-white">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold">
-            {document.file_name || document.title || policy.title}
+    <article className="space-y-5 text-slate-200 leading-relaxed text-[14px] sm:text-[15px]">
+      {blocks.map((block, index) => {
+        if (block.type === 'h1') {
+          return null // Skip top h1 since page header already shows title
+        }
+        if (block.type === 'h2') {
+          return (
+            <div key={index} className="pt-3 pb-1 border-b border-white/10 first:pt-0">
+              <h3 className="font-display text-base sm:text-lg font-bold text-[#E6C17A] tracking-tight">
+                {block.text}
+              </h3>
+            </div>
+          )
+        }
+        if (block.type === 'h3') {
+          return (
+            <h4 key={index} className="font-bold text-white text-sm sm:text-base mt-3">
+              {block.text}
+            </h4>
+          )
+        }
+        if (block.type === 'list') {
+          return (
+            <ul key={index} className="space-y-2 pl-4 sm:pl-5 list-disc marker:text-[#E6C17A]">
+              {block.items.map((item, idx) => (
+                <li key={idx} className="text-slate-300 leading-normal pl-1">
+                  <FormattedInlineText text={item} />
+                </li>
+              ))}
+            </ul>
+          )
+        }
+        return (
+          <p key={index} className="text-slate-300 leading-relaxed">
+            <FormattedInlineText text={block.text} />
           </p>
-          <p className="mt-1 truncate text-xs text-white/70">
-            {policy.title}
-          </p>
-        </div>
-        <a
-          href={document.file_url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/20 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/10"
-        >
-          <ExternalLink className="size-4" />
-          Mở tab mới
-        </a>
-      </div>
-      <iframe
-        title={document.title || document.file_name || policy.title}
-        src={withPdfViewerOptions(document.file_url)}
-        className="h-[82vh] min-h-[720px] w-full bg-[#2a2a2a]"
-      />
-    </section>
+        )
+      })}
+    </article>
   )
 }
 
-function PolicyDocuments({ documents }) {
-  const primaryPdf = documents.find((document) => isPdfDocument(document))
+function parseMarkdownToBlocks(markdown = '') {
+  const lines = markdown.split(/\r?\n/)
+  const blocks = []
+  let currentList = null
 
-  if (documents.length === 0) {
-    return <p className="mt-4 text-sm font-semibold text-[#737686]">Chính sách này chưa có file công khai.</p>
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+
+    if (!line) {
+      if (currentList) {
+        blocks.push(currentList)
+        currentList = null
+      }
+      continue
+    }
+
+    if (line.startsWith('# ')) {
+      if (currentList) {
+        blocks.push(currentList)
+        currentList = null
+      }
+      blocks.push({ type: 'h1', text: line.replace(/^#\s+/, '') })
+      continue
+    }
+
+    if (line.startsWith('## ')) {
+      if (currentList) {
+        blocks.push(currentList)
+        currentList = null
+      }
+      blocks.push({ type: 'h2', text: line.replace(/^##\s+/, '') })
+      continue
+    }
+
+    if (line.startsWith('### ')) {
+      if (currentList) {
+        blocks.push(currentList)
+        currentList = null
+      }
+      blocks.push({ type: 'h3', text: line.replace(/^###\s+/, '') })
+      continue
+    }
+
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      const itemText = line.replace(/^[-*]\s+/, '')
+      if (!currentList) {
+        currentList = { type: 'list', items: [itemText] }
+      } else {
+        currentList.items.push(itemText)
+      }
+      continue
+    }
+
+    if (currentList) {
+      blocks.push(currentList)
+      currentList = null
+    }
+
+    blocks.push({ type: 'p', text: line })
   }
 
+  if (currentList) {
+    blocks.push(currentList)
+  }
+
+  return blocks
+}
+
+function FormattedInlineText({ text = '' }) {
+  // Support bold **text** and *italic*
+  const parts = text.split(/(\*\*.*?\*\*)/g)
   return (
-    <div className="mt-4 space-y-4">
-      {primaryPdf && (
-        <div className="overflow-hidden rounded-md border border-[#c3c6d7] bg-[#f7f9fb]">
-          <iframe
-            title={primaryPdf.title || primaryPdf.file_name || 'Tài liệu chính sách'}
-            src={withPdfViewerOptions(primaryPdf.file_url)}
-            className="h-[70vh] min-h-[520px] w-full bg-white"
-          />
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-3">
-        {documents.map((document) => (
-          <a
-            key={document.id}
-            href={document.file_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-[#c3c6d7] px-3 py-2 text-sm font-bold text-primary transition hover:bg-[#f1fbff]"
-          >
-            {isPdfDocument(document) ? <FileText className="size-4" /> : <ExternalLink className="size-4" />}
-            {document.title || document.file_name || 'Xem tài liệu'}
-          </a>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function filterPolicies(policies, selectedPolicyType) {
-  const acceptedTypes = new Set(policyAliases[selectedPolicyType] || [selectedPolicyType])
-  const exactMatches = policies.filter((policy) => acceptedTypes.has(policy.policy_type))
-  if (exactMatches.length > 0) return exactMatches
-
-  const keywords = policyKeywords[selectedPolicyType] || []
-  return policies.filter((policy) => {
-    const title = normalizeText(`${policy.title || ''} ${policy.description || ''}`)
-    const type = normalizeText(policy.policy_type || '')
-    return (
-      type.includes(normalizeText(selectedPolicyType)) ||
-      (keywords.length > 0 && keywords.every((keyword) => title.includes(normalizeText(keyword))))
-    )
-  })
-}
-
-function isPdfDocument(document) {
-  return document.mime_type === 'application/pdf' || /\.pdf($|\?)/i.test(document.file_url || document.file_name || '')
-}
-
-function normalizeText(value) {
-  return String(value)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
-
-function withPdfViewerOptions(url = '') {
-  if (!url) return ''
-  const separator = url.includes('#') ? '&' : '#'
-  return `${url}${separator}toolbar=1&navpanes=1&view=FitH`
-}
-
-function formatConfigValue(value) {
-  if (typeof value === 'boolean') return value ? 'Có' : 'Không'
-  if (value === null || value === undefined || value === '') return 'Chưa thiết lập'
-  return String(value)
-}
-
-function PolicyPanel({ children }) {
-  return (
-    <section className="rounded-md border border-[#c3c6d7] bg-white p-5 shadow-sm">
-      {children}
-    </section>
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return (
+            <strong key={i} className="font-bold text-white">
+              {part.slice(2, -2)}
+            </strong>
+          )
+        }
+        return part
+      })}
+    </>
   )
 }

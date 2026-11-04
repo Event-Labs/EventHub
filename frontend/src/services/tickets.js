@@ -12,6 +12,11 @@ export async function fetchTicketDetail(ticketId) {
   return response.data.data
 }
 
+export async function cancelFreeTicket(ticketId, reason) {
+  const response = await http.post(`/tickets/${ticketId}/cancel`, { reason })
+  return response.data.data
+}
+
 export async function downloadTicket(ticketId) {
   const response = await http.get(`/tickets/${ticketId}/download`, {
     responseType: 'blob',

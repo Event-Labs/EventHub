@@ -31,9 +31,16 @@ Nhiệm vụ của bạn là kiểm tra, soát lỗi và đánh giá sự kiện
    - Soát lỗi chính tả (telex, dấu câu, sai từ) trong Tiêu đề, Mô tả ngắn và Mô tả chi tiết. Liệt kê lỗi chính tả vào "spelling_grammar_issues" kèm từ đúng đề xuất.
    - Kiểm tra tiêu đề: Đảm bảo không giật tít lừa đảo, phóng đại sai lệch.
 
-6. KIỂM DUYỆT TẤT CẢ HÌNH ẢNH & OCR:
-   - Duyệt từng ảnh: Poster chính (bắt buộc), Banner bìa (bắt buộc), Các ảnh mô tả (tùy chọn), Giấy phép đính kèm.
-   - Đánh giá tính phù hợp với chủ đề sự kiện, kiểm tra OCR chữ trên ảnh.
+6. KIỂM DUYỆT HÌNH ẢNH & QUY TRÌNH "VISUAL CHAIN-OF-THOUGHT (CoT) OCR" 4 BƯỚC BẮT BUỘC:
+   - "image_review" CHỈ dành cho hình ảnh thực tế (Poster, Banner, ảnh mô tả sự kiện). KHÔNG đưa tài liệu văn bản vào danh sách ảnh.
+   - BẮT BUỘC THỰC HIỆN ĐỦ 4 BƯỚC SUY LUẬN TRƯỚC KHI RA QUYẾT ĐỊNH CHO MỖI ẢNH (lưu vào "ocr_reasoning"):
+     * Bước 1 - Phân tích bối cảnh & Chủ đề (Scene & Theme Context): Nhận diện chủ đề tổng thể của banner (kịch kinh dị, nhạc hội, hội thảo...), tông màu (u tối, đỏ ma mị, neon rực rỡ, trang nhã) và các yếu tố đồ họa để định hình từ vựng tiếng Việt tương ứng.
+     * Bước 2 - Quét vùng chữ rõ nét làm mồi ngữ cảnh (Anchor Text Extraction): Đọc các dòng chữ có phông chữ chuẩn, dễ đọc trước (tên đạo diễn, thể loại sự kiện, cụm từ tiếng Việt rõ dấu) để xác nhận ngôn ngữ chính là Tiếng Việt và nắm bắt ngữ cảnh sự kiện.
+     * Bước 3 - Giải mã phông chữ biến dạng & Sửa lỗi từ vựng (Stylized Typography Decoding):
+       + Đối với các dòng chữ ngoằn ngoèo, giả cổ, hoặc giống chữ nước ngoài (kiểu chữ kinh dị uốn lượn): Tuyệt đối KHÔNG dịch sang ký tự tượng hình (Thái, Lào, Khmer) nếu bối cảnh đang là sự kiện Việt Nam.
+       + Bóc tách từng cụm từ, loại bỏ các nét râu ria trang trí/hiệu ứng máu/khói, đối chiếu hình dáng khung xương chữ cái (skeleton) với bảng chữ cái tiếng Việt và dấu thanh.
+       + Dùng ngữ cảnh từ Bước 1 và Bước 2 để tự động sửa lỗi chính tả (Lexical Correction) sao cho tạo thành cụm từ tiếng Việt có nghĩa hợp lý với tên sự kiện.
+     * Bước 4 - Đánh giá kiểm duyệt (Moderation Verdict): Phân biệt rõ giữa "hiệu ứng nghệ thuật hợp lệ của sự kiện" (chữ kinh dị, vết máu giả trên chữ của kịch ma, khói sương sân khấu) với "nội dung vi phạm tiêu chuẩn cộng đồng thật sự".
 
 7. LỊCH TRÌNH, VÉ & HOÀN TIỀN:
    - Lịch trình phiên: Logic thời gian hợp lý, không chồng lấn.
@@ -61,9 +68,24 @@ Bạn PHẢI LUÔN LUÔN trả về JSON thuần túy theo schema sau:
     "overall_image_verdict": "SAFE" | "WARNING" | "VIOLATION",
     "items": [
       {
-        "source": "MAIN_POSTER | COVER_BANNER | DESCRIPTION_IMAGE_1 | PERMIT_DOCUMENT_1",
+        "source": "MAIN_POSTER | COVER_BANNER | DESCRIPTION_IMAGE_1",
         "status": "VALID | WARNING | VIOLATION | MISSING",
-        "analysis": "<Đánh giá nội dung và chữ trên ảnh>",
+        "analysis": "<Đánh giá tổng thể hình ảnh và chữ đã giải mã>",
+        "ocr_reasoning": {
+          "step1_scene_context": "<Phân tích bối cảnh, tông màu, phong cách đồ họa và chủ đề sự kiện>",
+          "step2_anchor_text": "<Vùng chữ rõ nét làm mồi ngữ cảnh: đạo diễn, nghệ sĩ, ngày giờ, thể loại>",
+          "step3_stylized_decoding": "<Quá trình bóc tách râu ria/máu/khói, đối chiếu khung xương chữ cái tiếng Việt và sửa lỗi từ vựng theo tên sự kiện>",
+          "step4_moderation_verdict": "<Phân biệt hiệu ứng nghệ thuật hợp lệ của sự kiện với vi phạm thực tế>"
+        },
+        "extracted_texts": [
+          {
+            "text": "<Cụm từ tiếng Việt đã giải mã>",
+            "font_style": "NORMAL | STYLIZED_HORROR | NEON_GLOW | 3D_EFFECT | HANDWRITTEN",
+            "confidence": "HIGH | MEDIUM | LOW",
+            "visual_effect": "BLOOD_SPLATTER | SMOKE | DISTORTION | NONE",
+            "is_event_title": true | false
+          }
+        ],
         "issues": ["<Vấn đề phát hiện>"],
         "suggestion": "<Gợi ý cải thiện chỉ khi thực sự cần thiết>"
       }
@@ -537,6 +559,125 @@ Dấu mộc đỏ và chữ ký của Phó Giám đốc Sở Văn hóa và Thể
                     "warnings": [],
                     "suggestions": [
                         "Gợi ý bổ sung sơ đồ ghế ngồi chi tiết trong phần mô tả để người mua vé VIP và Standard dễ chọn chỗ."
+                    ]
+                }, ensure_ascii=False)}
+            ]
+        },
+        # --- MẪU 6: SỰ KIỆN KỊCH KINH DỊ CÓ PHÔNG CHỮ BIẾN DẠNG / UỐN LƯỢN — VISUAL COT OCR (APPROVE) ---
+        {
+            "messages": [
+                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                {"role": "user", "content": """Tên sự kiện: Kịch Ma 4D : Con Qủy Rối 2 "Nhà Có Ma"
+Thể loại / Định dạng: OFFLINE
+Mô tả ngắn: "CON QUỶ RỐI 2" - VỞ KỊCH MA 4D
+Mô tả chi tiết: Tác giả - Đạo diễn: Ns. Quốc Thảo. Với sự tham gia của các diễn viên: Kim Quốc Nhân, Thụy Lam, Vũ Văn Ngọc, Nguyễn Hữu Phúc, Vương Kiệt, Hương Mi, Hưng Bùi.
+Hình ảnh sự kiện đã đăng:
+- Ảnh đại diện chính (Main Poster): ĐÃ CÓ (poster_kich_ma.jpg)
+- Ảnh bìa (Cover Banner): ĐÃ CÓ (banner_kich_ma.jpg)
+- Ảnh trong bài viết mô tả: CHƯA CÓ
+Thời gian: 2026-12-06 19:30 đến 2026-12-20 22:00
+Giấy phép / Tài liệu đính kèm:
+  + [Tài liệu #1] "Giay-Phep-Bieu-Dien-San-Khau-Kich-Quoc-Thao.pdf" (application/pdf)
+Lịch trình (Sessions): Phiên 1 (06/12 19:30), Phiên 2 (20/12 19:30)
+Cơ cấu vé (Tickets): Gồm 4 loại vé (Vé HSSV: 100k, Vé Đồng: 200k, Vé Bạc: 240k, Vé Vàng: 280k) phân bổ qua 2 phiên
+Chính sách hoàn tiền: Cho phép hoàn vé trước 0 ngày (Tỷ lệ: 100%)
+
+=== KẾT QUẢ PHÂN TÍCH HÌNH ẢNH TỪ AI VISION ===
+[Ảnh đại diện chính (Main Poster)]:
+Khung cảnh rừng tối tăm ma mị với cây cối phát sáng màu đỏ trong đêm. Dòng chữ tiêu đề vẽ uốn lượn kinh dị với vệt đỏ rỉ xuống dạng vết máu nghệ thuật, chữ cái biến dạng cách điệu dạng xương/nhánh cây. Chữ in rõ phía dưới ghi 'VỞ KỊCH MA 4D', 'Tác giả - Đạo diễn: Ns. Quốc Thảo'.
+
+[Ảnh bìa (Cover Banner)]:
+Không gian xanh đậm huyền bí với hai hình tượng bộ xương đối xứng, chữ tiêu đề dạng 3D kinh dị phát sáng ma mị, logo Sân Khấu Kịch Quốc Thảo.
+
+[Tài liệu giấy phép (Giay-Phep-Bieu-Dien-San-Khau-Kich-Quoc-Thao.pdf)]:
+Văn bản chấp thuận biểu diễn kịch sân khấu nghệ thuật số 120/GP-SVHTT từ Sở Văn hóa và Thể thao TP.HCM.
+=== KẾT THÚC PHÂN TÍCH HÌNH ẢNH ==="""},
+                {"role": "assistant", "content": json.dumps({
+                    "decision": "APPROVE",
+                    "risk_score": 10,
+                    "quality_score": 90,
+                    "summary": "Sự kiện kịch kinh dị có giấy phép biểu diễn hợp lệ. Áp dụng quy trình Visual CoT OCR giải mã chính xác phông chữ kinh dị tiếng Việt trên poster, các hiệu ứng rùng rợn là nghệ thuật sân khấu phù hợp.",
+                    "content_review": {
+                        "title_status": "VALID",
+                        "title_analysis": "Tiêu đề kịch ma rõ ràng, đúng tác phẩm sân khấu.",
+                        "description_status": "NEEDS_IMPROVEMENT",
+                        "description_analysis": "Mô tả đã nêu đạo diễn và danh sách diễn viên, nhưng nên bổ sung thêm khuyến cáo độ tuổi cho khán giả tham dự kịch kinh dị.",
+                        "spelling_grammar_issues": [
+                            "Từ 'Qủy' nên chuẩn hóa thành 'Quỷ' (dấu hỏi trên chữ u/y chuẩn tiếng Việt)"
+                        ]
+                    },
+                    "image_review": {
+                        "overall_image_verdict": "SAFE",
+                        "items": [
+                            {
+                                "source": "MAIN_POSTER",
+                                "status": "VALID",
+                                "analysis": "Poster kịch ma 4D có bố cục trực quan xuất sắc, chữ kinh dị uốn lượn được giải mã chính xác là 'CON QUỶ RỐI 2 - NHÀ CÓ MA', hiệu ứng máu giả là mỹ thuật sân khấu hợp lệ.",
+                                "ocr_reasoning": {
+                                    "step1_scene_context": "Bối cảnh rừng tối huyền bí với ánh sáng đỏ ma mị, định hình chủ đề kịch ma kinh dị 4D.",
+                                    "step2_anchor_text": "Phát hiện vùng chữ in rõ nét làm mồi ngữ cảnh: 'VỞ KỊCH MA 4D' và 'Tác giả - Đạo diễn: Ns. Quốc Thảo'. Ngôn ngữ thiết kế xác nhận 100% Tiếng Việt.",
+                                    "step3_stylized_decoding": "Tiêu đề chính vẽ phông chữ kinh dị uốn lượn với vệt máu giả. Bóc tách râu ria, đối chiếu khung xương chữ cái Latin/Tiếng Việt với tên sự kiện: Khôi phục chính xác cụm từ 'CON QUỶ RỐI 2 - NHÀ CÓ MA', loại bỏ hoàn toàn các ký tự biến dạng ngoại lai.",
+                                    "step4_moderation_verdict": "Vết máu giả trên phông chữ và hình ảnh ma mị là hiệu ứng mỹ thuật sân khấu hợp lệ của thể loại kịch ma, không phải bạo lực máu me ghê rợn thực tế hay vi phạm chính sách."
+                                },
+                                "extracted_texts": [
+                                    {
+                                        "text": "CON QUỶ RỐI 2 - NHÀ CÓ MA",
+                                        "font_style": "STYLIZED_HORROR",
+                                        "confidence": "HIGH",
+                                        "visual_effect": "BLOOD_SPLATTER",
+                                        "is_event_title": true
+                                    },
+                                    {
+                                        "text": "VỞ KỊCH MA 4D",
+                                        "font_style": "NORMAL",
+                                        "confidence": "HIGH",
+                                        "visual_effect": "NONE",
+                                        "is_event_title": false
+                                    },
+                                    {
+                                        "text": "Tác giả - Đạo diễn: Ns. Quốc Thảo",
+                                        "font_style": "NORMAL",
+                                        "confidence": "HIGH",
+                                        "visual_effect": "NONE",
+                                        "is_event_title": false
+                                    }
+                                ],
+                                "issues": [],
+                                "suggestion": ""
+                            },
+                            {
+                                "source": "COVER_BANNER",
+                                "status": "VALID",
+                                "analysis": "Banner ngang hiển thị không gian sân khấu kịch ma mị với hai hình tượng bộ xương đối xứng, thiết kế đồng bộ và chuyên nghiệp.",
+                                "ocr_reasoning": {
+                                    "step1_scene_context": "Banner phong cách sân khấu ma mị, ánh sáng xanh tím u tối.",
+                                    "step2_anchor_text": "Logo Sân Khấu Kịch Quốc Thảo in góc trên rõ nét.",
+                                    "step3_stylized_decoding": "Chữ tiêu đề dạng 3D phát sáng, đọc chính xác tên tác phẩm.",
+                                    "step4_moderation_verdict": "Hình tượng bộ xương trang trí sân khấu không vi phạm tiêu chuẩn cộng đồng."
+                                },
+                                "extracted_texts": [
+                                    {
+                                        "text": "CON QUỶ RỐI 2",
+                                        "font_style": "3D_EFFECT",
+                                        "confidence": "HIGH",
+                                        "visual_effect": "SMOKE",
+                                        "is_event_title": true
+                                    }
+                                ],
+                                "issues": [],
+                                "suggestion": ""
+                            }
+                        ]
+                    },
+                    "compliant_checks": [
+                        "Đã có Giấy phép biểu diễn kịch sân khấu từ Sở Văn hóa & Thể thao TP.HCM",
+                        "Ảnh poster và banner đạt chuẩn nghệ thuật, chữ kinh dị đã được AI giải mã chính xác",
+                        "Lịch trình và cơ cấu 4 loại vé minh bạch qua 2 phiên biểu diễn"
+                    ],
+                    "critical_violations": [],
+                    "warnings": [],
+                    "suggestions": [
+                        "Khuyến nghị bổ sung lưu ý khuyến cáo độ tuổi (12+) và cảnh báo người có bệnh lý tim mạch trong bài mô tả."
                     ]
                 }, ensure_ascii=False)}
             ]

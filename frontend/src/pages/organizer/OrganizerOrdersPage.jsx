@@ -5,26 +5,27 @@ import {
   ChevronRight,
   Eye,
   Loader2,
-  RefreshCw,
   Search,
   X,
 } from 'lucide-react'
 import { fetchOrganizerOrders, fetchOrganizerOrderDetail } from '@/services/organizerOrders.js'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import {
-  AvatarInitials,
   Badge,
   StatusBadge,
   TableActionButton,
   OrganizerPage,
   OrganizerPanel,
 } from './OrganizerComponents.jsx'
+import { CosmicSelect } from '@/components/CosmicSelect.jsx'
+import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ORDER_STATUSES = [
   { value: '', label: 'Tất cả trạng thái' },
   { value: 'PAID', label: 'Đã thanh toán' },
+  { value: 'CONFIRMED', label: 'Miễn phí (0đ)' },
   { value: 'PENDING', label: 'Chờ thanh toán' },
   { value: 'REFUND_REQUESTED', label: 'Yêu cầu hoàn tiền' },
   { value: 'REFUNDED', label: 'Đã hoàn tiền' },
@@ -35,6 +36,7 @@ const ORDER_STATUSES = [
 
 const STATUS_TONE = {
   PAID: 'green',
+  CONFIRMED: 'emerald',
   PENDING: 'amber',
   REFUND_REQUESTED: 'purple',
   REFUNDED: 'green',
@@ -47,6 +49,7 @@ const STATUS_TONE = {
 
 const STATUS_LABEL = {
   PAID: 'Đã thanh toán',
+  CONFIRMED: 'Miễn phí (0đ)',
   PENDING: 'Chờ thanh toán',
   REFUND_REQUESTED: 'Yêu cầu hoàn tiền',
   REFUNDED: 'Đã hoàn tiền',
@@ -132,10 +135,19 @@ export function OrganizerOrdersPage() {
     }
   }, [page, selectedEventId, selectedStatus, search])
 
-  // Load events for filter dropdown (only published events)
+  // Load events for filter dropdown (published, completed, or events with sales)
   useEffect(() => {
     fetchOrganizerEvents()
-      .then((data) => setEvents((data || []).filter((ev) => ev.status === 'PUBLISHED')))
+      .then((data) =>
+        setEvents(
+          (data || []).filter(
+            (ev) =>
+              ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(ev.status) ||
+              Number(ev.paid_orders_count || 0) > 0 ||
+              (ev.status !== 'DRAFT' && ev.status !== 'PENDING_REVIEW')
+          )
+        )
+      )
       .catch(() => setEvents([]))
   }, [])
 
@@ -186,41 +198,25 @@ export function OrganizerOrdersPage() {
             )}
           </form>
 
-          {/* Event filter */}
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-64"
-            value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-          >
-            <option value="" className="bg-[#0b1329] text-white">Tất cả sự kiện</option>
-            {events.map((ev) => (
-              <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">
-                {ev.title}
-              </option>
-            ))}
-          </select>
+          {/* Event filter with smart picker */}
+          <div className="w-full lg:w-72">
+            <OrganizerEventPicker
+              events={events}
+              selectedEventId={selectedEventId}
+              onSelectEvent={setSelectedEventId}
+              allowAll={true}
+              label={null}
+              placeholder="Tất cả sự kiện"
+            />
+          </div>
 
           {/* Status filter */}
-          <select
-            className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white shadow-sm outline-none focus:border-primary lg:w-52"
+          <CosmicSelect
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-          >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s.value} value={s.value} className="bg-[#0b1329] text-white">
-                {s.label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            className="org-btn-secondary flex items-center gap-2"
-            onClick={loadOrders}
-            disabled={loading}
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+            onChange={setSelectedStatus}
+            options={ORDER_STATUSES}
+            minWidth="min-w-[170px]"
+          />
         </div>
       </div>
 
@@ -247,7 +243,7 @@ export function OrganizerOrdersPage() {
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
                   <th className="w-14 px-2 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Số vé</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Tổng tiền</th>
-                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Trạng thái</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Ngày đặt</th>
                   <th className="w-14 px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Thao tác</th>
                 </tr>
@@ -264,15 +260,9 @@ export function OrganizerOrdersPage() {
                       </span>
                     </td>
                     <td className="max-w-[170px] xl:max-w-[210px] px-3 py-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <AvatarInitials
-                          name={order.buyer_name || order.buyer_email || 'K'}
-                          className="size-8 shrink-0 animate-pulse-slow"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-content" title={order.buyer_name}>{order.buyer_name}</p>
-                          <p className="truncate text-xs text-subtle" title={order.buyer_email}>{order.buyer_email}</p>
-                        </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-content" title={order.buyer_name}>{order.buyer_name}</p>
+                        <p className="truncate text-xs text-subtle" title={order.buyer_email}>{order.buyer_email}</p>
                       </div>
                     </td>
                     <td className="max-w-[160px] xl:max-w-[200px] px-3 py-3">
@@ -286,12 +276,14 @@ export function OrganizerOrdersPage() {
                     <td className="px-3 py-3 text-right font-mono font-bold text-primary text-sm whitespace-nowrap">
                       {formatCurrency(order.total_amount)}
                     </td>
-                    <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <StatusBadge
-                        status={order.status}
-                        label={STATUS_LABEL[order.status]}
-                        tone={STATUS_TONE[order.status]}
-                      />
+                    <td className="px-3 py-3 !text-left whitespace-nowrap" style={{ textAlign: 'left' }}>
+                      <div className="flex items-center justify-start text-left">
+                        <StatusBadge
+                          status={order.status}
+                          label={STATUS_LABEL[order.status]}
+                          tone={STATUS_TONE[order.status]}
+                        />
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <p className="text-sm font-medium text-slate-200">{formatDateOnly(order.created_at)}</p>
@@ -523,30 +515,35 @@ function OrderDetailModal({ orderId, onClose }) {
                     </div>
                   </div>
 
-                  {order.payment_status && (
+                  {(order.payment_status || order.status === 'CONFIRMED') && (
                     <div className="mt-3 border-t border-white/10 pt-3 text-xs text-slate-300">
                       <p>
                         Phương thức:{' '}
                         <span className="font-semibold text-white">
-                          {order.payment_provider || '—'}
+                          {order.status === 'CONFIRMED' ? 'Miễn phí (0đ)' : (order.payment_provider || '—')}
                         </span>
                       </p>
-                      {order.payment_transaction_id && (
+                      {order.payment_transaction_id ? (
                         <p className="mt-1">
                           Mã giao dịch:{' '}
                           <span className="font-mono font-semibold text-white">
                             {order.payment_transaction_id}
                           </span>
                         </p>
-                      )}
-                      {order.payment_paid_at && (
+                      ) : order.status === 'CONFIRMED' ? (
                         <p className="mt-1">
-                          Thanh toán lúc:{' '}
-                          <span className="font-semibold text-white">
-                            {formatDateTime(order.payment_paid_at)}
+                          Mã giao dịch:{' '}
+                          <span className="font-mono font-semibold text-white">
+                            Miễn phí
                           </span>
                         </p>
-                      )}
+                      ) : null}
+                      <p className="mt-1">
+                        Thanh toán lúc:{' '}
+                        <span className="font-semibold text-white">
+                          {order.payment_paid_at ? formatDateTime(order.payment_paid_at) : (order.status === 'CONFIRMED' ? formatDateTime(order.created_at) : '—')}
+                        </span>
+                      </p>
                     </div>
                   )}
                 </div>

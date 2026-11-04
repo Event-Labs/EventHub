@@ -42,6 +42,8 @@ const envSchema = z.object({
     GEMINI_MODEL: z.string().optional(),
     FINANCIAL_AI_URL: z.string().url().optional(),
     FINANCIAL_AI_PROVIDER: z.enum(['auto', 'fastapi', 'gradio']).default('auto'),
+    FINANCIAL_AI_MODEL: z.string().optional(),
+    FINANCIAL_AI_TIMEOUT_MS: z.string().optional(),
 
     PLATFORM_PAYOS_CLIENT_ID: z.string().optional(),
     PLATFORM_PAYOS_API_KEY: z.string().optional(),

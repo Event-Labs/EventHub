@@ -21,6 +21,11 @@ router.post(
   authorize('STAFF', 'ADMIN', 'SUPER_ADMIN'),
   ordersController.createStaffDirectBooking,
 );
+router.post(
+  '/staff/complimentary',
+  authorize('STAFF', 'ADMIN', 'SUPER_ADMIN'),
+  ordersController.createStaffComplimentaryBooking,
+);
 router.post('/checkout', ordersController.checkout);
 router.get('/:orderId/status', ordersController.status);
 router.post('/:orderId/cancel', ordersController.cancel);

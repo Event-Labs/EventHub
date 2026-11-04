@@ -5,10 +5,11 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const HOLD_SECONDS = Number(process.env.TICKET_HOLD_SECONDS || 900);
 
 const PUBLIC_EVENT_WHERE = `
-  e.status = 'PUBLISHED'
+  e.status IN ('PUBLISHED', 'COMPLETED')
   AND e.visibility = 'PUBLIC'
   AND e.approval_status = 'APPROVED'
   AND e.deleted_at IS NULL
+  AND COALESCE(e.display_state, 'VISIBLE') = 'VISIBLE'
   AND (e.start_publish_at IS NULL OR e.start_publish_at <= now())
   AND (e.end_publish_at IS NULL OR e.end_publish_at >= now())
 `;
@@ -20,6 +21,16 @@ const EVENT_CARD_SELECT = `
   e.short_description,
   e.thumbnail_url,
   e.banner_url,
+  e.status,
+  COALESCE(e.display_state, 'VISIBLE') AS display_state,
+  CASE 
+    WHEN e.status IN ('COMPLETED', 'CANCELLED') THEN 'CLOSED'
+    WHEN COALESCE(time_summary.end_time, e.end_time) < NOW() THEN 'ENDED'
+    ELSE COALESCE(e.sales_status, 'ON_SALE')
+  END AS sales_status,
+  COALESCE(e.sales_blocks, '[]'::jsonb) AS sales_blocks,
+  e.cancel_reason_note,
+  e.cancel_reason_code,
   COALESCE(time_summary.start_time, e.start_time) AS start_time,
   COALESCE(time_summary.end_time, e.end_time) AS end_time,
   e.created_at,
@@ -28,6 +39,7 @@ const EVENT_CARD_SELECT = `
   c.slug AS category_slug,
   organizer.id AS organizer_id,
   COALESCE(organizer.organization_name, organizer_user.full_name) AS organizer_name,
+  COALESCE(organizer.organization_avatar_url, organizer_user.avatar_url) AS organizer_avatar_url,
   venue_summary.venue_name,
   venue_summary.city,
   venue_summary.district,
@@ -164,7 +176,9 @@ function buildListQuery(filters) {
 
 class EventsRepository {
   async ensureRequireAttendeeInfoColumn(client = db) {
+    if (this._requireAttendeeInfoChecked) return;
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_attendee_info BOOLEAN NOT NULL DEFAULT FALSE');
+    this._requireAttendeeInfoChecked = true;
   }
 
   async findPublicCategories() {
@@ -184,6 +198,25 @@ class EventsRepository {
     `;
     const { rows } = await db.query(query);
     return rows;
+  }
+
+  async findPublicOrganizers() {
+    const query = `
+      SELECT DISTINCT ON (o.id)
+        o.id,
+        COALESCE(o.organization_name, u.full_name, 'Ban tổ chức') AS name,
+        COALESCE(o.organization_avatar_url, u.avatar_url) AS avatar_url,
+        COUNT(e.id)::int AS event_count
+      FROM organizers o
+      LEFT JOIN users u ON u.id = o.user_id
+      LEFT JOIN events e ON e.organizer_id = o.id AND e.status = 'PUBLISHED' AND e.deleted_at IS NULL
+      WHERE o.status = 'ACTIVE'
+      GROUP BY o.id, o.organization_name, u.full_name, o.organization_avatar_url, u.avatar_url
+      ORDER BY o.id, event_count DESC
+      LIMIT 15
+    `;
+    const { rows } = await db.query(query);
+    return rows.sort((a, b) => b.event_count - a.event_count);
   }
 
   async findPublicEvents(filters) {
@@ -276,7 +309,7 @@ class EventsRepository {
         LEFT JOIN seat_maps sm_tt ON sm_tt.id = es_tt.seat_map_id
         LEFT JOIN LATERAL (
           SELECT
-            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+            COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
             COALESCE((
               SELECT SUM(th.quantity)::int
               FROM ticket_holds th
@@ -290,7 +323,9 @@ class EventsRepository {
         ) ticket_usage ON true
         WHERE es_tt.event_id = e.id
       ) ticket_types ON true
-      WHERE ${PUBLIC_EVENT_WHERE}
+      WHERE e.deleted_at IS NULL
+        AND e.approval_status = 'APPROVED'
+        AND e.visibility = 'PUBLIC'
         AND (e.id::text = $2 OR e.slug = $2)
       LIMIT 1
     `;
@@ -312,7 +347,9 @@ class EventsRepository {
       const lookupQuery = `
         SELECT e.id
         FROM events e
-        WHERE ${PUBLIC_EVENT_WHERE}
+        WHERE e.deleted_at IS NULL
+          AND e.approval_status = 'APPROVED'
+          AND e.visibility = 'PUBLIC'
           AND (
             e.slug ILIKE $1 || '%'
             OR lower(e.title) = lower($1)
@@ -369,7 +406,7 @@ class EventsRepository {
             JOIN orders o_sold ON o_sold.id = oi_sold.order_id
             LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
             WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-              AND o_sold.status = 'PAID'
+              AND o_sold.status IN ('PAID', 'CONFIRMED')
               AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
           ) THEN 'SOLD'
           WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -499,7 +536,7 @@ class EventsRepository {
       unseated_usage AS (
         SELECT
           ti.ticket_type_id,
-          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status = 'PAID'), 0)::int AS sold_quantity,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
           COALESCE((
             SELECT SUM(th.quantity)::int
             FROM ticket_holds th
@@ -523,7 +560,7 @@ class EventsRepository {
               JOIN orders o_sold ON o_sold.id = oi_sold.order_id
               LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
               WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                AND o_sold.status = 'PAID'
+                AND o_sold.status IN ('PAID', 'CONFIRMED')
                 AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
             ) THEN 'SOLD'
               WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -621,7 +658,7 @@ class EventsRepository {
             JOIN orders o_sold ON o_sold.id = oi_sold.order_id
             LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
             WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-              AND o_sold.status = 'PAID'
+              AND o_sold.status IN ('PAID', 'CONFIRMED')
               AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
           ) THEN 'SOLD'
           WHEN ss.status = 'HELD' AND ss.held_until <= now() THEN 'AVAILABLE'
@@ -688,7 +725,7 @@ class EventsRepository {
       JOIN ticket_types tt ON tt.id = oi.ticket_type_id
       JOIN event_sessions es ON es.id = tt.event_session_id
       WHERE es.event_id = $1
-        AND o.status = 'PAID'
+        AND o.status IN ('PAID', 'CONFIRMED')
         AND (
           o.user_id = $2
           OR ($3::text IS NOT NULL AND lower(o.buyer_email) = lower($3::text))
@@ -725,7 +762,7 @@ class EventsRepository {
           tt.id, tt.event_session_id, tt.name, tt.max_per_order, tt.sale_start, tt.sale_end, tt.is_seated,
           es.status AS session_status, es.end_time AS session_end_time,
           e.id AS event_id, e.end_time AS event_end_time, e.status AS event_status, e.visibility,
-          e.approval_status, e.deleted_at
+          e.approval_status, e.deleted_at, e.sales_status, e.display_state, e.sales_blocks
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
         JOIN events e ON e.id = es.event_id
@@ -736,7 +773,7 @@ class EventsRepository {
       );
 
       if (ticketTypesResult.rows.length !== ticketTypeIds.length) {
-        throw new AppError('Th\u00f4ng tin v\u00e9 kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+        throw new AppError('Thông tin vé không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
       const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
@@ -750,13 +787,67 @@ class EventsRepository {
         if (
           !ticketType ||
           ticketType.event_id !== payload.event_id ||
-          ticketType.deleted_at ||
+          ticketType.deleted_at
+        ) {
+          throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+        }
+
+        // Section 10.2: Point 1 - Hold Creation Checks
+        if (ticketType.event_status === 'CANCELLED' || ticketType.event_status === 'ENDED') {
+          throw new AppError('Sự kiện đã kết thúc hoặc đã bị hủy.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
+        }
+
+        if (ticketType.display_state === 'SUSPENDED_BY_ADMIN') {
+          throw new AppError('Sự kiện đang bị đình chỉ bởi Quản trị viên.', 403, ErrorCodes.SUSPENDED_BY_ADMIN);
+        }
+
+        const activeBlocks = Array.isArray(ticketType.sales_blocks)
+          ? ticketType.sales_blocks.filter((b) => b && !b.released_at)
+          : [];
+        const isTicketPaused =
+          ticketType.sales_status === 'PAUSED' ||
+          activeBlocks.some((b) => {
+            if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+              return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
+            }
+            return true;
+          });
+        if (isTicketPaused) {
+          const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
+          const relevantBlocks = activeBlocks.filter((b) => {
+            if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
+              return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
+            }
+            return true;
+          });
+          const reasons = relevantBlocks
+            .map((b) => b.metadata?.note || b.note || b.metadata?.reason)
+            .filter((r) => r && !SYSTEM_CODES.includes(String(r).trim()))
+            .join(', ');
+          throw new AppError(
+            `Vé "${ticketType.name}" đang tạm dừng bán${reasons ? ' (Lý do: ' + reasons + ')' : ''}.`,
+            400,
+            ErrorCodes.SALES_PAUSED,
+          );
+        }
+
+        const effectiveSalesStatus =
+          ticketType.event_status === 'PUBLISHED' && (!ticketType.sales_status || ticketType.sales_status === 'NOT_STARTED')
+            ? 'ON_SALE'
+            : ticketType.sales_status;
+
+        if (
+          effectiveSalesStatus !== 'ON_SALE' ||
           ticketType.event_status !== 'PUBLISHED' ||
           ticketType.visibility !== 'PUBLIC' ||
           ticketType.approval_status !== 'APPROVED' ||
           !['UPCOMING', 'ONGOING'].includes(ticketType.session_status)
         ) {
-          throw new AppError('S\u1ef1 ki\u1ec7n hi\u1ec7n kh\u00f4ng kh\u1ea3 d\u1ee5ng \u0111\u1ec3 \u0111\u1eb7t v\u00e9.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.SALES_PAUSED);
+        }
+
+        if (ticketType.sales_status === 'NOT_STARTED' && ticketType.event_status === 'PUBLISHED') {
+          await client.query("UPDATE events SET sales_status = 'ON_SALE', updated_at = NOW() WHERE id = $1", [ticketType.event_id]);
         }
 
         const eventEnd = ticketType.event_end_time ? new Date(ticketType.event_end_time).getTime() : null;
@@ -797,7 +888,7 @@ class EventsRepository {
               JOIN orders o_sold ON o_sold.id = oi_sold.order_id
               LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
               WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                AND o_sold.status = 'PAID'
+                AND o_sold.status IN ('PAID', 'CONFIRMED')
                 AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
             ) AS has_paid_ticket
           FROM session_seats ss

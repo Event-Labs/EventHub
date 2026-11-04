@@ -21,6 +21,15 @@ class EventsController {
     }
   };
 
+  getPublicOrganizers = async (req, res, next) => {
+    try {
+      const data = await eventsService.getPublicOrganizers();
+      res.status(200).json(ApiResponse.success(data, 'Organizers fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   getPublicEvents = async (req, res, next) => {
     try {
       const query = listEventsSchema.parse(req.query);

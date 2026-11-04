@@ -57,6 +57,11 @@ export function BookingCheckoutPage() {
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
+      if (data.is_completed || data.order?.status === 'CONFIRMED' || !data.requires_payment) {
+        toast.success('Đặt vé thành công! Vé của bạn đã sẵn sàng.');
+        navigate('/my-tickets', { replace: true });
+        return;
+      }
       toast.success('Đã tạo đơn thanh toán. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       navigate(`/payment-confirmation?orderId=${data.order.id}`, {
         replace: true,
@@ -94,7 +99,7 @@ export function BookingCheckoutPage() {
   if (!cart?.items?.length) return null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-5xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
       <SectionHeader
         title="Xác nhận đặt vé"
         description={`Đơn hàng cho sự kiện: ${cart.eventTitle}`}

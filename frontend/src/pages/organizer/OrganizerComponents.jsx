@@ -81,8 +81,9 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
                   <th
                     key={label || colIndex}
                     className={`px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap ${
-                      isCenter ? 'text-center' : ''
+                      isCenter ? 'text-center' : '!text-left text-left'
                     }`}
+                    style={{ textAlign: isCenter ? 'center' : 'left' }}
                   >
                     {label}
                   </th>
@@ -108,13 +109,14 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
                     <td
                       key={cellIndex}
                       className={`px-3.5 py-3.5 align-middle text-slate-200 text-sm ${
-                        isCenter ? 'text-center' : ''
+                        isCenter ? 'text-center' : '!text-left text-left'
                       }`}
+                      style={{ textAlign: isCenter ? 'center' : 'left' }}
                     >
                       {isCenter ? (
                         <div className="flex items-center justify-center gap-1.5">{cell}</div>
                       ) : (
-                        cell
+                        <div className="flex items-center justify-start text-left">{cell}</div>
                       )}
                     </td>
                   )
@@ -231,14 +233,14 @@ export function ConfirmModal({ open, title = 'Xác nhận hành động', messag
   if (!open) return null
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white transition-all">
-        <h3 className="text-xl font-black text-white">{title}</h3>
-        <p className="mt-2 text-sm text-slate-300 leading-relaxed">{message}</p>
+      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-xl p-6 shadow-2xl shadow-black/90 text-white [html.light_&]:text-[#0D1B2A] transition-all">
+        <h3 className="text-xl font-black text-white [html.light_&]:text-[#0D1B2A]">{title}</h3>
+        <p className="mt-2 text-sm text-slate-300 [html.light_&]:text-[#536b88] leading-relaxed">{message}</p>
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10 transition-colors"
+            className="rounded-xl border border-white/15 [html.light_&]:border-[#C99A47]/30 px-4 py-2 text-sm font-semibold text-slate-200 [html.light_&]:text-[#0D1B2A] hover:bg-white/10 [html.light_&]:hover:bg-[#F8F3EA] transition-colors"
           >
             {cancelText}
           </button>

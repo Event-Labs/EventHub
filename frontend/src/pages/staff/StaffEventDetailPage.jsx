@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Armchair, Calendar, DoorOpen, Layers, Loader2, MapPin, RefreshCw, Users } from 'lucide-react'
+import { Armchair, Calendar, DoorOpen, Layers, Loader2, MapPin, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
@@ -75,12 +75,6 @@ export function StaffEventDetailPage() {
     <StaffPage
       title={event.title}
       description="Chi tiết vận hành sự kiện được giao."
-      action={(
-        <button className="admin-primary" onClick={() => reportQuery.refetch()} disabled={reportQuery.isFetching}>
-          <RefreshCw className={`size-4 ${reportQuery.isFetching ? 'animate-spin' : ''}`} />
-          Làm mới
-        </button>
-      )}
     >
       <StaffPanel className="mb-5">
         <div className="grid gap-5 md:grid-cols-[180px_1fr]">
@@ -93,7 +87,7 @@ export function StaffEventDetailPage() {
           </div>
           <div>
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <Badge tone="green">{EVENT_STATUS_LABELS[event.status] || 'Chưa xác định'}</Badge>
+              <Badge tone={event.status === 'COMPLETED' ? 'purple' : 'green'}>{EVENT_STATUS_LABELS[event.status] || 'Chưa xác định'}</Badge>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="blue">Vai trò: {event.staff_role || 'Nhân sự'}</Badge>
                 {event.gate ? (

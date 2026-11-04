@@ -1,13 +1,15 @@
 import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AlertTriangle,
   Calendar,
   ChevronDown,
   ChevronUp,
   Heart,
   MapPin,
-  ShieldCheck,
+  PauseCircle,
   UserCircle,
+  XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -16,7 +18,7 @@ import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
+import { getResumeBookingPath, hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
 import '@/components/RichTextEditor.css'
 
 function formatDateTime(value) {
@@ -54,9 +56,10 @@ function formatPrice(value) {
 
 function venueSummary(venue) {
   if (!venue) return 'Địa điểm cập nhật sau'
+  if (typeof venue === 'string' && venue.trim()) return venue.trim()
   return [venue.name, venue.address_line, venue.district, venue.city]
     .filter(Boolean)
-    .join(', ')
+    .join(', ') || (typeof venue.summary === 'string' && venue.summary.trim()) || 'Địa điểm cập nhật sau'
 }
 
 function getGoogleMapUrl(venue) {
@@ -70,6 +73,13 @@ function isSaleOpen(ticketType, now) {
   const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null
   const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null
   return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now)
+}
+
+function formatOverviewHtml(content) {
+  if (!content || typeof content !== 'string') return ''
+  return content
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\u00A0/g, ' ')
 }
 
 function isPastTime(value, now) {
@@ -136,6 +146,11 @@ export function EventDetailPage() {
       toast.success(isFavorited ? '\u0110\u00e3 l\u01b0u s\u1ef1 ki\u1ec7n v\u00e0o y\u00eau th\u00edch.' : '\u0110\u00e3 b\u1ecf s\u1ef1 ki\u1ec7n kh\u1ecfi y\u00eau th\u00edch.')
       return { snapshots }
     },
+    onSuccess: (data, event) => {
+      if (data && typeof data.is_favorited === 'boolean') {
+        optimisticallySetFavorite(queryClient, event, data.is_favorited)
+      }
+    },
     onError: (err, _event, context) => {
       restoreFavoriteSnapshots(queryClient, context?.snapshots)
       toast.error(getApiMessage(err, 'Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt y\u00eau th\u00edch. Vui l\u00f2ng th\u1eed l\u1ea1i.'))
@@ -177,6 +192,28 @@ export function EventDetailPage() {
     return ticketsBySession.get(String(selectedSessionId)) || []
   }, [selectedSessionId, ticketsBySession])
 
+  const activeEventBlocks = (Array.isArray(event?.sales_blocks) ? event.sales_blocks : []).filter(
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+  )
+  const isPaused = Boolean(
+    (event?.is_paused && activeEventBlocks.length > 0) ||
+    (event?.sales_status === 'PAUSED' && activeEventBlocks.length > 0) ||
+    activeEventBlocks.length > 0
+  )
+  const SYSTEM_REASON_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING']
+  const rawPauseReason = event?.pause_note || event?.pause_reason
+  const pauseReasonText = rawPauseReason && !SYSTEM_REASON_CODES.includes(String(rawPauseReason).trim())
+    ? String(rawPauseReason).trim()
+    : null
+
+  const isHiddenByOrganizer = Boolean(
+    event?.display_state === 'HIDDEN_BY_ORGANIZER' ||
+    event?.status === 'HIDDEN'
+  )
+  const isCancelled = event?.status === 'CANCELLED'
+  const isSuspended = event?.display_state === 'SUSPENDED_BY_ADMIN'
+  const isEnded = event?.status === 'COMPLETED' || event?.sales_status === 'ENDED' || isPastTime(getEventEndTime(event), currentTime)
+
   const selectSession = (sessionId) => {
     if (requireLogin()) return
     const session = event?.sessions?.find((item) => String(item.id) === String(sessionId))
@@ -184,11 +221,19 @@ export function EventDetailPage() {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
       return
     }
+    if (isPaused) {
+      setBookingError('Sự kiện đang tạm dừng bán vé. Quý khách vui lòng quay lại sau!')
+      return
+    }
+    if (isCancelled || isSuspended || isEnded) {
+      setBookingError('Sự kiện hiện không thể đặt vé.')
+      return
+    }
     setBookingError('')
     setSelectedSessionId((current) => (String(current) === String(sessionId) ? null : sessionId))
   }
 
-  const activeDraft = readBookingDraft()
+  const activeDraft = readBookingDraft(event?.id)
   const isHoldingForThisEvent = Boolean(
     hasActiveSeatHold(activeDraft) &&
     event &&
@@ -203,6 +248,14 @@ export function EventDetailPage() {
 
   const handleBook = () => {
     if (requireLogin()) return
+    if (isPaused) {
+      setBookingError('Sự kiện đang tạm dừng bán vé. Ban tổ chức hiện không nhận thêm đơn đặt vé mới!')
+      return
+    }
+    if (isCancelled || isSuspended || isEnded) {
+      setBookingError('Sự kiện hiện không khả dụng để đặt vé.')
+      return
+    }
     if (!selectedSession) return
     if (isPastTime(selectedSession?.end_time || getEventEndTime(event), currentTime)) {
       setBookingError('Sự kiện hoặc suất diễn đã hết hạn, không thể mua vé.')
@@ -216,6 +269,14 @@ export function EventDetailPage() {
       eventSlug: event.slug,
       eventStartTime: event.start_time,
       eventEndTime: event.end_time,
+      salesStatus: event.sales_status,
+      sales_status: event.sales_status,
+      isPaused: isPaused,
+      is_paused: isPaused,
+      pauseReason: pauseReasonText,
+      pause_reason: pauseReasonText,
+      pauseNote: pauseReasonText,
+      pause_note: pauseReasonText,
       venueSummary: event.venue?.summary || venueSummary(firstVenue),
       selectedSession,
       availableTicketTypes: selectedSessionTickets,
@@ -234,11 +295,20 @@ export function EventDetailPage() {
       String(activeDraft?.selectedSession?.id) === String(selectedSession.id)
     )
 
-    const cartToPass = hasMatchingHold ? { ...baseCart, ...activeDraft } : baseCart
+    if (hasMatchingHold) {
+      const cartToPass = { ...baseCart, ...activeDraft }
+      const targetPath = getResumeBookingPath(cartToPass)
+      navigate(targetPath, {
+        state: {
+          cart: cartToPass,
+        },
+      })
+      return
+    }
 
     navigate('/booking/seats', {
       state: {
-        cart: cartToPass,
+        cart: baseCart,
       },
     })
   }
@@ -261,7 +331,8 @@ export function EventDetailPage() {
 
   const heroImage = event.banner_url || event.thumbnail_url
   const firstVenue = event.venues?.[0]
-  const overview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
+  const rawOverview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
+  const overview = formatOverviewHtml(rawOverview)
   const eventEndTime = getEventEndTime(event)
   const eventExpired = isPastTime(eventEndTime, currentTime)
   const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.end_time || eventEndTime, currentTime) : false
@@ -318,29 +389,137 @@ export function EventDetailPage() {
             <div className="mt-3.5 flex max-w-full flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:mt-4 sm:text-sm text-slate-200">
               <Info icon={UserCircle} text={`Ban tổ chức: ${event.organizer?.full_name || 'EventHub'}`} />
               <Info icon={Calendar} text={`${formatDateTime(event.start_time)} - ${formatDateTime(event.end_time)}`} />
-              <Info icon={MapPin} text={event.venue?.summary || venueSummary(firstVenue)} />
+              <Info icon={MapPin} text={venueSummary(event.venue) || venueSummary(firstVenue)} />
             </div>
           </div>
         </div>
       </section>
 
+      {/* Prominent Announcement Banner for Paused, Cancelled, Suspended, or Ended Event */}
+      {(isPaused || isCancelled || isSuspended || isEnded) && (
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+          {isPaused && (
+            <div className="relative overflow-hidden rounded-[24px] border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(245,158,11,0.2)] backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                  <PauseCircle className="size-6 animate-pulse" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-amber-500/20 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
+                      Thông báo từ Ban tổ chức
+                    </span>
+                    {pauseReasonText && (
+                      <span className="text-xs text-amber-200/80 font-medium">
+                        Lý do: {pauseReasonText}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    {isHiddenByOrganizer ? 'Sự kiện đang tạm ẩn' : 'Sự kiện đang tạm dừng bán vé'}
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-amber-100/90">
+                    {isHiddenByOrganizer
+                      ? 'Sự kiện này hiện đang tạm ẩn khỏi danh sách tìm kiếm và khám phá theo yêu cầu của ban tổ chức. Các tính năng chọn ghế và đặt vé mới tạm thời bị vô hiệu.'
+                      : 'Ban tổ chức hiện đang tạm thời dừng nhận các đơn đặt vé mới cho sự kiện này. Mọi chức năng chọn ghế và đặt vé trực tuyến tạm thời bị vô hiệu. Quý khách vui lòng quay lại sau hoặc liên hệ ban tổ chức để biết thêm chi tiết!'}
+                  </p>
+                  {pauseReasonText && (
+                    <p className="mt-3 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2 text-xs sm:text-sm text-amber-200 italic">
+                      Lời nhắn từ BTC: "{pauseReasonText}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isCancelled && (
+            <div className="relative overflow-hidden rounded-[24px] border border-rose-500/40 bg-gradient-to-r from-rose-950/70 via-rose-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(244,63,94,0.2)] backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.3)]">
+                  <XCircle className="size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-full bg-rose-500/20 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-rose-300 border border-rose-500/30">
+                    Thông báo quan trọng
+                  </span>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    Sự kiện đã bị hủy bỏ
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-rose-100/90">
+                    Sự kiện này đã chính thức bị hủy bỏ. Mọi đơn hàng đã thanh toán sẽ được hoàn tiền theo chính sách hoàn vé của sự kiện.
+                  </p>
+                  {event.cancel_reason_note && (
+                    <p className="mt-3 rounded-xl border border-rose-500/25 bg-rose-950/50 px-4 py-2 text-xs sm:text-sm text-rose-200 italic">
+                      Lý do hủy: "{event.cancel_reason_note}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isPaused && !isCancelled && isSuspended && (
+            <div className="relative overflow-hidden rounded-[24px] border border-red-500/40 bg-gradient-to-r from-red-950/70 via-red-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(239,68,68,0.2)] backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30">
+                  <AlertTriangle className="size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-full bg-red-500/20 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-red-300 border border-red-500/30">
+                    Cảnh báo kiểm duyệt
+                  </span>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    Sự kiện tạm dừng hoạt động
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-red-100/90">
+                    Sự kiện đang tạm thời bị đình chỉ bởi Ban quản trị nền tảng.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isPaused && !isCancelled && !isSuspended && isEnded && (
+            <div className="relative overflow-hidden rounded-[24px] border border-slate-700 bg-slate-900/80 p-6 sm:p-7 shadow-xl backdrop-blur-md">
+              <div className="flex items-start gap-4">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400 border border-slate-700">
+                  <AlertTriangle className="size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-full bg-slate-800 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-300 border border-slate-700">
+                    Đã kết thúc
+                  </span>
+                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
+                    Sự kiện đã kết thúc
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-slate-300">
+                    Sự kiện này đã diễn ra xong và đã đóng cổng bán vé. Cảm ơn quý khách đã quan tâm!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
         <section className="min-w-0 space-y-10">
           {/* Tổng quan Bento Card */}
-          <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
+          <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-6 sm:p-7 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div>
-              <h2 className="font-display text-3xl font-black text-white">
+              <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Tổng quan
               </h2>
             </div>
             <div
-              className="mt-5 block w-full min-w-0 text-left ql-bubble"
+              className="mt-4 block w-full min-w-0 text-left ql-bubble"
             >
               <div
                 className={cn(
-                  'block max-w-full break-words text-lg leading-8 text-muted ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_a]:break-words [&_table]:block [&_table]:overflow-x-auto',
-                  overviewOpen ? '!overflow-visible' : 'line-clamp-5 !overflow-hidden',
+                  'block max-w-full text-sm sm:text-base leading-relaxed text-slate-300 font-normal ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [word-break:normal] [overflow-wrap:break-word] hyphens-none',
+                  overviewOpen ? '!overflow-visible' : 'line-clamp-6 !overflow-hidden',
                 )}
                 dangerouslySetInnerHTML={{ __html: overview }}
               />
@@ -358,13 +537,13 @@ export function EventDetailPage() {
           {/* Lịch diễn Bento Card */}
           <section id="booking-section" className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
-            <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-8 py-5">
-              <h2 className="font-display text-2xl font-black text-primary drop-shadow-md">
+            <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-4 sm:px-8 py-4 sm:py-5">
+              <h2 className="font-display text-xl sm:text-2xl font-black text-white drop-shadow-md">
                 Lịch diễn
               </h2>
             </div>
 
-            <div className="space-y-4 p-8">
+            <div className="space-y-4 p-4 sm:p-8">
               {event.sessions?.length ? (
                 event.sessions.map((session) => {
                   const tickets = ticketsBySession.get(String(session.id)) || []
@@ -398,9 +577,16 @@ export function EventDetailPage() {
 
                         {/* Thông tin suất diễn */}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white">
-                            {formatTime(session.start_time)} - {formatTime(session.end_time)}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-white">
+                              {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                            </p>
+                            {isPaused && (
+                              <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                                Tạm dừng bán vé
+                              </span>
+                            )}
+                          </div>
                           <p className="font-bold text-primary">
                             {formatShortDate(session.start_time)}
                           </p>
@@ -413,16 +599,18 @@ export function EventDetailPage() {
                         <button
                           type="button"
                           onClick={() => selectSession(session.id)}
-                          disabled={sessionExpired}
+                          disabled={sessionExpired || isPaused || isCancelled || isSuspended || isEnded}
                           className={cn(
                             'shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all',
                             sessionExpired && 'cursor-not-allowed bg-slate-800 text-slate-500 border border-slate-700',
-                            !sessionExpired && selected && 'shadow-[0_0_16px_rgba(201,154,71,0.5)] scale-[1.03]',
-                            !sessionExpired && !selected && 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/30',
+                            isPaused && 'cursor-not-allowed bg-amber-950/40 text-amber-300/80 border border-amber-500/30',
+                            (isCancelled || isSuspended || isEnded) && 'cursor-not-allowed bg-slate-800 text-slate-500 border border-slate-700',
+                            !sessionExpired && !isPaused && !isCancelled && !isSuspended && !isEnded && selected && 'shadow-[0_0_16px_rgba(201,154,71,0.5)] scale-[1.03]',
+                            !sessionExpired && !isPaused && !isCancelled && !isSuspended && !isEnded && !selected && 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/30',
                           )}
-                          style={!sessionExpired && selected ? { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' } : {}}
+                          style={!sessionExpired && !isPaused && !isCancelled && !isSuspended && !isEnded && selected ? { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' } : {}}
                         >
-                          {sessionExpired ? 'Đã hết hạn' : selected ? 'Đã chọn' : 'Chọn'}
+                          {sessionExpired ? 'Đã hết hạn' : isPaused ? 'Tạm dừng bán' : selected ? 'Đã chọn' : 'Chọn'}
                         </button>
                       </div>
 
@@ -433,8 +621,12 @@ export function EventDetailPage() {
                           <div className="space-y-3">
                             {tickets.length ? (
                               tickets.map((ticketType) => {
+                                const isSpecificPaused = Array.isArray(event?.sales_blocks) && event.sales_blocks.some(
+                                  (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+                                )
+                                const isTicketPaused = isPaused || isSpecificPaused
                                 const soldOut = isSoldOut(ticketType)
-                                const saleOpen = !sessionExpired && isSaleOpen(ticketType, currentTime) && !soldOut
+                                const saleOpen = !sessionExpired && !isTicketPaused && isSaleOpen(ticketType, currentTime) && !soldOut
                                 const totalQuantity = ticketTotal(ticketType)
                                 const availableQuantity = ticketAvailable(ticketType)
                                 return (
@@ -442,9 +634,10 @@ export function EventDetailPage() {
                                     key={ticketType.id}
                                     className={cn(
                                       'grid min-h-20 w-full gap-4 rounded-xl border px-5 py-4 text-left md:grid-cols-[minmax(0,1fr)_170px]',
-                                      saleOpen && 'border-primary/30 bg-primary/5 text-white',
-                                      !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
-                                      soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
+                                      isTicketPaused && 'border-amber-500/20 bg-amber-950/20 text-slate-300',
+                                      !isTicketPaused && saleOpen && 'border-primary/30 bg-primary/5 text-white',
+                                      !isTicketPaused && !saleOpen && !soldOut && 'border-white/10 bg-white/5 text-slate-400',
+                                      !isTicketPaused && soldOut && 'border-rose-500/30 bg-rose-500/5 text-rose-200',
                                     )}
                                   >
                                     <div className="max-w-3xl min-w-0">
@@ -459,11 +652,11 @@ export function EventDetailPage() {
                                       <p className={cn('font-display text-xl font-bold', saleOpen ? 'text-white' : 'text-inherit')}>
                                         {formatPrice(ticketType.price)}
                                       </p>
-                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
-                                        Còn {availableQuantity}/{totalQuantity}
+                                      <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold', isTicketPaused ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : saleOpen ? 'bg-primary/20 text-primary border border-primary/30' : soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                        {isTicketPaused ? 'Tạm dừng bán vé' : `Còn ${availableQuantity}/${totalQuantity}`}
                                       </span>
-                                      {!saleOpen && (
-                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/10 text-slate-400 border border-white/10')}>
+                                      {!saleOpen && !isPaused && (
+                                        <span className={cn('mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ml-2', soldOut ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán')}>
                                           {soldOut ? 'Hết vé' : sessionExpired ? 'Đã hết hạn' : 'Vé chưa mở bán'}
                                         </span>
                                       )}
@@ -543,31 +736,37 @@ export function EventDetailPage() {
           )}
         </section>
 
-        <aside className="glass-panel min-w-0 h-fit rounded-[24px] p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
+        <aside className="glass-panel min-w-0 h-fit rounded-[20px] sm:rounded-[24px] p-5 sm:p-8 lg:sticky lg:top-28 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_60%)] opacity-20" />
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Vé sự kiện
               </h2>
             </div>
-            <ShieldCheck className="size-7 shrink-0 text-primary drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+            <button
+              type="button"
+              onClick={handleFavorite}
+              disabled={favoriteMutation.isPending}
+              className={cn(
+                'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
+                event.is_favorited
+                  ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
+                  : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
+              )}
+              title={event.is_favorited ? 'Bỏ yêu thích sự kiện' : 'Lưu vào danh sách yêu thích'}
+              aria-label={event.is_favorited ? 'Bỏ yêu thích' : 'Yêu thích'}
+            >
+              <Heart
+                className={cn(
+                  'size-5 transition-transform duration-200 active:scale-90',
+                  event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                )}
+              />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleFavorite}
-            disabled={favoriteMutation.isPending}
-            className={cn(
-              'mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-primary/40 py-3.5 font-bold text-primary transition-all hover:bg-primary/10 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] disabled:cursor-not-allowed disabled:opacity-70',
-              event.is_favorited && 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(6,182,212,0.2)]',
-            )}
-          >
-            <Heart className={cn('size-5', event.is_favorited && 'fill-current')} />
-            {event.is_favorited ? 'Đã yêu thích' : 'Yêu thích'}
-          </button>
-
-          <div className="mt-8 space-y-4">
+          <div className="mt-6 space-y-4">
             {selectedSession ? (
               <>
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-inner">
@@ -594,6 +793,32 @@ export function EventDetailPage() {
           </div>
 
           <div className="mt-8 border-t border-white/10 pt-8">
+            {/* Warning note inside booking panel */}
+            {isPaused && (
+              <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 flex items-start gap-2.5">
+                <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  <strong>Tạm dừng bán vé:</strong> Ban tổ chức hiện đang tạm dừng nhận đơn đặt vé mới cho sự kiện này.
+                </span>
+              </div>
+            )}
+            {isCancelled && (
+              <div className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-200 flex items-start gap-2.5">
+                <XCircle className="size-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  <strong>Sự kiện đã bị hủy:</strong> Không thể mua vé cho sự kiện này.
+                </span>
+              </div>
+            )}
+            {isEnded && !isPaused && !isCancelled && (
+              <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/60 p-3.5 text-xs text-slate-300 flex items-start gap-2.5">
+                <AlertTriangle className="size-4 shrink-0 text-slate-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  <strong>Đã kết thúc:</strong> Sự kiện đã diễn ra và đã đóng cổng bán vé.
+                </span>
+              </div>
+            )}
+
             {bookingError && (
               <p className="mb-6 rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error">
                 {bookingError}
@@ -602,20 +827,85 @@ export function EventDetailPage() {
             <button
               type="button"
               onClick={handleBook}
-              disabled={selectedSessionExpired || !selectedSession}
-              className="w-full py-4 text-lg font-bold rounded-full transition-all hover:brightness-110 hover:shadow-[0_0_28px_rgba(201,154,71,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+              disabled={isPaused || isCancelled || isSuspended || isEnded || selectedSessionExpired || !selectedSession}
+              className={cn(
+                'w-full py-4 text-lg font-bold rounded-full transition-all select-none',
+                isPaused
+                  ? 'bg-amber-950/40 text-amber-300/80 border border-amber-500/30 cursor-not-allowed opacity-80'
+                  : (isCancelled || isSuspended || isEnded)
+                    ? 'bg-slate-800 text-slate-400 border border-white/10 cursor-not-allowed opacity-60'
+                    : 'hover:brightness-110 hover:shadow-[0_0_28px_rgba(201,154,71,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer'
+              )}
+              style={
+                (isPaused || isCancelled || isSuspended || isEnded)
+                  ? undefined
+                  : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }
+              }
             >
-              {selectedSessionExpired || (!selectedSession && eventExpired)
-                ? 'Đã hết hạn'
-                : (isHoldingForThisEvent && String(activeDraft?.selectedSession?.id) === String(selectedSession?.id))
-                  ? 'Tiếp tục đặt vé (Đang giữ ghế)'
-                  : selectedSession
-                    ? 'Đặt vé ngay'
-                    : 'Đặt vé'}
+              {isHiddenByOrganizer
+                ? 'Sự kiện đang tạm ẩn'
+                : isPaused
+                  ? 'Tạm dừng bán vé'
+                : isCancelled
+                  ? 'Sự kiện đã bị hủy'
+                  : isSuspended
+                    ? 'Sự kiện bị đình chỉ'
+                    : isEnded
+                      ? 'Sự kiện đã kết thúc'
+                      : selectedSessionExpired
+                        ? 'Suất diễn đã hết hạn'
+                        : (!selectedSession && eventExpired)
+                          ? 'Đã hết hạn'
+                          : (isHoldingForThisEvent && String(activeDraft?.selectedSession?.id) === String(selectedSession?.id))
+                            ? 'Tiếp tục đặt vé (Đang giữ ghế)'
+                            : selectedSession
+                              ? 'Đặt vé ngay'
+                              : 'Chọn suất diễn để đặt vé'}
             </button>
           </div>
         </aside>
+      </div>
+
+      {/* ── Sticky Mobile Booking Bar (visible on < lg) ── */}
+      <div className="fixed bottom-16 inset-x-0 z-30 flex items-center justify-between border-t border-white/10 bg-[#081126]/95 px-4 py-3 backdrop-blur-xl lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+        <div className="min-w-0 flex-1 pr-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+            {selectedSession ? formatShortDate(selectedSession.start_time) : 'Giá vé từ'}
+          </p>
+          <p className="text-base font-extrabold text-[#E6C17A] truncate">
+            {selectedSessionTickets.length > 0
+              ? formatPrice(Math.min(...selectedSessionTickets.map(t => Number(t.price || 0))))
+              : formatPrice(event.min_price || event.price_range?.min || 0)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (selectedSession) {
+              handleBook()
+            } else {
+              const el = document.getElementById('booking-section')
+              if (el) el.scrollIntoView({ behavior: 'smooth' })
+            }
+          }}
+          disabled={isPaused || isCancelled || isSuspended || isEnded || selectedSessionExpired}
+          className="rounded-full px-5 py-2.5 text-sm font-extrabold shadow-md transition-all active:scale-95 disabled:opacity-50"
+          style={
+            (isPaused || isCancelled || isSuspended || isEnded)
+              ? { background: '#1e293b', color: '#94a3b8' }
+              : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }
+          }
+        >
+          {isPaused
+            ? 'Tạm dừng'
+            : isCancelled
+              ? 'Đã hủy'
+              : isEnded
+                ? 'Đã kết thúc'
+                : selectedSession
+                  ? 'Đặt vé ngay'
+                  : 'Chọn suất diễn'}
+        </button>
       </div>
     </div>
   )

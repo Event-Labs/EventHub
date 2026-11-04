@@ -29,6 +29,7 @@ import {
 import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel, StatCard, TableActionButton } from './OrganizerComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 
 const GATE_SUGGESTIONS = ['Cổng A', 'Cổng B', 'Cổng C', 'Cổng VIP', 'Cổng chính', 'Cổng phụ', 'Tất cả cổng']
 const ZONE_SUGGESTIONS = ['Khu VIP', 'Khán đài A', 'Khán đài B', 'Khu đứng GA', 'Tầng 1', 'Tầng 2', 'Khu sân khấu', 'Toàn bộ sự kiện']
@@ -163,22 +164,17 @@ export function OrganizerStaffManagementPage() {
       description="Phân công, phân chia cổng và khu vực làm việc cho nhân sự từng sự kiện."
     >
       {/* ── Toolbar ── */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="shrink-0 text-base font-bold text-white">Chọn sự kiện</span>
-          <div className="relative w-full sm:w-[420px]">
-            <select
-              className="h-10 w-full appearance-none rounded-xl border border-white/15 bg-[#0d172e] pl-3 pr-9 text-sm font-medium text-white shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              disabled={loading}
-            >
-              {(data?.events || []).filter(isApprovedOrPublishedEvent).map((ev) => (
-                <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">{ev.title}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/60" />
-          </div>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="w-full max-w-xl">
+          <OrganizerEventPicker
+            events={(data?.events || []).filter(isApprovedOrPublishedEvent)}
+            selectedEventId={selectedEventId}
+            onSelectEvent={setSelectedEventId}
+            loading={loading}
+            label="Chọn sự kiện"
+            allowAll={false}
+            placeholder="Chọn sự kiện để phân công nhân sự..."
+          />
         </div>
 
         <button
@@ -389,7 +385,7 @@ export function OrganizerStaffManagementPage() {
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
-                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Trạng thái</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Hết hạn</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Hành động</th>
                       </tr>
@@ -424,8 +420,10 @@ export function OrganizerStaffManagementPage() {
                               <span className="text-xs text-muted">Toàn bộ khu vực</span>
                             )}
                           </td>
-                          <td className="px-3.5 py-3">
-                            <InvitationStatusBadge status={inv.status} />
+                          <td className="px-3.5 py-3 !text-left whitespace-nowrap" style={{ textAlign: 'left' }}>
+                            <div className="flex items-center justify-start text-left">
+                              <InvitationStatusBadge status={inv.status} />
+                            </div>
                           </td>
                           <td className="px-3.5 py-3 text-muted whitespace-nowrap">
                             {inv.expires_at

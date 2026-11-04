@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import {
   CheckCircle2,
   Clock3,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { fetchSubscriptionPaymentStatus } from '@/services/subscriptions.js'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 
 function fmtCurrency(n) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
@@ -34,6 +35,8 @@ function formatCountdown(seconds) {
 
 export function OrganizerSubscriptionPaymentPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = location.state?.returnTo
   const [searchParams] = useSearchParams()
   const paymentId  = searchParams.get('paymentId')
   const cancelled  = searchParams.get('cancelled') === 'true'
@@ -75,7 +78,13 @@ export function OrganizerSubscriptionPaymentPage() {
   // Auto-redirect on paid
   useEffect(() => {
     if (data?.status === 'PAID') {
-      const timer = setTimeout(() => navigate('/organizer/subscriptions', { replace: true }), 2500)
+      const timer = setTimeout(() => {
+        const dest = returnTo || '/organizer/subscriptions'
+        navigate(dest, {
+          replace: true,
+          state: { message: 'Thanh toán gói dịch vụ thành công! Bạn có thể gửi duyệt sự kiện ngay bây giờ.' }
+        })
+      }, 2500)
       return () => clearTimeout(timer)
     }
   }, [data?.status, navigate])
@@ -168,9 +177,10 @@ export function OrganizerSubscriptionPaymentPage() {
 
             {payment?.qr_code ? (
               <div className="mx-auto mt-5 w-fit rounded-xl bg-white p-3 shadow-sm border border-border-soft/20">
-                <img
-                  src={paymentQrImageSrc(payment.qr_code)}
+                <QRCodeImage
+                  text={payment.qr_code}
                   alt="QR thanh toán"
+                  size={208}
                   className="size-52"
                 />
               </div>

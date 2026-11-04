@@ -29,9 +29,23 @@ class FeedbacksRepository {
   async findEventById(eventId) {
     const { rows } = await db.query(
       `
-      SELECT id, title, slug, organizer_id, end_time, status, approval_status, deleted_at
-      FROM events
-      WHERE id = $1
+      SELECT
+        e.id,
+        e.title,
+        e.slug,
+        e.organizer_id,
+        COALESCE(time_summary.start_time, e.start_time) AS start_time,
+        COALESCE(time_summary.end_time, e.end_time) AS end_time,
+        e.status,
+        e.approval_status,
+        e.deleted_at
+      FROM events e
+      LEFT JOIN LATERAL (
+        SELECT MIN(es.start_time) AS start_time, MAX(es.end_time) AS end_time
+        FROM event_sessions es
+        WHERE es.event_id = e.id
+      ) time_summary ON true
+      WHERE e.id = $1
       LIMIT 1
       `,
       [eventId],
@@ -77,24 +91,30 @@ class FeedbacksRepository {
         e.id,
         e.title,
         e.slug,
-        e.end_time,
+        COALESCE(time_summary.start_time, e.start_time) AS start_time,
+        COALESCE(time_summary.end_time, e.end_time) AS end_time,
         e.thumbnail_url
       FROM tickets t
       JOIN order_items oi ON oi.id = t.order_item_id
       JOIN orders o ON o.id = oi.order_id
       JOIN events e ON e.id = t.event_id
+      LEFT JOIN LATERAL (
+        SELECT MIN(es_time.start_time) AS start_time, MAX(es_time.end_time) AS end_time
+        FROM event_sessions es_time
+        WHERE es_time.event_id = e.id
+      ) time_summary ON true
       WHERE o.user_id = $1
         AND e.deleted_at IS NULL
-        AND e.status = 'PUBLISHED'
+        AND e.status IN ('PUBLISHED', 'COMPLETED')
         AND e.approval_status = 'APPROVED'
-        AND e.end_time <= now()
+        AND COALESCE(time_summary.start_time, e.start_time, e.end_time) <= now()
         AND t.status IN ('VALID', 'USED')
         AND NOT EXISTS (
           SELECT 1
           FROM event_feedbacks ef
           WHERE ef.event_id = e.id AND ef.user_id = $1
         )
-      ORDER BY e.end_time DESC
+      ORDER BY COALESCE(time_summary.start_time, e.start_time) DESC
       `,
       [userId],
     );

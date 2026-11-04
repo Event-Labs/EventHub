@@ -13,6 +13,7 @@ router.post('/staff/search', authorize('STAFF'), ticketsController.staffSearchTi
 router.get('/staff/:ticketId', authorize('STAFF'), ticketsController.getStaffTicket);
 router.patch('/staff/:ticketId/check-in', authorize('STAFF'), ticketsController.staffCheckInTicket);
 router.get('/:ticketId', ticketsController.getTicketDetail);
+router.post('/:ticketId/cancel', ticketsController.cancelFreeTicket);
 router.get('/:ticketId/download', ticketsController.downloadTicket);
 
 module.exports = router;

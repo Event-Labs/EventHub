@@ -3,7 +3,10 @@ const pool = require('../../infrastructure/database/db.client');
 class OrganizerPaymentsRepository {
   async findChannelByOrganizerId(organizerId) {
     const { rows } = await pool.query(
-      `SELECT * FROM organizer_payment_channels WHERE organizer_id = $1`,
+      `SELECT * FROM organizer_payment_channels 
+       WHERE organizer_id = $1 
+          OR organizer_id IN (SELECT id FROM organizers WHERE user_id = $1)
+       ORDER BY updated_at DESC LIMIT 1`,
       [organizerId]
     );
     return rows[0] || null;
@@ -111,6 +114,22 @@ class OrganizerPaymentsRepository {
     );
     return rows[0] || null;
   }
+
+  async clearPayoutCredentials(organizerId) {
+    const { rows } = await pool.query(
+      `UPDATE organizer_payment_channels
+       SET payout_client_id = NULL,
+           payout_api_key_encrypted = NULL,
+           payout_checksum_key_encrypted = NULL,
+           payout_status = 'SAME_AS_INBOUND',
+           updated_at = NOW()
+       WHERE organizer_id = $1
+       RETURNING *`,
+      [organizerId]
+    );
+    return rows[0] || null;
+  }
 }
 
 module.exports = new OrganizerPaymentsRepository();
+

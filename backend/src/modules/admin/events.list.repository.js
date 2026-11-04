@@ -13,16 +13,45 @@ function buildWhere(upper) {
   switch (upper) {
     case 'REJECTED':
       return {
-        // No bind params needed — literals embedded directly (enum values, safe)
         listClause:  `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'REJECTED'`,
         countClause: `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'REJECTED'`,
         listArgs:  [],   // appended after [limit, offset]
         countArgs: [],
       };
+    case 'SUSPENDED':
+    case 'SUSPENDED_BY_ADMIN':
+      return {
+        listClause:  `e.deleted_at IS NULL AND e.display_state = 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND e.display_state = 'SUSPENDED_BY_ADMIN'`,
+        listArgs:  [],
+        countArgs: [],
+      };
     case 'HIDDEN':
       return {
-        listClause:  `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'APPROVED'`,
-        countClause: `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'APPROVED'`,
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'HIDDEN' OR e.display_state = 'SUSPENDED_BY_ADMIN')`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'HIDDEN' OR e.display_state = 'SUSPENDED_BY_ADMIN')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'PENDING_REVIEW':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCEL_REQUESTS':
+    case 'CANCELLATION_REQUESTS':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
+        countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'PUBLISHED':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'PUBLISHED' OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'PUBLISHED' OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
         listArgs:  [],
         countArgs: [],
       };
@@ -64,7 +93,12 @@ class EventsListAdminRepository {
         e.updated_at,
         e.organizer_id,
         e.status,
+        e.display_state,
+        e.sales_status,
+        e.sales_blocks,
         e.approval_status,
+        e.pending_revision,
+        e.cancel_request,
         c.name AS category_name,
         COALESCE(o.organization_name, ou.full_name) AS organizer_name,
         ou.email AS organizer_email,
@@ -98,7 +132,10 @@ class EventsListAdminRepository {
         SELECT json_agg(
           json_build_object(
             'id', tt.id,
+            'event_session_id', tt.event_session_id,
+            'session_name', tt.session_name,
             'name', tt.name,
+            'description', tt.description,
             'price', tt.price,
             'quantity', tt.quantity,
             'sold_quantity', COALESCE(sold.sold_quantity, 0),
@@ -106,16 +143,28 @@ class EventsListAdminRepository {
           )
           ORDER BY tt.price ASC, tt.name ASC
         ) AS items
-        FROM event_sessions sess
-        JOIN ticket_types tt ON tt.event_session_id = sess.id
+        FROM (
+          SELECT DISTINCT ON (tt_inner.event_session_id, tt_inner.name, tt_inner.price, tt_inner.is_seated)
+            tt_inner.id,
+            tt_inner.event_session_id,
+            sess_inner.session_name,
+            tt_inner.name,
+            tt_inner.description,
+            tt_inner.price,
+            tt_inner.quantity,
+            tt_inner.is_seated
+          FROM event_sessions sess_inner
+          JOIN ticket_types tt_inner ON tt_inner.event_session_id = sess_inner.id
+          WHERE sess_inner.event_id = e.id
+          ORDER BY tt_inner.event_session_id, tt_inner.name, tt_inner.price, tt_inner.is_seated, tt_inner.created_at DESC
+        ) tt
         LEFT JOIN LATERAL (
           SELECT COALESCE(SUM(oi.quantity), 0)::int AS sold_quantity
           FROM order_items oi
           JOIN orders ord ON ord.id = oi.order_id
           WHERE oi.ticket_type_id = tt.id
-            AND ord.status = 'PAID'
+            AND ord.status IN ('PAID', 'CONFIRMED')
         ) sold ON true
-        WHERE sess.event_id = e.id
       ) ticket_summary ON true
       WHERE ${listClause}
       ORDER BY e.created_at DESC

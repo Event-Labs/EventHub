@@ -119,12 +119,13 @@ Luôn trả về DUY NHẤT một chuỗi JSON hợp lệ theo schema sau (KHÔN
 # PARAMETER stop "<|im_end|>"
 # PARAMETER stop "<|im_start|>"
 
-# Tối ưu hóa Hybrid GPU / CPU cho NVIDIA RTX 3050 Ti (4GB VRAM) & CPU i5-12450H (12 threads)
+# Tối ưu hóa 100% GPU VRAM cho NVIDIA GeForce RTX 3070 (8GB VRAM) - Full GPU
 PARAMETER num_ctx 8192
 PARAMETER num_batch 1024
 PARAMETER num_gpu 99
-PARAMETER num_thread 12
-PARAMETER temperature 0.2
+PARAMETER temperature 0.1
 PARAMETER top_p 0.85
+PARAMETER repeat_penalty 1.1
+
 PARAMETER stop "<|im_end|>"
 PARAMETER stop "<|im_start|>"

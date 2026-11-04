@@ -74,6 +74,15 @@ class RefundRuleEngine {
       };
     }
 
+    // 2b. Zero amount / Free order check
+    if (order.status === 'CONFIRMED' || Number(order.total_amount) === 0 || (ticket && Number(ticket.payable_price) === 0)) {
+      return {
+        eligible: false,
+        reason: 'Vé hoặc đơn hàng miễn phí không thể tạo yêu cầu hoàn tiền. Vui lòng sử dụng tính năng hủy vé miễn phí.',
+        errorCode: 'REFUND_NOT_APPLICABLE_FOR_FREE_ORDER',
+      };
+    }
+
     // 3. Payment Status verification (BR-71)
     const validPaidStatuses = ['PAID', 'REFUND_REQUESTED'];
     if (!validPaidStatuses.includes(order.status) && order.payment_status !== 'PAID') {

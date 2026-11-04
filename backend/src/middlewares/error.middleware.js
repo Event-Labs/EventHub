@@ -47,6 +47,16 @@ function normalizeIssues(issues) {
 }
 
 const errorMiddleware = (err, req, res, next) => {
+    // Sanitize any sensitive input from error response/logging
+    const isPaymentRoute = req.originalUrl?.includes('/payments') || req.originalUrl?.includes('/payment');
+    if (isPaymentRoute && req.body) {
+        if (req.body.api_key) req.body.api_key = '[REDACTED]';
+        if (req.body.checksum_key) req.body.checksum_key = '[REDACTED]';
+        if (req.body.payout_api_key) req.body.payout_api_key = '[REDACTED]';
+        if (req.body.payout_checksum_key) req.body.payout_checksum_key = '[REDACTED]';
+        if (req.body.bank_account_number) req.body.bank_account_number = '[REDACTED]';
+    }
+
     if (err.name === 'ZodError') {
         return res.status(400).json(
             ApiResponse.error('Dữ liệu gửi lên chưa hợp lệ. Vui lòng kiểm tra lại.', 400, 'VALIDATION_ERROR', normalizeIssues(err.issues))
