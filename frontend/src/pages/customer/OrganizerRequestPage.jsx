@@ -13,6 +13,7 @@ import { uploadOrganizerAvatar, uploadOrganizerDocument } from '@/services/uploa
 import { getProfile } from '@/services/user.service.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import CCCDScanner from '@/components/cccd/CCCDScanner.jsx'
 
 export const CCCD_PROVINCE_CODES = {
   '001': 'Hà Nội', '002': 'Hà Giang', '004': 'Cao Bằng', '006': 'Bắc Kạn',
@@ -761,6 +762,7 @@ export function OrganizerRequestPage() {
 
       const finalKycData = !isOrganization
         ? {
+            ...(form.kyc_ocr_data || {}),
             verification_method: 'PARTNER_VETTING',
             id_number: form.individual_identity_number.trim(),
             full_name: form.individual_full_name.trim().toLocaleUpperCase('vi-VN'),
@@ -769,8 +771,8 @@ export function OrganizerRequestPage() {
             address: form.individual_address?.trim() || '',
             social_link: form.individual_social_link?.trim() || '',
             portfolio_url: form.individual_portfolio_url?.trim() || '',
-            province: validation?.province || '',
-            birth_year: validation?.birthYear || '',
+            province: validation?.province || form.kyc_ocr_data?.province || '',
+            birth_year: validation?.birthYear || form.kyc_ocr_data?.birth_year || '',
             algorithm_checked: true,
             submitted_at: new Date().toISOString(),
           }
@@ -890,7 +892,7 @@ export function OrganizerRequestPage() {
               >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field
-                    label="Tên cá nhân/tổ chức"
+                    label="Tên nhà tổ chức"
                     value={form.organization_name}
                     onChange={handleChange('organization_name')}
                     placeholder={
@@ -1033,142 +1035,43 @@ export function OrganizerRequestPage() {
               {form.request_type === 'INDIVIDUAL' && (
                 <>
                   <FormSection
-                    title="Thông tin cá nhân"
-                    description="Vui lòng nhập đúng theo giấy tờ tùy thân để hồ sơ được xét duyệt nhanh nhất."
+                    title="Thông tin cá nhân & Định danh CCCD"
+                    description="Hệ thống tự động đọc và đối soát thông tin từ thẻ CCCD theo chuẩn Bộ Công An."
                   >
-                    <div className="flex items-center gap-2 rounded-xl bg-emerald-950/30 border border-emerald-500/20 px-3.5 py-2.5 text-xs text-emerald-300">
-                      <Lock className="size-4 shrink-0 text-emerald-400" />
-                      <span>Dữ liệu định danh được bảo mật an toàn theo tiêu chuẩn riêng tư.</span>
-                    </div>
+                    {/* Smart CCCD Scanner Component */}
+                    <CCCDScanner
+                      initialData={{
+                        fullName: form.individual_full_name,
+                        idNumber: form.individual_identity_number,
+                        dob: form.individual_dob,
+                        gender: form.individual_gender,
+                        address: form.individual_address,
+                      }}
+                      currentKycData={form.kyc_ocr_data}
+                      onApply={({ fullName, idNumber, dob, gender, address, kycData }) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          individual_full_name: fullName ?? prev.individual_full_name,
+                          individual_identity_number: idNumber ?? prev.individual_identity_number,
+                          individual_dob: dob ?? prev.individual_dob,
+                          individual_gender: gender ?? prev.individual_gender,
+                          individual_address: address ?? prev.individual_address,
+                          kyc_ocr_data: kycData ?? prev.kyc_ocr_data,
+                        }))
+                      }}
+                    />
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
-                        <Field
-                          label="Họ và tên"
-                          value={form.individual_full_name}
-                          onChange={handleChange('individual_full_name')}
-                          placeholder="NGUYỄN VĂN A"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Field
-                          label="Số CCCD (12 chữ số)"
-                          value={form.individual_identity_number}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 12)
-                            setForm((prev) => ({ ...prev, individual_identity_number: val }))
-                          }}
-                          placeholder="Nhập 12 số CCCD"
-                          required
-                        />
-                        {/* Real-time C06 feedback */}
-                        {form.individual_identity_number && (
-                          <div className="mt-1.5">
-                            {form.individual_identity_number.length < 12 && (
-                              <div className="text-[11px]">
-                                {form.individual_identity_number.length >= 3 && CCCD_PROVINCE_CODES[form.individual_identity_number.slice(0, 3)] ? (
-                                  <span className="text-emerald-400 font-medium flex items-center gap-1">
-                                    <Check className="size-3" /> Nơi cấp: {CCCD_PROVINCE_CODES[form.individual_identity_number.slice(0, 3)]}
-                                  </span>
-                                ) : form.individual_identity_number.length >= 3 ? (
-                                  <span className="text-rose-400 font-medium flex items-center gap-1">
-                                    <AlertTriangle className="size-3" /> Mã tỉnh '{form.individual_identity_number.slice(0, 3)}' không hợp lệ
-                                  </span>
-                                ) : null}
-                              </div>
-                            )}
-
-                            {form.individual_identity_number.length === 12 && (
-                              (() => {
-                                const check = validateCccdStructure(
-                                  form.individual_identity_number,
-                                  form.individual_dob,
-                                  form.individual_gender
-                                )
-                                if (!check.valid) {
-                                  return (
-                                    <div className="mt-2 rounded-xl bg-rose-950/40 border border-rose-500/40 p-2.5 text-xs text-rose-300 flex items-start gap-2">
-                                      <AlertTriangle className="size-4 text-rose-400 shrink-0 mt-0.5" />
-                                      <span>{check.message}</span>
-                                    </div>
-                                  )
-                                }
-                                return (
-                                  <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-2.5 text-xs space-y-1.5">
-                                    <div className="flex items-center gap-1.5 font-bold text-emerald-400">
-                                      <Check className="size-3.5" />
-                                      <span>Thông tin giải mã chuẩn C06 Bộ Công An:</span>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 pt-0.5 text-[11px] text-slate-300">
-                                      <div>
-                                        <span className="text-slate-400 block text-[10px]">Nơi khai sinh:</span>
-                                        <strong className="text-white text-xs">{check.province}</strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400 block text-[10px]">Giới tính:</span>
-                                        <strong className="text-white text-xs">{check.gender}</strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400 block text-[10px]">Năm sinh:</span>
-                                        <strong className="text-white text-xs">{check.birthYear}</strong>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )
-                              })()
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Field
-                            label="Ngày sinh"
-                            type="text"
-                            value={form.individual_dob}
-                            onChange={handleChange('individual_dob')}
-                            placeholder="DD/MM/YYYY"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-muted">
-                              Giới tính <RequiredMark />
-                            </span>
-                            <select
-                              value={form.individual_gender}
-                              onChange={handleChange('individual_gender')}
-                              className="cosmic-input w-full mt-2"
-                            >
-                              <option value="Nam">Nam</option>
-                              <option value="Nữ">Nữ</option>
-                            </select>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Field
-                          label="Nơi thường trú"
-                          value={form.individual_address}
-                          onChange={handleChange('individual_address')}
-                          placeholder="Địa chỉ theo CCCD"
-                          required
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Field
-                          label="Mã số thuế cá nhân (Tùy chọn)"
-                          value={form.individual_tax_code}
-                          onChange={handleChange('individual_tax_code')}
-                          placeholder="Mã số thuế (nếu có)"
-                        />
-                      </div>
+                    {/* Mã số thuế cá nhân (Tùy chọn) */}
+                    <div className="pt-2">
+                      <Field
+                        label="Mã số thuế cá nhân (Tùy chọn)"
+                        value={form.individual_tax_code}
+                        onChange={handleChange('individual_tax_code')}
+                        placeholder="Nhập mã số thuế cá nhân nếu có"
+                      />
+                      <p className="mt-1.5 text-xs text-slate-400">
+                        Cung cấp mã số thuế cá nhân để thuận tiện cho việc xuất hóa đơn và đối soát tài chính.
+                      </p>
                     </div>
                   </FormSection>
 
