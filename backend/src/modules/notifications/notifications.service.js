@@ -50,9 +50,9 @@ function venueLine(row) {
   return [row.venue_name, row.address_line, row.district, row.city].filter(Boolean).join(', ');
 }
 
-async function sendEmailSafely({ email, subject, message, html }) {
+async function sendEmailSafely({ email, subject, message, html, attachments }) {
   try {
-    await sendEmail({ email, subject, message, html });
+    await sendEmail({ email, subject, message, html, attachments });
     return true;
   } catch (error) {
     logger.error(`Notification email failed for ${email}:`, error);
@@ -103,7 +103,7 @@ class NotificationsService {
         email: options.email,
         subject: options.subject || payload.title,
         message: options.message || payload.content,
-        html: options.html || `<p>${payload.content.replace(/\n/g, '<br />')}</p>`,
+        html: options.html || `<div>${payload.content}</div>`,
       });
     }
 
@@ -165,39 +165,108 @@ class NotificationsService {
     let webSent = 0;
     let emailSent = 0;
 
-    for (const attendee of attendees) {
-      if (channels.has('web') && attendee.user_id) {
-        await this.createAndDispatch({
-          userId: attendee.user_id,
-          eventId: payload.event_id,
-          title: payload.title,
-          content: payload.content,
-          type: 'EVENT',
-        });
-        webSent += 1;
-      }
+    const emailAttachments = (payload.attachments || []).map((att) => ({
+      filename: att.filename,
+      path: att.path,
+      contentType: att.contentType,
+    }));
 
-      if (channels.has('email') && attendee.email) {
-        const sent = await sendEmailSafely({
-          email: attendee.email,
-          subject: `[EventHub] ${payload.title}`,
-          message: payload.content,
-          html: `
-            <h2>${payload.title}</h2>
-            <p><strong>Sự kiện:</strong> ${event.title}</p>
-            <p>${payload.content.replace(/\n/g, '<br />')}</p>
-          `,
-        });
-        if (sent) emailSent += 1;
-      }
-    }
+    // If attachments exist, append an attachment list section in the email body
+    const attachmentHtml = (payload.attachments && payload.attachments.length > 0)
+      ? `<div style="margin-top: 24px; padding: 12px 16px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <p style="margin: 0 0 8px 0; font-weight: bold; color: #1e293b; font-size: 13px;">📎 Tệp đính kèm (${payload.attachments.length}):</p>
+          <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+            ${payload.attachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${att.path}" target="_blank" style="color: #0284c7; text-decoration: underline; font-weight: 500;">${att.filename}</a></li>`).join('')}
+          </ul>
+        </div>`
+      : '';
+
+    // If attachments exist, format web notification content with links
+    const webContent = (payload.attachments && payload.attachments.length > 0)
+      ? `${payload.content}<div style="margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><p style="margin: 0 0 6px 0; font-weight: bold; font-size: 13px;">📎 Tệp đính kèm (${payload.attachments.length}):</p><ul style="margin: 0; padding-left: 20px; font-size: 13px;">${payload.attachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${att.path}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${att.filename}</a></li>`).join('')}</ul></div>`
+      : payload.content;
+
+    // Asynchronously dispatch notifications and emails in background batches for immediate performance
+    this.dispatchAnnouncementAsync({
+      attendees,
+      channels,
+      payload,
+      event,
+      webContent,
+      attachmentHtml,
+      emailAttachments,
+    });
+
+    const webCount = channels.has('web') ? attendees.filter((a) => a.user_id).length : 0;
+    const emailCount = channels.has('email') ? attendees.filter((a) => a.email).length : 0;
 
     return {
       announcement,
       recipients: attendees.length,
-      web_sent: webSent,
-      email_sent: emailSent,
+      web_sent: webCount,
+      email_sent: emailCount,
     };
+  }
+
+  dispatchAnnouncementAsync({ attendees, channels, payload, event, webContent, attachmentHtml, emailAttachments }) {
+    setImmediate(async () => {
+      try {
+        logger.info(`[Announcement] Starting background dispatch to ${attendees.length} attendees for event "${event.title}" (id: ${payload.event_id})`);
+
+        const BATCH_SIZE = 5;
+        let totalWeb = 0;
+        let totalEmail = 0;
+
+        for (let i = 0; i < attendees.length; i += BATCH_SIZE) {
+          const chunk = attendees.slice(i, i + BATCH_SIZE);
+          await Promise.allSettled(
+            chunk.map(async (attendee) => {
+              if (channels.has('web') && attendee.user_id) {
+                try {
+                  await this.createAndDispatch({
+                    userId: attendee.user_id,
+                    eventId: payload.event_id,
+                    title: payload.title,
+                    content: webContent,
+                    type: 'EVENT',
+                  });
+                  totalWeb += 1;
+                } catch (err) {
+                  logger.error(`[Announcement] Web dispatch error for user ${attendee.user_id}:`, err);
+                }
+              }
+
+              if (channels.has('email') && attendee.email) {
+                try {
+                  const sent = await sendEmailSafely({
+                    email: attendee.email,
+                    subject: `[EventHub] ${payload.title}`,
+                    message: payload.content,
+                    html: `
+                      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 640px; margin: 0 auto;">
+                        <h2 style="color: #0f172a; margin-bottom: 8px;">${payload.title}</h2>
+                        <p style="color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 16px;"><strong>Sự kiện:</strong> ${event.title}</p>
+                        <div style="font-size: 14px; color: #334155;">
+                          ${payload.content}
+                        </div>
+                        ${attachmentHtml}
+                      </div>
+                    `,
+                    attachments: emailAttachments.length ? emailAttachments : undefined,
+                  });
+                  if (sent) totalEmail += 1;
+                } catch (err) {
+                  logger.error(`[Announcement] Email dispatch error for ${attendee.email}:`, err);
+                }
+              }
+            }),
+          );
+        }
+        logger.info(`[Announcement] Background dispatch finished: ${totalWeb} web, ${totalEmail} email sent`);
+      } catch (error) {
+        logger.error('[Announcement] Error in background dispatch:', error);
+      }
+    });
   }
 
   async sendOrderNotification({ userId, eventId, email, eventTitle, orderCode }) {

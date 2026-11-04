@@ -46,6 +46,15 @@ class UploadsController {
       next(err);
     }
   };
+
+  createAnnouncementAttachmentSignature = async (req, res, next) => {
+    try {
+      const data = uploadsService.createAnnouncementAttachmentSignature();
+      res.status(200).json(ApiResponse.success(data, 'Cloudinary upload signature for announcement attachment created'));
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new UploadsController();

@@ -23,10 +23,12 @@ class AnnouncementsController {
 
   send = async (req, res, next) => {
     try {
+      console.log('[AnnouncementsController.send] Incoming body:', JSON.stringify(req.body));
       const payload = createAnnouncementSchema.parse(req.body);
       const data = await notificationsService.sendAnnouncement(req.user.sub, payload);
       res.status(201).json(ApiResponse.success(data, 'Announcement sent successfully'));
     } catch (error) {
+      console.error('[AnnouncementsController.send] Error:', error);
       next(error);
     }
   };
