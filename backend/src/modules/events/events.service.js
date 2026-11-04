@@ -7,6 +7,7 @@ const eventsRepository = require('./events.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const { normalizeRules, validateSelectedSeats } = require('./seatingRules');
+const { clearCachePattern } = require('../../middlewares/cache.middleware');
 const logger = require('../../core/logger');
 
 function toNumber(value) {
@@ -335,12 +336,14 @@ class EventsService {
   async addFavorite(userId, eventId) {
     await this.getPublicEventDetail(eventId, userId);
     await eventsRepository.createFavorite(userId, eventId);
+    await clearCachePattern(`*u_${userId}*`);
     return { event_id: eventId, is_favorited: true };
   }
 
   async removeFavorite(userId, eventId) {
     await this.getPublicEventDetail(eventId, userId);
     await eventsRepository.deleteFavorite(userId, eventId);
+    await clearCachePattern(`*u_${userId}*`);
     return { event_id: eventId, is_favorited: false };
   }
 
@@ -349,10 +352,12 @@ class EventsService {
     const existing = await eventsRepository.findFavorite(userId, eventId);
     if (existing) {
       await eventsRepository.deleteFavorite(userId, eventId);
+      await clearCachePattern(`*u_${userId}*`);
       return { event_id: eventId, is_favorited: false };
     }
 
     await eventsRepository.createFavorite(userId, eventId);
+    await clearCachePattern(`*u_${userId}*`);
     return { event_id: eventId, is_favorited: true };
   }
 
