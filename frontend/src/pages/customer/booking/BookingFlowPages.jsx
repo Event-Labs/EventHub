@@ -1784,7 +1784,7 @@ export function BookingReviewPage() {
         <OrderCard
           cart={{ ...cart, promoCode, promo: selectedPromo }}
           setCart={setCart}
-          cta={isPaused ? 'Tạm dừng bán vé' : 'Xác nhận và thanh toán'}
+          cta={isPaused ? 'Tạm dừng bán vé' : (payableTotal({ ...cart, promoCode, promo: selectedPromo }) === 0 ? 'Xác nhận đặt vé miễn phí' : 'Xác nhận và thanh toán')}
           onClick={continueFlow}
           disabled={isPaused || checkingAvailability}
           isPaused={isPaused}
