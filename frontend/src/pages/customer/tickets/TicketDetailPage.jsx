@@ -10,6 +10,7 @@ import {
   X,
   AlertCircle,
   HelpCircle,
+  Star,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
@@ -26,6 +27,8 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import QRCode from 'qrcode'
 import { VIETNAMESE_BANKS, getBankDisplayName } from '@/constants/banks.js'
+import logoSrc from '@/assets/eventhub-logo.png'
+import { buildUniversalTicketSvg } from '@/utils/ticketSvgGenerator.js'
 
 function formatDateTime(value) {
   if (!value) return 'N/A'
@@ -101,34 +104,6 @@ function escapeXml(value) {
     .replace(/'/g, '&#39;')
 }
 
-function wrapText(value, maxChars) {
-  const text = String(value || 'N/A').replace(/\s+/g, ' ').trim()
-  const words = text.split(' ')
-  const lines = []
-  let current = ''
-
-  words.forEach((word) => {
-    if (!current) {
-      current = word
-      return
-    }
-    if (`${current} ${word}`.length <= maxChars) {
-      current = `${current} ${word}`
-    } else {
-      lines.push(current)
-      current = word
-    }
-  })
-
-  if (current) lines.push(current)
-  return lines.length ? lines : ['N/A']
-}
-
-function svgTextLines(lines, { x, y, fill = '#ffffff', size = 22, weight = 800, lineHeight = 30, family = 'Manrope, Inter, Segoe UI, Arial, sans-serif', anchor = 'start', letterSpacing }) {
-  const extra = letterSpacing ? ` letter-spacing="${letterSpacing}"` : ''
-  return `<text x="${x}" y="${y}" fill="${fill}" font-family="${family}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}"${extra}>${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('')}</text>`
-}
-
 async function imageToDataUrl(src) {
   const response = await fetch(src)
   const blob = await response.blob()
@@ -140,93 +115,15 @@ async function imageToDataUrl(src) {
   })
 }
 
-function buildTicketDownloadSvg(ticket, qrSrc) {
-  const invalid = ticket.status !== 'VALID'
-  const venue = venueLine(ticket)
-  const venueName = ticket.venue?.name || 'N/A'
-  const seat = ticket.seat?.label || 'Không có ghế cố định'
-  const statusLabel = statusText(ticket)
-  const statusFill = invalid ? '#fee2e2' : '#dcfce7'
-  const statusColor = invalid ? '#991b1b' : '#166534'
-  const uiFont = 'Manrope, Inter, Segoe UI, Arial, sans-serif'
-  const monoFont = 'Cascadia Mono, Consolas, monospace'
-  const qrSize = 204
-
-  const titleLines = wrapText(ticket.event?.title, 30)
-  const ticketTypeLines = wrapText(ticket.ticket_type?.name, 48)
-  const collectAttendees = Boolean(ticket.event?.require_attendee_info)
-  const holderLabel = collectAttendees ? 'NGƯỜI THAM DỰ (ATTENDEE)' : 'NGƯỜI MUA VÉ (BUYER)'
-  const holderName = collectAttendees ? ticket.attendee_name || ticket.order?.buyer_name : ticket.order?.buyer_name
-  const attendeeLines = wrapText(holderName, 24)
-  const orderLines = wrapText(ticket.order?.order_code, 26)
-  const venueNameLines = wrapText(venueName, 30)
-  const addressLines = wrapText(venue, 70)
-  const titleSize = titleLines.length > 2 ? 30 : 34
-  const titleLineHeight = titleSize + 7
-  const ticketTypeY = 118 + titleLines.length * titleLineHeight
-  const infoY = Math.max(198, ticketTypeY + ticketTypeLines.length * 24 + 28)
-  const attendeeY = infoY + 138
-  const venueY = attendeeY + Math.max(attendeeLines.length, orderLines.length) * 27 + 54
-  const ticketHeight = Math.max(500, venueY + venueNameLines.length * 28 + addressLines.length * 18 + 34)
-  const ticketY = Math.max(90, Math.round((900 - ticketHeight) / 2))
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" style="display:block;background:#f4f7fb">
-  <defs>
-    <filter id="ticketShadow" x="-10%" y="-15%" width="120%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0f172a" flood-opacity=".20"/>
-    </filter>
-    <linearGradient id="ticketDark" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0" stop-color="#0f172a"/>
-      <stop offset="1" stop-color="#172033"/>
-    </linearGradient>
-  </defs>
-
-  <rect width="1600" height="900" fill="#f4f7fb"/>
-  <circle cx="230" cy="200" r="104" fill="#38bdf8" opacity=".10"/>
-  <circle cx="1340" cy="710" r="150" fill="#10b981" opacity=".08"/>
-  <circle cx="1050" cy="188" r="62" fill="#94a3b8" opacity=".08"/>
-
-  <g transform="translate(300 ${ticketY})" filter="url(#ticketShadow)">
-    <rect width="980" height="${ticketHeight}" rx="28" fill="#ffffff"/>
-    <path d="M28 0h632v${ticketHeight}H28C12.5 ${ticketHeight} 0 ${ticketHeight - 12.5} 0 ${ticketHeight - 28}V28C0 12.5 12.5 0 28 0Z" fill="url(#ticketDark)"/>
-    <path d="M660 0h292c15.5 0 28 12.5 28 28v${ticketHeight - 56}c0 15.5-12.5 28-28 28H660Z" fill="#ffffff"/>
-    <path d="M660 30v${ticketHeight - 60}" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="10 12"/>
-    <circle cx="660" cy="0" r="24" fill="#f4f7fb"/>
-    <circle cx="660" cy="${ticketHeight}" r="24" fill="#f4f7fb"/>
-
-    <text x="44" y="62" fill="#38bdf8" font-family="${uiFont}" font-size="15" font-weight="800" letter-spacing="2.5">VÉ CHECK-IN EVENTHUB (EVENTHUB CHECK-IN TICKET)</text>
-    ${svgTextLines(titleLines, { x: 44, y: 112, size: titleSize, lineHeight: titleLineHeight, weight: 850, family: uiFont })}
-    ${svgTextLines(ticketTypeLines, { x: 44, y: ticketTypeY, fill: '#a9bdd8', size: 18, lineHeight: 24, weight: 650, family: uiFont })}
-
-    <rect x="44" y="${infoY}" width="258" height="88" rx="14" fill="#1f2937" opacity=".72"/>
-    <text x="66" y="${infoY + 34}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">PHIÊN (SESSION)</text>
-    <text x="66" y="${infoY + 62}" fill="#ffffff" font-family="${uiFont}" font-size="19" font-weight="800">${escapeXml(formatDateTime(ticket.session?.start_time))}</text>
-
-    <rect x="328" y="${infoY}" width="244" height="88" rx="14" fill="#1f2937" opacity=".72"/>
-    <text x="350" y="${infoY + 34}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">GHẾ (SEAT)</text>
-    <text x="350" y="${infoY + 62}" fill="#ffffff" font-family="${uiFont}" font-size="22" font-weight="850">${escapeXml(seat)}</text>
-
-    <text x="44" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">${escapeXml(holderLabel)}</text>
-    ${svgTextLines(attendeeLines, { x: 44, y: attendeeY + 28, size: 21, lineHeight: 27, weight: 850, family: uiFont })}
-    <text x="328" y="${attendeeY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">ĐƠN HÀNG (ORDER)</text>
-    ${svgTextLines(orderLines, { x: 328, y: attendeeY + 28, size: 19, lineHeight: 25, weight: 850, family: uiFont })}
-
-    <text x="44" y="${venueY}" fill="#9fb4d2" font-family="${uiFont}" font-size="11" font-weight="800" letter-spacing=".8">ĐỊA ĐIỂM (VENUE)</text>
-    ${svgTextLines(venueNameLines, { x: 44, y: venueY + 27, size: 21, lineHeight: 28, weight: 850, family: uiFont })}
-    ${svgTextLines(addressLines, { x: 44, y: venueY + 27 + venueNameLines.length * 28, fill: '#d6e2f2', size: 13, lineHeight: 18, weight: 600, family: uiFont })}
-
-    <text x="820" y="54" fill="#0f172a" font-family="${uiFont}" font-size="13" font-weight="850" text-anchor="middle" letter-spacing="1.4">QUÉT ĐỂ CHECK-IN (SCAN TO CHECK IN)</text>
-    <rect x="712" y="82" width="216" height="216" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
-    <image x="718" y="88" width="${qrSize}" height="${qrSize}" href="${escapeXml(qrSrc)}"/>
-    <text x="820" y="342" fill="#0f172a" font-family="${monoFont}" font-size="17" font-weight="800" text-anchor="middle">${escapeXml(ticket.ticket_code)}</text>
-    <rect x="738" y="372" width="164" height="42" rx="21" fill="${statusFill}"/>
-    <text x="820" y="399" fill="${statusColor}" font-family="${uiFont}" font-size="15" font-weight="850" text-anchor="middle">${escapeXml(statusLabel)}</text>
-    <text x="820" y="${ticketHeight - 50}" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">Luôn sẵn sàng vé tại cổng</text>
-    <text x="820" y="${ticketHeight - 32}" fill="#64748b" font-family="${uiFont}" font-size="11" font-weight="700" text-anchor="middle">(Keep this ticket ready at the gate)</text>
-  </g>
-  ${invalid ? `<text x="800" y="470" fill="#dc2626" opacity=".15" font-family="${uiFont}" font-size="92" font-weight="900" text-anchor="middle" transform="rotate(-15 800 470)">${escapeXml(statusLabel)}</text>` : ''}
-</svg>`
+let cachedLogoDataUrl = null
+async function getLogoDataUrl() {
+  if (cachedLogoDataUrl) return cachedLogoDataUrl
+  try {
+    cachedLogoDataUrl = await imageToDataUrl(logoSrc)
+    return cachedLogoDataUrl
+  } catch {
+    return ''
+  }
 }
 
 function downloadBlob(blob, filename) {
@@ -240,19 +137,18 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
-function svgToRasterBlob(svg, format) {
+function svgToRasterBlob(svg, format = 'png') {
   return new Promise((resolve, reject) => {
     const image = new Image()
     const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(svgBlob)
     image.onload = () => {
       const canvas = document.createElement('canvas')
-      canvas.width = image.naturalWidth || 1600
-      canvas.height = image.naturalHeight || 1100
+      canvas.width = 1600
+      canvas.height = 700
       const ctx = canvas.getContext('2d')
-      ctx.fillStyle = '#f4f7fb'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(image, 0, 0)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
       URL.revokeObjectURL(url)
       canvas.toBlob((blob) => {
         if (blob) resolve(blob)
@@ -315,11 +211,12 @@ export function TicketDetailPage() {
     setDownloading(true)
     try {
       const qrDataUrl = await QRCode.toDataURL(qrPayload(ticketQuery.data), { width: 300, margin: 2 })
-      const svg = buildTicketDownloadSvg(ticketQuery.data, qrDataUrl)
+      const logoDataUrl = await getLogoDataUrl()
+      const svg = buildUniversalTicketSvg(ticketQuery.data, qrDataUrl, logoDataUrl)
       const baseName = ticketQuery.data?.ticket_code || 'ticket'
       const blob = await svgToRasterBlob(svg, 'png')
       downloadBlob(blob, `${baseName}.png`)
-    } catch (err) {
+    } catch {
       setDownloadError('Không thể tạo file vé. Vui lòng thử lại sau.')
     } finally {
       setDownloading(false)
@@ -335,7 +232,7 @@ export function TicketDetailPage() {
   if (ticketQuery.isError || !ticketQuery.data) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-10">
-        <Link to="/my-tickets" className="inline-flex items-center gap-2 text-sm font-bold text-primary">
+        <Link to="/my-tickets" className="inline-flex items-center gap-2 text-sm font-bold text-white transition-colors hover:text-white/80">
           <ArrowLeft className="size-4" />
           Vé của tôi
         </Link>
@@ -358,6 +255,17 @@ export function TicketDetailPage() {
   const activeRefundPolicy = ticket.refund_policy_snapshot || ticket.event?.refund_policy || {}
   const isRefundAllowedByPolicy = Boolean(activeRefundPolicy.allow_refund ?? activeRefundPolicy.allow_refunds)
   const canRequestRefund = !isZeroAmountOrFree && isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
+  const isCheckedIn = Boolean(ticket.checked_in_at) || ticket.status === 'USED' || ticket.check_in_status === 'CHECKED_IN'
+  const sessionEndTime = ticket.session?.end_time
+    ? new Date(ticket.session.end_time).getTime()
+    : ticket.session?.start_time
+      ? new Date(ticket.session.start_time).getTime()
+      : ticket.event?.end_time
+        ? new Date(ticket.event.end_time).getTime()
+        : null
+  const isSessionEnded = sessionEndTime ? sessionEndTime <= Date.now() : false
+  const canReviewEvent = (isCheckedIn || isSessionEnded || ticket.event?.status === 'COMPLETED') &&
+    ticket.status !== 'CANCELLED' && ticket.status !== 'REFUNDED' && ticket.status !== 'REFUND_PENDING' 
 
   const hasRefundInfo = Boolean(
     refundRequest ||
@@ -381,7 +289,7 @@ export function TicketDetailPage() {
     <div className="mx-auto max-w-5xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
       <Link
         to="/my-tickets"
-        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary backdrop-blur-md transition"
+        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white backdrop-blur-md transition-colors hover:text-white/80"
       >
         <ArrowLeft className="size-4" />
         Vé của tôi
@@ -502,6 +410,17 @@ export function TicketDetailPage() {
           </section>
 
           <div className="mx-auto mt-8 max-w-[620px] space-y-4 lg:mx-0">
+            {canReviewEvent && (
+              <button
+                type="button"
+                onClick={() => navigate(`/feedback?eventId=${ticket.event?.id}`)}
+                className="w-full py-4 text-[15px] font-bold rounded-2xl bg-gradient-to-r from-[#C99A47] via-[#E6C17A] to-[#C99A47] hover:brightness-110 text-[#0D1B2A] flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(201,154,71,0.35)] transition-all cursor-pointer active:scale-[0.99]"
+              >
+                <Star className="size-5 fill-[#0D1B2A]" />
+                Đánh giá sự kiện
+              </button>
+            )}
+
             {needsPayoutInput && (
               <button
                 type="button"
@@ -517,7 +436,7 @@ export function TicketDetailPage() {
               type="button"
               onClick={handleDownload}
               disabled={downloading}
-              className="cosmic-btn-primary w-full py-4 text-[15px] flex items-center justify-center gap-3"
+              className="cosmic-btn-primary w-full py-4 text-[15px] flex items-center justify-center gap-3 cursor-pointer"
             >
               <Download className="size-5" />
               {downloading ? 'Đang tạo file...' : 'Tải vé xuống thiết bị'}

@@ -85,8 +85,9 @@ class FeedbacksService {
       );
     }
 
+    const hasCheckedIn = await feedbacksRepository.userHasCheckedInTicket(userId, payload.event_id);
     const eventStartTime = event.start_time ? new Date(event.start_time) : (event.end_time ? new Date(event.end_time) : null);
-    if (eventStartTime && eventStartTime > new Date()) {
+    if (!hasCheckedIn && eventStartTime && eventStartTime > new Date()) {
       throw new AppError(
         'Bạn chỉ có thể gửi phản hồi khi sự kiện bắt đầu diễn ra.',
         400,

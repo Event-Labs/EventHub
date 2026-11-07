@@ -202,8 +202,8 @@ export function AdminPlansPage() {
           <Table
             headers={['Tên gói', 'Giá', 'Giới hạn tổng', 'Giới hạn/sự kiện', 'Tính năng', 'Trạng thái', 'Người đăng ký', 'Hành động']}
             rows={plans.map((plan) => [
-              <span key="name" className="font-extrabold text-content">{plan.name}</span>,
-              <span key="price" className="font-bold text-tertiary">{formatMoney(plan.price)}</span>,
+              <span key="name" className="text-sm font-extrabold text-white">{plan.name}</span>,
+              <span key="price" className="text-sm font-extrabold text-white tracking-wide">{formatMoney(plan.price)}</span>,
               <Stack key="total" items={[
                 `${limitText(plan.event_limit)} sự kiện`,
                 `${limitText(plan.max_active_events)} sự kiện hoạt động`,
@@ -218,8 +218,8 @@ export function AdminPlansPage() {
                   : 'Không hỗ trợ mã giảm giá',
               ]} />,
               <FeatureList key="features" plan={plan} />,
-              <StatusBadge key="status" status={plan.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-              <span key="subscribers" className="text-sm font-bold text-content block text-center">{Number(plan.subscriber_count || 0)}</span>,
+              <StatusBadge key="status" status={plan.is_active ? 'ACTIVE' : 'INACTIVE'} className="!text-white font-black" />,
+              <span key="subscribers" className="text-sm font-extrabold text-white block text-center">{Number(plan.subscriber_count || 0)}</span>,
               <div key="actions" className="flex items-center justify-center gap-2">
                 <TableActionButton title="Sửa" icon={Edit3} tone="primary" disabled={busy} onClick={() => openEdit(plan)} />
                 <TableActionButton
@@ -326,7 +326,7 @@ export function AdminPlansPage() {
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
               </button>
@@ -398,26 +398,10 @@ function Checkbox({ label, checked, onChange }) {
   )
 }
 
-function IconButton({ icon: Icon, danger = false, ...props }) {
-  return (
-    <button
-      type="button"
-      className={`grid size-9 place-items-center rounded-xl border transition duration-200 hover:-translate-y-0.5 disabled:opacity-60 ${
-        danger
-          ? 'border-error/30 text-error hover:bg-error/10'
-          : 'border-border-soft/40 text-subtle hover:border-tertiary hover:bg-panel-soft hover:text-tertiary'
-      }`}
-      {...props}
-    >
-      <Icon className="size-4" />
-    </button>
-  )
-}
-
 function Stack({ items }) {
   return (
-    <div className="space-y-1 text-xs font-semibold text-subtle">
-      {items.map((item) => <p key={item}>{item}</p>)}
+    <div className="space-y-1 text-xs font-semibold text-white/95">
+      {items.map((item) => <p key={item} className="leading-snug text-white/95">{item}</p>)}
     </div>
   )
 }
@@ -427,31 +411,24 @@ function FeatureList({ plan }) {
     .filter(([field]) => Boolean(plan[field]))
     .map(([, label]) => label)
 
-  if (!enabled.length) return <span className="text-sm font-semibold text-subtle">Chưa bật tính năng</span>
+  if (!enabled.length) return <span className="text-xs font-medium text-white/60">Chưa bật tính năng</span>
 
   return (
-    <div className="flex max-w-xs flex-wrap gap-2">
+    <div className="flex max-w-xs flex-wrap gap-1.5">
       {enabled.slice(0, 4).map((feature) => (
-        <span key={feature} className="rounded-full bg-tertiary/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tertiary border border-tertiary/35">
+        <span
+          key={feature}
+          className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white border border-white/20 shadow-xs"
+        >
           {feature}
         </span>
       ))}
       {enabled.length > 4 && (
-        <span className="rounded-full bg-panel-soft px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-subtle border border-border-soft/30">
+        <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white border border-white/25 shadow-xs">
           +{enabled.length - 4}
         </span>
       )}
     </div>
-  )
-}
-
-function StatusPill({ active }) {
-  return (
-    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-      active ? 'bg-success/15 text-success border-success/30' : 'bg-panel-soft text-subtle border-border-soft/30'
-    }`}>
-      {active ? 'Đang hiển thị' : 'Tạm ẩn'}
-    </span>
   )
 }
 

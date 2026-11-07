@@ -181,30 +181,12 @@ export default function CCCDScanner({ initialData = {}, currentKycData = null, o
   const hasData = Boolean(editableFields.idNumber || scanResult)
 
   return (
-    <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-slate-900/95 via-[#0b1329] to-slate-900/95 p-5 space-y-4 shadow-xl shadow-sky-950/20">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sky-500/20">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/30">
-            <Sparkles className="size-5 text-sky-100" />
-          </div>
-          <div>
-            <h4 className="font-extrabold text-white text-sm flex items-center gap-2">
-              QUÉT VÀ ĐỊNH DANH THẺ CCCD
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40">
-                AI + QR C06
-              </span>
-            </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Hệ thống tự động đọc thông tin và đối soát chéo theo chuẩn C06 Bộ Công An.
-            </p>
-          </div>
-        </div>
-
-        {/* Decree 13/2023 Compliance Pill */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[11px] font-medium shrink-0 self-start sm:self-auto">
+    <div className="space-y-3">
+      {/* Decree 13/2023 Compliance Pill */}
+      <div className="flex items-center justify-end">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[11px] font-medium shrink-0">
           <Lock className="size-3.5 text-emerald-400" />
-          <span>Bảo mật NĐ 13/2023 (Xóa ảnh tức thì)</span>
+          <span>Bảo mật NĐ 13/2023 của Bộ Công an</span>
         </div>
       </div>
 

@@ -284,7 +284,7 @@ export function LockUserModal({ user, open, onClose, onSuccess }) {
           </button>
           <button
             type="button"
-            className="admin-primary bg-error border-none text-white hover:bg-error/90 px-6 font-extrabold rounded-xl"
+            className="admin-primary bg-error border-none text-white hover:bg-error/90 px-6 font-extrabold rounded-full"
             onClick={handleSubmit}
             disabled={loading}
           >

@@ -33,12 +33,12 @@ export function ForgotPasswordPage() {
     if (success) {
         return (
             <AuthShell>
-                <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] text-center">
+                <div className="force-dark glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[20px] sm:rounded-[24px] border-primary/20 p-6 sm:p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] text-center">
                     <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                     <div className="mb-6 inline-flex size-20 items-center justify-center rounded-full bg-success/20 text-success shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                         <CheckCircle className="size-10" />
                     </div>
-                    <h1 className="font-display text-3xl font-extrabold text-primary drop-shadow-lg">
+                    <h1 className="font-display text-3xl font-extrabold text-white">
                         Yêu cầu đã gửi!
                     </h1>
                     <p className="mt-4 text-slate-300 text-lg">
@@ -48,7 +48,8 @@ export function ForgotPasswordPage() {
                     <div className="mt-8">
                         <Link
                             to="/login"
-                            className="cosmic-btn-primary w-full py-3.5 text-[15px]"
+                            className="btn-gold-primary inline-flex w-full items-center justify-center py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer"
+                            style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                         >
                             Quay lại đăng nhập
                         </Link>
@@ -60,10 +61,10 @@ export function ForgotPasswordPage() {
 
     return (
         <AuthShell>
-            <div className="glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[24px] border-primary/20 p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
+            <div className="force-dark glass-panel relative overflow-hidden mx-auto w-full max-w-md rounded-[20px] sm:rounded-[24px] border-primary/20 p-5 sm:p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)]">
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                 <div className="text-center">
-                    <h1 className="font-display text-3xl font-extrabold text-primary drop-shadow-lg">
+                    <h1 className="font-display text-3xl font-extrabold text-white">
                         Quên mật khẩu
                     </h1>
                     <p className="mt-3 text-sm font-medium text-slate-300">
@@ -87,14 +88,15 @@ export function ForgotPasswordPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="cosmic-btn-primary w-full py-3.5 text-[15px]"
+                        className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                     >
                         {loading ? 'Đang xử lý...' : 'Gửi email đặt lại'}
                     </button>
                 </form>
 
-                <p className="mt-6 text-center">
-                    <Link to="/login" className="font-bold text-primary hover:underline">
+                <p className="mt-6 text-center text-muted">
+                    <Link to="/login" className="font-bold text-primary hover:text-white transition-colors">
                         Quay lại đăng nhập
                     </Link>
                 </p>

@@ -293,7 +293,7 @@ export function AdminOrganizerRequestsPage() {
                 </button>
                 <button
                   type="button"
-                  className="admin-danger flex items-center gap-2 rounded-xl px-5 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-70"
+                  className="admin-danger flex items-center gap-2 rounded-full px-5 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={reviewMutation.isPending}
                   onClick={() => submitReview('REJECTED')}
                 >
@@ -302,7 +302,7 @@ export function AdminOrganizerRequestsPage() {
                 </button>
                 <button
                   type="button"
-                  className="admin-primary flex items-center gap-2 rounded-xl px-6 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-60"
+                  className="admin-primary flex items-center gap-2 rounded-full px-6 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={
                     reviewMutation.isPending ||
                     (selectedRequest.request_type === 'ORGANIZATION' &&

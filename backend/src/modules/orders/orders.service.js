@@ -368,21 +368,23 @@ class OrdersService {
   }
 
   async getStatus(userId, orderId) {
-    await ordersRepository.expirePendingOrders();
     const row = await ordersRepository.findOrderStatus(orderId, userId);
     if (!row) {
       throw new AppError('Không tìm thấy đơn hàng.', 404, ErrorCodes.ORDER_NOT_FOUND);
     }
-    if (row.order?.status === 'PENDING' && row.payment?.id) {
+    if ((row.order?.status === 'PENDING' || row.order?.status === 'EXPIRED') && (row.order?.payment_order_id || row.order?.provider_order_code || row.payment?.id)) {
       try {
         await paymentsService.syncTicketOrderFromPayos(orderId, userId);
         const updatedRow = await ordersRepository.findOrderStatus(orderId, userId);
-        if (updatedRow) return mapOrderStatus(updatedRow);
+        if (updatedRow && updatedRow.order?.status === 'PAID') return mapOrderStatus(updatedRow);
       } catch (error) {
+        logger.error(`[ORDER_STATUS_SYNC_ERROR] orderId=${orderId} userId=${userId}: ${error.message}`, error);
         // Keep status polling usable even if PayOS status sync is temporarily unavailable.
       }
     }
-    return mapOrderStatus(row);
+    await ordersRepository.expirePendingOrders();
+    const finalRow = await ordersRepository.findOrderStatus(orderId, userId);
+    return mapOrderStatus(finalRow || row);
   }
 
   async cancel(userId, orderId) {
