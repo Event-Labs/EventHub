@@ -242,7 +242,7 @@ export function NotificationsPage() {
             type="button"
             onClick={() => markAllMutation.mutate()}
             disabled={unreadCount === 0 || markAllMutation.isPending}
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-border-soft/50 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft/50 bg-panel-soft px-5 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
           >
             {markAllMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCheck className="size-4" />}
             Đánh dấu tất cả đã đọc
@@ -369,7 +369,7 @@ export function NotificationsPage() {
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {eventPath && (
-                      <Link className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={eventPath}>
+                      <Link className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={eventPath}>
                         Xem sự kiện <ChevronRight className="size-4" />
                       </Link>
                     )}
@@ -381,7 +381,7 @@ export function NotificationsPage() {
                             markReadMutation.mutate(notification.id)
                           }
                         }}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
                       >
                         <FileEdit className="size-3.5" /> Cập nhật hồ sơ
                       </Link>
@@ -394,7 +394,7 @@ export function NotificationsPage() {
                             markReadMutation.mutate(notification.id)
                           }
                         }}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 text-xs font-extrabold text-emerald-300 transition hover:bg-emerald-500/25 active:scale-95 cursor-pointer"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 text-xs font-extrabold text-emerald-300 transition hover:bg-emerald-500/25 active:scale-95 cursor-pointer"
                       >
                         Vào trang Organizer <ChevronRight className="size-3.5" />
                       </Link>
@@ -404,7 +404,7 @@ export function NotificationsPage() {
                         <button
                           type="button"
                           onClick={() => acceptInvitationMutation.mutate(notification.id)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-success px-3.5 text-sm font-extrabold text-[#061225] transition hover:brightness-110 disabled:opacity-60 cursor-pointer"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-success px-4 text-sm font-extrabold text-[#061225] transition hover:brightness-110 disabled:opacity-60 cursor-pointer shadow-md shadow-success/20"
                           disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
                         >
                           <Check className="size-4" /> Đồng ý lời mời
@@ -412,7 +412,7 @@ export function NotificationsPage() {
                         <button
                           type="button"
                           onClick={() => declineInvitationMutation.mutate(notification.id)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-error/30 px-3.5 text-sm font-bold text-error transition hover:bg-error/10 disabled:opacity-60 cursor-pointer"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-error/40 px-4 text-sm font-bold text-error transition hover:bg-error/10 disabled:opacity-60 cursor-pointer"
                           disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
                         >
                           <X className="size-4" /> Từ chối
@@ -422,7 +422,7 @@ export function NotificationsPage() {
                     {canOpenStaffPortal && (
                       <Link
                         to={acceptInvitationMutation.data?.staff_portal_url || '/staff'}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-extrabold text-[#081126] transition hover:brightness-110"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-extrabold text-[#081126] transition hover:brightness-110"
                       >
                         <UserRoundCheck className="size-4" /> Mở trang nhân sự
                       </Link>
@@ -431,7 +431,7 @@ export function NotificationsPage() {
                       <button
                         type="button"
                         onClick={() => markReadMutation.mutate(notification.id)}
-                        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-muted transition hover:bg-white/5 hover:text-content cursor-pointer"
+                        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-muted transition hover:bg-white/5 hover:text-content cursor-pointer"
                       >
                         <CheckCheck className="size-4" /> Đã đọc
                       </button>

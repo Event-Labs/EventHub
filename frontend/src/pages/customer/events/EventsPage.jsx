@@ -1,6 +1,6 @@
 import { getAuthToken } from '@/lib/auth.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronLeft, ChevronRight, Filter, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, RotateCcw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EventCard } from '@/components/EventCard.jsx'
@@ -154,58 +154,64 @@ export function EventsPage() {
   return (
     <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <form
-        className="glass-panel mb-6 sm:mb-8 rounded-2xl border-primary/15 p-3.5 sm:p-5 shadow-[0_18px_60px_rgba(56,189,248,0.08)] transition-all"
+        className="relative z-10 mb-6 sm:mb-8 transition-all"
         onSubmit={(e) => {
           submitFilters(e)
         }}
       >
-        {/* Always-visible Outer Search Bar with Filter Toggle */}
+        {/* Always-visible Search Bar with Filter Toggle */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/50" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-4.5 -translate-y-1/2 text-white/50" />
             <input
               value={draft.keyword}
               onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
               placeholder="Tìm kiếm sự kiện, danh mục, địa điểm..."
-              className="h-11 sm:h-12 w-full rounded-xl border border-white/15 bg-[#0d172e] py-2.5 pl-10 pr-4 text-sm font-normal text-white placeholder:text-white/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-inner"
+              className="h-11 sm:h-12 w-full rounded-full border border-white/15 bg-[#0d172e] py-2.5 pl-12 pr-5 text-sm font-normal text-white placeholder:text-white/40 outline-none transition focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/20 shadow-inner"
             />
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="submit"
-              className="inline-flex h-11 sm:h-12 flex-1 sm:flex-none items-center justify-center gap-2 rounded-xl px-5 sm:px-6 text-xs sm:text-sm font-extrabold transition-all hover:brightness-110 active:scale-95 shadow-md shadow-[#C99A47]/20 cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+              className="btn-gold-primary inline-flex h-11 sm:h-12 flex-1 sm:flex-none items-center justify-center gap-2 rounded-full px-6 sm:px-8 text-xs sm:text-sm font-extrabold shadow-lg shadow-[#C99A47]/30 transition-all hover:brightness-110 active:scale-95 cursor-pointer shrink-0"
+              style={{
+                backgroundColor: '#C99A47',
+                backgroundImage: 'linear-gradient(135deg, #C99A47, #E6C17A)',
+                color: '#0D1B2A',
+                opacity: 1,
+                visibility: 'visible',
+                transform: 'translateZ(0)',
+                WebkitTransform: 'translateZ(0)',
+              }}
             >
-              <Search className="size-4" />
-              <span>Tìm kiếm</span>
+              <Search className="size-4 shrink-0 stroke-[2.5] text-[#0D1B2A]" />
+              <span className="font-extrabold text-[#0D1B2A]">Tìm kiếm</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowFilters((prev) => !prev)}
-              className={`inline-flex h-11 sm:h-12 items-center gap-2 rounded-xl border px-3.5 sm:px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                showFilters || activeFilterCount > 0
-                  ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A] shadow-[0_0_15px_rgba(201,154,71,0.25)]'
-                  : 'border-white/15 bg-white/5 text-slate-300 hover:border-white/30 hover:bg-white/10'
-              }`}
-              title="Bộ lọc nâng cao"
+              className={`grid size-11 sm:size-12 place-items-center rounded-full border transition-all cursor-pointer relative shrink-0 ${showFilters || activeFilterCount > 0
+                ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A] shadow-[0_0_15px_rgba(201,154,71,0.25)]'
+                : 'border-white/15 bg-white/5 text-slate-300 hover:border-white/30 hover:bg-white/10'
+                }`}
+              title="Bộ lọc"
+              aria-label="Bộ lọc"
             >
-              <SlidersHorizontal className="size-4" />
-              <span className="hidden xs:inline">Bộ lọc</span>
+              <Filter className="size-4.5" />
               {activeFilterCount > 0 && (
-                <span className="grid size-5 place-items-center rounded-full bg-[#E6C17A] text-[11px] font-black text-[#0D1B2A]">
+                <span className="absolute -top-1 -right-1 grid size-4.5 place-items-center rounded-full bg-[#E6C17A] text-[10px] font-black text-[#0D1B2A] shadow">
                   {activeFilterCount}
                 </span>
               )}
-              <ChevronDown className={`size-4 transition-transform duration-200 ${showFilters ? 'rotate-180 text-[#E6C17A]' : ''}`} />
             </button>
 
             {activeFilterCount > 0 && (
               <button
                 type="button"
                 onClick={clearFilters}
-                className="grid size-11 sm:size-12 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20 transition-all cursor-pointer"
+                className="grid size-11 sm:size-12 place-items-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20 transition-all cursor-pointer shrink-0"
                 title="Xóa bộ lọc"
               >
                 <RotateCcw className="size-4" />
@@ -216,7 +222,7 @@ export function EventsPage() {
 
         {/* Collapsible Detailed Filter Panel */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-white/10 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="glass-panel mt-4 rounded-2xl border border-white/15 p-4 sm:p-6 shadow-[0_18px_60px_rgba(0,0,0,0.5)] animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="grid items-end gap-3.5 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <Select
                 label="Địa điểm"
@@ -300,21 +306,19 @@ export function EventsPage() {
               </label>
 
               {/* Action Buttons inside Expanded Panel */}
-              <div className="flex items-center gap-2 sm:gap-3 pt-2 sm:pt-0">
+              <div className="grid grid-cols-2 items-center gap-2 sm:gap-3 pt-2 sm:pt-0">
                 <button
                   type="submit"
-                  className="inline-flex h-11 sm:h-12 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold transition-all hover:brightness-110 active:scale-95 cursor-pointer shadow-md shadow-[#C99A47]/20"
+                  className="inline-flex h-11 sm:h-12 w-full items-center justify-center gap-2 rounded-xl px-3 sm:px-4 text-xs sm:text-sm font-bold transition-all hover:brightness-110 active:scale-95 cursor-pointer shadow-md shadow-[#C99A47]/20"
                   style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 >
-                  <Filter className="size-4" />
                   Áp dụng bộ lọc
                 </button>
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="inline-flex h-11 sm:h-12 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-3.5 sm:px-4 text-xs sm:text-sm font-bold text-slate-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
+                  className="inline-flex h-11 sm:h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-3 sm:px-4 text-xs sm:text-sm font-bold text-slate-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
                 >
-                  <RotateCcw className="size-3.5" />
                   Xóa lọc
                 </button>
               </div>
