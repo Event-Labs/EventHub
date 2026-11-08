@@ -4,9 +4,10 @@ import { sendChatMessage, getAiChatSessions, saveAiChatSession, syncAiChatSessio
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate, Link } from 'react-router-dom'
-import { fetchEventDetail } from '@/services/events.js'
+import { fetchEventDetail, releaseSeatHolds } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
+import { clearBookingDraft, readBookingDraft } from '@/utils/bookingDraft.js'
 
 function ActionMessage({ content, navigate, setInput, onSendMessage }) {
   const actionRegex = /\[ACTION:([A-Z_]+):?([^\]]*)\]/g;
@@ -343,11 +344,34 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
     }
   }, [prefillKey]);
 
+  // Handle CLEAR_BOOKING action to instantly clear holds and dismiss active hold floating bar
+  const clearAction = parts.find(p => p.type === 'action' && p.action === 'CLEAR_BOOKING');
+  useEffect(() => {
+    if (clearAction) {
+      const targetEventId = clearAction.args?.[0] || null;
+      try {
+        clearBookingDraft(targetEventId);
+        clearBookingDraft(); // Unconditionally clear active draft too
+        window.sessionStorage.removeItem('eventhub-booking-draft');
+        window.dispatchEvent(new CustomEvent('eventhub-booking-draft-cleared', { detail: { eventId: targetEventId } }));
+        if (isAuthenticated()) {
+          releaseSeatHolds({ event_id: targetEventId || undefined, session_seat_ids: [] }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('Could not clear booking draft on CLEAR_BOOKING action:', e);
+      }
+    }
+  }, [clearAction]);
+
   return (
     <div className="space-y-3">
       {parts.map((part, i) => {
         if (part.type === 'text') {
           return <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>;
+        }
+
+        if (part.action === 'CLEAR_BOOKING') {
+          return null;
         }
 
         if (part.action === 'BOOKING_PROPOSAL') {
@@ -505,6 +529,16 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                   <button
                     type="button"
                     onClick={() => {
+                      try {
+                        clearBookingDraft(proposal?.eventId);
+                        window.sessionStorage.removeItem('eventhub-booking-draft');
+                        window.dispatchEvent(new CustomEvent('eventhub-booking-draft-cleared', { detail: { eventId: proposal?.eventId } }));
+                        if (isAuthenticated()) {
+                          releaseSeatHolds({ event_id: proposal?.eventId || undefined, session_seat_ids: [] }).catch(() => {});
+                        }
+                      } catch (err) {
+                        console.warn('Error clearing booking on change event:', err);
+                      }
                       if (onSendMessage) {
                         onSendMessage('Tôi muốn đổi sang sự kiện khác');
                       } else if (setInput) {
@@ -573,7 +607,9 @@ function getActiveSessionStorageKey(userKey) {
 
 const DEFAULT_GREETING = {
   role: 'assistant',
-  content: 'Xin chào! Tôi là trợ lý AI của EventHub. Tôi có thể giúp bạn tìm kiếm sự kiện, kiểm tra giá vé, trạng thái đơn hàng và các chính sách khác.'
+  content: `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub 🥰.
+
+Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè? 🎉`
 };
 
 function createNewSession() {
@@ -1052,11 +1088,20 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         ? []
         : messages.map(m => ({ role: m.role, content: m.content }));
 
+      const activeDraft = readBookingDraft();
+      const matchEventUrl = typeof window !== 'undefined' ? window.location.pathname.match(/^\/events\/([^/?#]+)/) : null;
+      const currentEventSlug = matchEventUrl ? matchEventUrl[1] : (activeDraft?.eventSlug || activeDraft?.eventId || null);
+
       const response = await sendChatMessage(
         userMessage,
         apiHistory,
         { signal: abortController.signal },
-        { sessionId: activeSession.id, title: newTitle }
+        {
+          sessionId: activeSession.id,
+          title: newTitle,
+          eventSlug: currentEventSlug,
+          eventId: activeDraft?.eventId || null
+        }
       );
 
       const assistantText = response?.content || 'Eve đã tiếp nhận thông tin của bạn!';
