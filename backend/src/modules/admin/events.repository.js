@@ -29,8 +29,12 @@ class EventsAdminRepository {
         e.approval_status,
         e.review_note,
         o.user_id AS organizer_user_id,
-        COALESCE(u.email, '') AS organizer_email,
+        COALESCE(u.email, o.business_email, '') AS organizer_email,
         COALESCE(u.full_name, o.organization_name, '') AS organizer_name,
+        COALESCE(o.business_phone, u.phone, '') AS organizer_phone,
+        fin_summary.paid_orders_count,
+        fin_summary.total_paid_amount,
+        fin_summary.issued_tickets_count,
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types,
         CASE
@@ -44,6 +48,18 @@ class EventsAdminRepository {
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users u ON u.id = o.user_id
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(COUNT(DISTINCT o_fin.id) FILTER (WHERE o_fin.status = 'PAID'), 0)::int AS paid_orders_count,
+          COALESCE(SUM(o_fin.total_amount) FILTER (WHERE o_fin.status = 'PAID'), 0)::numeric AS total_paid_amount,
+          COALESCE(COUNT(DISTINCT t_fin.id) FILTER (WHERE t_fin.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int AS issued_tickets_count
+        FROM event_sessions es_fin
+        LEFT JOIN ticket_types tt_fin ON tt_fin.event_session_id = es_fin.id
+        LEFT JOIN order_items oi_fin ON oi_fin.ticket_type_id = tt_fin.id
+        LEFT JOIN orders o_fin ON o_fin.id = oi_fin.order_id
+        LEFT JOIN tickets t_fin ON t_fin.ticket_type_id = tt_fin.id
+        WHERE es_fin.event_id = e.id
+      ) fin_summary ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(
           json_build_object(

@@ -283,8 +283,11 @@ export function OrganizerEventDetailPage() {
             if (payload.action === 'RESUME_TICKET_TYPE' && payload.ticketTypeId) {
                 await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeId: payload.ticketTypeId })
                 toast.success(`Đã mở bán lại vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
-            } else if (payload.action === 'RESUME_ALL_TICKETS' && Array.isArray(payload.ticketTypeIds)) {
-                await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeIds: payload.ticketTypeIds })
+            } else if (payload.action === 'RESUME_ALL_TICKETS') {
+                const ticketTypeIds = Array.isArray(payload.ticketTypeIds) && payload.ticketTypeIds.length > 0
+                    ? payload.ticketTypeIds
+                    : undefined
+                await resumeSalesOrganizerEvent(salesTarget.id, ticketTypeIds ? { ticketTypeIds } : {})
                 toast.success('Đã mở bán lại cho tất cả các hạng vé đã chọn.')
             } else if (payload.scope === 'SPECIFIC' && (payload.ticketTypeIds?.length || payload.ticketTypeId)) {
                 const ticketTypeIds = payload.ticketTypeIds || [payload.ticketTypeId]

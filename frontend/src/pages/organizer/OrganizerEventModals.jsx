@@ -191,8 +191,14 @@ export function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
 // ---------------------------------------------------------------------------
 export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) {
   if (!event) return null
-  const isCurrentlyPaused = event?.sales_status === 'PAUSED'
-  const isHidden = event?.display_state === 'HIDDEN_BY_ORGANIZER' || event?.status === 'HIDDEN'
+
+  const [currentEvent, setCurrentEvent] = useState(event)
+  useEffect(() => {
+    setCurrentEvent(event)
+  }, [event])
+
+  const isCurrentlyPaused = currentEvent?.sales_status === 'PAUSED'
+  const isHidden = currentEvent?.display_state === 'HIDDEN_BY_ORGANIZER' || currentEvent?.status === 'HIDDEN'
 
   const [scope, setScope] = useState('ALL') // 'ALL' or 'SPECIFIC'
   const [selectedTicketTypeIds, setSelectedTicketTypeIds] = useState([])
@@ -208,26 +214,29 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
   })
   const [loadingTickets, setLoadingTickets] = useState(false)
 
-  // Fetch ticket types if not loaded
+  // Fetch full event details & ticket types if not loaded or to ensure freshness
   useEffect(() => {
-    if (ticketTypes.length === 0 && event?.id) {
+    if (event?.id) {
       setLoadingTickets(true)
       fetchOrganizerEvent(event.id)
         .then((detail) => {
-          const list = detail?.ticket_types?.length
-            ? detail.ticket_types
-            : (detail?.sessions?.flatMap((s) => s.ticket_types || []) || [])
-          setTicketTypes(list)
+          if (detail) {
+            setCurrentEvent(detail)
+            const list = detail?.ticket_types?.length
+              ? detail.ticket_types
+              : (detail?.sessions?.flatMap((s) => s.ticket_types || []) || [])
+            setTicketTypes(list)
+          }
         })
         .catch((err) => {
-          console.error('Failed to load ticket types for pause modal:', err)
+          console.error('Failed to load event details for pause modal:', err)
         })
         .finally(() => setLoadingTickets(false))
     }
-  }, [event?.id, ticketTypes.length])
+  }, [event?.id])
 
   // Find active specific ticket blocks
-  const activeSpecificBlocks = (event?.sales_blocks || []).filter(
+  const activeSpecificBlocks = (currentEvent?.sales_blocks || []).filter(
     (b) => !b.released_at && (b.metadata?.scope === 'SPECIFIC' || b.metadata?.ticket_type_id)
   )
   const pausedTicketIds = new Set(
@@ -445,7 +454,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                       onClick={() =>
                         onConfirm({
                           action: 'RESUME_ALL_TICKETS',
-                          ticketTypeIds: activeSpecificBlocks.map((b) => b.metadata?.ticket_type_id).filter(Boolean),
+                          ticketTypeIds: activeSpecificBlocks.map((b) => b.metadata?.ticket_type_id || b.id).filter(Boolean),
                         })
                       }
                       disabled={loading}

@@ -760,8 +760,12 @@ function ManualSearchPanel({
               {eventsState === 'loading' ? 'Đang tải sự kiện...' : 'Chọn sự kiện để tải danh sách vé'}
             </option>
             {assignedEvents.map((event) => {
+              const sessionLabel = event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0)
+                ? `Phiên: ${event.session_name || event.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}`
+                : null
               const dutyParts = [
                 event.staff_role || 'Nhân sự',
+                sessionLabel,
                 event.gate ? `Cổng: ${event.gate}` : null,
                 event.zone ? `Khu vực: ${event.zone}` : null,
               ].filter(Boolean).join(' • ')
@@ -783,6 +787,14 @@ function ManualSearchPanel({
               <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
                 {selectedEvent.staff_role || 'Nhân sự'}
               </span>
+              {selectedEvent.session_name || (selectedEvent.assigned_sessions && selectedEvent.assigned_sessions.length > 0) ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/15 px-2 py-0.5 font-bold text-cyan-400">
+                  <Clock3 className="size-3" />
+                  Phiên: {selectedEvent.session_name || selectedEvent.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}
+                </span>
+              ) : (
+                <span className="rounded-md bg-white/5 px-2 py-0.5 text-muted">Toàn bộ sự kiện</span>
+              )}
               {selectedEvent.gate ? (
                 <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/15 px-2 py-0.5 font-bold text-purple-400">
                   <DoorOpen className="size-3" />

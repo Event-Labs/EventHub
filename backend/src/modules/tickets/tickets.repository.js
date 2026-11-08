@@ -296,6 +296,11 @@ class TicketsRepository {
       JOIN event_staffs staff_scope
         ON staff_scope.event_id = t.event_id
        AND staff_scope.staff_id = $1
+       AND (
+         staff_scope.session_ids IS NULL
+         OR jsonb_array_length(staff_scope.session_ids) = 0
+         OR staff_scope.session_ids @> to_jsonb(t.event_session_id::text)
+       )
       WHERE e.deleted_at IS NULL
         AND (
           e.status = 'PUBLISHED'
@@ -335,6 +340,11 @@ class TicketsRepository {
             OR (scoped_event.status = 'COMPLETED' AND scoped_event.approval_status = 'APPROVED')
           )
           AND COALESCE(scoped_event.end_time, scoped_event.start_time) >= now()
+          AND (
+            escope.session_ids IS NULL
+            OR jsonb_array_length(escope.session_ids) = 0
+            OR escope.session_ids @> to_jsonb(t.event_session_id::text)
+          )
       ) THEN 0 ELSE 1 END
       LIMIT 1
       `,
@@ -357,9 +367,14 @@ class TicketsRepository {
           OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
         )
         AND COALESCE(e.end_time, e.start_time) >= now()
+        AND (
+          es.session_ids IS NULL
+          OR jsonb_array_length(es.session_ids) = 0
+          OR es.session_ids @> to_jsonb($3::text)
+        )
       LIMIT 1
       `,
-      [ticket.event_id, staffId],
+      [ticket.event_id, staffId, ticket.event_session_id],
     );
 
     return {
@@ -391,6 +406,11 @@ class TicketsRepository {
             FROM event_staffs staff_scope
             WHERE staff_scope.event_id = t.event_id
               AND staff_scope.staff_id = $2
+              AND (
+                staff_scope.session_ids IS NULL
+                OR jsonb_array_length(staff_scope.session_ids) = 0
+                OR staff_scope.session_ids @> to_jsonb(t.event_session_id::text)
+              )
           ) AS has_staff_access
         FROM tickets t
         JOIN event_sessions es ON es.id = t.event_session_id

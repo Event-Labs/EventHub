@@ -28,6 +28,7 @@ import {
 } from './OrganizerComponents.jsx'
 import { EventActionsDropdown } from './EventActionsDropdown.jsx'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
+import { ToggleSalesConfirmModal } from './OrganizerEventModals.jsx'
 import {
   cancelOrganizerEvent,
   deleteOrganizerDraftEvent,
@@ -509,113 +510,6 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Toggle Sales Confirm Modal
-// ---------------------------------------------------------------------------
-function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) {
-  const isCurrentlyPaused = event?.sales_status === 'PAUSED'
-  const isHidden = event?.display_state === 'HIDDEN_BY_ORGANIZER' || event?.status === 'HIDDEN'
-  const [reasonNote, setReasonNote] = useState('')
-
-  const handleConfirm = () => {
-    onConfirm({ reason: isCurrentlyPaused ? '' : reasonNote.trim() })
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
-        {/* Header */}
-        <div className="flex items-start gap-3">
-          <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${isCurrentlyPaused ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-            {isCurrentlyPaused ? <PlayCircle className="size-5" /> : <PauseCircle className="size-5" />}
-          </span>
-          <div>
-            <h3 className="text-xl font-black text-white">
-              {isCurrentlyPaused ? 'Xác nhận mở bán lại vé' : 'Xác nhận tạm dừng bán vé'}
-            </h3>
-            <p className="mt-1 text-sm text-slate-300">
-              {isCurrentlyPaused
-                ? 'Khách hàng có thể tiếp tục mua vé sau khi mở bán lại.'
-                : 'Khách hàng sẽ tạm thời không thể đặt mua vé mới cho sự kiện này.'}
-            </p>
-          </div>
-        </div>
-
-        {/* Event info */}
-        <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-4">
-          <p className="text-base font-bold text-white">{event.title}</p>
-          <p className="mt-1 text-xs text-slate-300">
-            Ngày diễn ra: {formatEventDate(event.start_time)}
-          </p>
-        </div>
-
-        {isCurrentlyPaused && isHidden ? (
-          <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/15 p-3.5 text-xs text-rose-200">
-            <p className="font-bold flex items-center gap-1.5 text-rose-300 mb-1">
-              <AlertTriangle className="size-4 shrink-0" /> Sự kiện đang ở trạng thái TẠM ẨN
-            </p>
-            <p>
-              Không thể kích hoạt bán vé khi sự kiện đang bị ẩn khỏi hệ thống. Vui lòng sử dụng tính năng <strong>&quot;Hiện lại sự kiện&quot;</strong> trước.
-            </p>
-          </div>
-        ) : !isCurrentlyPaused ? (
-          <div className="mt-4">
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Lý do tạm dừng bán (Tùy chọn)
-            </label>
-            <input
-              type="text"
-              value={reasonNote}
-              onChange={(e) => setReasonNote(e.target.value)}
-              placeholder="Ví dụ: Kiểm tra số lượng vé, bảo trì thông tin..."
-              className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-primary"
-            />
-          </div>
-        ) : null}
-
-        {/* Warning / Note */}
-        {!isHidden && (
-          <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyPaused ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
-            {isCurrentlyPaused ? (
-              <p>💡 Các loại vé còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
-            ) : (
-              <p>⚠️ Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái "Tạm dừng bán".</p>
-            )}
-          </div>
-        )}
-
-        {/* Buttons */}
-        <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
-          >
-            Hủy bỏ
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={loading || (isCurrentlyPaused && isHidden)}
-            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
-                Đang xử lý...
-              </span>
-            ) : isCurrentlyPaused ? (
-              'Mở bán lại ngay'
-            ) : (
-              'Tạm dừng bán'
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Delete Draft Confirm Modal
@@ -898,8 +792,11 @@ export function OrganizerEventsPage() {
       if (payload.action === 'RESUME_TICKET_TYPE' && payload.ticketTypeId) {
         await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeId: payload.ticketTypeId })
         toast.success(`Đã mở bán lại cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
-      } else if (payload.action === 'RESUME_ALL_TICKETS' && Array.isArray(payload.ticketTypeIds)) {
-        await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeIds: payload.ticketTypeIds })
+      } else if (payload.action === 'RESUME_ALL_TICKETS') {
+        const ticketTypeIds = Array.isArray(payload.ticketTypeIds) && payload.ticketTypeIds.length > 0
+          ? payload.ticketTypeIds
+          : undefined
+        await resumeSalesOrganizerEvent(salesTarget.id, ticketTypeIds ? { ticketTypeIds } : {})
         toast.success('Đã mở bán lại cho tất cả các hạng vé đã chọn.')
       } else if (payload.scope === 'SPECIFIC' && (payload.ticketTypeIds?.length || payload.ticketTypeId)) {
         const ticketTypeIds = payload.ticketTypeIds || [payload.ticketTypeId]

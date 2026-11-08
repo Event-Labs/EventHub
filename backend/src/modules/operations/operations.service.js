@@ -30,24 +30,25 @@ class OperationsService {
     const notificationsUrl = `${process.env.CLIENT_URL}/notifications`;
     const subject = `Lời mời làm staff cho sự kiện ${event.title}`;
     const role = invitation.staff_role || 'Staff';
+    const sessionStr = invitation.session_name ? ` (Phiên: ${invitation.session_name})` : ' (Toàn bộ sự kiện)';
     const locParts = [
       invitation.gate ? `tại ${invitation.gate}` : '',
       invitation.zone ? `khu vực ${invitation.zone}` : '',
     ].filter(Boolean);
-    const locationStr = locParts.length > 0 ? ` (${locParts.join(' • ')})` : '';
+    const locationStr = locParts.length > 0 ? ` [${locParts.join(' • ')}]` : '';
     const expiresAt = this.formatVietnamDateTime(invitation.expires_at);
     const organizerName = organizer.organization_name || 'Ban tổ chức';
     const message = [
       `Xin chào ${invitedUser.full_name || invitedUser.email},`,
       '',
-      `${organizerName} đã mời bạn làm ${role}${locationStr} cho sự kiện "${event.title}".`,
+      `${organizerName} đã mời bạn làm ${role}${locationStr} cho sự kiện "${event.title}"${sessionStr}.`,
       `Lời mời hết hạn lúc: ${expiresAt}.`,
       '',
       `Vui lòng đăng nhập EventHub và vào trang Thông báo để chấp nhận hoặc từ chối lời mời: ${notificationsUrl}`,
     ].join('\n');
     const html = `
       <p>Xin chào <strong>${this.escapeHtml(invitedUser.full_name || invitedUser.email)}</strong>,</p>
-      <p><strong>${this.escapeHtml(organizerName)}</strong> đã mời bạn làm <strong>${this.escapeHtml(role)}</strong>${locationStr ? ` (<strong>${this.escapeHtml(locationStr)}</strong>)` : ''} cho sự kiện <strong>${this.escapeHtml(event.title)}</strong>.</p>
+      <p><strong>${this.escapeHtml(organizerName)}</strong> đã mời bạn làm <strong>${this.escapeHtml(role)}</strong>${locationStr ? ` (<strong>${this.escapeHtml(locationStr)}</strong>)` : ''} cho sự kiện <strong>${this.escapeHtml(event.title)}</strong> <em>${this.escapeHtml(sessionStr)}</em>.</p>
       <p>Lời mời hết hạn lúc: <strong>${this.escapeHtml(expiresAt)}</strong>.</p>
       <p>
         <a href="${this.escapeHtml(notificationsUrl)}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">
@@ -229,14 +230,17 @@ class OperationsService {
     }
   }
 
-  async assertStaffScheduleAvailable(staffId, eventId) {
-    const conflict = await operationsRepository.findStaffScheduleConflict(staffId, eventId);
+  async assertStaffScheduleAvailable(staffId, eventId, sessionIds = null) {
+    const conflict = await operationsRepository.findStaffScheduleConflict(staffId, eventId, sessionIds);
     if (!conflict) return;
 
     const conflictStart = this.formatVietnamDateTime(conflict.start_time);
     const conflictEnd = this.formatVietnamDateTime(conflict.end_time || conflict.start_time);
+    const sessionDetail = conflict.conflict_session_name && conflict.conflict_session_name !== conflict.event_title
+      ? ` (${conflict.conflict_session_name})`
+      : '';
     throw new AppError(
-      `Nhân sự đã có lịch tại sự kiện "${conflict.event_title}" từ ${conflictStart} đến ${conflictEnd}.`,
+      `Nhân sự đã có lịch tại sự kiện "${conflict.event_title}"${sessionDetail} từ ${conflictStart} đến ${conflictEnd}.`,
       409,
       ErrorCodes.STAFF_SCHEDULE_CONFLICT,
       conflict,
@@ -307,7 +311,24 @@ class OperationsService {
       throw new AppError('Đã có lời mời đang chờ xử lý cho email này.', 409, ErrorCodes.STAFF_INVITE_PENDING_EXISTS);
     }
 
-    await this.assertStaffScheduleAvailable(invitedUser.id, payload.event_id);
+    // Process session selection
+    let normalizedSessionIds = null;
+    let sessionName = null;
+    if (Array.isArray(payload.session_ids) && payload.session_ids.length > 0) {
+      normalizedSessionIds = payload.session_ids;
+    } else if (payload.session_id) {
+      normalizedSessionIds = [payload.session_id];
+    }
+
+    if (normalizedSessionIds && normalizedSessionIds.length > 0) {
+      const validSessions = await operationsRepository.findEventSessions(payload.event_id, normalizedSessionIds);
+      if (validSessions.length !== normalizedSessionIds.length) {
+        throw new AppError('Một hoặc nhiều phiên sự kiện đã chọn không hợp lệ hoặc không thuộc sự kiện này.', 400, ErrorCodes.INVALID_INPUT);
+      }
+      sessionName = validSessions.map((s, idx) => s.session_name || `Phiên ${idx + 1}`).join(', ');
+    }
+
+    await this.assertStaffScheduleAvailable(invitedUser.id, payload.event_id, normalizedSessionIds);
 
     const quota = await this.assertStaffQuotaAvailable(organizer.id, payload.event_id);
 
@@ -319,6 +340,8 @@ class OperationsService {
       staffRole: payload.staff_role,
       gate: payload.gate,
       zone: payload.zone,
+      sessionIds: normalizedSessionIds,
+      sessionName,
       invitedBy: userId,
     });
 
@@ -348,7 +371,7 @@ class OperationsService {
     };
   }
 
-  async updateStaffAssignment(userId, { eventId, staffId, staffRole, gate, zone }) {
+  async updateStaffAssignment(userId, { eventId, staffId, staffRole, gate, zone, sessionId, sessionIds }) {
     const organizer = await this.getOrganizerContext(userId);
     const event = await this.resolveOrganizerEvent(organizer.id, eventId);
     this.assertEventStaffManageable(event);
@@ -358,10 +381,25 @@ class OperationsService {
       throw new AppError('Không tìm thấy phân công nhân sự cho sự kiện này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
+    let normalizedSessionIds = undefined;
+    if (sessionId !== undefined) {
+      normalizedSessionIds = sessionId ? [sessionId] : null;
+    } else if (sessionIds !== undefined) {
+      normalizedSessionIds = Array.isArray(sessionIds) && sessionIds.length > 0 ? sessionIds : null;
+    }
+
+    if (normalizedSessionIds && normalizedSessionIds.length > 0) {
+      const validSessions = await operationsRepository.findEventSessions(eventId, normalizedSessionIds);
+      if (validSessions.length !== normalizedSessionIds.length) {
+        throw new AppError('Một hoặc nhiều phiên sự kiện đã chọn không hợp lệ hoặc không thuộc sự kiện này.', 400, ErrorCodes.INVALID_INPUT);
+      }
+    }
+
     const updated = await operationsRepository.updateStaffAssignment(eventId, staffId, {
       staffRole: staffRole !== undefined ? staffRole : existing.staff_role,
       gate: gate !== undefined ? gate : existing.gate,
       zone: zone !== undefined ? zone : existing.zone,
+      sessionIds: normalizedSessionIds,
     });
 
     return updated;
