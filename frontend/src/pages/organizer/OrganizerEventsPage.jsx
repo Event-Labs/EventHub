@@ -236,7 +236,7 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white my-8">
+      <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0b1329] p-6 sm:p-7 shadow-2xl shadow-black/90 text-white my-8">
         {/* Header */}
         <div className="flex items-start gap-3">
           <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${hasPaidOrders ? 'bg-amber-500/15 text-amber-400' : 'bg-error/15 text-error'}`}>
@@ -345,16 +345,16 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
               </div>
 
               {/* Commitment Checkbox */}
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5">
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-amber-200">
+              <div className="pt-1.5">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-white select-none">
                   <input
                     type="checkbox"
                     checked={commitmentAccepted}
                     onChange={(e) => setCommitmentAccepted(e.target.checked)}
-                    className="mt-1 size-4 rounded border-amber-500 text-primary focus:ring-primary shrink-0"
+                    className="mt-0.5 size-4 rounded border border-white/20 bg-slate-900/60 accent-[#C99A47] cursor-pointer focus:ring-1 focus:ring-[#C99A47] shrink-0"
                   />
                   <span>
-                    <strong>Cam kết nghĩa vụ hoàn tiền (Bắt buộc):</strong> Tôi cam kết sẽ thực hiện hoàn trả 100% tiền vé cho người mua trong vòng tối đa 7 ngày làm việc. Tôi hiểu rõ EventHub là nền tảng trung gian không giữ tiền vé, và toàn bộ nghĩa vụ tài chính hoàn tiền thuộc về Ban tổ chức.
+                    <strong className="font-semibold text-white">Cam kết nghĩa vụ hoàn tiền (Bắt buộc):</strong> Tôi cam kết sẽ thực hiện hoàn trả 100% tiền vé cho người mua trong vòng tối đa 7 ngày làm việc. Tôi hiểu rõ EventHub là nền tảng trung gian không giữ tiền vé, và toàn bộ nghĩa vụ tài chính hoàn tiền thuộc về Ban tổ chức.
                   </span>
                 </label>
               </div>
@@ -386,7 +386,7 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
               disabled={loading}
               className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
             >
-              Giữ lại
+              Hủy bỏ
             </button>
             <button
               type="submit"
@@ -1029,11 +1029,10 @@ export function OrganizerEventsPage() {
                     key={pNum}
                     type="button"
                     onClick={() => setPage(pNum)}
-                    className={`size-8 rounded-xl text-xs font-bold transition cursor-pointer ${
-                      page === pNum
+                    className={`size-8 rounded-xl text-xs font-bold transition cursor-pointer ${page === pNum
                         ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
                         : 'border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary'
-                    }`}
+                      }`}
                   >
                     {pNum}
                   </button>

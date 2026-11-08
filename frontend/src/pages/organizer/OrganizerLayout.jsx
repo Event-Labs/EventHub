@@ -110,7 +110,7 @@ export function OrganizerLayout() {
           sources={[organizerAvatarUrl, googleAvatarUrl]}
           name={organizerDisplayName}
           alt="Ảnh đại diện nhà tổ chức"
-          className="size-7"
+          className="size-8 sm:size-8.5"
           fallback="EH"
         />
       }

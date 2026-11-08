@@ -1,6 +1,7 @@
 const { z } = require('zod');
 
 const VALID_STATUS_FILTERS = [
+  'ALL',
   'PENDING_REVIEW',
   'CANCEL_REQUESTS',
   'CANCELLATION_REQUESTS',

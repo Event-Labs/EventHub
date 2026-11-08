@@ -272,7 +272,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white my-8">
+      <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0b1329] p-6 sm:p-7 shadow-2xl shadow-black/90 text-white my-8">
         <div className="flex items-start gap-3">
           <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${isCurrentlyPaused ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
             {isCurrentlyPaused ? <PlayCircle className="size-5" /> : <PauseCircle className="size-5" />}
@@ -317,11 +317,10 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                 <button
                   type="button"
                   onClick={() => setScope('ALL')}
-                  className={`rounded-xl border p-2.5 text-left transition ${
-                    scope === 'ALL'
+                  className={`rounded-xl border p-2.5 text-left transition ${scope === 'ALL'
                       ? 'border-[#C99A47] bg-[#C99A47]/15 text-white ring-1 ring-[#C99A47]'
                       : 'border-white/10 bg-[#121c38] text-slate-300 hover:border-white/20'
-                  }`}
+                    }`}
                 >
                   <p className="text-xs font-bold flex items-center gap-1.5">
                     <span className={`size-2 rounded-full ${scope === 'ALL' ? 'bg-[#C99A47]' : 'bg-slate-500'}`} />
@@ -333,11 +332,10 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                 <button
                   type="button"
                   onClick={() => setScope('SPECIFIC')}
-                  className={`rounded-xl border p-2.5 text-left transition ${
-                    scope === 'SPECIFIC'
+                  className={`rounded-xl border p-2.5 text-left transition ${scope === 'SPECIFIC'
                       ? 'border-[#C99A47] bg-[#C99A47]/15 text-white ring-1 ring-[#C99A47]'
                       : 'border-white/10 bg-[#121c38] text-slate-300 hover:border-white/20'
-                  }`}
+                    }`}
                 >
                   <p className="text-xs font-bold flex items-center gap-1.5">
                     <span className={`size-2 rounded-full ${scope === 'SPECIFIC' ? 'bg-[#C99A47]' : 'bg-slate-500'}`} />
@@ -371,7 +369,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                       className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition"
                     >
                       {selectedTicketTypeIds.length > 0 &&
-                      selectedTicketTypeIds.length === ticketTypes.filter((t) => !pausedTicketIds.has(String(t.id))).length
+                        selectedTicketTypeIds.length === ticketTypes.filter((t) => !pausedTicketIds.has(String(t.id))).length
                         ? 'Bỏ chọn tất cả'
                         : 'Chọn tất cả'}
                     </button>
@@ -403,20 +401,19 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                                 : [...prev, String(tt.id)]
                             )
                           }}
-                          className={`flex items-center justify-between rounded-xl border p-2.5 transition select-none ${
-                            isTtPaused
+                          className={`flex items-center justify-between rounded-xl border p-2.5 transition select-none ${isTtPaused
                               ? 'border-amber-500/20 bg-amber-500/5 opacity-60 cursor-not-allowed'
                               : isChecked
                                 ? 'border-[#C99A47] bg-[#C99A47]/15 ring-1 ring-[#C99A47] cursor-pointer'
                                 : 'border-white/10 bg-[#121c38] hover:border-white/20 cursor-pointer'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <input
                               type="checkbox"
                               disabled={isTtPaused}
                               checked={isChecked}
-                              onChange={() => {}}
+                              onChange={() => { }}
                               className="size-4 rounded border-white/20 text-[#C99A47] focus:ring-[#C99A47] cursor-pointer"
                             />
                             <div className="min-w-0">
@@ -517,9 +514,9 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
         {!isHidden && (
           <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyPaused ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
             {isCurrentlyPaused ? (
-              <p>💡 Các loại vé còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
+              <p>Các loại vé còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
             ) : (
-              <p>⚠️ Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái &quot;Tạm dừng bán&quot; đối với loại vé đã chọn.</p>
+              <p>Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái &quot;Tạm dừng bán&quot; đối với loại vé đã chọn.</p>
             )}
           </div>
         )}
@@ -595,7 +592,7 @@ export function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading,
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white my-8">
+      <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0b1329] p-6 sm:p-7 shadow-2xl shadow-black/90 text-white my-8">
         <div className="flex items-start gap-3">
           <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${hasPaidOrders ? 'bg-amber-500/15 text-amber-400' : 'bg-rose-500/15 text-rose-400'}`}>
             {hasPaidOrders ? <ShieldAlert className="size-6" /> : <AlertTriangle className="size-6" />}
@@ -698,16 +695,16 @@ export function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading,
                 </div>
               </div>
 
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5">
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-amber-200">
+              <div className="pt-1.5">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-white select-none">
                   <input
                     type="checkbox"
                     checked={commitmentAccepted}
                     onChange={(e) => setCommitmentAccepted(e.target.checked)}
-                    className="mt-1 size-4 rounded border-amber-500 text-primary focus:ring-primary shrink-0"
+                    className="mt-0.5 size-4 rounded border border-white/20 bg-slate-900/60 accent-[#C99A47] cursor-pointer focus:ring-1 focus:ring-[#C99A47] shrink-0"
                   />
                   <span>
-                    <strong>Cam kết nghĩa vụ hoàn tiền (Bắt buộc):</strong> Tôi cam kết sẽ thực hiện hoàn trả 100% tiền vé cho người mua trong vòng tối đa 7 ngày làm việc. Tôi hiểu rõ EventHub là nền tảng trung gian không giữ tiền vé, và toàn bộ nghĩa vụ tài chính hoàn tiền thuộc về Ban tổ chức.
+                    <strong className="font-semibold text-white">Cam kết nghĩa vụ hoàn tiền (Bắt buộc):</strong> Tôi cam kết sẽ thực hiện hoàn trả 100% tiền vé cho người mua trong vòng tối đa 7 ngày làm việc. Tôi hiểu rõ EventHub là nền tảng trung gian không giữ tiền vé, và toàn bộ nghĩa vụ tài chính hoàn tiền thuộc về Ban tổ chức.
                   </span>
                 </label>
               </div>
@@ -738,7 +735,7 @@ export function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading,
               disabled={loading}
               className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
             >
-              Giữ lại
+              Hủy bỏ
             </button>
             <button
               type="submit"

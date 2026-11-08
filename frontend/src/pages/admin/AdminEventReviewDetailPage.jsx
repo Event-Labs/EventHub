@@ -1599,21 +1599,18 @@ export function AdminEventReviewDetailPage() {
           <h1 className="font-display text-base sm:text-xl font-black text-white drop-shadow-sm line-clamp-2 max-w-2xl">
             {event.title}
           </h1>
-          {event.pending_revision && event.pending_revision.status === 'SUBMITTED' ? (
+          {event.status === 'CANCELLED' ? (
+            <Badge tone="red">Đã hủy</Badge>
+          ) : event.cancel_request?.status === 'PENDING' ? (
+            <Badge tone="red">Chờ duyệt hủy</Badge>
+          ) : event.display_state === 'SUSPENDED_BY_ADMIN' ? (
+            <Badge tone="red">Bị đình chỉ</Badge>
+          ) : event.pending_revision && event.pending_revision.status === 'SUBMITTED' ? (
             <Badge tone="amber">Sửa đổi chờ duyệt</Badge>
+          ) : event.sales_status === 'PAUSED' ? (
+            <Badge tone="amber">Tạm dừng bán vé</Badge>
           ) : (
             <StatusBadge status={event.status} />
-          )}
-          {event.display_state === 'SUSPENDED_BY_ADMIN' && (
-            <Badge tone="red">Bị đình chỉ</Badge>
-          )}
-          {event.sales_status === 'PAUSED' && (
-            <Badge tone="amber">Tạm dừng bán vé</Badge>
-          )}
-          {event.cancel_request?.status === 'PENDING' && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-              Yêu cầu hủy sự kiện
-            </span>
           )}
         </div>
 

@@ -51,7 +51,7 @@ export function AdminLayout() {
           sources={user?.avatar_url}
           name={user?.full_name || user?.email || 'Admin'}
           alt="Ảnh đại diện quản trị viên"
-          className="size-7"
+          className="size-8 sm:size-8.5"
           fallback="AD"
         />
       }

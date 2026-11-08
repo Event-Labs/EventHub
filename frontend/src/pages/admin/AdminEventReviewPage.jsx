@@ -57,6 +57,7 @@ import { AdminSuspendModal } from './AdminSuspendModal.jsx'
 // Config
 // ---------------------------------------------------------------------------
 const STATUS_TABS = [
+  { label: 'Tất cả', value: 'ALL' },
   { label: 'Chờ duyệt', value: 'PENDING_REVIEW' },
   { label: 'Đang chờ hủy', value: 'CANCEL_REQUESTS' },
   { label: 'Đã hủy', value: 'CANCELLED' },
@@ -67,33 +68,68 @@ const STATUS_TABS = [
 ]
 
 /**
- * Both REJECTED and HIDDEN events share status='HIDDEN' in the DB.
- * Distinguish them via approval_status:
- *   HIDDEN + approval_status=REJECTED → event failed admin review ("Từ chối")
- *   HIDDEN + approval_status=APPROVED → event was published then hidden for violations ("Đã ẩn")
+ * Render single prioritized status badge for an event.
+ * Exactly 1 badge is displayed per event.
  */
-function statusBadge(status, approvalStatus, displayState) {
-  if (displayState === 'SUSPENDED_BY_ADMIN') {
+function statusBadge(eventOrStatus, approvalStatus, displayState, activeStatus) {
+  const event = typeof eventOrStatus === 'object' && eventOrStatus !== null ? eventOrStatus : null
+  const status = event ? event.status : eventOrStatus
+  const approval = event ? event.approval_status : approvalStatus
+  const display = event ? event.display_state : displayState
+
+  // 1. Highest priority: Cancelled (Đã hủy)
+  if (status === 'CANCELLED') {
+    return <Badge tone="red">Đã hủy</Badge>
+  }
+
+  // 2. Cancellation request pending (Chờ duyệt hủy)
+  if (event?.cancel_request?.status === 'PENDING') {
+    return <Badge tone="red">Chờ duyệt hủy</Badge>
+  }
+
+  // 3. Suspended by Admin (Bị đình chỉ)
+  if (display === 'SUSPENDED_BY_ADMIN') {
     return <Badge tone="red">Bị đình chỉ</Badge>
   }
-  if (displayState === 'HIDDEN_BY_ORGANIZER') {
+
+  // 4. Hidden by Organizer (BTC Tạm ẩn)
+  if (display === 'HIDDEN_BY_ORGANIZER') {
     return <Badge tone="gray">BTC Tạm ẩn</Badge>
   }
+
+  // 5. Rejected by Admin / Hidden (Từ chối / Đã ẩn)
   if (status === 'HIDDEN') {
-    return approvalStatus === 'REJECTED'
+    return approval === 'REJECTED'
       ? <Badge tone="red">Từ chối</Badge>
       : <Badge tone="gray">Đã ẩn</Badge>
   }
-  if (status === 'COMPLETED' && approvalStatus === 'APPROVED') {
-    return <Badge tone="green">Đã duyệt</Badge>
+
+  // 6. Pending revision waiting review (Sửa đổi chờ duyệt)
+  if (event?.pending_revision && event.pending_revision.status === 'SUBMITTED') {
+    return <Badge tone="amber">Sửa đổi chờ duyệt</Badge>
   }
+
+  // 7. Cancellation request rejected (Từ chối hủy)
+  if (event?.cancel_request?.status === 'REJECTED' && (activeStatus === 'CANCEL_REJECTED' || status === 'CANCEL_REJECTED')) {
+    return <Badge tone="gray">Từ chối hủy</Badge>
+  }
+
+  // 8. Completed & Approved or Ended
+  if (status === 'COMPLETED') {
+    return approval === 'APPROVED'
+      ? <Badge tone="green">Đã duyệt</Badge>
+      : <Badge tone="purple">Đã kết thúc</Badge>
+  }
+
+  // 9. Standard status mapping
   const map = {
     PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
     PUBLISHED: { tone: 'green', label: 'Đã duyệt' },
     CANCELLED: { tone: 'red', label: 'Đã hủy' },
     COMPLETED: { tone: 'purple', label: 'Đã kết thúc' },
+    DRAFT: { tone: 'gray', label: 'Bản nháp' },
   }
-  const cfg = map[status] ?? { tone: 'gray', label: status }
+  const cfg = map[status] ?? { tone: 'gray', label: status || '—' }
   return <Badge tone={cfg.tone}>{cfg.label}</Badge>
 }
 
@@ -655,7 +691,9 @@ export function AdminEventReviewPage() {
       )}
       {!isLoading && !isError && items.length === 0 && (
         <Panel className="mt-5 text-sm text-subtle">
-          Không có sự kiện nào ở trạng thái này.
+          {activeStatus === 'ALL'
+            ? 'Chưa có sự kiện nào trên hệ thống.'
+            : 'Không có sự kiện nào ở trạng thái này.'}
         </Panel>
       )}
 
@@ -706,29 +744,17 @@ export function AdminEventReviewPage() {
 
                 /* Submitted date */
                 <span key="sub" className="text-sm text-subtle">
-                  {formatDate(event.created_at)}
+                  {formatDate(
+                    event.request_date ||
+                    event.cancel_request?.requested_at ||
+                    event.pending_revision?.submitted_at ||
+                    event.created_at
+                  )}
                 </span>,
 
                 /* Status badge */
                 <span key="status">
-                  <div className="flex flex-col gap-1 items-start">
-                    {statusBadge(event.status, event.approval_status, event.display_state)}
-                    {event.cancel_request?.status === 'PENDING' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse whitespace-nowrap">
-                        Chờ duyệt hủy
-                      </span>
-                    )}
-                    {event.cancel_request?.status === 'REJECTED' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-500/20 text-zinc-300 border border-zinc-500/40 whitespace-nowrap">
-                        Từ chối hủy
-                      </span>
-                    )}
-                    {event.pending_revision && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse whitespace-nowrap">
-                        Sửa đổi chờ duyệt
-                      </span>
-                    )}
-                  </div>
+                  {statusBadge(event, event.approval_status, event.display_state, activeStatus)}
                 </span>,
 
                 /* Actions */
@@ -773,7 +799,7 @@ export function AdminEventReviewPage() {
                     }
                     icon={Eye}
                     onClick={() => {
-                      if (activeStatus === 'CANCEL_REJECTED') {
+                      if (activeStatus === 'CANCEL_REJECTED' || event.cancel_request?.status === 'REJECTED') {
                         navigate(`/admin/events/cancellations/${event.id}`)
                       } else {
                         navigate(`/admin/events/review/${event.id}`)
@@ -1004,7 +1030,7 @@ function EventReviewModal({
               : ''}
           </span>
         </p>
-        <div className="mt-2">{statusBadge(event.status, event.approval_status)}</div>
+        <div className="mt-2">{statusBadge(event)}</div>
 
         {/* Event thumbnail */}
         {event.thumbnail_url && (

@@ -170,7 +170,7 @@ export function AppLayout() {
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'nav'],
     queryFn: () => fetchNotifications({ limit: 5 }),
-    enabled: loggedIn && !hasAdminRole,
+    enabled: loggedIn,
   })
 
   const staffEventsQuery = useQuery({
@@ -275,10 +275,6 @@ export function AppLayout() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  if (loggedIn && hasAdminRole) {
-    return <Navigate to="/admin" replace />
-  }
-
   return (
     <div className="force-dark flex min-h-screen flex-col text-content bg-transparent relative">
       <CosmicStarryBackground />
@@ -304,7 +300,6 @@ export function AppLayout() {
             />
             {centerNavItems.map(([label, to, requiresAuth]) => {
               if (requiresAuth && !loggedIn) return null;
-              if (requiresAuth && hasAdminRole) return null;
               return (
                 <NavLink
                   key={label}
