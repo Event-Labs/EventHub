@@ -85,6 +85,19 @@ export function clearAuthSession({ dispatch = true } = {}) {
     storage.removeItem(AUTH_TOKEN_KEY)
     storage.removeItem(AUTH_USER_KEY)
     storage.removeItem(AUTH_FLAG_KEY)
+    storage.removeItem('eventhub-booking-draft')
+
+    // Clean up all event-specific booking drafts
+    try {
+      for (let i = storage.length - 1; i >= 0; i--) {
+        const key = storage.key(i)
+        if (key && key.startsWith('eventhub-booking-draft')) {
+          storage.removeItem(key)
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
   }
   localStorage.setItem(AUTH_FLAG_KEY, 'false')
   if (dispatch) dispatchAuthEvent({ type: 'logout' })

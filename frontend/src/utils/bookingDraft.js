@@ -135,27 +135,38 @@ export function clearBookingDraft(eventId = null) {
   try {
     if (eventId) {
       window.localStorage.removeItem(getEventDraftKey(eventId))
-      const mainRaw = window.localStorage.getItem(BOOKING_DRAFT_KEY)
-      if (mainRaw) {
-        try {
-          const mainCart = JSON.parse(mainRaw)
-          if (String(mainCart?.eventId) === String(eventId)) {
-            window.localStorage.removeItem(BOOKING_DRAFT_KEY)
-          }
-        } catch { }
-      }
-      return
     }
-
     const mainRaw = window.localStorage.getItem(BOOKING_DRAFT_KEY)
     if (mainRaw) {
       try {
         const mainCart = JSON.parse(mainRaw)
-        if (mainCart?.eventId) {
-          window.localStorage.removeItem(getEventDraftKey(mainCart.eventId))
+        if (
+          !eventId ||
+          !mainCart?.eventId ||
+          String(mainCart?.eventId) === String(eventId) ||
+          String(mainCart?.eventSlug) === String(eventId)
+        ) {
+          window.localStorage.removeItem(BOOKING_DRAFT_KEY)
+          if (mainCart?.eventId) {
+            window.localStorage.removeItem(getEventDraftKey(mainCart.eventId))
+          }
         }
       } catch { }
     }
-    window.localStorage.removeItem(BOOKING_DRAFT_KEY)
+    if (!eventId) {
+      window.localStorage.removeItem(BOOKING_DRAFT_KEY)
+    }
+
+    // Sweep any leftover booking draft keys in localStorage
+    const keysToRemove = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (k && k.startsWith(BOOKING_DRAFT_KEY)) {
+        if (!eventId || k.includes(String(eventId))) {
+          keysToRemove.push(k)
+        }
+      }
+    }
+    keysToRemove.forEach((k) => window.localStorage.removeItem(k))
   } catch { }
 }
