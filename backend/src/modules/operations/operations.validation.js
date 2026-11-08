@@ -8,12 +8,16 @@ const inviteStaffSchema = z.object({
   staff_role: z.string().trim().min(2).max(50).optional().nullable(),
   gate: z.string().trim().max(100).optional().nullable(),
   zone: z.string().trim().max(100).optional().nullable(),
+  session_id: uuidSchema.optional().nullable(),
+  session_ids: z.array(uuidSchema).optional().nullable(),
 });
 
 const updateStaffAssignmentSchema = z.object({
   staff_role: z.string().trim().min(2).max(50).optional().nullable(),
   gate: z.string().trim().max(100).optional().nullable(),
   zone: z.string().trim().max(100).optional().nullable(),
+  session_id: uuidSchema.optional().nullable(),
+  session_ids: z.array(uuidSchema).optional().nullable(),
 });
 
 const invitationIdParamSchema = z.object({

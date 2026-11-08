@@ -444,7 +444,7 @@ class EventBusinessRulesService {
           if (
             b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE &&
             !b.released_at &&
-            targetResumeIds.includes(String(b.metadata?.ticket_type_id))
+            (targetResumeIds.includes(String(b.metadata?.ticket_type_id)) || targetResumeIds.includes(String(b.id)))
           ) {
             return {
               ...b,

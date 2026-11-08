@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
+  Check,
   CheckCircle2,
   ChevronDown,
   Clock,
-
+  DoorOpen,
   Edit2,
   Layers,
   Loader2,
@@ -50,6 +51,17 @@ function isStaffManageableEvent(event) {
   const effectiveEnd = event.end_time || event.start_time
   if (!effectiveEnd) return false
   return new Date(effectiveEnd).getTime() >= Date.now()
+}
+
+function formatSessionTime(startTime, endTime) {
+  if (!startTime) return ''
+  const start = new Date(startTime)
+  const dateStr = start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const timeStart = start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  if (!endTime) return `${timeStart}, ${dateStr}`
+  const end = new Date(endTime)
+  const timeEnd = end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${timeStart} - ${timeEnd}, ${dateStr}`
 }
 
 export function OrganizerStaffManagementPage() {
@@ -279,12 +291,13 @@ export function OrganizerStaffManagementPage() {
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[840px] text-left text-sm">
+                  <table className="w-full min-w-[920px] text-left text-sm">
                     <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Nhân sự</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Email</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Ngày phân công</th>
@@ -302,7 +315,46 @@ export function OrganizerStaffManagementPage() {
                             <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
                           </td>
                           <td className="px-3.5 py-3">
-                            <Badge tone="purple">{staff.gate || 'Tất cả cổng'}</Badge>
+                            {staff.assigned_sessions && staff.assigned_sessions.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {staff.assigned_sessions.map((sess) => (
+                                  <Badge key={sess.id} tone="cyan">
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="size-3" />
+                                      {sess.session_name || 'Phiên làm việc'}
+                                    </span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : staff.session_ids && staff.session_ids.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {staff.session_ids.map((sId) => {
+                                  const sess = selectedEvent?.sessions?.find((s) => s.id === sId)
+                                  return (
+                                    <Badge key={sId} tone="cyan">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="size-3" />
+                                        {sess?.session_name || 'Phiên làm việc'}
+                                      </span>
+                                    </Badge>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted">Toàn bộ sự kiện</span>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-3">
+                            {staff.gate ? (
+                              <Badge tone="purple">
+                                <span className="flex items-center gap-1">
+                                  <DoorOpen className="size-3" />
+                                  {staff.gate}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Tất cả cổng</span>
+                            )}
                           </td>
                           <td className="px-3.5 py-3">
                             {staff.zone ? (
@@ -365,12 +417,13 @@ export function OrganizerStaffManagementPage() {
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[880px] text-left text-sm">
+                  <table className="w-full min-w-[940px] text-left text-sm">
                     <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Email</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Người nhận</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên sự kiện</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
@@ -385,7 +438,53 @@ export function OrganizerStaffManagementPage() {
                           <td className="px-3.5 py-3 text-white">{inv.invited_user_name || '—'}</td>
                           <td className="px-3.5 py-3 text-white">{inv.staff_role || 'Staff'}</td>
                           <td className="px-3.5 py-3">
-                            <Badge tone="purple">{inv.gate || 'Tất cả cổng'}</Badge>
+                            {inv.session_ids && inv.session_ids.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {inv.session_ids.map((sId) => {
+                                  const sess = selectedEvent?.sessions?.find((s) => s.id === sId)
+                                  return (
+                                    <Badge key={sId} tone="cyan">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="size-3" />
+                                        {sess?.session_name || 'Phiên làm việc'}
+                                      </span>
+                                    </Badge>
+                                  )
+                                })}
+                              </div>
+                            ) : inv.session_name ? (
+                              <div className="flex flex-wrap gap-1">
+                                {inv.session_name.split(',').map((name, idx) => (
+                                  <Badge key={idx} tone="cyan">
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="size-3" />
+                                      {name.trim()}
+                                    </span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : inv.session_id ? (
+                              <Badge tone="cyan">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="size-3" />
+                                  {selectedEvent?.sessions?.find((s) => s.id === inv.session_id)?.session_name || 'Phiên được chọn'}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Toàn bộ sự kiện</span>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-3">
+                            {inv.gate ? (
+                              <Badge tone="purple">
+                                <span className="flex items-center gap-1">
+                                  <DoorOpen className="size-3" />
+                                  {inv.gate}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Tất cả cổng</span>
+                            )}
                           </td>
                           <td className="px-3.5 py-3">
                             {inv.zone ? (
@@ -459,6 +558,7 @@ export function OrganizerStaffManagementPage() {
         <EditStaffModal
           staff={editingStaff}
           eventId={selectedEventId}
+          eventSessions={selectedEvent?.sessions || []}
           onClose={() => setEditingStaff(null)}
           onUpdated={() => {
             toast.success('Đã cập nhật phân công nhân sự thành công.')
@@ -499,10 +599,24 @@ export function OrganizerStaffManagementPage() {
 
 // ─── Edit Staff Modal ─────────────────────────────────────────────────────────
 
-function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
+function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated }) {
   const toast = useToast()
+  const initialSessionIds = useMemo(() => {
+    if (Array.isArray(staff.session_ids) && staff.session_ids.length > 0) {
+      return staff.session_ids
+    }
+    if (Array.isArray(staff.assigned_sessions) && staff.assigned_sessions.length > 0) {
+      return staff.assigned_sessions.map((s) => s.id)
+    }
+    if (staff.session_id) {
+      return [staff.session_id]
+    }
+    return []
+  }, [staff])
+
   const [form, setForm] = useState({
     staff_role: staff.staff_role || 'Check-in',
+    session_ids: initialSessionIds,
     gate: staff.gate || '',
     zone: staff.zone || '',
   })
@@ -516,6 +630,8 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
         staff_role: form.staff_role.trim() || null,
         gate: form.gate.trim() || null,
         zone: form.zone.trim() || null,
+        session_id: form.session_ids.length === 1 ? form.session_ids[0] : null,
+        session_ids: form.session_ids.length > 0 ? form.session_ids : null,
       })
       onUpdated()
     } catch (err) {
@@ -528,27 +644,27 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full min-w-0 max-w-lg overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4 shrink-0">
           <div className="flex items-center gap-2 font-black text-white text-lg">
             <Edit2 className="size-5 text-primary" />
             Chỉnh sửa phân công: {staff.staff_name}
           </div>
           <button
-            className="grid size-8 place-items-center rounded-full text-muted hover:bg-panel-soft/60 transition-colors"
+            className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
             onClick={onClose}
           >
-            <X className="size-4" />
+            <X className="size-5" />
           </button>
         </div>
 
         <form className="min-w-0 px-6 py-5 overflow-y-auto" onSubmit={handleSubmit}>
           <div className="grid gap-4">
             {/* Role */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+            <label className="grid gap-1.5 text-sm font-bold text-white">
               Vai trò nhân sự
               <input
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
+                className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
                 placeholder="VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
                 value={form.staff_role}
                 onChange={(e) => setForm((f) => ({ ...f, staff_role: e.target.value }))}
@@ -556,70 +672,188 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
               />
             </label>
 
-            {/* Gate */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
-              Cổng soát vé / check-in phân công
-              <input
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
-                placeholder="VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)"
-                value={form.gate}
-                onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
-                disabled={saving}
-              />
-            </label>
+            {/* Sessions (Multi-select) */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Clock className="size-4 text-cyan-400" />
+                  Phiên sự kiện phân công
+                  <span className="text-xs font-normal text-slate-400">
+                    (chọn nhiều phiên hoặc toàn bộ sự kiện)
+                  </span>
+                </label>
+                {eventSessions.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, session_ids: [] }))}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        form.session_ids.length === 0
+                          ? 'border border-cyan-400 bg-cyan-400/20 text-cyan-300 font-bold'
+                          : 'border border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-cyan-400/40 hover:text-white'
+                      }`}
+                    >
+                      Toàn bộ sự kiện
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => {
+                          const allSelected = f.session_ids.length === eventSessions.length
+                          return {
+                            ...f,
+                            session_ids: allSelected ? [] : eventSessions.map((s) => s.id),
+                          }
+                        })
+                      }
+                      className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        form.session_ids.length === eventSessions.length && eventSessions.length > 0
+                          ? 'border border-cyan-400 bg-cyan-400/20 text-cyan-300 font-bold'
+                          : 'border border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-cyan-400/40 hover:text-white'
+                      }`}
+                    >
+                      {form.session_ids.length === eventSessions.length && eventSessions.length > 0
+                        ? 'Bỏ chọn tất cả'
+                        : `Chọn tất cả (${eventSessions.length})`}
+                    </button>
+                  </div>
+                )}
+              </div>
 
-            {/* Quick gate pills */}
-            <div className="flex flex-wrap gap-1.5">
-              {GATE_SUGGESTIONS.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.gate === suggestion
-                    ? 'border-primary bg-primary/15 text-primary'
-                    : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-primary/40 hover:text-content'
-                    }`}
-                  onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
-                >
-                  {suggestion}
-                </button>
-              ))}
+              {eventSessions.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-[#0d172e] px-3.5 py-2.5 text-xs text-slate-400">
+                  Sự kiện này không chia phiên làm việc (mặc định áp dụng cho toàn bộ sự kiện).
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {eventSessions.map((sess, idx) => {
+                    const isSelected = form.session_ids.includes(sess.id)
+                    const timeStr = formatSessionTime(sess.start_time, sess.end_time)
+                    return (
+                      <button
+                        key={sess.id}
+                        type="button"
+                        onClick={() => {
+                          setForm((f) => {
+                            const exists = f.session_ids.includes(sess.id)
+                            const updated = exists
+                              ? f.session_ids.filter((id) => id !== sess.id)
+                              : [...f.session_ids, sess.id]
+                            return { ...f, session_ids: updated }
+                          })
+                        }}
+                        className={`flex items-start gap-2.5 rounded-xl border p-2.5 text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-cyan-400 bg-cyan-500/15 text-white shadow-sm shadow-cyan-500/20'
+                            : 'border-white/10 bg-[#0d172e]/80 text-slate-300 hover:border-white/25 hover:bg-[#0d172e]'
+                        }`}
+                      >
+                        <div
+                          className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded border transition-colors ${
+                            isSelected
+                              ? 'border-cyan-400 bg-cyan-400 text-black'
+                              : 'border-white/30 bg-transparent'
+                          }`}
+                        >
+                          {isSelected && <Check className="size-3 stroke-[3]" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold leading-tight text-white truncate">
+                            {sess.session_name || `Phiên ${idx + 1}`}
+                          </p>
+                          {timeStr && (
+                            <p className="text-[11px] text-slate-400 mt-1 leading-tight">
+                              {timeStr}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {eventSessions.length > 0 && (
+                <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <span className="inline-block size-1.5 rounded-full bg-cyan-400" />
+                  {form.session_ids.length === 0 ? (
+                    <span className="text-cyan-300 font-medium">Toàn bộ sự kiện (nhân sự phụ trách tất cả các phiên)</span>
+                  ) : (
+                    <span className="text-cyan-300 font-medium">
+                      Đã chọn {form.session_ids.length} / {eventSessions.length} phiên làm việc
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
 
-            {/* Zone / Working area */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
-              Khu vực làm việc trong sự kiện
-              <input
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
-                placeholder="VD: Khu VIP, Khán đài A, Khu đứng GA, Tầng 1..."
-                value={form.zone}
-                onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
-                disabled={saving}
-              />
-            </label>
+            {/* Gate & Zone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="grid gap-1.5 text-sm font-bold text-white">
+                  Cổng check-in / phân công
+                  <input
+                    className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
+                    placeholder="VD: Cổng A, Cổng VIP... (để trống nếu phụ trách tất cả)"
+                    value={form.gate}
+                    onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
+                    disabled={saving}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {GATE_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        form.gate === suggestion
+                          ? 'border-primary bg-primary/20 text-primary font-bold'
+                          : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
+                      }`}
+                      onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            {/* Quick zone pills */}
-            <div className="flex flex-wrap gap-1.5">
-              {ZONE_SUGGESTIONS.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.zone === suggestion
-                    ? 'border-amber-500 bg-amber-500/15 text-amber-500'
-                    : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-amber-500/40 hover:text-content'
-                    }`}
-                  onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
-                >
-                  {suggestion}
-                </button>
-              ))}
+              <div className="space-y-2">
+                <label className="grid gap-1.5 text-sm font-bold text-white">
+                  Khu vực làm việc trong sự kiện
+                  <input
+                    className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
+                    placeholder="VD: Khu VIP, Khán đài A..."
+                    value={form.zone}
+                    onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
+                    disabled={saving}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ZONE_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        form.zone === suggestion
+                          ? 'border-amber-500 bg-amber-500/20 text-amber-400 font-bold'
+                          : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-amber-500/40 hover:text-white'
+                      }`}
+                      onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" className="org-btn-secondary" onClick={onClose} disabled={saving}>
+            <button type="button" className="org-btn-secondary px-5" onClick={onClose} disabled={saving}>
               Hủy
             </button>
-            <button type="submit" className="org-btn-primary" disabled={saving}>
+            <button type="submit" className="org-btn-primary px-5" disabled={saving}>
               {saving ? (
                 <><Loader2 className="size-4 animate-spin" /> Đang lưu...</>
               ) : (
@@ -650,6 +884,7 @@ function InviteStaffModal({
     : events[0]?.id || ''
   const [form, setForm] = useState({
     event_id: initialEventId,
+    session_ids: [],
     email: '',
     staff_role: 'Check-in',
     gate: '',
@@ -658,6 +893,12 @@ function InviteStaffModal({
   const [candidateSearch, setCandidateSearch] = useState('')
   const [candidates, setCandidates] = useState([])
   const [saving, setSaving] = useState(false)
+
+  const currentEvent = useMemo(
+    () => events.find((ev) => ev.id === form.event_id),
+    [events, form.event_id],
+  )
+  const eventSessions = currentEvent?.sessions || []
 
   // Debounced candidate search
   useEffect(() => {
@@ -686,6 +927,8 @@ function InviteStaffModal({
     try {
       const invitation = await inviteStaffToEvent({
         event_id: form.event_id,
+        session_id: form.session_ids.length === 1 ? form.session_ids[0] : null,
+        session_ids: form.session_ids.length > 0 ? form.session_ids : null,
         email: form.email.trim(),
         staff_role: form.staff_role.trim() || null,
         gate: form.gate.trim() || null,
@@ -736,7 +979,7 @@ function InviteStaffModal({
                 className="h-10 min-w-0 w-full truncate rounded-xl border border-white/15 bg-[#0d172e] px-3 pr-9 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                 title={events.find((ev) => ev.id === form.event_id)?.title || ''}
                 value={form.event_id}
-                onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value, session_ids: [] }))}
                 required
                 disabled={events.length === 0}
               >
@@ -746,6 +989,121 @@ function InviteStaffModal({
                 ))}
               </select>
             </label>
+
+            {/* Event Sessions (Multi-select) */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Clock className="size-4 text-cyan-400" />
+                  Phiên sự kiện
+                  <span className="text-xs font-normal text-slate-400">
+                    (chọn nhiều phiên hoặc toàn bộ sự kiện)
+                  </span>
+                </label>
+                {eventSessions.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, session_ids: [] }))}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        form.session_ids.length === 0
+                          ? 'border border-cyan-400 bg-cyan-400/20 text-cyan-300 font-bold'
+                          : 'border border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-cyan-400/40 hover:text-white'
+                      }`}
+                    >
+                      Toàn bộ sự kiện
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => {
+                          const allSelected = f.session_ids.length === eventSessions.length
+                          return {
+                            ...f,
+                            session_ids: allSelected ? [] : eventSessions.map((s) => s.id),
+                          }
+                        })
+                      }
+                      className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        form.session_ids.length === eventSessions.length && eventSessions.length > 0
+                          ? 'border border-cyan-400 bg-cyan-400/20 text-cyan-300 font-bold'
+                          : 'border border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-cyan-400/40 hover:text-white'
+                      }`}
+                    >
+                      {form.session_ids.length === eventSessions.length && eventSessions.length > 0
+                        ? 'Bỏ chọn tất cả'
+                        : `Chọn tất cả (${eventSessions.length})`}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {eventSessions.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-[#0d172e] px-3.5 py-2.5 text-xs text-slate-400">
+                  Sự kiện này không chia phiên làm việc (mặc định áp dụng cho toàn bộ sự kiện).
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                  {eventSessions.map((sess, idx) => {
+                    const isSelected = form.session_ids.includes(sess.id)
+                    const timeStr = formatSessionTime(sess.start_time, sess.end_time)
+                    return (
+                      <button
+                        key={sess.id}
+                        type="button"
+                        onClick={() => {
+                          setForm((f) => {
+                            const exists = f.session_ids.includes(sess.id)
+                            const updated = exists
+                              ? f.session_ids.filter((id) => id !== sess.id)
+                              : [...f.session_ids, sess.id]
+                            return { ...f, session_ids: updated }
+                          })
+                        }}
+                        className={`flex items-start gap-2.5 rounded-xl border p-2.5 text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-cyan-400 bg-cyan-500/15 text-white shadow-sm shadow-cyan-500/20'
+                            : 'border-white/10 bg-[#0d172e]/80 text-slate-300 hover:border-white/25 hover:bg-[#0d172e]'
+                        }`}
+                      >
+                        <div
+                          className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded border transition-colors ${
+                            isSelected
+                              ? 'border-cyan-400 bg-cyan-400 text-black'
+                              : 'border-white/30 bg-transparent'
+                          }`}
+                        >
+                          {isSelected && <Check className="size-3 stroke-[3]" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold leading-tight text-white truncate">
+                            {sess.session_name || `Phiên ${idx + 1}`}
+                          </p>
+                          {timeStr && (
+                            <p className="text-[11px] text-slate-400 mt-1 leading-tight">
+                              {timeStr}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {eventSessions.length > 0 && (
+                <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <span className="inline-block size-1.5 rounded-full bg-cyan-400" />
+                  {form.session_ids.length === 0 ? (
+                    <span className="text-cyan-300 font-medium">Toàn bộ sự kiện (nhân sự phụ trách tất cả các phiên)</span>
+                  ) : (
+                    <span className="text-cyan-300 font-medium">
+                      Đã chọn {form.session_ids.length} / {eventSessions.length} phiên làm việc
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
 
             {/* Email & Role in 2 columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

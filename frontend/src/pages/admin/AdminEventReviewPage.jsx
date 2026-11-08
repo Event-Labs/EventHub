@@ -58,7 +58,9 @@ import { AdminSuspendModal } from './AdminSuspendModal.jsx'
 // ---------------------------------------------------------------------------
 const STATUS_TABS = [
   { label: 'Chờ duyệt', value: 'PENDING_REVIEW' },
-  { label: 'Yêu cầu hủy', value: 'CANCEL_REQUESTS' },
+  { label: 'Đang chờ hủy', value: 'CANCEL_REQUESTS' },
+  { label: 'Đã hủy', value: 'CANCELLED' },
+  { label: 'Từ chối hủy', value: 'CANCEL_REJECTED' },
   { label: 'Đã duyệt', value: 'PUBLISHED' },
   { label: 'Từ chối', value: 'REJECTED' },
   { label: 'Bị đình chỉ', value: 'SUSPENDED' },
@@ -716,6 +718,11 @@ export function AdminEventReviewPage() {
                         Chờ duyệt hủy
                       </span>
                     )}
+                    {event.cancel_request?.status === 'REJECTED' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-500/20 text-zinc-300 border border-zinc-500/40 whitespace-nowrap">
+                        Từ chối hủy
+                      </span>
+                    )}
                     {event.pending_revision && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse whitespace-nowrap">
                         Sửa đổi chờ duyệt
@@ -725,53 +732,53 @@ export function AdminEventReviewPage() {
                 </span>,
 
                 /* Actions */
-                <div key="actions" className="flex flex-col gap-2">
-                  <div className="flex items-center justify-center gap-2">
-                    {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
-                    {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
-                      <TableActionButton
-                        title="Đình chỉ sự kiện (Khóa đa nguồn vi phạm)"
-                        tone="danger"
-                        icon={ShieldAlert}
-                        onClick={() => setSuspendTarget(event)}
-                        disabled={isMutating || suspendLoading}
-                      />
-                    )}
-                    {/* Unsuspend — when SUSPENDED_BY_ADMIN */}
-                    {event.display_state === 'SUSPENDED_BY_ADMIN' && (
-                      <TableActionButton
-                        title="Gỡ đình chỉ sự kiện"
-                        tone="success"
-                        icon={CheckCircle2}
-                        onClick={() => quickUnsuspend(event)}
-                        disabled={isMutating || suspendLoading}
-                      />
-                    )}
-                    {/* View/Review detail button */}
+                <div key="actions" className="flex items-center justify-center gap-2">
+                  {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
+                  {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
                     <TableActionButton
-                      title={
-                        event.cancel_request?.status === 'PENDING'
-                          ? 'Xem & Duyệt yêu cầu hủy sự kiện'
+                      title="Đình chỉ sự kiện (Khóa đa nguồn vi phạm)"
+                      tone="danger"
+                      icon={ShieldAlert}
+                      onClick={() => setSuspendTarget(event)}
+                      disabled={isMutating || suspendLoading}
+                    />
+                  )}
+                  {/* Unsuspend — when SUSPENDED_BY_ADMIN */}
+                  {event.display_state === 'SUSPENDED_BY_ADMIN' && (
+                    <TableActionButton
+                      title="Gỡ đình chỉ sự kiện"
+                      tone="success"
+                      icon={CheckCircle2}
+                      onClick={() => quickUnsuspend(event)}
+                      disabled={isMutating || suspendLoading}
+                    />
+                  )}
+                  {/* View/Review detail button */}
+                  <TableActionButton
+                    title={
+                      event.cancel_request?.status === 'PENDING'
+                        ? 'Xem & Duyệt yêu cầu hủy sự kiện'
+                        : activeStatus === 'CANCEL_REJECTED' || activeStatus === 'CANCELLED' || event.status === 'CANCELLED'
+                          ? 'Xem chi tiết yêu cầu hủy'
                           : event.status === 'PENDING_REVIEW' || event.pending_revision
                             ? 'Xem chi tiết & Thẩm định duyệt'
                             : 'Xem chi tiết sự kiện'
+                    }
+                    tone={
+                      event.cancel_request?.status === 'PENDING' || event.status === 'CANCELLED'
+                        ? 'danger'
+                        : event.pending_revision
+                          ? 'warning'
+                          : 'primary'
+                    }
+                    icon={Eye}
+                    onClick={() => {
+                      if (activeStatus === 'CANCEL_REJECTED') {
+                        navigate(`/admin/events/cancellations/${event.id}`)
+                      } else {
+                        navigate(`/admin/events/review/${event.id}`)
                       }
-                      tone={
-                        event.cancel_request?.status === 'PENDING'
-                          ? 'danger'
-                          : event.pending_revision
-                            ? 'warning'
-                            : 'primary'
-                      }
-                      icon={Eye}
-                      onClick={() => navigate(`/admin/events/review/${event.id}`)}
-                    />
-                  </div>
-                  <input
-                    className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
-                    placeholder="Ghi chú (tuỳ chọn)"
-                    value={notes[event.id] ?? ''}
-                    onChange={(e) => setNote(event.id, e.target.value)}
+                    }}
                   />
                 </div>,
               ])}

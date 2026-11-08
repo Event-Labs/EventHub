@@ -37,6 +37,12 @@ function parseInvitation(row) {
   } catch (_) {
     // fallback – treat as opaque
   }
+  const sessionIds = Array.isArray(meta.session_ids)
+    ? meta.session_ids
+    : meta.session_id
+      ? [meta.session_id]
+      : null;
+
   return {
     id: row.id,
     event_id: row.event_id,
@@ -51,6 +57,9 @@ function parseInvitation(row) {
     staff_role: meta.staff_role || null,
     gate: meta.gate || null,
     zone: meta.zone || null,
+    session_ids: sessionIds,
+    session_id: sessionIds?.[0] || null,
+    session_name: meta.session_name || null,
     organizer_id: meta.organizer_id || null,
     invited_by: meta.invited_by || null,
     status: meta.status || 'PENDING',
@@ -119,16 +128,55 @@ class OperationsRepository {
         e.approval_status,
         e.start_time,
         e.end_time,
-        COUNT(DISTINCT es.staff_id)::int AS staff_count
+        COALESCE(staff_count_summary.staff_count, 0)::int AS staff_count,
+        COALESCE(session_summary.sessions, '[]'::json) AS sessions
       FROM events e
-      LEFT JOIN event_staffs es ON es.event_id = e.id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(DISTINCT es.staff_id)::int AS staff_count
+        FROM event_staffs es
+        WHERE es.event_id = e.id
+      ) staff_count_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', sess.id,
+            'session_name', sess.session_name,
+            'start_time', sess.start_time,
+            'end_time', sess.end_time,
+            'checkin_start_time', sess.checkin_start_time
+          )
+          ORDER BY sess.start_time ASC
+        ) AS sessions
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+      ) session_summary ON true
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
-      GROUP BY e.id
       ORDER BY e.start_time DESC
       LIMIT 200
       `,
       [organizerId],
+    );
+    return rows;
+  }
+
+  async findEventSessions(eventId, sessionIds = null) {
+    const params = [eventId];
+    let sessionFilter = '';
+    if (Array.isArray(sessionIds) && sessionIds.length > 0) {
+      params.push(sessionIds);
+      sessionFilter = `AND id = ANY($${params.length}::uuid[])`;
+    }
+
+    const { rows } = await db.query(
+      `
+      SELECT id, event_id, session_name, start_time, end_time, checkin_start_time
+      FROM event_sessions
+      WHERE event_id = $1
+        ${sessionFilter}
+      ORDER BY start_time ASC
+      `,
+      params,
     );
     return rows;
   }
@@ -279,33 +327,78 @@ class OperationsRepository {
 
   async findEventStaffAssignment(eventId, staffId) {
     const { rows } = await db.query(
-      'SELECT id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+      'SELECT id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
       [eventId, staffId],
     );
     return rows[0];
   }
 
-  async findStaffScheduleConflict(staffId, targetEventId) {
+  async findStaffScheduleConflict(staffId, targetEventId, targetSessionIds = null) {
+    const normalizedTargetSessions = Array.isArray(targetSessionIds) && targetSessionIds.length > 0
+      ? targetSessionIds
+      : null;
+
     const { rows } = await db.query(
       `
+      WITH target_time AS (
+        SELECT
+          COALESCE(
+            CASE WHEN $3::uuid[] IS NOT NULL THEN (
+              SELECT MIN(sess.start_time)
+              FROM event_sessions sess
+              WHERE sess.event_id = target.id AND sess.id = ANY($3::uuid[])
+            ) END,
+            target.start_time
+          ) AS start_time,
+          COALESCE(
+            CASE WHEN $3::uuid[] IS NOT NULL THEN (
+              SELECT MAX(sess.end_time)
+              FROM event_sessions sess
+              WHERE sess.event_id = target.id AND sess.id = ANY($3::uuid[])
+            ) END,
+            target.end_time,
+            target.start_time
+          ) AS end_time
+        FROM events target
+        WHERE target.id = $2
+      )
       SELECT
         e.id AS event_id,
         e.title AS event_title,
-        e.start_time,
-        e.end_time
+        COALESCE(conflict_sess.session_name, e.title) AS conflict_session_name,
+        COALESCE(conflict_sess.start_time, e.start_time) AS start_time,
+        COALESCE(conflict_sess.end_time, e.end_time, e.start_time) AS end_time
       FROM event_staffs es
       JOIN events e ON e.id = es.event_id
-      JOIN events target ON target.id = $2
+      CROSS JOIN target_time tt
+      LEFT JOIN LATERAL (
+        SELECT sess.session_name, sess.start_time, sess.end_time
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+          AND es.session_ids IS NOT NULL
+          AND es.session_ids @> to_jsonb(sess.id::text)
+          AND sess.start_time < tt.end_time
+          AND sess.end_time > tt.start_time
+        ORDER BY sess.start_time ASC
+        LIMIT 1
+      ) conflict_sess ON true
       WHERE es.staff_id = $1
-        AND e.id <> target.id
+        AND e.id <> $2
         AND e.deleted_at IS NULL
         AND e.status IN ('PUBLISHED', 'COMPLETED')
-        AND e.start_time < COALESCE(target.end_time, target.start_time)
-        AND COALESCE(e.end_time, e.start_time) > target.start_time
-      ORDER BY e.start_time ASC
+        AND (
+          (es.session_ids IS NOT NULL AND conflict_sess.start_time IS NOT NULL)
+          OR
+          (
+            (es.session_ids IS NULL OR jsonb_array_length(es.session_ids) = 0)
+            AND e.start_time < tt.end_time
+            AND COALESCE(e.end_time, e.start_time) > tt.start_time
+          )
+        )
+      ORDER BY COALESCE(conflict_sess.start_time, e.start_time) ASC
       LIMIT 1
       `,
-      [staffId, targetEventId],
+      [staffId, targetEventId, normalizedTargetSessions],
     );
     return rows[0];
   }
@@ -329,26 +422,39 @@ class OperationsRepository {
     return rows.map(r => r.event_id);
   }
 
-  async assignStaff({ eventId, staffId, staffRole, gate, zone, assignedBy }) {
+  async assignStaff({ eventId, staffId, staffRole, gate, zone, sessionIds, assignedBy }) {
+    const formattedSessionIds = sessionIds && sessionIds.length > 0 ? JSON.stringify(sessionIds) : null;
     const { rows } = await db.query(
       `
-      INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, assigned_by)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (event_id, staff_id)
       DO UPDATE SET
         staff_role  = EXCLUDED.staff_role,
         gate        = EXCLUDED.gate,
         zone        = EXCLUDED.zone,
+        session_ids = EXCLUDED.session_ids,
         assigned_by = EXCLUDED.assigned_by,
         assigned_at = now()
-      RETURNING id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at
+      RETURNING id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at
       `,
-      [eventId, staffId, staffRole || null, gate || null, zone || null, assignedBy],
+      [eventId, staffId, staffRole || null, gate || null, zone || null, formattedSessionIds, assignedBy],
     );
     return rows[0];
   }
 
-  async updateStaffAssignment(eventId, staffId, { staffRole, gate, zone }) {
+  async updateStaffAssignment(eventId, staffId, { staffRole, gate, zone, sessionIds }) {
+    const formattedSessionIds = sessionIds !== undefined
+      ? (sessionIds && sessionIds.length > 0 ? JSON.stringify(sessionIds) : null)
+      : undefined;
+
+    const params = [eventId, staffId, staffRole, gate !== undefined ? gate : null, zone !== undefined ? zone : null];
+    let sessionUpdate = '';
+    if (formattedSessionIds !== undefined) {
+      params.push(formattedSessionIds);
+      sessionUpdate = `, session_ids = $${params.length}`;
+    }
+
     const { rows } = await db.query(
       `
       UPDATE event_staffs
@@ -356,10 +462,11 @@ class OperationsRepository {
         staff_role = COALESCE($3, staff_role),
         gate = $4,
         zone = $5
+        ${sessionUpdate}
       WHERE event_id = $1 AND staff_id = $2
-      RETURNING id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at
+      RETURNING id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at
       `,
-      [eventId, staffId, staffRole, gate !== undefined ? gate : null, zone !== undefined ? zone : null],
+      params,
     );
     return rows[0];
   }
@@ -368,7 +475,7 @@ class OperationsRepository {
    * Creates a staff invitation as a notification row.
    * Returns a normalised invitation object.
    */
-  async createStaffInvitation({ eventId, organizerId, invitedUserId, email, staffRole, gate, zone, invitedBy }) {
+  async createStaffInvitation({ eventId, organizerId, invitedUserId, email, staffRole, gate, zone, sessionIds, sessionName, invitedBy }) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const meta = JSON.stringify({
       status: 'PENDING',
@@ -377,6 +484,9 @@ class OperationsRepository {
       staff_role: staffRole || null,
       gate: gate || null,
       zone: zone || null,
+      session_ids: sessionIds && sessionIds.length > 0 ? sessionIds : null,
+      session_id: sessionIds && sessionIds.length === 1 ? sessionIds[0] : null,
+      session_name: sessionName || null,
       invited_by: invitedBy,
       expires_at: expiresAt,
       responded_at: null,
@@ -546,20 +656,24 @@ class OperationsRepository {
       );
 
       // Assign to event
+      const sessionIds = meta.session_ids || (meta.session_id ? [meta.session_id] : null);
+      const formattedSessionIds = sessionIds && sessionIds.length > 0 ? JSON.stringify(sessionIds) : null;
+
       const assignmentResult = await client.query(
         `
-        INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, assigned_by)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (event_id, staff_id)
         DO UPDATE SET
           staff_role  = EXCLUDED.staff_role,
           gate        = EXCLUDED.gate,
           zone        = EXCLUDED.zone,
+          session_ids = EXCLUDED.session_ids,
           assigned_by = EXCLUDED.assigned_by,
           assigned_at = now()
-        RETURNING id, event_id, staff_id, staff_role, gate, zone, assigned_by, assigned_at
+        RETURNING id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at
         `,
-        [notif.event_id, userId, staffRole || meta.staff_role || null, gate || meta.gate || null, zone || meta.zone || null, acceptedBy],
+        [notif.event_id, userId, staffRole || meta.staff_role || null, gate || meta.gate || null, zone || meta.zone || null, formattedSessionIds, acceptedBy],
       );
 
       await client.query('COMMIT');
@@ -649,12 +763,29 @@ class OperationsRepository {
         es.staff_role,
         es.gate,
         es.zone,
+        es.session_ids,
+        COALESCE(staff_sessions.sessions, '[]'::json) AS assigned_sessions,
         es.assigned_at,
         assigner.full_name AS assigned_by_name
       FROM event_staffs es
       JOIN events e   ON e.id = es.event_id
       JOIN users  u   ON u.id = es.staff_id
       LEFT JOIN users assigner ON assigner.id = es.assigned_by
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', sess.id,
+            'session_name', sess.session_name,
+            'start_time', sess.start_time,
+            'end_time', sess.end_time
+          )
+          ORDER BY sess.start_time ASC
+        ) AS sessions
+        FROM event_sessions sess
+        WHERE sess.event_id = es.event_id
+          AND es.session_ids IS NOT NULL
+          AND es.session_ids @> to_jsonb(sess.id::text)
+      ) staff_sessions ON true
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
         ${eventClause}
@@ -680,12 +811,14 @@ class OperationsRepository {
         es.staff_role,
         es.gate,
         es.zone,
+        es.session_ids,
         es.assigned_at,
         session_checkin.checkin_start_time,
         COALESCE(venue_summary.venue_name,   '') AS venue_name,
         COALESCE(venue_summary.address_line, '') AS address_line,
         COALESCE(venue_summary.district,     '') AS district,
         COALESCE(venue_summary.city,         '') AS city,
+        COALESCE(assigned_sessions.sessions, '[]'::json) AS assigned_sessions,
         COALESCE(checkin_summary.checked_in,  0)::int AS checked_in,
         COALESCE(checkin_summary.total_valid, 0)::int AS total_valid
       FROM event_staffs es
@@ -703,6 +836,21 @@ class OperationsRepository {
         ORDER BY sess.start_time ASC
         LIMIT 1
       ) venue_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', sess.id,
+            'session_name', sess.session_name,
+            'start_time', sess.start_time,
+            'end_time', sess.end_time
+          )
+          ORDER BY sess.start_time ASC
+        ) AS sessions
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+          AND es.session_ids IS NOT NULL
+          AND es.session_ids @> to_jsonb(sess.id::text)
+      ) assigned_sessions ON true
       LEFT JOIN LATERAL (
         SELECT
           COUNT(*) FILTER (WHERE t.status = 'USED')                    AS checked_in,
@@ -740,12 +888,14 @@ class OperationsRepository {
         es.staff_role,
         es.gate,
         es.zone,
+        es.session_ids,
         es.assigned_at,
         venue_summary.venue_name,
         venue_summary.address_line,
         venue_summary.ward,
         venue_summary.district,
         venue_summary.city,
+        COALESCE(assigned_sessions.sessions, '[]'::json) AS assigned_sessions,
         COALESCE(session_summary.sessions, '[]'::json) AS sessions
       FROM event_staffs es
       JOIN events e ON e.id = es.event_id
@@ -757,6 +907,21 @@ class OperationsRepository {
         ORDER BY sess.start_time ASC
         LIMIT 1
       ) venue_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', sess.id,
+            'session_name', sess.session_name,
+            'start_time', sess.start_time,
+            'end_time', sess.end_time
+          )
+          ORDER BY sess.start_time ASC
+        ) AS sessions
+        FROM event_sessions sess
+        WHERE sess.event_id = e.id
+          AND es.session_ids IS NOT NULL
+          AND es.session_ids @> to_jsonb(sess.id::text)
+      ) assigned_sessions ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(
           json_build_object(

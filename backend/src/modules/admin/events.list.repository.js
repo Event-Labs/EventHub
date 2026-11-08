@@ -35,8 +35,8 @@ function buildWhere(upper) {
       };
     case 'PENDING_REVIEW':
       return {
-        listClause:  `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
-        countClause: `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL) AND (e.cancel_request IS NULL OR e.cancel_request->>'status' != 'PENDING') AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL) AND (e.cancel_request IS NULL OR e.cancel_request->>'status' != 'PENDING') AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
         listArgs:  [],
         countArgs: [],
       };
@@ -45,6 +45,28 @@ function buildWhere(upper) {
       return {
         listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
         countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCEL_ALL':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL OR e.status = 'CANCELLED')`,
+        countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL OR e.status = 'CANCELLED')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCELLED':
+    case 'CANCEL_APPROVED':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'CANCELLED' OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'APPROVED'))`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'CANCELLED' OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'APPROVED'))`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCEL_REJECTED':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'REJECTED')`,
+        countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'REJECTED')`,
         listArgs:  [],
         countArgs: [],
       };

@@ -129,6 +129,16 @@ function AssignedEventCard({ event, currentTime }) {
         
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Badge tone="blue">Vai trò: {staffRoleLabel(event.staff_role)}</Badge>
+          {event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0) ? (
+            <Badge tone="cyan">
+              <span className="flex items-center gap-1">
+                <Clock3 className="size-3" />
+                {event.session_name || event.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}
+              </span>
+            </Badge>
+          ) : (
+            <Badge tone="slate">Toàn bộ sự kiện</Badge>
+          )}
           {event.gate ? (
             <Badge tone="purple">
               <span className="flex items-center gap-1">

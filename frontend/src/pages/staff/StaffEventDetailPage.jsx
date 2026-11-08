@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Armchair, Calendar, DoorOpen, Layers, Loader2, MapPin, Users } from 'lucide-react'
+import { Armchair, Calendar, Clock, DoorOpen, Layers, Loader2, MapPin, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
@@ -90,6 +90,16 @@ export function StaffEventDetailPage() {
               <Badge tone={event.status === 'COMPLETED' ? 'purple' : 'green'}>{EVENT_STATUS_LABELS[event.status] || 'Chưa xác định'}</Badge>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="blue">Vai trò: {event.staff_role || 'Nhân sự'}</Badge>
+                {event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0) ? (
+                  <Badge tone="cyan">
+                    <span className="flex items-center gap-1">
+                      <Clock className="size-3.5" />
+                      Phiên: {event.session_name || event.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}
+                    </span>
+                  </Badge>
+                ) : (
+                  <Badge tone="slate">Toàn bộ sự kiện</Badge>
+                )}
                 {event.gate ? (
                   <Badge tone="purple">
                     <span className="flex items-center gap-1">

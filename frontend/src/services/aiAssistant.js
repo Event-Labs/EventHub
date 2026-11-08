@@ -6,6 +6,9 @@ export async function sendChatMessage(message, history = [], options = {}, extra
     history,
     sessionId: extra.sessionId,
     title: extra.title,
+    eventSlug: extra.eventSlug,
+    eventId: extra.eventId,
+    context: extra.context || {},
   }
   const response = await http.post('/ai-assistant/chat', payload, options)
   return response.data.data

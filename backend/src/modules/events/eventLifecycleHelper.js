@@ -38,7 +38,15 @@ function isSalesPaused(salesBlocks, salesStatus) {
  */
 function addSalesBlock(currentBlocks, { reason, source, createdBy, metadata = {} }) {
   const blocks = Array.isArray(currentBlocks) ? [...currentBlocks] : [];
-  const existingActive = blocks.find((b) => b.reason === reason && !b.released_at);
+  const isSpecific = metadata?.scope === 'SPECIFIC' && metadata?.ticket_type_id;
+  const existingActive = blocks.find((b) => {
+    if (b.reason !== reason || b.released_at) return false;
+    const bSpecific = b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id;
+    if (isSpecific) {
+      return bSpecific && String(b.metadata.ticket_type_id) === String(metadata.ticket_type_id);
+    }
+    return !bSpecific;
+  });
   if (existingActive) {
     return { updatedBlocks: blocks, isChanged: false, block: existingActive };
   }

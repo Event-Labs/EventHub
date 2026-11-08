@@ -970,10 +970,25 @@ class EventsRepository {
     }
   }
 
-  async releaseSeatHolds(userId, payload) {
+  async releaseSeatHolds(userId, payload = {}) {
+    if (!userId) {
+      return { released_count: 0 };
+    }
     const client = await db.getClient();
-    const seatIds = payload.session_seat_ids || [];
+    const seatIds = payload?.session_seat_ids || [];
+    let eventId = payload?.event_id || null;
+    const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+
     try {
+      if (eventId && !isUuid(eventId)) {
+        try {
+          const evRes = await client.query('SELECT id FROM events WHERE slug = $1 LIMIT 1', [eventId]);
+          eventId = evRes.rows[0]?.id || null;
+        } catch (_) {
+          eventId = null;
+        }
+      }
+
       await client.query('BEGIN');
       await this.expireStandaloneSeatHolds(client);
       await client.query(
@@ -983,13 +998,13 @@ class EventsRepository {
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
         WHERE th.ticket_type_id = tt.id
-          AND es.event_id = $1
+          AND ($1::uuid IS NULL OR es.event_id = $1::uuid)
           AND th.user_id = $2
           AND th.order_id IS NULL
           AND th.status = 'ACTIVE'
           AND (array_length($3::uuid[], 1) IS NULL OR th.session_seat_id = ANY($3::uuid[]))
         `,
-        [payload.event_id, userId, seatIds],
+        [eventId, userId, seatIds],
       );
       const releasedResult = await client.query(
         `
@@ -997,14 +1012,14 @@ class EventsRepository {
         SET status = 'AVAILABLE', held_by = NULL, held_until = NULL, order_id = NULL
         FROM event_sessions es
         WHERE ss.event_session_id = es.id
-          AND es.event_id = $1
+          AND ($1::uuid IS NULL OR es.event_id = $1::uuid)
           AND ss.held_by = $2
           AND ss.order_id IS NULL
           AND ss.status = 'HELD'
           AND (array_length($3::uuid[], 1) IS NULL OR ss.id = ANY($3::uuid[]))
         RETURNING ss.id
         `,
-        [payload.event_id, userId, seatIds],
+        [eventId, userId, seatIds],
       );
       await client.query('COMMIT');
       return { released_count: releasedResult.rowCount };

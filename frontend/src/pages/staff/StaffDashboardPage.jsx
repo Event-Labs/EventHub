@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, CalendarCheck, DoorOpen, Layers, MapPin, QrCode, Ticket, UserCheck, UserPlus } from 'lucide-react'
+import { BarChart3, CalendarCheck, Clock, DoorOpen, Layers, MapPin, QrCode, Ticket, UserCheck, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { fetchStaffOverview } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
@@ -147,6 +147,14 @@ function TodayEvent({ event }) {
           <h4 className="font-extrabold text-primary">{event.title}</h4>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="green">Hôm nay</Badge>
+            {(event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0)) && (
+              <Badge tone="cyan">
+                <span className="flex items-center gap-1">
+                  <Clock className="size-3" />
+                  {event.session_name || event.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}
+                </span>
+              </Badge>
+            )}
             {event.gate && (
               <Badge tone="purple">
                 <span className="flex items-center gap-1">
@@ -174,6 +182,11 @@ function TodayEvent({ event }) {
         </p>
         <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-subtle">
           <span>Vai trò: <strong className="text-content">{event.staff_role || 'Nhân sự'}</strong></span>
+          {event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0) ? (
+            <span>• Phiên: <strong className="text-cyan-400">{event.session_name || event.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}</strong></span>
+          ) : (
+            <span>• Phiên: <strong className="text-content">Toàn bộ sự kiện</strong></span>
+          )}
           {event.gate && (
             <span>• Cổng: <strong className="text-primary">{event.gate}</strong></span>
           )}
