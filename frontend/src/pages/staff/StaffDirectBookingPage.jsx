@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, CalendarDays, CircleCheck, ExternalLink, Gift, Info, Loader2, Mail, MapPin, Minus, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Ticket, UserRound, UsersRound, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CircleCheck, ExternalLink, Gift, Info, Loader2, Mail, MapPin, Minus, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Search, ShieldCheck, Ticket, UserRound, UsersRound, X } from 'lucide-react'
 import { createStaffDirectBooking, fetchStaffDirectBookingEvents, fetchStaffDirectBookingStatus } from '@/services/orders.js'
 import { fetchSessionSeats } from '@/services/events.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
@@ -43,6 +43,41 @@ function formatAmount(value) {
   return `${Number(value || 0).toLocaleString('vi-VN')} đ`
 }
 
+function getCashSuggestions(total) {
+  if (!total || total <= 0) return [50000, 100000, 200000, 500000]
+
+  const suggestions = new Set()
+  suggestions.add(total)
+
+  if (total % 50000 !== 0) {
+    suggestions.add(Math.ceil(total / 50000) * 50000)
+  }
+  if (total % 100000 !== 0) {
+    suggestions.add(Math.ceil(total / 100000) * 100000)
+  }
+
+  const standardBills = [
+    50000, 100000, 200000, 500000,
+    1000000, 1500000, 2000000, 3000000, 5000000
+  ]
+
+  for (const bill of standardBills) {
+    if (bill > total) {
+      suggestions.add(bill)
+      if (suggestions.size >= 4) break
+    }
+  }
+
+  if (total > 5000000) {
+    suggestions.add(Math.ceil((total + 500000) / 1000000) * 1000000)
+    suggestions.add(Math.ceil((total + 1000000) / 1000000) * 1000000)
+  }
+
+  return Array.from(suggestions)
+    .sort((a, b) => a - b)
+    .slice(0, 4)
+}
+
 function formatDateTime(value) {
   if (!value) return 'Chưa cập nhật'
   return new Intl.DateTimeFormat('vi-VN', {
@@ -53,15 +88,14 @@ function formatDateTime(value) {
 
 function venueLine(venue) {
   if (!venue) return 'Địa điểm cập nhật sau'
+  if (typeof venue === 'string') return venue
   return [venue.name, venue.address_line, venue.ward, venue.district, venue.city].filter(Boolean).join(', ') || 'Địa điểm cập nhật sau'
 }
 
 function qrPayload(ticket) {
   return JSON.stringify({
     type: 'EVENTHUB_TICKET',
-    ticket_id: ticket.id,
-    ticket_code: ticket.ticket_code,
-    qr_code: ticket.qr_code || ticket.ticket_code,
+    ticket_code: ticket.ticket_code || ticket.qr_code || ticket.id,
   })
 }
 
@@ -237,15 +271,15 @@ function buildConfiguredLayout(seats, seatMap) {
   const stagePosition = config.stagePosition || seatMap?.stage_position
   const stage = stagePosition && stagePosition !== 'HIDDEN'
     ? {
-        label: config.stageLabel || 'SÂN KHẤU',
-        x: Number(config.stageX ?? seatMap?.custom_stage_x ?? 0),
-        y: Number(config.stageY ?? seatMap?.custom_stage_y ?? 0),
-        w: Number(config.stageWidth ?? seatMap?.custom_stage_width ?? 900),
-        h: Number(config.stageHeight ?? seatMap?.custom_stage_height ?? 52),
-        rotation: Number(config.stageRotation || 0),
-        color: config.stageColor || '#3B82F6',
-        shape: config.stageShape || 'RECTANGLE',
-      }
+      label: config.stageLabel || 'SÂN KHẤU',
+      x: Number(config.stageX ?? seatMap?.custom_stage_x ?? 0),
+      y: Number(config.stageY ?? seatMap?.custom_stage_y ?? 0),
+      w: Number(config.stageWidth ?? seatMap?.custom_stage_width ?? 900),
+      h: Number(config.stageHeight ?? seatMap?.custom_stage_height ?? 52),
+      rotation: Number(config.stageRotation || 0),
+      color: config.stageColor || '#3B82F6',
+      shape: config.stageShape || 'RECTANGLE',
+    }
     : null
 
   if (!positioned.length && !standingAreas.length && !auxiliaryElements.length && !stage) return null
@@ -467,18 +501,7 @@ export function StaffDirectBookingPage() {
       className="direct-booking-page"
       title={isReviewing ? null : 'Đặt vé Trực tiếp'}
       description={isReviewing ? null : 'Chọn vé, tính tạm và kiểm tra lại trước khi nhận thanh toán và xuất vé cho khách.'}
-      action={
-        result ? (
-          <button
-            type="button"
-            onClick={resetForm}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-border-soft/50 px-4 py-2 text-sm font-bold text-content hover:border-primary hover:text-primary"
-          >
-            <RotateCcw className="size-4" />
-            Tạo đơn đặt vé mới
-          </button>
-        ) : null
-      }
+      action={null}
     >
       <style>{`
         @media print {
@@ -585,19 +608,16 @@ export function StaffDirectBookingPage() {
           <div className="space-y-5">
             <StaffPanel className="border-sky-900/45 bg-[linear-gradient(145deg,rgba(8,20,44,0.88),rgba(10,24,53,0.72))] p-5 sm:p-6">
               <SectionTitle step="1" title="Chọn sự kiện đang mở bán" />
-              <div className="mt-5 flex gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
+              <div className="mt-5">
+                <div className="relative w-full">
+                  <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/60" />
                   <input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Tìm sự kiện"
-                    className="h-11 w-full rounded-lg border border-sky-900/60 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none transition focus:border-violet-400 placeholder:text-white/50"
+                    className="h-11 w-full rounded-full border border-sky-900/60 bg-[#0d172e] pl-10 pr-4 text-sm font-normal text-white outline-none transition focus:border-violet-400 placeholder:text-white/50"
                   />
                 </div>
-                <button type="button" className="grid size-11 shrink-0 place-items-center rounded-lg border border-sky-900/60 bg-sky-950/30 text-subtle transition hover:border-violet-400 hover:text-content" aria-label="Bộ lọc sự kiện">
-                  <SlidersHorizontal className="size-4" />
-                </button>
               </div>
               {eventsQuery.isLoading && (
                 <div className="mt-5 flex items-center gap-2 text-sm text-subtle">
@@ -630,9 +650,8 @@ export function StaffDirectBookingPage() {
                         setQuantities({})
                         setStandingTicketType(null)
                       }}
-                      className={`flex min-h-40 items-stretch gap-4 overflow-hidden rounded-lg border p-2 text-left transition sm:gap-5 sm:p-3 ${
-                        active ? 'border-violet-500 bg-violet-500/[0.06] shadow-[0_0_0_1px_rgba(139,92,246,0.2)]' : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/70'
-                      }`}
+                      className={`flex min-h-40 items-stretch gap-4 overflow-hidden rounded-lg border p-2 text-left transition sm:gap-5 sm:p-3 ${active ? 'border-violet-500 bg-violet-500/[0.06] shadow-[0_0_0_1px_rgba(139,92,246,0.2)]' : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/70'
+                        }`}
                     >
                       <div className="h-32 w-40 shrink-0 overflow-hidden rounded-md bg-surface sm:h-36 sm:w-56">
                         {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-sky-950" />}
@@ -640,7 +659,7 @@ export function StaffDirectBookingPage() {
                       <div className="flex min-w-0 flex-1 flex-col justify-center py-2 pr-2">
                         <h3 className="line-clamp-2 break-words font-display text-lg font-black leading-6 text-content">{event.title}</h3>
                         <p className="mt-3 flex items-center gap-2 text-xs text-subtle"><CalendarDays className="size-3.5" />{formatDateTime(event.start_time)}</p>
-                        <p className="mt-2 flex items-center gap-2 text-xs text-subtle"><MapPin className="size-3.5" />{venueLine(event.venue)}</p>
+                        <p className="mt-2 flex items-center gap-2 text-xs text-subtle"><MapPin className="size-3.5 shrink-0" /><span className="truncate">{venueLine(event.venue || event.sessions?.[0]?.venue)}</span></p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Badge tone="green">Đang mở bán</Badge>
                           <Badge tone="orange">{event.ticket_types.length} loại vé</Badge>
@@ -679,7 +698,7 @@ export function StaffDirectBookingPage() {
                 <div className="mt-4 space-y-3">
                   {selectedEvent.sessions?.length > 1 && (
                     <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-wide text-subtle">Suất diễn</span>
+                      <span className="text-xs font-bold uppercase tracking-wide text-white">Suất diễn</span>
                       <select
                         value={selectedSession?.id || ''}
                         onChange={(event) => {
@@ -744,15 +763,13 @@ export function StaffDirectBookingPage() {
                   )}
 
                   {currentTicketTypes.map((ticketType) => (
-                    <div key={ticketType.id} className={`grid gap-3 rounded-lg border p-4 transition md:grid-cols-[minmax(0,1fr)_160px] md:items-center ${
-                      selectedItems.some((item) => item.ticketType.id === ticketType.id)
-                        ? 'border-violet-500 bg-violet-500/[0.06]'
-                        : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/60'
-                    }`}>
+                    <div key={ticketType.id} className={`grid gap-3 rounded-lg border p-4 transition md:grid-cols-[minmax(0,1fr)_160px] md:items-center ${selectedItems.some((item) => item.ticketType.id === ticketType.id)
+                      ? 'border-violet-500 bg-violet-500/[0.06]'
+                      : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/60'
+                      }`}>
                       <div className="flex items-start gap-3">
-                        <span className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border ${
-                          selectedItems.some((item) => item.ticketType.id === ticketType.id) ? 'border-violet-400 bg-violet-500/20 text-violet-300' : 'border-slate-500 text-transparent'
-                        }`}><span className="size-2 rounded-full bg-violet-400" /></span>
+                        <span className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border ${selectedItems.some((item) => item.ticketType.id === ticketType.id) ? 'border-violet-400 bg-violet-500/20 text-violet-300' : 'border-slate-500 text-transparent'
+                          }`}><span className="size-2 rounded-full bg-violet-400" /></span>
                         <div>
                           <h3 className="font-bold text-content">{ticketType.name}</h3>
                           <p className="mt-1 text-sm text-subtle">
@@ -765,10 +782,28 @@ export function StaffDirectBookingPage() {
                           {selectedItems.find((item) => item.ticketType.id === ticketType.id)?.quantity || 0} ghế
                         </span>
                       ) : (
-                        <div className="flex h-10 items-center justify-end">
-                          <button type="button" onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) - 1)} className="grid size-9 place-items-center rounded-l-lg border border-sky-800 bg-sky-950/50 text-subtle hover:text-content"><Minus className="size-4" /></button>
-                          <span className="grid h-9 min-w-10 place-items-center border-y border-sky-800 bg-sky-950/50 text-sm font-bold text-content">{quantities[ticketType.id] || 0}</span>
-                          <button type="button" onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) + 1)} className="grid size-9 place-items-center rounded-r-lg border border-sky-800 bg-sky-950/50 text-subtle hover:text-content"><Plus className="size-4" /></button>
+                        <div className="flex h-10 items-center justify-end gap-3">
+                          <button
+                            type="button"
+                            disabled={Number(quantities[ticketType.id] || 0) <= 0}
+                            onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) - 1)}
+                            className="grid size-9 place-items-center rounded-full border border-sky-700/80 bg-sky-950/60 text-white transition hover:border-violet-400 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                            aria-label="Giảm vé"
+                          >
+                            <Minus className="size-4" />
+                          </button>
+                          <span className="min-w-6 text-center text-base font-bold text-white">
+                            {quantities[ticketType.id] || 0}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={Number(quantities[ticketType.id] || 0) >= Math.min(Number(ticketType.available_quantity ?? 99999), Number(ticketType.max_per_order || 20), 20)}
+                            onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) + 1)}
+                            className="grid size-9 place-items-center rounded-full border border-sky-700/80 bg-sky-950/60 text-white transition hover:border-violet-400 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                            aria-label="Tăng vé"
+                          >
+                            <Plus className="size-4" />
+                          </button>
                         </div>
                       )}
                     </div>
@@ -784,16 +819,16 @@ export function StaffDirectBookingPage() {
               <SectionTitle step="4" title="Tóm tắt đơn đặt vé" />
               <div className="mt-6 space-y-5 text-sm">
                 <div>
-                  <p className="text-xs font-semibold text-subtle">Sự kiện</p>
-                  <p className="mt-3 font-extrabold leading-6 text-content">{selectedEvent?.title || 'Chưa chọn sự kiện'}</p>
+                  <p className="text-sm font-bold text-white">Sự kiện</p>
+                  <p className="mt-2.5 font-extrabold leading-6 text-content">{selectedEvent?.title || 'Chưa chọn sự kiện'}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-subtle">Thời gian</p>
-                  <p className="mt-3 font-semibold text-content">{selectedSession ? formatDateTime(selectedSession.start_time) : 'Chưa chọn suất diễn'}</p>
+                  <p className="text-sm font-bold text-white">Thời gian</p>
+                  <p className="mt-2.5 font-semibold text-content">{selectedSession ? formatDateTime(selectedSession.start_time) : 'Chưa chọn suất diễn'}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-subtle">Khu vực</p>
-                  <p className="mt-3 font-semibold text-content">{selectedItems[0]?.ticketType?.name || 'Chưa chọn loại vé'}</p>
+                  <p className="text-sm font-bold text-white">Khu vực</p>
+                  <p className="mt-2.5 font-semibold text-content">{selectedItems[0]?.ticketType?.name || 'Chưa chọn loại vé'}</p>
                 </div>
               </div>
 
@@ -813,8 +848,8 @@ export function StaffDirectBookingPage() {
 
               <div className="my-6 border-t border-sky-900/50" />
               <div className="flex items-center justify-between gap-3">
-                <span className="font-extrabold text-content">Tổng tiền</span>
-                <span className="font-display text-2xl font-black text-violet-400">{hasSelectedItems ? formatPrice(totalAmount) : '0 đ'}</span>
+                <span className="font-extrabold text-white text-base">Tổng tiền</span>
+                <span className="font-display text-2xl font-black text-[#C99A47]">{hasSelectedItems ? formatPrice(totalAmount) : '0 đ'}</span>
               </div>
               {isFreeSelection && <span className="mt-3 ml-auto block w-fit rounded-lg border border-violet-400/40 bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-200">Miễn phí</span>}
 
@@ -826,9 +861,8 @@ export function StaffDirectBookingPage() {
                 type="button"
                 onClick={() => setIsReviewing(true)}
                 disabled={!canReview}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-3.5 text-sm font-black text-[#0D1B2A] shadow-lg shadow-[#C99A47]/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-4 text-base font-black tracking-wide text-[#0D1B2A] shadow-lg shadow-[#C99A47]/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >
-                <CircleCheck className="size-4" />
                 Xác nhận và xem lại vé
               </button>
             </StaffPanel>
@@ -868,6 +902,7 @@ function BookingReview({
   onConfirm,
 }) {
   const isFree = selectedItems.length > 0 && totalAmount === 0
+  const cashSuggestions = useMemo(() => getCashSuggestions(totalAmount), [totalAmount])
   const confirmLabel = paymentMethod === 'bank_transfer'
     ? 'Tạo mã thanh toán'
     : isFree
@@ -888,7 +923,6 @@ function BookingReview({
 
       <div className="mt-5">
         <h2 className="font-display text-3xl font-black tracking-tight text-content">Xem lại vé đã chọn</h2>
-        <p className="mt-2 text-base text-subtle">Kiểm tra thông tin vé và khách hàng trước khi xác nhận thanh toán và xuất vé.</p>
       </div>
 
       <div className="mt-7 grid items-start gap-7 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)]">
@@ -924,9 +958,9 @@ function BookingReview({
                 />
               ))}
               <div className="flex items-center justify-between gap-4 bg-sky-900/20 px-4 py-4 text-sm sm:px-5">
-                <span className="font-extrabold text-content">Tổng tạm tính</span>
+                <span className="font-extrabold text-white">Tổng tạm tính</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-base font-black text-content">{isFree ? '0 đ' : formatPrice(totalAmount)}</span>
+                  <span className="text-xl font-black text-[#C99A47]">{isFree ? '0 đ' : formatPrice(totalAmount)}</span>
                   {isFree && (
                     <span className="rounded-full border border-emerald-400/25 bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-300">
                       Miễn phí
@@ -987,26 +1021,28 @@ function BookingReview({
                 </div>
               ) : (
                 <div className="mt-6">
-                  <p className="text-xs font-extrabold uppercase tracking-wider text-subtle">Phương thức thanh toán</p>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {PAYMENT_METHODS.map((method) => (
-                      <button
-                        key={method.value}
-                        type="button"
-                        disabled={createMutation.isPending}
-                        onClick={() => {
-                          setPaymentMethod(method.value)
-                          createMutation.reset()
-                        }}
-                        className={`rounded-xl border px-2 py-3 text-xs font-extrabold transition ${
-                          paymentMethod === method.value
-                            ? 'border-violet-400 bg-violet-500/15 text-violet-200'
-                            : 'border-sky-900/50 bg-sky-950/25 text-subtle hover:border-violet-400/60 hover:text-content'
-                        }`}
-                      >
-                        {method.label}
-                      </button>
-                    ))}
+                  <p className="text-xs font-bold uppercase tracking-wider text-white">Phương thức thanh toán</p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {PAYMENT_METHODS.map((method) => {
+                      const active = paymentMethod === method.value
+                      return (
+                        <button
+                          key={method.value}
+                          type="button"
+                          disabled={createMutation.isPending}
+                          onClick={() => {
+                            setPaymentMethod(method.value)
+                            createMutation.reset()
+                          }}
+                          className={`cursor-pointer rounded-full border px-4 py-2.5 text-xs sm:text-sm font-black tracking-wide transition ${active
+                              ? 'border-[#C99A47] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                              : 'border-sky-900/60 bg-sky-950/40 text-slate-300 hover:border-[#C99A47]/60 hover:text-white'
+                            }`}
+                        >
+                          {method.label}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -1014,15 +1050,40 @@ function BookingReview({
               {!isFree && paymentMethod === 'cash' && (
                 <div className="mt-5 rounded-xl border border-sky-900/50 bg-sky-950/30 p-4">
                   <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-subtle">Số tiền khách đưa</span>
-                    <input
-                      inputMode="numeric"
-                      value={cashReceived}
-                      onChange={(event) => setCashReceived(event.target.value)}
-                      placeholder="Nhập số tiền"
-                      className="mt-2 h-11 w-full rounded-lg border border-sky-900/60 bg-slate-950/35 px-3 text-right text-sm font-extrabold text-content outline-none transition focus:border-violet-400"
-                    />
+                    <span className="text-xs font-bold uppercase tracking-wide text-white">Số tiền khách đưa</span>
+                    <div className="relative mt-2">
+                      <input
+                        inputMode="numeric"
+                        value={cashReceived}
+                        onChange={(event) => setCashReceived(event.target.value)}
+                        placeholder="Nhập số tiền"
+                        className="h-11 w-full rounded-full border border-[#C99A47]/40 bg-slate-950/35 pl-4 pr-14 text-right text-sm font-extrabold text-white outline-none transition placeholder:text-slate-500 focus:border-[#C99A47]"
+                      />
+                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black tracking-wider text-[#C99A47]">
+                        VNĐ
+                      </span>
+                    </div>
                   </label>
+                  {cashSuggestions.length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {cashSuggestions.map((amount) => {
+                        const isSelected = cashReceivedAmount === amount
+                        return (
+                          <button
+                            key={amount}
+                            type="button"
+                            onClick={() => setCashReceived(String(amount))}
+                            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-bold transition ${isSelected
+                                ? 'border-[#C99A47] bg-[#C99A47]/20 text-[#E6C17A] font-black shadow-[0_0_10px_rgba(201,154,71,0.2)]'
+                                : 'border-[#C99A47]/40 bg-transparent text-slate-200 hover:border-[#C99A47] hover:bg-[#C99A47]/10 hover:text-white'
+                              }`}
+                          >
+                            {formatAmount(amount)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div className="mt-4 space-y-2 text-sm">
                     <SummaryLine label="Khách đưa" value={formatAmount(cashReceivedAmount)} />
                     <SummaryLine label="Tiền thối" value={formatAmount(cashChange)} strong />
@@ -1049,9 +1110,9 @@ function BookingReview({
                 type="button"
                 onClick={onConfirm}
                 disabled={!canSubmit || createMutation.isPending}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-4 text-base font-black text-[#0D1B2A] shadow-lg shadow-[#C99A47]/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-4 text-base font-black tracking-wide text-[#0D1B2A] shadow-lg shadow-[#C99A47]/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {createMutation.isPending ? <Loader2 className="size-5 animate-spin" /> : <Ticket className="size-5" />}
+                {createMutation.isPending && <Loader2 className="size-5 animate-spin" />}
                 {confirmLabel}
               </button>
 
@@ -1093,12 +1154,10 @@ function ReviewTicketRow({ label, value }) {
 function ConfirmStep({ icon: Icon, tone, title, description, marker }) {
   const isGreen = tone === 'green'
   return (
-    <div className={`flex items-center gap-3 rounded-xl border px-3 py-3.5 ${
-      isGreen ? 'border-emerald-500/25 bg-emerald-500/[0.07]' : 'border-sky-900/50 bg-sky-950/25'
-    }`}>
-      <span className={`grid size-11 shrink-0 place-items-center rounded-full ${
-        isGreen ? 'bg-emerald-500/25 text-emerald-300' : 'bg-violet-600/25 text-violet-300'
+    <div className={`flex items-center gap-3 rounded-xl border px-3 py-3.5 ${isGreen ? 'border-emerald-500/25 bg-emerald-500/[0.07]' : 'border-sky-900/50 bg-sky-950/25'
       }`}>
+      <span className={`grid size-11 shrink-0 place-items-center rounded-full ${isGreen ? 'bg-emerald-500/25 text-emerald-300' : 'bg-violet-600/25 text-violet-300'
+        }`}>
         <Icon className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -1126,15 +1185,8 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               <Badge tone="blue">{BOOKING_SOURCE_LABELS[result.order.booking_source] || 'Nguồn đặt vé khác'}</Badge>
             </div>
             <h2 className="mt-3 font-display text-2xl font-extrabold text-content">{result.order.order_code}</h2>
-            <p className="mt-1 text-sm text-subtle">
+            <p className="mt-1 text-sm font-medium text-white">
               {result.order.buyer_name} · {result.event.title}
-            </p>
-            <p className="mt-2 text-sm font-semibold text-content">
-              {result.confirmation_email_sent === false
-                ? `Chưa thể gửi vé tới ${result.order.buyer_email}. Vui lòng kiểm tra cấu hình email.`
-                : isPendingPayos
-                ? `Vé sẽ được gửi tới ${result.order.buyer_email} sau khi thanh toán thành công.`
-                : `Vé và mã QR được gửi tự động tới ${result.order.buyer_email}.`}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -1142,7 +1194,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               type="button"
               onClick={() => window.print()}
               disabled={!canPrint}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-sm font-extrabold text-[#0D1B2A] shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Printer className="size-4" />
               In vé
@@ -1151,7 +1203,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               <button
                 type="button"
                 onClick={onRefresh}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-border-soft/50 px-4 py-2 text-sm font-bold text-content hover:border-primary hover:text-primary"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-sky-800 bg-sky-950/40 px-5 py-2.5 text-sm font-bold text-white transition hover:border-[#C99A47] hover:text-[#C99A47]"
               >
                 <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Kiểm tra PayOS
@@ -1160,7 +1212,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
             <button
               type="button"
               onClick={() => setShowDetail((current) => !current)}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-soft/50 px-4 py-2 text-sm font-bold text-content hover:border-primary hover:text-primary"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-sky-800 bg-sky-950/40 px-5 py-2.5 text-sm font-bold text-white transition hover:border-[#C99A47] hover:text-[#C99A47]"
             >
               <ReceiptText className="size-4" />
               Xem chi tiết đơn đặt vé
@@ -1168,7 +1220,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
             <button
               type="button"
               onClick={resetForm}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-soft/50 px-4 py-2 text-sm font-bold text-content hover:border-primary hover:text-primary"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-sky-800 bg-sky-950/40 px-5 py-2.5 text-sm font-bold text-white transition hover:border-[#C99A47] hover:text-[#C99A47]"
             >
               <RotateCcw className="size-4" />
               Tạo đơn đặt vé mới
@@ -1177,10 +1229,10 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
         </div>
         {showDetail && (
           <div className="mt-5 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-            <SummaryBox label="Tên khách hàng" value={result.order.buyer_name} icon={UserRound} />
-            <SummaryBox label="Loại vé" value={result.items.map((item) => item.ticket_type_name).join(', ')} icon={Ticket} />
-            <SummaryBox label="Số lượng" value={`${quantity} vé`} icon={Ticket} />
-            <SummaryBox label="Tổng tiền" value={formatPrice(result.order.total_amount)} icon={ReceiptText} />
+            <SummaryBox label="Tên khách hàng" value={result.order.buyer_name} />
+            <SummaryBox label="Loại vé" value={result.items.map((item) => item.ticket_type_name).join(', ')} />
+            <SummaryBox label="Số lượng" value={`${quantity} vé`} />
+            <SummaryBox label="Tổng tiền" value={formatPrice(result.order.total_amount)} />
           </div>
         )}
       </StaffPanel>
@@ -1283,8 +1335,8 @@ function SectionTitle({ step, title }) {
 function Input({ label, value, onChange, type = 'text', required = false, hint, error = '' }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold uppercase tracking-wide text-subtle">
-        {label}{required ? ' *' : ''}
+      <span className="text-xs font-bold uppercase tracking-wide text-white">
+        {label}{required && <span className="ml-1 font-black text-red-500">*</span>}
       </span>
       <input
         type={type}
@@ -1292,7 +1344,7 @@ function Input({ label, value, onChange, type = 'text', required = false, hint, 
         value={value}
         placeholder={hint || ''}
         onChange={(event) => onChange(event.target.value)}
-        className={`mt-2 h-11 w-full rounded-lg border bg-sky-950/25 px-3 text-sm text-content outline-none transition placeholder:text-slate-500 focus:border-violet-400 ${error ? 'border-error/70' : 'border-sky-900/60'}`}
+        className={`mt-2 h-11 w-full rounded-lg border bg-sky-950/25 px-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-violet-400 ${error ? 'border-error/70' : 'border-sky-900/60'}`}
       />
       {error ? <span className="mt-2 block text-xs font-semibold text-error">{error}</span> : null}
     </label>
@@ -1310,10 +1362,10 @@ function SummaryLine({ label, value, strong }) {
 
 function SummaryBox({ label, value, icon: Icon }) {
   return (
-    <div className="rounded-lg border border-border-soft/40 bg-panel-soft p-4">
-      <Icon className="size-4 text-primary" />
-      <p className="mt-3 text-xs font-bold uppercase tracking-wide text-subtle">{label}</p>
-      <p className="mt-1 line-clamp-2 font-bold text-content">{value}</p>
+    <div className="rounded-xl border border-sky-900/50 bg-sky-950/25 p-4">
+      {Icon && <Icon className="size-4 text-primary" />}
+      <p className="text-xs font-bold uppercase tracking-wide text-subtle">{label}</p>
+      <p className="mt-1 line-clamp-2 font-bold text-white">{value}</p>
     </div>
   )
 }
@@ -1744,81 +1796,81 @@ export function SeatMapCanvas({
                 backgroundSize: configuredLayout ? '20px 20px' : undefined,
               }}
             >
-          {configuredLayout?.stage ? (
-            <div
-              className="absolute grid place-items-center overflow-hidden border-2 border-white/30 px-2 text-center text-xs font-extrabold text-white shadow-lg shadow-slate-950/20"
-              style={{
-                left: configuredLayout.stage.x,
-                top: configuredLayout.stage.y,
-                width: configuredLayout.stage.w,
-                height: configuredLayout.stage.h,
-                transform: configuredLayout.stage.rotation ? `rotate(${configuredLayout.stage.rotation}deg)` : undefined,
-                transformOrigin: 'center',
-                backgroundColor: configuredLayout.stage.color,
-                ...stageShapeStyle(configuredLayout.stage.shape),
-              }}
-            >
-              <span style={{ transform: configuredLayout.stage.h > configuredLayout.stage.w ? 'rotate(-90deg)' : undefined }}>
-                {configuredLayout.stage.label}
-              </span>
-            </div>
-          ) : (
-            <div
-              className="absolute left-1/2 top-4 -translate-x-1/2 rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
-              style={{ height: STAGE_HEIGHT, width: Math.min(Math.max(xyLayout.width * 0.7, 260), 600) }}
-            >
-              SÂN KHẤU
-            </div>
-          )}
-          {configuredLayout?.standingAreas.map((area, index) => (
-            <button
-              key={area.id || index}
-              type="button"
-              disabled={readOnly}
-              title={area.name}
-              aria-label={area.name}
-              onClick={() => onSelectStandingArea?.(area, index)}
-              className="absolute flex flex-col items-center justify-center rounded-xl border-2 border-dashed text-xs font-extrabold text-white shadow-lg"
-              style={{
-                left: area.x,
-                top: area.y,
-                width: area.w,
-                height: area.h,
-                background: `color-mix(in srgb, ${area.color || '#EF4444'} 25%, transparent)`,
-                borderColor: area.color || '#EF4444',
-                transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
-              }}
-            >
-              <span>{area.name}</span>
-              <span className="mt-1 text-[10px] font-semibold text-white/85">Sức chứa: {area.capacity || 0} người</span>
-            </button>
-          ))}
-          {configuredLayout?.auxiliaryElements.map((element, index) => (
-            <div
-              key={element.id || `aux-${index}`}
-              className="absolute grid place-items-center overflow-hidden rounded-md border border-border-soft bg-panel-soft px-2 text-center text-[11px] font-bold text-content"
-              style={{
-                left: element.x,
-                top: element.y,
-                width: element.w,
-                height: element.h,
-                transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
-                backgroundColor: element.color || undefined,
-              }}
-            >
-              {element.label || element.name}
-            </div>
-          ))}
-          {seats.map((seat) => {
-            const position = xyLayout.positions.get(seatId(seat))
-            if (!position) return null
-            // Trong xy layout: dùng xyWidth (đã tính từ spacing thực tế)
-            return renderSeat(seat, xyWidth, {
-              position: 'absolute',
-              left: position.left,
-              top: position.top,
-            })
-          })}
+              {configuredLayout?.stage ? (
+                <div
+                  className="absolute grid place-items-center overflow-hidden border-2 border-white/30 px-2 text-center text-xs font-extrabold text-white shadow-lg shadow-slate-950/20"
+                  style={{
+                    left: configuredLayout.stage.x,
+                    top: configuredLayout.stage.y,
+                    width: configuredLayout.stage.w,
+                    height: configuredLayout.stage.h,
+                    transform: configuredLayout.stage.rotation ? `rotate(${configuredLayout.stage.rotation}deg)` : undefined,
+                    transformOrigin: 'center',
+                    backgroundColor: configuredLayout.stage.color,
+                    ...stageShapeStyle(configuredLayout.stage.shape),
+                  }}
+                >
+                  <span style={{ transform: configuredLayout.stage.h > configuredLayout.stage.w ? 'rotate(-90deg)' : undefined }}>
+                    {configuredLayout.stage.label}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className="absolute left-1/2 top-4 -translate-x-1/2 rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 text-center text-xs font-extrabold leading-10 text-slate-950 shadow-lg shadow-primary/20"
+                  style={{ height: STAGE_HEIGHT, width: Math.min(Math.max(xyLayout.width * 0.7, 260), 600) }}
+                >
+                  SÂN KHẤU
+                </div>
+              )}
+              {configuredLayout?.standingAreas.map((area, index) => (
+                <button
+                  key={area.id || index}
+                  type="button"
+                  disabled={readOnly}
+                  title={area.name}
+                  aria-label={area.name}
+                  onClick={() => onSelectStandingArea?.(area, index)}
+                  className="absolute flex flex-col items-center justify-center rounded-xl border-2 border-dashed text-xs font-extrabold text-white shadow-lg"
+                  style={{
+                    left: area.x,
+                    top: area.y,
+                    width: area.w,
+                    height: area.h,
+                    background: `color-mix(in srgb, ${area.color || '#EF4444'} 25%, transparent)`,
+                    borderColor: area.color || '#EF4444',
+                    transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
+                  }}
+                >
+                  <span>{area.name}</span>
+                  <span className="mt-1 text-[10px] font-semibold text-white/85">Sức chứa: {area.capacity || 0} người</span>
+                </button>
+              ))}
+              {configuredLayout?.auxiliaryElements.map((element, index) => (
+                <div
+                  key={element.id || `aux-${index}`}
+                  className="absolute grid place-items-center overflow-hidden rounded-md border border-border-soft bg-panel-soft px-2 text-center text-[11px] font-bold text-content"
+                  style={{
+                    left: element.x,
+                    top: element.y,
+                    width: element.w,
+                    height: element.h,
+                    transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+                    backgroundColor: element.color || undefined,
+                  }}
+                >
+                  {element.label || element.name}
+                </div>
+              ))}
+              {seats.map((seat) => {
+                const position = xyLayout.positions.get(seatId(seat))
+                if (!position) return null
+                // Trong xy layout: dùng xyWidth (đã tính từ spacing thực tế)
+                return renderSeat(seat, xyWidth, {
+                  position: 'absolute',
+                  left: position.left,
+                  top: position.top,
+                })
+              })}
             </div>
           </div>
         </div>
@@ -1869,28 +1921,28 @@ export function SeatMapCanvas({
               willChange: 'transform',
             }}
           >
-        {/* Sân khấu */}
-        <div className="mb-6 flex justify-center">
-          <div
-            className="rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 px-12 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-primary/20"
-            style={{ minWidth: 200 }}
-          >
-            SÂN KHẤU
-          </div>
-        </div>
-        {/* Các dãy ghế */}
-        <div className="space-y-1.5">
-          {rows.map(({ rowLabel, seats: rowSeats }) => (
-            <div key={rowLabel} className="flex items-center gap-2">
-              {/* Nhãn hàng */}
-              <span className="w-6 shrink-0 text-right text-[10px] font-bold text-subtle">{rowLabel}</span>
-              {/* Ghế trong hàng */}
-              <div className="flex gap-1.5">
-                {rowSeats.map((seat) => renderSeat(seat, seatWidth))}
+            {/* Sân khấu */}
+            <div className="mb-6 flex justify-center">
+              <div
+                className="rounded-b-2xl bg-gradient-to-r from-primary/80 via-sky-300 to-primary/80 px-12 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-primary/20"
+                style={{ minWidth: 200 }}
+              >
+                SÂN KHẤU
               </div>
             </div>
-          ))}
-        </div>
+            {/* Các dãy ghế */}
+            <div className="space-y-1.5">
+              {rows.map(({ rowLabel, seats: rowSeats }) => (
+                <div key={rowLabel} className="flex items-center gap-2">
+                  {/* Nhãn hàng */}
+                  <span className="w-6 shrink-0 text-right text-[10px] font-bold text-subtle">{rowLabel}</span>
+                  {/* Ghế trong hàng */}
+                  <div className="flex gap-1.5">
+                    {rowSeats.map((seat) => renderSeat(seat, seatWidth))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

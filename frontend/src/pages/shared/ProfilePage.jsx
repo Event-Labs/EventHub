@@ -1998,13 +1998,13 @@ function ChangePassword({ user, onDone }) {
       <h2 className="sr-only">
         {hasPassword ? 'Đổi mật khẩu' : 'Thiết lập mật khẩu mới'}
       </h2>
-      <p className="text-sm leading-6 text-subtle">
-        {hasPassword
-          ? 'Cập nhật mật khẩu định kỳ để tăng cường bảo mật.'
-          : 'Bạn đang đăng nhập bằng Google, hãy thiết lập mật khẩu để có thể đăng nhập trực tiếp bằng email.'}
-      </p>
+      {!hasPassword && (
+        <p className="mb-6 text-sm leading-6 text-subtle">
+          Bạn đang đăng nhập bằng Google, hãy thiết lập mật khẩu để có thể đăng nhập trực tiếp bằng email.
+        </p>
+      )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {hasPassword && (
           <Input label="Mật khẩu hiện tại" type="password" placeholder="Nhập mật khẩu hiện tại" required value={form.currentPassword} onChange={(e) => setForm({ ...form, currentPassword: e.target.value })} />
         )}

@@ -376,7 +376,7 @@ function DeleteConfirmModal({ target, error, isDeleting, onClose, onConfirm }) {
             type="button"
             disabled={isDeleting}
             onClick={onConfirm}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDeleting ? 'Đang xóa...' : 'Xóa'}
           </button>

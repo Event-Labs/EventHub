@@ -9,6 +9,7 @@ import {
   submitOrganizerEvent,
   updateOrganizerEvent,
   generateAiEventContent,
+  fetchOrganizerPaymentChannel,
 } from '@/services/organizerEvents.js'
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { assignZones, getSeatMap } from '@/services/organizerSeatMaps.js'
@@ -3650,12 +3651,12 @@ export function CreateEventPage() {
 
   useEffect(() => {
     setInitialLoading(true)
-    Promise.all([fetchEventCategories(), fetchOrganizerVenues(), fetchCurrentPlan()])
-      .then(([cats, vns, plan]) => {
+    Promise.all([fetchEventCategories(), fetchOrganizerVenues()])
+      .then(([cats, vns]) => {
         setCategories(cats)
         setVenues(vns)
-        const hasActivePlan = Boolean(plan?.active && plan?.plan)
-        if (!hasActivePlan) setSubscriptionRequired(true)
+
+
       })
       .catch((err) => {
         console.error(err)
@@ -4424,30 +4425,57 @@ export function CreateEventPage() {
     setLoading(true)
     setError('')
     setPaymentSetupRequired(false)
+    setSubscriptionRequired(false)
+    let targetEventId = eventId
 
     try {
-      if (eventId) {
-        await updateOrganizerEvent(eventId, {
-          title: formData.title,
-          category_id: formData.category_id,
-          tags: formData.tags,
-          format: formData.format,
-          visibility: formData.visibility,
-          short_description: formData.short_description,
-          description: formData.description,
-          thumbnail_url: formData.thumbnail_url,
-          banner_url: formData.banner_url,
-          seating_rules: formData.seating_rules,
-          refund_policy: formData.refund_policy,
-          additional_terms: formData.additional_terms,
-          require_attendee_info: formData.require_attendee_info,
-          sessions: buildSessionsPayload(),
-          ticket_types: buildTicketTypesPayload(),
-        })
-        await syncZoneAssignments()
+      const eventPayload = {
+        title: formData.title,
+        category_id: formData.category_id,
+        tags: formData.tags,
+        format: formData.format,
+        visibility: formData.visibility,
+        short_description: formData.short_description,
+        description: formData.description,
+        thumbnail_url: formData.thumbnail_url,
+        banner_url: formData.banner_url,
+        seating_rules: formData.seating_rules,
+        refund_policy: formData.refund_policy,
+        additional_terms: formData.additional_terms,
+        require_attendee_info: formData.require_attendee_info,
+        sessions: buildSessionsPayload(),
+        ticket_types: buildTicketTypesPayload(),
       }
 
-      // Kiểm tra gói dịch vụ (Subscription) của Organizer trước khi gửi duyệt
+      if (targetEventId) {
+        await updateOrganizerEvent(targetEventId, eventPayload)
+        await syncZoneAssignments()
+      } else {
+        const created = await createOrganizerEvent(eventPayload)
+        targetEventId = created.id
+        setEventId(created.id)
+        if (eventPayload.ticket_types?.length > 0) {
+          await syncZoneAssignments()
+        }
+      }
+
+      // 1. Kiểm tra cấu hình thanh toán PayOS nếu sự kiện có vé thu phí
+      const hasPaidTickets = (formData.ticketTypes || []).some((tt) => Number(tt.price) > 0)
+      if (hasPaidTickets) {
+        const channel = await fetchOrganizerPaymentChannel().catch(() => null)
+        if (!channel || channel.status !== 'ACTIVE') {
+          toast.error('Bạn cần cài đặt và kích hoạt kênh thanh toán PayOS trước khi gửi duyệt sự kiện có bán vé.')
+          navigate('/organizer/settings/payment', {
+            state: {
+              returnTo: targetEventId ? `/organizer/events/${targetEventId}/edit` : '/organizer/events/create',
+              error: 'Vui lòng hoàn tất thiết lập kênh thanh toán PayOS trước khi gửi duyệt sự kiện có bán vé.',
+            },
+          })
+          return
+        }
+      }
+
+      // 2. Kiểm tra gói dịch vụ (Subscription) của Organizer trước khi gửi duyệt
       const planRes = await fetchCurrentPlan().catch(() => null)
       const hasActivePlan = Boolean(planRes?.active && planRes?.plan)
       if (!hasActivePlan) {
@@ -4455,16 +4483,17 @@ export function CreateEventPage() {
         toast.error('Tài khoản của bạn chưa đăng ký gói dịch vụ. Đang chuyển hướng sang trang mua gói...')
         navigate('/organizer/subscriptions', {
           state: {
-            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events',
+            returnTo: targetEventId ? `/organizer/events/${targetEventId}/edit` : '/organizer/events/create',
             message: 'Tài khoản chưa có gói dịch vụ hoạt động. Vui lòng mua hoặc kích hoạt gói dịch vụ để có thể gửi duyệt sự kiện.',
           },
         })
         return
       }
 
-      await submitOrganizerEvent(eventId)
+      // 3. Tiến hành gửi duyệt sự kiện
+      await submitOrganizerEvent(targetEventId)
       navigate('/organizer/events', {
-        state: { message: 'Đã gửi sự kiện để duyệt.' },
+        state: { message: 'Đã gửi sự kiện để duyệt thành công.' },
       })
     } catch (err) {
       console.error('[CreateEventPage handleSubmit Error]:', err)
@@ -4478,8 +4507,8 @@ export function CreateEventPage() {
         setPaymentSetupRequired(true)
         navigate('/organizer/settings/payment', {
           state: {
-            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events/create',
-            error: err.response?.data?.message || 'Vui lòng hoàn tất thiết lập thanh toán trước khi gửi duyệt sự kiện có phí.',
+            returnTo: targetEventId ? `/organizer/events/${targetEventId}/edit` : '/organizer/events/create',
+            error: errorMessage || 'Vui lòng hoàn tất thiết lập thanh toán trước khi gửi duyệt sự kiện có phí.',
           },
         })
         return
@@ -4490,14 +4519,15 @@ export function CreateEventPage() {
         errorCode === 'STAFF_SUBSCRIPTION_REQUIRED' ||
         errorMessage.includes('gói dịch vụ') ||
         errorMessage.includes('mua hoặc gia hạn gói') ||
-        errorMessage.includes('nâng cấp gói')
+        errorMessage.includes('nâng cấp gói') ||
+        errorMessage.includes('vượt giới hạn')
       ) {
         setSubscriptionRequired(true)
-        toast.error(errorMessage || 'Tài khoản của bạn chưa có gói dịch vụ đang hoạt động. Đang chuyển hướng sang trang mua gói...')
+        toast.error(errorMessage || 'Tài khoản chưa có gói dịch vụ phù hợp với quy mô sự kiện. Đang chuyển hướng sang trang gói dịch vụ...')
         navigate('/organizer/subscriptions', {
           state: {
-            returnTo: eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events/create',
-            error: errorMessage || 'Tài khoản chưa có gói dịch vụ hoạt động. Vui lòng mua hoặc gia hạn gói để gửi duyệt sự kiện.',
+            returnTo: targetEventId ? `/organizer/events/${targetEventId}/edit` : '/organizer/events/create',
+            error: errorMessage || 'Tài khoản chưa có gói dịch vụ phù hợp. Vui lòng nâng cấp gói để gửi duyệt sự kiện.',
           },
         })
         return
@@ -4620,34 +4650,7 @@ export function CreateEventPage() {
           </div>
         )}
 
-        {paymentSetupRequired && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
-            <Icon name="warning" />
-            <span>Vui lòng cài đặt thanh toán nhận tiền trước khi đăng sự kiện bán vé.</span>
-            <button
-              type="button"
-              onClick={() => navigate('/organizer/settings/payment')}
-              className="ml-auto rounded-md border border-warning/30 bg-surface px-3 py-1.5 text-xs font-semibold text-warning hover:bg-warning/10 transition"
-            >
-              Đến cài đặt thanh toán
-            </button>
-          </div>
-        )}
-        {subscriptionRequired && (
-          <div className="mb-4 flex items-center justify-between rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning font-medium">
-            <div className="flex items-center gap-3">
-              <Icon name="warning" className="text-xl" />
-              <span>Tài khoản của bạn chưa đăng ký gói dịch vụ. Vui lòng Nâng cấp tài khoản để có thể phát hành sự kiện.</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate('/organizer/subscriptions')}
-              className="rounded-md border border-warning/30 bg-surface px-4 py-2 font-bold bg-warning text-white shadow-sm hover:opacity-90 transition"
-            >
-              Đăng ký gói ngay
-            </button>
-          </div>
-        )}
+        
         <fieldset>
           {currentStep === 1 && (
             <Step1EventInfo

@@ -27,6 +27,7 @@ TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .Response }}<|im_end|>"""
 
 PARAMETER num_ctx 4096
+PARAMETER num_gpu 99
 PARAMETER num_thread 8
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9

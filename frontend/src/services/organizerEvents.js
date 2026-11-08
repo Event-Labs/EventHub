@@ -281,3 +281,8 @@ export async function extractEventFromDocument({ file, note = '', rawText = '' }
   })
   return response.data.data
 }
+
+export async function fetchOrganizerPaymentChannel() {
+  const response = await http.get('/organizer/payments/channel')
+  return response.data.data
+}

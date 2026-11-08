@@ -38,6 +38,7 @@ export function OrganizerEventPicker({
   label = 'Phạm vi sự kiện',
   allowAll = true,
   placeholder = 'Chọn sự kiện...',
+  showCalendarIcon = false,
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -198,9 +199,9 @@ export function OrganizerEventPicker({
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
                 </span>
-              ) : (
+              ) : showCalendarIcon ? (
                 <Calendar className="size-4 shrink-0 text-cyan-400" />
-              )}
+              ) : null}
               <span className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
                 {selectedEvent.title}
               </span>

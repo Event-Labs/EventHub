@@ -205,8 +205,7 @@ function RequestTypeSelector({ value, onChange, disabled = false }) {
           return (
             <label
               key={option.value}
-              className={`inline-flex items-center gap-2 text-sm font-bold ${active ? 'text-content' : 'text-muted'
-                } ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+              className={`inline-flex items-center gap-2 text-sm font-bold text-white ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
             >
               <input
                 type="radio"
@@ -215,7 +214,7 @@ function RequestTypeSelector({ value, onChange, disabled = false }) {
                 checked={active}
                 disabled={disabled}
                 onChange={() => onChange(option.value)}
-                className="size-4 accent-orange-500"
+                className="size-4.5 accent-[#C99A47] cursor-pointer"
               />
               {option.label}
             </label>
@@ -859,22 +858,23 @@ export function OrganizerRequestPage() {
       />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_380px] relative">
-        <section className="glass-panel rounded-[32px] border-primary/20 p-8 lg:p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-5 pointer-events-none" />
-          {editingRequest && (
-            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
-              Bạn đang chỉnh sửa yêu cầu đã gửi. Sau khi lưu, yêu cầu sẽ được đưa về trạng thái chờ duyệt.
-            </div>
-          )}
+        <div className="space-y-6">
+          <section className="glass-panel rounded-[32px] border-primary/20 p-8 lg:p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-5 pointer-events-none" />
+            {editingRequest && (
+              <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+                Bạn đang chỉnh sửa yêu cầu đã gửi. Sau khi lưu, yêu cầu sẽ được đưa về trạng thái chờ duyệt.
+              </div>
+            )}
 
-          {hasPendingIndividualRequest && !editingRequest && (
-            <p className="mb-4 text-sm text-muted">
-              Bạn đã có yêu cầu cá nhân đang chờ duyệt. Vui lòng đợi Admin xử lý trước khi gửi yêu cầu mới.
-            </p>
-          )}
+            {hasPendingIndividualRequest && !editingRequest && (
+              <p className="mb-4 text-sm text-muted">
+                Bạn đã có yêu cầu cá nhân đang chờ duyệt. Vui lòng đợi Admin xử lý trước khi gửi yêu cầu mới.
+              </p>
+            )}
 
-          {canSubmit && (
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            {canSubmit && (
+              <form id="organizer-request-form" className="space-y-6" onSubmit={handleSubmit}>
               <FormSection
                 title="Loại đăng ký"
                 description="Chọn đúng nhóm đăng ký để hệ thống yêu cầu bộ thông tin phù hợp."
@@ -930,7 +930,7 @@ export function OrganizerRequestPage() {
                 </div>
 
                 <div>
-                  <span className="text-sm font-semibold text-muted">
+                  <span className="text-sm font-semibold text-white">
                     Ảnh đại diện
                     <RequiredMark />
                   </span>
@@ -1130,7 +1130,7 @@ export function OrganizerRequestPage() {
                 description="Tóm tắt kinh nghiệm tổ chức, loại sự kiện dự kiến và phạm vi hoạt động."
               >
                 <label className="block">
-                  <span className="text-sm font-semibold text-muted">
+                  <span className="text-sm font-semibold text-white">
                     Mô tả
                     <RequiredMark />
                   </span>
@@ -1153,10 +1153,10 @@ export function OrganizerRequestPage() {
                     type="checkbox"
                     checked={form.terms_accepted}
                     onChange={handleCheckboxChange('terms_accepted')}
-                    className="mt-1 size-4 shrink-0 accent-orange-500"
+                    className="mt-1 size-4.5 shrink-0 rounded border border-white/20 bg-slate-900/60 accent-[#C99A47] cursor-pointer focus:ring-2 focus:ring-[#C99A47]/40"
                     required
                   />
-                  <span className="text-sm leading-6 text-muted">
+                  <span className="text-sm leading-6 text-slate-300">
                     Tôi xác nhận thông tin cung cấp là chính xác và đồng ý với{' '}
                     <PolicyLink to="/policies?policy_type=ORGANIZER_TERMS">
                       Điều khoản dịch vụ dành cho Nhà tổ chức
@@ -1178,40 +1178,42 @@ export function OrganizerRequestPage() {
                   </span>
                 </label>
               </FormSection>
-
-
-
-              <div className="flex flex-wrap justify-end gap-4 mt-8">
-                {editingRequest && (
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 py-3.5 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
-                  >
-                    Hủy chỉnh sửa
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={requestMutation.isPending || isUploading}
-                  className="btn-gold-primary px-8 py-3.5 text-[15px] flex items-center gap-2 font-bold cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
-                >
-                  {(requestMutation.isPending || isUploading) && (
-                    <Loader2 className="size-5 animate-spin" />
-                  )}
-                  {isUploading
-                    ? 'Đang tải tài liệu...'
-                    : requestMutation.isPending
-                      ? 'Đang lưu...'
-                      : editingRequest
-                        ? 'Cập nhật yêu cầu'
-                        : 'Gửi yêu cầu'}
-                </button>
-              </div>
             </form>
           )}
         </section>
+
+        {canSubmit && (
+          <div className="flex flex-wrap justify-end gap-4">
+            {editingRequest && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 py-3.5 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
+              >
+                Hủy chỉnh sửa
+              </button>
+            )}
+            <button
+              type="submit"
+              form="organizer-request-form"
+              disabled={requestMutation.isPending || isUploading}
+              className="btn-gold-primary px-8 py-3.5 text-[15px] flex items-center gap-2 font-bold cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+            >
+              {(requestMutation.isPending || isUploading) && (
+                <Loader2 className="size-5 animate-spin" />
+              )}
+              {isUploading
+                ? 'Đang tải tài liệu...'
+                : requestMutation.isPending
+                  ? 'Đang lưu...'
+                  : editingRequest
+                    ? 'Cập nhật yêu cầu'
+                    : 'Gửi yêu cầu'}
+            </button>
+          </div>
+        )}
+      </div>
 
         <aside>
           {requestQuery.isError ? (
@@ -1231,9 +1233,9 @@ function FormSection({ title, description, children }) {
   return (
     <section className="space-y-6 border-t-2 border-dashed border-white/10 pt-8 first:border-t-0 first:pt-0">
       <div>
-        <h2 className="font-display text-lg font-extrabold text-content">{title}</h2>
+        <h2 className="font-display text-lg font-extrabold text-white">{title}</h2>
         {description && (
-          <p className="mt-1 text-sm leading-6 text-subtle">{description}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-300">{description}</p>
         )}
       </div>
       <div className="space-y-4">
@@ -1246,7 +1248,7 @@ function FormSection({ title, description, children }) {
 function Field({ label, value, onChange, placeholder, type = 'text', required = false }) {
   return (
     <label className="block">
-      <span className="text-sm font-semibold text-muted">
+      <span className="text-sm font-semibold text-white">
         {label}
         {required && <RequiredMark />}
       </span>
@@ -1265,7 +1267,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
 function FileField({ label, file, existingUrl = '', onChange, required = false, imageOnly = false }) {
   return (
     <label className="glass-panel flex min-h-64 flex-col justify-between rounded-[24px] border-white/10 p-6 shadow-inner">
-      <span className="block min-h-12 text-sm font-semibold leading-6 text-muted">
+      <span className="block min-h-12 text-sm font-semibold leading-6 text-white">
         {label}
         {required && <RequiredMark />}
       </span>

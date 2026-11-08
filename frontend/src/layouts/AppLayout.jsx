@@ -21,7 +21,7 @@ const centerNavItems = [
   ['Khám phá sự kiện', '/events', false],
   ['Sự kiện yêu thích', '/favorites', true],
   ['Vé của tôi', '/my-tickets', true],
-  ['Phản hồi', '/feedback', true],
+  ['Đánh giá', '/feedback', true],
 ]
 
 const footerSections = [

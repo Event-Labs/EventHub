@@ -57,6 +57,11 @@ export function BookingCheckoutPage() {
   const checkoutMutation = useMutation({
     mutationFn: checkoutOrder,
     onSuccess: (data) => {
+      if (data.is_completed || data.order?.status === 'CONFIRMED' || !data.requires_payment) {
+        toast.success('Đặt vé thành công! Vé của bạn đã sẵn sàng.');
+        navigate('/my-tickets', { replace: true });
+        return;
+      }
       toast.success('Đã tạo đơn thanh toán. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       navigate(`/payment-confirmation?orderId=${data.order.id}`, {
         replace: true,

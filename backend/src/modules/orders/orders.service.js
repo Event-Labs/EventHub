@@ -4,7 +4,6 @@ const ordersRepository = require('./orders.repository');
 const paymentsService = require('../payments/payments.service');
 const env = require('../../config/env');
 const logger = require('../../core/logger');
-const { ZERO_AMOUNT_CHECKOUT_ENABLED } = require('../../config/features');
 const { validateIdempotencyPayload, formatExistingOrderResponse } = ordersRepository;
 
 function normalizePhone(phone) {
@@ -206,11 +205,9 @@ class OrdersService {
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
 
-    // Zero-Amount Checkout bypass (behind feature flag ZERO_AMOUNT_CHECKOUT_ENABLED)
-    if (ZERO_AMOUNT_CHECKOUT_ENABLED) {
-      const couldBeZero = subtotal === 0 || Boolean(payload.promo_code);
-
-      if (couldBeZero) {
+    // Đơn hàng miễn phí (giá 0đ hoặc áp dụng voucher) -> xác nhận trực tiếp không qua cổng thanh toán
+    const couldBeZero = subtotal === 0 || Boolean(payload.promo_code);
+    if (couldBeZero) {
         try {
           const confirmed = await ordersRepository.confirmZeroAmountCheckout({
             userId,
@@ -281,7 +278,6 @@ class OrdersService {
           }
         }
       }
-    }
 
     const paymentChannel = await paymentsService.getOrganizerPayosChannelForEvent(payload.event_id);
 
@@ -311,7 +307,18 @@ class OrdersService {
       idempotencyKey,
     });
 
+    // Safety guard: Nếu số tiền thanh toán là 0đ thì không gọi PayOS
+    if (mapMoney(created.order.total_amount) === 0 || mapMoney(created.paymentOrder?.amount) === 0) {
+      await ordersRepository.cancelOrder(created.order.id);
+      throw new AppError(
+        'Đơn hàng miễn phí không thể tạo thanh toán qua PayOS.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
     try {
+
       created.paymentOrder = await paymentsService.createTicketOrderPayosLink({
         paymentOrder: created.paymentOrder,
         channel: paymentChannel,
@@ -361,21 +368,23 @@ class OrdersService {
   }
 
   async getStatus(userId, orderId) {
-    await ordersRepository.expirePendingOrders();
     const row = await ordersRepository.findOrderStatus(orderId, userId);
     if (!row) {
       throw new AppError('Không tìm thấy đơn hàng.', 404, ErrorCodes.ORDER_NOT_FOUND);
     }
-    if (row.order?.status === 'PENDING' && row.payment?.id) {
+    if ((row.order?.status === 'PENDING' || row.order?.status === 'EXPIRED') && (row.order?.payment_order_id || row.order?.provider_order_code || row.payment?.id)) {
       try {
         await paymentsService.syncTicketOrderFromPayos(orderId, userId);
         const updatedRow = await ordersRepository.findOrderStatus(orderId, userId);
-        if (updatedRow) return mapOrderStatus(updatedRow);
+        if (updatedRow && updatedRow.order?.status === 'PAID') return mapOrderStatus(updatedRow);
       } catch (error) {
+        logger.error(`[ORDER_STATUS_SYNC_ERROR] orderId=${orderId} userId=${userId}: ${error.message}`, error);
         // Keep status polling usable even if PayOS status sync is temporarily unavailable.
       }
     }
-    return mapOrderStatus(row);
+    await ordersRepository.expirePendingOrders();
+    const finalRow = await ordersRepository.findOrderStatus(orderId, userId);
+    return mapOrderStatus(finalRow || row);
   }
 
   async cancel(userId, orderId) {
@@ -571,5 +580,4 @@ class OrdersService {
 }
 
 module.exports = new OrdersService();
-
 

@@ -663,6 +663,12 @@ export function BookingSeatsPage() {
     })[0] || ''
   }, [hasSeatMap, seatData, seatingRules, selectedSeatIds])
 
+  const eventRequireAttendeeInfo = Boolean(
+    eventDetail?.require_attendee_info ??
+    cart?.requireAttendeeInfo ??
+    cart?.require_attendee_info
+  )
+
   const displayCart = cart ? {
     ...cart,
     selectedSession: session,
@@ -670,6 +676,8 @@ export function BookingSeatsPage() {
     availableTicketTypes: displayTicketTypes,
     items: displayItems,
     hasSeatMap,
+    requireAttendeeInfo: eventRequireAttendeeInfo,
+    require_attendee_info: eventRequireAttendeeInfo,
   } : cart
 
   useEffect(() => {
@@ -934,6 +942,9 @@ export function BookingSeatsPage() {
                 cart={displayCart}
                 maxTicketsAllowed={maxTicketsAllowed}
                 onUpdateQuantity={updateUnseatedQuantity}
+                isPaused={isPaused}
+                pausedTicketTypeIds={pausedTicketTypeIds}
+                eventDetail={eventDetail}
               />
             )
           ) : (
@@ -947,8 +958,8 @@ export function BookingSeatsPage() {
                     <Legend color="bg-panel-soft" label={'Còn trống'} />
                     <Legend color="bg-slate-700" label={'Đã giữ/bán'} />
                   </div>
-                  <div className="relative rounded-xl bg-surface/60 p-2 sm:p-4 border border-white/5 w-full max-w-full overflow-hidden">
-                    <div ref={seatMapViewportRef} className="min-w-0 w-full overflow-auto touch-pan-x touch-pan-y no-scrollbar">
+                  <div className="rounded-xl bg-surface/60 border border-white/10 w-full max-w-full overflow-hidden flex flex-col">
+                    <div ref={seatMapViewportRef} className="min-w-0 w-full overflow-auto p-2 sm:p-4 touch-pan-x touch-pan-y no-scrollbar">
                       <SeatMapCanvas
                         seats={seatsQuery.data?.seats || []}
                         ticketTypes={ticketTypes}
@@ -971,45 +982,48 @@ export function BookingSeatsPage() {
                         }}
                       />
                     </div>
-                    <div className="absolute bottom-3 right-3 flex flex-col items-center gap-1.5 z-10 bg-slate-950/85 p-1 rounded-full border border-white/10 backdrop-blur-md shadow-lg">
-                      <button
-                        type="button"
-                        onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.35, 1.6))}
-                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
-                        disabled={seatZoom >= 1.6}
-                        title={'Phóng to để xem chi tiết số ghế'}
-                      >
-                        <Plus className="size-3.5 sm:size-4" />
-                      </button>
-                      <span className="text-[10px] font-black text-primary/90 text-center select-none py-0.5" title="Độ phóng đại">
-                        {Math.round(seatZoom * 100)}%
-                      </span>
-                      <button
-                        type="button"
-                        onClick={fitSeatMapToViewport}
-                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
-                        title={'Vừa khung (xem tổng quan)'}
-                      >
-                        <RefreshCw className="size-3 sm:size-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.35, 1.6))}
-                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
-                        disabled={seatZoom <= 0.35}
-                        title={'Thu nhỏ'}
-                      >
-                        <Minus className="size-3.5 sm:size-4" />
-                      </button>
+
+                    {/* Bottom Control Bar inside Frame - Completely separated from the seat grid */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-2.5 border-t border-white/10 bg-white/[0.02]">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-muted">
+                        <span>
+                          Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
+                        </span>
+                        <span className="text-[11px] sm:text-xs text-subtle">
+                          (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
+                        </span>
+                      </div>
+
+                      {/* 3 Zoom buttons with blue border, no outer frame wrapper, no percentage */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.35, 1.6))}
+                          className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-primary/5 text-primary hover:bg-primary hover:text-slate-950 active:scale-95 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                          disabled={seatZoom >= 1.6}
+                          title="Phóng to để xem chi tiết số ghế"
+                        >
+                          <Plus className="size-3.5 sm:size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={fitSeatMapToViewport}
+                          className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-primary/5 text-primary hover:bg-primary hover:text-slate-950 active:scale-95 transition cursor-pointer"
+                          title="Vừa khung (xem tổng quan)"
+                        >
+                          <RefreshCw className="size-3 sm:size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.35, 1.6))}
+                          className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-primary/5 text-primary hover:bg-primary hover:text-slate-950 active:scale-95 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                          disabled={seatZoom <= 0.35}
+                          title="Thu nhỏ"
+                        >
+                          <Minus className="size-3.5 sm:size-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-muted">
-                    <p>
-                      Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
-                    </p>
-                    <span className="text-[11px] sm:text-xs text-subtle">
-                      (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
-                    </span>
                   </div>
                 </>
               ) : null}
@@ -1562,17 +1576,63 @@ export function BookingReviewPage() {
         navigate('/booking/seats', { state: { cart: nextCart } })
         return
       }
+
+      if (nextCart.orderId) {
+        try {
+          const status = await fetchOrderStatus(nextCart.orderId)
+          if (status?.order?.status === 'PENDING' && status?.payment) {
+            navigate(`/booking/payment?orderId=${nextCart.orderId}`, {
+              state: { cart: nextCart, checkout: status },
+            })
+            return
+          }
+        } catch (_) {}
+      }
+
+      const idempotencyKey =
+        nextCart?.idempotencyKey ||
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+
+      const checkoutData = await checkoutOrder({
+        event_id: nextCart.eventId,
+        buyer_name: nextCart.buyer?.name || '',
+        buyer_email: nextCart.buyer?.email || '',
+        buyer_phone: nextCart.buyer?.phone || null,
+        promo_code: nextCart.promoCode?.trim() || null,
+        event_terms_accepted: Boolean(nextCart.eventTermsAccepted),
+        attendees: buildAttendeesPayload(nextCart),
+        items: nextCart.items.map((item) => ({
+          ticket_type_id: item.ticketType.id,
+          quantity: item.quantity,
+          session_seat_ids: item.sessionSeatIds || [],
+        })),
+        idempotency_key: idempotencyKey,
+      }, { idempotencyKey })
+
+      if (checkoutData.is_completed || checkoutData.order?.status === 'CONFIRMED' || !checkoutData.requires_payment) {
+        toast.success('Đặt vé thành công! Vé của bạn đã sẵn sàng.')
+        clearBookingDraft()
+        navigate('/my-tickets', { replace: true })
+        return
+      }
+
+      toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       const paymentCart = {
         ...nextCart,
+        orderId: checkoutData.order?.id,
+        holdExpiresAt: checkoutData.order?.expired_at || nextCart?.holdExpiresAt,
         currentStep: 4,
-        currentPath: '/booking/payment',
+        currentPath: `/booking/payment?orderId=${checkoutData.order?.id || ''}`,
       }
       saveBookingDraft(paymentCart)
-      navigate('/booking/payment', { state: { cart: paymentCart } })
+      navigate(`/booking/payment?orderId=${checkoutData.order.id}`, {
+        state: { cart: paymentCart, checkout: checkoutData },
+      })
     } catch (err) {
-      const message = getApiMessage(err, 'Không thể kiểm tra tình trạng vé/ghế. Vui lòng thử lại.')
+      const message = getApiMessage(err, 'Không thể tạo đơn hàng thanh toán. Vui lòng thử lại.')
       toast.error(message)
-      navigate('/booking/seats', { state: { cart: nextCart } })
     } finally {
       setCheckingAvailability(false)
     }
@@ -1719,15 +1779,17 @@ export function BookingReviewPage() {
                     </div>
 
                     <div className="space-y-1.5 text-xs sm:text-sm text-slate-300">
-                      {generateRefundPolicyLines(effectiveRefundPolicy).map((line, idx) => (
-                        <div key={idx} className="flex items-start gap-2">
-                          <span
-                            className={`mt-1.5 size-1.5 shrink-0 rounded-full ${hasRefundPolicy ? 'bg-cyan-400' : 'bg-slate-500'
-                              }`}
-                          />
-                          <span className="leading-relaxed">{line}</span>
-                        </div>
-                      ))}
+                      {generateRefundPolicyLines(effectiveRefundPolicy)
+                        .filter((line) => !line.startsWith('* Ghi chú'))
+                        .map((line, idx) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span
+                              className={`mt-1.5 size-1.5 shrink-0 rounded-full ${hasRefundPolicy ? 'bg-cyan-400' : 'bg-slate-500'
+                                }`}
+                            />
+                            <span className="leading-relaxed">{line.replace(/^[•*]\s*/, '')}</span>
+                          </div>
+                        ))}
                     </div>
 
                     {effectiveRefundPolicy.refund_notes && (
@@ -1784,7 +1846,15 @@ export function BookingReviewPage() {
         <OrderCard
           cart={{ ...cart, promoCode, promo: selectedPromo }}
           setCart={setCart}
-          cta={isPaused ? 'Tạm dừng bán vé' : 'Xác nhận và thanh toán'}
+          cta={
+            isPaused
+              ? 'Tạm dừng bán vé'
+              : checkingAvailability
+                ? 'Đang tạo thanh toán...'
+                : payableTotal({ ...cart, promoCode, promo: selectedPromo }) === 0
+                  ? 'Xác nhận đặt vé miễn phí'
+                  : 'Xác nhận và thanh toán'
+          }
           onClick={continueFlow}
           disabled={isPaused || checkingAvailability}
           isPaused={isPaused}
@@ -1900,8 +1970,10 @@ export function BookingPaymentPage() {
       : undefined,
     refetchInterval: (query) => {
       const status = query.state.data?.order?.status
-      return status === 'PENDING' ? 5000 : false
+      return status === 'PENDING' ? 3000 : false
     },
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   })
 
   const payment = statusQuery.data?.payment || checkout?.payment
@@ -1915,12 +1987,13 @@ export function BookingPaymentPage() {
   }, [statusQuery.error, statusQuery.isError, toast])
 
   useEffect(() => {
-    if (order?.status !== 'PAID' || paymentSuccessHandledRef.current) return
-
-    paymentSuccessHandledRef.current = true
-    clearBookingDraft()
-    toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
-    navigate('/my-tickets', { replace: true })
+    const status = order?.status
+    if ((status === 'PAID' || status === 'CONFIRMED') && !paymentSuccessHandledRef.current) {
+      paymentSuccessHandledRef.current = true
+      clearBookingDraft()
+      toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
+      navigate('/my-tickets', { replace: true })
+    }
   }, [navigate, order?.status, toast])
 
   useEffect(() => {
@@ -1961,16 +2034,45 @@ export function BookingPaymentPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start w-full max-w-full">
         <section className="space-y-4 sm:space-y-5 min-w-0 w-full max-w-full">
           <Panel>
-            {checkoutMutation.isPending && (
-              <p className="text-muted">
-                {Number(cart?.totalAmount ?? 0) === 0
-                  ? 'Đang xác nhận đặt vé miễn phí...'
-                  : 'Đang giữ vé và tạo thanh toán PayOS...'}
-              </p>
+            {!payment && !checkoutMutation.isError && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Loader2 className="size-8 text-primary animate-spin mb-2" />
+                <p className="text-white font-medium text-xs">Đang tải thông tin thanh toán...</p>
+              </div>
+            )}
+            {checkoutMutation.isError && !payment && (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <AlertCircle className="size-10 text-error mb-3" />
+                <p className="text-error font-bold mb-1">Không thể tạo thanh toán</p>
+                <p className="text-sm text-muted mb-4 max-w-sm">{getApiMessage(checkoutMutation.error)}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    checkoutStartedRef.current = false
+                    checkoutMutation.mutate({
+                      event_id: cart.eventId,
+                      buyer_name: cart.buyer?.name || '',
+                      buyer_email: cart.buyer?.email || '',
+                      buyer_phone: cart.buyer?.phone || null,
+                      promo_code: cart.promoCode?.trim() || null,
+                      event_terms_accepted: Boolean(cart.eventTermsAccepted),
+                      attendees: buildAttendeesPayload(cart),
+                      items: cart.items.map((item) => ({
+                        ticket_type_id: item.ticketType.id,
+                        quantity: item.quantity,
+                        session_seat_ids: item.sessionSeatIds || [],
+                      })),
+                    })
+                  }}
+                  className="btn-gold-primary px-6 py-2.5 text-sm font-bold shadow-lg"
+                >
+                  Thử lại
+                </button>
+              </div>
             )}
             {payment && (
               <div className="text-center">
-                <p className="text-sm font-bold uppercase tracking-widest text-muted">{'S\u1ed1 ti\u1ec1n c\u1ea7n thanh to\u00e1n'}</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-white">{'Số tiền cần thanh toán'}</p>
                 <p className="mt-2 font-display text-4xl font-extrabold text-white">{formatPrice(order.total_amount)}</p>
                 {payment.qr_code ? (
                   <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
@@ -1978,7 +2080,7 @@ export function BookingPaymentPage() {
                   </div>
                 ) : (
                   <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">
-                    {'QR s\u1ebd hi\u1ec3n th\u1ecb khi PayOS tr\u1ea3 d\u1eef li\u1ec7u.'}
+                    {'QR sẽ hiển thị khi PayOS trả dữ liệu.'}
                   </div>
                 )}
                 {payment.checkout_url && (
@@ -1988,17 +2090,18 @@ export function BookingPaymentPage() {
                     rel="noreferrer"
                     className="mt-6 inline-flex items-center justify-center gap-2 btn-gold-primary px-6 py-3 text-sm font-bold shadow-lg"
                   >
-                    {'M\u1edf trang PayOS'}
+                    {'Mở trang PayOS'}
                     <ExternalLink className="size-4" />
                   </a>
                 )}
                 <button
                   type="button"
                   onClick={() => statusQuery.refetch()}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-border-soft py-3 text-sm font-bold text-white hover:border-primary hover:text-primary"
+                  disabled={statusQuery.isFetching}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-border-soft py-3 text-sm font-bold text-white hover:border-primary hover:text-primary disabled:opacity-60 transition-colors"
                 >
-                  <RefreshCw className="size-4" />
-                  {'Ki\u1ec3m tra tr\u1ea1ng th\u00e1i'}
+                  <RefreshCw className={cn('size-4', statusQuery.isFetching && 'animate-spin')} />
+                  {statusQuery.isFetching ? 'Đang kiểm tra...' : 'Kiểm tra trạng thái'}
                 </button>
               </div>
             )}
@@ -2831,6 +2934,9 @@ function UnseatedTicketSelection({
   cart,
   maxTicketsAllowed,
   onUpdateQuantity,
+  isPaused = false,
+  pausedTicketTypeIds = new Set(),
+  eventDetail = null,
 }) {
   const currentTotalTickets = (cart?.items || []).reduce(
     (sum, item) => sum + Number(item.quantity || 0),
@@ -2852,10 +2958,13 @@ function UnseatedTicketSelection({
       ) : (
         <div className="divide-y divide-dashed divide-white/15">
           {ticketTypes.map((ticketType) => {
-            const isSpecificPaused = Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some(
-              (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+            const isSpecificPaused = Boolean(
+              (pausedTicketTypeIds && pausedTicketTypeIds.has(String(ticketType.id))) ||
+              (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some(
+                (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+              ))
             )
-            const isTicketPaused = isPaused || isSpecificPaused
+            const isTicketPaused = Boolean(isPaused || isSpecificPaused)
             const item = (cart?.items || []).find(
               (i) => String(i.ticketType?.id) === String(ticketType.id),
             )
@@ -3191,13 +3300,17 @@ function expandAttendeeSlots(cart) {
 }
 
 function buildAttendeesPayload(cart) {
-  if (!requiresAttendeeInfo(cart)) return []
-  return expandAttendeeSlots(cart).map((slot) => ({
-    ticket_type_id: slot.ticketTypeId,
-    session_seat_id: slot.sessionSeatId,
-    name: cart.attendees?.[slot.id]?.name || '',
-    email: cart.attendees?.[slot.id]?.email || '',
-  }))
+  return expandAttendeeSlots(cart).map((slot, index) => {
+    const attendee = cart.attendees?.[slot.id]
+    const name = (attendee?.name || (index === 0 ? cart.buyer?.name : '') || cart.buyer?.name || '').trim()
+    const email = (attendee?.email || (index === 0 ? cart.buyer?.email : '') || cart.buyer?.email || '').trim()
+    return {
+      ticket_type_id: slot.ticketTypeId,
+      session_seat_id: slot.sessionSeatId,
+      name,
+      email,
+    }
+  })
 }
 
 function NavigateBackToEvents() {

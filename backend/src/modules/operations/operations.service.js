@@ -314,10 +314,10 @@ class OperationsService {
     // Process session selection
     let normalizedSessionIds = null;
     let sessionName = null;
-    if (payload.session_id) {
-      normalizedSessionIds = [payload.session_id];
-    } else if (Array.isArray(payload.session_ids) && payload.session_ids.length > 0) {
+    if (Array.isArray(payload.session_ids) && payload.session_ids.length > 0) {
       normalizedSessionIds = payload.session_ids;
+    } else if (payload.session_id) {
+      normalizedSessionIds = [payload.session_id];
     }
 
     if (normalizedSessionIds && normalizedSessionIds.length > 0) {
