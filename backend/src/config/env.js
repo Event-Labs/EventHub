@@ -37,9 +37,6 @@ const envSchema = z.object({
     EMAIL_FROM: z.preprocess(cleanEnvValue, z.string().email()),
 
     GOOGLE_CLIENT_ID: z.string().optional(),
-    GEMINI_API_KEY: z.string().optional(),
-    GOOGLE_API_KEY: z.string().optional(),
-    GEMINI_MODEL: z.string().optional(),
     FINANCIAL_AI_URL: z.string().url().optional(),
     FINANCIAL_AI_PROVIDER: z.enum(['auto', 'fastapi', 'gradio']).default('auto'),
     FINANCIAL_AI_MODEL: z.string().optional(),

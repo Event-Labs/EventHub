@@ -2,24 +2,45 @@ const aiAssistantService = require('./aiAssistant.service');
 const aiChatHistoryRepository = require('./aiChatHistory.repository');
 const ApiResponse = require('../../core/response/ApiResponse');
 const logger = require('../../core/logger');
+const { sanitizeInput } = require('../../infrastructure/ai/promptSanitizer');
 
 class AiAssistantController {
   chat = async (req, res, next) => {
     try {
       const userId = req.user?.sub || null;
-      const { message, history, sessionId, title } = req.body;
-      const result = await aiAssistantService.chat(userId, message, history);
+      let { message, history, sessionId, title, eventId, eventSlug, context } = req.body;
+
+      // Sanitize input to strip injection tokens, control chars, null bytes
+      const rawMessage = typeof message === 'string' ? message : '';
+      const sanitizedMessage = sanitizeInput(rawMessage, 1500).trim();
+
+      if (!sanitizedMessage) {
+        return res.status(200).json(
+          ApiResponse.success({
+            role: 'assistant',
+            content: 'Eve luôn sẵn sàng lắng nghe nè! Bạn hãy nhập câu hỏi về sự kiện hoặc thắc mắc về EventHub nhé 🥰'
+          }, 'Empty or sanitized message')
+        );
+      }
+
+      const clientContext = {
+        eventId: eventId || context?.eventId || null,
+        eventSlug: eventSlug || context?.eventSlug || null,
+        ...(typeof context === 'object' ? context : {})
+      };
+
+      const result = await aiAssistantService.chat(userId, sanitizedMessage, history, clientContext);
 
       // Auto-persist conversation to database if user is authenticated and sessionId is provided
       if (userId && sessionId) {
         try {
-          const userMsg = { role: 'user', content: message };
+          const userMsg = { role: 'user', content: sanitizedMessage };
           const assistantMsg = { role: 'assistant', content: result?.content || '' };
           const updatedMessages = [...(Array.isArray(history) ? history : []), userMsg, assistantMsg];
 
           let sessionTitle = title;
           if (!sessionTitle || sessionTitle === 'Đoạn chat mới') {
-            sessionTitle = message.length > 28 ? message.substring(0, 28) + '...' : message;
+            sessionTitle = sanitizedMessage.length > 28 ? sanitizedMessage.substring(0, 28) + '...' : sanitizedMessage;
           }
 
           aiChatHistoryRepository
