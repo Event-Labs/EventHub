@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Calendar,
+  CalendarX,
   CheckCircle2,
   AlertTriangle,
   MapPin,
@@ -58,6 +59,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Badge, StatusBadge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
+import { AdminEventCancellationDetailPage } from './AdminEventCancellationDetailPage.jsx'
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -1570,8 +1572,13 @@ export function AdminEventReviewDetailPage() {
   }
 
   const isPending = reviewMutation.isPending || reviewRevisionMutation.isPending
-  const isPendingReview = event?.status === 'PENDING_REVIEW' || Boolean(event?.pending_revision) || event?.cancel_request?.status === 'PENDING'
+  const isPendingReview = event?.status === 'PENDING_REVIEW' || Boolean(event?.pending_revision)
   const customScrollbar = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+
+  // If this event has a cancellation request or is cancelled, render the dedicated cancellation review page
+  if (event?.cancel_request?.status === 'PENDING' || event?.status === 'CANCELLED') {
+    return <AdminEventCancellationDetailPage />
+  }
 
   const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
 
@@ -1637,25 +1644,37 @@ export function AdminEventReviewDetailPage() {
         <div className={`overflow-y-auto pr-1.5 flex-1 min-w-0 ${customScrollbar} ${!isPendingReview ? 'max-w-5xl mx-auto' : ''}`}>
           {/* Cancellation Request Banner */}
           {event.cancel_request?.status === 'PENDING' && (
-            <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-950/30 p-5 shadow-lg backdrop-blur-xl">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-300">
-                    <ShieldAlert className="size-5" />
+            <div className="mb-6 rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-panel-soft/80 to-panel p-5 shadow-xl backdrop-blur-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    <ShieldAlert className="size-6" />
                   </span>
                   <div>
-                    <h3 className="text-base font-bold text-white">Yêu cầu hủy sự kiện từ Ban tổ chức</h3>
-                    <p className="text-xs text-slate-300 mt-0.5">
-                      Sự kiện đã có vé bán ra. BTC đã cam kết nghĩa vụ hoàn tiền 100% cho người mua.
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-black text-white">Yêu cầu hủy sự kiện từ Ban tổ chức</h3>
+                      <span className="rounded-full bg-rose-500/20 px-2.5 py-0.5 text-[11px] font-black text-rose-300 border border-rose-500/30 animate-pulse">
+                        Chờ Admin duyệt
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                      Sự kiện này đang có yêu cầu hủy khẩn cấp và tạm dừng bán vé. Đã có trang thẩm định và biểu mẫu phê duyệt hủy chuyên biệt.
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-300 border border-rose-500/30">
-                  Chờ Admin duyệt
-                </span>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/events/cancellations/${eventId}`)}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-950/50 hover:from-rose-500 hover:to-red-500 transition cursor-pointer"
+                >
+                  <CalendarX className="size-4" />
+                  <span>Chuyển sang Trang Duyệt Hủy</span>
+                  <ExternalLink className="size-3.5" />
+                </button>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-black/20 p-3.5 rounded-xl border border-white/5">
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-black/30 p-3.5 rounded-xl border border-white/5">
                 <div>
                   <span className="text-slate-400 font-medium">Lý do hủy:</span>{' '}
                   <strong className="text-white">
@@ -1674,23 +1693,6 @@ export function AdminEventReviewDetailPage() {
                     "{event.cancel_request.reason_note || event.cancel_request.note || event.cancel_request.reason || 'Không có giải trình chi tiết'}"
                   </p>
                 </div>
-              </div>
-
-              <div className="mt-4 flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={handleRejectCancelRequest}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10"
-                >
-                  Từ chối yêu cầu hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApproveCancelRequest}
-                  className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-rose-500"
-                >
-                  Phê duyệt hủy & Tạo danh sách hoàn tiền
-                </button>
               </div>
             </div>
           )}
