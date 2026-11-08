@@ -233,10 +233,12 @@ function extractQrTicketPayload(payload = {}) {
     return {
       type: trimString(parsed.type),
       ticketRef: trimString(
-        parsed.ticket_id ||
-          parsed.ticketId ||
-          parsed.ticket_code ||
+        parsed.ticket_code ||
           parsed.ticketCode ||
+          parsed.code ||
+          parsed.t ||
+          parsed.ticket_id ||
+          parsed.ticketId ||
           parsed.qr_code ||
           parsed.qrCode ||
           parsed.id,
@@ -251,7 +253,7 @@ function extractQrTicketPayload(payload = {}) {
 }
 
 function assertQrMatchesTicket(qrPayload, ticket) {
-  if (qrPayload.type && qrPayload.type !== 'EVENTHUB_TICKET') {
+  if (qrPayload.type && !['EVENTHUB_TICKET', 'EH_TICKET', 'EHT', 'EH'].includes(qrPayload.type)) {
     throw new AppError('QR không đúng định dạng vé EventHub.', 400, ErrorCodes.INVALID_INPUT);
   }
 
@@ -304,11 +306,7 @@ function formatForTicket(value) {
 function buildQrPayload(ticket) {
   return JSON.stringify({
     type: 'EVENTHUB_TICKET',
-    ticket_id: ticket.id,
-    ticket_code: ticket.ticket_code,
-    qr_code: ticket.qr_code || ticket.ticket_code,
-    event_id: ticket.event?.id,
-    session_id: ticket.session?.id,
+    ticket_code: ticket.ticket_code || ticket.qr_code || ticket.id,
   });
 }
 

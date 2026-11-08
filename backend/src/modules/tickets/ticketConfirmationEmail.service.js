@@ -17,7 +17,10 @@ const maskEmail = (value) => {
 };
 
 function qrUrl(ticket) {
-  const payload = JSON.stringify({ type: 'EVENTHUB_TICKET', ticket_id: ticket.id, ticket_code: ticket.ticket_code, qr_code: ticket.qr_code || ticket.ticket_code, event_id: ticket.event_id, session_id: ticket.event_session_id });
+  const payload = JSON.stringify({
+    type: 'EVENTHUB_TICKET',
+    ticket_code: ticket.ticket_code || ticket.qr_code || ticket.id,
+  });
   return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=2&data=${encodeURIComponent(payload)}`;
 }
 
