@@ -52,6 +52,17 @@ function isStaffManageableEvent(event) {
   return new Date(effectiveEnd).getTime() >= Date.now()
 }
 
+function formatSessionTime(startTime, endTime) {
+  if (!startTime) return ''
+  const start = new Date(startTime)
+  const dateStr = start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const timeStart = start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  if (!endTime) return `${timeStart}, ${dateStr}`
+  const end = new Date(endTime)
+  const timeEnd = end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${timeStart} - ${timeEnd}, ${dateStr}`
+}
+
 export function OrganizerStaffManagementPage() {
   const toast = useToast()
   const navigate = useNavigate()
@@ -279,12 +290,13 @@ export function OrganizerStaffManagementPage() {
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[840px] text-left text-sm">
+                  <table className="w-full min-w-[920px] text-left text-sm">
                     <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Nhân sự</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Email</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Ngày phân công</th>
@@ -303,6 +315,29 @@ export function OrganizerStaffManagementPage() {
                           <td className="px-3.5 py-3 text-subtle">{staff.staff_email}</td>
                           <td className="px-3.5 py-3">
                             <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
+                          </td>
+                          <td className="px-3.5 py-3">
+                            {staff.assigned_sessions && staff.assigned_sessions.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {staff.assigned_sessions.map((sess) => (
+                                  <Badge key={sess.id} tone="cyan">
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="size-3" />
+                                      {sess.session_name || 'Phiên làm việc'}
+                                    </span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : staff.session_ids && staff.session_ids.length > 0 ? (
+                              <Badge tone="cyan">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="size-3" />
+                                  {selectedEvent?.sessions?.find((s) => staff.session_ids.includes(s.id))?.session_name || 'Phiên làm việc'}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Toàn bộ sự kiện</span>
+                            )}
                           </td>
                           <td className="px-3.5 py-3">
                             {staff.gate ? (
@@ -377,12 +412,13 @@ export function OrganizerStaffManagementPage() {
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[880px] text-left text-sm">
+                  <table className="w-full min-w-[940px] text-left text-sm">
                     <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Email</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Người nhận</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Vai trò</th>
+                        <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên sự kiện</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Cổng</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Khu vực làm việc</th>
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
@@ -396,6 +432,25 @@ export function OrganizerStaffManagementPage() {
                           <td className="px-3.5 py-3 font-semibold text-content">{inv.invited_email}</td>
                           <td className="px-3.5 py-3 text-subtle">{inv.invited_user_name || '—'}</td>
                           <td className="px-3.5 py-3 text-content">{inv.staff_role || 'Staff'}</td>
+                          <td className="px-3.5 py-3">
+                            {inv.session_name ? (
+                              <Badge tone="cyan">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="size-3" />
+                                  {inv.session_name}
+                                </span>
+                              </Badge>
+                            ) : inv.session_id ? (
+                              <Badge tone="cyan">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="size-3" />
+                                  {selectedEvent?.sessions?.find((s) => s.id === inv.session_id)?.session_name || 'Phiên được chọn'}
+                                </span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted">Toàn bộ sự kiện</span>
+                            )}
+                          </td>
                           <td className="px-3.5 py-3">
                             {inv.gate ? (
                               <Badge tone="purple">
@@ -480,6 +535,7 @@ export function OrganizerStaffManagementPage() {
         <EditStaffModal
           staff={editingStaff}
           eventId={selectedEventId}
+          eventSessions={selectedEvent?.sessions || []}
           onClose={() => setEditingStaff(null)}
           onUpdated={() => {
             toast.success('Đã cập nhật phân công nhân sự thành công.')
@@ -520,10 +576,11 @@ export function OrganizerStaffManagementPage() {
 
 // ─── Edit Staff Modal ─────────────────────────────────────────────────────────
 
-function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
+function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated }) {
   const toast = useToast()
   const [form, setForm] = useState({
     staff_role: staff.staff_role || 'Check-in',
+    session_id: (staff.session_ids && staff.session_ids[0]) || '',
     gate: staff.gate || '',
     zone: staff.zone || '',
   })
@@ -537,6 +594,7 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
         staff_role: form.staff_role.trim() || null,
         gate: form.gate.trim() || null,
         zone: form.zone.trim() || null,
+        session_id: form.session_id || null,
       })
       onUpdated()
     } catch (err) {
@@ -576,6 +634,61 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
                 disabled={saving}
               />
             </label>
+
+            {/* Session */}
+            <label className="grid gap-1.5 text-xs font-bold text-subtle">
+              Phiên sự kiện phân công
+              <select
+                className="h-10 min-w-0 w-full truncate rounded-xl border border-white/15 bg-[#0d172e] px-3 pr-9 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
+                value={form.session_id}
+                onChange={(e) => setForm((f) => ({ ...f, session_id: e.target.value }))}
+                disabled={saving}
+              >
+                <option value="" className="bg-[#0b1329] text-white">
+                  Toàn bộ sự kiện (Tất cả các phiên)
+                </option>
+                {eventSessions.map((sess, idx) => {
+                  const timeStr = formatSessionTime(sess.start_time, sess.end_time)
+                  const name = sess.session_name || `Phiên ${idx + 1}`
+                  return (
+                    <option key={sess.id} value={sess.id} className="bg-[#0b1329] text-white">
+                      {name}{timeStr ? ` (${timeStr})` : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            </label>
+
+            {/* Quick session pills if sessions exist */}
+            {eventSessions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    !form.session_id
+                      ? 'border-cyan-400 bg-cyan-400/15 text-cyan-300'
+                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-cyan-400/40 hover:text-content'
+                  }`}
+                  onClick={() => setForm((f) => ({ ...f, session_id: '' }))}
+                >
+                  Toàn bộ sự kiện
+                </button>
+                {eventSessions.map((sess, idx) => (
+                  <button
+                    key={sess.id}
+                    type="button"
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      form.session_id === sess.id
+                        ? 'border-cyan-400 bg-cyan-400/15 text-cyan-300'
+                        : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-cyan-400/40 hover:text-content'
+                    }`}
+                    onClick={() => setForm((f) => ({ ...f, session_id: sess.id }))}
+                  >
+                    {sess.session_name || `Phiên ${idx + 1}`}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Gate */}
             <label className="grid gap-1.5 text-xs font-bold text-subtle">
@@ -673,6 +786,7 @@ function InviteStaffModal({
     : events[0]?.id || ''
   const [form, setForm] = useState({
     event_id: initialEventId,
+    session_id: '',
     email: '',
     staff_role: 'Check-in',
     gate: '',
@@ -681,6 +795,12 @@ function InviteStaffModal({
   const [candidateSearch, setCandidateSearch] = useState('')
   const [candidates, setCandidates] = useState([])
   const [saving, setSaving] = useState(false)
+
+  const currentEvent = useMemo(
+    () => events.find((ev) => ev.id === form.event_id),
+    [events, form.event_id],
+  )
+  const eventSessions = currentEvent?.sessions || []
 
   // Debounced candidate search
   useEffect(() => {
@@ -709,6 +829,7 @@ function InviteStaffModal({
     try {
       const invitation = await inviteStaffToEvent({
         event_id: form.event_id,
+        session_id: form.session_id || null,
         email: form.email.trim(),
         staff_role: form.staff_role.trim() || null,
         gate: form.gate.trim() || null,
@@ -760,7 +881,7 @@ function InviteStaffModal({
                 className="h-10 min-w-0 w-full truncate rounded-xl border border-white/15 bg-[#0d172e] px-3 pr-9 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                 title={events.find((ev) => ev.id === form.event_id)?.title || ''}
                 value={form.event_id}
-                onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value, session_id: '' }))}
                 required
                 disabled={events.length === 0}
               >
@@ -770,6 +891,61 @@ function InviteStaffModal({
                 ))}
               </select>
             </label>
+
+            {/* Event Session */}
+            <label className="grid min-w-0 gap-1.5 text-sm font-bold text-white">
+              Phiên sự kiện
+              <select
+                className="h-10 min-w-0 w-full truncate rounded-xl border border-white/15 bg-[#0d172e] px-3 pr-9 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
+                value={form.session_id}
+                onChange={(e) => setForm((f) => ({ ...f, session_id: e.target.value }))}
+                disabled={saving || !form.event_id}
+              >
+                <option value="" className="bg-[#0b1329] text-white">
+                  Toàn bộ sự kiện (Tất cả các phiên)
+                </option>
+                {eventSessions.map((sess, idx) => {
+                  const timeStr = formatSessionTime(sess.start_time, sess.end_time)
+                  const name = sess.session_name || `Phiên ${idx + 1}`
+                  return (
+                    <option key={sess.id} value={sess.id} className="bg-[#0b1329] text-white">
+                      {name}{timeStr ? ` (${timeStr})` : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            </label>
+
+            {/* Quick session pills if sessions exist */}
+            {eventSessions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    !form.session_id
+                      ? 'border-cyan-400 bg-cyan-400/15 text-cyan-300'
+                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-cyan-400/40 hover:text-content'
+                  }`}
+                  onClick={() => setForm((f) => ({ ...f, session_id: '' }))}
+                >
+                  Toàn bộ sự kiện
+                </button>
+                {eventSessions.map((sess, idx) => (
+                  <button
+                    key={sess.id}
+                    type="button"
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      form.session_id === sess.id
+                        ? 'border-cyan-400 bg-cyan-400/15 text-cyan-300'
+                        : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-cyan-400/40 hover:text-content'
+                    }`}
+                    onClick={() => setForm((f) => ({ ...f, session_id: sess.id }))}
+                  >
+                    {sess.session_name || `Phiên ${idx + 1}`}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Email with autocomplete */}
             <label className="grid gap-1.5 text-sm font-bold text-white">

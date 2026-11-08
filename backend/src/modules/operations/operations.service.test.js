@@ -6,6 +6,8 @@ const mockOperationsRepository = {
   deleteStaffInvitation: jest.fn(),
   findInvitationForOrganizer: jest.fn(),
   updateStaffAssignment: jest.fn(),
+  findEventSessions: jest.fn(),
+  findStaffScheduleConflict: jest.fn(),
 };
 
 jest.mock('./operations.repository', () => mockOperationsRepository);
@@ -66,16 +68,17 @@ describe('operationsService', () => {
   });
 
   describe('updateStaffAssignment', () => {
-    it('updates staff role, gate, and zone', async () => {
+    it('updates staff role, gate, zone, and session', async () => {
       const organizer = { id: 'organizer-1', user_id: 'owner-1' };
       const event = { id: 'event-1', title: 'Event' };
-      const existing = { id: 'assign-1', event_id: 'event-1', staff_id: 'staff-1', staff_role: 'Check-in', gate: 'Cổng A', zone: 'Khu VIP' };
-      const updated = { ...existing, gate: 'Cổng B', zone: 'Khán đài A' };
+      const existing = { id: 'assign-1', event_id: 'event-1', staff_id: 'staff-1', staff_role: 'Check-in', gate: 'Cổng A', zone: 'Khu VIP', session_ids: null };
+      const updated = { ...existing, gate: 'Cổng B', zone: 'Khán đài A', session_ids: ['sess-1'] };
 
       jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
       jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
       jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
       mockOperationsRepository.findEventStaffAssignment.mockResolvedValue(existing);
+      mockOperationsRepository.findEventSessions.mockResolvedValue([{ id: 'sess-1', session_name: 'Phiên 1' }]);
       mockOperationsRepository.updateStaffAssignment.mockResolvedValue(updated);
 
       const result = await operationsService.updateStaffAssignment('owner-1', {
@@ -83,6 +86,7 @@ describe('operationsService', () => {
         staffId: 'staff-1',
         gate: 'Cổng B',
         zone: 'Khán đài A',
+        sessionId: 'sess-1',
       });
 
       expect(result).toEqual(updated);
@@ -90,7 +94,108 @@ describe('operationsService', () => {
         staffRole: 'Check-in',
         gate: 'Cổng B',
         zone: 'Khán đài A',
+        sessionIds: ['sess-1'],
       });
+    });
+
+    it('throws error when updating with invalid session', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+      const event = { id: 'event-1', title: 'Event' };
+      const existing = { id: 'assign-1', event_id: 'event-1', staff_id: 'staff-1' };
+
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
+      jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
+      mockOperationsRepository.findEventStaffAssignment.mockResolvedValue(existing);
+      mockOperationsRepository.findEventSessions.mockResolvedValue([]);
+
+      await expect(operationsService.updateStaffAssignment('owner-1', {
+        eventId: 'event-1',
+        staffId: 'staff-1',
+        sessionId: 'invalid-sess',
+      })).rejects.toMatchObject({
+        statusCode: 400,
+      });
+    });
+  });
+
+  describe('staff invitation with session', () => {
+    it('successfully invites staff to a specific session', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+      const event = { id: 'event-1', title: 'Event', organizer_user_id: 'owner-1' };
+      const invitedUser = {
+        id: 'user-1',
+        email: 'staff@example.com',
+        full_name: 'Staff Member',
+      };
+      const invitation = { id: 'invitation-1', session_ids: ['sess-1'], session_name: 'Phiên Buổi Tối' };
+
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
+      jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
+      jest.spyOn(operationsService, 'assertInvitableUser').mockResolvedValue();
+      jest.spyOn(operationsService, 'assertStaffScheduleAvailable').mockResolvedValue();
+      jest.spyOn(operationsService, 'assertStaffQuotaAvailable').mockResolvedValue({ remaining_slots: 1 });
+      jest.spyOn(operationsService, 'sendStaffInvitationEmail').mockResolvedValue(true);
+      mockOperationsRepository.findActiveUserByEmail.mockResolvedValue(invitedUser);
+      mockOperationsRepository.findEventStaffAssignment.mockResolvedValue(null);
+      mockOperationsRepository.findPendingInvitation.mockResolvedValue(null);
+      mockOperationsRepository.findEventSessions.mockResolvedValue([{ id: 'sess-1', session_name: 'Phiên Buổi Tối' }]);
+      mockOperationsRepository.createStaffInvitation.mockResolvedValue(invitation);
+
+      const result = await operationsService.inviteStaff('owner-1', {
+        event_id: 'event-1',
+        email: invitedUser.email,
+        staff_role: 'Check-in',
+        session_id: 'sess-1',
+      });
+
+      expect(result).toMatchObject({
+        id: 'invitation-1',
+        email_sent: true,
+      });
+      expect(mockOperationsRepository.createStaffInvitation).toHaveBeenCalledWith(expect.objectContaining({
+        eventId: 'event-1',
+        sessionIds: ['sess-1'],
+        sessionName: 'Phiên Buổi Tối',
+      }));
+    });
+
+    it('invites staff to entire event when session_id is omitted or null', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+      const event = { id: 'event-1', title: 'Event', organizer_user_id: 'owner-1' };
+      const invitedUser = {
+        id: 'user-1',
+        email: 'staff2@example.com',
+        full_name: 'Staff 2',
+      };
+      const invitation = { id: 'invitation-2', session_ids: null, session_name: null };
+
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
+      jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
+      jest.spyOn(operationsService, 'assertInvitableUser').mockResolvedValue();
+      jest.spyOn(operationsService, 'assertStaffScheduleAvailable').mockResolvedValue();
+      jest.spyOn(operationsService, 'assertStaffQuotaAvailable').mockResolvedValue({ remaining_slots: 1 });
+      jest.spyOn(operationsService, 'sendStaffInvitationEmail').mockResolvedValue(true);
+      mockOperationsRepository.findActiveUserByEmail.mockResolvedValue(invitedUser);
+      mockOperationsRepository.findEventStaffAssignment.mockResolvedValue(null);
+      mockOperationsRepository.findPendingInvitation.mockResolvedValue(null);
+      mockOperationsRepository.createStaffInvitation.mockResolvedValue(invitation);
+
+      const result = await operationsService.inviteStaff('owner-1', {
+        event_id: 'event-1',
+        email: invitedUser.email,
+        staff_role: 'Check-in',
+        session_id: null,
+      });
+
+      expect(result).toMatchObject({ id: 'invitation-2' });
+      expect(mockOperationsRepository.createStaffInvitation).toHaveBeenCalledWith(expect.objectContaining({
+        eventId: 'event-1',
+        sessionIds: null,
+        sessionName: null,
+      }));
     });
   });
 

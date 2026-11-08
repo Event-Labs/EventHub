@@ -88,12 +88,14 @@ function getStaffInvitationDetails(notification, invitationsById) {
   const role = invitation?.staff_role || meta.staff_role || 'Staff'
   const gate = invitation?.gate || meta.gate || null
   const zone = invitation?.zone || meta.zone || null
+  const sessionName = invitation?.session_name || meta.session_name || null
   const eventTitle = invitation?.event_title || notification.event?.title || 'sự kiện'
   const organizationName = invitation?.organization_name || 'Ban tổ chức'
   const locationParts = []
+  if (sessionName) locationParts.push(`Phiên: ${sessionName}`)
   if (gate) locationParts.push(`Cổng ${gate}`)
   if (zone) locationParts.push(`Khu vực ${zone}`)
-  const locationText = locationParts.length ? ` tại ${locationParts.join(' • ')}` : ''
+  const locationText = locationParts.length ? ` (${locationParts.join(' • ')})` : ''
 
   return {
     ...invitation,

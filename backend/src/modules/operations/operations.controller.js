@@ -47,6 +47,8 @@ class OperationsController {
         staffRole: payload.staff_role,
         gate: payload.gate,
         zone: payload.zone,
+        sessionId: payload.session_id,
+        sessionIds: payload.session_ids,
       });
       res.status(200).json(ApiResponse.success(data, 'Staff assignment updated successfully'));
     } catch (error) {
