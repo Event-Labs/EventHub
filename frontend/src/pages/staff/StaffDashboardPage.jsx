@@ -79,7 +79,7 @@ export function StaffDashboardPage() {
 
       {/* Main content */}
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_340px]">
-        <StaffPanel>
+        <StaffPanel className="flex flex-col">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-extrabold text-content">Sự kiện hôm nay</h3>
@@ -89,7 +89,9 @@ export function StaffDashboardPage() {
           </div>
 
           {loading ? (
-            <p className="mt-5 text-sm font-semibold text-subtle">Đang tải dữ liệu...</p>
+            <div className="flex flex-1 items-center justify-center py-12 text-center text-sm font-semibold text-subtle italic">
+              Đang tải dữ liệu...
+            </div>
           ) : todayEvents.length === 0 ? (
             <EmptyState message="Hôm nay chưa có sự kiện nào được giao cho bạn." />
           ) : (
@@ -196,7 +198,7 @@ function TodayEvent({ event }) {
 
 function EmptyState({ message, compact = false }) {
   return (
-    <div className={`rounded-xl border border-border-soft/30 bg-panel-soft/40 text-sm font-semibold text-subtle ${compact ? 'mt-4 p-4' : 'mt-5 p-5'}`}>
+    <div className={`flex flex-1 items-center justify-center text-center italic text-sm text-subtle ${compact ? 'py-8' : 'min-h-[220px] py-12'}`}>
       {message}
     </div>
   )

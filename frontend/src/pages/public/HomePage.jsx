@@ -419,22 +419,23 @@ export function HomePage() {
           <ScrollReveal>
             <SectionTitle title="Khám phá thể loại" />
           </ScrollReveal>
-          <div className="grid grid-cols-2 items-stretch gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 lg:gap-8">
             {categories.slice(0, 6).map((category, index) => {
               const Icon = categoryIcons[index % categoryIcons.length]
               return (
-                <ScrollReveal key={category.id} className="h-full" delay={index * 70}>
+                <ScrollReveal key={category.id} delay={index * 70}>
                   <button
                     type="button"
                     onClick={() => handleCategorySearch(category.slug)}
-                    className="group relative flex h-full min-h-[140px] sm:min-h-[196px] w-full flex-col items-center justify-center rounded-[18px] sm:rounded-[24px] p-3.5 sm:p-5 text-center bg-slate-950/60 border border-white/10 backdrop-blur-xl transition-all duration-400 ease-out hover:border-cyan-400/50 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(6,182,212,0.25)] cursor-pointer"
+                    className="group relative flex aspect-square w-[135px] sm:w-[165px] lg:w-[180px] flex-col items-center justify-center rounded-full p-3 sm:p-4 text-center bg-[#0a1628]/40 border border-sky-500/25 backdrop-blur-xl shadow-[inset_0_0_16px_rgba(56,189,248,0.06),0_4px_20px_rgba(2,132,199,0.08)] transition-all duration-400 ease-out hover:border-sky-400/50 hover:bg-sky-950/30 hover:shadow-[0_0_25px_rgba(56,189,248,0.25)] hover:scale-105 cursor-pointer"
                   >
-                    <div className="vertex-card-edge absolute inset-0 pointer-events-none rounded-[18px] sm:rounded-[24px]" />
-                    <span className="mx-auto grid size-11 sm:size-14 place-items-center rounded-full bg-cyan-500/10 text-cyan-400 transition-all duration-400 group-hover:scale-110 group-hover:bg-cyan-500/20 group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-                      <Icon className="size-5 sm:size-6" />
+                    <Icon className="size-6 sm:size-8 text-[#E6C17A] drop-shadow-[0_0_8px_rgba(201,154,71,0.4)] transition-transform duration-300 group-hover:scale-115" />
+                    <span className="mt-2 sm:mt-2.5 block text-xs sm:text-sm font-bold text-white group-hover:text-[#E6C17A] transition-colors leading-tight line-clamp-2 px-2">
+                      {category.name}
                     </span>
-                    <span className="mt-3 sm:mt-4 block text-xs sm:text-base font-bold text-white group-hover:text-cyan-300 transition-colors">{category.name}</span>
-                    <span className="mt-0.5 sm:mt-1 block text-[10px] sm:text-xs text-slate-400">{category.event_count || 0} sự kiện</span>
+                    <span className="mt-1 block text-[10px] sm:text-xs text-slate-400">
+                      {category.event_count || 0} sự kiện
+                    </span>
                   </button>
                 </ScrollReveal>
               )

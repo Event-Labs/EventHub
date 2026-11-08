@@ -503,6 +503,26 @@ class OrganizerOrdersRepository {
       [eventId, organizerId],
     );
 
+    const timelineRes = await db.query(
+      `
+      SELECT
+        t.checked_in_at
+      FROM tickets t
+      JOIN events e ON e.id = t.event_id
+      WHERE t.event_id = $1
+        AND e.organizer_id = $2
+        AND t.status = 'USED'
+        AND t.checked_in_at IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM orders o
+          JOIN order_items oi ON oi.order_id = o.id
+          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
+        )
+      ORDER BY t.checked_in_at ASC
+      `,
+      [eventId, organizerId],
+    );
+
     const overall = overallRes.rows[0] ?? { total_tickets: 0, checked_in: 0, valid: 0, cancelled: 0 };
     return {
       overall: {
@@ -524,6 +544,7 @@ class OrganizerOrdersRepository {
           : 0,
       })),
       recent_checkins: recentRes.rows,
+      checkin_timeline: timelineRes.rows.map((r) => r.checked_in_at),
     };
   }
 
@@ -662,7 +683,8 @@ class OrganizerOrdersRepository {
         COALESCE(SUM(o.total_amount), 0)::numeric          AS gross_revenue,
         COALESCE(SUM(o.discount_amount), 0)::numeric       AS total_discount,
         0::numeric                                         AS platform_fee,
-        COALESCE(SUM(o.total_amount), 0)::numeric          AS ticket_net_revenue
+        COALESCE(SUM(o.total_amount), 0)::numeric          AS ticket_net_revenue,
+        COALESCE(SUM(oi_cnt.qty), 0)::int                  AS tickets_sold
       FROM orders o
       JOIN LATERAL (
         SELECT es_inner.event_id
@@ -673,6 +695,11 @@ class OrganizerOrdersRepository {
         LIMIT 1
       ) ev_ref ON true
       JOIN events e ON e.id = ev_ref.event_id
+      LEFT JOIN LATERAL (
+        SELECT SUM(oi.quantity)::int AS qty
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+      ) oi_cnt ON true
       WHERE o.organizer_id = $1
         AND o.status = 'PAID'
         ${eventId ? `AND e.id = $${params.indexOf(eventId) + 1}` : ''}
@@ -698,7 +725,8 @@ class OrganizerOrdersRepository {
         COUNT(DISTINCT o.id)::int                           AS orders,
         COALESCE(SUM(o.total_amount), 0)::numeric           AS gross_revenue,
         0::numeric                                          AS platform_fee,
-        COALESCE(SUM(o.total_amount), 0)::numeric           AS ticket_net_revenue
+        COALESCE(SUM(o.total_amount), 0)::numeric           AS ticket_net_revenue,
+        COALESCE(SUM(oi_cnt.qty), 0)::int                   AS tickets_sold
       FROM orders o
       JOIN LATERAL (
         SELECT es_inner.event_id
@@ -708,6 +736,11 @@ class OrganizerOrdersRepository {
         WHERE oi_inner.order_id = o.id
         LIMIT 1
       ) ev_ref ON true
+      LEFT JOIN LATERAL (
+        SELECT SUM(oi.quantity)::int AS qty
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+      ) oi_cnt ON true
       WHERE o.organizer_id = $1
         AND o.status = 'PAID'
         AND o.created_at >= $2
@@ -743,6 +776,8 @@ class OrganizerOrdersRepository {
       [organizerId],
     );
 
+    const capacityParams = [organizerId];
+    if (eventId) capacityParams.push(eventId);
     const capacityRes = await db.query(
       `
       SELECT
@@ -755,10 +790,13 @@ class OrganizerOrdersRepository {
       LEFT JOIN ticket_types tt ON tt.event_session_id = es.id
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
+        ${eventId ? 'AND e.id = $2' : ''}
       `,
-      [organizerId],
+      capacityParams,
     );
 
+    const ticketOpsParams = [organizerId];
+    if (eventId) ticketOpsParams.push(eventId);
     const ticketOpsRes = await db.query(
       `
       SELECT
@@ -770,6 +808,7 @@ class OrganizerOrdersRepository {
       JOIN events e ON e.id = t.event_id
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
+        ${eventId ? 'AND e.id = $2' : ''}
         AND EXISTS (
           SELECT 1
           FROM orders o
@@ -778,7 +817,7 @@ class OrganizerOrdersRepository {
             AND o.status IN ('PAID', 'CONFIRMED')
         )
       `,
-      [organizerId],
+      ticketOpsParams,
     );
 
     const nextEventRes = await db.query(
@@ -918,6 +957,8 @@ class OrganizerOrdersRepository {
     const totalCapacity = Number(capacity.total_capacity || 0);
     const issuedTickets = Number(ticketOps.issued_tickets || 0);
     const checkedInTickets = Number(ticketOps.checked_in_tickets || 0);
+    const validTickets = Number(ticketOps.valid_tickets || 0);
+    const validCheckinDenominator = checkedInTickets + validTickets;
 
     return {
       overall: {
@@ -934,8 +975,8 @@ class OrganizerOrdersRepository {
         ...dashboard,
         ...capacity,
         ...ticketOps,
-        occupancy_rate: totalCapacity > 0 ? Math.round((issuedTickets / totalCapacity) * 1000) / 10 : 0,
-        checkin_rate: issuedTickets > 0 ? Math.round((checkedInTickets / issuedTickets) * 1000) / 10 : 0,
+        occupancy_rate: totalCapacity > 0 ? (issuedTickets / totalCapacity) * 100 : 0,
+        checkin_rate: validCheckinDenominator > 0 ? (checkedInTickets / validCheckinDenominator) * 100 : 0,
         next_event: nextEventRes.rows[0] || null,
       },
       subscription: {

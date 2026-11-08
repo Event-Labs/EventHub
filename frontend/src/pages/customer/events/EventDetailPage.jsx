@@ -7,7 +7,6 @@ import {
   ChevronUp,
   Heart,
   MapPin,
-  PauseCircle,
   UserCircle,
   XCircle,
 } from 'lucide-react'
@@ -395,44 +394,9 @@ export function EventDetailPage() {
         </div>
       </section>
 
-      {/* Prominent Announcement Banner for Paused, Cancelled, Suspended, or Ended Event */}
-      {(isPaused || isCancelled || isSuspended || isEnded) && (
+      {/* Prominent Announcement Banner for Cancelled, Suspended, or Ended Event */}
+      {(isCancelled || isSuspended || isEnded) && (
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
-          {isPaused && (
-            <div className="relative overflow-hidden rounded-[24px] border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(245,158,11,0.2)] backdrop-blur-md">
-              <div className="flex items-start gap-4">
-                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                  <PauseCircle className="size-6 animate-pulse" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-amber-500/20 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
-                      Thông báo từ Ban tổ chức
-                    </span>
-                    {pauseReasonText && (
-                      <span className="text-xs text-amber-200/80 font-medium">
-                        Lý do: {pauseReasonText}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
-                    {isHiddenByOrganizer ? 'Sự kiện đang tạm ẩn' : 'Sự kiện đang tạm dừng bán vé'}
-                  </h3>
-                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-amber-100/90">
-                    {isHiddenByOrganizer
-                      ? 'Sự kiện này hiện đang tạm ẩn khỏi danh sách tìm kiếm và khám phá theo yêu cầu của ban tổ chức. Các tính năng chọn ghế và đặt vé mới tạm thời bị vô hiệu.'
-                      : 'Ban tổ chức hiện đang tạm thời dừng nhận các đơn đặt vé mới cho sự kiện này. Mọi chức năng chọn ghế và đặt vé trực tuyến tạm thời bị vô hiệu. Quý khách vui lòng quay lại sau hoặc liên hệ ban tổ chức để biết thêm chi tiết!'}
-                  </p>
-                  {pauseReasonText && (
-                    <p className="mt-3 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2 text-xs sm:text-sm text-amber-200 italic">
-                      Lời nhắn từ BTC: "{pauseReasonText}"
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {isCancelled && (
             <div className="relative overflow-hidden rounded-[24px] border border-rose-500/40 bg-gradient-to-r from-rose-950/70 via-rose-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(244,63,94,0.2)] backdrop-blur-md">
               <div className="flex items-start gap-4">
@@ -459,7 +423,7 @@ export function EventDetailPage() {
             </div>
           )}
 
-          {!isPaused && !isCancelled && isSuspended && (
+          {!isCancelled && isSuspended && (
             <div className="relative overflow-hidden rounded-[24px] border border-red-500/40 bg-gradient-to-r from-red-950/70 via-red-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(239,68,68,0.2)] backdrop-blur-md">
               <div className="flex items-start gap-4">
                 <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30">
@@ -480,7 +444,7 @@ export function EventDetailPage() {
             </div>
           )}
 
-          {!isPaused && !isCancelled && !isSuspended && isEnded && (
+          {!isCancelled && !isSuspended && isEnded && (
             <div className="relative overflow-hidden rounded-[24px] border border-slate-700 bg-slate-900/80 p-6 sm:p-7 shadow-xl backdrop-blur-md">
               <div className="flex items-start gap-4">
                 <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400 border border-slate-700">

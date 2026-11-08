@@ -1,6 +1,6 @@
 import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, MapPin, Star, Ticket } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, MapPin, Star, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
@@ -162,57 +162,36 @@ export function MyTicketsPage() {
       )}
 
       {!ticketsQuery.isLoading && !ticketsQuery.isError && tickets.length === 0 && (
-        <div className="grid min-h-[340px] place-items-center py-12">
-          <div className="empty-tickets-box flex flex-col items-center gap-3.5 text-center px-6 sm:px-10 py-8 sm:py-10 max-w-lg w-full rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl backdrop-blur-md">
-            <div
-              className="grid size-16 place-items-center rounded-2xl border shadow-lg"
-              style={{
-                borderColor: 'rgba(201, 154, 71, 0.45)',
-                backgroundColor: 'rgba(201, 154, 71, 0.15)',
-                boxShadow: '0 0 25px rgba(201, 154, 71, 0.25)',
-              }}
-            >
-              <Ticket className="size-8" style={{ color: '#E6C17A' }} />
-            </div>
-            <h3
-              className="font-display text-xl sm:text-2xl font-black tracking-tight mt-1 text-white"
-              style={{ color: '#ffffff', display: 'block' }}
-            >
-              Hiện chưa có vé
-            </h3>
-            <p
-              className="text-sm font-normal leading-relaxed text-slate-300 max-w-md mx-auto"
-              style={{ color: '#cbd5e1', display: 'block' }}
-            >
-              {status === 'ALL' ? (
-                'Bạn chưa có vé sự kiện nào. Hãy khám phá và đặt vé cho sự kiện bạn yêu thích ngay hôm nay!'
-              ) : (
-                <>
-                  Hiện không có vé sự kiện nào thuộc mục{' '}
-                  <span className="font-bold text-[#E6C17A]" style={{ color: '#E6C17A' }}>
-                    &ldquo;{FILTERS.find((f) => f.value === status)?.label || status}&rdquo;
-                  </span>
-                  .
-                </>
-              )}
-            </p>
-            {status !== 'ALL' ? (
-              <button
-                type="button"
-                onClick={() => setStatus('ALL')}
-                className="btn-gold-primary mt-3 inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-bold transition-all cursor-pointer hover:brightness-110 active:scale-95"
-              >
-                Xem tất cả vé
-              </button>
-            ) : (
-              <Link
-                to="/events"
-                className="btn-gold-primary mt-4 inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-extrabold transition-all hover:brightness-110 active:scale-95 cursor-pointer shadow-lg shadow-[#C99A47]/30"
-              >
-                <Compass className="size-4" />
-                Khám phá sự kiện ngay
-              </Link>
-            )}
+        <div className="empty-tickets-view flex flex-col items-center justify-center py-10 sm:py-12 text-center w-full">
+          <h3
+            className="text-base sm:text-lg font-semibold tracking-tight text-white mb-1.5 drop-shadow-md italic"
+            style={{ color: '#ffffff', display: 'block', opacity: 1, visibility: 'visible', fontStyle: 'italic' }}
+          >
+            {status === 'ALL' ? 'Chưa có vé sự kiện nào' : 'Hiện chưa có vé'}
+          </h3>
+          <div
+            className="italic"
+            style={{
+              color: 'rgb(203, 213, 225)',
+              fontSize: '14px',
+              lineHeight: '22px',
+              fontWeight: 400,
+              fontStyle: 'italic',
+              display: 'block',
+              opacity: 1,
+              visibility: 'visible',
+              padding: '0',
+              margin: '6px auto 0',
+              maxWidth: '32rem',
+              textAlign: 'center',
+              WebkitTextFillColor: 'rgb(203, 213, 225)',
+              position: 'relative',
+              zIndex: 10,
+            }}
+          >
+            {status === 'ALL'
+              ? 'Bạn chưa có vé sự kiện nào trong danh sách vé của mình.'
+              : `Hiện không có vé sự kiện nào thuộc mục "${FILTERS.find((f) => f.value === status)?.label || status}".`}
           </div>
         </div>
       )}

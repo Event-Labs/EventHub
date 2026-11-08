@@ -39,6 +39,9 @@ import { getEventOperationalStatus } from './eventStatusUtil.js'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 import { getStoredUser } from '@/lib/auth.js'
 import { exportOrganizerRevenueToExcel } from '@/utils/exportRevenueExcel.js'
+import { DailyRevenueBarChart } from './overview/DailyRevenueBarChart.jsx'
+import { EventRevenueBarChart } from './overview/EventRevenueBarChart.jsx'
+import { TicketStatusOverviewPanel } from './overview/TicketStatusOverviewPanel.jsx'
 
 // ─── Formatters & Utilities ──────────────────────────────────────────────────
 
@@ -58,6 +61,16 @@ function fmtNumber(n, digits = 0) {
   return Number(n || 0).toLocaleString('vi-VN', {
     maximumFractionDigits: digits,
   })
+}
+
+function fmtRatePercent(rate) {
+  const n = Number(rate) || 0
+  if (n === 0) return '0%'
+  if (n >= 10) return `${n.toFixed(1)}%`
+  if (n >= 1) return `${n.toFixed(1)}%`
+  if (n >= 0.1) return `${n.toFixed(2)}%`
+  if (n >= 0.01) return `${n.toFixed(2)}%`
+  return `${n.toFixed(3)}%`
 }
 
 function fmtDate(iso) {
@@ -194,7 +207,11 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
 
 // ─── Sub-components: Interactive Charts ──────────────────────────────────────
 
-function InteractiveRevenueChart({ data = [], comparisonData = [], comparisonEnabled = false, comparisonLabel = '' }) {
+function InteractiveRevenueChart(props) {
+  return <DailyRevenueBarChart dailyRevenue={props.data} {...props} />
+}
+
+function _OldInteractiveRevenueChart({ data = [], comparisonData = [], comparisonEnabled = false, comparisonLabel = '' }) {
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [hoveredIndex, setHoveredIndex] = useState(null)
@@ -609,7 +626,11 @@ function SingleEventBanner({ event, onBackToAll }) {
 
 // ─── Sub-components: Ticket Operations & Check-in ─────────────────────────────
 
-function TicketOperationsPanel({ dashboard = {}, isSingleEvent = false, checkinStats = null }) {
+function TicketOperationsPanel(props) {
+  return <TicketStatusOverviewPanel {...props} />
+}
+
+function _OldTicketOperationsPanel({ dashboard = {}, isSingleEvent = false, checkinStats = null }) {
   const used = Number(checkinStats?.overall?.checked_in ?? dashboard?.checked_in_tickets ?? 0)
   const valid = Number(checkinStats?.overall?.valid ?? dashboard?.valid_tickets ?? 0)
   const cancelled = Number(checkinStats?.overall?.cancelled ?? dashboard?.cancelled_tickets ?? 0)
@@ -1426,8 +1447,12 @@ export function OrganizerDashboardPage() {
 
             <HeroKpiCard
               label="Tỷ lệ lấp đầy"
-              value={`${fmtNumber(dashboard.occupancy_rate, 1)}%`}
-              sub="Hiệu suất tiêu thụ chỗ ngồi"
+              value={fmtRatePercent(dashboard.occupancy_rate)}
+              sub={
+                Number(dashboard.total_capacity) > 0
+                  ? `Hiệu suất tiêu thụ chỗ ngồi (${fmtNumber(dashboard.issued_tickets)} / ${fmtNumber(dashboard.total_capacity)})`
+                  : 'Hiệu suất tiêu thụ chỗ ngồi'
+              }
               progressBar={dashboard.occupancy_rate}
               icon={TrendingUp}
               tone="amber"
@@ -1659,11 +1684,11 @@ export function OrganizerDashboardPage() {
                   </div>
                 </div>
 
-                <InteractiveRevenueChart
-                  data={dailyRevenue}
-                  comparisonData={comparisonStats?.daily_revenue}
-                  comparisonEnabled={comparison.enabled}
-                  comparisonLabel={comparison.label}
+                <DailyRevenueBarChart
+                  dailyRevenue={dailyRevenue}
+                  dateFrom={activeRange.dateFrom}
+                  dateTo={activeRange.dateTo}
+                  activeRangeLabel={activeRangeLabel}
                 />
               </OrganizerPanel>
 
@@ -1681,6 +1706,13 @@ export function OrganizerDashboardPage() {
                     </span>
                   </div>
 
+                  {/* Horizontal Bar Chart for Event Revenue Comparison */}
+                  <EventRevenueBarChart
+                    eventsRevenue={byEvent}
+                    onSelectEvent={(id) => setSelectedEventId(id)}
+                  />
+
+                  {/* Detailed Event Revenue Table */}
                   <EventsPerformanceTable
                     eventsRevenue={byEvent}
                     onDrillDownEvent={(id) => setSelectedEventId(id)}
@@ -1691,8 +1723,8 @@ export function OrganizerDashboardPage() {
 
             {/* ── Right Column (Operations & Portfolio Health - 4 cols) ── */}
             <div className="space-y-6 xl:col-span-4 min-w-0">
-              {/* Ticket Operations Widget */}
-              <TicketOperationsPanel
+              {/* Ticket Operations Widget (100% Stacked Bar & Consistent Status Colors) */}
+              <TicketStatusOverviewPanel
                 dashboard={dashboard}
                 isSingleEvent={Boolean(selectedEventId)}
                 checkinStats={singleEventCheckin}

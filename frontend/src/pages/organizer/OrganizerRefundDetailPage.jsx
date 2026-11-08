@@ -361,7 +361,7 @@ export function OrganizerRefundDetailPage() {
         <div className="space-y-1">
           <Link
             to="/organizer/refunds"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] transition"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white hover:text-white/80 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:text-[#536b88] transition"
           >
             <ArrowLeft className="size-3.5" />
             Quản lý hoàn tiền
@@ -374,9 +374,6 @@ export function OrganizerRefundDetailPage() {
               #RF-{item.id.slice(0, 8).toUpperCase()}
             </span>
           </div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {getStatusBadge(item.status, item.disputed)}
         </div>
       </div>
 
@@ -1288,15 +1285,6 @@ export function OrganizerRefundDetailPage() {
                   <span className="text-slate-400 [html.light_&]:text-[#536b88]">Thời gian cập nhật:</span>
                   <p className="font-bold text-white [html.light_&]:text-[#0D1B2A]">{formatDateTime(item.refunded_at || item.reviewed_at || item.updated_at)}</p>
                 </div>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Link
-                  to="/organizer/refunds"
-                  className="rounded-xl bg-white/10 px-5 py-2.5 text-xs font-bold text-white hover:bg-white/20 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border [html.light_&]:border-slate-300 [html.light_&]:hover:bg-slate-200 transition"
-                >
-                  Quay lại danh sách yêu cầu
-                </Link>
               </div>
             </div>
           )}

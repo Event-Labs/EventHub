@@ -2955,34 +2955,50 @@ html.light .policy-pdf-viewer svg {
 }
 
 /* ── My Tickets Empty State Visibility Guarantee ── */
+.empty-tickets-view,
 .empty-tickets-box,
+html.light .empty-tickets-view,
 html.light .empty-tickets-box,
+html.light .force-dark .empty-tickets-view,
 html.light .force-dark .empty-tickets-box {
-  background-color: rgba(15, 23, 42, 0.8) !important;
+  background: transparent !important;
+  background-color: transparent !important;
   background-image: none !important;
-  border: 1px solid rgba(201, 154, 71, 0.4) !important;
-  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 25px rgba(201, 154, 71, 0.2) !important;
+  border: none !important;
+  box-shadow: none !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
 
+.empty-tickets-view h3,
 .empty-tickets-box h3,
+html.light .empty-tickets-view h3,
 html.light .empty-tickets-box h3,
+html.light .force-dark .empty-tickets-view h3,
 html.light .force-dark .empty-tickets-box h3 {
   color: #ffffff !important;
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  line-height: 1.5rem !important;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
+.empty-tickets-view p,
 .empty-tickets-box p,
+html.light .empty-tickets-view p,
 html.light .empty-tickets-box p,
+html.light .force-dark .empty-tickets-view p,
 html.light .force-dark .empty-tickets-box p {
   color: #cbd5e1 !important;
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  margin-top: 0.375rem !important;
 }
 
 .empty-tickets-box a,

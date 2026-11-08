@@ -7,6 +7,7 @@ import {
   Download,
   Loader2,
   Search,
+  Ticket,
   X,
 } from 'lucide-react'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
@@ -344,9 +345,12 @@ export function OrganizerAttendeesPage() {
             </OrganizerPanel>
           ) : attendees.length === 0 ? (
             <OrganizerPanel className="py-14 text-center">
-              <p className="font-bold text-content">Không tìm thấy người tham dự nào.</p>
+              <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] shadow-[0_0_20px_rgba(201,154,71,0.15)] mb-3">
+                <Ticket className="size-6 text-[#E6C17A]" />
+              </div>
+              <h3 className="text-base font-bold text-content">Không tìm thấy người tham dự nào</h3>
               <p className="mt-1 text-sm text-subtle">
-                Thử thay đổi bộ lọc hoặc sự kiện khác.
+                Thử thay đổi bộ lọc tìm kiếm hoặc chọn sự kiện khác.
               </p>
             </OrganizerPanel>
           ) : (

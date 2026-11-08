@@ -94,13 +94,39 @@ function playScanBeep() {
 
 function normalizeTicket(ticket) {
   if (!ticket) return null
+  const rawAttendee = ticket.raw_attendee_name || ticket.attendee_name || ticket.attendeeName || ''
+  const buyerName = ticket.buyer_name || ticket.buyer?.name || ticket.order?.buyer_name || ticket.buyerName || ''
+  const attendeeName = rawAttendee || buyerName || 'Không rõ'
+
+  const rawAttendeeEmail = ticket.raw_attendee_email || ticket.attendee_email || ticket.attendeeEmail || ''
+  const buyerEmail = ticket.buyer_email || ticket.buyer?.email || ticket.order?.buyer_email || ticket.buyerEmail || ''
+
+  const buyerPhone = ticket.buyer_phone || ticket.buyer?.phone || ticket.order?.buyer_phone || ticket.buyerPhone || ''
+
+  const isDifferentAttendee = Boolean(
+    rawAttendee &&
+    buyerName &&
+    rawAttendee.trim().toLowerCase() !== buyerName.trim().toLowerCase()
+  )
+
+  const isDifferentEmail = Boolean(
+    rawAttendeeEmail &&
+    buyerEmail &&
+    rawAttendeeEmail.trim().toLowerCase() !== buyerEmail.trim().toLowerCase()
+  )
+
   return {
     id: ticket.id,
     ticketCode: ticket.ticket_code || ticket.ticketCode,
     eventName: ticket.event?.title || 'Không rõ sự kiện',
-    buyerName: ticket.buyer?.name || ticket.order?.buyer_name || ticket.attendee_name || 'Không rõ',
-    buyerEmail: ticket.buyer?.email || ticket.order?.buyer_email || ticket.attendee_email || 'Không rõ',
-    buyerPhone: ticket.buyer?.phone || ticket.order?.buyer_phone || '',
+    attendeeName,
+    buyerName: buyerName || attendeeName,
+    isDifferentAttendee,
+    isDifferentEmail,
+    displayPrimaryName: attendeeName || buyerName || 'Không rõ',
+    buyerEmail: buyerEmail || rawAttendeeEmail || 'Không rõ',
+    attendeeEmail: rawAttendeeEmail || (isDifferentAttendee ? 'Chưa cung cấp' : buyerEmail) || 'Không rõ',
+    buyerPhone,
     ticketType: ticket.ticket_type?.name || 'Không rõ hạng vé',
     seat: ticket.seat?.label || null,
     status: ticket.status,
@@ -159,7 +185,7 @@ export function StaffQrCheckInPage() {
           setAssignedEvents(events)
         }
       })
-      .catch(() => {})
+      .catch(() => { })
     return () => {
       active = false
     }
@@ -508,7 +534,7 @@ export function StaffQrCheckInPage() {
                   return (
                     <div key={ticket.id} className="flex items-start justify-between gap-3 rounded-xl border border-border-soft/20 bg-panel-soft/30 p-3">
                       <div>
-                        <p className="text-sm font-bold text-content">{normalized.buyerName}</p>
+                        <p className="text-sm font-bold text-content">{normalized.displayPrimaryName}</p>
                         <p className="text-xs text-subtle">{normalized.ticketCode}</p>
                       </div>
                       <CheckCircle2 className="size-4 shrink-0 text-success" />
@@ -621,7 +647,7 @@ export function ManualCheckInPage() {
       }
 
       setSearchState('multiple')
-      setSearchMessage('Có nhiều kết quả, vui lòng chọn đúng vé để soát.')
+      setSearchMessage('Có nhiều kết quả, vui lòng chọn đúng vé để soát')
     } catch (error) {
       if (requestId !== searchRequestRef.current) return
       setSearchState('error')
@@ -645,7 +671,7 @@ export function ManualCheckInPage() {
 
     // Choosing an event loads its ticket list; the remaining fields refine that list.
     const timeoutId = window.setTimeout(() => {
-      handleManualSearch({ preventDefault() {} })
+      handleManualSearch({ preventDefault() { } })
     }, Object.values(manualForm).slice(1).some((value) => value.trim()) ? 400 : 0)
 
     return () => window.clearTimeout(timeoutId)
@@ -689,9 +715,9 @@ export function ManualCheckInPage() {
   return (
     <StaffPage
       title="Check-in Thủ công"
-      description="Chọn sự kiện để tải danh sách vé, sau đó có thể lọc thêm theo thông tin vé hoặc người mua."
+      description="Chọn sự kiện để tải danh sách vé, sau đó có thể lọc theo mã vé, tên người mua hoặc người tham dự trên vé."
     >
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <ManualSearchPanel
           form={manualForm}
           onChange={updateManualField}
@@ -706,7 +732,7 @@ export function ManualCheckInPage() {
           eventsMessage={eventsMessage}
         />
 
-        <aside className="space-y-5">
+        <aside className="space-y-5 min-w-0">
           {normalizedResult ? (
             <ResultPanel ticket={normalizedResult} />
           ) : (
@@ -739,19 +765,12 @@ function ManualSearchPanel({
 
   return (
     <StaffPanel>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase text-muted">Soát vé thủ công</p>
-          <h3 className="mt-1 text-lg font-extrabold text-content">Tìm vé bằng thông tin vé hoặc người mua</h3>
-        </div>
-      </div>
-
-      <form className="mt-5 grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
-        <label className="block md:col-span-4">
-          <span className="text-xs font-bold uppercase text-muted">Sự kiện <span className="text-error">*</span></span>
+      <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+        <label className="block md:col-span-2">
+          <span className="text-xs font-bold uppercase text-white tracking-wider">Sự kiện <span className="text-error">*</span></span>
           <select
             required
-            className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-white outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
             value={form.eventId}
             onChange={(event) => onChange('eventId', event.target.value)}
             disabled={eventsState === 'loading' || eventsState === 'error'}
@@ -759,63 +778,52 @@ function ManualSearchPanel({
             <option value="">
               {eventsState === 'loading' ? 'Đang tải sự kiện...' : 'Chọn sự kiện để tải danh sách vé'}
             </option>
-            {assignedEvents.map((event) => {
-              const dutyParts = [
-                event.staff_role || 'Nhân sự',
-                event.gate ? `Cổng: ${event.gate}` : null,
-                event.zone ? `Khu vực: ${event.zone}` : null,
-              ].filter(Boolean).join(' • ')
-              return (
-                <option key={event.id} value={event.id}>
-                  {event.title} ({dutyParts})
-                </option>
-              )
-            })}
+            {assignedEvents.map((event) => (
+              <option key={event.id} value={event.id}>
+                {event.title}
+              </option>
+            ))}
           </select>
         </label>
 
-        {eventSelected && (() => {
-          const selectedEvent = assignedEvents.find((item) => String(item.id) === form.eventId)
-          if (!selectedEvent) return null
-          return (
-            <div className="md:col-span-4 flex flex-wrap items-center gap-2 rounded-xl border border-border-soft/40 bg-panel-soft/60 px-3.5 py-2.5 text-xs">
-              <span className="font-bold text-muted">Vị trí của bạn:</span>
-              <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
-                {selectedEvent.staff_role || 'Nhân sự'}
-              </span>
-              {selectedEvent.gate ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/15 px-2 py-0.5 font-bold text-purple-400">
-                  <DoorOpen className="size-3" />
-                  Cổng: {selectedEvent.gate}
-                </span>
-              ) : (
-                <span className="rounded-md bg-white/5 px-2 py-0.5 text-muted">Tất cả cổng</span>
-              )}
-              {selectedEvent.zone && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 px-2 py-0.5 font-bold text-indigo-400">
-                  <Layers className="size-3" />
-                  Khu vực: {selectedEvent.zone}
-                </span>
-              )}
-            </div>
-          )
-        })()}
-
         {eventsMessage && (
-          <div className={`md:col-span-4 rounded-xl border p-3 text-sm ${
-            eventsState === 'error'
+          <div className={`md:col-span-2 rounded-xl border p-3 text-sm ${eventsState === 'error'
               ? 'border-error/30 bg-error/10 text-error'
               : 'border-warning/30 bg-warning/10 text-warning'
-          }`}>
+            }`}>
             {eventsMessage}
           </div>
         )}
 
-        <ManualInput label="Mã vé" value={form.ticketCode} onChange={(value) => onChange('ticketCode', value)} disabled={!eventSelected} />
-        <ManualInput label="Tên người mua" value={form.buyerName} onChange={(value) => onChange('buyerName', value)} disabled={!eventSelected} />
-        <ManualInput label="Email người mua" value={form.buyerEmail} onChange={(value) => onChange('buyerEmail', value)} disabled={!eventSelected} />
-        <ManualInput label="Số điện thoại" value={form.buyerPhone} onChange={(value) => onChange('buyerPhone', value)} disabled={!eventSelected} />
-        <div className="md:col-span-4 flex justify-end">
+        <ManualInput
+          label="Mã vé"
+          placeholder="Mã vé..."
+          value={form.ticketCode}
+          onChange={(value) => onChange('ticketCode', value)}
+          disabled={!eventSelected}
+        />
+        <ManualInput
+          label="Tên người mua / Người tham dự"
+          placeholder="Tên người mua hoặc tham dự..."
+          value={form.buyerName}
+          onChange={(value) => onChange('buyerName', value)}
+          disabled={!eventSelected}
+        />
+        <ManualInput
+          label="Email người mua / Tham dự"
+          placeholder="Email người mua hoặc tham dự..."
+          value={form.buyerEmail}
+          onChange={(value) => onChange('buyerEmail', value)}
+          disabled={!eventSelected}
+        />
+        <ManualInput
+          label="Số điện thoại"
+          placeholder="Số điện thoại..."
+          value={form.buyerPhone}
+          onChange={(value) => onChange('buyerPhone', value)}
+          disabled={!eventSelected}
+        />
+        <div className="md:col-span-2 flex justify-end">
           <button className="admin-primary" type="submit" disabled={!eventSelected || state === 'loading'}>
             {state === 'loading' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
             Tìm vé
@@ -824,9 +832,9 @@ function ManualSearchPanel({
       </form>
 
       {message && (
-        <div className="mt-4 rounded-xl border border-border-soft/30 bg-panel-soft/40 p-3 text-sm text-content">
-          {message}
-        </div>
+        <p className="mt-4 text-center text-sm font-medium text-white/80">
+          {typeof message === 'string' ? message.replace(/\.$/, '') : message}
+        </p>
       )}
 
       {eventSelected && (
@@ -862,17 +870,18 @@ function ManualSearchPanel({
                 key={ticket.id}
                 type="button"
                 onClick={() => onSelectTicket(ticket)}
-                className={`w-full rounded-xl border p-4 text-left transition ${
-                  selected
+                className={`w-full rounded-xl border p-4 text-left transition ${selected
                     ? 'border-primary bg-primary/10'
                     : 'border-border-soft/20 bg-panel-soft/30 hover:border-primary/50'
-                }`}
+                  }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-content">{normalized.buyerName}</p>
+                    <p className="font-bold text-content">
+                      {normalized.displayPrimaryName}
+                    </p>
                     <p className="mt-1 text-sm text-subtle">
-                      {normalized.ticketCode} - {normalized.ticketType}
+                      <span className="font-mono font-bold text-[#E6C17A]">{normalized.ticketCode}</span> - {normalized.ticketType}
                       {normalized.seat ? ` · Ghế ${normalized.seat}` : ''}
                     </p>
                     <p className="mt-1 text-xs text-subtle">{normalized.eventName}</p>
@@ -891,13 +900,13 @@ function ManualSearchPanel({
   )
 }
 
-function ManualInput({ label, value, onChange, disabled = false }) {
+function ManualInput({ label, value, onChange, placeholder, disabled = false }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold uppercase text-muted">{label}</span>
+      <span className="text-xs font-bold uppercase text-white tracking-wider block leading-tight">{label}</span>
       <input
-        className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none transition placeholder:text-muted focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
-        placeholder={label}
+        className="mt-1 h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+        placeholder={placeholder || label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
@@ -909,30 +918,44 @@ function ManualInput({ label, value, onChange, disabled = false }) {
 function ResultPanel({ ticket, onClear }) {
   if (!ticket) {
     return (
-      <StaffPanel className="text-center">
-        <TicketCheck className="mx-auto size-14 text-muted" />
-        <h3 className="mt-4 text-lg font-extrabold text-content">Kết quả soát vé</h3>
-        <p className="mt-2 text-sm text-subtle">Thông tin vé đã soát thành công sẽ hiển thị tại đây.</p>
+      <StaffPanel className="text-center overflow-hidden">
+        <TicketCheck className="mx-auto size-14 text-white/60" />
+        <h3 className="mt-4 text-lg font-extrabold text-white">Kết quả soát vé</h3>
+        <p className="mt-2 text-sm text-white/80">Thông tin vé đã soát thành công sẽ hiển thị tại đây.</p>
       </StaffPanel>
     )
   }
 
   return (
-    <StaffPanel>
-      <div className="flex items-start gap-3">
+    <StaffPanel className="overflow-hidden">
+      <div className="flex items-start gap-3 min-w-0">
         <CheckCircle2 className="mt-1 size-6 shrink-0 text-success" />
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase text-success">Soát vé thành công</p>
-          <h3 className="mt-1 text-lg font-extrabold text-content">{ticket.ticketCode}</h3>
+          <h3 className="mt-1 text-lg sm:text-xl font-black font-mono tracking-wider text-[#E6C17A] drop-shadow-[0_1px_6px_rgba(201,154,71,0.35)] truncate">
+            {ticket.ticketCode}
+          </h3>
         </div>
       </div>
       <div className="mt-5 space-y-3 text-sm">
         <InfoRow label="Sự kiện" value={ticket.eventName} />
-        <InfoRow label="Người mua" value={ticket.buyerName} />
-        <InfoRow label="Email" value={ticket.buyerEmail} />
-        <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
         <InfoRow label="Hạng vé" value={ticket.ticketType} />
         {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
+        <InfoRow
+          label="Người tham dự"
+          value={ticket.attendeeName || ticket.displayPrimaryName || ticket.buyerName}
+        />
+        <InfoRow
+          label="Email"
+          value={
+            ticket.isDifferentAttendee
+              ? (ticket.attendeeEmail || 'Chưa cung cấp')
+              : (ticket.buyerEmail || 'Chưa cung cấp')
+          }
+        />
+        {!ticket.isDifferentAttendee && ticket.buyerPhone && (
+          <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
+        )}
         <InfoRow label="Trạng thái" value={ticketStatusLabel(ticket)} strong />
         <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} />
         <InfoRow label="Check-in bởi" value={ticket.checkedInBy} />
@@ -950,10 +973,10 @@ function ResultPanel({ ticket, onClear }) {
 function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage }) {
   if (!ticket) {
     return (
-      <StaffPanel>
+      <StaffPanel className="overflow-hidden">
         <div className="flex gap-3">
           <ShieldAlert className="mt-1 size-5 shrink-0 text-warning" />
-          <p className="text-sm text-subtle">
+          <p className="text-sm text-white/90">
             {emptyMessage || 'Kết quả tìm kiếm thủ công chỉ hiển thị vé thuộc sự kiện bạn được phân công.'}
           </p>
         </div>
@@ -962,23 +985,37 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
   }
 
   return (
-    <StaffPanel>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase text-muted">Vé đang chọn</p>
-          <h3 className="mt-1 font-extrabold text-content">{ticket.ticketCode}</h3>
+    <StaffPanel className="overflow-hidden">
+      <div className="flex items-start justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase text-white tracking-wider">Vé đang chọn</p>
+          <h3 className="mt-1 text-lg sm:text-xl font-black font-mono tracking-wider text-[#E6C17A] drop-shadow-[0_1px_6px_rgba(201,154,71,0.35)] truncate">
+            {ticket.ticketCode}
+          </h3>
         </div>
-        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(ticket.status)}`}>
+        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(ticket.status)}`}>
           {ticketStatusLabel(ticket)}
         </span>
       </div>
       <div className="mt-4 space-y-3 text-sm">
         <InfoRow label="Sự kiện" value={ticket.eventName} />
-        <InfoRow label="Người mua" value={ticket.buyerName} />
-        <InfoRow label="Email" value={ticket.buyerEmail} />
-        <InfoRow label="Số điện thoại" value={ticket.buyerPhone || 'Không có'} />
         <InfoRow label="Hạng vé" value={ticket.ticketType} />
         {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
+        <InfoRow
+          label="Người tham dự"
+          value={ticket.attendeeName || ticket.displayPrimaryName || ticket.buyerName}
+        />
+        <InfoRow
+          label="Email"
+          value={
+            ticket.isDifferentAttendee
+              ? (ticket.attendeeEmail || 'Chưa cung cấp')
+              : (ticket.buyerEmail || 'Chưa cung cấp')
+          }
+        />
+        {!ticket.isDifferentAttendee && ticket.buyerPhone && (
+          <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
+        )}
         <InfoRow label="Trạng thái vé" value={ticketStatusLabel(ticket)} strong={isTicketCheckedIn(ticket)} />
         <InfoRow label="Thời gian soát vé" value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa soát vé'} />
       </div>
@@ -1000,11 +1037,16 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
   )
 }
 
-function InfoRow({ label, value, strong = false }) {
+function InfoRow({ label, value, strong = false, breakAll = false }) {
+  const isBreakAll = breakAll || label === 'Email'
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-border-soft/20 pb-2 last:border-0 last:pb-0">
-      <span className="text-subtle">{label}</span>
-      <span className={`max-w-[58%] text-right ${strong ? 'font-extrabold text-success' : 'font-semibold text-content'}`}>
+    <div className="flex items-start justify-between gap-3 border-b border-border-soft/20 pb-2.5 last:border-0 last:pb-0 min-w-0">
+      <span className="shrink-0 text-white/80 font-medium text-xs sm:text-sm">{label}</span>
+      <span
+        className={`min-w-0 flex-1 text-right leading-relaxed text-xs sm:text-sm ${
+          isBreakAll ? 'break-all' : 'break-words'
+        } ${strong ? 'font-extrabold text-success' : 'font-semibold text-white'}`}
+      >
         {value}
       </span>
     </div>
