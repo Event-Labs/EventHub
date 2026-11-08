@@ -143,7 +143,12 @@ function buildStaffTicketPayload(row) {
     qr_code: row.qr_code || row.ticket_code,
     status,
     attendee_name: row.attendee_name || row.buyer_name,
+    raw_attendee_name: row.attendee_name || null,
     attendee_email: row.attendee_email || row.buyer_email,
+    raw_attendee_email: row.attendee_email || null,
+    buyer_name: row.buyer_name || null,
+    buyer_email: row.buyer_email || null,
+    buyer_phone: row.buyer_phone || null,
     checked_in_at: row.checked_in_at,
     checked_in_by: row.checked_in_by_id
       ? {
@@ -204,9 +209,9 @@ function normalizeSearchPayload(payload = {}) {
   return {
     eventId: trimString(payload.eventId || payload.event_id),
     ticketCode: trimString(payload.ticketCode || payload.ticket_code),
-    buyerName: trimString(payload.buyerName || payload.buyer_name),
-    buyerEmail: trimString(payload.buyerEmail || payload.buyer_email),
-    buyerPhone: trimString(payload.buyerPhone || payload.buyer_phone),
+    buyerName: trimString(payload.buyerName || payload.buyer_name || payload.name || payload.attendeeName || payload.attendee_name),
+    buyerEmail: trimString(payload.buyerEmail || payload.buyer_email || payload.email || payload.attendeeEmail || payload.attendee_email),
+    buyerPhone: trimString(payload.buyerPhone || payload.buyer_phone || payload.phone),
   };
 }
 
@@ -329,7 +334,7 @@ class TicketsService {
       throw new AppError('Invalid ticket status', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    const repositoryStatus = ['EXPIRED', 'REFUND_PENDING', 'REFUND_REQUESTED'].includes(status) ? undefined : status;
+    const repositoryStatus = (!status || status === 'ALL' || ['EXPIRED', 'REFUND_PENDING', 'REFUND_REQUESTED'].includes(status)) ? undefined : status;
     const tickets = (await ticketsRepository.findTicketsByUserId(userId, { status: repositoryStatus }))
       .map(buildTicketPayload);
 

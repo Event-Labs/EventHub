@@ -31,9 +31,9 @@ const STAFF_TICKET_SELECT = `
     o.id AS order_id,
     o.order_code,
     o.status AS order_status,
-    o.buyer_name,
-    o.buyer_email,
-    o.buyer_phone,
+    COALESCE(o.buyer_name, buyer_user.full_name) AS buyer_name,
+    COALESCE(o.buyer_email, buyer_user.email) AS buyer_email,
+    COALESCE(o.buyer_phone, buyer_user.phone) AS buyer_phone,
     checker.id AS checked_in_by_id,
     checker.full_name AS checked_in_by_name,
     checker.email AS checked_in_by_email,
@@ -45,6 +45,7 @@ const STAFF_TICKET_SELECT = `
   FROM tickets t
   JOIN order_items oi ON oi.id = t.order_item_id
   JOIN orders o ON o.id = oi.order_id
+  LEFT JOIN users buyer_user ON buyer_user.id = o.user_id
   JOIN events e ON e.id = t.event_id
   JOIN event_sessions es ON es.id = t.event_session_id
   JOIN ticket_types tt ON tt.id = t.ticket_type_id
@@ -275,19 +276,22 @@ class TicketsRepository {
       conditions.push(`(t.ticket_code ILIKE $${params.length} OR t.qr_code ILIKE $${params.length})`);
     }
 
-    if (filters.buyerName) {
-      params.push(`%${filters.buyerName}%`);
-      conditions.push(`(o.buyer_name ILIKE $${params.length} OR t.attendee_name ILIKE $${params.length})`);
+    const nameQuery = filters.buyerName || filters.name || filters.attendeeName;
+    if (nameQuery) {
+      params.push(`%${nameQuery}%`);
+      conditions.push(`(o.buyer_name ILIKE $${params.length} OR t.attendee_name ILIKE $${params.length} OR buyer_user.full_name ILIKE $${params.length})`);
     }
 
-    if (filters.buyerEmail) {
-      params.push(`%${filters.buyerEmail}%`);
-      conditions.push(`(o.buyer_email ILIKE $${params.length} OR t.attendee_email ILIKE $${params.length})`);
+    const emailQuery = filters.buyerEmail || filters.email || filters.attendeeEmail;
+    if (emailQuery) {
+      params.push(`%${emailQuery}%`);
+      conditions.push(`(o.buyer_email ILIKE $${params.length} OR t.attendee_email ILIKE $${params.length} OR buyer_user.email ILIKE $${params.length})`);
     }
 
-    if (filters.buyerPhone) {
-      params.push(`%${filters.buyerPhone}%`);
-      conditions.push(`o.buyer_phone ILIKE $${params.length}`);
+    const phoneQuery = filters.buyerPhone || filters.phone;
+    if (phoneQuery) {
+      params.push(`%${phoneQuery}%`);
+      conditions.push(`(o.buyer_phone ILIKE $${params.length} OR buyer_user.phone ILIKE $${params.length})`);
     }
 
     const { rows } = await db.query(

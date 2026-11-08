@@ -2,6 +2,7 @@ import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
+  Check,
   CheckCircle2,
   Clock3,
   Download,
@@ -1033,6 +1034,9 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
   const [accountNumber, setAccountNumber] = useState('')
   const [accountName, setAccountName] = useState(refundRequest?.bank_account_name || ticket.order?.buyer_name || '')
   const [submittingPayout, setSubmittingPayout] = useState(false)
+  const [showDisputeForm, setShowDisputeForm] = useState(false)
+  const [disputeReason, setDisputeReason] = useState('')
+  const [submittingDispute, setSubmittingDispute] = useState(false)
   const isCustomerConfirmed = Boolean(
     refundRequest?.audit_trail?.some?.((a) => a.action === 'CONFIRM_REFUND_RECEIVED' || a.action === 'CUSTOMER_CONFIRMED')
   )
@@ -1083,16 +1087,24 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
     }
   }
 
-  const handleDispute = async () => {
-    const reason = window.prompt('Nhập lý do khiếu nại (ví dụ: chưa nhận được tiền vào tài khoản):')
-    if (!reason?.trim()) return
+  const handleDisputeSubmit = async (e) => {
+    e?.preventDefault()
+    if (!disputeReason?.trim()) {
+      toast.error('Vui lòng nhập lý do khiếu nại.')
+      return
+    }
+    setSubmittingDispute(true)
     try {
-      await disputeRefund(refundRequest.id, reason.trim())
+      await disputeRefund(refundRequest.id, disputeReason.trim())
       toast.warning('Đã gửi khiếu nại chưa nhận được tiền. Ban tổ chức và Admin sẽ kiểm tra lại giao dịch.')
+      setShowDisputeForm(false)
+      setDisputeReason('')
       onPayoutSubmitted?.()
       onClose()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể gửi khiếu nại.')
+    } finally {
+      setSubmittingDispute(false)
     }
   }
 
@@ -1245,13 +1257,24 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
           {/* Display submitted bank account info if already provided */}
           {!needsPayoutInfo && refundRequest?.bank_name && (
             <div className="rounded-[20px] border border-blue-500/30 bg-blue-500/10 p-4">
-              <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-1">
+              <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-2.5">
                 Tài khoản nhận tiền hoàn đã ghi nhận
               </h4>
-              <p className="text-xs text-blue-100">
-                Ngân hàng: <strong>{refundRequest.bank_name}</strong> — Số TK: <strong>{refundRequest.bank_account_number}</strong> — Chủ TK: <strong>{refundRequest.bank_account_name || 'N/A'}</strong>
-              </p>
-              <p className="text-[11px] text-blue-200/80 mt-1">
+              <div className="space-y-1.5 text-xs text-blue-100">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-blue-200/70 font-medium shrink-0">Ngân hàng:</span>
+                  <span className="font-semibold text-right text-white">{refundRequest.bank_name}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-blue-200/70 font-medium shrink-0">Số TK:</span>
+                  <span className="font-mono font-bold text-amber-300 tracking-wider">{refundRequest.bank_account_number}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-blue-200/70 font-medium shrink-0">Chủ TK:</span>
+                  <span className="font-bold text-white uppercase">{refundRequest.bank_account_name || 'N/A'}</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-blue-200/80 mt-3 pt-2 border-t border-blue-500/20">
                 Ban tổ chức sẽ đối soát và thực hiện chuyển tiền hoàn 100% cho bạn theo quy định.
               </p>
             </div>
@@ -1330,9 +1353,13 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
             {refundRequest?.bank_name && (
               <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
                 <span className="text-slate-400 font-medium shrink-0">Tài khoản nhận:</span>
-                <span className="font-semibold text-slate-200 text-right">
-                  {refundRequest.bank_name} - {refundRequest.bank_account_number} ({refundRequest.bank_account_name})
-                </span>
+                <div className="text-right text-slate-200 space-y-0.5">
+                  <p className="font-semibold text-white">{refundRequest.bank_name}</p>
+                  <p className="font-mono font-bold text-amber-300">{refundRequest.bank_account_number}</p>
+                  {refundRequest.bank_account_name && (
+                    <p className="font-medium text-slate-400 uppercase text-[11px]">({refundRequest.bank_account_name})</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1343,35 +1370,6 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               </div>
             )}
           </div>
-
-          {/* Confirm Receipt & Dispute buttons if REFUNDED */}
-          {status === 'REFUNDED' && (
-            <div className="rounded-[18px] border border-white/10 bg-slate-900/60 p-4">
-              <p className="text-xs text-slate-300 mb-3">
-                {confirmedReceived
-                  ? '✅ Bạn đã xác nhận nhận được tiền hoàn vào tài khoản.'
-                  : 'Ban tổ chức đã đánh dấu hoàn tiền. Bạn đã nhận được tiền vào tài khoản ngân hàng chưa?'}
-              </p>
-              {!confirmedReceived && (
-                <div className="flex gap-2.5">
-                  <button
-                    type="button"
-                    onClick={handleConfirmReceived}
-                    className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2 text-xs font-bold text-white transition"
-                  >
-                    Tôi đã nhận được tiền
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDispute}
-                    className="flex-1 rounded-xl bg-rose-950/60 border border-rose-700/50 hover:bg-rose-900/60 py-2 text-xs font-bold text-rose-300 transition"
-                  >
-                    Chưa nhận được (Khiếu nại)
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Organizer Reject Reason */}
           {refundRequest?.reject_reason && (
@@ -1391,6 +1389,80 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               </p>
               <p className="mt-1.5 leading-relaxed text-blue-100/90">{refundRequest.organizer_note}</p>
             </div>
+          )}
+
+          {/* Confirm Receipt & Dispute buttons if REFUNDED (Đưa xuống cuối) */}
+          {status === 'REFUNDED' && (
+            confirmedReceived ? (
+              <div className="flex items-center gap-2.5 py-1 px-1 text-sm font-medium text-slate-200 animate-in fade-in duration-200">
+                <Check className="size-5 text-emerald-400 stroke-[2.5] shrink-0" />
+                <span>Bạn đã xác nhận nhận được tiền hoàn vào tài khoản.</span>
+              </div>
+            ) : (
+              <div className="rounded-[20px] border border-white/10 bg-slate-900/60 p-4">
+                <p className="text-xs text-slate-300 mb-3">
+                  Ban tổ chức đã đánh dấu hoàn tiền. Bạn đã nhận được tiền vào tài khoản ngân hàng chưa?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleConfirmReceived}
+                    disabled={submittingDispute}
+                    className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    Tôi đã nhận được tiền
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDisputeForm((prev) => !prev)}
+                    disabled={submittingDispute}
+                    className={`flex-1 rounded-full py-2.5 text-xs font-bold transition shadow-sm cursor-pointer ${
+                      showDisputeForm
+                        ? 'bg-rose-900/80 border border-rose-500 text-white'
+                        : 'bg-rose-950/60 border border-rose-700/50 hover:bg-rose-900/60 text-rose-300'
+                    }`}
+                  >
+                    Chưa nhận được
+                  </button>
+                </div>
+
+                {/* Inline Dispute Form (hiển thị trực tiếp dưới các nút thay vì window.prompt) */}
+                {showDisputeForm && (
+                  <form onSubmit={handleDisputeSubmit} className="mt-3.5 pt-3.5 border-t border-white/10 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <label className="block text-[11px] font-bold text-rose-300 uppercase tracking-wider">
+                      Lý do chưa nhận được tiền:
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={disputeReason}
+                      onChange={(e) => setDisputeReason(e.target.value)}
+                      placeholder="Nhập lý do khiếu nại (ví dụ: đã kiểm tra sao kê nhưng chưa nhận được tiền vào tài khoản)..."
+                      className="w-full rounded-xl border border-rose-500/30 bg-slate-950/80 p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400/30"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDisputeForm(false)
+                          setDisputeReason('')
+                        }}
+                        className="rounded-full px-4 py-1.5 text-xs font-medium text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submittingDispute || !disputeReason.trim()}
+                        className="rounded-full bg-rose-600 hover:bg-rose-500 px-5 py-1.5 text-xs font-bold text-white transition disabled:opacity-50 cursor-pointer shadow-sm"
+                      >
+                        {submittingDispute ? 'Đang gửi...' : 'Gửi khiếu nại'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )
           )}
         </div>
       </div>
