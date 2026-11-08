@@ -70,12 +70,15 @@ async function createPaymentLink({ channel, order, items, returnUrl, cancelUrl }
 }
 
 async function getPaymentLinkInformation({ channel, providerOrderCode }) {
+  const clientId = channel?.client_id || channel?.clientId;
+  const apiKey = channel?.api_key || channel?.apiKey || channel?.api_key_encrypted;
+
   const response = await fetch(`${PAYOS_BASE_URL}/v2/payment-requests/${providerOrderCode}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      'x-client-id': channel.client_id,
-      'x-api-key': channel.api_key_encrypted,
+      'x-client-id': clientId,
+      'x-api-key': apiKey,
     },
   });
 
@@ -89,12 +92,15 @@ async function getPaymentLinkInformation({ channel, providerOrderCode }) {
 }
 
 async function cancelPaymentLink({ channel, providerOrderCode, cancellationReason }) {
+  const clientId = channel?.client_id || channel?.clientId;
+  const apiKey = channel?.api_key || channel?.apiKey || channel?.api_key_encrypted;
+
   const response = await fetch(`${PAYOS_BASE_URL}/v2/payment-requests/${providerOrderCode}/cancel`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-client-id': channel.client_id,
-      'x-api-key': channel.api_key_encrypted,
+      'x-client-id': clientId,
+      'x-api-key': apiKey,
     },
     body: JSON.stringify({ cancellationReason: cancellationReason || 'Order cancelled' }),
   });

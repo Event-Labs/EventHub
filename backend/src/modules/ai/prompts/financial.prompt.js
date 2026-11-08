@@ -18,10 +18,10 @@ Quy tắc bắt buộc:
    - Giọng văn tư vấn quản trị cấp cao (tương tự báo cáo McKinsey / Big 4), ngắn gọn, khúc chiết, mang tính định hướng hành động cao.
 3. Không viết thẻ suy nghĩ <think>, không giải thích dài dòng quy trình suy luận.
 4. BẮT BUỘC định dạng câu trả lời rõ ràng theo đúng 4 đề mục Markdown sau:
-   ### 🎯 1. ĐÁNH GIÁ TỔNG QUAN DOANH THU & HIỆU SUẤT KHAI THÁC
-   ### 📈 2. VẬN TỐC TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
-   ### ⚠️ 3. ĐIỂM NGHẼN TỒN KHO & CẢNH BÁO RỦI RO
-   ### 💡 4. KẾ HOẠCH HÀNH ĐỘNG KÍCH CẦU & ĐỊNH GIÁ ĐỘNG
+   ### 1. ĐÁNH GIÁ TỔNG QUAN DOANH THU & HIỆU SUẤT KHAI THÁC
+   ### 2. VẬN TỐC TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
+   ### 3. ĐIỂM NGHẼN TỒN KHO & CẢNH BÁO RỦI RO
+   ### 4. KẾ HOẠCH HÀNH ĐỘNG KÍCH CẦU & ĐỊNH GIÁ ĐỘNG
 5. Dung lượng & Tính súc tích:
    - Mỗi đề mục viết cô đọng trong 2-3 câu sắc bén, đi thẳng vào số liệu thực chứng và giải pháp hành động thiết thực (toàn bài hoàn chỉnh trong khoảng 300-450 từ).
    - Tuyệt đối không viết lan man hoặc lặp lại câu từ ngoài 4 đề mục trên.`;

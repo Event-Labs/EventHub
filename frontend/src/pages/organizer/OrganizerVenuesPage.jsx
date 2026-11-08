@@ -312,15 +312,22 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
           <h2 className="text-xl font-black text-white">
             {editVenue ? 'Sửa địa điểm' : 'Thêm địa điểm'}
           </h2>
-          <button type="button" onClick={onClose} className="text-2xl leading-none text-muted hover:text-content transition-colors">
-            ×
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-1.5 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+            title="Đóng"
+          >
+            <X className="size-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
           <div className="grid flex-1 grid-cols-1 overflow-y-auto md:grid-cols-2">
             <div className="space-y-3 border-b border-border-soft/20 p-5 md:border-b-0 md:border-r">
               <div>
-                <label className="mb-1 block text-xs font-bold text-muted">Tên địa điểm*</label>
+                <label className="mb-1 block text-xs font-bold text-white">
+                  Tên địa điểm <span className="text-red-500">*</span>
+                </label>
                 <input
                   className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                   value={form.name}
@@ -331,7 +338,9 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                 <span className="font-medium text-warning">Mẹo:</span> Nếu không tìm thấy số nhà chính xác, hãy chọn tên đường/phường gần nhất từ danh sách gợi ý (hoặc kéo marker trên bản đồ), sau đó <strong className="text-secondary">bổ sung số nhà</strong> vào ô địa chỉ.
               </div>
               <div className="relative">
-                <label className="mb-1 block text-xs font-bold text-muted">Địa chỉ*</label>
+                <label className="mb-1 block text-xs font-bold text-white">
+                  Địa chỉ <span className="text-red-500">*</span>
+                </label>
                 <input
                   className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary placeholder:text-muted"
                   value={form.address_line}
@@ -352,16 +361,17 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                   <span className="absolute right-3 top-9 text-xs text-muted">Đang tìm...</span>
                 )}
                 {showSuggestions && suggestions.length > 0 && (
-                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border-soft/30 bg-surface shadow-xl">
+                  <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-56 w-full overflow-y-auto rounded-xl border border-white/20 bg-[#0d162e] shadow-2xl shadow-black/95 divide-y divide-white/10">
                     {suggestions.map((item, idx) => (
                       <li key={idx}>
                         <button
                           type="button"
-                          className="w-full px-3 py-2 text-left text-sm text-content hover:bg-panel-soft/60 transition-colors"
+                          className="flex items-start gap-2.5 w-full px-3.5 py-2.5 text-left text-sm text-slate-100 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => selectSuggestion(item)}
                         >
-                          {item.formatted}
+                          <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
+                          <span className="line-clamp-2 leading-snug">{item.formatted}</span>
                         </button>
                       </li>
                     ))}
@@ -369,7 +379,9 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-xs font-bold text-muted">Thành phố*</label>
+                <label className="mb-1 block text-xs font-bold text-white">
+                  Thành phố <span className="text-red-500">*</span>
+                </label>
                 <input
                   className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                   value={form.city}
@@ -378,7 +390,7 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-muted">Quận/Huyện</label>
+                  <label className="mb-1 block text-xs font-bold text-white">Quận/Huyện</label>
                   <input
                     className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                     value={form.district}
@@ -386,7 +398,7 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-muted">Phường/Xã</label>
+                  <label className="mb-1 block text-xs font-bold text-white">Phường/Xã</label>
                   <input
                     className="h-10 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
                     value={form.ward}
@@ -395,7 +407,7 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-bold text-muted">Mô tả</label>
+                <label className="mb-1 block text-xs font-bold text-white">Mô tả</label>
                 <textarea
                   rows={3}
                   className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-sm text-content outline-none focus:border-primary"
@@ -405,7 +417,7 @@ export function VenueFormModal({ open, editVenue, onClose, onSaved }) {
               </div>
             </div>
             <div className="p-5">
-              <p className="mb-2 text-xs font-bold text-muted">Bản đồ</p>
+              <p className="mb-2 text-xs font-bold text-white">Bản đồ</p>
               <div ref={mapRef} className="z-0 h-[380px] w-full cursor-crosshair rounded-xl border border-border-soft/30 overflow-hidden" />
               <p className="mt-2 text-xs text-muted">
                 Nhập địa chỉ để tự lấy tọa độ. Có thể click bản đồ hoặc kéo marker để chỉnh lại.
@@ -510,7 +522,8 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted hover:bg-panel-soft hover:text-content transition-colors"
+            className="rounded-xl p-1.5 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+            title="Đóng"
           >
             <X className="size-5" />
           </button>
@@ -891,3 +904,4 @@ export function OrganizerVenuesPage() {
     </OrganizerPage>
   )
 }
+

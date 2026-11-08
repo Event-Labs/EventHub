@@ -31,7 +31,7 @@ export function ConfirmSuspendOrganizerModal({
           </button>
           <button
             type="button"
-            className={`admin-primary font-extrabold rounded-xl px-6 transition disabled:opacity-50 ${
+            className={`admin-primary font-extrabold rounded-full px-6 transition disabled:opacity-50 ${
               isSuspending
                 ? 'bg-error border-none text-white hover:bg-error/90'
                 : 'bg-success border-none text-white hover:bg-success/90'

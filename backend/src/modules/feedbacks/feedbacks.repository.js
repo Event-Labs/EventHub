@@ -84,6 +84,23 @@ class FeedbacksRepository {
     return Boolean(rows[0]);
   }
 
+  async userHasCheckedInTicket(userId, eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT 1
+      FROM tickets t
+      JOIN order_items oi ON oi.id = t.order_item_id
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.user_id = $1
+        AND t.event_id = $2
+        AND (t.status = 'USED' OR t.checked_in_at IS NOT NULL)
+      LIMIT 1
+      `,
+      [userId, eventId],
+    );
+    return Boolean(rows[0]);
+  }
+
   async findEligibleEventsForUser(userId) {
     const { rows } = await db.query(
       `
@@ -107,7 +124,11 @@ class FeedbacksRepository {
         AND e.deleted_at IS NULL
         AND e.status IN ('PUBLISHED', 'COMPLETED')
         AND e.approval_status = 'APPROVED'
-        AND COALESCE(time_summary.start_time, e.start_time, e.end_time) <= now()
+        AND (
+          COALESCE(time_summary.start_time, e.start_time, e.end_time) <= now()
+          OR t.checked_in_at IS NOT NULL
+          OR t.status = 'USED'
+        )
         AND t.status IN ('VALID', 'USED')
         AND NOT EXISTS (
           SELECT 1

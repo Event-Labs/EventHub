@@ -876,11 +876,11 @@ function parseFinancialReport(summaryText) {
       const trimmed = sec.trim()
       if (!trimmed) return null
       const firstLineEnd = trimmed.indexOf('\n')
-      if (firstLineEnd === -1) {
-        return { title: trimmed.replace(/^###\s+/, ''), content: '' }
-      }
-      const title = trimmed.slice(0, firstLineEnd).replace(/^###\s+/, '').trim()
-      const content = trimmed.slice(firstLineEnd).trim()
+      const rawTitle = (firstLineEnd === -1 ? trimmed : trimmed.slice(0, firstLineEnd))
+        .replace(/^###\s+/, '')
+        .trim()
+      const title = rawTitle.replace(/^[🎯📈⚠️💡\s]+/u, '').trim()
+      const content = firstLineEnd === -1 ? '' : trimmed.slice(firstLineEnd).trim()
       return { title, content }
     })
     .filter(Boolean)
@@ -935,8 +935,9 @@ function FormattedMarkdownContent({ text }) {
 }
 
 function ExecutivePillarCard({ title, content, index }) {
+  const displayTitle = (title || '').replace(/^[🎯📈⚠️💡\s]+/u, '').trim()
   const getPillarConfig = () => {
-    const t = (title || '').toUpperCase()
+    const t = displayTitle.toUpperCase()
     if (t.includes('HIỆU SUẤT') || t.includes('LỢI NHUẬN') || index === 0) {
       return {
         icon: CircleDollarSign,
@@ -978,7 +979,7 @@ function ExecutivePillarCard({ title, content, index }) {
           <div className="grid size-7 place-items-center rounded-lg bg-white/5">
             <Icon className="size-4 text-white" />
           </div>
-          <h4 className="text-sm font-bold text-white drop-shadow-sm">{title}</h4>
+          <h4 className="text-sm font-bold text-white drop-shadow-sm">{displayTitle}</h4>
         </div>
         <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${badgeClass}`}>
           {badge}
@@ -1228,7 +1229,8 @@ export function OrganizerDashboardPage() {
 
   const handleCopySummary = () => {
     if (!financialSummary?.summary) return
-    navigator.clipboard.writeText(financialSummary.summary)
+    const textToCopy = financialSummary.summary.replace(/###\s*[🎯📈⚠️💡]\s*/gu, '### ')
+    navigator.clipboard.writeText(textToCopy)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -1340,12 +1342,12 @@ export function OrganizerDashboardPage() {
             onClick={handleExportExcel}
             disabled={isExportingExcel || !stats}
             title="Xuất bảng số liệu và biểu đồ doanh thu ra file Excel (.xlsx)"
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 sm:px-4 text-xs font-bold text-emerald-300 shadow-sm transition hover:bg-emerald-500/20 hover:border-emerald-500/60 active:scale-95 disabled:opacity-50 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-400 [html.light_&]:text-emerald-700"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#C99A47]/50 bg-[#C99A47]/10 px-3.5 sm:px-4 text-xs sm:text-sm font-bold text-[#E6C17A] shadow-sm backdrop-blur-md transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:shadow-[0_0_15px_rgba(201,154,71,0.25)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed [html.light_&]:border-[#C99A47]/50 [html.light_&]:bg-[#FAF4EB]/80 [html.light_&]:text-[#8B5E0F] [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]"
           >
             {isExportingExcel ? (
-              <Loader2 className="size-4 animate-spin text-emerald-400" />
+              <Loader2 className="size-4 animate-spin text-[#E6C17A] [html.light_&]:text-[#8B5E0F]" />
             ) : (
-              <FileSpreadsheet className="size-4 text-emerald-400" />
+              <FileSpreadsheet className="size-4 text-[#E6C17A] [html.light_&]:text-[#8B5E0F]" />
             )}
             <span>{isExportingExcel ? 'Đang xuất Excel...' : 'Xuất báo cáo'}</span>
           </button>
@@ -1469,23 +1471,19 @@ export function OrganizerDashboardPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-display text-lg font-black text-white">
-                        Báo cáo Cố vấn Doanh thu AI (Executive Yield Intelligence)
+                        Báo cáo Cố vấn Doanh thu AI 
                       </h3>
-                      {financialSummary.source === 'RULE_BASED_FALLBACK' || financialSummary.model === 'financial-rule-fallback' ? (
-                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-300">
-                          Chuẩn McKinsey Engine
-                        </span>
-                      ) : (
+                      {financialSummary.source !== 'RULE_BASED_FALLBACK' && financialSummary.model !== 'financial-rule-fallback' && (
                         <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                           AI Model ({financialSummary.model || 'eve-agent'})
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400">
-                      {financialSummary.source === 'RULE_BASED_FALLBACK' || financialSummary.model === 'financial-rule-fallback'
-                        ? 'Động cơ Quản trị Doanh thu chuẩn mực McKinsey · Phân tích định lượng RevPAS, Vận tốc, Pacing & Kịch bản'
-                        : `Mô hình AI Yield Advisor (${financialSummary.model || 'eve-agent'}) · RevPAS, Sales Velocity, Pacing & Kịch bản What-If`}
-                    </p>
+                    {financialSummary.source !== 'RULE_BASED_FALLBACK' && financialSummary.model !== 'financial-rule-fallback' && (
+                      <p className="text-xs text-slate-400">
+                        {`Mô hình AI Yield Advisor (${financialSummary.model || 'eve-agent'}) · RevPAS, Sales Velocity, Pacing & Kịch bản What-If`}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1509,10 +1507,11 @@ export function OrganizerDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setIsAiReportExpanded((prev) => !prev)}
-                    className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-slate-700 hover:text-white"
+                    className="p-1.5 text-slate-400 transition hover:text-white active:scale-95"
+                    title={isAiReportExpanded ? 'Thu gọn' : 'Mở rộng'}
+                    aria-label={isAiReportExpanded ? 'Thu gọn' : 'Mở rộng'}
                   >
-                    <span>{isAiReportExpanded ? 'Thu gọn' : 'Mở rộng'}</span>
-                    {isAiReportExpanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                    {isAiReportExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
                   </button>
                 </div>
               </div>

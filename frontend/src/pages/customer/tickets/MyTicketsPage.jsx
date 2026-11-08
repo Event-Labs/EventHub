@@ -1,6 +1,6 @@
 import { getStoredUserKey, isAuthenticated as hasAuthSession } from '@/lib/auth.js'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, MapPin, Ticket } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, MapPin, Star, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
@@ -87,31 +87,25 @@ export function MyTicketsPage() {
   const tickets = useMemo(() => {
     const list = [...(ticketsQuery.data || [])]
     return list.sort((a, b) => {
-      // 1. Phân loại theo độ ưu tiên trạng thái (VALID lên đầu, REFUNDED đưa xuống dưới)
+      // 1. Ưu tiên vé còn hợp lệ lên đầu
       const rankA = STATUS_RANK[a.status] ?? 99
       const rankB = STATUS_RANK[b.status] ?? 99
       if (rankA !== rankB) {
         return rankA - rankB
       }
 
-      // 2. Trong cùng nhóm trạng thái (đặc biệt là vé hợp lệ):
-      // Sắp xếp theo thời gian sự kiện gần nhất (session start_time)
-      const timeA = a.session?.start_time ? new Date(a.session.start_time).getTime() : 0
-      const timeB = b.session?.start_time ? new Date(b.session.start_time).getTime() : 0
-
-      if (timeA && timeB && timeA !== timeB) {
-        // Vé hợp lệ: sự kiện diễn ra sớm nhất (gần nhất) lên trước
-        if (a.status === 'VALID') {
-          return timeA - timeB
-        }
-        // Các vé khác: sự kiện gần nhất (mới nhất) lên trước
+      // 2. Trong cùng nhóm trạng thái: vé mới mua luôn phải hiện ở đầu, rồi giảm dần
+      const timeA = new Date(a.order?.created_at || a.created_at || 0).getTime()
+      const timeB = new Date(b.order?.created_at || b.created_at || 0).getTime()
+      if (timeA !== timeB) {
         return timeB - timeA
       }
-
-      // 3. Fallback: Thời gian đặt vé gần nhất
-      const orderA = new Date(a.order?.created_at || a.created_at || 0).getTime()
-      const orderB = new Date(b.order?.created_at || b.created_at || 0).getTime()
-      return orderB - orderA || String(b.id).localeCompare(String(a.id))
+      const ticketTimeA = a.created_at ? new Date(a.created_at).getTime() : 0
+      const ticketTimeB = b.created_at ? new Date(b.created_at).getTime() : 0
+      if (ticketTimeA !== ticketTimeB) {
+        return ticketTimeB - ticketTimeA
+      }
+      return (b.id ?? 0) - (a.id ?? 0) || String(b.ticket_code || '').localeCompare(String(a.ticket_code || ''))
     })
   }, [ticketsQuery.data])
 
@@ -281,6 +275,7 @@ export function MyTicketsPage() {
 
 
 function TicketCard({ ticket }) {
+  const navigate = useNavigate()
   const meta = statusMeta(ticket)
   const venue = venueLine(ticket)
   const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ') || 'N/A'
@@ -343,6 +338,24 @@ function TicketCard({ ticket }) {
             iconActive={isVibrant}
           />
         </div>
+
+        {((Boolean(ticket.checked_in_at) || ticket.status === 'USED' || ticket.check_in_status === 'CHECKED_IN' || (ticket.session?.end_time && new Date(ticket.session.end_time) <= new Date()) || ticket.event?.status === 'COMPLETED') && ticket.status !== 'CANCELLED' && ticket.status !== 'REFUNDED' && ticket.status !== 'REFUND_PENDING') && (
+          <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-[#E6C17A]">Đã tham gia</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                navigate(`/feedback?eventId=${ticket.event?.id}`)
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold text-[#0D1B2A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] hover:brightness-110 shadow-md shadow-[#C99A47]/20 transition-all cursor-pointer active:scale-95"
+            >
+              <Star className="size-3.5 fill-[#0D1B2A]" />
+              Đánh giá sự kiện
+            </button>
+          </div>
+        )}
       </section>
 
       <section className={`relative h-44 sm:h-auto sm:min-h-56 overflow-hidden border-t-2 sm:border-t-0 sm:border-l-2 border-dashed ${isVibrant ? 'bg-slate-900/40 border-primary/25 sm:border-primary/20' : 'bg-slate-950/60 border-white/10 sm:border-white/5'

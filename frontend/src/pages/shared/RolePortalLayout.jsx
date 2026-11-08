@@ -219,7 +219,7 @@ export function RolePortalLayout({
           theme === 'light' ? 'border-[#C99A47]/20 bg-[#F5EBDD]/60' : 'border-white/10 bg-slate-900/60'
         }`}>
           <div className="flex items-center gap-3">
-            <img src={logoSrc} alt="EventHub" className="h-8 w-auto object-contain" />
+            <img src={logoSrc} alt="EventHub" className="h-10 sm:h-11 w-auto object-contain" />
             <span className={`text-[11px] font-extrabold uppercase tracking-wider rounded-md px-2 py-0.5 ${
               theme === 'light' ? 'bg-[#C99A47]/20 text-[#1B365D]' : 'bg-primary/20 text-primary'
             }`}>
@@ -522,7 +522,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
           <img
             src={logoSrc}
             alt="EventHub"
-            className="logo-fixed h-8 sm:h-10 w-auto shrink-0 object-contain"
+            className="logo-fixed h-10 sm:h-12 lg:h-14 w-auto shrink-0 object-contain"
             style={{ filter: 'none' }}
           />
         </NavLink>

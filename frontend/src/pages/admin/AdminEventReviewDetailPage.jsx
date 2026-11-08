@@ -1424,10 +1424,10 @@ export function AdminEventReviewDetailPage() {
           description: decision === 'APPROVE'
             ? 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.'
             : 'Bản đề xuất sửa đổi sẽ bị từ chối và lưu vào lịch sử kiểm duyệt. Cấu hình sự kiện hiện tại sẽ được giữ nguyên.',
-          tone: decision === 'APPROVE' ? 'success' : 'danger',
+          tone: decision === 'APPROVE' ? 'gold' : 'danger',
           confirmText: decision === 'APPROVE' ? 'Phê duyệt sửa đổi' : 'Từ chối sửa đổi',
           cancelText: 'Hủy bỏ',
-          confirmColor: decision === 'APPROVE' ? 'bg-success' : 'bg-error',
+          confirmColor: decision === 'APPROVE' ? undefined : 'bg-error',
           onConfirm: () => {
             reviewRevisionMutation.mutate({ decision, note: data.review_note?.trim() || null })
             setConfirmState(null)
@@ -1440,8 +1440,9 @@ export function AdminEventReviewDetailPage() {
         setConfirmState({
           title: 'Xác nhận phê duyệt',
           description: 'Bạn có chắc chắn muốn phê duyệt sự kiện này?',
+          tone: 'gold',
           confirmText: 'Phê duyệt',
-          confirmColor: 'bg-success',
+          cancelText: 'Hủy bỏ',
           onConfirm: () => {
             reviewMutation.mutate({
               status,
@@ -1544,7 +1545,7 @@ export function AdminEventReviewDetailPage() {
         subtitle: 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.',
         eventTitle: event?.title,
         description: 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.',
-        tone: 'success',
+        tone: 'gold',
         confirmText: 'Xác nhận duyệt sửa đổi',
         cancelText: 'Hủy bỏ',
         onConfirm: () => {
@@ -3278,23 +3279,24 @@ function ConfirmModal({
 
   const getToneConfig = () => {
     switch (tone) {
+      case 'gold':
       case 'success':
         return {
           icon: CheckCircle2,
-          iconWrap: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-          btnClass: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40',
+          iconWrap: 'bg-[#C99A47]/20 text-[#E6C17A] border border-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.2)]',
+          btnClass: confirmColor || 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-lg shadow-[#C99A47]/30 hover:brightness-110 active:scale-95 border border-[#E6C17A]/40',
         }
       case 'danger':
         return {
           icon: AlertTriangle,
           iconWrap: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
-          btnClass: 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/40',
+          btnClass: confirmColor || 'bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-900/40',
         }
       case 'warning':
         return {
           icon: AlertTriangle,
           iconWrap: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-          btnClass: 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/40',
+          btnClass: confirmColor || 'bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-lg shadow-amber-900/40',
         }
       default:
         return {
@@ -3308,54 +3310,54 @@ function ConfirmModal({
   const { icon: ToneIcon, iconWrap, btnClass } = getToneConfig()
 
   return (
-    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-7 shadow-2xl shadow-black/95 text-white">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconWrap}`}>
-              <ToneIcon className="size-6" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <span className={`grid size-13 shrink-0 place-items-center rounded-2xl ${iconWrap}`}>
+              <ToneIcon className="size-7" />
             </span>
             <div>
-              <h3 className="text-xl font-black text-white">{title}</h3>
+              <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3>
               {subtitle ? (
-                <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-300">{subtitle}</p>
               ) : (
-                <p className="mt-1 text-xs text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
               )}
             </div>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
           >
-            <X className="size-5" />
+            <X className="size-5 sm:size-6" />
           </button>
         </div>
 
         {/* Event highlight box */}
         {eventTitle && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
-            <p className="font-bold text-white text-sm mt-0.5 truncate">{eventTitle}</p>
+          <div className="mt-5 rounded-xl border border-white/15 bg-[#121c38]/90 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
+            <p className="font-extrabold text-white text-base mt-1 truncate">{eventTitle}</p>
           </div>
         )}
 
         {/* Description */}
         {description && (
-          <p className="mt-3.5 text-xs text-slate-300 leading-relaxed">
+          <p className="mt-4 text-base sm:text-lg font-semibold text-slate-200 leading-relaxed">
             {description}
           </p>
         )}
 
         {/* Footer buttons */}
-        <div className="mt-6 flex gap-3 pt-2">
+        <div className="mt-7 flex gap-3.5 pt-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+            className="flex-1 rounded-xl border border-white/15 bg-slate-800/80 px-5 py-3 text-sm sm:text-base font-bold text-slate-300 transition hover:bg-slate-700/80 hover:text-white disabled:opacity-50 active:scale-95"
           >
             {cancelText}
           </button>
@@ -3363,11 +3365,11 @@ function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition disabled:opacity-50 ${btnClass}`}
+            className={`flex-1 rounded-xl px-5 py-3 text-sm sm:text-base font-black transition disabled:opacity-50 active:scale-95 ${btnClass}`}
           >
             {isPending ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 <span>Đang xử lý...</span>
               </span>
             ) : (

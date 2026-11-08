@@ -3,6 +3,7 @@ import { CheckCircle, Clock3, ExternalLink, RefreshCw, XCircle } from 'lucide-re
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, fetchOrderStatus } from '@/services/orders.js'
+import { clearBookingDraft } from '@/utils/bookingDraft.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
@@ -54,8 +55,10 @@ export function PaymentConfirmationPage() {
       : undefined,
     refetchInterval: (query) => {
       const status = query.state.data?.order?.status
-      return status === 'PENDING' ? 5000 : false
+      return status === 'PENDING' ? 3000 : false
     },
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   })
 
   const cancelMutation = useMutation({
@@ -78,6 +81,7 @@ export function PaymentConfirmationPage() {
     const orderStatus = statusQuery.data?.order?.status
     if ((orderStatus === 'PAID' || orderStatus === 'CONFIRMED') && !paymentSuccessHandledRef.current) {
       paymentSuccessHandledRef.current = true
+      clearBookingDraft()
       const msg = orderStatus === 'CONFIRMED'
         ? 'Đặt vé thành công. Vé của bạn đã sẵn sàng!'
         : 'Thanh toán thành công. Vé của bạn đã sẵn sàng!'
@@ -162,7 +166,7 @@ export function PaymentConfirmationPage() {
         </div>
 
         <div className="mt-8 rounded-[24px] border border-white/5 bg-white/5 p-8 text-center shadow-inner">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white">
             Số tiền cần thanh toán
           </p>
           <p className="mt-3 font-display text-5xl font-black text-white drop-shadow-lg tracking-tight">

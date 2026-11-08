@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
-  DoorOpen,
+
   Edit2,
   Layers,
   Loader2,
@@ -26,7 +26,7 @@ import {
   removeStaffFromEvent,
   updateEventStaff,
 } from '@/services/operations.js'
-import { AvatarInitials, Badge, OrganizerPage, OrganizerPanel, StatCard, TableActionButton } from './OrganizerComponents.jsx'
+import { Badge, OrganizerPage, OrganizerPanel, StatCard, TableActionButton } from './OrganizerComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
@@ -291,30 +291,18 @@ export function OrganizerStaffManagementPage() {
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Hành động</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                    <tbody className="divide-y divide-white/5 font-medium text-white">
                       {assignedStaff.map((staff) => (
                         <tr key={staff.id} className="hover:bg-white/[0.02] transition-colors">
                           <td className="px-3.5 py-3">
-                            <div className="flex items-center gap-3">
-                              <AvatarInitials name={staff.staff_name || 'Staff'} className="size-8 shrink-0" />
-                              <span className="font-bold text-content">{staff.staff_name}</span>
-                            </div>
+                            <span className="font-bold text-white">{staff.staff_name}</span>
                           </td>
-                          <td className="px-3.5 py-3 text-subtle">{staff.staff_email}</td>
+                          <td className="px-3.5 py-3 text-white">{staff.staff_email}</td>
                           <td className="px-3.5 py-3">
                             <Badge tone="blue">{staff.staff_role || 'Staff'}</Badge>
                           </td>
                           <td className="px-3.5 py-3">
-                            {staff.gate ? (
-                              <Badge tone="purple">
-                                <span className="flex items-center gap-1">
-                                  <DoorOpen className="size-3" />
-                                  {staff.gate}
-                                </span>
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted">Tất cả cổng</span>
-                            )}
+                            <Badge tone="purple">{staff.gate || 'Tất cả cổng'}</Badge>
                           </td>
                           <td className="px-3.5 py-3">
                             {staff.zone ? (
@@ -325,10 +313,10 @@ export function OrganizerStaffManagementPage() {
                                 </span>
                               </Badge>
                             ) : (
-                              <span className="text-xs text-muted">Toàn bộ khu vực</span>
+                              <span className="text-sm text-white">Toàn bộ khu vực</span>
                             )}
                           </td>
-                          <td className="px-3.5 py-3 text-subtle whitespace-nowrap">
+                          <td className="px-3.5 py-3 text-white whitespace-nowrap">
                             {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
                           </td>
                           <td className="px-3.5 py-3 text-center whitespace-nowrap">
@@ -390,23 +378,14 @@ export function OrganizerStaffManagementPage() {
                         <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Hành động</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                    <tbody className="divide-y divide-white/5 font-medium text-white">
                       {invitations.map((inv) => (
                         <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-3.5 py-3 font-semibold text-content">{inv.invited_email}</td>
-                          <td className="px-3.5 py-3 text-subtle">{inv.invited_user_name || '—'}</td>
-                          <td className="px-3.5 py-3 text-content">{inv.staff_role || 'Staff'}</td>
+                          <td className="px-3.5 py-3 font-semibold text-white">{inv.invited_email}</td>
+                          <td className="px-3.5 py-3 text-white">{inv.invited_user_name || '—'}</td>
+                          <td className="px-3.5 py-3 text-white">{inv.staff_role || 'Staff'}</td>
                           <td className="px-3.5 py-3">
-                            {inv.gate ? (
-                              <Badge tone="purple">
-                                <span className="flex items-center gap-1">
-                                  <DoorOpen className="size-3" />
-                                  {inv.gate}
-                                </span>
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted">Tất cả cổng</span>
-                            )}
+                            <Badge tone="purple">{inv.gate || 'Tất cả cổng'}</Badge>
                           </td>
                           <td className="px-3.5 py-3">
                             {inv.zone ? (
@@ -417,7 +396,7 @@ export function OrganizerStaffManagementPage() {
                                 </span>
                               </Badge>
                             ) : (
-                              <span className="text-xs text-muted">Toàn bộ khu vực</span>
+                              <span className="text-sm text-white">Toàn bộ khu vực</span>
                             )}
                           </td>
                           <td className="px-3.5 py-3 !text-left whitespace-nowrap" style={{ textAlign: 'left' }}>
@@ -425,7 +404,7 @@ export function OrganizerStaffManagementPage() {
                               <InvitationStatusBadge status={inv.status} />
                             </div>
                           </td>
-                          <td className="px-3.5 py-3 text-muted whitespace-nowrap">
+                          <td className="px-3.5 py-3 text-white whitespace-nowrap">
                             {inv.expires_at
                               ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
                               : '—'}
@@ -595,11 +574,10 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
                 <button
                   key={suggestion}
                   type="button"
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    form.gate === suggestion
-                      ? 'border-primary bg-primary/15 text-primary'
-                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-primary/40 hover:text-content'
-                  }`}
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.gate === suggestion
+                    ? 'border-primary bg-primary/15 text-primary'
+                    : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-primary/40 hover:text-content'
+                    }`}
                   onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
                 >
                   {suggestion}
@@ -625,11 +603,10 @@ function EditStaffModal({ staff, eventId, onClose, onUpdated }) {
                 <button
                   key={suggestion}
                   type="button"
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    form.zone === suggestion
-                      ? 'border-amber-500 bg-amber-500/15 text-amber-500'
-                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-amber-500/40 hover:text-content'
-                  }`}
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.zone === suggestion
+                    ? 'border-amber-500 bg-amber-500/15 text-amber-500'
+                    : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-amber-500/40 hover:text-content'
+                    }`}
                   onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
                 >
                   {suggestion}
@@ -725,18 +702,17 @@ function InviteStaffModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="w-full min-w-0 max-w-md overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full min-w-0 max-w-2xl overflow-hidden rounded-2xl bg-[#0b1329] border border-white/15 shadow-2xl shadow-black/90 text-white max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4 shrink-0">
           <div className="flex items-center gap-2 font-black text-white text-lg">
-            <UserPlus className="size-5 text-primary" />
             Mời nhân sự
           </div>
           <button
-            className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 transition-colors"
+            className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
             onClick={onClose}
           >
-            <X className="size-4" />
+            <X className="size-5" />
           </button>
         </div>
         <form className="min-w-0 px-6 py-5 overflow-y-auto" onSubmit={handleSubmit}>
@@ -771,111 +747,117 @@ function InviteStaffModal({
               </select>
             </label>
 
-            {/* Email with autocomplete */}
-            <label className="grid gap-1.5 text-sm font-bold text-white">
-              Email tài khoản customer
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
+            {/* Email & Role in 2 columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Email with autocomplete */}
+              <label className="grid gap-1.5 text-sm font-bold text-white">
+                Email tài khoản customer
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/50" />
+                  <input
+                    type="search"
+                    className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-9 pr-3 text-sm font-normal text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-white/50"
+                    placeholder="Tìm tên hoặc email..."
+                    value={candidateSearch}
+                    onChange={(e) => {
+                      setCandidateSearch(e.target.value)
+                      setForm((f) => ({ ...f, email: e.target.value }))
+                    }}
+                    disabled={limitReached || saving}
+                  />
+                  {candidates.length > 0 && (
+                    <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-56 w-full overflow-auto rounded-xl border border-white/20 bg-[#0d162e] shadow-2xl shadow-black/95 divide-y divide-white/10">
+                      {candidates.map((c) => (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            className="flex w-full flex-col px-3.5 py-2.5 text-left text-sm text-slate-100 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                            onClick={() => pickCandidate(c)}
+                          >
+                            <span className="font-bold text-white text-sm">{c.full_name}</span>
+                            <span className="text-xs text-slate-300 mt-0.5">{c.email}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </label>
+
+              {/* Role */}
+              <label className="grid gap-1.5 text-sm font-bold text-white">
+                Vai trò
                 <input
-                  type="search"
-                  className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-9 pr-3 text-sm font-normal text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-white/50"
-                  placeholder="Tìm tên hoặc email..."
-                  value={candidateSearch}
-                  onChange={(e) => {
-                    setCandidateSearch(e.target.value)
-                    setForm((f) => ({ ...f, email: e.target.value }))
-                  }}
-                  disabled={limitReached || saving}
+                  className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
+                  placeholder="VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
+                  value={form.staff_role}
+                  onChange={(e) => setForm((f) => ({ ...f, staff_role: e.target.value }))}
+                  disabled={saving}
                 />
-                {candidates.length > 0 && (
-                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-border-soft/30 bg-surface shadow-xl">
-                    {candidates.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          className="flex w-full flex-col px-3 py-2 text-left text-sm text-content hover:bg-panel-soft/60 transition-colors"
-                          onClick={() => pickCandidate(c)}
-                        >
-                          <span className="font-bold text-content">{c.full_name}</span>
-                          <span className="text-xs text-muted">{c.email}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </label>
-
-            {/* Role */}
-            <label className="grid gap-1.5 text-sm font-bold text-white">
-              Vai trò
-              <input
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
-                placeholder="VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
-                value={form.staff_role}
-                onChange={(e) => setForm((f) => ({ ...f, staff_role: e.target.value }))}
-                disabled={saving}
-              />
-            </label>
-
-            {/* Gate */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
-              Cổng check-in / phân công
-              <input
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
-                placeholder="VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)"
-                value={form.gate}
-                onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
-                disabled={saving}
-              />
-            </label>
-
-            {/* Quick suggestions for gate */}
-            <div className="flex flex-wrap gap-1.5">
-              {GATE_SUGGESTIONS.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    form.gate === suggestion
-                      ? 'border-primary bg-primary/15 text-primary'
-                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-primary/40 hover:text-content'
-                  }`}
-                  onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
-                >
-                  {suggestion}
-                </button>
-              ))}
+              </label>
             </div>
 
-            {/* Zone */}
-            <label className="grid gap-1.5 text-xs font-bold text-subtle">
-              Khu vực làm việc trong sự kiện
-              <input
-                className="h-10 rounded-xl border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary"
-                placeholder="VD: Khu VIP, Khán đài A, Khu đứng GA, Tầng 1..."
-                value={form.zone}
-                onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
-                disabled={saving}
-              />
-            </label>
+            {/* Gate & Zone in 2 columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Gate column */}
+              <div className="space-y-2">
+                <label className="grid gap-1.5 text-sm font-bold text-white">
+                  Cổng check-in / phân công
+                  <input
+                    className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
+                    placeholder="VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)"
+                    value={form.gate}
+                    onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
+                    disabled={saving}
+                  />
+                </label>
+                {/* Quick suggestions for gate */}
+                <div className="flex flex-wrap gap-1.5">
+                  {GATE_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.gate === suggestion
+                        ? 'border-primary bg-primary/20 text-primary font-bold'
+                        : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
+                        }`}
+                      onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            {/* Quick suggestions for zone */}
-            <div className="flex flex-wrap gap-1.5">
-              {ZONE_SUGGESTIONS.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    form.zone === suggestion
-                      ? 'border-amber-500 bg-amber-500/15 text-amber-500'
-                      : 'border-border-soft/40 bg-panel-soft/50 text-subtle hover:border-amber-500/40 hover:text-content'
-                  }`}
-                  onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
-                >
-                  {suggestion}
-                </button>
-              ))}
+              {/* Zone column */}
+              <div className="space-y-2">
+                <label className="grid gap-1.5 text-sm font-bold text-white">
+                  Khu vực làm việc trong sự kiện
+                  <input
+                    className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
+                    placeholder="VD: Khu VIP, Khán đài A, Khu đứng GA, Tầng 1..."
+                    value={form.zone}
+                    onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
+                    disabled={saving}
+                  />
+                </label>
+                {/* Quick suggestions for zone */}
+                <div className="flex flex-wrap gap-1.5">
+                  {ZONE_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.zone === suggestion
+                        ? 'border-amber-500 bg-amber-500/20 text-amber-400 font-bold'
+                        : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-amber-500/40 hover:text-white'
+                        }`}
+                      onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -895,7 +877,7 @@ function InviteStaffModal({
               {saving ? (
                 <><Loader2 className="size-4 animate-spin" /> Đang gửi...</>
               ) : (
-                <><UserPlus className="size-4" /> Gửi lời mời</>
+                <> Gửi lời mời</>
               )}
             </button>
           </div>
@@ -914,13 +896,13 @@ function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfir
         <h3 className="font-black text-xl text-white">{title}</h3>
         <p className="mt-2 text-sm text-subtle">{message}</p>
         <div className="mt-5 flex justify-end gap-3">
-          <button className="org-btn-secondary" onClick={onCancel} disabled={loading}>
+          <button className="org-btn-secondary px-6" onClick={onCancel} disabled={loading}>
             Hủy
           </button>
           <button
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${danger
-                ? 'bg-error text-white hover:opacity-90 disabled:opacity-50'
-                : 'org-btn-primary'
+            className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold transition-all ${danger
+              ? 'bg-error text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60'
+              : 'org-btn-primary'
               }`}
             onClick={onConfirm}
             disabled={loading}
