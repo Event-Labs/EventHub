@@ -83,11 +83,7 @@ function countdownParts(target, now) {
 function qrPayload(ticket) {
   return JSON.stringify({
     type: 'EVENTHUB_TICKET',
-    ticket_id: ticket.id,
-    ticket_code: ticket.ticket_code,
-    qr_code: ticket.qr_code || ticket.ticket_code,
-    event_id: ticket.event?.id,
-    session_id: ticket.session?.id,
+    ticket_code: ticket.ticket_code || ticket.qr_code || ticket.id,
   })
 }
 

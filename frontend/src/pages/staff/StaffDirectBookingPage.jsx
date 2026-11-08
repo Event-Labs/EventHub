@@ -95,9 +95,7 @@ function venueLine(venue) {
 function qrPayload(ticket) {
   return JSON.stringify({
     type: 'EVENTHUB_TICKET',
-    ticket_id: ticket.id,
-    ticket_code: ticket.ticket_code,
-    qr_code: ticket.qr_code || ticket.ticket_code,
+    ticket_code: ticket.ticket_code || ticket.qr_code || ticket.id,
   })
 }
 

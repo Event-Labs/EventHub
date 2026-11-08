@@ -716,10 +716,6 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
     </Modal>
   )
 }
-      </form >
-    </Modal >
-  )
-}
 
 function PromoDetailModal({ open, onClose, promo }) {
   if (!promo) return null
