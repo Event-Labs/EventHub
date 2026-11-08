@@ -265,17 +265,21 @@ export function AdminPlansPage() {
             </div>
           }
         >
-          <form id="subscription-plan-form" onSubmit={submitForm} className="space-y-5">
+          <form id="subscription-plan-form" onSubmit={submitForm} className="space-y-6 py-1">
             <FormSection title="Thông tin gói">
               <TextInput label="Tên gói" value={form.name} onChange={(name) => updateField('name', name)} required />
               <TextInput inputMode="numeric" label="Giá gói" value={form.price} onChange={(price) => updateField('price', onlyNumberText(price))} placeholder="0" />
             </FormSection>
+
+            <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
 
             <FormSection title="Giới hạn tổng của organizer">
               <TextInput inputMode="numeric" label="Tổng số sự kiện" value={form.event_limit} onChange={(value) => updateField('event_limit', onlyNumberText(value))} placeholder="0" />
               <TextInput inputMode="numeric" label="Sự kiện hoạt động cùng lúc" value={form.max_active_events} onChange={(value) => updateField('max_active_events', onlyNumberText(value))} placeholder="0" />
               <TextInput inputMode="numeric" label="Tổng staff" value={form.staff_limit} onChange={(value) => updateField('staff_limit', onlyNumberText(value))} placeholder="0" />
             </FormSection>
+
+            <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
 
             <FormSection title="Giới hạn cho mỗi sự kiện">
               <TextInput inputMode="numeric" label="Vé/sự kiện" value={form.max_tickets_per_event} onChange={(value) => updateField('max_tickets_per_event', onlyNumberText(value))} placeholder="0" />
@@ -284,9 +288,11 @@ export function AdminPlansPage() {
               <TextInput inputMode="numeric" label="Mã giảm giá/sự kiện" value={form.max_promo_codes_per_event} onChange={(value) => updateField('max_promo_codes_per_event', onlyNumberText(value))} placeholder="0" disabled={!form.promo_code_enabled} />
             </FormSection>
 
-            <section className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+            <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
+
+            <section>
               <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Tính năng</h4>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-3.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {booleanFields.map(([field, label]) => (
                   <Checkbox
                     key={field}
@@ -363,9 +369,9 @@ function Metric({ label, value, accent }) {
 
 function FormSection({ title, children }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#121c38]/40 p-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+    <section>
       <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{title}</h4>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+      <div className="mt-3.5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
     </section>
   )
 }

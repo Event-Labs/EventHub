@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  AlertCircle,
   Ban,
+  Check,
   CheckSquare,
+  ChevronLeft,
+  ChevronRight,
   ClipboardPaste,
   Copy,
   Eraser,
   Grid,
   Hand,
+  Loader2,
   MousePointer2,
   Paintbrush,
   Palette,
   Plus,
   RotateCcw,
+  RotateCw,
   Settings,
   Shapes,
   Trash2,
@@ -316,6 +322,28 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [canvasBg, setCanvasBg] = useState('#0F172A')
   const isLightCanvas = useMemo(() => isLightColor(canvasBg), [canvasBg])
   const [sidebarTab, setSidebarTab] = useState('STAGE') // STAGE | ZONES | GRID | THEMES
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [toolbarExpandedManual, setToolbarExpandedManual] = useState(null)
+  const isToolbarExpanded = toolbarExpandedManual !== null ? toolbarExpandedManual : !sidebarOpen
+  const canvasContainerRef = useRef(null)
+  const [canvasWidth, setCanvasWidth] = useState(1200)
+
+  useEffect(() => {
+    if (!canvasContainerRef.current) return undefined
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setCanvasWidth(entry.contentRect.width)
+        }
+      }
+    })
+    ro.observe(canvasContainerRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const canShowQuickActionLabels = isToolbarExpanded && canvasWidth >= 1150
+  const canShowToolLabels = isToolbarExpanded && canvasWidth >= 720
+  const canShowPaintText = isToolbarExpanded && canvasWidth >= 850
 
   const [renameModalState, setRenameModalState] = useState({ isOpen: false, title: '', initialValue: '', onSave: null })
 
@@ -349,8 +377,111 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [selectedShapeId, setSelectedShapeId] = useState(null)
   const [draggingHandle, setDraggingHandle] = useState(null)
 
+  // Auto-save and Crash Protection
+  const AUTOSAVE_KEY = `eventhub_seatmap_draft_${venueId || 'v'}_${seatMapId || 'new'}`
+  const [autoSaveStatus, setAutoSaveStatus] = useState('SAVED') // 'SAVED', 'SAVING', 'OFFLINE_SAVED', 'ERROR'
+  const [lastSavedTime, setLastSavedTime] = useState('')
+  const [recoveredDraft, setRecoveredDraft] = useState(null)
+  const isInitialLoadedRef = useRef(false)
+  const isSavingRef = useRef(false)
+
+  // Undo / Redo History Stack (Step-by-step navigation)
+  const undoStackRef = useRef([])
+  const redoStackRef = useRef([])
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const clipboardRef = useRef(null)
+
+  // Live mirror refs to prevent stale closures across callbacks
   const seatsRef = useRef(seats)
   seatsRef.current = seats
+  const zonesRef = useRef(zones)
+  zonesRef.current = zones
+  const standingAreasRef = useRef(standingAreas)
+  standingAreasRef.current = standingAreas
+  const auxElementsRef = useRef(auxElements)
+  auxElementsRef.current = auxElements
+  const stageConfigRef = useRef(stageConfig)
+  stageConfigRef.current = stageConfig
+  const layoutTypeRef = useRef(layoutType)
+  layoutTypeRef.current = layoutType
+  const gridConfigRef = useRef(gridConfig)
+  gridConfigRef.current = gridConfig
+  const canvasBgRef = useRef(canvasBg)
+  canvasBgRef.current = canvasBg
+  const mapNameRef = useRef(mapName)
+  mapNameRef.current = mapName
+
+  const getSnapshot = useCallback(() => ({
+    seats: JSON.parse(JSON.stringify(seatsRef.current)),
+    zones: JSON.parse(JSON.stringify(zonesRef.current)),
+    standingAreas: JSON.parse(JSON.stringify(standingAreasRef.current)),
+    auxElements: JSON.parse(JSON.stringify(auxElementsRef.current)),
+    stageConfig: JSON.parse(JSON.stringify(stageConfigRef.current)),
+    layoutType: layoutTypeRef.current,
+    gridConfig: JSON.parse(JSON.stringify(gridConfigRef.current)),
+    canvasBg: canvasBgRef.current,
+  }), [])
+
+  const recordHistory = useCallback(() => {
+    undoStackRef.current.push(getSnapshot())
+    if (undoStackRef.current.length > 50) {
+      undoStackRef.current.shift()
+    }
+    // Clear redo stack on any new user change
+    redoStackRef.current = []
+    setCanUndo(true)
+    setCanRedo(false)
+  }, [getSnapshot])
+
+  // Backward compatibility alias for saveHistory
+  const saveHistory = recordHistory
+
+  const applySnapshot = useCallback((snapshot) => {
+    if (!snapshot) return
+    if (snapshot.seats) setSeats(snapshot.seats)
+    if (snapshot.zones) setZones(snapshot.zones)
+    if (snapshot.standingAreas) setStandingAreas(snapshot.standingAreas)
+    if (snapshot.auxElements) setAuxElements(snapshot.auxElements)
+    if (snapshot.stageConfig) setStageConfig(snapshot.stageConfig)
+    if (snapshot.layoutType) setLayoutType(snapshot.layoutType)
+    if (snapshot.gridConfig) setGridConfig(snapshot.gridConfig)
+    if (snapshot.canvasBg) setCanvasBg(snapshot.canvasBg)
+    setSelectedIds(new Set())
+    setSelectedShapeId(null)
+  }, [])
+
+  const undo = useCallback(() => {
+    if (!undoStackRef.current.length) return
+    // 1. Push current snapshot to redo stack
+    redoStackRef.current.push(getSnapshot())
+    if (redoStackRef.current.length > 50) {
+      redoStackRef.current.shift()
+    }
+
+    // 2. Pop previous snapshot and restore
+    const previous = undoStackRef.current.pop()
+    applySnapshot(previous)
+
+    setCanUndo(undoStackRef.current.length > 0)
+    setCanRedo(true)
+  }, [getSnapshot, applySnapshot])
+
+  const redo = useCallback(() => {
+    if (!redoStackRef.current.length) return
+    // 1. Push current snapshot to undo stack
+    undoStackRef.current.push(getSnapshot())
+    if (undoStackRef.current.length > 50) {
+      undoStackRef.current.shift()
+    }
+
+    // 2. Pop next snapshot and restore
+    const nextState = redoStackRef.current.pop()
+    applySnapshot(nextState)
+
+    setCanUndo(true)
+    setCanRedo(redoStackRef.current.length > 0)
+  }, [getSnapshot, applySnapshot])
 
   useEffect(() => {
     const originalOverflow = document.body.style.overflow
@@ -362,11 +493,26 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   useEffect(() => {
     if (!seatMapId) {
+      try {
+        const savedDraftStr = localStorage.getItem(AUTOSAVE_KEY)
+        if (savedDraftStr) {
+          const draft = JSON.parse(savedDraftStr)
+          if (draft && draft.timestamp && (Date.now() - draft.timestamp < 7 * 24 * 3600 * 1000)) {
+            if ((draft.seats && draft.seats.length > 0) || (draft.standingAreas && draft.standingAreas.length > 0)) {
+              setRecoveredDraft(draft)
+            }
+          }
+        }
+      } catch (e) {}
+
       if (layoutType === 'GRID' && seats.length === 0 && gridConfig.rows > 0 && gridConfig.cols > 0) {
         generateGrid()
       }
+      isInitialLoadedRef.current = true
+      setAutoSaveStatus('OFFLINE_SAVED')
       return
     }
+
     setLoading(true)
     getSeatMap(seatMapId)
       .then((sm) => {
@@ -423,6 +569,28 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         }
         setSeats(loaded)
         seatCounter.current = loaded.length + 1
+        isInitialLoadedRef.current = true
+        setAutoSaveStatus('SAVED')
+        setLastSavedTime(new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }))
+
+        // Check for recovered draft from unexpected power loss or browser exit
+        try {
+          const savedDraftStr = localStorage.getItem(AUTOSAVE_KEY)
+          if (savedDraftStr) {
+            const draft = JSON.parse(savedDraftStr)
+            if (draft && draft.timestamp && (Date.now() - draft.timestamp < 7 * 24 * 3600 * 1000)) {
+              const hasDiff =
+                (draft.seats && draft.seats.length !== loaded.length) ||
+                ((draft.standingAreas?.length || 0) !== (sm.config?.standingAreas?.length || 0)) ||
+                ((draft.zones?.length || 0) !== (sm.zones?.length || 0))
+              if (hasDiff) {
+                setRecoveredDraft(draft)
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Draft check error:', e)
+        }
       })
       .catch((err) => {
         console.error(err)
@@ -431,7 +599,40 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         toast.error(message)
       })
       .finally(() => setLoading(false))
-  }, [seatMapId, toast])
+  }, [seatMapId, toast, AUTOSAVE_KEY])
+
+  // Auto-save effect: Tự động lưu nháp liên tục vào LocalStorage (phòng ngừa mất điện hoặc sự cố đột ngột)
+  useEffect(() => {
+    if (!isInitialLoadedRef.current || loading) return
+
+    const localTimer = setTimeout(() => {
+      try {
+        const draft = {
+          timestamp: Date.now(),
+          venueId,
+          seatMapId,
+          mapName,
+          layoutType,
+          gridConfig,
+          stageConfig,
+          standingAreas,
+          auxElements,
+          canvasBg,
+          zones,
+          seats,
+        }
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(draft))
+        setAutoSaveStatus('SAVED')
+        setLastSavedTime(new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }))
+      } catch (e) {
+        console.warn('LocalStorage draft save error:', e)
+      }
+    }, 300)
+
+    return () => {
+      clearTimeout(localTimer)
+    }
+  }, [seats, zones, standingAreas, auxElements, stageConfig, canvasBg, layoutType, gridConfig, mapName, seatMapId, venueId, AUTOSAVE_KEY, loading])
 
   const stats = useMemo(() => {
     const activeSeats = seats.filter((s) => !s.isDisabled).length
@@ -450,33 +651,6 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
   }, [seats, standingAreas])
 
-  const historyStackRef = useRef([])
-  const clipboardRef = useRef(null)
-
-  const saveHistory = useCallback(() => {
-    historyStackRef.current.push({
-      seats: JSON.parse(JSON.stringify(seats)),
-      zones: JSON.parse(JSON.stringify(zones)),
-      standingAreas: JSON.parse(JSON.stringify(standingAreas)),
-      auxElements: JSON.parse(JSON.stringify(auxElements)),
-      stageConfig: JSON.parse(JSON.stringify(stageConfig)),
-    })
-    if (historyStackRef.current.length > 40) {
-      historyStackRef.current.shift()
-    }
-  }, [seats, zones, standingAreas, auxElements, stageConfig])
-
-  const undo = useCallback(() => {
-    if (!historyStackRef.current.length) return
-    const previous = historyStackRef.current.pop()
-    setSeats(previous.seats)
-    setZones(previous.zones)
-    setStandingAreas(previous.standingAreas)
-    setAuxElements(previous.auxElements)
-    setStageConfig(previous.stageConfig)
-    setSelectedIds(new Set())
-    setSelectedShapeId(null)
-  }, [])
 
   const selectAll = useCallback(() => {
     if (seats.length > 0) {
@@ -642,7 +816,21 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
       if (ctrlKey && key === 'z') {
         e.preventDefault()
-        undo()
+        if (e.shiftKey) {
+          redo()
+        } else {
+          undo()
+        }
+        return
+      }
+      if (ctrlKey && key === 'y') {
+        e.preventDefault()
+        redo()
+        return
+      }
+      if (ctrlKey && key === 's') {
+        e.preventDefault()
+        handleSave()
         return
       }
       if (ctrlKey && key === 'a') {
@@ -658,6 +846,20 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       if (ctrlKey && key === 'v') {
         e.preventDefault()
         pasteCopied()
+        return
+      }
+      if ((ctrlKey && key === 'b') || key === '[') {
+        e.preventDefault()
+        setToolbarExpandedManual(null)
+        setSidebarOpen((v) => !v)
+        return
+      }
+      if (key === 't' && !ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        setToolbarExpandedManual((prev) => {
+          const current = prev !== null ? prev : !sidebarOpen
+          return !current
+        })
         return
       }
 
@@ -684,7 +886,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedIds, selectedShapeId, deleteSelected, layoutType, undo, selectAll, copySelected, pasteCopied, saveHistory])
+  }, [selectedIds, selectedShapeId, deleteSelected, layoutType, undo, redo, selectAll, copySelected, pasteCopied, saveHistory])
 
   function toSVGPoint(e) {
     const rect = svgRef.current.getBoundingClientRect()
@@ -695,6 +897,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function generateGrid() {
+    recordHistory()
     const newSeats = []
     const startY = stageConfig.position === 'TOP' ? STAGE_OFFSET_Y : 20
     const startX = stageConfig.position === 'LEFT' ? STAGE_OFFSET_Y : 20
@@ -718,6 +921,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function addZone() {
+    recordHistory()
     const newZone = {
       localId: newLocalId(),
       name: `Khu vực ${zones.length + 1}`,
@@ -728,6 +932,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function deleteZone(zoneLocalId) {
+    recordHistory()
     setZones((prev) => prev.filter((z) => z.localId !== zoneLocalId))
     setSeats((prev) =>
       prev.map((s) => (s.zoneLocalId === zoneLocalId ? { ...s, zoneLocalId: null } : s)),
@@ -761,6 +966,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function applyPreset(presetType) {
+    recordHistory()
     if (presetType === 'THEATER') {
       setStageConfig({ position: 'TOP', shape: 'RECTANGLE', color: '#3B82F6', label: 'SÂN KHẤU CHÍNH', x: 0, y: 0, w: 900, h: 52, rotation: 0 })
       setGridConfig({ rows: 10, cols: 20 })
@@ -865,6 +1071,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
 
     if (tool === 'ADD' || tool === 'ERASE' || tool === 'DISABLE' || tool === 'PAINT') {
+      recordHistory()
       setIsPainting(true)
       paintVisited.current = new Set()
       handlePaintAt(pt)
@@ -881,6 +1088,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   function handleStageMouseDown(e) {
     if (tool !== 'SELECT') return
     e.stopPropagation()
+    recordHistory()
     setSelectedShapeId('STAGE')
     setSidebarTab('STAGE')
     setIsDraggingStage(true)
@@ -966,6 +1174,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     e.stopPropagation()
 
     if (tool === 'ERASE') {
+      recordHistory()
       if (selectedIds.size > 1 && selectedIds.has(seat.localId)) {
         deleteSelected()
       } else {
@@ -980,6 +1189,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
 
     if (tool === 'DISABLE') {
+      recordHistory()
       if (selectedIds.size > 1 && selectedIds.has(seat.localId)) {
         disableSelected()
       } else {
@@ -993,6 +1203,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
 
     if (tool === 'PAINT' && activeZoneId) {
+      recordHistory()
       const targets =
         selectedIds.has(seat.localId) && selectedIds.size > 1 ? selectedIds : new Set([seat.localId])
       setSeats((prev) =>
@@ -1005,6 +1216,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
     if (tool === 'SELECT') {
       if (activeZoneId !== null) {
+        recordHistory()
         const targets =
           selectedIds.has(seat.localId) && selectedIds.size > 1 ? selectedIds : new Set([seat.localId])
         setSeats((prev) =>
@@ -1024,6 +1236,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             setSelectedIds(next)
           }
         }
+        recordHistory()
         setIsDraggingSeats(true)
         const pt = toSVGPoint(e)
         setSeatDragStartPt(pt)
@@ -1249,12 +1462,17 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       })),
     }
 
+    isSavingRef.current = true
     setSaving(true)
     setError(null)
     try {
       const result = seatMapId
         ? await updateSeatMap(seatMapId, payload)
         : await createSeatMap(venueId, payload)
+      try {
+        localStorage.removeItem(AUTOSAVE_KEY)
+      } catch (e) {}
+      setAutoSaveStatus('SAVED')
       onSave(result)
     } catch (err) {
       console.error(err)
@@ -1263,6 +1481,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       toast.error(message)
     } finally {
       setSaving(false)
+      isSavingRef.current = false
     }
   }
 
@@ -1313,6 +1532,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           placeholder="Tên sơ đồ ghế..."
           className="min-w-0 flex-1 border-0 bg-transparent text-lg font-bold text-content outline-none placeholder:text-muted"
         />
+
+        {/* Autosave Draft Status Indicator */}
+        <div
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-panel-soft/60 border border-border-soft/20 text-xs shadow-xs"
+          title="Bản vẽ luôn được tự động lưu nháp liên tục trên máy (đề phòng mất điện hoặc lỡ tay tắt tab). Bấm 'Lưu sơ đồ' để lưu chính thức vào hệ thống và quay lại trang quản lý."
+        >
+          <Check className="size-3.5 text-emerald-400 stroke-[2.5]" />
+          <span className="text-emerald-300 font-medium">Đã tự động lưu nháp {lastSavedTime ? `(${lastSavedTime})` : ''}</span>
+        </div>
         <div className="hidden items-center gap-3 sm:flex">
           <span className="rounded-xl bg-panel-soft border border-border-soft/20 px-3 py-1 text-xs font-semibold text-content">
             {stats.active} ghế ngồi · {stats.standingCap} chỗ đứng · {stats.totalCap} tổng chỗ
@@ -1322,40 +1550,58 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           )}
         </div>
 
-        <button type="button" onClick={handleSave} disabled={saving} className="org-btn-primary min-w-[100px]">
-          {saving ? 'Đang lưu...' : 'Lưu sơ đồ'}
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="org-btn-primary min-w-[120px] shadow-md shadow-primary/20 cursor-pointer"
+          title="Lưu sơ đồ vào hệ thống và quay lại trang quản lý sơ đồ"
+        >
+          {saving ? 'Đang lưu & quay lại...' : 'Lưu sơ đồ'}
         </button>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="flex w-[320px] shrink-0 flex-col border-r border-border-soft/30 bg-surface/90 backdrop-blur-sm text-content overflow-hidden">
-          {/* Navigation Tabs */}
-          <div className="grid grid-cols-4 border-b border-border-soft/30 bg-panel-soft/30 p-1">
-            {[
-              { id: 'STAGE', label: 'Sân khấu', icon: Shapes },
-              { id: 'ZONES', label: 'Khu vực', icon: Users },
-              { id: 'GRID', label: 'Lưới ghế', icon: Grid },
-              { id: 'THEMES', label: 'Giao diện', icon: Palette },
-            ].map((tab) => {
-              const IconComp = tab.icon
-              const active = sidebarTab === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSidebarTab(tab.id)}
-                  className={`flex flex-col items-center gap-1 py-2 text-[10px] font-bold rounded-lg transition-all ${active ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black' : 'text-subtle hover:text-content hover:bg-panel-soft'
-                    }`}
-                >
-                  <IconComp className="size-4" />
-                  <span>{tab.label}</span>
-                </button>
-              )
-            })}
-          </div>
+        <aside
+          className={`relative flex flex-col border-r border-border-soft/30 bg-surface/90 backdrop-blur-sm text-content overflow-hidden transition-[width] duration-300 ease-in-out z-20 ${
+            sidebarOpen ? 'w-[320px] shrink-0' : 'w-0 shrink-0 border-r-0'
+          }`}
+        >
+          <div className="flex h-full w-[320px] flex-col overflow-hidden">
+            {/* Navigation Tabs */}
+            <div className="border-b border-border-soft/30 bg-panel-soft/30 p-1 shrink-0">
+              <div className="grid grid-cols-4 gap-1 w-full">
+                {[
+                  { id: 'STAGE', label: 'Sân khấu', icon: Shapes },
+                  { id: 'ZONES', label: 'Khu vực', icon: Users },
+                  { id: 'GRID', label: 'Lưới ghế', icon: Grid },
+                  { id: 'THEMES', label: 'Giao diện', icon: Palette },
+                ].map((tab) => {
+                  const IconComp = tab.icon
+                  const active = sidebarTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSidebarTab(tab.id)}
+                      className={`flex flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-bold rounded-lg transition-all ${
+                        active
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
+                          : 'text-subtle hover:text-content hover:bg-panel-soft'
+                      }`}
+                    >
+                      <IconComp className="size-4 shrink-0" />
+                      <span className="whitespace-nowrap tracking-tight leading-none text-center">
+                        {tab.label}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* TAB 1: SÂN KHẤU & PRESETS */}
             {sidebarTab === 'STAGE' && (
               <div className="space-y-4">
@@ -1830,119 +2076,299 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               </div>
             )}
           </div>
-        </aside>
+        </div>
+      </aside>
+
+      {/* Toggle Collapse/Expand Button on Outer Border */}
+      <button
+        type="button"
+        onClick={() => {
+          setToolbarExpandedManual(null)
+          setSidebarOpen((prev) => !prev)
+        }}
+        title={
+          sidebarOpen
+            ? 'Thu gọn thanh bên để tiện vẽ (Phím tắt: [ hoặc Ctrl+B)'
+            : 'Mở rộng thanh bên cấu hình (Phím tắt: [ hoặc Ctrl+B)'
+        }
+        className={`group absolute top-1/2 -translate-y-1/2 z-30 flex h-14 w-6 items-center justify-center rounded-r-xl border border-l-0 shadow-2xl transition-all duration-300 cursor-pointer select-none ${
+          sidebarOpen
+            ? 'left-[320px] border-[#C99A47]/40 bg-[#0D1B2A]/95 text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/50'
+            : 'left-0 border-[#C99A47]/60 bg-[#0D1B2A] text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/70 animate-pulse-subtle'
+        }`}
+        aria-label={sidebarOpen ? 'Thu gọn bảng cấu hình' : 'Mở bảng cấu hình'}
+      >
+        {sidebarOpen ? (
+          <ChevronLeft className="size-4 shrink-0 transition-transform group-hover:scale-110" />
+        ) : (
+          <ChevronRight className="size-4 shrink-0 transition-transform group-hover:scale-110" />
+        )}
+      </button>
 
         {/* Main Canvas Container */}
-        <main className="relative flex flex-1 flex-col overflow-hidden">
-          {/* Floating Toolbar */}
-          <div className={`absolute top-4 left-4 z-10 flex items-center gap-2 rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md transition-colors ${
-            isLightCanvas
-              ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
-              : 'border-border-soft/40 bg-surface/90 text-content'
-          }`}>
-            <div className={`flex items-center gap-1 border-r pr-2 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
-              {visibleTools.map((t) => {
-                const IconComp = t.icon
-                const isActive = tool === t.id
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTool(t.id)}
-                    title={`${t.label} (${t.shortcut})`}
-                    className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all ${isActive
-                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
-                      : isLightCanvas
-                        ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
-                        : 'text-subtle hover:bg-panel-soft hover:text-content'
-                      }`}
-                  >
-                    <IconComp className="size-4" />
-                    <span className="hidden md:inline">{t.label}</span>
-                  </button>
-                )
-              })}
+        <main ref={canvasContainerRef} className="relative flex flex-1 flex-col overflow-hidden">
+          {/* Recovery Banner for Autosaved Draft */}
+          {recoveredDraft && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 rounded-2xl border border-amber-500/50 bg-[#0D1B2A]/95 px-4 py-2 text-xs text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-3">
+              <AlertCircle className="size-4 text-amber-400 shrink-0" />
+              <span>
+                Tìm thấy bản vẽ tự động lưu lúc <b>{new Date(recoveredDraft.timestamp).toLocaleTimeString('vi-VN')}</b> (phòng mất điện/đột ngột).
+              </span>
+              <div className="flex items-center gap-1.5 ml-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    recordHistory()
+                    applySnapshot(recoveredDraft)
+                    if (recoveredDraft.mapName) setMapName(recoveredDraft.mapName)
+                    setRecoveredDraft(null)
+                    toast.success('Đã khôi phục bản vẽ nháp tự động!')
+                  }}
+                  className="rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1 font-extrabold transition shadow-sm cursor-pointer"
+                >
+                  Khôi phục
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try { localStorage.removeItem(AUTOSAVE_KEY) } catch (e) {}
+                    setRecoveredDraft(null)
+                  }}
+                  className="rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 px-2.5 py-1 font-bold transition cursor-pointer"
+                >
+                  Bỏ qua
+                </button>
+              </div>
             </div>
+          )}
 
-            {/* Quick Actions: Hoàn tác, Chọn hết, Sao chép, Dán */}
-            <div className={`flex items-center gap-1 border-r pr-2 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
-              <button
-                type="button"
-                onClick={undo}
-                title="Hoàn tác (Ctrl+Z)"
-                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
-                  isLightCanvas
-                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
-                    : 'text-subtle hover:bg-panel-soft hover:text-content'
-                }`}
-              >
-                <RotateCcw className="size-4" />
-                <span className="hidden lg:inline">Hoàn tác</span>
-              </button>
-              <button
-                type="button"
-                onClick={selectAll}
-                title="Chọn tất cả ghế (Ctrl+A)"
-                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
-                  isLightCanvas
-                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
-                    : 'text-subtle hover:bg-panel-soft hover:text-content'
-                }`}
-              >
-                <CheckSquare className="size-4" />
-                <span className="hidden lg:inline">Chọn hết</span>
-              </button>
-              <button
-                type="button"
-                onClick={copySelected}
-                title="Sao chép (Ctrl+C)"
-                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
-                  isLightCanvas
-                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
-                    : 'text-subtle hover:bg-panel-soft hover:text-content'
-                }`}
-              >
-                <Copy className="size-4" />
-                <span className="hidden lg:inline">Sao chép</span>
-              </button>
-              <button
-                type="button"
-                onClick={pasteCopied}
-                title="Dán (Ctrl+V)"
-                className={`flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-all ${
-                  isLightCanvas
-                    ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
-                    : 'text-subtle hover:bg-panel-soft hover:text-content'
-                }`}
-              >
-                <ClipboardPaste className="size-4" />
-                <span className="hidden lg:inline">Dán</span>
-              </button>
-            </div>
-
-            {/* Quick Paint zone selector */}
-            {(tool === 'PAINT' || tool === 'SELECT') && zones.length > 0 && (
-              <div className="flex items-center gap-1.5 pl-1">
-                <span className={`text-sm font-extrabold hidden lg:inline ${isLightCanvas ? 'text-slate-800' : 'text-subtle'}`}>
-                  Tô khu vực:
-                </span>
-                <div className="flex items-center gap-1">
-                  {zones.map((z) => (
+          {/* Top Floating Controls */}
+          <div
+            className={`absolute z-10 flex flex-col items-end gap-2.5 pointer-events-none transition-all duration-300 ease-in-out max-w-[calc(100%-2rem)] ${
+              recoveredDraft ? 'top-16' : 'top-4'
+            } ${
+              sidebarOpen
+                ? 'left-4 translate-x-0'
+                : 'left-1/2 -translate-x-1/2'
+            }`}
+          >
+            {/* Floating Toolbar */}
+            <div className={`pointer-events-auto flex items-center rounded-2xl border shadow-2xl backdrop-blur-md transition-all duration-300 max-w-full ${
+              isToolbarExpanded ? 'gap-2 sm:gap-3 p-1.5 sm:p-2 sm:px-2.5' : 'gap-1.5 p-1.5'
+            } ${
+              isLightCanvas
+                ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
+                : 'border-border-soft/40 bg-surface/90 text-content'
+            }`}>
+              <div className={`flex items-center border-r transition-all duration-300 ${
+                isToolbarExpanded ? 'gap-1 sm:gap-1.5 pr-2 sm:pr-2.5' : 'gap-1 pr-1.5'
+              } ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
+                {visibleTools.map((t) => {
+                  const IconComp = t.icon
+                  const isActive = tool === t.id
+                  const showLabel = canShowToolLabels || (!isToolbarExpanded && isActive)
+                  return (
                     <button
-                      key={z.localId}
+                      key={t.id}
                       type="button"
-                      onClick={() => {
-                        setActiveZoneId(z.localId)
-                        if (selectedIds.size > 0) applyZoneToSelected(z.localId)
-                      }}
-                      title={z.name}
-                      className={`size-6 rounded-full border-2 transition-transform ${activeZoneId === z.localId
-                        ? isLightCanvas ? 'scale-115 border-slate-900 shadow-md ring-2 ring-[#C99A47]' : 'scale-115 border-white shadow-md'
-                        : isLightCanvas ? 'border-slate-400/50 shadow-xs opacity-90 hover:opacity-100 hover:scale-105' : 'border-transparent opacity-80 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: z.color }}
-                    />
-                  ))}
+                      onClick={() => setTool(t.id)}
+                      title={`${t.label} (${t.shortcut})`}
+                      className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all ${
+                        isToolbarExpanded
+                          ? 'px-2.5 sm:px-3 py-2'
+                          : isActive
+                            ? 'px-2.5 py-1.5'
+                            : 'p-1.5'
+                      } ${isActive
+                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
+                        : isLightCanvas
+                          ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                          : 'text-subtle hover:bg-panel-soft hover:text-content'
+                        }`}
+                    >
+                      <IconComp className="size-4 shrink-0" />
+                      <span className={`whitespace-nowrap ${showLabel ? 'inline' : 'hidden'}`}>
+                        {t.label}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Quick Actions: Quay lại (Undo), Tiếp tục (Redo), Chọn hết, Sao chép, Dán */}
+              <div className={`flex items-center border-r transition-all duration-300 ${
+                isToolbarExpanded ? 'gap-1 sm:gap-1.5 pr-2 sm:pr-2.5' : 'gap-0.5 pr-1.5'
+              } ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={!canUndo}
+                  title="Quay lại thao tác trước đó (Ctrl+Z)"
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                  } ${
+                    isLightCanvas
+                      ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                      : 'text-subtle hover:bg-panel-soft hover:text-content'
+                  }`}
+                >
+                  <RotateCcw className="size-4 shrink-0" />
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Quay lại</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={redo}
+                  disabled={!canRedo}
+                  title="Quay lại thao tác sau đó (Ctrl+Y hoặc Ctrl+Shift+Z)"
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                  } ${
+                    isLightCanvas
+                      ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                      : 'text-subtle hover:bg-panel-soft hover:text-content'
+                  }`}
+                >
+                  <RotateCw className="size-4 shrink-0" />
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Tiếp tục</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  title="Chọn tất cả ghế (Ctrl+A)"
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all ${
+                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                  } ${
+                    isLightCanvas
+                      ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                      : 'text-subtle hover:bg-panel-soft hover:text-content'
+                  }`}
+                >
+                  <CheckSquare className="size-4 shrink-0" />
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Chọn hết</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={copySelected}
+                  title="Sao chép (Ctrl+C)"
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all ${
+                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                  } ${
+                    isLightCanvas
+                      ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                      : 'text-subtle hover:bg-panel-soft hover:text-content'
+                  }`}
+                >
+                  <Copy className="size-4 shrink-0" />
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Sao chép</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={pasteCopied}
+                  title="Dán (Ctrl+V)"
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all ${
+                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                  } ${
+                    isLightCanvas
+                      ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                      : 'text-subtle hover:bg-panel-soft hover:text-content'
+                  }`}
+                >
+                  <ClipboardPaste className="size-4 shrink-0" />
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Dán</span>}
+                </button>
+              </div>
+
+              {/* Quick Paint zone selector */}
+              {(tool === 'PAINT' || tool === 'SELECT') && zones.length > 0 && (
+                <div className={`shrink-0 flex items-center transition-all duration-300 ${
+                  isToolbarExpanded ? 'gap-2 pl-2' : 'gap-1.5 pl-1'
+                }`}>
+                  {canShowPaintText ? (
+                    <span className={`text-xs sm:text-sm font-extrabold whitespace-nowrap ${isLightCanvas ? 'text-slate-800' : 'text-subtle'}`}>
+                      Tô khu vực:
+                    </span>
+                  ) : (
+                    <Paintbrush className="size-3.5 text-subtle shrink-0" title="Tô màu khu vực" />
+                  )}
+                  <div className={`flex items-center ${isToolbarExpanded ? 'gap-1.5' : 'gap-1'}`}>
+                    {zones.map((z) => (
+                      <button
+                        key={z.localId}
+                        type="button"
+                        onClick={() => {
+                          setActiveZoneId(z.localId)
+                          if (selectedIds.size > 0) applyZoneToSelected(z.localId)
+                        }}
+                        title={`Khu vực: ${z.name}`}
+                        className={`size-5 sm:size-6 rounded-full border-2 transition-transform shrink-0 ${activeZoneId === z.localId
+                          ? isLightCanvas ? 'scale-115 border-slate-900 shadow-md ring-2 ring-[#C99A47]' : 'scale-115 border-white shadow-md'
+                          : isLightCanvas ? 'border-slate-400/50 shadow-xs opacity-90 hover:opacity-100 hover:scale-105' : 'border-transparent opacity-80 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: z.color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual Expand / Collapse Toggle Button */}
+              <div className={`shrink-0 flex items-center pl-1 border-l sticky right-0 bg-inherit ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
+                <button
+                  type="button"
+                  onClick={() => setToolbarExpandedManual(!isToolbarExpanded)}
+                  title={isToolbarExpanded ? 'Thu gọn thanh công cụ (Phím tắt: T)' : 'Mở rộng dãn thanh công cụ (Phím tắt: T)'}
+                  className={`p-1.5 rounded-xl transition text-subtle hover:bg-panel-soft hover:text-[#C99A47] cursor-pointer`}
+                  aria-label={isToolbarExpanded ? 'Thu gọn thanh công cụ' : 'Mở rộng thanh công cụ'}
+                >
+                  {isToolbarExpanded ? (
+                    <ChevronLeft className="size-4 shrink-0 stroke-[2.5]" />
+                  ) : (
+                    <ChevronRight className="size-4 shrink-0 stroke-[2.5]" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Selection Action Bar for Seats (Hiển thị ngay bên dưới thanh công cụ chính, căn lề phải) */}
+            {selectedIds.size > 0 && (
+              <div className={`pointer-events-auto self-end flex items-center gap-3 rounded-2xl border px-4 py-2 shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-2 duration-150 ${
+                isLightCanvas
+                  ? 'border-amber-400/50 bg-white/95 text-slate-800 shadow-slate-900/15'
+                  : 'border-[#C99A47]/40 bg-[#0F172A]/95 text-content shadow-black/50'
+              }`}>
+                <span className={`text-xs font-bold ${isLightCanvas ? 'text-slate-800' : 'text-slate-200'}`}>
+                  Đã chọn <span className={`${isLightCanvas ? 'text-amber-600' : 'text-amber-400'} font-extrabold text-sm`}>{selectedIds.size}</span> ghế
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={disableSelected}
+                    className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 px-3.5 py-1.5 text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+                    title="Vô hiệu / Kích hoạt lại ghế đang chọn"
+                  >
+                    <Ban className="size-3.5 stroke-[2.5]" />
+                    <span>Vô hiệu</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deleteSelected}
+                    className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white px-3.5 py-1.5 text-xs font-extrabold shadow-md shadow-rose-600/30 transition-all cursor-pointer"
+                    title="Xóa ghế đang chọn"
+                  >
+                    <Trash2 className="size-3.5 stroke-[2.5]" />
+                    <span>Xóa</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds(new Set())}
+                    className={`rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                      isLightCanvas
+                        ? 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    Bỏ chọn
+                  </button>
                 </div>
               </div>
             )}
@@ -1952,7 +2378,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           {selectedShapeId && (() => {
             if (selectedShapeId === 'STAGE') {
               return (
-                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
+                <div className={`absolute bottom-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
                   isLightCanvas
                     ? 'border-primary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
                     : 'border-primary/40 bg-surface/95 text-content'
@@ -1998,7 +2424,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             const standingItem = standingAreas.find((a) => a.id === selectedShapeId)
             if (standingItem) {
               return (
-                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
+                <div className={`absolute bottom-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
                   isLightCanvas
                     ? 'border-tertiary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
                     : 'border-tertiary/40 bg-surface/95 text-content'
@@ -2046,7 +2472,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             const auxItem = auxElements.find((a) => a.id === selectedShapeId)
             if (auxItem) {
               return (
-                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
+                <div className={`absolute bottom-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
                   isLightCanvas
                     ? 'border-slate-300 bg-white/95 text-slate-800 shadow-slate-900/15'
                     : 'border-border-soft/40 bg-surface/95 text-content'
@@ -2108,44 +2534,6 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             </button>
           </div>
 
-          {/* Selection Action Bar for Seats */}
-          {selectedIds.size > 0 && (
-            <div className={`absolute top-4 right-4 z-10 flex items-center gap-3 rounded-2xl border px-4 py-2 shadow-2xl backdrop-blur-md transition-colors ${
-              isLightCanvas
-                ? 'border-[#C99A47] bg-white/95 text-slate-800 shadow-slate-900/15'
-                : 'border-tertiary/30 bg-surface/95 text-content'
-            }`}>
-              <span className={`text-xs font-bold ${isLightCanvas ? 'text-slate-800' : 'text-content'}`}>
-                Đã chọn <span className={`${isLightCanvas ? 'text-[#C99A47]' : 'text-primary'} font-extrabold`}>{selectedIds.size}</span> ghế
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={disableSelected}
-                  className="flex items-center gap-1 rounded-xl border border-warning/40 bg-warning/15 px-3 py-1.5 text-xs font-bold text-amber-700 dark:text-warning hover:bg-warning/25 transition"
-                >
-                  <Ban className="size-3.5" />
-                  Vô hiệu
-                </button>
-                <button
-                  type="button"
-                  onClick={deleteSelected}
-                  className="flex items-center gap-1 rounded-xl border border-error/40 bg-error/15 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-error hover:bg-error/25 transition"
-                >
-                  <Trash2 className="size-3.5" />
-                  Xóa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className={`text-xs font-bold px-2 ${isLightCanvas ? 'text-slate-600 hover:text-slate-950' : 'text-subtle hover:text-content'}`}
-                >
-                  Bỏ chọn
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* SVG Canvas */}
           <div
             className="relative flex-1 overflow-hidden"
@@ -2158,14 +2546,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             }}
             onWheel={handleWheel}
           >
-            <div className={`pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-medium shadow-lg backdrop-blur transition-colors ${
-              isLightCanvas
-                ? 'border-slate-300/80 bg-white/95 text-slate-700 shadow-slate-900/10'
-                : 'border-border-soft/30 bg-surface/90 text-subtle'
-            }`}>
-              <Hand className="size-3.5 text-tertiary" />
-              Click khối để sửa tên trực tiếp · Giữ <b>Alt</b> + kéo chuột để di chuyển
-            </div>
+            {!selectedShapeId && selectedIds.size === 0 && (
+              <div className={`pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-medium shadow-lg backdrop-blur transition-colors ${
+                isLightCanvas
+                  ? 'border-slate-300/80 bg-white/95 text-slate-700 shadow-slate-900/10'
+                  : 'border-border-soft/30 bg-surface/90 text-subtle'
+              }`}>
+                <Hand className="size-3.5 text-tertiary" />
+                Click khối để sửa tên trực tiếp · Giữ <b>Alt</b> + kéo chuột để di chuyển
+              </div>
+            )}
 
             <svg
               ref={svgRef}

@@ -231,10 +231,10 @@ function StatLine({ icon: Icon, iconColor = 'text-[#F5EBDD]/60', label, value })
 function Pill({ label, isGold = false }) {
   return (
     <span
-      className={`rounded-md px-2 py-0.5 text-[11px] font-bold border shadow-sm ${
+      className={`inline-flex items-center self-start whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-tight border shadow-xs transition-colors ${
         isGold
-          ? 'bg-[#C99A47]/15 border-[#C99A47]/40 text-[#E6C17A]'
-          : 'bg-[#1B365D]/50 border-[#1B365D] text-[#F5EBDD]/90'
+          ? 'bg-[#C99A47]/15 border-[#C99A47]/50 text-[#E6C17A] shadow-[0_0_8px_rgba(201,154,71,0.15)]'
+          : 'bg-[#1B365D]/60 border-[#2A4878] text-[#F5EBDD]/95'
       }`}
     >
       {label}
@@ -317,7 +317,7 @@ function PlanCardInner({ plan, highlighted, isCurrentPlan, onSubscribe }) {
       </div>
 
       {/* Feature pills */}
-      <div className="mb-6 flex flex-wrap gap-1.5 min-h-[58px]">
+      <div className="mb-6 flex flex-wrap items-start content-start gap-1.5 min-h-[52px]">
         {plan.promo_code_enabled && <Pill label="Mã KM" isGold={highlighted} />}
         {plan.seat_map_enabled && <Pill label="Sơ đồ ghế" isGold={highlighted} />}
         {plan.ai_report_enabled && <Pill label="Báo cáo AI" isGold={highlighted} />}

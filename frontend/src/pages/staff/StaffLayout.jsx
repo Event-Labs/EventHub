@@ -44,7 +44,7 @@ export function StaffLayout() {
           sources={user?.avatar_url}
           name={user?.full_name || user?.email || 'Nhân sự'}
           alt="Ảnh đại diện nhân viên"
-          className="size-7"
+          className="size-8 sm:size-8.5"
           fallback="ST"
         />
       }

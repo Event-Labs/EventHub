@@ -11,6 +11,13 @@ const REAL_STATUS_FILTERS = new Set([
 
 function buildWhere(upper) {
   switch (upper) {
+    case 'ALL':
+      return {
+        listClause:  `e.deleted_at IS NULL`,
+        countClause: `e.deleted_at IS NULL`,
+        listArgs:  [],
+        countArgs: [],
+      };
     case 'REJECTED':
       return {
         listClause:  `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'REJECTED'`,
@@ -127,7 +134,12 @@ class EventsListAdminRepository {
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types,
         e.review_note,
-        e.reviewed_at
+        e.reviewed_at,
+        GREATEST(
+          e.created_at,
+          COALESCE(NULLIF(e.cancel_request->>'requested_at', '')::timestamptz, e.created_at),
+          COALESCE(NULLIF(e.pending_revision->>'submitted_at', '')::timestamptz, e.created_at)
+        ) AS request_date
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users ou ON ou.id = o.user_id
@@ -189,7 +201,11 @@ class EventsListAdminRepository {
         ) sold ON true
       ) ticket_summary ON true
       WHERE ${listClause}
-      ORDER BY e.created_at DESC
+      ORDER BY GREATEST(
+        e.created_at,
+        COALESCE(NULLIF(e.cancel_request->>'requested_at', '')::timestamptz, e.created_at),
+        COALESCE(NULLIF(e.pending_revision->>'submitted_at', '')::timestamptz, e.created_at)
+      ) DESC
       LIMIT $1 OFFSET $2
     `;
 
