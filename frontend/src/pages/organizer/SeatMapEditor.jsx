@@ -2752,10 +2752,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 {/* Seats */}
                 {seats.map((seat) => {
                   const zone = zones.find((z) => z.localId === seat.zoneLocalId)
-                  const fill = seat.isDisabled ? '#EF4444' : zone ? zone.color : (isLightCanvas ? '#CBD5E1' : '#72787c')
+                  const fill = seat.isDisabled
+                    ? (isLightCanvas ? '#E2E8F0' : '#1E293B')
+                    : zone
+                      ? zone.color
+                      : (isLightCanvas ? '#CBD5E1' : '#72787c')
                   const isSelected = selectedIds.has(seat.localId)
                   const isFillLight = isLightColor(fill)
-                  const seatTextColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
+                  const seatTextColor = seat.isDisabled ? '#94A3B8' : isFillLight ? '#0D1B2A' : '#FFFFFF'
 
                   return (
                     <g
@@ -2772,12 +2776,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         stroke={isSelected
                           ? '#2563EB'
                           : seat.isDisabled
-                            ? (isLightCanvas ? '#DC2626' : '#ffffff50')
+                            ? (isLightCanvas ? '#94A3B8' : '#475569')
                             : isLightCanvas
                               ? 'rgba(15, 23, 42, 0.3)'
                               : 'rgba(255, 255, 255, 0.12)'
                         }
                         strokeWidth={isSelected ? 3 : 1}
+                        strokeDasharray={seat.isDisabled ? '2 2' : undefined}
                         opacity={seat.isDisabled ? (isLightCanvas ? 0.45 : 0.35) : 1}
                       />
                       <text
@@ -3131,13 +3136,13 @@ export function SeatMapPreview({
               tooltipText = `${label} • Đã bán (Không thể thao tác)`
             } else if (mode === 'TOGGLE_DISABLE') {
               if (isDisabled) {
-                fill = '#EF4444'
-                stroke = '#B91C1C'
-                strokeWidth = 2
-                opacity = 0.8
-                tooltipText = `${label} • Đã vô hiệu hóa (Bấm để bật lại)`
+                fill = '#1E293B'
+                stroke = '#475569'
+                strokeWidth = 1
+                opacity = 0.35
+                tooltipText = `${label} • Đã vô hiệu hóa (Bấm để mở lại)`
               } else {
-                tooltipText = `${label} • Đang hoạt động (Bấm để vô hiệu hóa)`
+                tooltipText = `${label} • Đang mở bán (Bấm để vô hiệu hóa)`
               }
             } else if (mode === 'SELECT_SEATS') {
               if (isSelected) {
@@ -3156,14 +3161,16 @@ export function SeatMapPreview({
                 tooltipText = `${label} • Đang mở bán (Bấm để chọn tạm dừng)`
               }
             } else if (s.is_disabled ?? s.isDisabled) {
-              fill = '#EF4444'
-              stroke = isLightPreview ? '#DC2626' : '#ffffff50'
+              fill = isLightPreview ? '#E2E8F0' : '#1E293B'
+              stroke = isLightPreview ? '#94A3B8' : '#475569'
+              strokeWidth = 1
               opacity = isLightPreview ? 0.45 : 0.35
               tooltipText = `${label} • Vô hiệu hóa`
             }
 
+            const isSeatDisabled = (mode === 'TOGGLE_DISABLE' && isDisabled) || Boolean(s.is_disabled ?? s.isDisabled)
             const isFillLight = isLightColor(fill)
-            const seatTextColor = isSold ? '#64748B' : isFillLight ? '#0D1B2A' : '#FFFFFF'
+            const seatTextColor = isSold || isSeatDisabled ? '#64748B' : isFillLight ? '#0D1B2A' : '#FFFFFF'
 
             return (
               <g
@@ -3196,14 +3203,9 @@ export function SeatMapPreview({
                   fill={fill}
                   stroke={stroke}
                   strokeWidth={strokeWidth}
+                  strokeDasharray={isSeatDisabled ? '2 2' : undefined}
                   opacity={opacity}
                 />
-                {mode === 'TOGGLE_DISABLE' && isDisabled && (
-                  <g stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round" opacity={0.85}>
-                    <line x1={7} y1={7} x2={21} y2={21} />
-                    <line x1={21} y1={7} x2={7} y2={21} />
-                  </g>
-                )}
                 <text
                   x={14}
                   y={18}

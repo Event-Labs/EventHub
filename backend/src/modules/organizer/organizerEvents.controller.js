@@ -3,6 +3,9 @@ const organizerEventsService = require('./organizerEvents.service');
 const organizerEventsRepository = require('./organizerEvents.repository');
 const eventBusinessRulesService = require('../events/eventBusinessRules.service');
 const aiDocumentParserService = require('./aiDocumentParser.service');
+const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
+const AppError = require('../../core/errors/AppError');
+const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 
 class OrganizerEventsController {
@@ -322,6 +325,12 @@ class OrganizerEventsController {
 
   extractEventFromFile = async (req, res, next) => {
     try {
+      const organizer = await organizerEventsRepository.findOrganizerByUserId(req.user.sub);
+      if (!organizer) {
+        throw new AppError('Không tìm thấy thông tin Ban tổ chức.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+      }
+      await subscriptionGuard.assertAiEventCreationAllowed(organizer.id);
+
       let documentText = '';
       if (req.file) {
         documentText = await aiDocumentParserService.extractTextFromFile(req.file);
@@ -332,13 +341,7 @@ class OrganizerEventsController {
       }
 
       const note = req.body?.note || '';
-      let organizerName = '';
-      try {
-        const organizer = await organizerEventsRepository.findOrganizerByUserId(req.user.sub);
-        organizerName = organizer?.organization_name || organizer?.individual_full_name || req.user?.name || '';
-      } catch (err) {
-        logger.warn(`[extractEventFromFile] Could not load organizer name: ${err.message}`);
-      }
+      const organizerName = organizer?.organization_name || organizer?.individual_full_name || req.user?.name || '';
 
       const result = await aiDocumentParserService.extractEventFromText(documentText, note, { organizerName });
       res.status(200).json(ApiResponse.success(result, 'Trích xuất dữ liệu sự kiện thành công'));

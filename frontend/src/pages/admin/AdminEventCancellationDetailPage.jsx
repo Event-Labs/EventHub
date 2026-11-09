@@ -178,7 +178,7 @@ export function AdminEventCancellationDetailPage() {
       if (variables.decision === 'APPROVE') {
         toast.success('Đã phê duyệt hủy sự kiện thành công! Danh sách hoàn tiền 100% đã được tự động tạo.')
       } else {
-        toast.info('Đã từ chối yêu cầu hủy sự kiện. Sự kiện đã được mở bán lại.')
+        toast.info('Đã từ chối yêu cầu hủy sự kiện. Trạng thái sự kiện được chuyển về Tạm dừng bán vé.')
       }
       queryClient.invalidateQueries({ queryKey: ['admin-events'] })
       queryClient.invalidateQueries({ queryKey: ['admin-cancellations'] })
@@ -609,7 +609,7 @@ export function AdminEventCancellationDetailPage() {
                         Từ chối yêu cầu
                       </div>
                       <p className="mt-1 text-xs text-slate-400 leading-tight">
-                        Bác bỏ yêu cầu & mở bán lại
+                        Bác bỏ yêu cầu & tạm dừng bán vé
                       </p>
                     </button>
                   </div>
@@ -738,13 +738,13 @@ export function AdminEventCancellationDetailPage() {
         subtitle={
           decision === 'APPROVE'
             ? 'Chấp thuận hủy sự kiện và khởi tạo tiến trình hoàn tiền cho người mua.'
-            : 'Bác bỏ yêu cầu hủy từ Ban tổ chức và khôi phục hoạt động bán vé.'
+            : 'Bác bỏ yêu cầu hủy từ Ban tổ chức và giữ trạng thái tạm dừng bán vé.'
         }
         eventTitle={event.title}
         description={
           decision === 'APPROVE'
             ? 'Bạn có chắc chắn muốn phê duyệt hủy sự kiện này? Hành động này sẽ đóng bán vé vĩnh viễn, hủy vé đã xuất và tạo phiếu hoàn tiền cho các đơn hàng đã thanh toán.'
-            : 'Bạn có chắc chắn muốn từ chối yêu cầu hủy? Sự kiện sẽ được mở bán lại và lý do từ chối sẽ được gửi ngay đến Ban tổ chức.'
+            : 'Bạn có chắc chắn muốn từ chối yêu cầu hủy? Trạng thái bán vé sẽ chuyển về Tạm dừng bán vé và lý do từ chối sẽ được gửi ngay đến Ban tổ chức.'
         }
         tone={decision === 'APPROVE' ? 'danger' : 'warning'}
         confirmText={decision === 'APPROVE' ? 'Phê duyệt hủy' : 'Từ chối yêu cầu'}

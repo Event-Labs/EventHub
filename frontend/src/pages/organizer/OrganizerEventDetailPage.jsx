@@ -541,7 +541,7 @@ export function OrganizerEventDetailPage() {
                                     <div>
                                         <p className="text-xs uppercase tracking-wider text-subtle">Địa điểm</p>
                                         <p className="mt-1 text-sm font-semibold text-content">
-                                            {event.format === 'ONLINE' ? 'Sự kiện trực tuyến' : event.venue_name || 'Đang cập nhật'}
+                                            {event.venue_name || 'Đang cập nhật'}
                                         </p>
                                         {event.address && (
                                             <p className="text-sm font-semibold text-content">{event.address}</p>

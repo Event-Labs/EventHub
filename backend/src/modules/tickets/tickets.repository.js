@@ -1,6 +1,7 @@
 const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 const { COMPLETED_ORDER_STATUSES } = require('../orders/orders.constants');
 
 const STAFF_TICKET_SELECT = `
@@ -400,6 +401,7 @@ class TicketsRepository {
           t.status,
           t.event_id,
           t.checked_in_at,
+          e.organizer_id,
           e.status AS event_status,
           es.status AS session_status,
           es.end_time AS session_end_time,
@@ -438,6 +440,15 @@ class TicketsRepository {
       if (!lockedTicket.has_staff_access) {
         await client.query('ROLLBACK');
         return { state: 'FORBIDDEN_ACTION' };
+      }
+
+      // Manual checkin subscription guard
+      if (method === 'MANUAL') {
+        const isAllowed = await subscriptionGuard.isManualCheckinAllowed(lockedTicket.organizer_id);
+        if (!isAllowed) {
+          await client.query('ROLLBACK');
+          return { state: 'MANUAL_CHECKIN_NOT_ALLOWED', ticket: lockedTicket };
+        }
       }
 
       // Section 8.2: Event or Session CANCELLED -> SESSION_CANCELLED (AC-SC-02)

@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Trash2,
   X,
+  Sparkles,
 } from 'lucide-react'
 import {
   Badge,
@@ -44,8 +45,9 @@ import {
 import { getDisplayStateInfo, getSalesStatusInfo, isEventEnded } from './eventStatusUtil.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
 
-export function getPrimaryEventStatus(event) {
+export function getPrimaryEventStatus(event, organizerPlan = null) {
   if (!event) return { key: 'UNKNOWN', label: 'Không xác định', tone: 'slate' }
 
   // 1. Đã hủy (Cao nhất)
@@ -100,6 +102,9 @@ export function getPrimaryEventStatus(event) {
 
   // 10. Chờ duyệt (Sự kiện mới gửi Admin xét duyệt)
   if (event.status === 'PENDING_REVIEW') {
+    if (organizerPlan?.priority_support) {
+      return { key: 'PENDING_REVIEW', label: 'Chờ duyệt (Ưu tiên)', tone: 'amber', isPriority: true }
+    }
     return { key: 'PENDING_REVIEW', label: 'Chờ duyệt', tone: 'amber' }
   }
 
@@ -592,6 +597,17 @@ export function OrganizerEventsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [organizerPlan, setOrganizerPlan] = useState(null)
+
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setOrganizerPlan(res.plan)
+        }
+      })
+      .catch(() => setOrganizerPlan(null))
+  }, [])
 
   // Publish modal state
   const [publishTarget, setPublishTarget] = useState(null)
@@ -886,11 +902,11 @@ export function OrganizerEventsPage() {
         !q ||
         event.title?.toLowerCase().includes(q) ||
         event.category_name?.toLowerCase().includes(q)
-      const primaryStatus = getPrimaryEventStatus(event)
+      const primaryStatus = getPrimaryEventStatus(event, organizerPlan)
       const matchStatus = !statusFilter || primaryStatus.key === statusFilter
       return matchSearch && matchStatus
     })
-  }, [events, search, statusFilter])
+  }, [events, search, statusFilter, organizerPlan])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginatedEvents = useMemo(() => {
@@ -984,17 +1000,17 @@ export function OrganizerEventsPage() {
                 )}
                 <div className="min-w-0">
                   <span className="font-bold text-[13px] text-white block hover:text-primary transition leading-snug">{event.title}</span>
-                  {event.format && <p className="text-[11px] text-subtle mt-0.5">{event.format}</p>}
                 </div>
               </div>,
 
               <span key="date" className="whitespace-nowrap">{formatEventDate(event.start_time)}</span>,
 
               (() => {
-                const statusInfo = getPrimaryEventStatus(event)
+                const statusInfo = getPrimaryEventStatus(event, organizerPlan)
                 return (
                   <div key="status" className="flex items-center">
-                    <Badge tone={statusInfo.tone}>
+                    <Badge tone={statusInfo.tone} className={statusInfo.isPriority ? 'inline-flex items-center gap-1 shadow-sm' : ''}>
+                      {statusInfo.isPriority && <Sparkles className="size-3 text-amber-300 shrink-0" />}
                       {statusInfo.label}
                     </Badge>
                   </div>

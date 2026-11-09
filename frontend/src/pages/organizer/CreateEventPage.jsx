@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers } from 'lucide-react'
+import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers, Lock } from 'lucide-react'
 import { fetchEventCategories } from '@/services/events.js'
 import {
   createOrganizerEvent,
@@ -637,17 +637,13 @@ function Step1EventInfo({
             </div>
           </div>
           <div className="p-5">
-            <div className="mb-4">
+            <div className="mb-2">
               <h4 className={`text-[20px] font-semibold leading-tight ${formData.title ? 'text-content' : 'text-muted italic'}`}>
                 {formData.title || 'Sự kiện không tiêu đề'}
               </h4>
               <p className="text-xs text-muted mt-1 italic">
                 {categories.find((c) => c.id === formData.category_id)?.name || 'Chưa chọn danh mục'}
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Icon name="location_on" className="text-[#C99A47] text-[18px]" />
-              <span className="text-sm text-content">{formData.format === 'ONLINE' ? 'Sự kiện trực tuyến' : formData.format === 'HYBRID' ? 'Sự kiện kết hợp' : 'Sự kiện trực tiếp'}</span>
             </div>
           </div>
         </div>
@@ -1250,7 +1246,162 @@ function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave
   )
 }
 
-function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
+function RowSelectDropdown({ rows, onSelectRow }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#0b1329] px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-[#C99A47] hover:text-white transition cursor-pointer select-none"
+      >
+        <span>Chọn theo hàng...</span>
+        <Icon name={isOpen ? 'expand_less' : 'expand_more'} className="size-3.5 text-slate-400" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1.5 w-40 max-h-56 overflow-y-auto rounded-lg border border-white/20 bg-[#0d172e] py-1 shadow-[0_12px_28px_rgba(0,0,0,0.8)] z-50">
+          {rows.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                onSelectRow(r)
+                setIsOpen(false)
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs text-slate-200 hover:bg-[#C99A47]/25 hover:text-[#F3D382] transition-colors flex items-center justify-between cursor-pointer"
+            >
+              <span className="font-medium">Hàng {r}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-- Chọn sơ đồ --', loading = false }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedMap = options.find((sm) => String(sm.id) === String(value))
+
+  return (
+    <div className="relative w-full text-left" ref={dropdownRef}>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`h-11 w-full rounded-lg border px-4 text-sm font-medium transition flex items-center justify-between cursor-pointer select-none ${
+          isOpen
+            ? 'border-[#C99A47] bg-[#0b1329] text-white ring-1 ring-[#C99A47]/40 shadow-sm'
+            : 'border-white/15 bg-panel-soft text-content hover:border-[#C99A47]/60'
+        } ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
+      >
+        <span className="truncate">
+          {selectedMap ? (
+            `${selectedMap.name} (${selectedMap.seat_count || 0} ghế, ${selectedMap.zone_count || 0} khu vực)`
+          ) : (
+            <span className="text-subtle">{placeholder}</span>
+          )}
+        </span>
+        <Icon
+          name={isOpen ? 'expand_less' : 'expand_more'}
+          className={`size-4 shrink-0 transition-transform ${isOpen ? 'text-[#C99A47]' : 'text-slate-400'}`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-white/20 bg-[#0d172e] py-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.85)] z-50">
+          <button
+            type="button"
+            onClick={() => {
+              onChange('')
+              setIsOpen(false)
+            }}
+            className={`w-full text-left px-4 py-2.5 text-xs text-subtle hover:bg-white/5 hover:text-slate-200 transition-colors flex items-center justify-between cursor-pointer border-b border-white/5 ${
+              !value ? 'bg-white/5 text-white font-semibold' : ''
+            }`}
+          >
+            <span>{placeholder}</span>
+            {!value && <Icon name="check" className="size-3.5 text-[#C99A47]" />}
+          </button>
+
+          {options.length === 0 ? (
+            <div className="px-4 py-3 text-xs text-slate-400 text-center">
+              Địa điểm này chưa có sơ đồ ghế nào.
+            </div>
+          ) : (
+            options.map((sm) => {
+              const isSelected = String(sm.id) === String(value)
+              return (
+                <button
+                  key={sm.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(sm.id)
+                    setIsOpen(false)
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-all flex items-center justify-between cursor-pointer border-b border-white/5 last:border-b-0 ${
+                    isSelected
+                      ? 'bg-[#C99A47]/20 text-[#F3D382] font-semibold'
+                      : 'text-slate-200 hover:bg-[#C99A47]/15 hover:text-[#F3D382]'
+                  }`}
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-semibold text-sm leading-tight">
+                      {sm.name}
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {sm.seat_count || 0} ghế • {sm.zone_count || 0} khu vực
+                    </span>
+                  </div>
+                  {isSelected && (
+                    <Icon name="check" className="size-4 text-[#C99A47] shrink-0" />
+                  )}
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Step3TicketsSeats({
+  formData,
+  setFormData,
+  venues,
+  completeness,
+  organizerPlan = null,
+  isEditMode = false,
+  eventId = '',
+}) {
+  const toast = useToast()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
   const [seatMapOptions, setSeatMapOptions] = useState({})
   const [loadedSeatMap, setLoadedSeatMap] = useState(null)
@@ -1469,6 +1620,16 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
   const setSeatingType = (type) => {
     if (!sessionKey) return
     if (type === seatingType) return
+    if (type === 'ASSIGNED' && organizerPlan && !organizerPlan.seat_map_enabled) {
+      toast.error('Gói dịch vụ hiện tại không hỗ trợ sơ đồ ghế. Vui lòng nâng cấp gói để sử dụng tính năng này.')
+      navigate('/organizer/subscriptions', {
+        state: {
+          returnTo: isEditMode && eventId ? `/organizer/events/${eventId}/edit` : '/organizer/events/create',
+          message: 'Tính năng Sơ đồ ghế ngồi yêu cầu gói hỗ trợ sơ đồ ghế. Vui lòng nâng cấp gói dịch vụ để sử dụng.',
+        },
+      })
+      return
+    }
     updateActiveSession({
       seating_type: type,
       seat_map_id: type === 'ASSIGNED' ? activeSession.seat_map_id : null,
@@ -1673,48 +1834,56 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
     <div className="grid grid-cols-12 items-start gap-6">
       <div className="col-span-12 space-y-6 pb-24 lg:col-span-8">
         {sessions.length > 1 && (
-          <div className="space-y-3.5 border-b border-border-soft/30 pb-4">
-            <div className="flex flex-wrap items-center gap-2.5">
+          <div className="space-y-3.5 border-b border-border-soft/30 pb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Danh sách phiên biểu diễn ({sessions.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSyncConfirm(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#DDA74F] to-[#C99A47] px-3.5 py-2 text-xs sm:text-sm font-bold text-[#0D1B2A] shadow hover:brightness-110 transition-all cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                <Icon name="content_copy" className="text-[17px] text-[#0D1B2A]" />
+                <span>Sao chép bố cục cho TẤT CẢ phiên</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2.5 w-full">
               {sessions.map((s, i) => {
                 const sessionTitle = s.session_name?.trim()
                 const displayName = sessionTitle
                   ? (sessionTitle.toLowerCase().startsWith('phiên') ? sessionTitle : `Phiên ${i + 1}: ${sessionTitle}`)
                   : `Phiên ${i + 1}`
 
+                const isActive = activeTab === i
+
                 return (
                   <button
                     key={s.id || s.clientKey}
                     type="button"
                     onClick={() => setActiveTab(i)}
-                    className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition whitespace-nowrap ${
-                      activeTab === i
+                    className={`group relative flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all w-full cursor-pointer ${
+                      isActive
                         ? 'border-[#C99A47] bg-[#C99A47]/15 text-white shadow-sm ring-1 ring-[#C99A47]/30'
-                        : 'border-border-soft/40 text-subtle hover:border-[#C99A47]/50 hover:text-content'
+                        : 'border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-[#C99A47]/40 hover:bg-[#0d172e] hover:text-white'
                     }`}
                   >
                     <span
-                      className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 border ${
-                        activeTab === i
+                      className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 border transition-colors ${
+                        isActive
                           ? 'bg-[#C99A47] text-[#0d1b2a] border-[#C99A47]'
-                          : 'bg-panel-soft text-[#C99A47] border-[#C99A47]/30'
+                          : 'bg-white/5 text-[#C99A47] border-[#C99A47]/30 group-hover:bg-[#C99A47]/10'
                       }`}
                     >
                       {i + 1}
                     </span>
-                    <span>{displayName}</span>
+                    <span className="font-semibold text-sm text-left break-words flex-1">
+                      {displayName}
+                    </span>
                   </button>
                 )
               })}
-            </div>
-            <div className="flex justify-start">
-              <button
-                type="button"
-                onClick={() => setShowSyncConfirm(true)}
-                className="org-btn-primary inline-flex items-center gap-2 !rounded-xl !px-4 !py-2 !text-xs sm:!text-sm !font-bold cursor-pointer transition-all transform hover:scale-[1.01]"
-              >
-                <Icon name="content_copy" className="text-[17px] text-[#0D1B2A]" />
-                <span>Sao chép Bố cục Sơ đồ & Vé cho TẤT CẢ các phiên khác cùng địa điểm</span>
-              </button>
             </div>
           </div>
         )}
@@ -1744,7 +1913,14 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                 : 'border-border-soft/40 hover:border-[#C99A47]/40'
                 }`}
             >
-              <p className="font-bold text-content text-base leading-snug">Có chỗ ngồi</p>
+              <div className="flex items-center justify-between">
+                <p className="font-bold text-content text-base leading-snug">Có chỗ ngồi</p>
+                {organizerPlan && !organizerPlan.seat_map_enabled && (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-400 border border-amber-500/20">
+                    <Lock className="size-3" /> Cần nâng cấp
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-subtle mt-1">Chọn chỗ ngồi trên sơ đồ ghế</p>
             </button>
           </div>
@@ -1849,66 +2025,48 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
               <p className="mb-4 text-sm text-subtle">
                 Chọn sơ đồ cho địa điểm &quot;{venue?.name || '...'}&quot;
               </p>
-              <select
-                className="h-11 w-full rounded-lg border border-border-soft/40 bg-panel-soft text-content px-4 text-sm focus:border-tertiary outline-none"
+              <SeatMapSelectDropdown
                 value={activeSession?.seat_map_id || ''}
-                onChange={(e) => handleSeatMapSelect(e.target.value)}
-              >
-                <option value="">-- Chọn sơ đồ --</option>
-                {venueSeatMaps.map((sm) => (
-                  <option key={sm.id} value={sm.id}>
-                    {sm.name} ({sm.seat_count || 0} ghế, {sm.zone_count || 0} khu vực)
-                  </option>
-                ))}
-              </select>
+                options={venueSeatMaps}
+                onChange={handleSeatMapSelect}
+                loading={loadingMaps}
+              />
               {loadingMaps && (
                 <p className="mt-2 text-sm text-muted">Đang tải sơ đồ...</p>
               )}
               {loadedSeatMap && (
                 <div className="mt-4 w-full space-y-3">
                   {/* Seat disabling info & quick toolbar */}
-                  <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-white/10 bg-[#121c38] px-3.5 py-2.5 text-xs">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="font-bold text-white flex items-center gap-1.5">
-                        <Icon name="block" className="size-4 text-rose-400" />
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-white/10 bg-[#121c38] px-3.5 py-2.5 text-xs relative z-20 overflow-visible">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                      <span className="font-bold text-white whitespace-nowrap">
                         Tùy chọn vô hiệu hóa ghế:
                       </span>
-                      <div className="flex items-center gap-2 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-[11px] whitespace-nowrap">
                         <span className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-slate-300">
                           Tổng: <strong className="text-white">{totalMapSeats}</strong>
                         </span>
                         <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-emerald-300">
                           Mở bán: <strong className="text-emerald-200">{activeMapSeatsCount}</strong>
                         </span>
-                        <span className="rounded-md bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-rose-300">
-                          Vô hiệu hóa: <strong className="text-rose-200">{disabledMapSeatsCount}</strong>
+                        <span className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-slate-300">
+                          Vô hiệu hóa: <strong className="text-slate-200">{disabledMapSeatsCount}</strong>
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {uniqueRows.length > 0 && (
-                        <select
-                          defaultValue=""
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleToggleRowDisabled(e.target.value)
-                              e.target.value = ''
-                            }
-                          }}
-                          className="rounded-lg border border-white/15 bg-[#0b1329] px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-[#C99A47] cursor-pointer"
-                        >
-                          <option value="" disabled>Chọn theo hàng...</option>
-                          {uniqueRows.map((r) => (
-                            <option key={r} value={r}>Hàng {r}</option>
-                          ))}
-                        </select>
+                        <RowSelectDropdown
+                          rows={uniqueRows}
+                          onSelectRow={handleToggleRowDisabled}
+                        />
                       )}
                       {currentDisabledSeatIds.length > 0 && (
                         <button
                           type="button"
                           onClick={handleResetAllDisabledSeats}
-                          className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:text-white transition"
+                          className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer whitespace-nowrap"
                         >
                           Bỏ vô hiệu tất cả
                         </button>
@@ -1932,14 +2090,27 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                   />
 
                   {/* Seat map legend */}
-                  <div className="flex flex-wrap items-center justify-center gap-4 rounded-lg border border-white/5 bg-[#0b1329]/50 px-3 py-2 text-[11px] text-slate-300">
+                  <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 rounded-lg border border-white/5 bg-[#0b1329]/50 px-4 py-2.5 text-[11px] text-slate-300">
+                    {loadedSeatMap.zones && loadedSeatMap.zones.length > 0 ? (
+                      loadedSeatMap.zones.map((z) => (
+                        <div key={z.id || z.localId || z.name} className="flex items-center gap-1.5">
+                          <span
+                            className="size-3 rounded-sm border border-black/30 shadow-sm shrink-0"
+                            style={{ backgroundColor: z.color || '#3B82F6' }}
+                          />
+                          <span className="font-medium text-slate-200">{z.name}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-3 rounded-sm bg-blue-500 border border-black/30 shrink-0" />
+                        <span className="font-medium text-slate-200">Ghế mở bán</span>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-1.5">
-                      <span className="size-3 rounded-sm bg-emerald-500/80 border border-emerald-400" />
-                      <span>Ghế mở bán bình thường</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="size-3 rounded-sm bg-rose-500 border border-rose-600 flex items-center justify-center text-[8px] text-white font-bold">✕</span>
-                      <span className="text-rose-300 font-semibold">Ghế vô hiệu hóa (tạm dừng)</span>
+                      <span className="size-3 rounded-sm bg-[#1E293B] border border-dashed border-[#64748B] opacity-50 shrink-0" />
+                      <span className="text-slate-400">Ghế vô hiệu hóa (không mở bán)</span>
                     </div>
                   </div>
                 </div>
@@ -3770,10 +3941,22 @@ export function CreateEventPage() {
   const [editPermissions, setEditPermissions] = useState(null)
   const [paymentSetupRequired, setPaymentSetupRequired] = useState(false)
   const [subscriptionRequired, setSubscriptionRequired] = useState(false)
+  const [organizerPlan, setOrganizerPlan] = useState(null)
   const [isAiDocModalOpen, setIsAiDocModalOpen] = useState(false)
   const [aiDraftBanner, setAiDraftBanner] = useState(false)
 
   const isEditMode = Boolean(routeEventId)
+
+  // Load current subscription plan to enforce plan limits & capabilities
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setOrganizerPlan(res.plan)
+        }
+      })
+      .catch(() => setOrganizerPlan(null))
+  }, [])
 
   useEffect(() => {
     if (location.state?.message) {
@@ -4794,8 +4977,21 @@ export function CreateEventPage() {
         {!isEditMode && (
           <button
             type="button"
-            onClick={() => setIsAiDocModalOpen(true)}
+            onClick={() => {
+              if (organizerPlan && !organizerPlan.ai_event_creation_enabled) {
+                toast.error('Gói dịch vụ hiện tại không hỗ trợ tính năng Tạo sự kiện bằng AI. Vui lòng nâng cấp gói để sử dụng.')
+                navigate('/organizer/subscriptions', {
+                  state: {
+                    returnTo: '/organizer/events/create',
+                    message: 'Tính năng Tạo sự kiện bằng AI yêu cầu gói Chuyên Nghiệp hoặc Doanh Nghiệp. Vui lòng nâng cấp gói dịch vụ.',
+                  },
+                })
+                return
+              }
+              setIsAiDocModalOpen(true)
+            }}
             className="ai-led-btn"
+            title={organizerPlan && !organizerPlan.ai_event_creation_enabled ? 'Cần nâng cấp gói để tạo sự kiện bằng AI' : 'Tự động tạo bằng AI'}
           >
             <svg
               className="ai-led-svg"
@@ -4806,7 +5002,10 @@ export function CreateEventPage() {
               <rect className="ai-led-beam-glow" pathLength="100" />
               <rect className="ai-led-beam-core" pathLength="100" />
             </svg>
-            <span className="ai-led-content">
+            <span className="ai-led-content flex items-center gap-1.5">
+              {organizerPlan && !organizerPlan.ai_event_creation_enabled && (
+                <Lock className="size-3.5 text-amber-300" />
+              )}
               Tự động tạo bằng AI (Tài liệu / Kế hoạch)
             </span>
           </button>
@@ -4875,6 +5074,9 @@ export function CreateEventPage() {
               setFormData={setFormData}
               venues={venues}
               completeness={completeness}
+              organizerPlan={organizerPlan}
+              isEditMode={isEditMode}
+              eventId={routeEventId}
             />
           )}
           {currentStep === 4 && (

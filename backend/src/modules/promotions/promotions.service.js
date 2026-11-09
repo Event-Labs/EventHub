@@ -131,6 +131,15 @@ class PromotionsService {
 
   async updatePromo(id, data, userId) {
     const organizerId = await this._getOrganizerId(userId);
+    const plan = await subscriptionGuard.assertActivePlan(organizerId, 'update promo code');
+    if (!plan.promo_code_enabled) {
+      throw new AppError(
+        'Gói hiện tại không hỗ trợ mã khuyến mãi. Vui lòng nâng cấp gói để sử dụng tính năng này.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+
     const promo = await promotionsRepository.findById(id);
     if (!promo) {
       throw new AppError('Không tìm thấy mã khuyến mãi.', 404, ErrorCodes.RESOURCE_NOT_FOUND);

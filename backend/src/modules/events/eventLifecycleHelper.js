@@ -198,30 +198,122 @@ function classifyEventChanges(currentEvent, payload, { hasFinancialOrders = fals
 
   // Check sessions
   if (Array.isArray(payload.sessions)) {
-    // If sessions changed in date/time/venue and has financial orders -> Critical
-    if (hasFinancialOrders) {
-      // compare session times
-      const currentSessions = currentEvent.sessions || [];
-      const sessionMap = new Map(currentSessions.map((s) => [s.id, s]));
-      for (const s of payload.sessions) {
-        if (s.id && sessionMap.has(s.id)) {
-          const old = sessionMap.get(s.id);
-          if (
-            new Date(s.start_time).getTime() !== new Date(old.start_time).getTime() ||
-            new Date(s.end_time).getTime() !== new Date(old.end_time).getTime() ||
-            (s.venue_id && String(s.venue_id) !== String(old.venue_id))
-          ) {
+    const currentSessions = currentEvent.sessions || [];
+    const sessionMap = new Map(currentSessions.map((s) => [s.id, s]));
+
+    for (const s of payload.sessions) {
+      if (s.id && sessionMap.has(s.id)) {
+        const old = sessionMap.get(s.id);
+        const timeOrVenueChanged =
+          new Date(s.start_time).getTime() !== new Date(old.start_time).getTime() ||
+          new Date(s.end_time).getTime() !== new Date(old.end_time).getTime() ||
+          (s.venue_id && String(s.venue_id) !== String(old.venue_id));
+        const nameChanged = s.session_name && s.session_name !== old.session_name;
+
+        if (timeOrVenueChanged) {
+          if (hasFinancialOrders) {
             changes.push({ field: `session_${s.id}`, type: 'CRITICAL', oldValue: old, newValue: s });
             changeClass = 'CRITICAL';
+          } else {
+            changes.push({ field: `session_${s.id}`, type: 'MAJOR', oldValue: old, newValue: s });
+            if (changeClass !== 'CRITICAL') changeClass = 'MAJOR';
           }
-        } else if (!s.id) {
-          changes.push({ field: 'sessions_added', type: 'MAJOR', newValue: s });
+        } else if (nameChanged) {
+          changes.push({ field: `session_${s.id}_name`, type: 'MAJOR', oldValue: old.session_name, newValue: s.session_name });
           if (changeClass === 'MINOR') changeClass = 'MAJOR';
         }
+      } else if (!s.id) {
+        changes.push({ field: 'sessions_added', type: 'MAJOR', newValue: s });
+        if (changeClass === 'MINOR') changeClass = 'MAJOR';
       }
-    } else {
-      changes.push({ field: 'sessions', type: 'MAJOR' });
-      if (changeClass === 'MINOR') changeClass = 'MAJOR';
+    }
+
+    // Check for removed sessions
+    const payloadSessionIds = new Set(payload.sessions.filter((s) => s.id).map((s) => s.id));
+    for (const old of currentSessions) {
+      if (!payloadSessionIds.has(old.id)) {
+        changes.push({ field: 'session_removed', type: hasFinancialOrders ? 'CRITICAL' : 'MAJOR', oldValue: old });
+        if (hasFinancialOrders) changeClass = 'CRITICAL';
+        else if (changeClass === 'MINOR') changeClass = 'MAJOR';
+      }
+    }
+  }
+
+  // Check ticket_types
+  if (Array.isArray(payload.ticket_types)) {
+    const currentTickets = currentEvent.ticket_types || [];
+    const ticketMap = new Map(currentTickets.map((t) => [t.id, t]));
+
+    for (const tt of payload.ticket_types) {
+      if (tt.id && ticketMap.has(tt.id)) {
+        const old = ticketMap.get(tt.id);
+        const priceChanged = tt.price !== undefined && Number(tt.price) !== Number(old.price);
+        const qtyChanged = tt.quantity !== undefined && Number(tt.quantity) !== Number(old.quantity);
+        const nameChanged = tt.name !== undefined && tt.name.trim() !== (old.name || '').trim();
+        const descChanged = tt.description !== undefined && (tt.description || '').trim() !== (old.description || '').trim();
+
+        if (priceChanged || qtyChanged || nameChanged || descChanged) {
+          changes.push({
+            field: 'ticket_type',
+            type: 'MAJOR',
+            ticket_id: tt.id,
+            ticket_name: tt.name || old.name,
+            priceChanged,
+            qtyChanged,
+            nameChanged,
+            descChanged,
+            oldPrice: Number(old.price),
+            newPrice: tt.price !== undefined ? Number(tt.price) : Number(old.price),
+            oldQuantity: Number(old.quantity),
+            newQuantity: tt.quantity !== undefined ? Number(tt.quantity) : Number(old.quantity),
+            oldValue: {
+              name: old.name,
+              price: Number(old.price),
+              quantity: Number(old.quantity),
+              description: old.description,
+            },
+            newValue: {
+              name: tt.name !== undefined ? tt.name : old.name,
+              price: tt.price !== undefined ? Number(tt.price) : Number(old.price),
+              quantity: tt.quantity !== undefined ? Number(tt.quantity) : Number(old.quantity),
+              description: tt.description !== undefined ? tt.description : old.description,
+            },
+          });
+          if (changeClass === 'MINOR') changeClass = 'MAJOR';
+        }
+      } else if (!tt.id) {
+        changes.push({
+          field: 'ticket_added',
+          type: 'MAJOR',
+          ticket_name: tt.name,
+          newValue: {
+            name: tt.name,
+            price: Number(tt.price || 0),
+            quantity: Number(tt.quantity || 0),
+          },
+        });
+        if (changeClass === 'MINOR') changeClass = 'MAJOR';
+      }
+    }
+
+    // Check for removed ticket types
+    const payloadTicketIds = new Set(payload.ticket_types.filter((t) => t.id).map((t) => t.id));
+    for (const old of currentTickets) {
+      if (!payloadTicketIds.has(old.id)) {
+        changes.push({
+          field: 'ticket_removed',
+          type: 'MAJOR',
+          ticket_id: old.id,
+          ticket_name: old.name,
+          oldValue: {
+            id: old.id,
+            name: old.name,
+            price: Number(old.price),
+            quantity: Number(old.quantity),
+          },
+        });
+        if (changeClass === 'MINOR') changeClass = 'MAJOR';
+      }
     }
   }
 

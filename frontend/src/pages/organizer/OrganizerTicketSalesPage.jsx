@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowUpRight,
   Award,
@@ -16,6 +16,7 @@ import {
   Layers,
   LineChart,
   Loader2,
+  Lock,
   Percent,
   PieChart,
   ShoppingCart,
@@ -29,6 +30,8 @@ import {
 import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import { fetchTicketSalesAnalytics } from '@/services/organizerOrders.js'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 
@@ -1869,6 +1872,8 @@ function EventOccupancyColumnChart({ data = [], height = 240 }) {
 // ─── Main Page Component ──────────────────────────────────────────────────────
 
 export function OrganizerTicketSalesPage() {
+  const navigate = useNavigate()
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const initialEventId = searchParams.get('eventId') || ''
   const [events, setEvents] = useState([])
@@ -1887,10 +1892,22 @@ export function OrganizerTicketSalesPage() {
     rangeLabel: '',
   })
 
+  const [currentPlan, setCurrentPlan] = useState(null)
   const [analytics, setAnalytics] = useState(null)
   const [comparisonAnalytics, setComparisonAnalytics] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Load current subscription plan
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setCurrentPlan(res.plan)
+        }
+      })
+      .catch(() => setCurrentPlan(null))
+  }, [])
 
   useEffect(() => {
     setEventsLoading(true)
@@ -1958,6 +1975,25 @@ export function OrganizerTicketSalesPage() {
       title="Phân tích Bán vé"
       description="Trung tâm tổng hợp và phân tích chuyên sâu sản lượng vé, cơ cấu doanh thu theo loại vé và tốc độ lấp đầy."
     >
+      {currentPlan && !currentPlan.analytics_enabled && (
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#C99A47]/40 bg-[#C99A47]/10 p-4 text-[#E6C17A]">
+          <div className="flex items-start sm:items-center gap-3">
+            <Lock className="size-5 shrink-0 mt-0.5 sm:mt-0 text-[#E6C17A]" />
+            <div>
+              <p className="font-bold text-sm">Gói {currentPlan.name || 'hiện tại'} có giới hạn tính năng Thống kê & Phân tích</p>
+              <p className="text-xs text-[#E6C17A]/80">Nâng cấp gói dịch vụ để mở khóa đầy đủ biểu đồ doanh thu, hiệu suất bán vé và so sánh kỳ nâng cao.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/organizer/subscriptions', { state: { returnTo: '/organizer/ticket-sales' } })}
+            className="shrink-0 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black uppercase text-[#0D1B2A] hover:brightness-110 shadow-md shadow-[#C99A47]/20"
+          >
+            Nâng cấp ngay
+          </button>
+        </div>
+      )}
+
       {/* ── BỎ KHUNG BỌC PHẠM VI SỰ KIỆN & KHOẢNG THỜI GIAN ── */}
       {/* Placed naturally and cleanly without card border/background */}
       <div className="relative z-20 mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -1979,6 +2015,16 @@ export function OrganizerTicketSalesPage() {
             comparisonMode={comparison.mode}
             comparisonFrom={comparison.from}
             comparisonTo={comparison.to}
+            comparisonLocked={Boolean(currentPlan && !currentPlan.advanced_analytics_enabled)}
+            onComparisonLockedClick={() => {
+              toast.error('Tính năng so sánh dữ liệu chỉ dành cho gói nâng cao. Vui lòng nâng cấp gói để sử dụng.')
+              navigate('/organizer/subscriptions', {
+                state: {
+                  returnTo: '/organizer/ticket-sales',
+                  message: 'Tính năng so sánh kỳ phân tích vé yêu cầu gói nâng cao. Vui lòng nâng cấp gói để sử dụng.',
+                },
+              })
+            }}
             onPresetChange={setDatePreset}
             onCustomFromChange={setCustomFrom}
             onCustomToChange={setCustomTo}

@@ -427,6 +427,14 @@ class TicketsService {
       throw new AppError('Nhân viên không được phân công cho sự kiện này.', 403, ErrorCodes.FORBIDDEN_ACTION);
     }
 
+    if (result.state === 'MANUAL_CHECKIN_NOT_ALLOWED') {
+      throw new AppError(
+        'Gói dịch vụ của sự kiện này không hỗ trợ tính năng check-in thủ công. Vui lòng quét mã QR hoặc liên hệ Ban tổ chức nâng cấp gói.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+
     if (result.state === 'SESSION_CANCELLED') {
       throw new AppError('Sự kiện hoặc suất diễn đã bị hủy.', 400, ErrorCodes.SESSION_CANCELLED);
     }

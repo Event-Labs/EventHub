@@ -726,16 +726,31 @@ export function AdminEventReviewPage() {
 
                 /* Event name */
                 <div key="name">
-                  <p className="max-w-[200px] truncate font-semibold text-content">
-                    {event.title}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="max-w-[200px] truncate font-semibold text-content" title={event.title}>
+                      {event.title}
+                    </p>
+                    {event.is_priority_support && (
+                      <span title={`Sự kiện thuộc Ban tổ chức có Hỗ trợ ưu tiên (${event.organizer_plan_name || 'Gói cao cấp'})`} className="cursor-help inline-flex items-center">
+                        <Sparkles className="size-3.5 text-amber-400 shrink-0" />
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-subtle">{event.slug}</p>
                 </div>,
 
                 /* Organizer */
-                <span key="org" className="text-sm text-subtle">
-                  {event.organizer_name || '—'}
-                </span>,
+                <div key="org" className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-content">
+                    {event.organizer_name || '—'}
+                  </span>
+                  {event.is_priority_support && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 w-fit shadow-sm">
+                      <Sparkles className="size-2.5 text-amber-400" />
+                      Ưu tiên duyệt ({event.organizer_plan_name || 'VIP'})
+                    </span>
+                  )}
+                </div>,
 
                 /* Event date */
                 <span key="date" className="text-sm text-subtle">
@@ -1043,9 +1058,8 @@ function EventReviewModal({
           </div>
         )}
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
           <DetailBlock icon={Tag} label="Danh mục" value={event.category_name || 'Chưa phân loại'} />
-          <DetailBlock icon={Calendar} label="Hình thức" value={event.format || 'Chưa cập nhật'} />
           <DetailBlock icon={Ticket} label="Số loại vé" value={`${groupedReviewTickets.length} loại vé`} />
           <DetailBlock icon={MapPin} label="Số phiên" value={`${event.sessions?.length || 0} phiên`} />
         </div>
