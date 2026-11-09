@@ -18,6 +18,8 @@ const SUBSCRIPTION_SELECT = `
   s.attendee_export_enabled,
   s.advanced_analytics_enabled,
   s.ai_report_enabled,
+  s.ai_event_creation_enabled,
+  s.ai_seat_map_enabled,
   s.custom_branding_enabled,
   s.analytics_enabled,
   s.priority_support,
@@ -75,12 +77,14 @@ class SubscriptionsRepository {
         attendee_export_enabled,
         advanced_analytics_enabled,
         ai_report_enabled,
+        ai_event_creation_enabled,
+        ai_seat_map_enabled,
         custom_branding_enabled,
         analytics_enabled,
         priority_support,
         is_active
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
       RETURNING id
     `, [
       payload.name,
@@ -98,7 +102,9 @@ class SubscriptionsRepository {
       payload.attendee_export_enabled,
       payload.advanced_analytics_enabled,
       payload.ai_report_enabled,
-      payload.custom_branding_enabled,
+      payload.ai_event_creation_enabled ?? false,
+      payload.ai_seat_map_enabled ?? payload.custom_branding_enabled ?? false,
+      payload.custom_branding_enabled ?? payload.ai_seat_map_enabled ?? false,
       payload.analytics_enabled,
       payload.priority_support,
       payload.is_active,
@@ -131,7 +137,14 @@ class SubscriptionsRepository {
     if (updates.attendee_export_enabled !== undefined) addSet('attendee_export_enabled', updates.attendee_export_enabled);
     if (updates.advanced_analytics_enabled !== undefined) addSet('advanced_analytics_enabled', updates.advanced_analytics_enabled);
     if (updates.ai_report_enabled !== undefined) addSet('ai_report_enabled', updates.ai_report_enabled);
-    if (updates.custom_branding_enabled !== undefined) addSet('custom_branding_enabled', updates.custom_branding_enabled);
+    if (updates.ai_event_creation_enabled !== undefined) addSet('ai_event_creation_enabled', updates.ai_event_creation_enabled);
+    if (updates.ai_seat_map_enabled !== undefined) {
+      addSet('ai_seat_map_enabled', updates.ai_seat_map_enabled);
+      addSet('custom_branding_enabled', updates.ai_seat_map_enabled);
+    } else if (updates.custom_branding_enabled !== undefined) {
+      addSet('custom_branding_enabled', updates.custom_branding_enabled);
+      addSet('ai_seat_map_enabled', updates.custom_branding_enabled);
+    }
     if (updates.analytics_enabled !== undefined) addSet('analytics_enabled', updates.analytics_enabled);
     if (updates.priority_support !== undefined) addSet('priority_support', updates.priority_support);
     if (updates.is_active !== undefined) addSet('is_active', updates.is_active);

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle, CheckCircle2, Clock3, TicketCheck, XCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Clock3, XCircle } from 'lucide-react'
 
 function fmtNumber(n) {
   return Number(n || 0).toLocaleString('vi-VN')
@@ -91,12 +91,9 @@ export function TicketStatusOverviewPanel({
     <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
       {/* ── Header ── */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TicketCheck className="size-5 text-[#E6C17A]" />
-          <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
-            Tình trạng vé & Check-in
-          </h3>
-        </div>
+        <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+          Tình trạng vé & Check-in
+        </h3>
         <span
           className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700"
           title="Tỷ lệ check-in tính trên tổng số vé hợp lệ (loại trừ vé đã hủy)"

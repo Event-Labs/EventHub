@@ -137,7 +137,7 @@ function toVietnamDateString(dateInput) {
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 }
 
-function assertValidSessionTimes(startTime, endTime, validatePast = true) {
+function assertValidSessionTimes(startTime, endTime, validatePast = true, checkinStartTime = null) {
   if (!startTime || !endTime) {
     throw new AppError('Thời gian bắt đầu và kết thúc là bắt buộc.', 400, ErrorCodes.INVALID_INPUT);
   }
@@ -154,6 +154,23 @@ function assertValidSessionTimes(startTime, endTime, validatePast = true) {
   }
   if (validatePast && startDate.getTime() < Date.now() - 60000) {
     throw new AppError('Thời gian bắt đầu sự kiện không được ở trong quá khứ.', 400, ErrorCodes.INVALID_INPUT);
+  }
+  if (checkinStartTime) {
+    const checkinDate = new Date(checkinStartTime);
+    if (isNaN(checkinDate.getTime())) {
+      throw new AppError('Thời gian check-in không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    if (validatePast && checkinDate.getTime() < Date.now() - 60000) {
+      throw new AppError('Thời gian check-in không được ở trong quá khứ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    const checkinDay = toVietnamDateString(checkinDate);
+    const startDay = toVietnamDateString(startDate);
+    if (checkinDay > startDay) {
+      throw new AppError('Ngày check-in không được sau ngày diễn ra sự kiện.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    if (checkinDate.getTime() > startDate.getTime()) {
+      throw new AppError('Thời gian check-in phải trước hoặc bằng thời gian bắt đầu sự kiện.', 400, ErrorCodes.INVALID_INPUT);
+    }
   }
 }
 
@@ -623,9 +640,10 @@ class OrganizerEventsService {
         const existingSession = session.id ? existingSessions.find((item) => item.id === session.id) : null;
         const isNewOrChangedStartTime =
           !existingSession ||
-          new Date(existingSession.start_time).getTime() !== new Date(session.start_time).getTime();
+          new Date(existingSession.start_time).getTime() !== new Date(session.start_time).getTime() ||
+          new Date(existingSession.checkin_start_time || 0).getTime() !== new Date(session.checkin_start_time || 0).getTime();
 
-        assertValidSessionTimes(session.start_time, session.end_time, isNewOrChangedStartTime);
+        assertValidSessionTimes(session.start_time, session.end_time, isNewOrChangedStartTime, session.checkin_start_time);
         await this.assertVenueAccessible(organizerId, session.venue_id);
 
         const sessionData = {
@@ -857,7 +875,7 @@ class OrganizerEventsService {
       throw new AppError('venue_id, start_time and end_time are required', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    assertValidSessionTimes(payload.start_time, payload.end_time);
+    assertValidSessionTimes(payload.start_time, payload.end_time, true, payload.checkin_start_time);
     await this.assertVenueAccessible(organizerId, payload.venue_id);
 
     const session = await organizerEventsRepository.createSession(eventId, payload);
@@ -880,14 +898,17 @@ class OrganizerEventsService {
     if (payload.venue_id) {
       await this.assertVenueAccessible(organizerId, payload.venue_id);
     }
-    if (payload.start_time || payload.end_time) {
+    if (payload.start_time || payload.end_time || payload.checkin_start_time !== undefined) {
       const startTime = payload.start_time || session.start_time;
       const endTime = payload.end_time || session.end_time;
+      const checkinTime = payload.checkin_start_time !== undefined ? payload.checkin_start_time : session.checkin_start_time;
       const isChanged = Boolean(
-        payload.start_time &&
-          new Date(payload.start_time).getTime() !== new Date(session.start_time).getTime(),
+        (payload.start_time &&
+          new Date(payload.start_time).getTime() !== new Date(session.start_time).getTime()) ||
+        (payload.checkin_start_time !== undefined &&
+          new Date(payload.checkin_start_time || 0).getTime() !== new Date(session.checkin_start_time || 0).getTime()),
       );
-      assertValidSessionTimes(startTime, endTime, isChanged);
+      assertValidSessionTimes(startTime, endTime, isChanged, checkinTime);
     }
 
     const updated = await organizerEventsRepository.updateSession(sessionId, eventId, payload);

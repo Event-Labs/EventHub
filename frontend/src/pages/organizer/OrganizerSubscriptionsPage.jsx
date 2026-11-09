@@ -320,6 +320,8 @@ function PlanCardInner({ plan, highlighted, isCurrentPlan, onSubscribe }) {
       <div className="mb-6 flex flex-wrap items-start content-start gap-1.5 min-h-[52px]">
         {plan.promo_code_enabled && <Pill label="Mã KM" isGold={highlighted} />}
         {plan.seat_map_enabled && <Pill label="Sơ đồ ghế" isGold={highlighted} />}
+        {plan.ai_event_creation_enabled && <Pill label="Tạo SK AI" isGold={highlighted} />}
+        {(plan.ai_seat_map_enabled ?? plan.custom_branding_enabled) && <Pill label="Sơ đồ ghế AI" isGold={highlighted} />}
         {plan.ai_report_enabled && <Pill label="Báo cáo AI" isGold={highlighted} />}
         {plan.advanced_analytics_enabled && <Pill label="Analytics" isGold={highlighted} />}
         {plan.attendee_export_enabled && <Pill label="Xuất DS" isGold={highlighted} />}
@@ -442,8 +444,9 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
     { label: 'Check-in thủ công', value: plan.manual_checkin_enabled },
     { label: 'Xuất danh sách', value: plan.attendee_export_enabled },
     { label: 'Phân tích nâng cao', value: plan.advanced_analytics_enabled },
+    { label: 'Tạo sự kiện bằng AI', value: plan.ai_event_creation_enabled },
+    { label: 'Tạo sơ đồ ghế bằng AI', value: plan.ai_seat_map_enabled ?? plan.custom_branding_enabled },
     { label: 'Báo cáo AI', value: plan.ai_report_enabled },
-    { label: 'Thương hiệu riêng', value: plan.custom_branding_enabled },
     { label: 'Hỗ trợ ưu tiên', value: plan.priority_support },
   ]
 
