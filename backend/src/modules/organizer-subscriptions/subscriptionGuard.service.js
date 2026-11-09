@@ -50,6 +50,8 @@ class SubscriptionGuardService {
         s.attendee_export_enabled,
         s.advanced_analytics_enabled,
         s.ai_report_enabled,
+        s.ai_event_creation_enabled,
+        s.ai_seat_map_enabled,
         s.custom_branding_enabled,
         s.analytics_enabled,
         s.priority_support

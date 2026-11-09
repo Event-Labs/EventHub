@@ -183,7 +183,7 @@ function AdminMetricCard({
     >
       <div className={`pointer-events-none absolute -right-6 -top-6 size-24 rounded-full ${t.blur} blur-xl [html.light_&]:hidden`} />
       <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
+        <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
           {label}
         </p>
         {Icon && (
@@ -1204,15 +1204,15 @@ export function AdminAnalyticsPage() {
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
                   <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c1c38] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Tổng lượt mua</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Tổng lượt mua</p>
                     <p className="mt-1 text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">{Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}</p>
                   </div>
                   <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Đang hoạt động</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Đang hoạt động</p>
                     <p className="mt-1 text-lg font-black text-emerald-400 [html.light_&]:text-[#065f46]">{Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}</p>
                   </div>
                   <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Tổng doanh thu</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Tổng doanh thu</p>
                     <p className="mt-1 text-lg font-black text-[#E6C17A] [html.light_&]:text-[#854d0e]">{fmtCurrency(subscriptionRevenue.total_revenue)}</p>
                   </div>
                 </div>
@@ -1286,7 +1286,7 @@ export function AdminAnalyticsPage() {
                     key={label}
                     className={`flex items-center justify-between rounded-xl border ${border} bg-gradient-to-r ${bg} px-4 py-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200`}
                   >
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
                     <p className={`text-xl font-black ${color} [html.light_&]:text-[#0D1B2A]`}>{val}</p>
                   </div>
                 ))}

@@ -3022,3 +3022,11 @@ html.light .force-dark .empty-tickets-box .btn-gold-primary {
   visibility: visible !important;
 }
 
+input.no-picker-indicator::-webkit-calendar-picker-indicator,
+input.no-picker-indicator::-webkit-inner-spin-button,
+input.no-picker-indicator::-webkit-clear-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+

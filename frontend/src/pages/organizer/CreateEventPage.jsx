@@ -165,9 +165,16 @@ function calculateEventCompleteness(formData) {
     const start = new Date(`${sDate}T${s.start_time}`)
     const end = new Date(`${sDate}T${s.end_time}`)
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return false
-    if (s.checkin_start_time) {
-      const checkin = new Date(`${sDate}T${s.checkin_start_time}`)
+    if (s.checkin_start_time || s.checkin_start_date) {
+      if (!s.checkin_start_time || !s.checkin_start_date) return false
+      const cDate = s.checkin_start_date
+      const checkin = new Date(`${cDate}T${s.checkin_start_time}`)
       if (isNaN(checkin.getTime()) || checkin > start) return false
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const cDateObj = new Date(`${cDate}T00:00:00`).getTime()
+      const sDateObj = new Date(`${sDate}T00:00:00`).getTime()
+      if (cDateObj < today.getTime() || cDateObj > sDateObj) return false
     }
     return true
   })
@@ -365,7 +372,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
                 className={`text-xs sm:text-sm font-bold transition-colors text-center max-w-[130px] leading-tight ${active
                   ? 'text-white drop-shadow-md [html.light_&]:text-[#0D1B2A] [html.light_&]:drop-shadow-none'
                   : done
-                    ? 'text-[#E6C17A] group-hover:underline [html.light_&]:text-[#C99A47]'
+                    ? 'text-[#E6C17A] [html.light_&]:text-[#C99A47]'
                     : 'text-slate-500 [html.light_&]:text-[#536b88]'
                   }`}
               >
@@ -730,6 +737,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
           end_date: '',
           end_time: '',
           venue_id: '',
+          checkin_start_date: '',
           checkin_start_time: '',
           seat_map_id: null,
           seating_type: 'GENERAL',
@@ -931,16 +939,24 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                           value={session.start_date || ''}
                           onChange={(e) => {
                             const d = e.target.value
+                            const prevStartDate = session.start_date
+                            const prevCheckinDate = session.checkin_start_date
+                            let newCheckinDate = prevCheckinDate
+                            if (!prevCheckinDate || prevCheckinDate === prevStartDate) {
+                              newCheckinDate = d
+                            } else if (d && prevCheckinDate > d) {
+                              newCheckinDate = d
+                            }
                             updateSessionFields(key, {
                               start_date: d,
                               end_date: d,
-                              checkin_start_date: d,
+                              checkin_start_date: newCheckinDate,
                             })
                           }}
                         />
                         {isWithin10Days(session.start_date) && (
-                          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-1.5 leading-relaxed">
-                            <Icon name="warning" className="text-sm shrink-0 mt-0.5" />
+                          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                            <Icon name="warning" className="text-xs shrink-0" />
                             <span>
                               Hệ thống có thể mất từ 3 đến 4 ngày để duyệt sự kiện của bạn.
                             </span>
@@ -987,21 +1003,62 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
                         <div>
                           <div className="flex items-center justify-between min-h-[22px] mb-1">
-                            <label className="text-xs text-subtle block font-semibold">Giờ check-in (Tùy chọn)</label>
+                            <label className="text-xs text-subtle block font-semibold">Thời gian check-in (Tùy chọn)</label>
                           </div>
-                          <input
-                            type="time"
-                            className="w-full h-10 px-3 rounded-lg border border-border-soft/40 bg-panel-soft text-content text-sm focus:border-tertiary outline-none"
-                            value={session.checkin_start_time || ''}
-                            onChange={(e) => {
-                              const t = e.target.value
-                              updateSessionFields(key, {
-                                checkin_start_time: t,
-                                checkin_start_date: t ? (session.start_date || '') : '',
-                              })
-                            }}
-                          />
-                          <p className="mt-1 text-[11px] text-muted">Thời gian mở cửa đón khách.</p>
+                          <div className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft flex items-center gap-2 focus-within:border-tertiary focus-within:ring-1 focus-within:ring-secondary/30 transition-all">
+                            {/* Giờ check-in */}
+                            <input
+                              type="time"
+                              className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                              value={session.checkin_start_time || ''}
+                              onClick={(e) => {
+                                try { e.target.showPicker?.() } catch (err) {}
+                              }}
+                              onChange={(e) => {
+                                const t = e.target.value
+                                updateSessionFields(key, {
+                                  checkin_start_time: t,
+                                  checkin_start_date: session.checkin_start_date || (t ? session.start_date || '' : ''),
+                                })
+                              }}
+                              title="Giờ check-in"
+                            />
+
+                            {/* Ngày check-in bên cạnh, icon lịch ở cuối */}
+                            <input
+                              type="date"
+                              min={todayStr}
+                              max={session.start_date || undefined}
+                              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                              value={session.checkin_start_date || ''}
+                              onClick={(e) => {
+                                try { e.target.showPicker?.() } catch (err) {}
+                              }}
+                              onChange={(e) => {
+                                const d = e.target.value
+                                updateSessionFields(key, {
+                                  checkin_start_date: d,
+                                })
+                              }}
+                              title="Ngày check-in (không được ở quá khứ và không được sau ngày diễn ra)"
+                            />
+                          </div>
+                          <p className="mt-1 text-[11px] text-muted">Giờ & ngày mở cửa đón khách (không được sau ngày diễn ra).</p>
+                          {session.checkin_start_date && session.start_date && session.checkin_start_date > session.start_date && (
+                            <p className="mt-1 text-[11px] text-red-500 font-medium">
+                              Ngày check-in không được sau ngày diễn ra sự kiện.
+                            </p>
+                          )}
+                          {session.checkin_start_date && todayStr && session.checkin_start_date < todayStr && (
+                            <p className="mt-1 text-[11px] text-red-500 font-medium">
+                              Ngày check-in không được ở trong quá khứ.
+                            </p>
+                          )}
+                          {session.checkin_start_date === session.start_date && session.checkin_start_time && session.start_time && session.checkin_start_time > session.start_time && (
+                            <p className="mt-1 text-[11px] text-red-500 font-medium">
+                              Giờ check-in phải trước hoặc bằng giờ bắt đầu sự kiện ({session.start_time}).
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -3236,9 +3293,16 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     </div>
 
                     {session.checkin_start_time && (
-                      <div className="flex items-center gap-2 text-white">
+                      <div className="flex items-center gap-2 text-content">
                         <Icon name="how_to_reg" className="text-base text-tertiary shrink-0" />
-                        <span className="truncate">Mở check-in: <strong className="text-white font-semibold">{session.checkin_start_time}</strong></span>
+                        <span className="truncate">
+                          Mở check-in: <strong className="text-content font-bold">{session.checkin_start_time}</strong>
+                          {session.checkin_start_date && (
+                            <span className="text-subtle font-normal ml-1">
+                              ({session.checkin_start_date})
+                            </span>
+                          )}
+                        </span>
                       </div>
                     )}
 
@@ -3685,7 +3749,7 @@ export function CreateEventPage() {
         seat_map_id: s.seat_map_id,
         seating_type: s.seat_map_id ? 'ASSIGNED' : 'GENERAL',
         zone_assignments: [],
-        checkin_start_date: sessionDate,
+        checkin_start_date: checkin.date || sessionDate,
         checkin_start_time: checkin.time || '',
       }
     })
@@ -3918,13 +3982,27 @@ export function CreateEventPage() {
           return `${sName}: Giờ kết thúc (${s.end_time}) phải diễn ra sau giờ bắt đầu (${s.start_time}).`
         }
 
-        if (s.checkin_start_time) {
-          const checkinTime = new Date(`${s.start_date}T${s.checkin_start_time}`)
+        if (s.checkin_start_time || s.checkin_start_date) {
+          if (!s.checkin_start_time || !s.checkin_start_date) {
+            return `${sName}: Vui lòng nhập đầy đủ cả ngày và giờ check-in (hoặc để trống cả hai).`
+          }
+          const checkinTime = new Date(`${s.checkin_start_date}T${s.checkin_start_time}`)
           if (isNaN(checkinTime.getTime())) {
-            return `${sName}: Giờ check-in không hợp lệ.`
+            return `${sName}: Thời gian check-in không hợp lệ.`
+          }
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const checkinDateOnly = new Date(`${s.checkin_start_date}T00:00:00`)
+          const sessionDateOnly = new Date(`${s.start_date}T00:00:00`)
+
+          if (checkinDateOnly < today) {
+            return `${sName}: Ngày check-in không được ở trong quá khứ.`
+          }
+          if (checkinDateOnly > sessionDateOnly) {
+            return `${sName}: Ngày check-in không được sau ngày diễn ra sự kiện (${s.start_date}).`
           }
           if (checkinTime > startTime) {
-            return `${sName}: Giờ check-in (${s.checkin_start_time}) phải trước hoặc bằng giờ bắt đầu (${s.start_time}).`
+            return `${sName}: Thời gian check-in (${s.checkin_start_time} ngày ${s.checkin_start_date}) phải trước hoặc bằng giờ bắt đầu sự kiện (${s.start_time} ngày ${s.start_date}).`
           }
         }
       }
@@ -4008,7 +4086,7 @@ export function CreateEventPage() {
       end_time: combineDateTime(s.start_date, s.end_time),
       venue_id: s.venue_id,
       seat_map_id: s.seating_type === 'ASSIGNED' ? s.seat_map_id : null,
-      checkin_start_time: s.checkin_start_time ? combineDateTime(s.start_date, s.checkin_start_time) : null,
+      checkin_start_time: (s.checkin_start_time && (s.checkin_start_date || s.start_date)) ? combineDateTime(s.checkin_start_date || s.start_date, s.checkin_start_time) : null,
     }))
 
   const buildTicketTypesPayload = () => {
@@ -4252,7 +4330,7 @@ export function CreateEventPage() {
             seat_map_id: s.seat_map_id,
             seating_type: old?.seating_type || (s.seat_map_id ? 'ASSIGNED' : 'GENERAL'),
             zone_assignments: old?.zone_assignments || [],
-            checkin_start_date: start.date,
+            checkin_start_date: checkin.date || old?.checkin_start_date || start.date,
             checkin_start_time: checkin.time || old?.checkin_start_time || '',
           }
         })
