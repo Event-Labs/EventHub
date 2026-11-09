@@ -712,20 +712,22 @@ function _OldTicketOperationsPanel({ dashboard = {}, isSingleEvent = false, chec
         {cards.map((item) => (
           <div
             key={item.id}
-            className={`rounded-xl border p-2.5 transition-all hover:scale-[1.02] ${item.boxClass}`}
+            className={`flex flex-col justify-between rounded-xl border p-2.5 transition-all hover:scale-[1.02] ${item.boxClass}`}
           >
-            <div className="flex items-center justify-center gap-1.5">
-              <span className={`size-1.5 rounded-full ${item.dotClass}`} />
-              <p className={`text-[10px] font-bold uppercase tracking-wider ${item.labelClass}`}>
+            <div className="flex h-8 items-center justify-center gap-1.5 px-0.5">
+              <span className={`size-1.5 shrink-0 rounded-full ${item.dotClass}`} />
+              <p className={`text-[10px] font-bold uppercase tracking-tight leading-tight ${item.labelClass}`}>
                 {item.label}
               </p>
             </div>
-            <p className={`mt-1 font-display text-xl sm:text-2xl font-black ${item.textClass}`}>
+            <p className={`my-1 font-display text-xl sm:text-2xl font-black ${item.textClass}`}>
               {fmtNumber(item.value)}
             </p>
-            <p className={`text-[11px] font-bold ${item.subClass}`}>
-              {item.pct}%
-            </p>
+            <div className="flex min-h-[20px] items-center justify-center">
+              <p className={`text-[11px] font-bold ${item.subClass}`}>
+                {item.pct}%
+              </p>
+            </div>
           </div>
         ))}
       </div>
@@ -750,26 +752,34 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
       <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
         <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Trạng thái sự kiện</h3>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-center [html.light_&]:bg-cyan-50/70 [html.light_&]:border-cyan-200">
-            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Đang mở bán</p>
+          <div className="flex flex-col justify-between rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-2.5 sm:p-3 text-center [html.light_&]:bg-cyan-50/70 [html.light_&]:border-cyan-200">
+            <div className="flex h-8 items-center justify-center">
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Đang mở bán</p>
+            </div>
             <p className="mt-1 font-display text-xl font-black text-cyan-400 [html.light_&]:text-cyan-700">
               {fmtNumber(dashboard.published_events)}
             </p>
           </div>
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center [html.light_&]:bg-amber-50/70 [html.light_&]:border-amber-200">
-            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Chờ duyệt</p>
+          <div className="flex flex-col justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 p-2.5 sm:p-3 text-center [html.light_&]:bg-amber-50/70 [html.light_&]:border-amber-200">
+            <div className="flex h-8 items-center justify-center">
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Chờ duyệt</p>
+            </div>
             <p className="mt-1 font-display text-xl font-black text-amber-400 [html.light_&]:text-amber-700">
               {fmtNumber(dashboard.pending_review_events)}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-3 text-center [html.light_&]:bg-slate-100/70 [html.light_&]:border-slate-300">
-            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Bản nháp</p>
+          <div className="flex flex-col justify-between rounded-xl border border-slate-700 bg-slate-800/40 p-2.5 sm:p-3 text-center [html.light_&]:bg-slate-100/70 [html.light_&]:border-slate-300">
+            <div className="flex h-8 items-center justify-center">
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Bản nháp</p>
+            </div>
             <p className="mt-1 font-display text-xl font-black text-slate-300 [html.light_&]:text-slate-800">
               {fmtNumber(dashboard.draft_events)}
             </p>
           </div>
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center [html.light_&]:bg-emerald-50/70 [html.light_&]:border-emerald-200">
-            <p className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-[#536b88]">Đã kết thúc</p>
+          <div className="flex flex-col justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 sm:p-3 text-center [html.light_&]:bg-emerald-50/70 [html.light_&]:border-emerald-200">
+            <div className="flex h-8 items-center justify-center">
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Đã kết thúc</p>
+            </div>
             <p className="mt-1 font-display text-xl font-black text-emerald-400 [html.light_&]:text-emerald-700">
               {fmtNumber(dashboard.completed_events)}
             </p>
@@ -779,10 +789,7 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
 
       {/* Next Upcoming Event */}
       <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Sự kiện sắp diễn ra gần nhất</h3>
-          <Calendar className="size-4 text-cyan-400 [html.light_&]:text-cyan-600" />
-        </div>
+        <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Sự kiện sắp diễn ra gần nhất</h3>
 
         {nextEvent ? (
           <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
@@ -805,9 +812,9 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
             )}
           </div>
         ) : (
-          <div className="rounded-xl border border-white/5 bg-slate-900/40 p-4 text-center text-xs text-slate-400 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-500">
-            Chưa có sự kiện nào sắp diễn ra.
-          </div>
+          <p className="py-2.5 text-center text-xs italic text-slate-400 [html.light_&]:text-slate-500">
+            Chưa có sự kiện nào sắp diễn ra
+          </p>
         )}
 
         {/* Current Plan Card */}
@@ -1546,8 +1553,10 @@ export function OrganizerDashboardPage() {
                   {/* 6-Scorecard Bar */}
                   {financialSummary.intelligence && (
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Health Score</p>
+                      <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+                        <div className="flex min-h-[28px] items-center">
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Health Score</p>
+                        </div>
                         <p className="mt-1 font-display text-2xl font-black text-white">
                           {financialSummary.intelligence.health_score}{' '}
                           <span className="text-xs font-normal text-slate-400">/100</span>
@@ -1557,8 +1566,10 @@ export function OrganizerDashboardPage() {
                         </span>
                       </div>
 
-                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">RevPAS (Doanh thu / Chỗ)</p>
+                      <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+                        <div className="flex min-h-[28px] items-center">
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">RevPAS (Doanh thu / Chỗ)</p>
+                        </div>
                         <p className="mt-1 font-display text-lg font-black text-white">
                           {fmtCurrency(financialSummary.intelligence.metrics?.revpas || 0)}
                         </p>
@@ -1567,8 +1578,10 @@ export function OrganizerDashboardPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Vận tốc bán 7 ngày</p>
+                      <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+                        <div className="flex min-h-[28px] items-center">
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Vận tốc bán 7 ngày</p>
+                        </div>
                         <p className="mt-1 font-display text-lg font-black text-white">
                           {financialSummary.intelligence.velocity?.daily_tickets || 0}{' '}
                           <span className="text-xs font-normal text-slate-400">vé/ngày</span>
@@ -1578,8 +1591,10 @@ export function OrganizerDashboardPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Tồn kho & Pacing</p>
+                      <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+                        <div className="flex min-h-[28px] items-center">
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Tồn kho & Pacing</p>
+                        </div>
                         <p className="mt-1 font-display text-lg font-black text-amber-400">
                           {financialSummary.intelligence.inventory_pacing?.remaining_tickets || 0}{' '}
                           <span className="text-xs font-normal text-slate-400">vé tồn</span>
@@ -1592,8 +1607,10 @@ export function OrganizerDashboardPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Giá vé TB & AOV</p>
+                      <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+                        <div className="flex min-h-[28px] items-center">
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Giá vé TB & AOV</p>
+                        </div>
                         <p className="mt-1 font-display text-lg font-black text-emerald-400">
                           {fmtCurrency(financialSummary.intelligence.metrics?.avg_ticket_price || 0)}
                         </p>
@@ -1602,8 +1619,10 @@ export function OrganizerDashboardPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Dự báo 7 ngày tới</p>
+                      <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+                        <div className="flex min-h-[28px] items-center">
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Dự báo 7 ngày tới</p>
+                        </div>
                         <p className="mt-1 font-display text-lg font-black text-white">
                           {fmtCurrency(financialSummary.intelligence.forecast?.next_7_days_revenue || 0)}
                         </p>

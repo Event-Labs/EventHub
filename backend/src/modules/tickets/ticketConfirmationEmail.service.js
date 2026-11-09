@@ -119,12 +119,12 @@ function renderEmailStatusBadge(status, checkedInAt) {
   const rawStatus = String(status || 'VALID').toUpperCase();
   if (rawStatus === 'USED' || checkedInAt) {
     return `
-    <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #F1F5F9; border: 1.2px solid #CBD5E1; border-radius: 999px; padding: 5px 16px;">
+    <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #F1F5F9; border: 1.2px solid #CBD5E1; border-radius: 999px;">
       <tr>
-        <td style="vertical-align: middle; padding-right: 6px; color: #334155; font-size: 11px; font-weight: 900; line-height: 1;">
+        <td style="padding: 5px 0 5px 14px; vertical-align: middle; line-height: 1; color: #334155; font-size: 11px; font-weight: 900;">
           &#10003;&#10003;
         </td>
-        <td style="vertical-align: middle; color: #334155; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;">
+        <td style="padding: 5px 14px 5px 7px; vertical-align: middle; line-height: 1; color: #334155; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; white-space: nowrap;">
           &#272;&#195; CHECK-IN
         </td>
       </tr>
@@ -133,12 +133,12 @@ function renderEmailStatusBadge(status, checkedInAt) {
   }
   if (['CANCELLED', 'REFUNDED'].includes(rawStatus)) {
     return `
-    <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #FEE2E2; border: 1.2px solid #FCA5A5; border-radius: 999px; padding: 5px 16px;">
+    <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #FEE2E2; border: 1.2px solid #FCA5A5; border-radius: 999px;">
       <tr>
-        <td style="vertical-align: middle; padding-right: 6px; color: #DC2626; font-size: 13px; font-weight: 900; line-height: 1;">
+        <td style="padding: 5px 0 5px 14px; vertical-align: middle; line-height: 1; color: #DC2626; font-size: 13px; font-weight: 900;">
           &#8856;
         </td>
-        <td style="vertical-align: middle; color: #DC2626; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;">
+        <td style="padding: 5px 14px 5px 7px; vertical-align: middle; line-height: 1; color: #DC2626; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; white-space: nowrap;">
           V&#201; &#272;&#195; H&#7910;Y
         </td>
       </tr>
@@ -147,18 +147,18 @@ function renderEmailStatusBadge(status, checkedInAt) {
   }
   // Default: VALID (Dấu tích xanh kết hợp nhãn trạng thái VÉ HỢP LỆ)
   return `
-  <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #DCFCE7; border: 1.2px solid #86EFAC; border-radius: 999px; padding: 5px 16px;">
+  <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #DCFCE7; border: 1.2px solid #86EFAC; border-radius: 999px;">
     <tr>
-      <td style="vertical-align: middle; padding-right: 6px;">
-        <table cellpadding="0" cellspacing="0" border="0">
+      <td style="padding: 5px 0 5px 14px; vertical-align: middle; line-height: 1;">
+        <table cellpadding="0" cellspacing="0" border="0" style="display: inline-table; vertical-align: middle;">
           <tr>
-            <td align="center" valign="middle" style="width: 16px; height: 16px; border: 1.5px solid #16A34A; border-radius: 50%; color: #16A34A; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; font-size: 10px; font-weight: 900; line-height: 16px; text-align: center;">
+            <td align="center" valign="middle" style="width: 15px; height: 15px; border: 1.5px solid #16A34A; border-radius: 50%; color: #16A34A; font-family: Arial, sans-serif; font-size: 9.5px; font-weight: 900; line-height: 13px; text-align: center; mso-line-height-rule: exactly;">
               &#10003;
             </td>
           </tr>
         </table>
       </td>
-      <td style="vertical-align: middle; color: #15803D; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;">
+      <td style="padding: 5px 14px 5px 7px; vertical-align: middle; line-height: 1; color: #15803D; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; white-space: nowrap;">
         V&#201; H&#7906;P L&#7878;
       </td>
     </tr>
@@ -231,33 +231,21 @@ function ticketCard(ticket, order) {
           </div>
         ` : '<div style="margin-bottom: 12px;"></div>'}
 
-        <!-- Row 1: THỜI GIAN (Cấp 3 – một hàng riêng, font body) -->
+        <!-- Row 1: HỌ TÊN (NGƯỜI THAM DỰ / ATTENDEE) -->
         <div style="background-color: #102035; border: 1px solid rgba(201, 154, 71, 0.45); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
           <div style="color: #AAB8C8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 3px;">
-            TH&#7900;I GIAN (DATE &amp; TIME)
+            NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)
           </div>
-          <div style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; font-weight: 700; line-height: 1.4;">
-            ${escapeHtml(dateTimeStr)}
+          <div style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; font-weight: 700; line-height: 1.4;">
+            ${escapeHtml(holderName)}
           </div>
         </div>
 
-        <!-- Row 2: NGƯỜI THAM DỰ & LOẠI VÉ (Cấp 2 – cùng độ ưu tiên, cùng kích thước) -->
+        <!-- Row 2: LOẠI VÉ - GHẾ (TICKET TYPE & SEAT) -->
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 10px;">
           <tr>
-            <!-- NGƯỜI THAM DỰ (ATTENDEE) -->
-            <td width="50%" style="vertical-align: top; padding-right: 5px;">
-              <div style="background-color: #102035; border: 1px solid rgba(201, 154, 71, 0.45); border-radius: 10px; padding: 10px 12px;">
-                <div style="color: #AAB8C8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">
-                  NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)
-                </div>
-                <div style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; font-weight: 700; line-height: 1.3;">
-                  ${escapeHtml(holderName)}
-                </div>
-              </div>
-            </td>
-
             <!-- LOẠI VÉ (TICKET TYPE) -->
-            <td width="50%" style="vertical-align: top; padding-left: 5px;">
+            <td width="50%" style="vertical-align: top; padding-right: 5px;">
               <div style="background-color: #102035; border: 1px solid rgba(201, 154, 71, 0.45); border-radius: 10px; padding: 10px 12px;">
                 <div style="color: #AAB8C8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">
                   LO&#7840;I V&#201; (TICKET TYPE)
@@ -267,23 +255,35 @@ function ticketCard(ticket, order) {
                 </div>
               </div>
             </td>
+
+            <!-- GHẾ NGỒI (SEAT) -->
+            <td width="50%" style="vertical-align: top; padding-left: 5px;">
+              <div style="background-color: #102035; border: 1px solid rgba(201, 154, 71, 0.45); border-radius: 10px; padding: 10px 12px;">
+                <div style="color: #AAB8C8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">
+                  GH&#7870; NG&#7891;I (SEAT)
+                </div>
+                <div style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; font-weight: 700; line-height: 1.3;">
+                  ${escapeHtml(seatLabel)}
+                </div>
+              </div>
+            </td>
           </tr>
         </table>
 
-        <!-- Row 3: GHẾ NGỒI (Cấp 2 – cùng nhóm thông tin vé) -->
+        <!-- Row 3: THỜI GIAN (DATE & TIME) -->
         <div style="background-color: #102035; border: 1px solid rgba(201, 154, 71, 0.45); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
-          <div style="color: #AAB8C8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">
-            GH&#7870; NG&#7891;I (SEAT)
+          <div style="color: #AAB8C8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 3px;">
+            TH&#7900;I GIAN (DATE &amp; TIME)
           </div>
-          <div style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; font-weight: 700; line-height: 1.3;">
-            ${escapeHtml(seatLabel)}
+          <div style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; font-weight: 700; line-height: 1.4;">
+            ${escapeHtml(dateTimeStr)}
           </div>
         </div>
 
-        <!-- Row 4: ĐỊA ĐIỂM (Cấp 2 – tên địa điểm nổi bật, địa chỉ nhỏ hơn) -->
+        <!-- Row 4: ĐỊA ĐIỂM (VENUE) -->
         <div style="background-color: #102035; border: 1px solid rgba(201, 154, 71, 0.45); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;">
           <div style="color: #AAB8C8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">
-            &#272;&#7882;A &#272;I&#7878;M (VENUE)
+            &#272;&#7882;A &#272;I&#7874;M (VENUE)
           </div>
           <div style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; font-weight: 700; line-height: 1.3;">
             ${escapeHtml(venueName)}

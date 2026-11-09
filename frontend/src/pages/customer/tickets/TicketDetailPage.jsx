@@ -349,20 +349,29 @@ export function TicketDetailPage() {
 
             <div className="space-y-8 p-8">
               <div className="grid gap-6 sm:grid-cols-2">
-                {collectAttendees && (
+                {collectAttendees ? (
                   <>
                     <CompactDetail label="Họ tên người tham dự" value={ticket.attendee_name} />
                     <CompactDetail label="Email người tham dự" value={ticket.attendee_email} />
                   </>
+                ) : (
+                  <>
+                    <CompactDetail label="Họ tên người mua" value={ticket.order?.buyer_name} />
+                    <CompactDetail label="Email người mua" value={ticket.order?.buyer_email} />
+                  </>
                 )}
-                <CompactDetail label="Người mua vé" value={ticket.order?.buyer_name} />
-                <CompactDetail label="Email người mua" value={ticket.order?.buyer_email} />
-                <CompactDetail label="Thời gian" value={formatDateTime(ticket.session?.start_time)} />
-                <CompactDetail label="Đơn hàng" value={ticket.order?.order_code} />
                 <CompactDetail label="Loại vé" value={ticket.ticket_type?.name} />
                 <CompactDetail label="Ghế ngồi" value={seat} />
+                <CompactDetail label="Thời gian" value={formatDateTime(ticket.session?.start_time)} />
                 <CompactDetail label="Check-in" value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at) : 'Chưa check-in'} />
                 <CompactDetail label="Địa điểm" value={venueText || 'N/A'} wide />
+                {collectAttendees && (
+                  <>
+                    <CompactDetail label="Người mua vé" value={ticket.order?.buyer_name} />
+                    <CompactDetail label="Email người mua" value={ticket.order?.buyer_email} />
+                  </>
+                )}
+                <CompactDetail label="Mã đơn hàng" value={ticket.order?.order_code} />
               </div>
 
               <div className="relative border-t-2 border-dashed border-white/10 pt-8 before:absolute before:-left-11 before:top-0 before:size-6 before:-translate-y-1/2 before:rounded-full before:bg-background after:absolute after:-right-11 after:top-0 after:size-6 after:-translate-y-1/2 after:rounded-full after:bg-background">

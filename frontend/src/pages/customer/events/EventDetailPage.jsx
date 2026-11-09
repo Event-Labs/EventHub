@@ -10,7 +10,7 @@ import {
   UserCircle,
   XCircle,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
@@ -121,6 +121,9 @@ export function EventDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [overviewOpen, setOverviewOpen] = useState(false)
+  const [isOverviewOverflowing, setIsOverviewOverflowing] = useState(true)
+  const overviewContentRef = useRef(null)
+  const overviewCardRef = useRef(null)
   const [expandedSessionId, setExpandedSessionId] = useState(null)
   const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [bookingError, setBookingError] = useState('')
@@ -312,6 +315,26 @@ export function EventDetailPage() {
     })
   }
 
+  const rawOverview = event?.description || event?.short_description || 'Thông tin chi tiết đang được cập nhật.'
+  const overview = useMemo(() => formatOverviewHtml(rawOverview), [rawOverview])
+
+  useEffect(() => {
+    const el = overviewContentRef.current
+    if (!el) return
+
+    const checkOverflow = () => {
+      setIsOverviewOverflowing(el.scrollHeight > 190)
+    }
+
+    checkOverflow()
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(checkOverflow)
+      observer.observe(el)
+      return () => observer.disconnect()
+    }
+  }, [overview])
+
   if (eventQuery.isLoading) {
     return (
       <div className="pt-24 pb-12">
@@ -330,11 +353,22 @@ export function EventDetailPage() {
 
   const heroImage = event.banner_url || event.thumbnail_url
   const firstVenue = event.venues?.[0]
-  const rawOverview = event.description || event.short_description || 'Thông tin chi tiết đang được cập nhật.'
-  const overview = formatOverviewHtml(rawOverview)
   const eventEndTime = getEventEndTime(event)
   const eventExpired = isPastTime(eventEndTime, currentTime)
   const selectedSessionExpired = selectedSession ? isPastTime(selectedSession.end_time || eventEndTime, currentTime) : false
+
+  const handleToggleOverview = () => {
+    setOverviewOpen((prev) => {
+      const next = !prev
+      if (!next && overviewCardRef.current) {
+        const rect = overviewCardRef.current.getBoundingClientRect()
+        if (rect.top < 0) {
+          overviewCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }
+      return next
+    })
+  }
 
   return (
     <div className="overflow-x-hidden">
@@ -470,31 +504,66 @@ export function EventDetailPage() {
       <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:px-8">
         <section className="min-w-0 space-y-10">
           {/* Tổng quan Bento Card */}
-          <article className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-6 sm:p-7 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative">
+          <article
+            ref={overviewCardRef}
+            className="glass-panel min-w-0 overflow-hidden rounded-[24px] border-primary/20 p-6 sm:p-7 shadow-[0_8px_32px_0_rgba(6,182,212,0.1)] relative"
+          >
             <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
             <div>
               <h2 className="font-display text-2xl font-black text-white drop-shadow-md">
                 Tổng quan
               </h2>
             </div>
-            <div
-              className="mt-4 block w-full min-w-0 text-left ql-bubble"
-            >
+            <div className="mt-4 block w-full min-w-0 text-left ql-bubble relative">
               <div
                 className={cn(
-                  'block max-w-full text-sm sm:text-base leading-relaxed text-slate-300 font-normal ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [word-break:normal] [overflow-wrap:break-word] hyphens-none',
-                  overviewOpen ? '!overflow-visible' : 'line-clamp-6 !overflow-hidden',
+                  'relative transition-all duration-300 ease-in-out',
+                  !overviewOpen && isOverviewOverflowing
+                    ? 'max-h-[190px] sm:max-h-[220px] overflow-hidden'
+                    : 'max-h-none overflow-visible',
                 )}
-                dangerouslySetInnerHTML={{ __html: overview }}
-              />
-              <button
-                type="button"
-                onClick={() => setOverviewOpen((value) => !value)}
-                className="mt-5 grid w-full place-items-center text-white transition hover:text-primary outline-none cursor-pointer"
-                aria-expanded={overviewOpen}
+                style={
+                  !overviewOpen && isOverviewOverflowing
+                    ? {
+                        WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 100%)',
+                        maskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 100%)',
+                      }
+                    : undefined
+                }
               >
-                {overviewOpen ? <ChevronUp className="size-6" /> : <ChevronDown className="size-6" />}
-              </button>
+                <div
+                  ref={overviewContentRef}
+                  className="block max-w-full text-sm sm:text-base leading-relaxed text-slate-300 font-normal ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [word-break:normal] [overflow-wrap:break-word] hyphens-none"
+                  dangerouslySetInnerHTML={{ __html: overview }}
+                />
+
+                {/* Lớp phủ mờ mờ ở chân nội dung ngay phía trên mũi tên */}
+                {!overviewOpen && isOverviewOverflowing && (
+                  <div
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[var(--color-panel)] via-[var(--color-panel)]/80 to-transparent"
+                    aria-hidden="true"
+                  />
+                )}
+              </div>
+
+              {isOverviewOverflowing && (
+                <button
+                  type="button"
+                  onClick={handleToggleOverview}
+                  className={cn(
+                    'w-full grid place-items-center text-white/80 transition hover:text-primary outline-none cursor-pointer py-1',
+                    !overviewOpen ? '-mt-7 relative z-10' : 'mt-4',
+                  )}
+                  aria-expanded={overviewOpen}
+                  title={overviewOpen ? 'Thu gọn nội dung' : 'Xem thêm toàn bộ nội dung'}
+                >
+                  {overviewOpen ? (
+                    <ChevronUp className="size-6 transition-transform hover:-translate-y-0.5" />
+                  ) : (
+                    <ChevronDown className="size-6 transition-transform hover:translate-y-0.5" />
+                  )}
+                </button>
+              )}
             </div>
           </article>
 

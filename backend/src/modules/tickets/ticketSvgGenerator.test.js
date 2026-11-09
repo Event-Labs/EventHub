@@ -61,7 +61,7 @@ describe('ticketSvgGenerator', () => {
     expect(svg).toContain('LO&#7840;I V&#201; (TICKET TYPE)');
     expect(svg).toContain('NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)');
     expect(svg).toContain('GH&#7870; NG&#7891;I (SEAT)');
-    expect(svg).toContain('&#272;&#7882;A &#272;I&#7878;M (VENUE)');
+    expect(svg).toContain('&#272;&#7882;A &#272;I&#7874;M (VENUE)');
   });
 
   it('handles events without fixed seat by falling back to GENERAL ADMISSION', () => {

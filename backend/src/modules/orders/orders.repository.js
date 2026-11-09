@@ -346,7 +346,7 @@ class OrdersRepository {
         throw new AppError('S\u1ef1 ki\u1ec7n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
       }
 
-      if (paymentChannel && firstTicket.organizer_id !== paymentChannel.organizer_id) {
+      if (paymentChannel && paymentChannel.organizer_id && firstTicket.organizer_id !== paymentChannel.organizer_id) {
         throw new AppError('K\u00eanh thanh to\u00e1n c\u1ee7a ban t\u1ed5 ch\u1ee9c kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 

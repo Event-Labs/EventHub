@@ -55,8 +55,19 @@ class PaymentsService {
   async getOrganizerPayosChannelForEvent(eventId) {
     const channel = await paymentsRepository.findOrganizerPayosChannelForEvent(eventId);
     if (!channel) {
+      if (env.PLATFORM_PAYOS_CLIENT_ID && env.PLATFORM_PAYOS_API_KEY && env.PLATFORM_PAYOS_CHECKSUM_KEY) {
+        return {
+          organizer_id: null,
+          provider: 'PAYOS',
+          client_id: env.PLATFORM_PAYOS_CLIENT_ID,
+          api_key_encrypted: env.PLATFORM_PAYOS_API_KEY,
+          checksum_key_encrypted: env.PLATFORM_PAYOS_CHECKSUM_KEY,
+          status: 'ACTIVE',
+          is_default: true,
+        };
+      }
       throw new AppError(
-        'Organizer has not configured payment channel.',
+        'Ban tổ chức sự kiện chưa thiết lập kênh thanh toán PayOS.',
         400,
         ErrorCodes.ORDER_INVALID_ITEMS,
       );
