@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, CheckCheck, ChevronRight, Home, LogOut, Menu, Moon, Settings, Sun, X } from 'lucide-react'
@@ -45,6 +45,21 @@ export function RolePortalLayout({
   const navigate = useNavigate()
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const panelRef = useRef(null)
+  const [collapsedHeight, setCollapsedHeight] = useState(null)
+
+  useLayoutEffect(() => {
+    if (!sidebarExpanded && panelRef.current) {
+      const el = panelRef.current
+      const prevHeight = el.style.height
+      el.style.height = 'auto'
+      const h = el.scrollHeight
+      el.style.height = prevHeight
+      if (h > 0) {
+        setCollapsedHeight(h)
+      }
+    }
+  }, [sidebarExpanded, navSections, bottomItems])
   const themeKey = useMemo(() => getPortalThemeKey(user), [user])
   const [theme, setTheme] = useState(() => getStoredPortalTheme(getPortalThemeKey(user)))
   const token = getAuthToken()
@@ -122,21 +137,32 @@ export function RolePortalLayout({
 
       {/* ── Desktop Floating Sidebar (Visible on lg: >= 1024px) ── */}
       <aside
-        className={`hidden lg:flex fixed top-[80px] left-0 z-30 flex-col items-center px-3 max-h-[calc(100vh-96px)] transition-[width] duration-300 ease-out will-change-[width] ${sidebarExpanded ? 'w-[240px]' : 'w-20'
-          }`}
+        className={`hidden lg:flex fixed top-[80px] left-0 z-30 flex-col items-center px-3 max-h-[calc(100vh-96px)] transition-all duration-300 ease-out will-change-[width,height] ${
+          sidebarExpanded ? 'w-[240px]' : 'w-20'
+        }`}
+        style={{
+          height: sidebarExpanded
+            ? 'calc(100vh - 96px)'
+            : collapsedHeight
+              ? `${collapsedHeight}px`
+              : 'fit-content',
+        }}
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
       >
         <div
-          className={`glass-panel relative flex flex-col overflow-hidden rounded-[26px] max-h-[calc(100vh-96px)] h-fit transition-all duration-300 ease-out will-change-[width] ${theme === 'light'
-            ? 'border-[#C99A47]/30 bg-white/85 shadow-[0_8px_32px_rgba(27,54,93,0.08)]'
-            : 'border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.25)]'
-            } ${sidebarExpanded ? 'w-full' : 'w-14'}`}
+          ref={panelRef}
+          className={`glass-panel relative flex flex-col overflow-hidden rounded-[26px] h-full transition-[width] duration-300 ease-out will-change-[width] ${
+            theme === 'light'
+              ? 'border-[#C99A47]/30 bg-white/85 shadow-[0_8px_32px_rgba(27,54,93,0.08)]'
+              : 'border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.25)]'
+          } ${sidebarExpanded ? 'w-full' : 'w-14'}`}
         >
           {/* Scrollable Navigation section */}
           <div
-            className={`portal-sidebar-scroll flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden py-2 ${sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
-              }`}
+            className={`portal-sidebar-scroll flex-1 min-h-0 flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden py-2 ${
+              sidebarExpanded ? 'px-2' : 'portal-sidebar-scroll-collapsed items-center px-1'
+            }`}
           >
             {navSections.map((section, sectionIndex) => (
               <SidebarSection
@@ -155,8 +181,9 @@ export function RolePortalLayout({
 
           {/* Bottom Items (Profile, Logout) */}
           <div
-            className={`flex shrink-0 flex-col items-center gap-0.5 pb-2 pt-0.5 ${sidebarExpanded ? 'w-full px-2' : 'w-full items-center px-1'
-              }`}
+            className={`mt-auto flex shrink-0 flex-col items-center gap-0.5 pb-2 pt-0.5 ${
+              sidebarExpanded ? 'w-full px-2' : 'w-full items-center px-1'
+            }`}
           >
             {bottomItems.map((item) => (
               <SidebarItem
@@ -591,7 +618,29 @@ function PortalNotificationBell({ theme }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const containerRef = useRef(null)
   const token = getAuthToken()
+
+  useEffect(() => {
+    if (!notificationOpen) return undefined
+
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setNotificationOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [notificationOpen])
+
+  useEffect(() => {
+    setNotificationOpen(false)
+  }, [location.pathname])
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'portal-nav'],
@@ -698,7 +747,7 @@ function PortalNotificationBell({ theme }) {
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         type="button"
         title="Thông báo"
@@ -710,9 +759,9 @@ function PortalNotificationBell({ theme }) {
         <Bell className="size-[17px] sm:size-[18px]" />
         {unreadCount > 0 && (
           <span
-            className={`absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-black transition-all ${isLight
-              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] ring-1.5 ring-white shadow-[0_2px_6px_rgba(201,154,71,0.45)]'
-              : 'bg-tertiary text-white shadow-sm ring-1 ring-slate-900/50'
+            className={`absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-black transition-all bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] ${isLight
+              ? 'ring-1.5 ring-white shadow-[0_2px_6px_rgba(201,154,71,0.45)]'
+              : 'ring-1.5 ring-[#081126] shadow-[0_2px_8px_rgba(201,154,71,0.55)]'
               }`}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -725,17 +774,31 @@ function PortalNotificationBell({ theme }) {
           ? 'border-[#C99A47]/30 bg-white text-[#0D1B2A] shadow-[0_16px_48px_rgba(27,54,93,0.15)]'
           : 'border-border-soft/40 bg-slate-950 text-white shadow-2xl'
           }`}>
-          <div className={`flex items-center justify-between border-b px-4 py-3 ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/90' : 'border-border-soft/30'
-            }`}>
-            <div>
-              <p className={`text-sm font-extrabold ${isLight ? 'text-[#0D1B2A]' : 'text-content'}`}>Thông báo</p>
-              <p className={`text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>{unreadCount} chưa đọc</p>
+          <div className={`flex items-center justify-between border-b px-4 py-3.5 ${
+            isLight
+              ? 'border-[#C99A47]/25 bg-gradient-to-r from-[#F5EBDD] to-[#FAF4EB]'
+              : 'border-white/10 bg-[#0f1b33] shadow-sm'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              <div className={`grid size-8 place-items-center rounded-xl shrink-0 ${
+                isLight ? 'bg-[#C99A47]/20 text-[#0D1B2A]' : 'bg-[#E6C17A]/15 text-[#E6C17A] border border-[#E6C17A]/20'
+              }`}>
+                <Bell className="size-4" />
+              </div>
+              <div>
+                <h4 className={`text-sm sm:text-base font-black tracking-tight ${isLight ? 'text-[#0D1B2A]' : 'text-white'}`}>
+                  Thông báo
+                </h4>
+                <p className={`text-xs font-medium ${isLight ? 'text-[#536b88]' : 'text-slate-400'}`}>
+                  {unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Đã đọc tất cả thông báo'}
+                </p>
+              </div>
             </div>
             {notifications.length > 0 && (
               <button
                 type="button"
                 onClick={() => markAllMutation.mutate()}
-                className={`grid size-8 place-items-center rounded-full transition ${isLight ? 'text-[#1B365D] hover:bg-[#C99A47]/20' : 'text-subtle hover:bg-panel-soft hover:text-tertiary'
+                className={`grid size-8 place-items-center rounded-full transition ${isLight ? 'text-[#1B365D] hover:bg-[#C99A47]/20' : 'text-subtle hover:bg-white/10 hover:text-[#E6C17A]'
                   }`}
                 title="Đánh dấu tất cả đã đọc"
               >
@@ -764,12 +827,12 @@ function PortalNotificationBell({ theme }) {
                       : 'border-[#C99A47]/20 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 text-[#0D1B2A]'
                     : notification.is_read
                       ? 'border-border-soft/20 opacity-80 hover:bg-panel-soft/60'
-                      : 'border-border-soft/20 bg-tertiary/[0.08] hover:bg-panel-soft/60'
+                      : 'border-border-soft/20 bg-[#C99A47]/10 hover:bg-panel-soft/60'
                     }`}
                 >
                   <div className="flex items-start gap-3">
                     {!notification.is_read && (
-                      <span className={`mt-1.5 size-2 shrink-0 rounded-full ${isLight ? 'bg-[#C99A47]' : 'bg-tertiary'}`} />
+                      <span className={`mt-1.5 size-2 shrink-0 rounded-full ${isLight ? 'bg-[#C99A47]' : 'bg-[#E6C17A]'}`} />
                     )}
                     <div className="min-w-0 flex-1">
                       <p className={`line-clamp-1 text-xs font-extrabold ${isLight ? 'text-[#0D1B2A]' : 'text-content'}`}>{display.title}</p>

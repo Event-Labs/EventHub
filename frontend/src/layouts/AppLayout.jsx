@@ -152,7 +152,11 @@ export function AppLayout() {
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
   const logout = () => {
@@ -398,16 +402,25 @@ export function AppLayout() {
               </button>
               {notificationOpen && (
                 <div className="fixed sm:absolute inset-x-3 sm:inset-x-auto sm:right-12 top-20 sm:top-full mt-0 sm:mt-4 w-auto sm:w-[360px] overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl z-50">
-                  <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
-                    <div>
-                      <p className="font-display text-lg font-bold text-white">Thông báo</p>
-                      <p className="text-xs text-muted">{unreadCount} chưa đọc</p>
+                  <div className="flex items-center justify-between border-b border-white/10 bg-[#0f1b33] px-4 py-3.5 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="grid size-8 place-items-center rounded-xl shrink-0 bg-[#E6C17A]/15 text-[#E6C17A] border border-[#E6C17A]/20">
+                        <Bell className="size-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm sm:text-base font-black tracking-tight text-white">
+                          Thông báo
+                        </h4>
+                        <p className="text-xs font-medium text-slate-400">
+                          {unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Đã đọc tất cả thông báo'}
+                        </p>
+                      </div>
                     </div>
                     {navNotifications.length > 0 && (
                       <button
                         type="button"
                         onClick={() => markAllMutation.mutate()}
-                        className="grid size-9 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
+                        className="grid size-8 place-items-center rounded-full text-subtle hover:bg-white/10 hover:text-[#E6C17A] transition"
                         title="Đánh dấu tất cả đã đọc"
                       >
                         <CheckCheck className="size-4" />

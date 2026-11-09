@@ -271,14 +271,14 @@ export function DailyRevenueBarChart({
       {/* ── Top Controls: Title, Metric Selector, Granularity ── */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-3">
         {/* Metric Selector Buttons */}
-        <div className="inline-flex rounded-xl bg-slate-900/90 p-1 border border-white/10 shadow-inner">
+        <div className="inline-flex rounded-full bg-slate-900/90 border border-white/10 p-0 overflow-hidden shadow-inner [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/30">
           <button
             type="button"
             onClick={() => setActiveMetric('gross_revenue')}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+            className={`px-4 py-2 text-xs transition-all ${
               activeMetric === 'gross_revenue'
-                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-[0_2px_10px_rgba(201,154,71,0.35)] border border-[#E6C17A]/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-sm'
+                : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
             }`}
           >
             Doanh thu
@@ -286,10 +286,10 @@ export function DailyRevenueBarChart({
           <button
             type="button"
             onClick={() => setActiveMetric('tickets_sold')}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+            className={`px-4 py-2 text-xs transition-all ${
               activeMetric === 'tickets_sold'
-                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-[0_2px_10px_rgba(201,154,71,0.35)] border border-[#E6C17A]/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-sm'
+                : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
             }`}
           >
             Vé đã bán
@@ -297,10 +297,10 @@ export function DailyRevenueBarChart({
           <button
             type="button"
             onClick={() => setActiveMetric('orders')}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+            className={`px-4 py-2 text-xs transition-all ${
               activeMetric === 'orders'
-                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-[0_2px_10px_rgba(201,154,71,0.35)] border border-[#E6C17A]/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-sm'
+                : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
             }`}
           >
             Đơn hàng
@@ -308,20 +308,20 @@ export function DailyRevenueBarChart({
         </div>
 
         {/* Metric Summary Quick Stats */}
-        <div className="flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-3.5 text-sm">
           <span className="text-slate-400">
-            Tổng: <strong className="text-white font-mono">{metricMeta.formatVal(totalVal)}</strong>
+            Tổng: <strong className="text-white font-mono font-bold">{metricMeta.formatVal(totalVal)}</strong>
           </span>
           {peakItem && maxVal > 0 && (
             <span className="text-amber-400">
-              Đỉnh: <strong className="font-mono">{metricMeta.formatVal(maxVal)}</strong>{' '}
-              <span className="text-[11px] text-amber-300/80">({peakItem.dayFormatted})</span>
+              Đỉnh: <strong className="font-mono font-bold">{metricMeta.formatVal(maxVal)}</strong>{' '}
+              <span className="text-xs text-amber-300/80">({peakItem.dayFormatted})</span>
             </span>
           )}
           {avgVal > 0 && (
             <span className="text-cyan-400">
               TB:{' '}
-              <strong className="font-mono">
+              <strong className="font-mono font-bold">
                 {activeMetric === 'gross_revenue'
                   ? fmtShort(avgVal) + ' đ'
                   : avgVal.toFixed(1) + ' ' + metricMeta.unit}

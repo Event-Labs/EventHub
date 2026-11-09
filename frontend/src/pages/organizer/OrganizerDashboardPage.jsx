@@ -681,10 +681,7 @@ function _OldTicketOperationsPanel({ dashboard = {}, isSingleEvent = false, chec
   return (
     <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TicketCheck className="size-5 text-[#E6C17A]" />
-          <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Tình trạng vé & Check-in</h3>
-        </div>
+        <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Tình trạng vé & Check-in</h3>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700">
           <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
           {checkinRate}% check-in
@@ -820,7 +817,7 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
         {/* Current Plan Card */}
         <div className="mt-3 rounded-xl border border-white/10 bg-slate-900/40 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">Gói dịch vụ</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Gói dịch vụ</p>
             <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 [html.light_&]:bg-purple-100 [html.light_&]:border-purple-300 [html.light_&]:text-purple-700">
               {plan?.name || 'Gói cơ bản'}
             </span>
@@ -850,45 +847,45 @@ function SingleEventTicketTiersTable({ tiers = [] }) {
       <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Hiệu suất phân bổ theo hạng vé (Tier Mix)</h3>
       <div className="w-full overflow-x-auto">
         <table className="w-full min-w-[500px] text-left text-sm table-fixed">
-        <thead>
-          <tr className="border-b border-white/10 bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/20 [html.light_&]:text-[#536b88]">
-            <th className="px-3 py-2.5 w-[30%]">Hạng vé</th>
-            <th className="px-3 py-2.5 text-right w-[22%]">Giá vé</th>
-            <th className="px-2 py-2.5 text-center w-[20%]">Đã bán</th>
-            <th className="px-2 py-2.5 text-center w-[13%]">Lấp đầy</th>
-            <th className="px-3 py-2.5 text-right w-[15%]">Doanh thu</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5 text-slate-300 [html.light_&]:divide-[#C99A47]/15 [html.light_&]:text-[#0D1B2A]">
-          {tiers.map((t) => {
-            const occupancy = Number(t.occupancy_rate || 0)
-            const sold = Number(t.sold_quantity ?? t.sold ?? 0)
-            const capacity = Number(t.capacity || 0)
-            const price = Number(t.unit_price ?? t.price ?? 0)
-            const revenue = Number(t.revenue || sold * price)
+          <thead>
+            <tr className="border-b border-white/10 bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/20 [html.light_&]:text-[#536b88]">
+              <th className="px-3 py-2.5 w-[30%]">Hạng vé</th>
+              <th className="px-3 py-2.5 text-right w-[22%]">Giá vé</th>
+              <th className="px-2 py-2.5 text-center w-[20%]">Đã bán</th>
+              <th className="px-2 py-2.5 text-center w-[13%]">Lấp đầy</th>
+              <th className="px-3 py-2.5 text-right w-[15%]">Doanh thu</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5 text-slate-300 [html.light_&]:divide-[#C99A47]/15 [html.light_&]:text-[#0D1B2A]">
+            {tiers.map((t) => {
+              const occupancy = Number(t.occupancy_rate || 0)
+              const sold = Number(t.sold_quantity ?? t.sold ?? 0)
+              const capacity = Number(t.capacity || 0)
+              const price = Number(t.unit_price ?? t.price ?? 0)
+              const revenue = Number(t.revenue || sold * price)
 
-            return (
-              <tr key={t.ticket_type_id || t.id || t.name} className="hover:bg-white/[0.02] [html.light_&]:hover:bg-amber-50/40">
-                <td className="px-3 py-3 truncate font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm" title={t.ticket_type_name || t.name}>
-                  {t.ticket_type_name || t.name}
-                </td>
-                <td className="px-3 py-3 text-right font-semibold text-slate-300 [html.light_&]:text-[#536b88] whitespace-nowrap">
-                  {fmtCurrency(price)}
-                </td>
-                <td className="px-2 py-3 text-center text-xs text-slate-300 [html.light_&]:text-[#536b88] whitespace-nowrap">
-                  {sold} / {capacity}
-                </td>
-                <td className="px-2 py-3 text-center">
-                  <span className="text-xs font-bold text-cyan-300 [html.light_&]:text-cyan-700">{occupancy}%</span>
-                </td>
-                <td className="px-3 py-3 text-right font-bold text-emerald-400 [html.light_&]:text-[#065f46] whitespace-nowrap">
-                  {fmtCurrency(revenue)}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+              return (
+                <tr key={t.ticket_type_id || t.id || t.name} className="hover:bg-white/[0.02] [html.light_&]:hover:bg-amber-50/40">
+                  <td className="px-3 py-3 truncate font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm" title={t.ticket_type_name || t.name}>
+                    {t.ticket_type_name || t.name}
+                  </td>
+                  <td className="px-3 py-3 text-right font-semibold text-slate-300 [html.light_&]:text-[#536b88] whitespace-nowrap">
+                    {fmtCurrency(price)}
+                  </td>
+                  <td className="px-2 py-3 text-center text-xs text-slate-300 [html.light_&]:text-[#536b88] whitespace-nowrap">
+                    {sold} / {capacity}
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <span className="text-xs font-bold text-cyan-300 [html.light_&]:text-cyan-700">{occupancy}%</span>
+                  </td>
+                  <td className="px-3 py-3 text-right font-bold text-emerald-400 [html.light_&]:text-[#065f46] whitespace-nowrap">
+                    {fmtCurrency(revenue)}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )
@@ -1503,7 +1500,7 @@ export function OrganizerDashboardPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-display text-lg font-black text-white">
-                        Báo cáo Cố vấn Doanh thu AI 
+                        Báo cáo Cố vấn Doanh thu AI
                       </h3>
                       {financialSummary.source !== 'RULE_BASED_FALLBACK' && financialSummary.model !== 'financial-rule-fallback' && (
                         <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
@@ -1692,14 +1689,11 @@ export function OrganizerDashboardPage() {
               {/* Daily Revenue Chart Panel */}
               <OrganizerPanel>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="size-5 text-[#E6C17A]" />
-                    <div>
-                      <h3 className="font-bold text-white">
-                        {selectedEventId ? 'Doanh thu sự kiện theo ngày' : 'Doanh thu bán vé theo ngày'}
-                      </h3>
-                      <p className="text-xs text-slate-400">{activeRangeLabel}</p>
-                    </div>
+                  <div>
+                    <h3 className="font-bold text-white">
+                      {selectedEventId ? 'Doanh thu sự kiện theo ngày' : 'Doanh thu bán vé theo ngày'}
+                    </h3>
+                    <p className="text-xs text-slate-400">{activeRangeLabel}</p>
                   </div>
                 </div>
 

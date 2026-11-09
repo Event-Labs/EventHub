@@ -30,7 +30,8 @@ const emptyForm = {
   analytics_enabled: false,
   advanced_analytics_enabled: false,
   ai_report_enabled: false,
-  custom_branding_enabled: false,
+  ai_event_creation_enabled: false,
+  ai_seat_map_enabled: false,
   priority_support: false,
   is_active: true,
 }
@@ -42,8 +43,9 @@ const booleanFields = [
   ['attendee_export_enabled', 'Xuất danh sách tham dự'],
   ['analytics_enabled', 'Thống kê cơ bản'],
   ['advanced_analytics_enabled', 'Phân tích nâng cao'],
+  ['ai_event_creation_enabled', 'Tạo sự kiện bằng AI'],
+  ['ai_seat_map_enabled', 'Tạo sơ đồ ghế bằng AI'],
   ['ai_report_enabled', 'Báo cáo AI'],
-  ['custom_branding_enabled', 'Tùy chỉnh thương hiệu'],
   ['priority_support', 'Hỗ trợ ưu tiên'],
 ]
 
@@ -130,7 +132,8 @@ export function AdminPlansPage() {
       analytics_enabled: Boolean(plan.analytics_enabled),
       advanced_analytics_enabled: Boolean(plan.advanced_analytics_enabled),
       ai_report_enabled: Boolean(plan.ai_report_enabled),
-      custom_branding_enabled: Boolean(plan.custom_branding_enabled),
+      ai_event_creation_enabled: Boolean(plan.ai_event_creation_enabled),
+      ai_seat_map_enabled: Boolean(plan.ai_seat_map_enabled ?? plan.custom_branding_enabled),
       priority_support: Boolean(plan.priority_support),
       is_active: Boolean(plan.is_active),
     })
@@ -268,24 +271,79 @@ export function AdminPlansPage() {
           <form id="subscription-plan-form" onSubmit={submitForm} className="space-y-6 py-1">
             <FormSection title="Thông tin gói">
               <TextInput label="Tên gói" value={form.name} onChange={(name) => updateField('name', name)} required />
-              <TextInput inputMode="numeric" label="Giá gói" value={form.price} onChange={(price) => updateField('price', onlyNumberText(price))} placeholder="0" />
+              <TextInput
+                inputMode="numeric"
+                label="Giá gói (VNĐ)"
+                value={form.price}
+                onChange={(price) => updateField('price', onlyNumberText(price))}
+                placeholder="0"
+              />
             </FormSection>
 
             <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
 
-            <FormSection title="Giới hạn tổng của organizer">
-              <TextInput inputMode="numeric" label="Tổng số sự kiện" value={form.event_limit} onChange={(value) => updateField('event_limit', onlyNumberText(value))} placeholder="0" />
-              <TextInput inputMode="numeric" label="Sự kiện hoạt động cùng lúc" value={form.max_active_events} onChange={(value) => updateField('max_active_events', onlyNumberText(value))} placeholder="0" />
-              <TextInput inputMode="numeric" label="Tổng staff" value={form.staff_limit} onChange={(value) => updateField('staff_limit', onlyNumberText(value))} placeholder="0" />
+            <FormSection
+              title="Giới hạn tổng của organizer"
+              subtitle="0 = Không giới hạn"
+            >
+              <TextInput
+                inputMode="numeric"
+                label="Tổng số sự kiện"
+                value={form.event_limit}
+                onChange={(value) => updateField('event_limit', onlyNumberText(value))}
+                placeholder="0"
+              />
+              <TextInput
+                inputMode="numeric"
+                label="Sự kiện hoạt động cùng lúc"
+                value={form.max_active_events}
+                onChange={(value) => updateField('max_active_events', onlyNumberText(value))}
+                placeholder="0"
+              />
+              <TextInput
+                inputMode="numeric"
+                label="Tổng staff"
+                value={form.staff_limit}
+                onChange={(value) => updateField('staff_limit', onlyNumberText(value))}
+                placeholder="0"
+              />
             </FormSection>
 
             <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
 
-            <FormSection title="Giới hạn cho mỗi sự kiện">
-              <TextInput inputMode="numeric" label="Vé/sự kiện" value={form.max_tickets_per_event} onChange={(value) => updateField('max_tickets_per_event', onlyNumberText(value))} placeholder="0" />
-              <TextInput inputMode="numeric" label="Staff/sự kiện" value={form.max_staff_per_event} onChange={(value) => updateField('max_staff_per_event', onlyNumberText(value))} placeholder="0" />
-              <TextInput inputMode="numeric" label="Loại vé/sự kiện" value={form.max_ticket_types_per_event} onChange={(value) => updateField('max_ticket_types_per_event', onlyNumberText(value))} placeholder="0" />
-              <TextInput inputMode="numeric" label="Mã giảm giá/sự kiện" value={form.max_promo_codes_per_event} onChange={(value) => updateField('max_promo_codes_per_event', onlyNumberText(value))} placeholder="0" disabled={!form.promo_code_enabled} />
+            <FormSection
+              title="Giới hạn cho mỗi sự kiện"
+              subtitle="0 = Không giới hạn"
+            >
+              <TextInput
+                inputMode="numeric"
+                label="Vé/sự kiện"
+                value={form.max_tickets_per_event}
+                onChange={(value) => updateField('max_tickets_per_event', onlyNumberText(value))}
+                placeholder="0"
+              />
+              <TextInput
+                inputMode="numeric"
+                label="Staff/sự kiện"
+                value={form.max_staff_per_event}
+                onChange={(value) => updateField('max_staff_per_event', onlyNumberText(value))}
+                placeholder="0"
+              />
+              <TextInput
+                inputMode="numeric"
+                label="Loại vé/sự kiện"
+                value={form.max_ticket_types_per_event}
+                onChange={(value) => updateField('max_ticket_types_per_event', onlyNumberText(value))}
+                placeholder="0"
+              />
+              <TextInput
+                inputMode="numeric"
+                label="Mã giảm giá/sự kiện"
+                value={form.max_promo_codes_per_event}
+                onChange={(value) => updateField('max_promo_codes_per_event', onlyNumberText(value))}
+                placeholder="0"
+                disabled={!form.promo_code_enabled}
+              />
             </FormSection>
 
             <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
@@ -367,25 +425,42 @@ function Metric({ label, value, accent }) {
   )
 }
 
-function FormSection({ title, children }) {
+function FormSection({ title, subtitle, children }) {
   return (
     <section>
-      <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{title}</h4>
-      <div className="mt-3.5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{title}</h4>
+        {subtitle && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-[#C99A47]/15 px-2 py-0.5 text-[11px] font-bold text-[#E6C17A] border border-[#C99A47]/30 [html.light_&]:bg-amber-100 [html.light_&]:text-amber-800 [html.light_&]:border-amber-300">
+            {subtitle}
+          </span>
+        )}
+      </div>
+      <div className="mt-3.5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 items-start">{children}</div>
     </section>
   )
 }
 
-function TextInput({ label, value, onChange, ...props }) {
+function TextInput({ label, value, onChange, helperText, ...props }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white placeholder:text-slate-400 outline-none focus:border-[#C99A47] disabled:cursor-not-allowed disabled:bg-white/5 disabled:opacity-50 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
-        {...props}
-      />
+      <span
+        title={label}
+        className="block text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D] leading-5 min-h-[20px] truncate"
+      >
+        {label}
+      </span>
+      <div className="relative mt-2">
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white placeholder:text-slate-500 outline-none focus:border-[#C99A47] disabled:cursor-not-allowed disabled:bg-white/5 disabled:opacity-50 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+          {...props}
+        />
+      </div>
+      {helperText && (
+        <p className="mt-1 text-[11px] text-slate-400 [html.light_&]:text-slate-500">{helperText}</p>
+      )}
     </label>
   )
 }
@@ -456,7 +531,9 @@ function toPayload(form) {
     analytics_enabled: form.analytics_enabled,
     advanced_analytics_enabled: form.advanced_analytics_enabled,
     ai_report_enabled: form.ai_report_enabled,
-    custom_branding_enabled: form.custom_branding_enabled,
+    ai_event_creation_enabled: form.ai_event_creation_enabled,
+    ai_seat_map_enabled: form.ai_seat_map_enabled,
+    custom_branding_enabled: form.ai_seat_map_enabled,
     priority_support: form.priority_support,
     is_active: form.is_active,
   }
