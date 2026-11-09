@@ -18,7 +18,7 @@ class AiAssistantController {
         return res.status(200).json(
           ApiResponse.success({
             role: 'assistant',
-            content: 'Eve luôn sẵn sàng lắng nghe nè! Bạn hãy nhập câu hỏi về sự kiện hoặc thắc mắc về EventHub nhé 🥰'
+            content: 'Eve luôn sẵn sàng lắng nghe nè! Bạn hãy nhập câu hỏi về sự kiện hoặc thắc mắc về EventHub nhé.'
           }, 'Empty or sanitized message')
         );
       }
@@ -36,7 +36,11 @@ class AiAssistantController {
         try {
           const userMsg = { role: 'user', content: sanitizedMessage };
           const assistantMsg = { role: 'assistant', content: result?.content || '' };
-          const updatedMessages = [...(Array.isArray(history) ? history : []), userMsg, assistantMsg];
+          const hasGreeting = Array.isArray(history) && history.length > 0 && history[0].role === 'assistant';
+          const baseHistory = hasGreeting
+            ? history
+            : [{ role: 'assistant', content: 'Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.\n\nEve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè?' }, ...(Array.isArray(history) ? history : [])];
+          const updatedMessages = [...baseHistory, userMsg, assistantMsg];
 
           let sessionTitle = title;
           if (!sessionTitle || sessionTitle === 'Đoạn chat mới') {
@@ -65,7 +69,7 @@ class AiAssistantController {
         ApiResponse.success(
           {
             role: 'assistant',
-            content: 'Dạ Eve vừa gặp một chút gián đoạn kết nối. Bạn vui lòng thử lại sau ít giây nhé! 🥰',
+            content: 'Dạ Eve vừa gặp một chút gián đoạn kết nối. Bạn vui lòng thử lại sau ít giây nhé.',
           },
           'Chat processed with graceful fallback',
         ),

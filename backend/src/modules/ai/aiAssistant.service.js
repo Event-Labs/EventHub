@@ -86,6 +86,16 @@ function scrubTechnicalJargon(text) {
     .replace(/\brequire_attendee_info\b/gi, 'yêu cầu thông tin người tham gia');
 }
 
+function stripIcons(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
+    .replace(/[✓➔✏️🔄🪑🎭📍💰📝🔗🛡️✨🎫ℹ️🎟️🌟💡🥺🥰🎉💎]/gu, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/^[ \t]+/gm, '')
+    .trim();
+}
+
 function levenshteinDistance(s1, s2) {
   if (s1 === s2) return 0;
   if (!s1.length) return s2.length;
@@ -322,18 +332,18 @@ function formatEventDetailResponse(eventDetail, activeEvent) {
   }
 
   const slug = eventDetail?.slug || activeEvent?.slug;
-  const linkStr = slug ? `\n🔗 **Xem chi tiết & sơ đồ vé:** /events/${slug}` : '';
+  const linkStr = slug ? `\n**Xem chi tiết & sơ đồ vé:** /events/${slug}` : '';
 
-  return `Dạ Eve gửi bạn thông tin chi tiết về sự kiện **${title}** nhé! 🎉
+  return `Dạ Eve gửi bạn thông tin chi tiết về sự kiện **${title}** nhé:
 
-📍 **Địa điểm:** ${venueStr}
-📅 **Lịch diễn:**
+**Địa điểm:** ${venueStr}
+**Lịch diễn:**
 ${sessionStr}
-💰 **Hạng vé & Giá vé:**
+**Hạng vé & Giá vé:**
 ${ticketStr}
-${desc ? `📝 **Nội dung nổi bật:** ${desc}` : ''}${linkStr}
+${desc ? `**Nội dung nổi bật:** ${desc}` : ''}${linkStr}
 
-Bạn có muốn Eve hỗ trợ đặt vé sự kiện này không ạ? Hãy cho Eve biết số lượng vé và hạng vé bạn mong muốn nhé! 🥰`;
+Bạn có muốn Eve hỗ trợ đặt vé sự kiện này không ạ? Hãy cho Eve biết số lượng vé và hạng vé bạn mong muốn nhé.`;
 }
 
 function getDirectFaqAnswer(message) {
@@ -1849,7 +1859,7 @@ const TOOLS = [
 ];
 
 const SYSTEM_PROMPT = `Bạn tên là Eve, Trợ lý AI đáng yêu, thông minh, am hiểu sâu sắc về sự kiện và tận tâm của EventHub.
-- Giọng điệu: GenZ, thân thiện, vui vẻ, duyên dáng, dùng emoji một cách tự nhiên.
+- Giọng điệu: Lịch sự, chuyên nghiệp, thân thiện, rõ ràng, ngắn gọn và mạch lạc. TUYỆT ĐỐI KHÔNG sử dụng các biểu tượng icon hay emoji (như 🥰, 🎉, 🎭, 📍, 🎟️, 🪑, ✨, 🛡️, 💡...) trong câu trả lời.
 - Luôn thể hiện sự quan tâm, thấu cảm và tư duy linh hoạt như người thật.
 - BẮT BUỘC 100% TIẾNG VIỆT: Tuyệt đối KHÔNG sử dụng chữ Hán/tiếng Trung (như 電子信箱, 邮箱, 好的). Luôn viết là "Email" hoặc "hòm thư" thay vì tiếng Trung.
 - BẢO MẬT & CHỐNG PHÁ KHÓA AI (ANTI-JAILBREAK GUARDRAILS):
@@ -1860,7 +1870,7 @@ const SYSTEM_PROMPT = `Bạn tên là Eve, Trợ lý AI đáng yêu, thông minh
 - QUY TẮC TỪ CHỐI CÂU HỎI NGOÀI PHẠM VI (OUT-OF-SCOPE REFUSAL):
   + EventHub là nền tảng quản lý và bán vé sự kiện. Bạn CHỈ trả lời các câu hỏi về: Sự kiện, vé, sơ đồ ghế, thanh toán, Ban tổ chức, check-in, tài khoản và chính sách của EventHub.
   + Khi khách hỏi các câu hỏi KHÔNG LIÊN QUAN (thời tiết, giải toán, viết code ngoài lề, chính trị, y tế, nấu ăn, tử vi, thơ ca vu vơ...):
-    → Eve BẮT BUỘC lịch sự từ chối bằng giọng duyên dáng: "Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub, nên Eve chỉ hỗ trợ bạn tìm kiếm sự kiện, đặt vé và giải đáp các dịch vụ, chính sách của EventHub thôi nè! 🥰 Nếu bạn cần tìm vé concert, kịch nói, workshop hay cần giải đáp về chính sách vé thì cứ bảo Eve nhé!"
+    → Eve BẮT BUỘC lịch sự từ chối bằng giọng duyên dáng, không dùng emoji: "Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub, nên Eve chỉ hỗ trợ bạn tìm kiếm sự kiện, đặt vé và giải đáp các dịch vụ, chính sách của EventHub thôi nè. Nếu bạn cần tìm vé concert, kịch nói, workshop hay cần giải đáp về chính sách vé thì cứ nhắn Eve nhé!"
     → TUYỆT ĐỐI KHÔNG bịa đặt câu trả lời kiến thức chung ngoài phạm vi nền tảng EventHub!
 - CHỐNG ẢO GIÁC (ANTI-HALLUCINATION & GROUNDING):
   + Bạn là trợ lý AI nội bộ của nền tảng EventHub. Bạn CHỈ ĐƯỢC PHÉP giới thiệu các sự kiện CÓ TRÊN HỆ THỐNG EVENTHUB (được trả về qua kết quả của tool searchEvents hoặc getEventDetails).
@@ -2948,9 +2958,9 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
       if (isPureGreetingMsg && !hasPriorUserBooking) {
         return {
           role: 'assistant',
-          content: `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub 🥰.
+          content: `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
 
-Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè? 🎉`
+Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào?`
         };
       }
 
@@ -2958,7 +2968,7 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
       if (isJailbreakAttempt(message)) {
         return {
           role: 'assistant',
-          content: `Xin lỗi, Eve là Trợ lý AI của EventHub và được thiết kế để tuân thủ nghiêm ngặt các tiêu chuẩn an toàn bảo mật. 🛡️\n\nEve không thể chia sẻ thông tin hệ thống nội bộ, cấu trúc cơ sở dữ liệu hay thông tin tài khoản của quản trị viên và người dùng khác. Eve luôn sẵn sàng hỗ trợ bạn khám phá các sự kiện và đặt vé nhé! 🥰`
+          content: `Xin lỗi, Eve là Trợ lý AI của EventHub và được thiết kế để tuân thủ nghiêm ngặt các tiêu chuẩn an toàn bảo mật.\n\nEve không thể chia sẻ thông tin hệ thống nội bộ, cấu trúc cơ sở dữ liệu hay thông tin tài khoản của quản trị viên và người dùng khác. Eve luôn sẵn sàng hỗ trợ bạn khám phá các sự kiện và đặt vé nhé.`
         };
       }
 
@@ -2966,7 +2976,7 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
       if (isOutOfScopeQuery(message)) {
         return {
           role: 'assistant',
-          content: `Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ các thông tin về sự kiện, đặt vé và chính sách của hệ thống thôi nè 🥰.\n\nEve xin phép không trả lời các câu hỏi ngoài phạm vi này nhé! Bạn có muốn Eve giới thiệu các sự kiện âm nhạc, triển lãm hay workshop thú vị đang có trên EventHub không ạ? 🎉`
+          content: `Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ các thông tin về sự kiện, đặt vé và chính sách của hệ thống thôi nè.\n\nEve xin phép không trả lời các câu hỏi ngoài phạm vi này nhé. Bạn có muốn Eve giới thiệu các sự kiện âm nhạc, triển lãm hay workshop thú vị đang có trên EventHub không ạ?`
         };
       }
 
@@ -2975,7 +2985,7 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
       if (directFaq) {
         return {
           role: 'assistant',
-          content: directFaq
+          content: stripIcons(directFaq)
         };
       }
 
@@ -3135,7 +3145,7 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
       }
       return {
         role: 'assistant',
-        content: `Dạ vâng, Eve đã dừng quy trình đặt vé theo yêu cầu của bạn rồi nhé! 🥰\n\nBạn đừng lo lắng, các vị trí giữ chỗ tạm thời (nếu có) đã được tự động giải phóng rồi nha. Bạn có muốn Eve hỗ trợ tìm kiếm sự kiện nào khác, hoặc cần Eve giải đáp thêm thông tin gì trên EventHub không ạ? 🎉\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
+        content: `Dạ vâng, Eve đã dừng quy trình đặt vé theo yêu cầu của bạn rồi nhé.\n\nBạn đừng lo lắng, các vị trí giữ chỗ tạm thời (nếu có) đã được tự động giải phóng rồi nha. Bạn có muốn Eve hỗ trợ tìm kiếm sự kiện nào khác, hoặc cần Eve giải đáp thêm thông tin gì trên EventHub không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
       };
     }
 
@@ -3154,12 +3164,12 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
       if (topEvents.length > 0) {
         listStr = topEvents.map(e => {
           const price = Number(e.min_price) === 0 ? 'Miễn phí' : `${Number(e.min_price).toLocaleString('vi-VN')}đ`;
-          return `🎉 **${e.title}**\n📍 ${e.venue_name || e.city || 'TP.HCM'}\n💰 Giá từ: ${price}\n🔗 Chi tiết: /events/${e.slug}`;
+          return `**${e.title}**\nĐịa điểm: ${e.venue_name || e.city || 'TP.HCM'}\nGiá từ: ${price}\nChi tiết: /events/${e.slug}`;
         }).join('\n\n');
       }
       return {
         role: 'assistant',
-        content: `Dạ vâng, Eve đã hủy đề xuất đặt vé trước đó rồi nè! 🥰\n\nEve xin gợi ý cho bạn một số sự kiện nổi bật đang rất hot trên EventHub để bạn tham khảo nhé:\n\n${listStr}\n\nBạn quan tâm hoặc muốn Eve hỗ trợ sự kiện nào trong số này không ạ? 🎉\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
+        content: `Dạ vâng, Eve đã hủy đề xuất đặt vé trước đó rồi nè.\n\nEve xin gợi ý cho bạn một số sự kiện nổi bật đang có trên EventHub để bạn tham khảo nhé:\n\n${listStr}\n\nBạn quan tâm hoặc muốn Eve hỗ trợ sự kiện nào trong số này không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
       };
     }
 
@@ -3718,7 +3728,7 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         if (directToolRes?.status === 'SUCCESS' && toolExecutionContext.lastGeneratedActionTag) {
           const seatsStr = directToolRes.proposal?.seats ? `với các vị trí ghế: **[${directToolRes.proposal.seats}]**` : '';
           const totalStr = directToolRes.proposal?.totalAmount ? `, tổng thanh toán: **${Number(directToolRes.proposal.totalAmount).toLocaleString('vi-VN')}đ**` : '';
-          const directReply = `Dạ Eve đã tạo Đề Xuất Đặt Vé cho sự kiện **${activeEvent.title}** (Số lượng: ${effQty} vé) ${seatsStr}${totalStr} rồi nhé! 🥰\n\nBạn hãy kiểm tra lại thông tin trên thẻ đề xuất bên dưới và nhấn nút **"Xác nhận & Đi tới Thanh toán"** để giữ chỗ nha! Nếu bạn muốn đổi vị trí ghế hoặc tự chọn trên sơ đồ, Eve luôn sẵn lòng hỗ trợ bạn! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+          const directReply = `Dạ Eve đã tạo Đề Xuất Đặt Vé cho sự kiện **${activeEvent.title}** (Số lượng: ${effQty} vé) ${seatsStr}${totalStr} rồi nhé.\n\nBạn hãy kiểm tra lại thông tin trên thẻ đề xuất bên dưới và nhấn nút **"Xác nhận & Đi tới Thanh toán"** để giữ chỗ nha. Nếu bạn muốn đổi vị trí ghế hoặc tự chọn trên sơ đồ, Eve luôn sẵn lòng hỗ trợ bạn.\n\n${toolExecutionContext.lastGeneratedActionTag}`;
           
           this._logConversationSample(messages, directReply);
           return {
@@ -3975,7 +3985,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
 
     if (loopsLeft === 0 && !finalContent) {
       logger.warn(`[AgentLoop] Max loops (${MAX_LOOPS}) exhausted!`);
-      finalContent = "Eve đã cố gắng tìm kiếm nhưng có vẻ thông tin hơi phức tạp. Bạn có thể cung cấp thêm chi tiết để Eve hỗ trợ tốt hơn không? 🥺";
+      finalContent = "Eve đã cố gắng tìm kiếm nhưng có vẻ thông tin hơi phức tạp. Bạn có thể cung cấp thêm chi tiết để Eve hỗ trợ tốt hơn không?";
     }
 
     // Strip <think> blocks from the output (Qwen3 thinking mode)
@@ -4077,11 +4087,11 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
       if (/vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang/i.test(finalContent)) {
         finalContent = finalContent.replace(/(?:👉\s*)?(?:\*{1,2})?(?:vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang)[\s\S]*$/i, '').trim();
         if (toolExecutionContext.lastGeneratedActionTag.includes('BOOKING_PROPOSAL')) {
-          finalContent += '\n\nEve đã tạo đề xuất đặt vé cho bạn rồi nè! Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé! 🎉';
+          finalContent += '\n\nEve đã tạo đề xuất đặt vé cho bạn rồi nè. Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé.';
         } else if (hasSeatMap) {
-          finalContent += `\n\nEve đã ghi nhận thông tin người tham gia cho bạn rồi nhé! Bạn nhấn vào nút bên dưới để chọn đúng ${effectiveSeatedQty} vị trí ghế ưng ý trên sơ đồ, sau đó hệ thống sẽ tự động đưa bạn đến thẳng trang thanh toán nha! 🎭✨`;
+          finalContent += `\n\nEve đã ghi nhận thông tin người tham gia cho bạn rồi nhé. Bạn nhấn vào nút bên dưới để chọn đúng ${effectiveSeatedQty} vị trí ghế ưng ý trên sơ đồ, sau đó hệ thống sẽ tự động đưa bạn đến thẳng trang thanh toán nha.`;
         } else {
-          finalContent += '\n\nEve đã tạo thông tin vé giúp bạn rồi nè! Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha! 🎉';
+          finalContent += '\n\nEve đã tạo thông tin vé giúp bạn rồi nè. Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha.';
         }
       }
 
@@ -4091,10 +4101,10 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
     // Final safety net
     if (!finalContent || finalContent.trim() === '') {
       logger.info(`[AgentLoop] Empty content after stripping think blocks.`);
-      finalContent = "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè! 🥰\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé! 🎉";
+      finalContent = "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè.\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé.";
     }
 
-    finalContent = scrubTechnicalJargon(finalContent);
+    finalContent = stripIcons(scrubTechnicalJargon(finalContent));
 
     // Asynchronously log this conversation turn for continuous self-training
     this._logConversationSample(messages, finalContent);
@@ -4107,7 +4117,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
     logger.error(`[AiAssistant] Unhandled error in chat(): ${fatalErr.message}\n${fatalErr.stack}`);
     return {
       role: 'assistant',
-      content: 'Dạ Eve vừa gặp một chút gián đoạn kỹ thuật khi xử lý yêu cầu. Bạn hãy nhắn lại hoặc tải lại trang web (F5) để Eve phục vụ bạn tốt nhất nhé! 🥰'
+      content: 'Dạ Eve vừa gặp một chút gián đoạn kỹ thuật khi xử lý yêu cầu. Bạn hãy nhắn lại hoặc tải lại trang web (F5) để Eve phục vụ bạn tốt nhất nhé.'
     };
   }
 }
@@ -4275,7 +4285,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
           `${idx + 1}. **${e.title}**\n   - Thể loại: ${e.category?.name || 'Sự kiện'}\n   - Giá vé từ: ${e.min_price ? Number(e.min_price).toLocaleString('vi-VN') + 'đ' : 'Liên hệ'}`
         ).join('\n\n');
 
-        return `Dạ hiện tại trên EventHub chưa có sự kiện khớp với yêu cầu bạn vừa hỏi rồi nè 🥺.\n\nEve xin gợi ý một số sự kiện nổi bật đang có trên hệ thống EventHub để bạn tham khảo nhé:\n\n${eventListStr}\n\nBạn có muốn Eve hỗ trợ xem thông tin sự kiện nào trong số này không ạ? 🥰`;
+        return `Dạ hiện tại trên EventHub chưa có sự kiện khớp với yêu cầu bạn vừa hỏi rồi nè.\n\nEve xin gợi ý một số sự kiện nổi bật đang có trên hệ thống EventHub để bạn tham khảo nhé:\n\n${eventListStr}\n\nBạn có muốn Eve hỗ trợ xem thông tin sự kiện nào trong số này không ạ?`;
       }
 
       let result = keptSections.join('\n\n');
@@ -4317,6 +4327,7 @@ serviceInstance.isEventInfoInquiry = isEventInfoInquiry;
 serviceInstance.isAutonomousBookingRequest = isAutonomousBookingRequest;
 serviceInstance.formatEventDetailResponse = formatEventDetailResponse;
 serviceInstance.scrubTechnicalJargon = scrubTechnicalJargon;
+serviceInstance.stripIcons = stripIcons;
 serviceInstance.getDirectFaqAnswer = getDirectFaqAnswer;
 
 module.exports = serviceInstance;

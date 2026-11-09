@@ -275,6 +275,10 @@ export function AppLayout() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  if (loggedIn && hasAdminRole) {
+    return <Navigate to="/admin" replace />
+  }
+
   return (
     <div className="force-dark flex min-h-screen flex-col text-content bg-transparent relative">
       <CosmicStarryBackground />
