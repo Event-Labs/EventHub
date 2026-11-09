@@ -1,5 +1,5 @@
 import { BarChart3, CalendarCheck, LayoutDashboard, QrCode, Ticket, UserCircle, UserPlus } from 'lucide-react'
-import { getStoredUser, getUserRoles } from '@/lib/auth.js'
+import { getStoredUser, getUserRoles, isAdminUser } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 
@@ -25,7 +25,7 @@ const navSections = [
 export function StaffLayout() {
   const user = parseStoredUser()
   const roles = getUserRoles(user)
-  const isAllowed = roles.some((role) => ['staff', 'admin', 'super_admin'].includes(role))
+  const isAllowed = !isAdminUser(user) && roles.includes('staff')
   const bottomItems = [
     { label: 'Hồ sơ', to: '/staff/profile', icon: UserCircle },
   ]

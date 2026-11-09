@@ -960,7 +960,7 @@ class OrganizerEventsService {
     return { deleted: true };
   }
 
-  async assignZoneTicketTypes(userId, eventId, sessionId, assignments) {
+  async assignZoneTicketTypes(userId, eventId, sessionId, payload) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);
     const { permissions } = await this.getEditContext(eventId);
@@ -973,7 +973,16 @@ class OrganizerEventsService {
     if (!session.seat_map_id) {
       throw new AppError('Session has no seat map assigned', 400, ErrorCodes.INVALID_INPUT);
     }
-    if (!Array.isArray(assignments) || !assignments.length) {
+
+    const assignments = Array.isArray(payload) ? payload : (payload?.assignments || []);
+    const disabledSeatIds = payload && !Array.isArray(payload)
+      ? (Array.isArray(payload.disabled_seat_ids) ? payload.disabled_seat_ids : (Array.isArray(payload.disabledSeatIds) ? payload.disabledSeatIds : null))
+      : null;
+
+    if (!Array.isArray(assignments)) {
+      throw new AppError('Zone assignments must be an array', 400, ErrorCodes.INVALID_INPUT);
+    }
+    if (!assignments.length && !disabledSeatIds) {
       throw new AppError('Zone assignments are required', 400, ErrorCodes.INVALID_INPUT);
     }
 
@@ -987,8 +996,8 @@ class OrganizerEventsService {
       }
     }
 
-    await organizerEventsRepository.assignZonesToTicketTypes(sessionId, assignments);
-    return { assigned: assignments.length };
+    await organizerEventsRepository.assignZonesToTicketTypes(sessionId, assignments, disabledSeatIds);
+    return { assigned: assignments.length, disabled_seats: disabledSeatIds ? disabledSeatIds.length : undefined };
   }
 
   async getLatestAiContentGeneration(userId, _eventId) {
