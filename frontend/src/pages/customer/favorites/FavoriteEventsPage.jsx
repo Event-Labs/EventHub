@@ -8,8 +8,10 @@ import { fetchFavoriteEvents, toggleFavorite } from '@/services/events.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 export function FavoriteEventsPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -33,7 +35,15 @@ export function FavoriteEventsPage() {
     onMutate: (event) => {
       const isFavorited = !event.is_favorited
       const snapshots = optimisticallySetFavorite(queryClient, event, isFavorited)
-      toast.success(isFavorited ? '\u0110\u00e3 l\u01b0u s\u1ef1 ki\u1ec7n v\u00e0o y\u00eau th\u00edch.' : '\u0110\u00e3 b\u1ecf s\u1ef1 ki\u1ec7n kh\u1ecfi y\u00eau th\u00edch.')
+      toast.success(
+        isFavorited
+          ? isEnglish
+            ? 'Event saved to favorites.'
+            : 'Đã lưu sự kiện vào yêu thích.'
+          : isEnglish
+            ? 'Event removed from favorites.'
+            : 'Đã bỏ sự kiện khỏi yêu thích.'
+      )
       return { snapshots }
     },
     onSuccess: (data, event) => {
@@ -43,7 +53,12 @@ export function FavoriteEventsPage() {
     },
     onError: (err, _event, context) => {
       restoreFavoriteSnapshots(queryClient, context?.snapshots)
-      toast.error(getApiMessage(err, 'Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt danh s\u00e1ch y\u00eau th\u00edch.'))
+      toast.error(
+        getApiMessage(
+          err,
+          isEnglish ? 'Failed to update favorites.' : 'Không thể cập nhật danh sách yêu thích.'
+        )
+      )
     },
     onSettled: () => refreshFavoriteQueries(queryClient),
   })
@@ -55,18 +70,22 @@ export function FavoriteEventsPage() {
   return (
     <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <SectionHeader
-        title="Sự kiện Yêu thích"
-        description="Các sự kiện bạn đã lưu để xem lại và đặt vé sau"
+        title={isEnglish ? 'Favorite Events' : 'Sự kiện Yêu thích'}
+        description={
+          isEnglish
+            ? 'Events you saved to revisit and book tickets later'
+            : 'Các sự kiện bạn đã lưu để xem lại và đặt vé sau'
+        }
       />
 
       {favoritesQuery.isLoading && (
-        <StatePanel message="Đang tải sự kiện yêu thích..." />
+        <StatePanel message={isEnglish ? 'Loading favorite events...' : 'Đang tải sự kiện yêu thích...'} />
       )}
       {favoritesQuery.isError && (
-        <EmptyText />
+        <EmptyText isEnglish={isEnglish} />
       )}
       {!favoritesQuery.isLoading && !favoritesQuery.isError && events.length === 0 && (
-        <EmptyText />
+        <EmptyText isEnglish={isEnglish} />
       )}
 
       <div className="mt-4 sm:mt-6 grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -92,10 +111,10 @@ function StatePanel({ message }) {
   )
 }
 
-function EmptyText() {
+function EmptyText({ isEnglish = false }) {
   return (
     <div className="glass-panel mb-6 rounded-[24px] border-white/5 p-12 text-center italic text-slate-500 shadow-inner">
-      Không có sự kiện yêu thích nào 
+      {isEnglish ? 'No favorite events yet' : 'Không có sự kiện yêu thích nào'}
     </div>
   )
 }

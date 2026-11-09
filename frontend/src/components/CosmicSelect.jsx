@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 /**
  * CosmicSelect – Custom high-fidelity dropdown select synced with Dashboard UI:
@@ -27,14 +28,20 @@ export function CosmicSelect({
   const popupRef = useRef(null)
   const [popupStyle, setPopupStyle] = useState({ left: 0, top: 0, minWidth: 180, maxWidth: 360 })
 
+  const { isEnglish, t } = useLanguage()
+  const displayPlaceholder = typeof placeholder === 'string' ? (placeholder === 'Chọn...' ? (isEnglish ? 'Select...' : 'Chọn...') : t(placeholder)) : placeholder
+  const displayLabel = typeof label === 'string' ? t(label) : label
+
   // Normalize options to object format: { value, label }
   const normalizedOptions = options.map((opt) => {
     if (typeof opt === 'string' || typeof opt === 'number') {
-      return { value: opt, label: String(opt) }
+      const str = String(opt)
+      return { value: opt, label: t(str) }
     }
+    const rawLabel = opt.label || opt.name || String(opt.value)
     return {
       value: opt.value,
-      label: opt.label || opt.name || String(opt.value),
+      label: typeof rawLabel === 'string' ? t(rawLabel) : rawLabel,
       tone: opt.tone,
       badge: opt.badge,
     }
@@ -107,9 +114,9 @@ export function CosmicSelect({
 
   return (
     <div className={`relative inline-block ${className}`}>
-      {label && (
+      {displayLabel && (
         <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-          {label}
+          {displayLabel}
         </span>
       )}
 
@@ -128,7 +135,7 @@ export function CosmicSelect({
         <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
           {Icon && <Icon className="size-4 shrink-0 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />}
           <span className="truncate">
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption ? selectedOption.label : displayPlaceholder}
           </span>
         </span>
 

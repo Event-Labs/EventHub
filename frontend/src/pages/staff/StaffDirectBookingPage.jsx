@@ -78,18 +78,27 @@ function getCashSuggestions(total) {
     .slice(0, 4)
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
-  return new Intl.DateTimeFormat('vi-VN', {
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'Updating' : 'Chưa cập nhật'
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
 }
 
 function venueLine(venue) {
-  if (!venue) return 'Địa điểm cập nhật sau'
+  const isEn = getAutoLocale() === 'en-US'
+  const fallback = isEn ? 'Venue will be updated' : 'Địa điểm cập nhật sau'
+  if (!venue) return fallback
   if (typeof venue === 'string') return venue
-  return [venue.name, venue.address_line, venue.ward, venue.district, venue.city].filter(Boolean).join(', ') || 'Địa điểm cập nhật sau'
+  return [venue.name, venue.address_line, venue.ward, venue.district, venue.city].filter(Boolean).join(', ') || fallback
 }
 
 function qrPayload(ticket) {
@@ -500,7 +509,6 @@ export function StaffDirectBookingPage() {
     <StaffPage
       className="direct-booking-page"
       title={isReviewing ? null : 'Đặt vé Trực tiếp'}
-      description={isReviewing ? null : 'Chọn vé, tính tạm và kiểm tra lại trước khi nhận thanh toán và xuất vé cho khách.'}
       action={null}
     >
       <style>{`

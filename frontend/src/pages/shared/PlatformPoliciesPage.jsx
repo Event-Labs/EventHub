@@ -23,56 +23,80 @@ import {
 } from '@/services/platformFinance.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import staticPoliciesData from './platformPoliciesData.json'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 // Category groupings matching the Footer navigation
-const POLICY_GROUPS = [
-  {
-    key: 'about',
-    title: 'Về nền tảng chúng tôi',
-    icon: Shield,
-    color: 'from-amber-500/20 to-yellow-500/10 border-amber-500/30 text-[#E6C17A]',
-    types: ['SYSTEM_POLICY', 'PRIVACY_POLICY', 'AI_POLICY', 'COMPLAINT_POLICY'],
-  },
-  {
-    key: 'customer',
-    title: 'Dành cho Khách hàng',
-    icon: Users,
-    color: 'from-cyan-500/20 to-blue-500/10 border-cyan-500/30 text-cyan-300',
-    types: ['TERMS_CUSTOMER', 'TICKET_POLICY', 'PAYMENT_POLICY', 'PAYMENT_SECURITY_POLICY', 'REFUND_POLICY'],
-  },
-  {
-    key: 'organizer',
-    title: 'Dành cho BTC',
-    icon: Layers,
-    color: 'from-purple-500/20 to-indigo-500/10 border-purple-500/30 text-purple-300',
-    types: ['TERMS_ORGANIZER', 'EVENT_POLICY', 'SUBSCRIPTION_POLICY', 'FEE_POLICY'],
-  },
-  {
-    key: 'staff',
-    title: 'Dành cho Nhân sự',
-    icon: CheckCircle2,
-    color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-300',
-    types: ['TERMS_STAFF', 'CHECKIN_POLICY'],
-  },
-]
+function getPolicyGroups(isEnglish) {
+  return [
+    {
+      key: 'about',
+      title: isEnglish ? 'About Our Platform' : 'Về nền tảng chúng tôi',
+      icon: Shield,
+      color: 'from-amber-500/20 to-yellow-500/10 border-amber-500/30 text-[#E6C17A]',
+      types: ['SYSTEM_POLICY', 'PRIVACY_POLICY', 'AI_POLICY', 'COMPLAINT_POLICY'],
+    },
+    {
+      key: 'customer',
+      title: isEnglish ? 'For Customers' : 'Dành cho Khách hàng',
+      icon: Users,
+      color: 'from-cyan-500/20 to-blue-500/10 border-cyan-500/30 text-cyan-300',
+      types: ['TERMS_CUSTOMER', 'TICKET_POLICY', 'PAYMENT_POLICY', 'PAYMENT_SECURITY_POLICY', 'REFUND_POLICY'],
+    },
+    {
+      key: 'organizer',
+      title: isEnglish ? 'For Organizers' : 'Dành cho BTC',
+      icon: Layers,
+      color: 'from-purple-500/20 to-indigo-500/10 border-purple-500/30 text-purple-300',
+      types: ['TERMS_ORGANIZER', 'EVENT_POLICY', 'SUBSCRIPTION_POLICY', 'FEE_POLICY'],
+    },
+    {
+      key: 'staff',
+      title: isEnglish ? 'For Staff' : 'Dành cho Nhân sự',
+      icon: CheckCircle2,
+      color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-300',
+      types: ['TERMS_STAFF', 'CHECKIN_POLICY'],
+    },
+  ]
+}
 
-const POLICY_LABELS = {
-  SYSTEM_POLICY: 'Chính sách hệ thống',
-  PRIVACY_POLICY: 'Bảo mật thông tin cá nhân',
-  AI_POLICY: 'Chính sách sử dụng AI',
-  COMPLAINT_POLICY: 'Khiếu nại và tranh chấp',
-  TERMS_CUSTOMER: 'Điều khoản dành cho Khách hàng',
-  TICKET_POLICY: 'Chính sách vé',
-  PAYMENT_POLICY: 'Chính sách thanh toán',
-  PAYMENT_SECURITY_POLICY: 'Bảo mật thanh toán',
-  REFUND_POLICY: 'Chính sách hoàn tiền',
-  TERMS_ORGANIZER: 'Điều khoản dành cho Nhà tổ chức',
-  EVENT_POLICY: 'Chính sách sự kiện',
-  SUBSCRIPTION_POLICY: 'Gói dịch vụ Organizer',
-  FEE_POLICY: 'Chính sách phí nền tảng',
-  TERMS_STAFF: 'Điều khoản dành cho Nhân sự',
-  CHECKIN_POLICY: 'Soát vé và chống vé giả',
-  GENERAL_TERMS: 'Điều khoản sử dụng chung',
+function getPolicyLabels(isEnglish) {
+  return isEnglish
+    ? {
+        SYSTEM_POLICY: 'System Policy',
+        PRIVACY_POLICY: 'Privacy Policy',
+        AI_POLICY: 'AI Usage Policy',
+        COMPLAINT_POLICY: 'Complaints & Disputes',
+        TERMS_CUSTOMER: 'Customer Terms of Service',
+        TICKET_POLICY: 'Ticket Policy',
+        PAYMENT_POLICY: 'Payment Policy',
+        PAYMENT_SECURITY_POLICY: 'Payment Security',
+        REFUND_POLICY: 'Refund Policy',
+        TERMS_ORGANIZER: 'Organizer Terms of Service',
+        EVENT_POLICY: 'Event Policy',
+        SUBSCRIPTION_POLICY: 'Organizer Subscription Policy',
+        FEE_POLICY: 'Platform Fee Policy',
+        TERMS_STAFF: 'Staff Terms of Service',
+        CHECKIN_POLICY: 'Check-in & Anti-fraud Policy',
+        GENERAL_TERMS: 'General Terms of Service',
+      }
+    : {
+        SYSTEM_POLICY: 'Chính sách hệ thống',
+        PRIVACY_POLICY: 'Bảo mật thông tin cá nhân',
+        AI_POLICY: 'Chính sách sử dụng AI',
+        COMPLAINT_POLICY: 'Khiếu nại và tranh chấp',
+        TERMS_CUSTOMER: 'Điều khoản dành cho Khách hàng',
+        TICKET_POLICY: 'Chính sách vé',
+        PAYMENT_POLICY: 'Chính sách thanh toán',
+        PAYMENT_SECURITY_POLICY: 'Bảo mật thanh toán',
+        REFUND_POLICY: 'Chính sách hoàn tiền',
+        TERMS_ORGANIZER: 'Điều khoản dành cho Nhà tổ chức',
+        EVENT_POLICY: 'Chính sách sự kiện',
+        SUBSCRIPTION_POLICY: 'Gói dịch vụ Organizer',
+        FEE_POLICY: 'Chính sách phí nền tảng',
+        TERMS_STAFF: 'Điều khoản dành cho Nhân sự',
+        CHECKIN_POLICY: 'Soát vé và chống vé giả',
+        GENERAL_TERMS: 'Điều khoản sử dụng chung',
+      }
 }
 
 const POLICY_ALIASES = {
@@ -95,6 +119,9 @@ const POLICY_ALIASES = {
 }
 
 export function PlatformPoliciesPage({ audience = 'public' }) {
+  const { isEnglish, t } = useLanguage()
+  const policyGroups = useMemo(() => getPolicyGroups(isEnglish), [isEnglish])
+  const policyLabels = useMemo(() => getPolicyLabels(isEnglish), [isEnglish])
   const [searchParams, setSearchParams] = useSearchParams()
   const rawType = searchParams.get('policy_type') || (audience === 'organizer' ? 'TERMS_ORGANIZER' : 'SYSTEM_POLICY')
   const activeType = POLICY_ALIASES[rawType] || rawType
@@ -169,9 +196,9 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
 
   // If audience is organizer, filter groups to relevant BTC policies
   const visibleGroups = useMemo(() => {
-    if (audience !== 'organizer') return POLICY_GROUPS
-    return POLICY_GROUPS.filter((g) => g.key === 'organizer')
-  }, [audience])
+    if (audience !== 'organizer') return policyGroups
+    return policyGroups.filter((g) => g.key === 'organizer')
+  }, [audience, policyGroups])
 
   return (
     <div className={`force-dark mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pb-16 ${audience === 'organizer' ? 'pt-2' : 'pt-2 sm:pt-4'}`}>
@@ -179,13 +206,15 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
       <div className="mb-4 sm:mb-6 text-center sm:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-[#E6C17A] mb-2 sm:mb-3 shadow-[0_0_15px_rgba(201,154,71,0.2)]">
           <Sparkles className="size-3.5" />
-          <span>Trung tâm Điều khoản & Chính sách Nền tảng EventHub</span>
+          <span>{isEnglish ? 'EventHub Terms & Platform Policy Center' : 'Trung tâm Điều khoản & Chính sách Nền tảng EventHub'}</span>
         </div>
         <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
-          {renderCosmicTitle('Chính sách & Quy định EventHub')}
+          {renderCosmicTitle(isEnglish ? 'EventHub Policies & Terms' : 'Chính sách & Quy định EventHub')}
         </h1>
         <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm lg:text-base text-slate-400 max-w-3xl">
-          Tổng hợp các quy định pháp lý, điều khoản sử dụng, chính sách bảo vệ quyền lợi khách hàng, nhà tổ chức và chuẩn mực bảo mật vận hành trên nền tảng.
+          {isEnglish
+            ? 'A comprehensive compilation of legal regulations, terms of service, customer protection guidelines, organizer rules, and operational security standards on the platform.'
+            : 'Tổng hợp các quy định pháp lý, điều khoản sử dụng, chính sách bảo vệ quyền lợi khách hàng, nhà tổ chức và chuẩn mực bảo mật vận hành trên nền tảng.'}
         </p>
       </div>
 
@@ -208,7 +237,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                   {group.types.map((type) => {
                     const policy = policiesMap.get(type)
                     const isSelected = activePolicy?.policy_type === type
-                    const label = POLICY_LABELS[type] || policy?.title || type
+                    const label = policyLabels[type] || policy?.title || type
 
                     return (
                       <button
@@ -241,24 +270,24 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-0.5 text-[11px] font-bold text-[#E6C17A]">
-                      {POLICY_LABELS[activePolicy.policy_type] || activePolicy.policy_type}
+                      {policyLabels[activePolicy.policy_type] || activePolicy.policy_type}
                     </span>
                     <span className="flex items-center gap-1 text-[11px] text-slate-400">
                       <Calendar className="size-3 text-[#E6C17A]" />
-                      Hiệu lực từ:{' '}
+                      {isEnglish ? 'Effective from:' : 'Hiệu lực từ:'}{' '}
                       {activePolicy.effective_from
-                        ? new Date(activePolicy.effective_from).toLocaleDateString('vi-VN')
-                        : 'Hiện tại'}
+                        ? new Date(activePolicy.effective_from).toLocaleDateString(isEnglish ? 'en-US' : 'vi-VN')
+                        : (isEnglish ? 'Current' : 'Hiện tại')}
                     </span>
                   </div>
 
                   <h2 className="font-display text-xl sm:text-2xl font-black text-white leading-snug">
-                    {activePolicy.title}
+                    {t(activePolicy.title)}
                   </h2>
 
                   {activePolicy.description && (
                     <p className="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed max-w-2xl">
-                      {activePolicy.description}
+                      {t(activePolicy.description)}
                     </p>
                   )}
                 </div>
@@ -277,7 +306,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                         }`}
                       >
                         <BookOpen className="size-3.5" />
-                        <span>Văn bản</span>
+                        <span>{isEnglish ? 'Text' : 'Văn bản'}</span>
                       </button>
                       <button
                         type="button"
@@ -289,7 +318,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                         }`}
                       >
                         <Eye className="size-3.5" />
-                        <span>Xem PDF</span>
+                        <span>{isEnglish ? 'View PDF' : 'Xem PDF'}</span>
                       </button>
                     </div>
                   )}
@@ -302,7 +331,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                       className="inline-flex items-center gap-1.5 rounded-xl border border-[#C99A47]/40 bg-[#C99A47]/10 px-3.5 py-2 text-xs font-bold text-[#E6C17A] transition-all hover:bg-[#C99A47]/20 hover:border-[#E6C17A] hover:shadow-[0_0_15px_rgba(201,154,71,0.3)] active:scale-95"
                     >
                       <ExternalLink className="size-3.5" />
-                      <span>Mở PDF tab mới</span>
+                      <span>{isEnglish ? 'Open PDF in new tab' : 'Mở PDF tab mới'}</span>
                     </a>
                   )}
                 </div>
@@ -314,7 +343,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                   <div className="flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 text-xs text-[#E6C17A]">
                     <span className="flex items-center gap-2 font-medium">
                       <FileText className="size-4 shrink-0" />
-                      Tài liệu gốc: {activePolicy.file_name || `${activePolicy.policy_type}.pdf`}
+                      {isEnglish ? 'Original document:' : 'Tài liệu gốc:'} {activePolicy.file_name || `${activePolicy.policy_type}.pdf`}
                     </span>
                     <a
                       href={activePolicy.file_url}
@@ -322,7 +351,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                       rel="noreferrer"
                       className="underline font-bold hover:text-white"
                     >
-                      Tải / Xem riêng
+                      {isEnglish ? 'Download / View separate' : 'Tải / Xem riêng'}
                     </a>
                   </div>
                   <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1e29] shadow-inner">
@@ -341,7 +370,9 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                   ) : (
                     <div className="rounded-xl border border-dashed border-white/15 p-8 text-center">
                       <p className="text-sm text-slate-400">
-                        Nội dung chi tiết của điều khoản này được cung cấp dưới dạng văn bản PDF đính kèm.
+                        {isEnglish
+                          ? 'Detailed contents of this policy are provided in the attached PDF document.'
+                          : 'Nội dung chi tiết của điều khoản này được cung cấp dưới dạng văn bản PDF đính kèm.'}
                       </p>
                       {activePolicy.file_url && (
                         <a

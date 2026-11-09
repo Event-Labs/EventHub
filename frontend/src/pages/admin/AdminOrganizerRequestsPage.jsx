@@ -10,6 +10,12 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 
 const statusFilters = [
   { label: 'Tất cả', value: '' },
@@ -129,7 +135,6 @@ export function AdminOrganizerRequestsPage() {
   return (
     <Page
       title="Yêu cầu Organizer"
-      description="Kiểm tra hồ sơ đăng ký và phê duyệt yêu cầu nâng quyền"
     >
       <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
         <FilterGroup
@@ -261,7 +266,7 @@ export function AdminOrganizerRequestsPage() {
               tone={statusTone(request.status)}
             />,
             <span key="date" className="text-subtle font-medium whitespace-nowrap">
-              {new Date(request.created_at).toLocaleDateString('vi-VN')}
+              {new Date(request.created_at).toLocaleDateString(getAutoLocale())}
             </span>,
             <TableActionButton
               key="action"

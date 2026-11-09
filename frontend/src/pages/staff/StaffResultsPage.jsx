@@ -31,9 +31,16 @@ const STATUS_CONFIG = {
   },
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
-  return new Date(value).toLocaleString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'Updating' : 'Chưa cập nhật'
+  return new Date(value).toLocaleString(getAutoLocale())
 }
 
 export function TicketResultPage() {

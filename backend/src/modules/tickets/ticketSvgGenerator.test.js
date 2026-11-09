@@ -35,12 +35,11 @@ describe('ticketSvgGenerator', () => {
     },
   };
 
-  it('generates a valid SVG with 1600x700 viewBox and required sections', () => {
+  it('generates a valid SVG with 1600x700 viewBox and required sections in Vietnamese by default', () => {
     const svg = buildUniversalTicketSvg(mockTicket, 'data:image/png;base64,mockqr');
 
     expect(svg).toContain('viewBox="0 0 1600 700"');
     expect(svg).toContain('CONNECT &#183; EXPERIENCE &#183; GROW');
-    expect(svg).not.toContain('HỘI THẢO (WORKSHOP)');
     expect(svg).toContain('TERRARIUM CAKE');
     expect(svg).toContain('Khám phá nghệ thuật tạo hình Terrarium Cake tinh tế');
     expect(svg).toContain('VIP-01');
@@ -48,29 +47,47 @@ describe('ticketSvgGenerator', () => {
     expect(svg).toContain('Garden Art Studio');
     expect(svg).toContain('EH-17315C26F5');
     expect(svg).toContain('CHECK-IN');
-    expect(svg).toContain('SCAN THIS QR CODE');
+    expect(svg).toContain('QUÉT MÃ QR');
     expect(svg).toContain('EVENTHUB');
-    expect(svg).toContain('PLEASE PRESENT THIS TICKET AT THE ENTRANCE');
+    expect(svg).toContain('VUI LÒNG XUẤT TRÌNH VÉ TẠI CỔNG VÀO');
     // Dynamic badge elements
     expect(svg).toContain('id="badgeDynamicBg"');
     expect(svg).toContain('id="badgeRadialGlow"');
     expect(svg).toContain('id="badgeLightSheen"');
-    expect(svg).toContain('V&#201; &#272;I&#7878;N T&#7916; (E-TICKET)');
+    expect(svg).toContain('VÉ ĐIỆN TỬ');
     // Vietnamese priority labels
-    expect(svg).toContain('TH&#7900;I GIAN (DATE &amp; TIME)');
-    expect(svg).toContain('LO&#7840;I V&#201; (TICKET TYPE)');
-    expect(svg).toContain('NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)');
-    expect(svg).toContain('GH&#7870; NG&#7891;I (SEAT)');
-    expect(svg).toContain('&#272;&#7882;A &#272;I&#7874;M (VENUE)');
+    expect(svg).toContain('THỜI GIAN');
+    expect(svg).toContain('LOẠI VÉ');
+    expect(svg).toContain('NGƯỜI THAM DỰ');
+    expect(svg).toContain('GHẾ NGỒI');
+    expect(svg).toContain('ĐỊA ĐIỂM');
   });
 
-  it('handles events without fixed seat by falling back to GENERAL ADMISSION', () => {
+  it('generates a 100% clean English SVG when locale is en', () => {
+    const svg = buildUniversalTicketSvg(mockTicket, 'data:image/png;base64,mockqr', '', { locale: 'en' });
+
+    expect(svg).toContain('E-TICKET');
+    expect(svg).toContain('ATTENDEE');
+    expect(svg).toContain('TICKET TYPE');
+    expect(svg).toContain('SEAT');
+    expect(svg).toContain('DATE &amp; TIME');
+    expect(svg).toContain('VENUE');
+    expect(svg).toContain('PLEASE PRESENT THIS TICKET AT THE ENTRANCE');
+    expect(svg).toContain('SCAN THIS QR CODE');
+    expect(svg).not.toContain('VÉ ĐIỆN TỬ');
+    expect(svg).not.toContain('NGƯỜI THAM DỰ');
+  });
+
+  it('handles events without fixed seat by falling back to General Admission / Vé tự do based on locale', () => {
     const ticketNoSeat = {
       ...mockTicket,
       seat: null,
     };
-    const svg = buildUniversalTicketSvg(ticketNoSeat, 'mockqr');
-    expect(svg).toContain('VÉ TỰ DO (GENERAL ADMISSION)');
+    const svgVi = buildUniversalTicketSvg(ticketNoSeat, 'mockqr');
+    expect(svgVi).toContain('VÉ TỰ DO');
+
+    const svgEn = buildUniversalTicketSvg(ticketNoSeat, 'mockqr', '', { locale: 'en' });
+    expect(svgEn).toContain('GENERAL ADMISSION');
   });
 
   it('renders watermark when ticket is cancelled or refunded', () => {

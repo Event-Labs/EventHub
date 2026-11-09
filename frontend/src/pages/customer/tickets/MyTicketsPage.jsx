@@ -5,43 +5,49 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { fetchMyTickets } from '@/services/tickets.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
-const FILTERS = [
-  { value: 'ALL', label: 'Tất cả' },
-  { value: 'VALID', label: 'Hợp lệ' },
-  { value: 'USED', label: 'Đã dùng' },
-  { value: 'REFUND_PENDING', label: 'Chờ hoàn tiền' },
-  { value: 'REFUNDED', label: 'Đã hoàn' },
-  { value: 'EXPIRED', label: 'Hết hạn' },
-  { value: 'CANCELLED', label: 'Đã hủy' },
-]
 const TICKETS_PER_PAGE = 6
 
-function formatDateTime(value) {
+function getTicketFilters(isEnglish) {
+  return [
+    { value: 'ALL', label: isEnglish ? 'All' : 'Tất cả' },
+    { value: 'VALID', label: isEnglish ? 'Valid' : 'Hợp lệ' },
+    { value: 'USED', label: isEnglish ? 'Used' : 'Đã dùng' },
+    { value: 'REFUND_PENDING', label: isEnglish ? 'Refund Pending' : 'Chờ hoàn tiền' },
+    { value: 'REFUNDED', label: isEnglish ? 'Refunded' : 'Đã hoàn' },
+    { value: 'EXPIRED', label: isEnglish ? 'Expired' : 'Hết hạn' },
+    { value: 'CANCELLED', label: isEnglish ? 'Cancelled' : 'Đã hủy' },
+  ]
+}
+
+const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
+
+function formatDateTime(value, isEnglish = getAutoIsEnglish()) {
   if (!value) return 'N/A'
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
 }
 
-function statusMeta(ticket) {
+function statusMeta(ticket, isEnglish = getAutoIsEnglish()) {
   if (ticket.status === 'USED') {
-    return { label: 'Đã dùng', className: 'bg-slate-500/15 text-slate-300 border border-slate-500/20' }
+    return { label: isEnglish ? 'Used' : 'Đã dùng', className: 'bg-slate-500/15 text-slate-300 border border-slate-500/20' }
   }
   if (ticket.status === 'EXPIRED') {
-    return { label: 'Hết hạn', className: 'bg-rose-500/15 text-rose-300 border border-rose-500/20' }
+    return { label: isEnglish ? 'Expired' : 'Hết hạn', className: 'bg-rose-500/15 text-rose-300 border border-rose-500/20' }
   }
   if (ticket.status === 'CANCELLED') {
-    return { label: 'Đã hủy', className: 'bg-slate-500/15 text-slate-400 border border-slate-500/20' }
+    return { label: isEnglish ? 'Cancelled' : 'Đã hủy', className: 'bg-slate-500/15 text-slate-400 border border-slate-500/20' }
   }
   if (ticket.status === 'REFUNDED') {
-    return { label: 'Đã hoàn', className: 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.25)]' }
+    return { label: isEnglish ? 'Refunded' : 'Đã hoàn', className: 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.25)]' }
   }
   if (ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED' || ticket.event?.status === 'CANCELLED') {
-    return { label: 'Chờ hoàn tiền', className: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]' }
+    return { label: isEnglish ? 'Refund Pending' : 'Chờ hoàn tiền', className: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]' }
   }
-  return { label: 'Hợp lệ', className: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.25)]' }
+  return { label: isEnglish ? 'Valid' : 'Hợp lệ', className: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.25)]' }
 }
 
 const STATUS_RANK = {
@@ -65,6 +71,8 @@ function venueLine(ticket) {
 }
 
 export function MyTicketsPage() {
+  const { isEnglish, t } = useLanguage()
+  const filters = useMemo(() => getTicketFilters(isEnglish), [isEnglish])
   const navigate = useNavigate()
   const location = useLocation()
   const [status, setStatus] = useState('ALL')
@@ -124,12 +132,16 @@ export function MyTicketsPage() {
       {/* Header & Filter Bar aligned to the right */}
       <div className="flex flex-col gap-2.5 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
         <SectionHeader
-          title="Thông tin Vé"
-          description="Quản lý vé đã mua, thông tin check-in và chi tiết vé"
+          title={isEnglish ? 'My Tickets' : 'Thông tin Vé'}
+          description={
+            isEnglish
+              ? 'Manage your purchased tickets, check-in status, and event passes.'
+              : 'Quản lý vé đã mua, thông tin check-in và chi tiết vé'
+          }
         />
 
         <div className="flex w-full sm:w-auto overflow-x-auto rounded-2xl sm:rounded-full glass-panel p-1.5 border-white/10 shadow-inner self-start lg:self-end scrollbar-hide no-scrollbar gap-1.5">
-          {FILTERS.map((item) => (
+          {filters.map((item) => (
             <button
               key={item.value}
               type="button"
@@ -151,13 +163,13 @@ export function MyTicketsPage() {
       {ticketsQuery.isLoading && (
         <div className="flex items-center justify-center py-20 text-sm gap-2.5" style={{ color: '#94a3b8' }}>
           <div className="size-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-          <span>Đang tải danh sách vé...</span>
+          <span>{isEnglish ? 'Loading tickets...' : 'Đang tải danh sách vé...'}</span>
         </div>
       )}
 
       {ticketsQuery.isError && (
         <div className="flex items-center justify-center py-20 text-sm text-rose-400 gap-2">
-          <span>Không thể tải danh sách vé. Vui lòng thử lại sau.</span>
+          <span>{isEnglish ? 'Failed to load tickets. Please try again later.' : 'Không thể tải danh sách vé. Vui lòng thử lại sau.'}</span>
         </div>
       )}
 
@@ -167,7 +179,9 @@ export function MyTicketsPage() {
             className="text-base sm:text-lg font-semibold tracking-tight text-white mb-1.5 drop-shadow-md italic"
             style={{ color: '#ffffff', display: 'block', opacity: 1, visibility: 'visible', fontStyle: 'italic' }}
           >
-            {status === 'ALL' ? 'Chưa có vé sự kiện nào' : 'Hiện chưa có vé'}
+            {status === 'ALL'
+              ? (isEnglish ? 'No event tickets yet' : 'Chưa có vé sự kiện nào')
+              : (isEnglish ? 'No tickets found' : 'Hiện chưa có vé')}
           </h3>
           <div
             className="italic"
@@ -190,8 +204,10 @@ export function MyTicketsPage() {
             }}
           >
             {status === 'ALL'
-              ? 'Bạn chưa có vé sự kiện nào trong danh sách vé của mình.'
-              : `Hiện không có vé sự kiện nào thuộc mục "${FILTERS.find((f) => f.value === status)?.label || status}".`}
+              ? (isEnglish ? 'You do not have any event tickets in your ticket list yet.' : 'Bạn chưa có vé sự kiện nào trong danh sách vé của mình.')
+              : (isEnglish
+                ? `No event tickets found under "${filters.find((f) => f.value === status)?.label || status}".`
+                : `Hiện không có vé sự kiện nào thuộc mục "${filters.find((f) => f.value === status)?.label || status}".`)}
           </div>
         </div>
       )}
@@ -205,14 +221,14 @@ export function MyTicketsPage() {
       )}
 
       {!ticketsQuery.isLoading && !ticketsQuery.isError && totalPages > 1 && (
-        <nav className="mt-10 flex flex-col items-center gap-3" aria-label="Phân trang vé của tôi">
+        <nav className="mt-10 flex flex-col items-center gap-3" aria-label={isEnglish ? 'My tickets pagination' : 'Phân trang vé của tôi'}>
           <div className="flex items-center gap-2 p-1.5 backdrop-blur-md">
             <button
               type="button"
               onClick={() => handlePageChange(Math.max(1, page - 1))}
               disabled={page === 1}
               className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
-              aria-label="Trang trước"
+              aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
             >
               <ChevronLeft className="size-5" />
             </button>
@@ -226,7 +242,7 @@ export function MyTicketsPage() {
                   : 'border border-white/20 bg-slate-800 text-white hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)]'
                   }`}
                 aria-current={page === pageNumber ? 'page' : undefined}
-                aria-label={`Trang ${pageNumber}`}
+                aria-label={isEnglish ? `Page ${pageNumber}` : `Trang ${pageNumber}`}
               >
                 {pageNumber}
               </button>
@@ -236,15 +252,18 @@ export function MyTicketsPage() {
               onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
               className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
-              aria-label="Trang sau"
+              aria-label={isEnglish ? 'Next page' : 'Trang sau'}
             >
               <ChevronRight className="size-5" />
             </button>
           </div>
           <p className="text-xs font-medium text-slate-400">
-            Trang <span className="font-extrabold text-white">{page}</span> / <span className="font-extrabold text-white">{totalPages}</span>
+            {isEnglish ? 'Page ' : 'Trang '}
+            <span className="font-extrabold text-white">{page}</span>
+            {isEnglish ? ' of ' : ' / '}
+            <span className="font-extrabold text-white">{totalPages}</span>
             &nbsp;·&nbsp;
-            <span className="text-slate-300 font-semibold">{tickets.length} vé</span>
+            <span className="text-slate-300 font-semibold">{tickets.length} {isEnglish ? 'tickets' : 'vé'}</span>
           </p>
         </nav>
       )}
@@ -254,10 +273,11 @@ export function MyTicketsPage() {
 
 
 function TicketCard({ ticket }) {
+  const { isEnglish, t } = useLanguage()
   const navigate = useNavigate()
-  const meta = statusMeta(ticket)
+  const meta = statusMeta(ticket, isEnglish)
   const venue = venueLine(ticket)
-  const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ') || 'N/A'
+  const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ') || (isEnglish ? 'N/A' : 'Chưa có địa điểm')
   const seat = ticket.seat?.label
 
   // Các vé hợp lệ hoặc chờ hoàn tiền thì hiện màu sẵn, vé hết hạn/hủy thì không còn màu
@@ -308,19 +328,19 @@ function TicketCard({ ticket }) {
         </div>
 
         <div className={`mt-4 sm:mt-6 grid gap-2.5 sm:gap-3 text-xs sm:text-sm ${isVibrant ? 'text-slate-200' : 'text-slate-400'}`}>
-          <InfoLine icon={CalendarDays} value={formatDateTime(ticket.session?.start_time)} iconActive={isVibrant} />
-          <InfoLine icon={Ticket} value={seat ? `${ticket.ticket_type.name} · Ghế ${seat}` : `${ticket.ticket_type.name} · Khu vực đứng`} iconActive={isVibrant} />
+          <InfoLine icon={CalendarDays} value={formatDateTime(ticket.session?.start_time, isEnglish)} iconActive={isVibrant} />
+          <InfoLine icon={Ticket} value={seat ? `${ticket.ticket_type.name} · ${isEnglish ? 'Seat' : 'Ghế'} ${seat}` : `${ticket.ticket_type.name} · ${isEnglish ? 'Standing Area' : 'Khu vực đứng'}`} iconActive={isVibrant} />
           <InfoLine icon={MapPin} value={venueText} wrap iconActive={isVibrant} />
           <InfoLine
             icon={CheckCircle2}
-            value={ticket.status === 'EXPIRED' ? 'Đã hết hạn check-in' : ticket.check_in_status === 'CHECKED_IN' ? 'Đã check-in' : 'Chưa check-in'}
+            value={ticket.status === 'EXPIRED' ? (isEnglish ? 'Check-in Expired' : 'Đã hết hạn check-in') : ticket.check_in_status === 'CHECKED_IN' ? (isEnglish ? 'Checked In' : 'Đã check-in') : (isEnglish ? 'Not Checked In' : 'Chưa check-in')}
             iconActive={isVibrant}
           />
         </div>
 
         {((Boolean(ticket.checked_in_at) || ticket.status === 'USED' || ticket.check_in_status === 'CHECKED_IN' || (ticket.session?.end_time && new Date(ticket.session.end_time) <= new Date()) || ticket.event?.status === 'COMPLETED') && ticket.status !== 'CANCELLED' && ticket.status !== 'REFUNDED' && ticket.status !== 'REFUND_PENDING') && (
           <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#E6C17A]">Đã tham gia</span>
+            <span className="text-[11px] font-semibold text-[#E6C17A]">{isEnglish ? 'Attended' : 'Đã tham gia'}</span>
             <button
               type="button"
               onClick={(e) => {
@@ -331,7 +351,7 @@ function TicketCard({ ticket }) {
               className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold text-[#0D1B2A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] hover:brightness-110 shadow-md shadow-[#C99A47]/20 transition-all cursor-pointer active:scale-95"
             >
               <Star className="size-3.5 fill-[#0D1B2A]" />
-              Đánh giá sự kiện
+              {isEnglish ? 'Review Event' : 'Đánh giá sự kiện'}
             </button>
           </div>
         )}
@@ -363,7 +383,7 @@ function TicketCard({ ticket }) {
               : 'border border-white/5 bg-white/5 text-slate-400 shadow-none'
           }`}>
           <Clock3 className="size-4 shrink-0" />
-          <span className="truncate">{'Mua lúc '}{formatDateTime(ticket.order?.created_at)}</span>
+          <span className="truncate">{isEnglish ? 'Purchased at ' : 'Mua lúc '}{formatDateTime(ticket.order?.created_at, isEnglish)}</span>
         </div>
       </section>
     </Link>

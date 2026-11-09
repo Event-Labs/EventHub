@@ -11,8 +11,17 @@ import {
   YAxis,
 } from 'recharts'
 import { BarChart3, Calendar, CheckCircle2, DollarSign, Layers, Receipt, Ticket, TrendingUp } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
 
 function fmtCurrency(n) {
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) return `${Number(n || 0).toLocaleString('en-US')} VND`
   return `${Number(n || 0).toLocaleString('vi-VN')} đ`
 }
 
@@ -25,14 +34,14 @@ function fmtShort(n) {
 }
 
 function fmtNumber(n) {
-  return Number(n || 0).toLocaleString('vi-VN')
+  return Number(n || 0).toLocaleString(getAutoLocale())
 }
 
 function fmtDateVi(dateStr) {
   if (!dateStr) return '—'
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return dateStr
-  return d.toLocaleDateString('vi-VN', {
+  return d.toLocaleDateString(getAutoLocale(), {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -41,7 +50,7 @@ function fmtDateVi(dateStr) {
 }
 
 // Custom Tooltip for Daily Chart
-function CustomDailyTooltip({ active, payload, activeMetric }) {
+function CustomDailyTooltip({ active, payload, activeMetric, isEnglish = false }) {
   if (!active || !payload || !payload.length) return null
   const d = payload[0]?.payload
   if (!d) return null
@@ -58,11 +67,11 @@ function CustomDailyTooltip({ active, payload, activeMetric }) {
         </div>
         {isPeak ? (
           <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
-            ⭐ Đỉnh cao nhất
+            {isEnglish ? '⭐ Highest Peak' : '⭐ Đỉnh cao nhất'}
           </span>
         ) : isZero ? (
           <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
-            0 giao dịch
+            {isEnglish ? '0 transactions' : '0 giao dịch'}
           </span>
         ) : null}
       </div>
@@ -71,7 +80,7 @@ function CustomDailyTooltip({ active, payload, activeMetric }) {
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-amber-400" />
-            Doanh thu:
+            {isEnglish ? 'Revenue:' : 'Doanh thu:'}
           </span>
           <strong className={`font-mono font-bold ${activeMetric === 'gross_revenue' ? 'text-amber-300 text-sm' : 'text-white'}`}>
             {fmtCurrency(d.gross_revenue)}
@@ -81,20 +90,20 @@ function CustomDailyTooltip({ active, payload, activeMetric }) {
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-emerald-400" />
-            Vé bán ra:
+            {isEnglish ? 'Tickets sold:' : 'Vé bán ra:'}
           </span>
           <strong className={`font-mono font-bold ${activeMetric === 'tickets_sold' ? 'text-emerald-400 text-sm' : 'text-slate-200'}`}>
-            {fmtNumber(d.tickets_sold)} vé
+            {fmtNumber(d.tickets_sold)} {isEnglish ? 'tickets' : 'vé'}
           </strong>
         </div>
 
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-cyan-400" />
-            Số đơn hàng:
+            {isEnglish ? 'Orders:' : 'Số đơn hàng:'}
           </span>
           <strong className={`font-mono font-bold ${activeMetric === 'orders' ? 'text-cyan-300 text-sm' : 'text-slate-200'}`}>
-            {fmtNumber(d.orders)} đơn
+            {fmtNumber(d.orders)} {isEnglish ? 'orders' : 'đơn'}
           </strong>
         </div>
       </div>
@@ -242,27 +251,29 @@ export function DailyRevenueBarChart({
     return Math.ceil(chartData.length / 10)
   }, [chartData.length, effectiveGranularity])
 
+  const { isEnglish, t } = useLanguage()
+
   const metricMeta = {
     gross_revenue: {
-      label: 'Doanh thu',
+      label: isEnglish ? 'Revenue' : 'Doanh thu',
       icon: DollarSign,
       formatVal: (v) => fmtCurrency(v),
       formatShort: (v) => fmtShort(v),
-      unit: 'đ',
+      unit: '₫',
     },
     tickets_sold: {
-      label: 'Vé đã bán',
+      label: isEnglish ? 'Tickets sold' : 'Vé đã bán',
       icon: Ticket,
-      formatVal: (v) => `${fmtNumber(v)} vé`,
+      formatVal: (v) => `${fmtNumber(v)} ${isEnglish ? 'tickets' : 'vé'}`,
       formatShort: (v) => fmtNumber(v),
-      unit: 'vé',
+      unit: isEnglish ? 'tickets' : 'vé',
     },
     orders: {
-      label: 'Đơn hàng',
+      label: isEnglish ? 'Orders' : 'Đơn hàng',
       icon: Receipt,
-      formatVal: (v) => `${fmtNumber(v)} đơn`,
+      formatVal: (v) => `${fmtNumber(v)} ${isEnglish ? 'orders' : 'đơn'}`,
       formatShort: (v) => fmtNumber(v),
-      unit: 'đơn',
+      unit: isEnglish ? 'orders' : 'đơn',
     },
   }[activeMetric]
 
@@ -281,7 +292,7 @@ export function DailyRevenueBarChart({
                 : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
             }`}
           >
-            Doanh thu
+            {isEnglish ? 'Revenue' : 'Doanh thu'}
           </button>
           <button
             type="button"
@@ -292,7 +303,7 @@ export function DailyRevenueBarChart({
                 : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
             }`}
           >
-            Vé đã bán
+            {isEnglish ? 'Tickets sold' : 'Vé đã bán'}
           </button>
           <button
             type="button"
@@ -303,30 +314,30 @@ export function DailyRevenueBarChart({
                 : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
             }`}
           >
-            Đơn hàng
+            {isEnglish ? 'Orders' : 'Đơn hàng'}
           </button>
         </div>
 
         {/* Metric Summary Quick Stats */}
         <div className="flex flex-wrap items-center gap-3.5 text-sm">
           <span className="text-slate-400">
-            Tổng: <strong className="text-white font-mono font-bold">{metricMeta.formatVal(totalVal)}</strong>
+            {isEnglish ? 'Total:' : 'Tổng:'} <strong className="text-white font-mono font-bold">{metricMeta.formatVal(totalVal)}</strong>
           </span>
           {peakItem && maxVal > 0 && (
             <span className="text-amber-400">
-              Đỉnh: <strong className="font-mono font-bold">{metricMeta.formatVal(maxVal)}</strong>{' '}
+              {isEnglish ? 'Peak:' : 'Đỉnh:'} <strong className="font-mono font-bold">{metricMeta.formatVal(maxVal)}</strong>{' '}
               <span className="text-xs text-amber-300/80">({peakItem.dayFormatted})</span>
             </span>
           )}
           {avgVal > 0 && (
             <span className="text-cyan-400">
-              TB:{' '}
+              {isEnglish ? 'Avg:' : 'TB:'}{' '}
               <strong className="font-mono font-bold">
                 {activeMetric === 'gross_revenue'
-                  ? fmtShort(avgVal) + ' đ'
+                  ? fmtShort(avgVal) + ' ₫'
                   : avgVal.toFixed(1) + ' ' + metricMeta.unit}
               </strong>
-              /{effectiveGranularity === 'weekly' ? 'tuần' : 'ngày'}
+              /{effectiveGranularity === 'weekly' ? (isEnglish ? 'week' : 'tuần') : (isEnglish ? 'day' : 'ngày')}
             </span>
           )}
 
@@ -336,9 +347,9 @@ export function DailyRevenueBarChart({
               type="button"
               onClick={() => setGranularity(effectiveGranularity === 'daily' ? 'weekly' : 'daily')}
               className="ml-auto rounded-lg border border-white/10 bg-slate-800/80 px-2 py-1 text-[11px] font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition"
-              title="Chuyển đổi chu kỳ xem Theo ngày hoặc Theo tuần"
+              title={isEnglish ? 'Toggle daily / weekly view' : 'Chuyển đổi chu kỳ xem Theo ngày hoặc Theo tuần'}
             >
-              {effectiveGranularity === 'daily' ? 'Gom tuần' : 'Tách ngày'}
+              {effectiveGranularity === 'daily' ? (isEnglish ? 'Group by week' : 'Gom tuần') : (isEnglish ? 'Split by day' : 'Tách ngày')}
             </button>
           )}
         </div>
@@ -390,7 +401,7 @@ export function DailyRevenueBarChart({
             />
 
             <Tooltip
-              content={<CustomDailyTooltip activeMetric={activeMetric} />}
+              content={<CustomDailyTooltip activeMetric={activeMetric} isEnglish={isEnglish} />}
               cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
             />
 
@@ -402,7 +413,7 @@ export function DailyRevenueBarChart({
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
                 label={{
-                  value: `TB: ${
+                  value: `${isEnglish ? 'Avg:' : 'TB:'} ${
                     activeMetric === 'gross_revenue'
                       ? fmtShort(avgVal)
                       : avgVal.toFixed(1)

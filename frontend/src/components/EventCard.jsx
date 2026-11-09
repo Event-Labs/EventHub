@@ -1,11 +1,14 @@
 import { Calendar, Heart, MapPin } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
-function formatDateRange(start, end) {
-  if (!start) return 'Chưa cập nhật'
+const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
 
-  const formatter = new Intl.DateTimeFormat('vi-VN', {
+function formatDateRange(start, end, isEnglish = getAutoIsEnglish()) {
+  if (!start) return isEnglish ? 'TBD' : 'Chưa cập nhật'
+
+  const formatter = new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
@@ -20,29 +23,32 @@ function formatDateRange(start, end) {
   return `${startStr} - ${formatter.format(endDate)}`
 }
 
-function formatPrice(event) {
+function formatPrice(event, isEnglish = getAutoIsEnglish()) {
   if (event.priceLabel) return event.priceLabel
   const min = event.min_price ?? event.price_range?.min
   const max = event.max_price ?? event.price_range?.max
 
-  if (min === null || min === undefined) return 'Liên hệ'
-  if (Number(min) === 0 && Number(max || 0) === 0) return 'Miễn phí'
+  if (min === null || min === undefined) return isEnglish ? 'Contact' : 'Liên hệ'
+  if (Number(min) === 0 && Number(max || 0) === 0) return isEnglish ? 'Free' : 'Miễn phí'
+  const locale = isEnglish ? 'en-US' : 'vi-VN'
+  const currencySymbol = isEnglish ? 'VND' : 'đ'
   if (max && Number(max) !== Number(min)) {
-    return `${Number(min).toLocaleString('vi-VN')} - ${Number(max).toLocaleString('vi-VN')} đ`
+    return `${Number(min).toLocaleString(locale)} - ${Number(max).toLocaleString(locale)} ${currencySymbol}`
   }
-  return `${Number(min).toLocaleString('vi-VN')} đ`
+  return `${Number(min).toLocaleString(locale)} ${currencySymbol}`
 }
 
-function formatCategory(category) {
+function formatCategory(category, isEnglish = false) {
   if (typeof category === 'string' && category.trim()) return category.trim()
   if (category && typeof category === 'object' && typeof category.name === 'string' && category.name.trim()) {
     return category.name.trim()
   }
-  return 'Sự kiện'
+  return isEnglish ? 'Events' : 'Sự kiện'
 }
 
-function formatLocation(event) {
-  if (!event) return 'Địa điểm cập nhật sau'
+function formatLocation(event, isEnglish = false) {
+  const fallback = isEnglish ? 'Venue to be announced' : 'Địa điểm cập nhật sau'
+  if (!event) return fallback
 
   if (typeof event.location === 'string' && event.location.trim()) {
     return event.location.trim()
@@ -86,7 +92,7 @@ function formatLocation(event) {
     return event.location_name.trim()
   }
 
-  return 'Địa điểm cập nhật sau'
+  return fallback
 }
 
 function formatVenueText(venue) {
@@ -102,18 +108,18 @@ function formatVenueText(venue) {
   return ''
 }
 
-function normalizeEvent(event) {
+function normalizeEvent(event, isEnglish = false) {
   return {
     id: event.slug || event.id,
     title: event.title,
     subtitle: typeof (event.subtitle || event.short_description) === 'string' ? (event.subtitle || event.short_description) : '',
     image: event.thumbnail_url || event.banner_url || event.image,
-    category: formatCategory(event.category),
+    category: formatCategory(event.category, isEnglish),
     badgeColor: event.badgeColor || 'primary',
-    date: event.date || formatDateRange(event.start_time, event.end_time),
+    date: event.date || formatDateRange(event.start_time, event.end_time, isEnglish),
     time: event.time || '',
-    location: formatLocation(event),
-    priceLabel: formatPrice(event),
+    location: formatLocation(event, isEnglish),
+    priceLabel: formatPrice(event, isEnglish),
     isFavorited: Boolean(event.is_favorited),
   }
 }
@@ -125,7 +131,8 @@ export function EventCard({
   onFavoriteToggle,
   favoriteBusy = false,
 }) {
-  const item = normalizeEvent(event)
+  const { isEnglish, t } = useLanguage()
+  const item = normalizeEvent(event, isEnglish)
   const navigate = useNavigate()
   const detailPath = `/events/${item.id}`
 
@@ -180,7 +187,7 @@ export function EventCard({
                 ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
                 : 'text-white/70',
             )}
-            aria-label={item.isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
+            aria-label={item.isFavorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích') : (isEnglish ? 'Favorite' : 'Yêu thích')}
           >
             <Heart
               className={cn(
@@ -212,7 +219,7 @@ export function EventCard({
         </div>
         <div className="mt-auto flex items-end justify-between gap-4 pt-2 border-t border-border-soft">
           <div className="pt-2">
-            <p className="text-xs text-neutral">Giá từ</p>
+            <p className="text-xs text-neutral">{isEnglish ? 'From' : 'Giá từ'}</p>
             <p className="font-display text-lg font-bold text-primary drop-shadow-md">
               {item.priceLabel}
             </p>
@@ -225,7 +232,7 @@ export function EventCard({
               className="shrink-0 inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-bold transition-all hover:brightness-110 hover:shadow-[0_0_20px_rgba(201,154,71,0.6)] active:scale-95"
               style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              Xem chi tiết
+              {isEnglish ? 'View Details' : 'Xem chi tiết'}
             </Link>
           )}
         </div>

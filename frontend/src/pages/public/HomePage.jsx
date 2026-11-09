@@ -27,6 +27,7 @@ import {
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 const RECENT_EXPIRED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -40,28 +41,59 @@ const categoryIcons = [
   Waves,
 ]
 
-function formatDateTime(value) {
-  if (!value) return 'Sắp cập nhật'
+function getCategoryName(category, isEnglish = false) {
+  if (!category) return isEnglish ? 'Event' : 'Sự kiện'
+  const name = typeof category === 'string' ? category : (category.name || category.category_name || '')
+  if (!name) return isEnglish ? 'Event' : 'Sự kiện'
+  if (!isEnglish) return name
+  const CATEGORY_MAP = {
+    'Âm nhạc': 'Music',
+    'Thể thao': 'Sports',
+    'Nghệ thuật': 'Art & Culture',
+    'Nghệ thuật & Sân khấu': 'Arts & Theater',
+    'Ẩm thực': 'Food & Drinks',
+    'Ẩm thực & Đồ uống': 'Food & Beverage',
+    'Kinh doanh': 'Business',
+    'Kinh doanh & Hội thảo': 'Business & Seminars',
+    'Hội thảo': 'Workshops & Seminars',
+    'Hội nghị': 'Conferences',
+    'Triển lãm': 'Exhibitions',
+    'Giải trí': 'Entertainment',
+    'Cộng đồng': 'Community',
+    'Công nghệ': 'Technology',
+    'Giáo dục': 'Education',
+    'Du lịch': 'Travel & Tourism',
+    'Sức khỏe': 'Health & Wellness',
+    'Thời trang': 'Fashion & Beauty',
+    'Gia đình': 'Family & Kids',
+  }
+  return CATEGORY_MAP[name] || name
+}
+
+const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
+
+function formatDateTime(value, isEnglish = getAutoIsEnglish()) {
+  if (!value) return isEnglish ? 'Updating' : 'Sắp cập nhật'
   try {
-    return new Intl.DateTimeFormat('vi-VN', {
+    return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(value))
   } catch {
-    return 'Sắp cập nhật'
+    return isEnglish ? 'Updating' : 'Sắp cập nhật'
   }
 }
 
-function formatPrice(event) {
+function formatPrice(event, isEnglish = getAutoIsEnglish()) {
   const min = event.min_price ?? event.price_range?.min
   const max = event.max_price ?? event.price_range?.max
 
-  if (min === null || min === undefined) return 'Liên hệ'
-  if (Number(min) === 0 && Number(max || 0) === 0) return 'Miễn phí'
+  if (min === null || min === undefined) return isEnglish ? 'Contact' : 'Liên hệ'
+  if (Number(min) === 0 && Number(max || 0) === 0) return isEnglish ? 'Free' : 'Miễn phí'
   if (max && Number(max) !== Number(min)) {
-    return `${Number(min).toLocaleString('vi-VN')} - ${Number(max).toLocaleString('vi-VN')} đ`
+    return `${Number(min).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} - ${Number(max).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ₫`
   }
-  return `${Number(min).toLocaleString('vi-VN')} đ`
+  return `${Number(min).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ₫`
 }
 
 function eventImage(event) {
@@ -76,8 +108,8 @@ function eventPath(event) {
   return `/events/${event.slug || event.id}`
 }
 
-function eventLocation(event) {
-  if (!event) return 'Đang cập nhật địa điểm'
+function eventLocation(event, isEnglish = false) {
+  if (!event) return isEnglish ? 'Location updating' : 'Đang cập nhật địa điểm'
   if (typeof event.location_name === 'string' && event.location_name.trim()) return event.location_name.trim()
   if (typeof event.location === 'string' && event.location.trim()) return event.location.trim()
   if (event.venue && typeof event.venue === 'object') {
@@ -85,7 +117,7 @@ function eventLocation(event) {
     if (typeof event.venue.name === 'string' && event.venue.name.trim()) return event.venue.name.trim()
   }
   if (typeof event.venue_name === 'string' && event.venue_name.trim()) return event.venue_name.trim()
-  return 'Đang cập nhật địa điểm'
+  return isEnglish ? 'Location updating' : 'Đang cập nhật địa điểm'
 }
 
 
@@ -144,6 +176,7 @@ function uniqueEvents(...groups) {
 }
 
 export function HomePage() {
+  const { isEnglish, t } = useLanguage()
   const toast = useToast()
   const [keyword, setKeyword] = useState('')
   const [timelineNow, setTimelineNow] = useState(() => Date.now())
@@ -274,7 +307,7 @@ export function HomePage() {
 
   const handleFavorite = (event) => {
     if (!getAuthToken()) {
-      toast.error('Vui lòng đăng nhập để lưu sự kiện yêu thích.')
+      toast.error(isEnglish ? 'Please sign in to save favorite events.' : 'Vui lòng đăng nhập để lưu sự kiện yêu thích.')
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)
       return
     }
@@ -318,23 +351,25 @@ export function HomePage() {
 
         <div className="relative z-30 mx-auto w-full max-w-5xl px-4 sm:px-6 flex flex-col items-center text-center">
           <h1 className="font-['Plus_Jakarta_Sans',var(--font-display)] font-extrabold text-3xl sm:text-5xl lg:text-6xl text-white tracking-tight leading-[1.12] drop-shadow-[0_0_34px_rgba(6,182,212,0.25)]">
-            Khám phá vũ trụ
+            {isEnglish ? 'Explore the Universe' : 'Khám phá vũ trụ'}
             <span className="block mt-1 text-transparent bg-clip-text bg-gradient-to-r from-primary via-cyan-200 to-blue-400">
-              Sự kiện đỉnh cao
+              {isEnglish ? 'Extraordinary Events' : 'Sự kiện đỉnh cao'}
             </span>
           </h1>
 
           <p className="mt-4 max-w-2xl text-sm sm:text-base font-normal text-slate-300 leading-relaxed">
-            Hệ sinh thái đặt vé trực tuyến, quản lý vận hành & soát vé QR thông minh hàng đầu
+            {isEnglish
+              ? 'Leading online ticketing, operations management & smart QR check-in ecosystem'
+              : 'Hệ sinh thái đặt vé trực tuyến, quản lý vận hành & soát vé QR thông minh hàng đầu'}
           </p>
         </div>
 
         {/* Featured Events Showcase: 3D Ring on Desktop, Touch Slider on Mobile */}
         <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center mt-6 sm:mt-12 lg:mt-14 mb-4 sm:mb-6">
           {featuredQuery.isLoading ? (
-            <StatePanel message="Đang tải sự kiện nổi bật..." />
+            <StatePanel message={isEnglish ? 'Loading featured events...' : 'Đang tải sự kiện nổi bật...'} />
           ) : featuredQuery.isError ? (
-            <StatePanel message="Không thể tải sự kiện nổi bật." tone="error" />
+            <StatePanel message={isEnglish ? 'Failed to load featured events.' : 'Không thể tải sự kiện nổi bật.'} tone="error" />
           ) : heroEvents.length ? (
             <>
               {/* Desktop view: Original 3D True Perspective Carousel Ring */}
@@ -342,6 +377,7 @@ export function HomePage() {
                 <VertexCarouselRing
                   events={heroEvents}
                   onSelectEvent={(evt) => navigate(eventPath(evt))}
+                  isEnglish={isEnglish}
                 />
               </div>
 
@@ -350,11 +386,12 @@ export function HomePage() {
                 <FeaturedEventSlider
                   events={heroEvents}
                   onSelectEvent={(evt) => navigate(eventPath(evt))}
+                  isEnglish={isEnglish}
                 />
               </div>
             </>
           ) : (
-            <StatePanel message="Chưa có sự kiện nổi bật." />
+            <StatePanel message={isEnglish ? 'No featured events yet.' : 'Chưa có sự kiện nổi bật.'} />
           )}
         </div>
       </section>
@@ -371,7 +408,7 @@ export function HomePage() {
                 <input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
-                  placeholder="Tìm kiếm sự kiện, danh mục, địa điểm..."
+                  placeholder={isEnglish ? 'Search events, categories, venues...' : 'Tìm kiếm sự kiện, danh mục, địa điểm...'}
                   className="w-full rounded-full border border-cyan-500/25 bg-slate-900/60 py-3.5 sm:py-4 pl-12 pr-4 text-sm sm:text-base font-normal text-white placeholder:text-white/50 outline-none backdrop-blur-xl transition duration-300 focus:border-cyan-400 focus:bg-slate-900/90 shadow-[0_0_20px_rgba(6,182,212,0.12)] focus:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
                 />
               </div>
@@ -380,7 +417,7 @@ export function HomePage() {
                 className="self-center w-auto rounded-full px-6 py-2.5 sm:px-8 sm:py-3 md:px-10 md:py-4 text-xs sm:text-sm md:text-base font-extrabold tracking-wide whitespace-nowrap transition-all shadow-md hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 cursor-pointer"
                 style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
-                <span className="font-extrabold">Tìm kiếm</span>
+                <span className="font-extrabold">{isEnglish ? 'Search' : 'Tìm kiếm'}</span>
               </button>
             </div>
           </form>
@@ -389,8 +426,8 @@ export function HomePage() {
         <ScrollReveal as="section" className="bg-transparent pt-4">
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionTitle
-              title="Xu hướng tuần này"
-              action="Xem tất cả"
+              title={isEnglish ? 'Trending This Week' : 'Xu hướng tuần này'}
+              action={isEnglish ? 'View All' : 'Xem tất cả'}
             />
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
               {trendingThisWeekEvents.map((event, index) => (
@@ -406,7 +443,7 @@ export function HomePage() {
             </div>
             {!trendingThisWeekEvents.length && (
               <div className="mt-6 rounded-[24px] border border-primary/15 bg-white/5 p-6 text-sm font-semibold text-muted">
-                Chưa có sự kiện đang diễn ra trong tuần này
+                {isEnglish ? 'No events happening this week yet' : 'Chưa có sự kiện đang diễn ra trong tuần này'}
               </div>
             )}
           </div>
@@ -417,7 +454,7 @@ export function HomePage() {
         <div className="category-light-ribbon" />
         <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
-            <SectionTitle title="Khám phá thể loại" />
+            <SectionTitle title={isEnglish ? 'Explore Categories' : 'Khám phá thể loại'} />
           </ScrollReveal>
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 lg:gap-8">
             {categories.slice(0, 6).map((category, index) => {
@@ -431,10 +468,10 @@ export function HomePage() {
                   >
                     <Icon className="size-6 sm:size-8 text-[#E6C17A] drop-shadow-[0_0_8px_rgba(201,154,71,0.4)] transition-transform duration-300 group-hover:scale-115" />
                     <span className="mt-2 sm:mt-2.5 block text-xs sm:text-sm font-bold text-white group-hover:text-[#E6C17A] transition-colors leading-tight line-clamp-2 px-2">
-                      {category.name}
+                      {getCategoryName(category, isEnglish)}
                     </span>
                     <span className="mt-1 block text-[10px] sm:text-xs text-slate-400">
-                      {category.event_count || 0} sự kiện
+                      {category.event_count || 0} {isEnglish ? 'events' : 'sự kiện'}
                     </span>
                   </button>
                 </ScrollReveal>
@@ -446,26 +483,29 @@ export function HomePage() {
         <div className="relative z-10 pt-12 pb-4">
           <div className="mx-auto max-w-7xl space-y-12 px-4 sm:px-6 lg:px-8">
             <TimelineEventSection
-              title="Sự kiện đang diễn ra"
-              emptyMessage="Hiện chưa có sự kiện nào đang diễn ra"
+              title={isEnglish ? 'Ongoing Events' : 'Sự kiện đang diễn ra'}
+              emptyMessage={isEnglish ? 'No ongoing events at the moment' : 'Hiện chưa có sự kiện nào đang diễn ra'}
               events={homeTimeline.ongoing}
               favoriteBusy={favoriteMutation.isPending}
               onFavoriteToggle={handleFavorite}
+              isEnglish={isEnglish}
             />
             <TimelineEventSection
-              title="Sự kiện sắp diễn ra"
-              emptyMessage="Chưa có sự kiện sắp diễn ra phù hợp"
+              title={isEnglish ? 'Upcoming Events' : 'Sự kiện sắp diễn ra'}
+              emptyMessage={isEnglish ? 'No matching upcoming events' : 'Chưa có sự kiện sắp diễn ra phù hợp'}
               events={homeTimeline.upcoming}
               favoriteBusy={favoriteMutation.isPending}
               onFavoriteToggle={handleFavorite}
+              isEnglish={isEnglish}
             />
             <TimelineEventSection
-              title="Sự kiện đã kết thúc"
-              emptyMessage="Chưa có sự kiện đã kết thúc"
+              title={isEnglish ? 'Ended Events' : 'Sự kiện đã kết thúc'}
+              emptyMessage={isEnglish ? 'No ended events' : 'Chưa có sự kiện đã kết thúc'}
               events={homeTimeline.expired}
               favoriteBusy={favoriteMutation.isPending}
               onFavoriteToggle={handleFavorite}
               expired
+              isEnglish={isEnglish}
             />
           </div>
         </div>
@@ -474,9 +514,12 @@ export function HomePage() {
       <section className="hidden bg-transparent py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <SectionTitle title="Sự kiện sắp diễn ra" tight />
+            <SectionTitle title={isEnglish ? 'Upcoming Events' : 'Sự kiện sắp diễn ra'} tight />
             <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {['Hôm nay', 'Tuần này', 'Gần bạn', 'Miễn phí'].map((label, index) => (
+              {(isEnglish
+                ? ['Today', 'This Week', 'Near You', 'Free']
+                : ['Hôm nay', 'Tuần này', 'Gần bạn', 'Miễn phí']
+              ).map((label, index) => (
                 <Link
                   key={label}
                   to="/events"
@@ -491,7 +534,7 @@ export function HomePage() {
             </div>
           </div>
 
-          {upcomingEvents[0] && <SpotlightEvent event={upcomingEvents[0]} />}
+          {upcomingEvents[0] && <SpotlightEvent event={upcomingEvents[0]} isEnglish={isEnglish} />}
 
           <div className="mt-6 grid gap-5 md:grid-cols-3">
             {upcomingEvents.slice(1, 4).map((event) => (
@@ -510,7 +553,7 @@ export function HomePage() {
   )
 }
 
-function VertexCarouselRing({ events, onSelectEvent }) {
+function VertexCarouselRing({ events, onSelectEvent, isEnglish = false }) {
   const containerRef = useRef(null)
   const [isHovered, setIsHovered] = useState(false)
   const phaseRef = useRef(-2)
@@ -621,7 +664,7 @@ function VertexCarouselRing({ events, onSelectEvent }) {
               <div className="pt-0.5">
                 <p className="text-[11px] sm:text-xs text-cyan-300 font-semibold truncate flex items-center gap-1.5">
                   <CalendarDays className="size-3.5 shrink-0 text-primary" />
-                  <span>{formatDateTime(event.start_time)}</span>
+                  <span>{formatDateTime(event.start_time, isEnglish)}</span>
                 </p>
               </div>
             </div>
@@ -632,7 +675,7 @@ function VertexCarouselRing({ events, onSelectEvent }) {
   )
 }
 
-function FeaturedEventSlider({ events, onSelectEvent }) {
+function FeaturedEventSlider({ events, onSelectEvent, isEnglish = false }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const touchStartXRef = useRef(null)
@@ -702,9 +745,9 @@ function FeaturedEventSlider({ events, onSelectEvent }) {
         >
           {events.map((event, idx) => {
             const img = eventImage(event) || eventThumbnail(event)
-            const dateStr = formatDateTime(event.start_time)
-            const locationStr = eventLocation(event)
-            const priceStr = formatPrice(event)
+            const dateStr = formatDateTime(event.start_time, isEnglish)
+            const locationStr = eventLocation(event, isEnglish)
+            const priceStr = formatPrice(event, isEnglish)
 
             return (
               <div
@@ -738,10 +781,10 @@ function FeaturedEventSlider({ events, onSelectEvent }) {
                 <div className="absolute top-3.5 sm:top-5 inset-x-3.5 sm:inset-x-6 flex items-center justify-between gap-2 z-10">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1 text-[11px] font-black text-slate-950 shadow-lg shadow-[#C99A47]/30">
                     <Sparkles className="size-3 fill-slate-950" />
-                    NỔI BẬT
+                    {isEnglish ? 'FEATURED' : 'NỔI BẬT'}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/70 px-3 py-1 text-[11px] font-bold text-slate-200 backdrop-blur-md">
-                    {event.category?.name || event.category_name || 'Sự kiện'}
+                    {getCategoryName(event.category || event.category_name, isEnglish)}
                   </span>
                 </div>
 
@@ -765,7 +808,7 @@ function FeaturedEventSlider({ events, onSelectEvent }) {
                   <div className="mt-3.5 sm:mt-4 flex items-center justify-between gap-3 pt-3 border-t border-white/10">
                     <div>
                       <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-                        Giá vé
+                        {isEnglish ? 'Ticket Price' : 'Giá vé'}
                       </span>
                       <p className="font-extrabold text-sm sm:text-lg text-[#E6C17A]">
                         {priceStr}
@@ -776,7 +819,7 @@ function FeaturedEventSlider({ events, onSelectEvent }) {
                       className="inline-flex items-center gap-1.5 rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-slate-950 shadow-md group-hover:brightness-110 transition-all active:scale-95"
                       style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
                     >
-                      <span>Đặt vé ngay</span>
+                      <span>{isEnglish ? 'Book Now' : 'Đặt vé ngay'}</span>
                       <ChevronRight className="size-4 group-hover:translate-x-0.5 transition-transform" />
                     </div>
                   </div>
@@ -792,7 +835,7 @@ function FeaturedEventSlider({ events, onSelectEvent }) {
             <button
               type="button"
               onClick={handlePrev}
-              aria-label="Sự kiện trước"
+              aria-label={isEnglish ? 'Previous event' : 'Sự kiện trước'}
               className="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 z-20 grid size-8 sm:size-10 place-items-center rounded-full border border-white/20 bg-slate-950/70 text-white shadow-xl backdrop-blur-md transition hover:border-[#E6C17A] hover:text-[#E6C17A] hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronLeft className="size-4 sm:size-5" />
@@ -800,7 +843,7 @@ function FeaturedEventSlider({ events, onSelectEvent }) {
             <button
               type="button"
               onClick={handleNext}
-              aria-label="Sự kiện tiếp theo"
+              aria-label={isEnglish ? 'Next event' : 'Sự kiện tiếp theo'}
               className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-20 grid size-8 sm:size-10 place-items-center rounded-full border border-white/20 bg-slate-950/70 text-white shadow-xl backdrop-blur-md transition hover:border-[#E6C17A] hover:text-[#E6C17A] hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronRight className="size-4 sm:size-5" />
@@ -820,7 +863,7 @@ function FeaturedEventSlider({ events, onSelectEvent }) {
                 e.stopPropagation()
                 setActiveIndex(idx)
               }}
-              aria-label={`Chuyển đến sự kiện ${idx + 1}`}
+              aria-label={isEnglish ? `Go to event ${idx + 1}` : `Chuyển đến sự kiện ${idx + 1}`}
               className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 cursor-pointer ${
                 activeIndex === idx
                   ? 'w-6 sm:w-8 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-[0_0_10px_rgba(201,154,71,0.6)]'
@@ -877,6 +920,7 @@ function TimelineEventSection({
   favoriteBusy,
   onFavoriteToggle,
   expired = false,
+  isEnglish = false,
 }) {
   return (
     <ScrollReveal as="section">
@@ -891,7 +935,7 @@ function TimelineEventSection({
             >
               {expired && (
                 <span className="absolute left-4 top-4 z-30 rounded-full border border-white/20 bg-slate-950/75 px-3 py-1 text-xs font-extrabold uppercase text-white backdrop-blur">
-                  Đã kết thúc
+                  {isEnglish ? 'Ended' : 'Đã kết thúc'}
                 </span>
               )}
               <EventCard
@@ -913,7 +957,7 @@ function TimelineEventSection({
   )
 }
 
-function SpotlightEvent({ event }) {
+function SpotlightEvent({ event, isEnglish = false }) {
   return (
     <article className="glass-panel overflow-hidden rounded-[26px] lg:grid lg:grid-cols-[1fr_1.45fr]">
       <Link to={eventPath(event)} className="block min-h-72 overflow-hidden">
@@ -926,27 +970,27 @@ function SpotlightEvent({ event }) {
       <div className="flex flex-col justify-center p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-3">
           <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase text-primary">
-            {event.category?.name || 'Sự kiện'}
+            {getCategoryName(event.category, isEnglish)}
           </span>
           <span className="text-xs font-bold uppercase text-muted">
-            {formatDateTime(event.start_time)}
+            {formatDateTime(event.start_time, isEnglish)}
           </span>
         </div>
         <h3 className="mt-4 max-w-3xl font-display text-3xl font-extrabold leading-tight text-white">
           {event.title}
         </h3>
         <p className="mt-3 line-clamp-3 text-sm leading-6 text-subtle">
-          {event.short_description || event.description || 'Thông tin chi tiết sẽ được cập nhật sớm.'}
+          {event.short_description || event.description || (isEnglish ? 'Details will be updated soon.' : 'Thông tin chi tiết sẽ được cập nhật sớm.')}
         </p>
         <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
           <span className="font-display text-2xl font-extrabold text-white">
-            {formatPrice(event)}
+            {formatPrice(event, isEnglish)}
           </span>
           <Link
             to={eventPath(event)}
             className="inline-flex w-fit rounded-full bg-tertiary px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-tertiary/20 transition duration-500 ease-out hover:bg-orange-600"
           >
-            Xem chi tiết
+            {isEnglish ? 'View Details' : 'Xem chi tiết'}
           </Link>
         </div>
       </div>
