@@ -40,7 +40,9 @@ import {
     ChevronDown,
     ChevronUp,
     Pencil,
+    RotateCcw,
 } from 'lucide-react'
+import { isEventEnded } from './eventStatusUtil.js'
 import {
     PublishConfirmModal,
     ToggleHideConfirmModal,
@@ -300,6 +302,24 @@ export function OrganizerEventDetailPage() {
                 })
                 const count = ticketTypeIds.length
                 toast.info(count > 1 ? `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+            } else if (payload.scope === 'SEATS') {
+                if (payload.action === 'RESUME_SEATS') {
+                    await resumeSalesOrganizerEvent(salesTarget.id, {
+                        scope: 'SEATS',
+                        sessionId: payload.sessionId,
+                        seatIds: payload.seatIds,
+                    })
+                    toast.success(`Đã mở bán lại cho ${payload.seatIds?.length || 0} vị trí ghế đã chọn.`)
+                } else {
+                    await pauseSalesOrganizerEvent(salesTarget.id, {
+                        scope: 'SEATS',
+                        sessionId: payload.sessionId,
+                        seatIds: payload.seatIds,
+                        seatLabels: payload.seatLabels,
+                        reason: payload.reason,
+                    })
+                    toast.info(`Đã tạm dừng bán vé cho ${payload.seatIds?.length || 0} vị trí ghế đã chọn.`)
+                }
             } else if (salesTarget.sales_status === 'PAUSED' || payload.action === 'RESUME_ALL') {
                 const res = await resumeSalesOrganizerEvent(salesTarget.id)
                 if (res?.event?.sales_status === 'PAUSED' || (res?.remainingBlocks && res.remainingBlocks.length > 0)) {
@@ -365,12 +385,12 @@ export function OrganizerEventDetailPage() {
         setWithdrawLoading(true)
         try {
             await withdrawCancellationRequest(withdrawTarget.id)
-            toast.success(`Đã rút lại yêu cầu hủy sự kiện "${withdrawTarget.title}".`)
+            toast.success(`Đã hoàn tác yêu cầu hủy sự kiện "${withdrawTarget.title}".`)
             setWithdrawTarget(null)
             await loadData()
         } catch (err) {
             console.error(err)
-            toast.error(getApiMessage(err, 'Không thể rút lại yêu cầu hủy sự kiện.'))
+            toast.error(getApiMessage(err, 'Không thể hoàn tác yêu cầu hủy sự kiện.'))
         } finally {
             setWithdrawLoading(false)
         }
@@ -429,6 +449,13 @@ export function OrganizerEventDetailPage() {
         })
     }
 
+    const isCancelPending = event.cancel_request?.status === 'PENDING'
+    const isCancelled = event.status === 'CANCELLED'
+    const isSuspended = event.display_state === 'SUSPENDED_BY_ADMIN'
+    const ended = isEventEnded(event) || (event.status === 'COMPLETED' && event.approval_status !== 'APPROVED')
+    const isPendingReview = event.status === 'PENDING_REVIEW'
+    const canEdit = !isCancelPending && !isCancelled && !isSuspended && !ended
+
     return (
         <OrganizerPage
             title="Chi tiết sự kiện"
@@ -436,25 +463,39 @@ export function OrganizerEventDetailPage() {
             backLabel="Quay lại"
             action={(
                 <div className="flex flex-wrap items-center gap-2.5">
-                    <Link
-                        to={`/organizer/events/${event.id}/edit`}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3.5 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95"
-                    >
-                        <Pencil className="size-3.5" />
-                        Chỉnh sửa sự kiện
-                    </Link>
-                    <EventActionsDropdown
-                        event={event}
-                        variant="button"
-                        label="Tác vụ"
-                        includeEdit={false}
-                        onToggleHide={openHideModal}
-                        onToggleSales={openSalesModal}
-                        onWithdrawCancel={openWithdrawModal}
-                        onCancel={openCancelModal}
-                        onPublish={openPublishModal}
-                        onDelete={openDeleteModal}
-                    />
+                    {canEdit && (
+                        <Link
+                            to={`/organizer/events/${event.id}/edit`}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3.5 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95"
+                        >
+                            <Pencil className="size-3.5" />
+                            Chỉnh sửa sự kiện
+                        </Link>
+                    )}
+                    {isCancelPending ? (
+                        <button
+                            type="button"
+                            onClick={() => openWithdrawModal(event)}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/15 px-3.5 text-xs font-bold text-amber-300 shadow-md transition hover:bg-amber-500/25 hover:border-amber-500/70 active:scale-95"
+                            title="Hoàn tác yêu cầu hủy sự kiện"
+                        >
+                            <RotateCcw className="size-3.5" />
+                            Hoàn tác yêu cầu hủy
+                        </button>
+                    ) : (
+                        <EventActionsDropdown
+                            event={event}
+                            variant="button"
+                            label="Tác vụ"
+                            includeEdit={false}
+                            onToggleHide={openHideModal}
+                            onToggleSales={openSalesModal}
+                            onWithdrawCancel={openWithdrawModal}
+                            onCancel={openCancelModal}
+                            onPublish={openPublishModal}
+                            onDelete={openDeleteModal}
+                        />
+                    )}
                 </div>
             )}
         >

@@ -722,12 +722,12 @@ export function OrganizerEventsPage() {
     setWithdrawLoading(true)
     try {
       await withdrawCancellationRequest(withdrawTarget.id)
-      toast.success(`Đã rút lại yêu cầu hủy sự kiện "${withdrawTarget.title}". Sự kiện đã mở bán lại bình thường.`)
+      toast.success(`Đã hoàn tác yêu cầu hủy sự kiện "${withdrawTarget.title}". Sự kiện đã mở bán lại bình thường.`)
       setWithdrawTarget(null)
       await loadEvents()
     } catch (err) {
       console.error(err)
-      toast.error(getApiMessage(err, 'Không thể rút lại yêu cầu hủy sự kiện.'))
+      toast.error(getApiMessage(err, 'Không thể hoàn tác yêu cầu hủy sự kiện.'))
     } finally {
       setWithdrawLoading(false)
     }
@@ -809,6 +809,24 @@ export function OrganizerEventsPage() {
         })
         const count = ticketTypeIds.length
         toast.info(count > 1 ? `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+      } else if (payload.scope === 'SEATS') {
+        if (payload.action === 'RESUME_SEATS') {
+          await resumeSalesOrganizerEvent(salesTarget.id, {
+            scope: 'SEATS',
+            sessionId: payload.sessionId,
+            seatIds: payload.seatIds,
+          })
+          toast.success(`Đã mở bán lại cho ${payload.seatIds?.length || 0} vị trí ghế đã chọn.`)
+        } else {
+          await pauseSalesOrganizerEvent(salesTarget.id, {
+            scope: 'SEATS',
+            sessionId: payload.sessionId,
+            seatIds: payload.seatIds,
+            seatLabels: payload.seatLabels,
+            reason: payload.reason,
+          })
+          toast.info(`Đã tạm dừng bán vé cho ${payload.seatIds?.length || 0} vị trí ghế đã chọn.`)
+        }
       } else if (salesTarget.sales_status === 'PAUSED' || payload.action === 'RESUME_ALL') {
         const res = await resumeSalesOrganizerEvent(salesTarget.id)
         if (res?.event?.sales_status === 'PAUSED' || (res?.remainingBlocks && res.remainingBlocks.length > 0)) {
@@ -1112,9 +1130,9 @@ export function OrganizerEventsPage() {
                 <RotateCcw className="size-6" />
               </span>
               <div>
-                <h3 className="text-lg font-black text-white">Rút lại yêu cầu hủy sự kiện</h3>
+                <h3 className="text-lg font-black text-white">Hoàn tác yêu cầu hủy sự kiện</h3>
                 <p className="mt-1 text-xs text-slate-300">
-                  Bạn có chắc chắn muốn hủy yêu cầu này? Yêu cầu gửi Admin sẽ bị hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.
+                  Bạn có chắc chắn muốn hoàn tác yêu cầu này? Yêu cầu gửi Quản trị viên sẽ được hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.
                 </p>
               </div>
             </div>
@@ -1137,7 +1155,7 @@ export function OrganizerEventsPage() {
                 className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 {withdrawLoading && <span className="size-3 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />}
-                Xác nhận rút lại
+                Xác nhận hoàn tác
               </button>
             </div>
           </div>
