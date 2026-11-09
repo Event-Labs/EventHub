@@ -9,7 +9,7 @@ class PaymentsRepository {
       WHERE organizer_id = $1
         AND provider = 'PAYOS'
         AND status = 'ACTIVE'
-        AND is_default = true
+      ORDER BY is_default DESC, created_at DESC
       LIMIT 1
       `,
       [organizerId],
@@ -26,7 +26,7 @@ class PaymentsRepository {
       WHERE e.id = $1
         AND opc.provider = 'PAYOS'
         AND opc.status = 'ACTIVE'
-        AND opc.is_default = true
+      ORDER BY opc.is_default DESC, opc.created_at DESC
       LIMIT 1
       `,
       [eventId],

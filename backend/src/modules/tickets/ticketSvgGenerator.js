@@ -366,37 +366,37 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
 
     <!-- ==================== TICKET INFORMATION CARDS (HIERARCHY SPECIFICATION) ==================== -->
 
-    <!-- Row 1: THỜI GIAN (DATE & TIME) - Tăng size bằng tên người tham dự (font-size: 20, bold) -->
-    <rect x="55" y="286" width="1090" height="72" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.2"/>
-    <text x="75" y="310" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">TH&#7900;I GIAN (DATE &amp; TIME)</text>
-    <text x="75" y="342" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(dateTimeStr)}</text>
-
-    <!-- Row 2: NGƯỜI THAM DỰ & LOẠI VÉ (Cấp 2: cùng độ ưu tiên, cùng kích thước) & GHẾ NGỒI (Cấp 2: cùng nhóm thông tin vé) -->
+    <!-- Row 1: NGƯỜI THAM DỰ & LOẠI VÉ & GHẾ NGỒI (Ưu tiên hàng đầu) -->
     <!-- Card 1: NGƯỜI THAM DỰ (ATTENDEE) -->
-    <rect x="55" y="374" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="75" y="401" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)</text>
-    <text x="75" y="444" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(attendeeName)}</text>
+    <rect x="55" y="286" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
+    <text x="75" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)</text>
+    <text x="75" y="356" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(attendeeName)}</text>
 
     <!-- Card 2: LOẠI VÉ (TICKET TYPE) -->
-    <rect x="425" y="374" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="445" y="401" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">LO&#7840;I V&#201; (TICKET TYPE)</text>
-    <text x="445" y="444" fill="#E6C17A" class="font-sans" font-size="20" font-weight="800">${escapeXml(ticketTypeName)}</text>
+    <rect x="425" y="286" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
+    <text x="445" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">LO&#7840;I V&#201; (TICKET TYPE)</text>
+    <text x="445" y="356" fill="#E6C17A" class="font-sans" font-size="20" font-weight="800">${escapeXml(ticketTypeName)}</text>
 
     <!-- Card 3: GHẾ NGỒI (SEAT) - Màu nội dung đổi thành màu trắng -->
-    <rect x="795" y="374" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="815" y="401" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">GH&#7870; NG&#7891;I (SEAT)</text>
-    <text x="815" y="444" fill="#FFFFFF" class="font-sans" font-size="18.5" font-weight="700">${escapeXml(seatLabel)}</text>
+    <rect x="795" y="286" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
+    <text x="815" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">GH&#7870; NG&#7891;I (SEAT)</text>
+    <text x="815" y="356" fill="#FFFFFF" class="font-sans" font-size="18.5" font-weight="700">${escapeXml(seatLabel)}</text>
+
+    <!-- Row 2: THỜI GIAN (DATE & TIME) - Tăng size (font-size: 20, bold) -->
+    <rect x="55" y="398" width="1090" height="74" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.2"/>
+    <text x="75" y="422" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">TH&#7900;I GIAN (DATE &amp; TIME)</text>
+    <text x="75" y="454" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(dateTimeStr)}</text>
 
     <!-- Row 3: ĐỊA ĐIỂM (VENUE) - Cấp 2: tên địa điểm nổi bật, địa chỉ trải dài hết khung -->
-    <rect x="55" y="488" width="1090" height="100" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="75" y="514" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">&#272;&#7882;A &#272;I&#7878;M (VENUE)</text>
-    <text x="75" y="546" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(venueName)}</text>
+    <rect x="55" y="486" width="1090" height="102" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
+    <text x="75" y="512" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">&#272;&#7882;A &#272;I&#7874;M (VENUE)</text>
+    <text x="75" y="544" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(venueName)}</text>
     ${hasTwoAddressLines
-      ? `<text x="75" y="566" fill="#CBD5E1" class="font-sans" font-size="13.5" font-weight="400">
+      ? `<text x="75" y="564" fill="#CBD5E1" class="font-sans" font-size="13.5" font-weight="400">
           <tspan x="75" dy="0">${escapeXml(addressLines[0])}</tspan>
           <tspan x="75" dy="18">${escapeXml(addressLines[1])}</tspan>
         </text>`
-      : `<text x="75" y="570" fill="#CBD5E1" class="font-sans" font-size="13.5" font-weight="400">${escapeXml(venueAddress)}</text>`}
+      : `<text x="75" y="568" fill="#CBD5E1" class="font-sans" font-size="13.5" font-weight="400">${escapeXml(venueAddress)}</text>`}
 
     <!-- Footer: Please present this ticket at the entrance -->
     <g transform="translate(55, 626) scale(1.05)">
@@ -434,23 +434,23 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
     <!-- Ticket Status Pill (Hình 1: Dấu tích xanh kết hợp nhãn trạng thái) -->
     <rect x="1275" y="510" width="250" height="48" rx="24" fill="${statusBg}" stroke="${statusBorder}" stroke-width="1.5"/>
     ${statusType === 'VALID' ? `
-      <g transform="translate(1312, 521)">
+      <g transform="translate(1336, 523)">
         <circle cx="11" cy="11" r="9" fill="none" stroke="#16A34A" stroke-width="2.2"/>
         <path d="M 6.5 11 L 9.5 14 L 15.5 8" fill="none" stroke="#16A34A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
-      <text x="1418" y="540" fill="${statusColor}" class="font-sans" font-size="16" font-weight="800" letter-spacing="1.2" text-anchor="middle">${statusText}</text>
+      <text x="1368" y="540" fill="${statusColor}" class="font-sans" font-size="16" font-weight="800" letter-spacing="1.2">${statusText}</text>
     ` : statusType === 'USED' ? `
-      <g transform="translate(1310, 521)">
+      <g transform="translate(1332, 523)">
         <path d="M 4 11 L 7.5 14.5 L 14 7" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M 9 11 L 12.5 14.5 L 19 7" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
-      <text x="1418" y="540" fill="${statusColor}" class="font-sans" font-size="16" font-weight="800" letter-spacing="1.2" text-anchor="middle">${statusText}</text>
+      <text x="1362" y="540" fill="${statusColor}" class="font-sans" font-size="16" font-weight="800" letter-spacing="1.2">${statusText}</text>
     ` : statusType === 'CANCELLED' ? `
-      <g transform="translate(1312, 521)">
+      <g transform="translate(1338, 523)">
         <circle cx="11" cy="11" r="9" fill="none" stroke="#DC2626" stroke-width="2.2"/>
         <line x1="5" y1="5" x2="17" y2="17" stroke="#DC2626" stroke-width="2.2"/>
       </g>
-      <text x="1418" y="540" fill="${statusColor}" class="font-sans" font-size="16" font-weight="800" letter-spacing="1.2" text-anchor="middle">${statusText}</text>
+      <text x="1370" y="540" fill="${statusColor}" class="font-sans" font-size="16" font-weight="800" letter-spacing="1.2">${statusText}</text>
     ` : `
       <text x="1400" y="540" fill="${statusColor}" class="font-sans" font-size="15" font-weight="800" letter-spacing="1.2" text-anchor="middle">${statusText}</text>
     `}

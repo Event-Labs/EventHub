@@ -167,35 +167,39 @@ export function TicketStatusOverviewPanel({
             key={item.id}
             onMouseEnter={() => setHoveredSegment(item.id)}
             onMouseLeave={() => setHoveredSegment(null)}
-            className={`rounded-xl border p-2.5 transition-all cursor-pointer hover:scale-[1.02] ${item.boxClass}`}
+            className={`flex flex-col justify-between rounded-xl border p-2.5 transition-all cursor-pointer hover:scale-[1.02] ${item.boxClass}`}
           >
-            <div className="flex items-center justify-center gap-1.5">
-              <span className={`size-1.5 rounded-full ${item.dotClass}`} />
-              <p className={`text-[10px] font-bold uppercase tracking-wider ${item.labelClass}`}>
+            <div className="flex h-8 items-center justify-center gap-1.5 px-0.5">
+              <span className={`size-1.5 shrink-0 rounded-full ${item.dotClass}`} />
+              <p className={`text-[10px] font-bold uppercase tracking-tight leading-tight ${item.labelClass}`}>
                 {item.label}
               </p>
             </div>
-            <p className={`mt-1 font-display text-xl sm:text-2xl font-black ${item.textClass}`}>
+            <p className={`my-1 font-display text-xl sm:text-2xl font-black ${item.textClass}`}>
               {fmtNumber(item.value)}
             </p>
-            <p className="mt-0.5 text-[10px] font-semibold text-slate-400 [html.light_&]:text-slate-600">
-              {item.subText}
-            </p>
+            <div className="flex min-h-[26px] items-center justify-center">
+              <p className="text-[10px] font-semibold text-slate-400 [html.light_&]:text-slate-600 leading-tight">
+                {item.subText}
+              </p>
+            </div>
           </div>
         ))}
       </div>
 
       {/* ── Footer Breakdown ── */}
-      <div className="mt-4 space-y-1 border-t border-white/5 pt-3 text-xs [html.light_&]:border-slate-200">
+      <div className="mt-4 space-y-1.5 border-t border-white/5 pt-3 text-xs [html.light_&]:border-slate-200">
         <div className="flex items-center justify-between">
-          <span className="text-slate-400 [html.light_&]:text-[#536b88]">Tổng vé đã phát hành:</span>
+          <span className="text-white [html.light_&]:text-[#0D1B2A]">Tổng vé đã phát hành:</span>
           <strong className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
             {fmtNumber(totalIssued)} vé
           </strong>
         </div>
-        <div className="flex items-center justify-between text-[11px] text-slate-400">
-          <span>Vé hợp lệ (loại trừ đã hủy):</span>
-          <span className="font-semibold text-cyan-300">{fmtNumber(validTickets)} vé</span>
+        <div className="flex items-center justify-between">
+          <span className="text-white [html.light_&]:text-[#0D1B2A]">Vé hợp lệ (loại trừ đã hủy):</span>
+          <strong className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+            {fmtNumber(validTickets)} vé
+          </strong>
         </div>
       </div>
     </div>
