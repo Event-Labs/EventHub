@@ -14,8 +14,10 @@ import { UserDetailView, LockUserModal } from './UserManagementComponents'
 import { Modal } from '@/components/Modal'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import { Search, RotateCcw, AlertTriangle, Eye, Unlock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 export function AdminAccountsPage() {
+  const { isEnglish, t } = useLanguage()
   const [users, setUsers] = useState([])
   const [total, setTotal] = useState(0)
   const [filters, setFilters] = useState({
@@ -144,21 +146,31 @@ export function AdminAccountsPage() {
         {unlockModalOpen && (
           <Modal
             open={unlockModalOpen}
-            title="Mở khóa tài khoản"
+            title={isEnglish ? 'Unlock Account' : 'Mở khóa tài khoản'}
             onClose={() => setUnlockModalOpen(false)}
             footer={
               <>
-                <button className="admin-secondary" onClick={() => setUnlockModalOpen(false)}>Hủy bỏ</button>
-                <button className="admin-primary bg-success border-none text-slate-950 font-extrabold hover:bg-success/90" onClick={handleUnlock}>Xác nhận mở khóa</button>
+                <button className="admin-secondary" onClick={() => setUnlockModalOpen(false)}>
+                  {isEnglish ? 'Cancel' : 'Hủy bỏ'}
+                </button>
+                <button className="admin-primary bg-success border-none text-slate-950 font-extrabold hover:bg-success/90" onClick={handleUnlock}>
+                  {isEnglish ? 'Confirm Unlock' : 'Xác nhận mở khóa'}
+                </button>
               </>
             }
           >
             <div className="py-2">
               <p className="text-sm text-subtle">
-                Bạn có chắc chắn muốn mở khóa tài khoản cho <span className="font-bold text-content">{targetUser?.full_name}</span>?
+                {isEnglish ? (
+                  <>Are you sure you want to unlock the account for <span className="font-bold text-content">{targetUser?.full_name}</span>?</>
+                ) : (
+                  <>Bạn có chắc chắn muốn mở khóa tài khoản cho <span className="font-bold text-content">{targetUser?.full_name}</span>?</>
+                )}
               </p>
               <p className="mt-2 text-sm text-subtle">
-                Sau khi mở khóa, người dùng có thể đăng nhập và sử dụng hệ thống bình thường.
+                {isEnglish
+                  ? 'After unlocking, this user can sign in and use the platform normally.'
+                  : 'Sau khi mở khóa, người dùng có thể đăng nhập và sử dụng hệ thống bình thường.'}
               </p>
             </div>
           </Modal>
@@ -169,8 +181,7 @@ export function AdminAccountsPage() {
 
   return (
     <Page
-      title="Quản lý Người dùng"
-      description="Quản lý tài khoản, vai trò và tuân thủ bảo mật hệ thống."
+      title={isEnglish ? 'User Management' : 'Quản lý Người dùng'}
     >
       <KpiGrid
         items={[
@@ -187,7 +198,7 @@ export function AdminAccountsPage() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
             <input
               type="text"
-              placeholder="Tìm theo tên hoặc email..."
+              placeholder={isEnglish ? 'Search by name or email...' : 'Tìm theo tên hoặc email...'}
               className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none focus:border-primary transition focus:ring-2 focus:ring-primary/10 placeholder:text-white/50"
               value={filters.search}
               onChange={handleSearchChange}
@@ -252,7 +263,7 @@ export function AdminAccountsPage() {
             )}
           </div>,
           <span key="date" className="text-sm text-subtle font-medium">
-            {new Date(user.created_at).toLocaleDateString('vi-VN')}
+            {new Date(user.created_at).toLocaleDateString(isEnglish ? 'en-US' : 'vi-VN')}
           </span>,
           <Status key="status" value={user.status} />,
           <div key="actions" className="flex items-center justify-center gap-2">
@@ -283,7 +294,11 @@ export function AdminAccountsPage() {
 
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <p className="text-sm text-subtle font-medium">
-          Hiển thị <span className="font-bold">{startItem}</span> đến <span className="font-bold">{endItem}</span> trong tổng số <span className="font-bold">{total}</span> người dùng
+          {isEnglish ? (
+            <>Showing <span className="font-bold">{startItem}</span> to <span className="font-bold">{endItem}</span> of <span className="font-bold">{total}</span> users</>
+          ) : (
+            <>Hiển thị <span className="font-bold">{startItem}</span> đến <span className="font-bold">{endItem}</span> trong tổng số <span className="font-bold">{total}</span> người dùng</>
+          )}
         </p>
         <div className="flex flex-wrap items-center gap-2">
            <button 
@@ -291,8 +306,8 @@ export function AdminAccountsPage() {
             disabled={filters.page === 1}
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
             className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
-            title="Trang trước"
-            aria-label="Trang trước"
+            title={isEnglish ? 'Previous page' : 'Trang trước'}
+            aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
            >
             <ChevronLeft className="size-4" />
            </button>
@@ -322,8 +337,8 @@ export function AdminAccountsPage() {
             disabled={filters.page >= totalPages}
             onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
             className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
-            title="Trang sau"
-            aria-label="Trang sau"
+            title={isEnglish ? 'Next page' : 'Trang sau'}
+            aria-label={isEnglish ? 'Next page' : 'Trang sau'}
            >
             <ChevronRight className="size-4" />
            </button>

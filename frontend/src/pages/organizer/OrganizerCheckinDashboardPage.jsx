@@ -127,7 +127,6 @@ export function OrganizerCheckinDashboardPage() {
   return (
     <OrganizerPage
       title="Theo dõi Check-in"
-      description="Trung tâm phân tích và theo dõi hoạt động soát vé thời gian thực (Real-time Analytics Dashboard)."
     >
       {/* ── ROW 1: HEADER CONTROLS & REAL-TIME STATUS ── */}
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-white/10 [html.light_&]:border-slate-200 pb-5">

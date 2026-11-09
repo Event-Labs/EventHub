@@ -34,19 +34,26 @@ import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 // ─── Formatters & Helpers ────────────────────────────────────────────────────
 
-function fmtCurrency(n) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
+function getAutoLocale() {
+  if (typeof document !== 'undefined' && document.documentElement.lang === 'en') return 'en'
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en') return 'en'
+  return 'vi'
 }
 
-function fmtShort(n) {
+function fmtCurrency(n, isEnglish = (getAutoLocale() === 'en')) {
+  return new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
+}
+
+function fmtShort(n, isEnglish = (getAutoLocale() === 'en')) {
   const v = Number(n) || 0
   if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
-  return v.toLocaleString('vi-VN')
+  return v.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')
 }
 
 function fmtChartDay(value) {
@@ -66,14 +73,14 @@ function fmtChartDay(value) {
   }
 }
 
-function fmtFullDate(value) {
+function fmtFullDate(value, isEnglish = (getAutoLocale() === 'en')) {
   if (!value) return ''
   try {
     const d = new Date(value)
     if (Number.isNaN(d.getTime())) return String(value)
-    return d.toLocaleDateString('vi-VN', {
+    return d.toLocaleDateString(isEnglish ? 'en-US' : 'vi-VN', {
       day: '2-digit',
-      month: '2-digit',
+      month: isEnglish ? 'short' : '2-digit',
       year: 'numeric',
     })
   } catch {
@@ -223,6 +230,7 @@ function OccupancyBadge({ rate }) {
 // ─── Component 1: Daily Combo Chart with WIDER BARS and FULL X & Y AXES ───────
 
 function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
+  const { isEnglish } = useLanguage()
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [hoveredIndex, setHoveredIndex] = useState(null)
@@ -242,8 +250,12 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
     return (
       <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-2xl border border-white/5 bg-slate-950/40 text-center text-sm text-slate-400 [html.light_&]:bg-[#FAF4EB]">
         <BarChart3 className="size-8 text-slate-600 [html.light_&]:text-slate-400" />
-        <p className="font-semibold text-slate-300 [html.light_&]:text-[#0D1B2A]">Chưa có dữ liệu bán vé trong khoảng thời gian này</p>
-        <p className="text-xs text-slate-500 [html.light_&]:text-[#536b88]">Biểu đồ sẽ tự động xuất hiện khi có giao dịch phát sinh.</p>
+        <p className="font-semibold text-slate-300 [html.light_&]:text-[#0D1B2A]">
+          {isEnglish ? 'No ticket sales data in this time range' : 'Chưa có dữ liệu bán vé trong khoảng thời gian này'}
+        </p>
+        <p className="text-xs text-slate-500 [html.light_&]:text-[#536b88]">
+          {isEnglish ? 'Charts will appear automatically as orders are placed.' : 'Biểu đồ sẽ tự động xuất hiện khi có giao dịch phát sinh.'}
+        </p>
       </div>
     )
   }
@@ -316,10 +328,12 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
           </div>
           <div>
             <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
-              Biểu đồ kết hợp: Vé bán & Biến động doanh thu
+              {isEnglish ? 'Combo Chart: Ticket Sales & Revenue' : 'Biểu đồ kết hợp: Vé bán & Biến động doanh thu'}
             </h2>
             <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-              Cột gradient xanh đại diện sản lượng vé (trục trái) · Đường uốn lượn vàng thể hiện doanh thu (trục phải)
+              {isEnglish
+                ? 'Cyan gradient bars represent ticket volume (left axis) · Golden line shows revenue trend (right axis)'
+                : 'Cột gradient xanh đại diện sản lượng vé (trục trái) · Đường uốn lượn vàng thể hiện doanh thu (trục phải)'}
             </p>
           </div>
         </div>
@@ -335,7 +349,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A]'
             }`}
           >
-            Kết hợp
+            {isEnglish ? 'Combo' : 'Kết hợp'}
           </button>
           <button
             type="button"
@@ -346,7 +360,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A]'
             }`}
           >
-            Vé bán
+            {isEnglish ? 'Tickets' : 'Vé bán'}
           </button>
           <button
             type="button"
@@ -357,7 +371,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A]'
             }`}
           >
-            Doanh thu
+            {isEnglish ? 'Revenue' : 'Doanh thu'}
           </button>
         </div>
       </div>
@@ -367,30 +381,30 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-gradient-to-t from-cyan-600 to-cyan-400 shadow-sm" />
-            <span className="text-slate-400 [html.light_&]:text-[#536b88]">Vé bán:</span>
+            <span className="text-slate-400 [html.light_&]:text-[#536b88]">{isEnglish ? 'Tickets sold:' : 'Vé bán:'}</span>
             <strong className="text-white font-black [html.light_&]:text-[#0D1B2A]">
-              {totalTickets.toLocaleString('vi-VN')} vé
+              {totalTickets.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}
             </strong>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-[#E6C17A] shadow-[0_0_8px_rgba(230,193,122,0.6)]" />
-            <span className="text-slate-400 [html.light_&]:text-[#536b88]">Doanh thu:</span>
+            <span className="text-slate-400 [html.light_&]:text-[#536b88]">{isEnglish ? 'Revenue:' : 'Doanh thu:'}</span>
             <strong className="text-[#E6C17A] font-black [html.light_&]:text-[#0D1B2A]">
-              {fmtCurrency(totalRevenue)}
+              {fmtCurrency(totalRevenue, isEnglish)}
             </strong>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400 [html.light_&]:text-[#536b88]">Đơn hàng:</span>
+            <span className="text-slate-400 [html.light_&]:text-[#536b88]">{isEnglish ? 'Orders:' : 'Đơn hàng:'}</span>
             <strong className="text-slate-200 font-bold [html.light_&]:text-[#1B365D]">
-              {totalOrders} đơn
+              {totalOrders} {isEnglish ? 'orders' : 'đơn'}
             </strong>
           </div>
           {peakDay && Number(peakDay.tickets_sold) > 0 && (
             <div className="hidden md:flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-emerald-400 [html.light_&]:border-emerald-500/40 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700">
               <Sparkles className="size-3" />
-              <span>Đỉnh:</span>
+              <span>{isEnglish ? 'Peak:' : 'Đỉnh:'}</span>
               <strong>
-                {peakDay.tickets_sold} vé ({fmtChartDay(peakDay.day)})
+                {peakDay.tickets_sold} {isEnglish ? 'tickets' : 'vé'} ({fmtChartDay(peakDay.day)})
               </strong>
             </div>
           )}
@@ -398,10 +412,10 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
 
         {hoveredItem ? (
           <div className="flex items-center gap-2 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 px-2.5 py-1 text-xs font-bold text-[#E6C17A] shadow-sm [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#0D1B2A]">
-            <span>{fmtFullDate(hoveredItem.day)}:</span>
-            <span>{Number(hoveredItem.tickets_sold || 0).toLocaleString('vi-VN')} vé</span>
+            <span>{fmtFullDate(hoveredItem.day, isEnglish)}:</span>
+            <span>{Number(hoveredItem.tickets_sold || 0).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}</span>
             <span>·</span>
-            <span>{fmtCurrency(hoveredItem.revenue)}</span>
+            <span>{fmtCurrency(hoveredItem.revenue, isEnglish)}</span>
           </div>
         ) : (
           <span className="text-slate-500 text-[11px] [html.light_&]:text-[#536b88]">
@@ -482,7 +496,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
             fill="#38bdf8"
             className="[html.light_&]:fill-cyan-800"
           >
-            (Vé)
+            {isEnglish ? '(Tickets)' : '(Vé)'}
           </text>
           {leftTicks.map((item, idx) => (
             <g key={`ly-${idx}`}>
@@ -527,7 +541,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
             fill="#E6C17A"
             className="[html.light_&]:fill-[#C99A47]"
           >
-            (VNĐ)
+            {isEnglish ? '(VND)' : '(VNĐ)'}
           </text>
           {rightTicks.map((item, idx) => (
             <g key={`ry-${idx}`}>
@@ -676,6 +690,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
 // ─── Component 2: Ticket Type Performance Chart (SMART FILTER + DUAL VIEW) ────
 
 function TicketTypePerformanceChart({ data = [] }) {
+  const { isEnglish } = useLanguage()
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [activeMetric, setActiveMetric] = useState('revenue') // 'revenue' | 'volume' | 'occupancy'
@@ -740,7 +755,9 @@ function TicketTypePerformanceChart({ data = [] }) {
     return (
       <div className="flex h-52 flex-col items-center justify-center gap-2 rounded-2xl border border-white/5 bg-slate-950/40 text-center text-sm text-slate-400 [html.light_&]:bg-[#FAF4EB]">
         <Layers className="size-8 text-slate-600 [html.light_&]:text-slate-400" />
-        <p className="font-semibold text-slate-300 [html.light_&]:text-[#0D1B2A]">Chưa có thông tin loại vé</p>
+        <p className="font-semibold text-slate-300 [html.light_&]:text-[#0D1B2A]">
+          {isEnglish ? 'No ticket tier information' : 'Chưa có thông tin loại vé'}
+        </p>
       </div>
     )
   }
@@ -772,14 +789,18 @@ function TicketTypePerformanceChart({ data = [] }) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                Hiệu suất & Cơ cấu theo Loại vé
+                {isEnglish ? 'Ticket Tier Performance & Structure' : 'Hiệu suất & Cơ cấu theo Loại vé'}
               </h2>
               <span className="rounded-full border border-[#C99A47]/30 bg-[#C99A47]/10 px-2.5 py-0.5 text-[11px] font-bold text-[#E6C17A] [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#0D1B2A]">
-                {itemsWithSales.length > 0 ? `${itemsWithSales.length} vé có doanh số / ${data.length} vé` : `${data.length} hạng vé`}
+                {itemsWithSales.length > 0
+                  ? (isEnglish ? `${itemsWithSales.length} with sales / ${data.length} tiers` : `${itemsWithSales.length} vé có doanh số / ${data.length} vé`)
+                  : (isEnglish ? `${data.length} ticket tiers` : `${data.length} hạng vé`)}
               </span>
             </div>
             <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-              Biểu đồ trực quan doanh thu, số lượng vé bán so với sức chứa và tỷ lệ lấp đầy
+              {isEnglish
+                ? 'Visual breakdown of revenue, sales volume vs capacity, and occupancy rate'
+                : 'Biểu đồ trực quan doanh thu, số lượng vé bán so với sức chứa và tỷ lệ lấp đầy'}
             </p>
           </div>
         </div>
@@ -791,14 +812,14 @@ function TicketTypePerformanceChart({ data = [] }) {
             <button
               type="button"
               onClick={() => setFilterMode('activeOnly')}
-              title="Chỉ hiển thị các vé có phát sinh doanh số / vé bán"
+              title={isEnglish ? 'Show only tickets with sales' : 'Chỉ hiển thị các vé có phát sinh doanh số / vé bán'}
               className={`rounded-lg px-2.5 py-1 transition ${
                 filterMode === 'activeOnly'
                   ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-sm'
                   : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
               }`}
             >
-              Có doanh số ({itemsWithSales.length})
+              {isEnglish ? `With sales (${itemsWithSales.length})` : `Có doanh số (${itemsWithSales.length})`}
             </button>
             <button
               type="button"
@@ -823,7 +844,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                   : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
               }`}
             >
-              Tất cả ({data.length})
+              {isEnglish ? `All (${data.length})` : `Tất cả (${data.length})`}
             </button>
           </div>
 
@@ -838,7 +859,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                   : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
               }`}
             >
-              Doanh thu
+              {isEnglish ? 'Revenue' : 'Doanh thu'}
             </button>
             <button
               type="button"
@@ -849,7 +870,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                   : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
               }`}
             >
-              Vé bán
+              {isEnglish ? 'Tickets' : 'Vé bán'}
             </button>
             <button
               type="button"
@@ -860,7 +881,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                   : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
               }`}
             >
-              Lấp đầy
+              {isEnglish ? 'Occupancy' : 'Lấp đầy'}
             </button>
           </div>
 
@@ -869,26 +890,26 @@ function TicketTypePerformanceChart({ data = [] }) {
             <button
               type="button"
               onClick={() => setViewType('column')}
-              title="Xem biểu đồ cột đứng"
+              title={isEnglish ? 'View as vertical columns' : 'Xem biểu đồ cột đứng'}
               className={`rounded-lg px-2 py-1 transition ${
                 viewType === 'column'
                   ? 'bg-white/15 text-white font-bold [html.light_&]:bg-[#C99A47]/30 [html.light_&]:text-[#0D1B2A]'
                   : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
               }`}
             >
-              Cột đứng
+              {isEnglish ? 'Columns' : 'Cột đứng'}
             </button>
             <button
               type="button"
               onClick={() => setViewType('horizontal')}
-              title="Xem biểu đồ thanh ngang xếp hạng"
+              title={isEnglish ? 'View as horizontal bars' : 'Xem biểu đồ thanh ngang xếp hạng'}
               className={`rounded-lg px-2 py-1 transition ${
                 viewType === 'horizontal'
                   ? 'bg-white/15 text-white font-bold [html.light_&]:bg-[#C99A47]/30 [html.light_&]:text-[#0D1B2A]'
                   : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
               }`}
             >
-              Thanh ngang
+              {isEnglish ? 'Horizontal' : 'Thanh ngang'}
             </button>
           </div>
         </div>
@@ -1168,13 +1189,15 @@ function TicketTypePerformanceChart({ data = [] }) {
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-400/30">
                 <div className="flex items-center gap-1.5 text-amber-400 [html.light_&]:text-amber-700">
                   <Crown className="size-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Bán chạy nhất</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">
+                    {isEnglish ? 'Best Seller' : 'Bán chạy nhất'}
+                  </span>
                 </div>
                 <p className="mt-1 truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   {topSelling.ticket_type_name}
                 </p>
                 <p className="text-[11px] font-black text-amber-300 [html.light_&]:text-amber-700">
-                  {Number(topSelling.sold_quantity || 0).toLocaleString()} vé
+                  {Number(topSelling.sold_quantity || 0).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}
                 </p>
               </div>
             )}
@@ -1183,7 +1206,9 @@ function TicketTypePerformanceChart({ data = [] }) {
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5 [html.light_&]:bg-emerald-50/80 [html.light_&]:border-emerald-400/30">
                 <div className="flex items-center gap-1.5 text-emerald-400 [html.light_&]:text-emerald-700">
                   <Award className="size-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Doanh thu đỉnh</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">
+                    {isEnglish ? 'Top Revenue' : 'Doanh thu đỉnh'}
+                  </span>
                 </div>
                 <p className="mt-1 truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   {topRevenue.ticket_type_name}
@@ -1250,6 +1275,7 @@ function TicketTypePerformanceChart({ data = [] }) {
 // ─── Component 3: Donut Chart (Ticket Revenue & Volume Distribution - NO OVERFLOW) ──
 
 function RevenueShareDonutChart({ data = [] }) {
+  const { isEnglish } = useLanguage()
   const [hoveredIdx, setHoveredIdx] = useState(null)
   const [activeMetric, setActiveMetric] = useState('revenue') // 'revenue' | 'quantity'
 
@@ -1274,14 +1300,14 @@ function RevenueShareDonutChart({ data = [] }) {
       if (otherVal > 0) {
         result.push({
           id: 'other',
-          label: `Khác (${rest.length})`,
+          label: isEnglish ? `Other (${rest.length})` : `Khác (${rest.length})`,
           value: otherVal,
           color: '#94a3b8',
         })
       }
     }
     return result.filter((s) => s.value > 0)
-  }, [sorted, activeMetric])
+  }, [sorted, activeMetric, isEnglish])
 
   const total = useMemo(() => segments.reduce((s, seg) => s + seg.value, 0), [segments])
 
@@ -1302,7 +1328,7 @@ function RevenueShareDonutChart({ data = [] }) {
             <PieChart className="size-4" />
           </div>
           <h2 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-            Tỷ trọng doanh thu theo hạng vé
+            {isEnglish ? 'Revenue Distribution by Ticket Tier' : 'Tỷ trọng doanh thu theo hạng vé'}
           </h2>
         </div>
 
@@ -1317,7 +1343,7 @@ function RevenueShareDonutChart({ data = [] }) {
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
             }`}
           >
-            Doanh thu
+            {isEnglish ? 'Revenue' : 'Doanh thu'}
           </button>
           <button
             type="button"
@@ -1328,7 +1354,7 @@ function RevenueShareDonutChart({ data = [] }) {
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88]'
             }`}
           >
-            Số lượng
+            {isEnglish ? 'Volume' : 'Số lượng'}
           </button>
         </div>
       </div>
@@ -1437,6 +1463,7 @@ function RevenueShareDonutChart({ data = [] }) {
 // ─── Component 4: Cumulative Velocity Line Chart WITH X & Y AXES ─────────────
 
 function CumulativeVelocityLineChart({ data = [] }) {
+  const { isEnglish } = useLanguage()
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const chartId = useId()
@@ -1503,19 +1530,19 @@ function CumulativeVelocityLineChart({ data = [] }) {
           </div>
           <div>
             <h2 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-              Tốc độ tích lũy bán vé (Pacing)
+              {isEnglish ? 'Cumulative Sales Pacing' : 'Tốc độ tích lũy bán vé (Pacing)'}
             </h2>
           </div>
         </div>
         <div className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-300 [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#0D1B2A]">
           <TrendingUp className="size-3 text-amber-400" />
-          <span>{totalCumulative} vé tích lũy</span>
+          <span>{totalCumulative} {isEnglish ? 'cumulative tickets' : 'vé tích lũy'}</span>
         </div>
       </div>
 
       {cumulativeData.length === 0 ? (
         <div className="flex h-44 items-center justify-center text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-          Chưa có chuỗi ngày bán vé.
+          {isEnglish ? 'No sales series data yet.' : 'Chưa có chuỗi ngày bán vé.'}
         </div>
       ) : (
         <div ref={containerRef} className="w-full overflow-hidden select-none">
@@ -1674,6 +1701,7 @@ function CumulativeVelocityLineChart({ data = [] }) {
 // ─── Component 5: Event Occupancy Column Chart (Inspired by 'Eanculations') ───
 
 function EventOccupancyColumnChart({ data = [], height = 240 }) {
+  const { isEnglish } = useLanguage()
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const chartId = useId()
@@ -1706,17 +1734,17 @@ function EventOccupancyColumnChart({ data = [], height = 240 }) {
     <div ref={containerRef} className="w-full overflow-hidden select-none">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
         <p className="text-slate-400 [html.light_&]:text-[#536b88]">
-          Hiển thị top {chartData.length} sự kiện có tỷ lệ lấp đầy cao nhất
+          {isEnglish ? `Top ${chartData.length} events by occupancy rate` : `Hiển thị top ${chartData.length} sự kiện có tỷ lệ lấp đầy cao nhất`}
         </p>
         <div className="flex items-center gap-3 text-[11px] font-bold">
           <span className="flex items-center gap-1.5 text-emerald-400 [html.light_&]:text-emerald-700">
-            <span className="size-2 rounded-full bg-emerald-400" /> ≥80% Tốt
+            <span className="size-2 rounded-full bg-emerald-400" /> {isEnglish ? '≥80% High' : '≥80% Tốt'}
           </span>
           <span className="flex items-center gap-1.5 text-cyan-400 [html.light_&]:text-cyan-700">
-            <span className="size-2 rounded-full bg-cyan-400" /> ≥50% Ổn
+            <span className="size-2 rounded-full bg-cyan-400" /> {isEnglish ? '≥50% Good' : '≥50% Ổn'}
           </span>
           <span className="flex items-center gap-1.5 text-amber-400 [html.light_&]:text-amber-700">
-            <span className="size-2 rounded-full bg-amber-400" /> &lt;50% Thấp
+            <span className="size-2 rounded-full bg-amber-400" /> {isEnglish ? '<50% Low' : '<50% Thấp'}
           </span>
         </div>
       </div>
@@ -1876,6 +1904,7 @@ export function OrganizerTicketSalesPage() {
   const toast = useToast()
   const [searchParams] = useSearchParams()
   const initialEventId = searchParams.get('eventId') || ''
+  const { isEnglish, t } = useLanguage()
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState(initialEventId)
@@ -1972,8 +2001,7 @@ export function OrganizerTicketSalesPage() {
 
   return (
     <OrganizerPage
-      title="Phân tích Bán vé"
-      description="Trung tâm tổng hợp và phân tích chuyên sâu sản lượng vé, cơ cấu doanh thu theo loại vé và tốc độ lấp đầy."
+      title={isEnglish ? 'Ticket Sales Analytics' : 'Phân tích Bán vé'}
     >
       {currentPlan && !currentPlan.analytics_enabled && (
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#C99A47]/40 bg-[#C99A47]/10 p-4 text-[#E6C17A]">
@@ -2047,7 +2075,7 @@ export function OrganizerTicketSalesPage() {
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="text-sm font-medium text-slate-400 [html.light_&]:text-[#536b88]">
-              Đang tổng hợp dữ liệu bán vé...
+              {isEnglish ? 'Aggregating ticket sales data...' : 'Đang tổng hợp dữ liệu bán vé...'}
             </p>
           </div>
         </OrganizerPanel>
@@ -2060,17 +2088,17 @@ export function OrganizerTicketSalesPage() {
               <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-cyan-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  Tổng vé đã bán
+                  {isEnglish ? 'Total Tickets Sold' : 'Tổng vé đã bán'}
                 </p>
                 <div className="grid size-9 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 shadow-sm [html.light_&]:bg-cyan-50 [html.light_&]:text-cyan-700">
                   <Ticket className="size-4.5" />
                 </div>
               </div>
               <p className="mt-3 text-2xl font-black text-white [html.light_&]:text-[#0D1B2A]">
-                {totalSold.toLocaleString('vi-VN')} <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">vé</span>
+                {totalSold.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'tickets' : 'vé'}</span>
               </p>
               <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                Trong {totalOrders} đơn hàng thành công
+                {isEnglish ? `In ${totalOrders} successful orders` : `Trong ${totalOrders} đơn hàng thành công`}
               </p>
             </div>
 
@@ -2079,17 +2107,17 @@ export function OrganizerTicketSalesPage() {
               <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-amber-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  Doanh thu từ vé
+                  {isEnglish ? 'Ticket Revenue' : 'Doanh thu từ vé'}
                 </p>
                 <div className="grid size-9 place-items-center rounded-xl bg-amber-500/15 text-amber-300 shadow-sm [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#C99A47]">
                   <CircleDollarSign className="size-4.5" />
                 </div>
               </div>
               <p className="mt-3 text-2xl font-black text-[#E6C17A] [html.light_&]:text-[#0D1B2A]">
-                {fmtShort(totalRevenue)}
+                {fmtShort(totalRevenue, isEnglish)}
               </p>
               <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                {fmtCurrency(totalRevenue)}
+                {fmtCurrency(totalRevenue, isEnglish)}
               </p>
             </div>
 
@@ -2098,17 +2126,17 @@ export function OrganizerTicketSalesPage() {
               <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-emerald-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  Giá vé trung bình
+                  {isEnglish ? 'Average Ticket Price' : 'Giá vé trung bình'}
                 </p>
                 <div className="grid size-9 place-items-center rounded-xl bg-emerald-500/15 text-emerald-400 shadow-sm [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700">
                   <TrendingUp className="size-4.5" />
                 </div>
               </div>
               <p className="mt-3 text-2xl font-black text-emerald-400 [html.light_&]:text-[#0D1B2A]">
-                {fmtCurrency(avgTicketPrice)}
+                {fmtCurrency(avgTicketPrice, isEnglish)}
               </p>
               <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                Bình quân trên mỗi vé bán
+                {isEnglish ? 'Average per ticket sold' : 'Bình quân trên mỗi vé bán'}
               </p>
             </div>
 
@@ -2117,17 +2145,17 @@ export function OrganizerTicketSalesPage() {
               <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-purple-500/10 blur-xl [html.light_&]:hidden" />
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  Quy mô đơn hàng
+                  {isEnglish ? 'Order Size' : 'Quy mô đơn hàng'}
                 </p>
                 <div className="grid size-9 place-items-center rounded-xl bg-purple-500/15 text-purple-400 shadow-sm [html.light_&]:bg-purple-50 [html.light_&]:text-purple-700">
                   <ShoppingCart className="size-4.5" />
                 </div>
               </div>
               <p className="mt-3 text-2xl font-black text-white [html.light_&]:text-[#0D1B2A]">
-                {totalOrders} <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">đơn</span>
+                {totalOrders} <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'orders' : 'đơn'}</span>
               </p>
               <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                {totalOrders > 0 ? `Trung bình ${(totalSold / totalOrders).toFixed(1)} vé/đơn` : '—'}
+                {totalOrders > 0 ? (isEnglish ? `Avg ${(totalSold / totalOrders).toFixed(1)} tickets/order` : `Trung bình ${(totalSold / totalOrders).toFixed(1)} vé/đơn`) : '—'}
               </p>
             </div>
           </div>
@@ -2173,15 +2201,15 @@ export function OrganizerTicketSalesPage() {
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                      Tỷ lệ lấp đầy theo Sự kiện
+                      {isEnglish ? 'Occupancy Rate by Event' : 'Tỷ lệ lấp đầy theo Sự kiện'}
                     </h2>
                     <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                      Cột gradient phản ánh hiệu suất tiêu thụ chỗ ngồi của từng sự kiện
+                      {isEnglish ? 'Gradient bars reflect seat occupancy performance for each event' : 'Cột gradient phản ánh hiệu suất tiêu thụ chỗ ngồi của từng sự kiện'}
                     </p>
                   </div>
                 </div>
                 <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-bold text-indigo-300 [html.light_&]:bg-[#FAF4EB] [html.light_&]:text-[#0D1B2A]">
-                  <span>{byEvent.length} sự kiện</span>
+                  <span>{byEvent.length} {isEnglish ? 'events' : 'sự kiện'}</span>
                 </div>
               </div>
               <EventOccupancyColumnChart data={byEvent} />
@@ -2192,10 +2220,10 @@ export function OrganizerTicketSalesPage() {
             <OrganizerPanel className="py-14 text-center">
               <Ticket className="mx-auto size-10 text-slate-500 [html.light_&]:text-[#C99A47]" />
               <p className="mt-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                Chưa có vé nào được bán trong khoảng thời gian này
+                {isEnglish ? 'No tickets have been sold in this time range' : 'Chưa có vé nào được bán trong khoảng thời gian này'}
               </p>
               <p className="mt-1 text-sm text-slate-400 [html.light_&]:text-[#536b88]">
-                Hãy thử mở rộng khoảng thời gian tìm kiếm hoặc chọn sự kiện khác.
+                {isEnglish ? 'Try expanding the date range or selecting a different event.' : 'Hãy thử mở rộng khoảng thời gian tìm kiếm hoặc chọn sự kiện khác.'}
               </p>
             </OrganizerPanel>
           )}

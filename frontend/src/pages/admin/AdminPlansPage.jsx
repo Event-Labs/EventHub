@@ -10,6 +10,8 @@ import {
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
 
 
 
@@ -50,6 +52,7 @@ const booleanFields = [
 ]
 
 export function AdminPlansPage() {
+  const { isEnglish, t } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
   const [modal, setModal] = useState(null)
@@ -161,22 +164,21 @@ export function AdminPlansPage() {
 
   return (
     <Page
-      title="Gói Dịch vụ"
-      description="Quản lý quota và quyền tính năng dành cho Organizer"
-      action="Thêm gói"
+      title={isEnglish ? 'Service Plans' : 'Gói Dịch vụ'}
+      action={isEnglish ? 'Add Plan' : 'Thêm gói'}
       actionClassName="admin-primary"
       actionIcon={Plus}
       onAction={openCreate}
     >
       <div className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Tổng số gói" value={plans.length} accent="bg-tertiary" />
+        <Metric label={isEnglish ? 'Total Plans' : 'Tổng số gói'} value={plans.length} accent="bg-tertiary" />
         <Metric
-          label="Người đăng ký"
+          label={isEnglish ? 'Subscribers' : 'Người đăng ký'}
           value={plans.reduce((total, plan) => total + Number(plan.subscriber_count || 0), 0)}
           accent="bg-success"
         />
         <Metric
-          label="Gói đang hiển thị"
+          label={isEnglish ? 'Active Plans' : 'Gói đang hiển thị'}
           value={plans.filter((plan) => plan.is_active).length}
           accent="bg-tertiary"
         />
@@ -191,42 +193,50 @@ export function AdminPlansPage() {
 
         {plansQuery.isLoading && (
           <Panel>
-            <p className="text-sm font-semibold text-subtle">Đang tải gói dịch vụ...</p>
+            <p className="text-sm font-semibold text-subtle">
+              {isEnglish ? 'Loading service plans...' : 'Đang tải gói dịch vụ...'}
+            </p>
           </Panel>
         )}
 
         {plansQuery.isError && (
           <Panel>
-            <p className="text-sm font-semibold text-error">Không thể tải danh sách gói dịch vụ.</p>
+            <p className="text-sm font-semibold text-error">
+              {isEnglish ? 'Failed to load service plans.' : 'Không thể tải danh sách gói dịch vụ.'}
+            </p>
           </Panel>
         )}
 
         {!plansQuery.isLoading && !plansQuery.isError && (
           <Table
-            headers={['Tên gói', 'Giá', 'Giới hạn tổng', 'Giới hạn/sự kiện', 'Tính năng', 'Trạng thái', 'Người đăng ký', 'Hành động']}
+            headers={
+              isEnglish
+                ? ['Plan Name', 'Price', 'Total Limits', 'Limits/Event', 'Features', 'Status', 'Subscribers', 'Actions']
+                : ['Tên gói', 'Giá', 'Giới hạn tổng', 'Giới hạn/sự kiện', 'Tính năng', 'Trạng thái', 'Người đăng ký', 'Hành động']
+            }
             rows={plans.map((plan) => [
               <span key="name" className="text-sm font-extrabold text-white">{plan.name}</span>,
               <span key="price" className="text-sm font-extrabold text-white tracking-wide">{formatMoney(plan.price)}</span>,
               <Stack key="total" items={[
-                `${limitText(plan.event_limit)} sự kiện`,
-                `${limitText(plan.max_active_events)} sự kiện hoạt động`,
-                `${limitText(plan.staff_limit)} staff tổng`,
+                `${limitText(plan.event_limit, isEnglish)} ${isEnglish ? 'events' : 'sự kiện'}`,
+                `${limitText(plan.max_active_events, isEnglish)} ${isEnglish ? 'active events' : 'sự kiện hoạt động'}`,
+                `${limitText(plan.staff_limit, isEnglish)} ${isEnglish ? 'total staff' : 'staff tổng'}`,
               ]} />,
               <Stack key="event" items={[
-                `${limitText(plan.max_tickets_per_event)} vé`,
-                `${limitText(plan.max_staff_per_event)} staff`,
-                `${limitText(plan.max_ticket_types_per_event)} loại vé`,
+                `${limitText(plan.max_tickets_per_event, isEnglish)} ${isEnglish ? 'tickets' : 'vé'}`,
+                `${limitText(plan.max_staff_per_event, isEnglish)} staff`,
+                `${limitText(plan.max_ticket_types_per_event, isEnglish)} ${isEnglish ? 'ticket types' : 'loại vé'}`,
                 plan.promo_code_enabled
-                  ? `${limitText(plan.max_promo_codes_per_event)} mã giảm giá`
-                  : 'Không hỗ trợ mã giảm giá',
+                  ? `${limitText(plan.max_promo_codes_per_event, isEnglish)} ${isEnglish ? 'promo codes' : 'mã giảm giá'}`
+                  : (isEnglish ? 'No promo codes' : 'Không hỗ trợ mã giảm giá'),
               ]} />,
-              <FeatureList key="features" plan={plan} />,
+              <FeatureList key="features" plan={plan} isEnglish={isEnglish} />,
               <StatusBadge key="status" status={plan.is_active ? 'ACTIVE' : 'INACTIVE'} className="!text-white font-black" />,
               <span key="subscribers" className="text-sm font-extrabold text-white block text-center">{Number(plan.subscriber_count || 0)}</span>,
               <div key="actions" className="flex items-center justify-center gap-2">
-                <TableActionButton title="Sửa" icon={Edit3} tone="primary" disabled={busy} onClick={() => openEdit(plan)} />
+                <TableActionButton title={isEnglish ? 'Edit' : 'Sửa'} icon={Edit3} tone="primary" disabled={busy} onClick={() => openEdit(plan)} />
                 <TableActionButton
-                  title={plan.is_active ? 'Tạm ẩn' : 'Hiện lại'}
+                  title={plan.is_active ? (isEnglish ? 'Hide' : 'Tạm ẩn') : (isEnglish ? 'Show' : 'Hiện lại')}
                   icon={Power}
                   tone={plan.is_active ? 'warning' : 'success'}
                   disabled={busy}
@@ -235,7 +245,7 @@ export function AdminPlansPage() {
                     saveMutation.mutate({ id: plan.id, payload: { is_active: !plan.is_active } })
                   }}
                 />
-                <TableActionButton title="Xóa" icon={Trash2} tone="danger" disabled={busy} onClick={() => handleDelete(plan)} />
+                <TableActionButton title={isEnglish ? 'Delete' : 'Xóa'} icon={Trash2} tone="danger" disabled={busy} onClick={() => handleDelete(plan)} />
               </div>,
             ])}
           />
@@ -245,7 +255,11 @@ export function AdminPlansPage() {
       {modal && (
         <Modal
           open={Boolean(modal)}
-          title={modal.mode === 'edit' ? 'Cập nhật gói dịch vụ' : 'Thêm gói dịch vụ'}
+          title={
+            modal.mode === 'edit'
+              ? (isEnglish ? 'Edit Service Plan' : 'Cập nhật gói dịch vụ')
+              : (isEnglish ? 'Add Service Plan' : 'Thêm gói dịch vụ')
+          }
           onClose={() => setModal(null)}
           maxWidth="max-w-4xl"
           footer={
@@ -255,7 +269,7 @@ export function AdminPlansPage() {
                 onClick={() => setModal(null)}
                 className="admin-secondary px-6"
               >
-                Hủy
+                {isEnglish ? 'Cancel' : 'Hủy'}
               </button>
               <button
                 type="submit"
@@ -263,46 +277,52 @@ export function AdminPlansPage() {
                 disabled={saveMutation.isPending}
                 className="admin-primary px-6 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {saveMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+                {saveMutation.isPending ? (isEnglish ? 'Saving...' : 'Đang lưu...') : (isEnglish ? 'Save' : 'Lưu')}
               </button>
             </div>
           }
         >
           <form id="subscription-plan-form" onSubmit={submitForm} className="space-y-6 py-1">
-            <FormSection title="Thông tin gói">
-              <TextInput label="Tên gói" value={form.name} onChange={(name) => updateField('name', name)} required />
+            <FormSection title={isEnglish ? 'Plan Information' : 'Thông tin gói'} columns={2}>
+              <TextInput
+                label={isEnglish ? 'Plan Name' : 'Tên gói'}
+                value={form.name}
+                onChange={(name) => updateField('name', name)}
+                required
+              />
               <TextInput
                 inputMode="numeric"
-                label="Giá gói (VNĐ)"
+                label={isEnglish ? 'Plan Price (VND)' : 'Giá gói (VNĐ)'}
                 value={form.price}
                 onChange={(price) => updateField('price', onlyNumberText(price))}
                 placeholder="0"
+                helperText={isEnglish ? 'Enter 0 if this is a free plan' : 'Điền 0 nếu là gói dịch vụ miễn phí'}
               />
             </FormSection>
 
             <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
 
             <FormSection
-              title="Giới hạn tổng của organizer"
-              subtitle="0 = Không giới hạn"
+              title={isEnglish ? 'Organizer Total Limits' : 'Giới hạn tổng của organizer'}
+              subtitle={isEnglish ? '0 = Unlimited' : '0 = Không giới hạn'}
             >
               <TextInput
                 inputMode="numeric"
-                label="Tổng số sự kiện"
+                label={isEnglish ? 'Total Events' : 'Tổng số sự kiện'}
                 value={form.event_limit}
                 onChange={(value) => updateField('event_limit', onlyNumberText(value))}
                 placeholder="0"
               />
               <TextInput
                 inputMode="numeric"
-                label="Sự kiện hoạt động cùng lúc"
+                label={isEnglish ? 'Concurrent Active Events' : 'Sự kiện hoạt động cùng lúc'}
                 value={form.max_active_events}
                 onChange={(value) => updateField('max_active_events', onlyNumberText(value))}
                 placeholder="0"
               />
               <TextInput
                 inputMode="numeric"
-                label="Tổng staff"
+                label={isEnglish ? 'Total Staff' : 'Tổng staff'}
                 value={form.staff_limit}
                 onChange={(value) => updateField('staff_limit', onlyNumberText(value))}
                 placeholder="0"
@@ -312,33 +332,33 @@ export function AdminPlansPage() {
             <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
 
             <FormSection
-              title="Giới hạn cho mỗi sự kiện"
-              subtitle="0 = Không giới hạn"
+              title={isEnglish ? 'Per-Event Limits' : 'Giới hạn cho mỗi sự kiện'}
+              subtitle={isEnglish ? '0 = Unlimited' : '0 = Không giới hạn'}
             >
               <TextInput
                 inputMode="numeric"
-                label="Vé/sự kiện"
+                label={isEnglish ? 'Tickets/Event' : 'Vé/sự kiện'}
                 value={form.max_tickets_per_event}
                 onChange={(value) => updateField('max_tickets_per_event', onlyNumberText(value))}
                 placeholder="0"
               />
               <TextInput
                 inputMode="numeric"
-                label="Staff/sự kiện"
+                label={isEnglish ? 'Staff/Event' : 'Staff/sự kiện'}
                 value={form.max_staff_per_event}
                 onChange={(value) => updateField('max_staff_per_event', onlyNumberText(value))}
                 placeholder="0"
               />
               <TextInput
                 inputMode="numeric"
-                label="Loại vé/sự kiện"
+                label={isEnglish ? 'Ticket Types/Event' : 'Loại vé/sự kiện'}
                 value={form.max_ticket_types_per_event}
                 onChange={(value) => updateField('max_ticket_types_per_event', onlyNumberText(value))}
                 placeholder="0"
               />
               <TextInput
                 inputMode="numeric"
-                label="Mã giảm giá/sự kiện"
+                label={isEnglish ? 'Promo Codes/Event' : 'Mã giảm giá/sự kiện'}
                 value={form.max_promo_codes_per_event}
                 onChange={(value) => updateField('max_promo_codes_per_event', onlyNumberText(value))}
                 placeholder="0"
@@ -349,12 +369,14 @@ export function AdminPlansPage() {
             <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
 
             <section>
-              <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Tính năng</h4>
+              <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                {isEnglish ? 'Features' : 'Tính năng'}
+              </h4>
               <div className="mt-3.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {booleanFields.map(([field, label]) => (
                   <Checkbox
                     key={field}
-                    label={label}
+                    label={isEnglish ? (VI_TO_EN[label] || label) : label}
                     checked={form[field]}
                     onChange={(checked) => updateField(field, checked)}
                   />
@@ -374,7 +396,7 @@ export function AdminPlansPage() {
       {deleteTarget && (
         <Modal
           open={Boolean(deleteTarget)}
-          title="Xóa gói dịch vụ?"
+          title={isEnglish ? 'Delete Service Plan?' : 'Xóa gói dịch vụ?'}
           onClose={() => setDeleteTarget(null)}
           maxWidth="max-w-md"
           footer={
@@ -384,7 +406,7 @@ export function AdminPlansPage() {
                 onClick={() => setDeleteTarget(null)}
                 className="admin-secondary px-6"
               >
-                Hủy
+                {isEnglish ? 'Cancel' : 'Hủy'}
               </button>
               <button
                 type="button"
@@ -392,14 +414,18 @@ export function AdminPlansPage() {
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
+                {deleteMutation.isPending ? (isEnglish ? 'Deleting...' : 'Đang xóa...') : (isEnglish ? 'Delete' : 'Xóa')}
               </button>
             </div>
           }
         >
           <div className="py-1">
             <p className="text-sm font-medium leading-relaxed text-slate-200 [html.light_&]:text-[#0D1B2A]">
-              Gói <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">"{deleteTarget.name}"</span> sẽ được đánh dấu đã xóa và ẩn khỏi danh sách quản lý.
+              {isEnglish ? (
+                <>Plan <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">"{deleteTarget.name}"</span> will be marked as deleted and hidden from management.</>
+              ) : (
+                <>Gói <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">"{deleteTarget.name}"</span> sẽ được đánh dấu đã xóa và ẩn khỏi danh sách quản lý.</>
+              )}
             </p>
             {actionError && (
               <p className="mt-3 text-xs font-semibold text-rose-400">
@@ -414,18 +440,20 @@ export function AdminPlansPage() {
 }
 
 function Metric({ label, value, accent }) {
+  const { t } = useLanguage()
   return (
     <Panel className="group relative min-h-32 overflow-hidden transition duration-200 hover:-translate-y-1 hover:border-tertiary/60 hover:shadow-lg">
       <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
       <div>
-        <p className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
+        <p className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{t(label)}</p>
         <p className="mt-5 text-4xl font-display font-extrabold leading-none text-content tracking-tight">{value}</p>
       </div>
     </Panel>
   )
 }
 
-function FormSection({ title, subtitle, children }) {
+function FormSection({ title, subtitle, columns = 3, children }) {
+  const gridCols = columns === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'
   return (
     <section>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -436,7 +464,7 @@ function FormSection({ title, subtitle, children }) {
           </span>
         )}
       </div>
-      <div className="mt-3.5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 items-start">{children}</div>
+      <div className={`mt-3.5 grid gap-4 ${gridCols} items-start`}>{children}</div>
     </section>
   )
 }
@@ -487,12 +515,18 @@ function Stack({ items }) {
   )
 }
 
-function FeatureList({ plan }) {
+function FeatureList({ plan, isEnglish = false }) {
   const enabled = booleanFields
     .filter(([field]) => Boolean(plan[field]))
     .map(([, label]) => label)
 
-  if (!enabled.length) return <span className="text-xs font-medium text-white/60">Chưa bật tính năng</span>
+  if (!enabled.length) {
+    return (
+      <span className="text-xs font-medium text-white/60">
+        {isEnglish ? 'No features enabled' : 'Chưa bật tính năng'}
+      </span>
+    )
+  }
 
   return (
     <div className="flex max-w-xs flex-wrap gap-1.5">
@@ -501,7 +535,7 @@ function FeatureList({ plan }) {
           key={feature}
           className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white border border-white/20 shadow-xs"
         >
-          {feature}
+          {isEnglish ? (VI_TO_EN[feature] || feature) : feature}
         </span>
       ))}
       {enabled.length > 4 && (
@@ -546,9 +580,9 @@ function formatMoney(value) {
   }).format(Number(value || 0))
 }
 
-function limitText(value) {
+function limitText(value, isEnglish = false) {
   const number = Number(value || 0)
-  return number > 0 ? number.toLocaleString('vi-VN') : 'Không giới hạn'
+  return number > 0 ? number.toLocaleString('vi-VN') : (isEnglish ? 'Unlimited' : 'Không giới hạn')
 }
 
 function onlyNumberText(value) {

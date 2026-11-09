@@ -20,6 +20,12 @@ function stripIcons(text) {
     .trim();
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function ActionMessage({ content, navigate, setInput, onSendMessage }) {
   const toast = useToast();
   const [tick, setTick] = useState(0);
@@ -454,7 +460,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                     <span className="text-slate-400 font-medium">Suất diễn:</span>
                     <span className="font-semibold text-slate-200">{proposal.session.name}</span>
                     {proposal.session.start_time && (
-                      <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString('vi-VN')})</span>
+                      <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString(getAutoLocale())})</span>
                     )}
                   </div>
                 )}
@@ -1332,7 +1338,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
           <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#090f1f] scrollbar-thin scrollbar-thumb-slate-700">
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
-              const formattedTime = new Date(session.updatedAt || session.createdAt).toLocaleDateString('vi-VN', {
+              const formattedTime = new Date(session.updatedAt || session.createdAt).toLocaleDateString(getAutoLocale(), {
                 hour: '2-digit',
                 minute: '2-digit',
                 day: '2-digit',

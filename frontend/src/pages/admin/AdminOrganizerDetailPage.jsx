@@ -63,7 +63,7 @@ export function AdminOrganizerDetailPage() {
 
   if (detailQuery.isLoading) {
     return (
-      <Page title="Chi tiết Organizer" description="Đang tải dữ liệu hồ sơ nhà tổ chức...">
+      <Page title="Chi tiết Organizer">
         <Panel><p className="text-sm text-subtle">Đang tải chi tiết organizer...</p></Panel>
       </Page>
     )
@@ -71,7 +71,7 @@ export function AdminOrganizerDetailPage() {
 
   if (detailQuery.isError || !organizer) {
     return (
-      <Page title="Chi tiết Organizer" description="Không thể tải dữ liệu organizer.">
+      <Page title="Chi tiết Organizer">
         <Panel>
           <p className="text-sm text-error">Không thể tải chi tiết organizer. Vui lòng thử lại.</p>
           <button type="button" onClick={() => navigate('/admin/organizers')} className="admin-secondary mt-4">
@@ -321,14 +321,22 @@ function formatCurrency(value) {
   })
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(value) {
-  if (!value) return 'Chưa có'
-  return new Date(value).toLocaleDateString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'N/A' : 'Chưa có'
+  return new Date(value).toLocaleDateString(getAutoLocale())
 }
 
 function formatDateTime(value) {
-  if (!value) return 'Chưa có'
-  return new Date(value).toLocaleString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'N/A' : 'Chưa có'
+  return new Date(value).toLocaleString(getAutoLocale())
 }
 
 function maskAccount(value) {

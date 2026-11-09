@@ -133,9 +133,15 @@ function statusBadge(eventOrStatus, approvalStatus, displayState, activeStatus) 
   return <Badge tone={cfg.tone}>{cfg.label}</Badge>
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleDateString('vi-VN', {
+  return new Date(value).toLocaleDateString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -520,7 +526,6 @@ export function AdminEventReviewPage() {
   return (
     <Page
       title="Duyệt Sự kiện"
-      description="Kiểm duyệt và phê duyệt các sự kiện được gửi bởi Organizer."
     >
       {/* AI Auto-Review Control Banner */}
       <div className="mb-6 overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 via-panel-soft/70 to-panel p-4 shadow-lg backdrop-blur-md">
@@ -1285,10 +1290,12 @@ function stripHtml(value) {
 
 function formatDateTime(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('vi-VN')
+  return new Date(value).toLocaleString(getAutoLocale())
 }
 
 function formatMoney(value) {
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) return `${new Intl.NumberFormat('en-US').format(Number(value || 0))} VND`
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }
 

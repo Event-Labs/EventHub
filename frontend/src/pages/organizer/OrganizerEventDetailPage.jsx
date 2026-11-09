@@ -438,13 +438,20 @@ export function OrganizerEventDetailPage() {
         )
     }
 
+    const getAutoLocale = () =>
+        ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+         (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+            ? 'en-US'
+            : 'vi-VN'
+
     const formatCurrency = (amount) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0)
+        new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(amount || 0)
 
     const formatDate = (iso) => {
         if (!iso) return '—'
-        return new Date(iso).toLocaleDateString('vi-VN', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
+        const isEn = getAutoLocale() === 'en-US'
+        return new Date(iso).toLocaleDateString(getAutoLocale(), {
+            day: '2-digit', month: isEn ? 'short' : '2-digit', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
         })
     }

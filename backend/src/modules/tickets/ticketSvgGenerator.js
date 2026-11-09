@@ -46,34 +46,48 @@ function formatTicketDateTime(startTime, endTime) {
   return result;
 }
 
-function formatCategory(category) {
-  if (!category) return 'SỰ KIỆN (EVENT)';
+function formatCategory(category, isEn = false) {
+  if (!category) return isEn ? 'EVENT' : 'SỰ KIỆN';
   const raw = String(category).trim().toUpperCase();
-  const map = {
-    'WORKSHOP': 'HỘI THẢO (WORKSHOP)',
-    'CONCERT': 'HÒA NHẠC (CONCERT)',
-    'CONFERENCE': 'HỘI NGHỊ (CONFERENCE)',
-    'EXHIBITION': 'TRIỂN LÃM (EXHIBITION)',
-    'NETWORKING': 'GIAO LƯU (NETWORKING)',
-    'SEMINAR': 'CHUYÊN ĐỀ (SEMINAR)',
-    'FESTIVAL': 'LỄ HỘI (FESTIVAL)',
+  const mapEn = {
+    'WORKSHOP': 'WORKSHOP',
+    'CONCERT': 'CONCERT',
+    'CONFERENCE': 'CONFERENCE',
+    'EXHIBITION': 'EXHIBITION',
+    'NETWORKING': 'NETWORKING',
+    'SEMINAR': 'SEMINAR',
+    'FESTIVAL': 'FESTIVAL',
     'TALKSHOW': 'TALKSHOW',
-    'MUSIC': 'ÂM NHẠC (MUSIC)',
-    'SPORTS': 'THỂ THAO (SPORTS)',
-    'THEATER': 'KỊCH NGHỆ (THEATER)',
-    'EVENT': 'SỰ KIỆN (EVENT)',
+    'MUSIC': 'MUSIC',
+    'SPORTS': 'SPORTS',
+    'THEATER': 'THEATER',
+    'EVENT': 'EVENT',
   };
-  if (map[raw]) return map[raw];
-  if (raw.includes('(') && raw.includes(')')) return raw;
-  return `${raw} (EVENT)`;
+  const mapVi = {
+    'WORKSHOP': 'HỘI THẢO',
+    'CONCERT': 'HÒA NHẠC',
+    'CONFERENCE': 'HỘI NGHỊ',
+    'EXHIBITION': 'TRIỂN LÃM',
+    'NETWORKING': 'GIAO LƯU',
+    'SEMINAR': 'CHUYÊN ĐỀ',
+    'FESTIVAL': 'LỄ HỘI',
+    'TALKSHOW': 'TALKSHOW',
+    'MUSIC': 'ÂM NHẠC',
+    'SPORTS': 'THỂ THAO',
+    'THEATER': 'KỊCH NGHỆ',
+    'EVENT': 'SỰ KIỆN',
+  };
+  if (isEn && mapEn[raw]) return mapEn[raw];
+  if (!isEn && mapVi[raw]) return mapVi[raw];
+  return raw;
 }
 
-function formatSeatLabel(seat) {
-  if (!seat) return 'VÉ TỰ DO (GENERAL ADMISSION)';
+function formatSeatLabel(seat, isEn = false) {
+  if (!seat) return isEn ? 'GENERAL ADMISSION' : 'VÉ TỰ DO';
   const label = (typeof seat === 'object' ? seat.label : seat) || '';
   const trimmed = String(label).trim().toUpperCase();
-  if (!trimmed || trimmed === 'GENERAL ADMISSION' || trimmed === 'NO FIXED SEAT' || trimmed === 'KHÔNG CÓ GHẾ CỐ ĐỊNH') {
-    return 'VÉ TỰ DO (GENERAL ADMISSION)';
+  if (!trimmed || trimmed === 'GENERAL ADMISSION' || trimmed === 'NO FIXED SEAT' || trimmed === 'KHÔNG CÓ GHẾ CỐ ĐỊNH' || trimmed.includes('VÉ TỰ DO')) {
+    return isEn ? 'GENERAL ADMISSION' : 'VÉ TỰ DO';
   }
   return trimmed;
 }
@@ -146,7 +160,28 @@ function generateStars() {
     .join('');
 }
 
-function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
+function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '', optionsOrLocale = {}) {
+  const locale = (typeof optionsOrLocale === 'string' ? optionsOrLocale : optionsOrLocale?.locale) || ticket?.locale || ticket?.order?.locale || 'vi';
+  const isEn = String(locale).toLowerCase() === 'en';
+
+  const labels = {
+    badge: isEn ? 'E-TICKET' : 'VÉ ĐIỆN TỬ',
+    attendee: isEn ? 'ATTENDEE' : 'NGƯỜI THAM DỰ',
+    ticketType: isEn ? 'TICKET TYPE' : 'LOẠI VÉ',
+    seat: isEn ? 'SEAT' : 'GHẾ NGỒI',
+    dateTime: isEn ? 'DATE & TIME' : 'THỜI GIAN',
+    venue: isEn ? 'VENUE' : 'ĐỊA ĐIỂM',
+    notice: isEn ? 'PLEASE PRESENT THIS TICKET AT THE ENTRANCE' : 'VUI LÒNG XUẤT TRÌNH VÉ TẠI CỔNG VÀO',
+    scanQr: isEn ? 'SCAN THIS QR CODE' : 'QUÉT MÃ QR',
+    defaultAttendee: isEn ? 'Attendee' : 'Khách tham dự',
+    defaultTitle: isEn ? 'EVENTHUB TICKET' : 'SỰ KIỆN EVENTHUB',
+    statusValid: isEn ? 'VALID TICKET' : 'VÉ HỢP LỆ',
+    statusUsed: isEn ? 'CHECKED IN' : 'ĐÃ CHECK-IN',
+    statusCancelled: isEn ? 'CANCELLED' : 'VÉ ĐÃ HỦY',
+    statusPending: isEn ? 'REFUND PENDING' : 'CHỜ HOÀN TIỀN',
+    statusExpired: isEn ? 'EXPIRED' : 'HẾT HẠN',
+  };
+
   const event = ticket.event || {};
   const session = ticket.session || {};
   const venue = ticket.venue || {};
@@ -154,16 +189,16 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
   const ticketType = ticket.ticket_type || {};
 
   const resolvedLogoUrl = logoDataUrl || getBackendLogoDataUrl();
-  const category = formatCategory(event.category?.name || event.category || event.category_name || event.event_type || 'EVENT');
-  const title = event.title || 'SỰ KIỆN EVENTHUB';
+  const category = formatCategory(event.category?.name || event.category || event.category_name || event.event_type || 'EVENT', isEn);
+  const title = event.title || labels.defaultTitle;
   const tagline = event.tagline || event.short_description || event.summary || '';
   const dateTimeStr = formatTicketDateTime(session.start_time, session.end_time);
   const ticketTypeName = (ticketType.name || 'STANDARD').toUpperCase();
-  const attendeeName = (event.require_attendee_info ? ticket.attendee_name : null) || ticket.attendee_name || order.buyer_name || 'Khách tham dự';
-  const seatLabel = formatSeatLabel(ticket.seat);
+  const attendeeName = (event.require_attendee_info ? ticket.attendee_name : null) || ticket.attendee_name || order.buyer_name || labels.defaultAttendee;
+  const seatLabel = formatSeatLabel(ticket.seat, isEn);
   const venueName = venue.name || 'N/A';
   const addressParts = [venue.address_line, venue.ward, venue.district, venue.city].filter(Boolean);
-  const venueAddress = addressParts.join(', ') || 'Địa điểm tổ chức sự kiện';
+  const venueAddress = addressParts.join(', ') || (isEn ? 'Event Venue' : 'Địa điểm tổ chức sự kiện');
   const ticketCode = ticket.ticket_code || 'EH-0000000000';
   const formattedTicketCode = ticketCode.startsWith('#') ? ticketCode : `#${ticketCode}`;
   const status = String(ticket.status || 'VALID').toUpperCase();
@@ -178,32 +213,32 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
   let statusBg = '#DCFCE7';
   let statusBorder = '#86EFAC';
   let statusColor = '#15803D';
-  let statusText = 'VÉ HỢP LỆ';
+  let statusText = labels.statusValid;
   let statusType = 'VALID';
 
   if (status === 'USED' || ticket.checked_in_at) {
     statusBg = '#F1F5F9';
     statusBorder = '#CBD5E1';
     statusColor = '#334155';
-    statusText = 'ĐÃ CHECK-IN';
+    statusText = labels.statusUsed;
     statusType = 'USED';
   } else if (status === 'CANCELLED' || status === 'REFUNDED') {
     statusBg = '#FEE2E2';
     statusBorder = '#FCA5A5';
     statusColor = '#DC2626';
-    statusText = 'VÉ ĐÃ HỦY';
+    statusText = labels.statusCancelled;
     statusType = 'CANCELLED';
   } else if (status === 'REFUND_PENDING' || status === 'REFUND_REQUESTED') {
     statusBg = '#FEF3C7';
     statusBorder = '#FCD34D';
     statusColor = '#B45309';
-    statusText = 'CHỜ HOÀN TIỀN';
+    statusText = labels.statusPending;
     statusType = 'PENDING';
   } else if (status === 'EXPIRED') {
     statusBg = '#F1F5F9';
     statusBorder = '#CBD5E1';
     statusColor = '#64748B';
-    statusText = 'HẾT HẠN';
+    statusText = labels.statusExpired;
     statusType = 'EXPIRED';
   }
 
@@ -329,7 +364,7 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
     <line x1="210" y1="46" x2="210" y2="90" stroke="#C99A47" stroke-width="1.6" stroke-opacity="0.55"/>
     <text x="230" y="73" fill="#E6C17A" class="font-heading" font-size="13" font-weight="700" letter-spacing="3">CONNECT &#183; EXPERIENCE &#183; GROW</text>
 
-    <!-- Header Right: BADGE VÉ ĐIỆN TỬ (E-TICKET) VỚI BACKGROUND ĐỘNG & ÁNH SÁNG PHÁT QUANG -->
+    <!-- Header Right: E-Ticket Badge with dynamic glow -->
     <g transform="translate(825, 42)">
       <!-- Dynamic glowing background -->
       <rect x="0" y="0" width="320" height="48" rx="24" fill="url(#badgeDynamicBg)" stroke="url(#badgeGoldBorder)" stroke-width="1.8" filter="url(#badgeGlow)"/>
@@ -343,7 +378,7 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
       </g>
       <!-- Luminous Badge Text -->
       <text x="160" y="30" fill="#FFFBEB" class="font-heading" font-size="14.5" font-weight="800" letter-spacing="1.8" text-anchor="middle">
-        V&#201; &#272;I&#7878;N T&#7916; (E-TICKET)
+        ${escapeXml(labels.badge)}
       </text>
       <!-- Right Sparkle -->
       <g transform="translate(296, 24) scale(0.85)">
@@ -366,30 +401,30 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
 
     <!-- ==================== TICKET INFORMATION CARDS (HIERARCHY SPECIFICATION) ==================== -->
 
-    <!-- Row 1: NGƯỜI THAM DỰ & LOẠI VÉ & GHẾ NGỒI (Ưu tiên hàng đầu) -->
-    <!-- Card 1: NGƯỜI THAM DỰ (ATTENDEE) -->
+    <!-- Row 1: Attendee, Ticket Type & Seat -->
+    <!-- Card 1: ATTENDEE -->
     <rect x="55" y="286" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="75" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">NG&#431;&#7900;I THAM D&#7920; (ATTENDEE)</text>
+    <text x="75" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">${escapeXml(labels.attendee)}</text>
     <text x="75" y="356" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(attendeeName)}</text>
 
-    <!-- Card 2: LOẠI VÉ (TICKET TYPE) -->
+    <!-- Card 2: TICKET TYPE -->
     <rect x="425" y="286" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="445" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">LO&#7840;I V&#201; (TICKET TYPE)</text>
+    <text x="445" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">${escapeXml(labels.ticketType)}</text>
     <text x="445" y="356" fill="#E6C17A" class="font-sans" font-size="20" font-weight="800">${escapeXml(ticketTypeName)}</text>
 
-    <!-- Card 3: GHẾ NGỒI (SEAT) - Màu nội dung đổi thành màu trắng -->
+    <!-- Card 3: SEAT -->
     <rect x="795" y="286" width="350" height="98" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="815" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">GH&#7870; NG&#7891;I (SEAT)</text>
+    <text x="815" y="313" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">${escapeXml(labels.seat)}</text>
     <text x="815" y="356" fill="#FFFFFF" class="font-sans" font-size="18.5" font-weight="700">${escapeXml(seatLabel)}</text>
 
-    <!-- Row 2: THỜI GIAN (DATE & TIME) - Tăng size (font-size: 20, bold) -->
+    <!-- Row 2: DATE & TIME -->
     <rect x="55" y="398" width="1090" height="74" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.2"/>
-    <text x="75" y="422" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">TH&#7900;I GIAN (DATE &amp; TIME)</text>
+    <text x="75" y="422" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">${escapeXml(labels.dateTime)}</text>
     <text x="75" y="454" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(dateTimeStr)}</text>
 
-    <!-- Row 3: ĐỊA ĐIỂM (VENUE) - Cấp 2: tên địa điểm nổi bật, địa chỉ trải dài hết khung -->
+    <!-- Row 3: VENUE -->
     <rect x="55" y="486" width="1090" height="102" rx="14" fill="#102035" fill-opacity="0.8" stroke="#C99A47" stroke-opacity="0.45" stroke-width="1.3"/>
-    <text x="75" y="512" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">&#272;&#7882;A &#272;I&#7874;M (VENUE)</text>
+    <text x="75" y="512" fill="#AAB8C8" class="font-sans" font-size="12" font-weight="700" letter-spacing="1">${escapeXml(labels.venue)}</text>
     <text x="75" y="544" fill="#FFFFFF" class="font-sans" font-size="20" font-weight="700">${escapeXml(venueName)}</text>
     ${hasTwoAddressLines
       ? `<text x="75" y="564" fill="#CBD5E1" class="font-sans" font-size="13.5" font-weight="400">
@@ -405,33 +440,33 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
       <circle cx="12" cy="8" r="1" fill="#AAB8C8"/>
     </g>
     <text x="86" y="642" fill="#CBD5E1" class="font-sans" font-size="14" font-weight="700" letter-spacing="1.2">
-      VUI L&#210;NG XU&#7844;T TR&#204;NH V&#201; T&#7840;I C&#7892;NG V&#192;O (PLEASE PRESENT THIS TICKET AT THE ENTRANCE)
+      ${escapeXml(labels.notice)}
     </text>
 
     <!-- ==================== TICKET DIVIDER ==================== -->
     <line x1="1200" y1="36" x2="1200" y2="664" stroke="#E6C17A" stroke-width="1.8" stroke-dasharray="7 9" stroke-opacity="0.65"/>
 
-    <!-- ==================== TICKET STUB (RIGHT 25%, CĂN GIỮA ĐỀU THEO CHIỀU DỌC) ==================== -->
+    <!-- ==================== TICKET STUB (RIGHT 25%) ==================== -->
 
-    <!-- Check-in Heading (Căn giữa cân đối) -->
+    <!-- Check-in Heading -->
     <line x1="1260" y1="114" x2="1315" y2="114" stroke="#C99A47" stroke-width="1.6" stroke-opacity="0.6"/>
     <text x="1400" y="120" fill="#E6C17A" class="font-heading" font-size="19" font-weight="800" letter-spacing="3" text-anchor="middle">CHECK-IN</text>
     <line x1="1485" y1="114" x2="1540" y2="114" stroke="#C99A47" stroke-width="1.6" stroke-opacity="0.6"/>
     <text x="1400" y="148" fill="#CBD5E1" class="font-heading" font-size="13.5" font-weight="700" letter-spacing="1.6" text-anchor="middle">
-      QU&#201;T M&#195; QR (SCAN THIS QR CODE)
+      ${escapeXml(labels.scanQr)}
     </text>
 
-    <!-- QR Code Container & Dynamic QR Image (Căn giữa trung tâm stub) -->
+    <!-- QR Code Container & Dynamic QR Image -->
     <rect x="1278" y="180" width="244" height="244" rx="18" fill="#FFFFFF" stroke="#C99A47" stroke-width="2"/>
     ${qrDataUrl ? `<image x="1290" y="192" width="220" height="220" href="${escapeXml(qrDataUrl)}" preserveAspectRatio="xMidYMid meet"/>` : ''}
 
-    <!-- Ticket ID Pill (Căn giữa & Phóng lớn) -->
+    <!-- Ticket ID Pill -->
     <rect x="1275" y="446" width="250" height="48" rx="24" fill="#102035" fill-opacity="0.95" stroke="#E6C17A" stroke-width="1.5" stroke-opacity="0.85"/>
     <text x="1400" y="476" fill="#E6C17A" class="font-mono" font-size="16.5" font-weight="700" letter-spacing="1.8" text-anchor="middle">
       ${escapeXml(formattedTicketCode)}
     </text>
 
-    <!-- Ticket Status Pill (Hình 1: Dấu tích xanh kết hợp nhãn trạng thái) -->
+    <!-- Ticket Status Pill -->
     <rect x="1275" y="510" width="250" height="48" rx="24" fill="${statusBg}" stroke="${statusBorder}" stroke-width="1.5"/>
     ${statusType === 'VALID' ? `
       <g transform="translate(1336, 523)">
@@ -455,7 +490,7 @@ function buildUniversalTicketSvg(ticket, qrDataUrl = '', logoDataUrl = '') {
       <text x="1400" y="540" fill="${statusColor}" class="font-sans" font-size="15" font-weight="800" letter-spacing="1.2" text-anchor="middle">${statusText}</text>
     `}
 
-    <!-- EventHub Branding at Stub Bottom (Cân đối đáy stub) -->
+    <!-- EventHub Branding at Stub Bottom -->
     <line x1="1310" y1="616" x2="1375" y2="616" stroke="#C99A47" stroke-width="1.3" stroke-opacity="0.55"/>
     <g transform="translate(1400, 616) scale(0.9)">
       <path d="M 0,-10 Q 0,0 10,0 Q 0,0 0,10 Q 0,0 -10,0 Q 0,0 0,-10 Z" fill="#E6C17A" fill-opacity="0.95"/>

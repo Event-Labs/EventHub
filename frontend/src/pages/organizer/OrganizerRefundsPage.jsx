@@ -17,16 +17,26 @@ import { fetchOrganizerRefundRequests, batchProcessOrganizerRefunds } from '@/se
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(value) {
   if (!value) return 'N/A'
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
 }
 
 function formatCurrency(value) {
-  if (value === undefined || value === null) return '0 đ'
+  if (value === undefined || value === null) return '0 ₫'
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) {
+    return `${new Intl.NumberFormat('en-US').format(value)} VND`
+  }
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -235,7 +245,6 @@ export function OrganizerRefundsPage() {
   return (
     <OrganizerPage
       title="Quản lý yêu cầu Hoàn vé"
-      description="Xem xét và xử lý các yêu cầu hoàn tiền vé từ người mua theo chính sách sự kiện"
     >
       <div className="space-y-6">
 

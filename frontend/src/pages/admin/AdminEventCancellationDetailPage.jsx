@@ -28,14 +28,22 @@ import {
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatCurrency(amount) {
   const num = Number(amount || 0)
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) return `${new Intl.NumberFormat('en-US').format(num)} VND`
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num)
 }
 
 function formatDate(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleDateString('vi-VN', {
+  return new Date(value).toLocaleDateString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

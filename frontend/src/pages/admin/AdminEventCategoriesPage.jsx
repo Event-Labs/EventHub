@@ -134,7 +134,6 @@ export function AdminEventCategoriesPage() {
   return (
     <Page
       title="Loại Sự kiện"
-      description="Quản lý các nhóm phân loại sự kiện trên nền tảng"
       action="Thêm loại"
       actionClassName="admin-primary shrink-0"
       actionIcon={Plus}

@@ -39,16 +39,26 @@ import { VIETNAMESE_BANKS, resolveBankName } from '@/constants/banks.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { StatusBadge } from '@/components/StatusBadge.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(value) {
   if (!value) return 'N/A'
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
 }
 
 function formatCurrency(value) {
-  if (value === undefined || value === null) return '0 đ'
+  if (value === undefined || value === null) return '0 ₫'
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) {
+    return `${new Intl.NumberFormat('en-US').format(value)} VND`
+  }
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',

@@ -3,12 +3,16 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Search, Sparkles } from 'lucide-react'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 /**
  * OrganizerPage – page-level layout wrapper
  */
 export function OrganizerPage({ title, description, backLink, backLabel, backAction, action, actionTo, onAction, children }) {
+  const { isEnglish, t } = useLanguage()
   const actionIsElement = isValidElement(action)
+  const displayBackLabel = backLabel || (isEnglish ? 'Back' : 'Quay lại')
+  const displayAction = typeof action === 'string' ? t(action) : action
 
   return (
     <>
@@ -20,7 +24,7 @@ export function OrganizerPage({ title, description, backLink, backLabel, backAct
               className="inline-flex items-center gap-1.5 text-sm font-medium text-white hover:text-white/80 transition-colors w-fit"
             >
               <ArrowLeft className="size-4" />
-              <span>{backLabel || 'Quay lại'}</span>
+              <span>{displayBackLabel}</span>
             </Link>
           )}
           {backAction}
@@ -32,13 +36,13 @@ export function OrganizerPage({ title, description, backLink, backLabel, backAct
         {!actionIsElement && action && actionTo && (
           <Link to={actionTo} className="org-btn-primary">
             <Plus className="size-4" />
-            {action}
+            {displayAction}
           </Link>
         )}
         {!actionIsElement && action && !actionTo && (
           <button type="button" className="org-btn-primary" onClick={onAction}>
             <Plus className="size-4" />
-            {action}
+            {displayAction}
           </button>
         )}
       </div>

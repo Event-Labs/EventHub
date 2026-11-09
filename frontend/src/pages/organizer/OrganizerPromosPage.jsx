@@ -72,8 +72,14 @@ function getPromoMessage(message, fallback) {
   return PROMO_MESSAGE_LABELS[message] || (/[À-ỹ]/.test(message) ? message : fallback)
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatPromoDate(date) {
-  return new Date(date).toLocaleDateString('vi-VN', {
+  return new Date(date).toLocaleDateString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -86,7 +92,7 @@ function formatDateRange(start, end) {
 
 function formatPromoDateTime(date) {
   const value = new Date(date)
-  const time = value.toLocaleTimeString('vi-VN', {
+  const time = value.toLocaleTimeString(getAutoLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -331,7 +337,6 @@ export function OrganizerPromosPage() {
   return (
     <OrganizerPage
       title="Quản lý Mã khuyến mãi"
-      description="Tạo và theo dõi hiệu quả sử dụng mã khuyến mãi cho sự kiện."
       action={
         <button
           className={`flex items-center gap-2 ${hasEvents ? 'org-btn-primary' : 'bg-neutral text-muted cursor-not-allowed px-4 py-2 rounded-xl font-bold text-sm'}`}

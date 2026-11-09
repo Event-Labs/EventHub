@@ -10,8 +10,17 @@ import {
   YAxis,
 } from 'recharts'
 import { BarChart3, ChevronRight, Sparkles, Ticket } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
 
 function fmtCurrency(n) {
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) return `${Number(n || 0).toLocaleString('en-US')} VND`
   return `${Number(n || 0).toLocaleString('vi-VN')} đ`
 }
 
@@ -24,10 +33,10 @@ function fmtShort(n) {
 }
 
 function fmtNumber(n) {
-  return Number(n || 0).toLocaleString('vi-VN')
+  return Number(n || 0).toLocaleString(getAutoLocale())
 }
 
-function CustomEventTooltip({ active, payload, totalRevenue }) {
+function CustomEventTooltip({ active, payload, totalRevenue, isEnglish }) {
   if (!active || !payload || !payload.length) return null
   const d = payload[0]?.payload
   if (!d) return null
@@ -46,7 +55,7 @@ function CustomEventTooltip({ active, payload, totalRevenue }) {
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-cyan-400" />
-            Doanh thu:
+            {isEnglish ? 'Revenue:' : 'Doanh thu:'}
           </span>
           <strong className="text-cyan-300 font-mono font-bold text-sm">
             {fmtCurrency(gross)}
@@ -56,26 +65,26 @@ function CustomEventTooltip({ active, payload, totalRevenue }) {
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-emerald-400" />
-            Vé bán ra:
+            {isEnglish ? 'Tickets Sold:' : 'Vé bán ra:'}
           </span>
           <strong className="text-emerald-400 font-mono font-bold">
-            {fmtNumber(tickets)} vé
+            {fmtNumber(tickets)} {isEnglish ? 'tickets' : 'vé'}
           </strong>
         </div>
 
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-purple-400" />
-            Đơn hàng:
+            {isEnglish ? 'Orders:' : 'Đơn hàng:'}
           </span>
           <strong className="text-purple-300 font-mono font-bold">
-            {fmtNumber(orders)} đơn
+            {fmtNumber(orders)} {isEnglish ? 'orders' : 'đơn'}
           </strong>
         </div>
 
         {totalRevenue > 0 && (
           <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-white/10">
-            <span className="text-slate-400">Đóng góp tổng:</span>
+            <span className="text-slate-400">{isEnglish ? 'Share of Total:' : 'Đóng góp tổng:'}</span>
             <span className="text-amber-400 font-mono font-bold">{pctOfTotal}%</span>
           </div>
         )}
@@ -88,6 +97,7 @@ export function EventRevenueBarChart({
   eventsRevenue = [],
   onSelectEvent = null,
 }) {
+  const { isEnglish } = useLanguage()
   const [showAll, setShowAll] = useState(false)
 
   // Sort descending by gross revenue
@@ -120,9 +130,11 @@ export function EventRevenueBarChart({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
         <div className="flex items-center gap-2">
           <BarChart3 className="size-4 text-cyan-400" />
-          <h4 className="text-sm font-bold text-white">So sánh doanh thu theo sự kiện</h4>
+          <h4 className="text-sm font-bold text-white">
+            {isEnglish ? 'Revenue Comparison by Event' : 'So sánh doanh thu theo sự kiện'}
+          </h4>
           <span className="rounded-full bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 text-[11px] font-bold text-cyan-300">
-            {sortedEvents.length} sự kiện
+            {sortedEvents.length} {isEnglish ? 'events' : 'sự kiện'}
           </span>
         </div>
 
@@ -132,7 +144,9 @@ export function EventRevenueBarChart({
             onClick={() => setShowAll((prev) => !prev)}
             className="rounded-lg border border-white/10 bg-slate-800/80 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
           >
-            {showAll ? 'Chỉ xem Top 5' : `Xem tất cả (${sortedEvents.length})`}
+            {showAll
+              ? (isEnglish ? 'Top 5 Only' : 'Chỉ xem Top 5')
+              : (isEnglish ? `View All (${sortedEvents.length})` : `Xem tất cả (${sortedEvents.length})`)}
           </button>
         )}
       </div>
@@ -178,7 +192,7 @@ export function EventRevenueBarChart({
             />
 
             <Tooltip
-              content={<CustomEventTooltip totalRevenue={totalRevenue} />}
+              content={<CustomEventTooltip totalRevenue={totalRevenue} isEnglish={isEnglish} />}
               cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
             />
 

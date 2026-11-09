@@ -23,6 +23,7 @@ import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { Badge, StatusBadge, resolveStatusConfig } from '@/components/StatusBadge.jsx'
 import { TableActionButton } from '@/components/TableActionButton.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 /**
  * Page – layout wrapper for Admin pages
@@ -31,7 +32,7 @@ export function Page({
   title,
   description,
   backLink,
-  backLabel = 'Quay lại',
+  backLabel,
   action,
   actionClassName,
   actionIcon: ActionIcon = Plus,
@@ -39,6 +40,10 @@ export function Page({
   actions,
   children,
 }) {
+  const { isEnglish, t } = useLanguage()
+  const displayBackLabel = backLabel || (isEnglish ? 'Back' : 'Quay lại')
+  const displayAction = typeof action === 'string' ? t(action) : action
+
   return (
     <>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -49,7 +54,7 @@ export function Page({
               className="inline-flex items-center gap-2 text-base font-bold text-white hover:text-white/80 transition-colors w-fit"
             >
               <ArrowLeft className="size-5" />
-              <span>{backLabel}</span>
+              <span>{displayBackLabel}</span>
             </Link>
           )}
           {title && (
@@ -65,7 +70,7 @@ export function Page({
             className={actionClassName || 'admin-primary flex items-center gap-2 px-5 py-2.5 text-sm'}
             onClick={onAction}
           >
-            <ActionIcon className="size-4" /> {action}
+            <ActionIcon className="size-4" /> {displayAction}
           </button>
         )}
       </div>
@@ -78,6 +83,7 @@ export function Page({
  * AttentionSection – "Attention Required" block shown at top of Admin Dashboard
  */
 export function AttentionSection({ items }) {
+  const { isEnglish, t } = useLanguage()
   if (!items?.length) return null
   return (
     <div className="relative mb-6 rounded-2xl bg-[#0f172a] p-6 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-amber-50/90">
@@ -91,7 +97,7 @@ export function AttentionSection({ items }) {
           <span className="text-sm">⚠️</span>
         </div>
         <p className="text-sm font-black uppercase tracking-widest text-warning">
-          Cần xử lý ngay
+          {isEnglish ? 'Action Required' : 'Cần xử lý ngay'}
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -103,7 +109,7 @@ export function AttentionSection({ items }) {
                 : 'border border-amber-500/30 bg-[#16233f] hover:border-amber-400 shadow-md'
               }`}
           >
-            <span className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</span>
+            <span className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{t(label)}</span>
             <span
               className={`text-2xl font-black drop-shadow-md ${severity === 'critical' ? 'text-rose-400' : 'text-amber-400'}`}
             >
@@ -120,6 +126,7 @@ export function AttentionSection({ items }) {
  * KpiGrid – KPI metric cards grid (Text và data, không có icon bên)
  */
 export function KpiGrid({ items, className = '' }) {
+  const { isEnglish, t } = useLanguage()
   const gridClass = items.length === 4 ? 'xl:grid-cols-4' : items.length === 3 ? 'sm:grid-cols-3' : 'xl:grid-cols-5'
   return (
     <div className={`grid gap-4 sm:grid-cols-2 ${gridClass} ${className}`}>
@@ -142,7 +149,7 @@ export function KpiGrid({ items, className = '' }) {
             className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
           >
             <div>
-              <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
+              <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{t(label)}</p>
               <p className={`mt-2 font-black text-white tracking-tight font-display drop-shadow-sm leading-tight break-words [html.light_&]:text-[#0D1B2A] ${textSize}`}>
                 {value}
               </p>
@@ -156,11 +163,11 @@ export function KpiGrid({ items, className = '' }) {
                       : 'border-success/30 bg-success/20 text-success'
                   }`}
                 >
-                  {change}
+                  {t(change)}
                 </span>
               </div>
             ) : sub ? (
-              <p className="mt-2 truncate text-[12px] font-medium text-muted">{sub}</p>
+              <p className="mt-2 truncate text-[12px] font-medium text-muted">{t(sub)}</p>
             ) : null}
           </div>
         )
@@ -205,21 +212,22 @@ export function Insight({ title = 'AI Insight', text }) {
  * FilterBar
  */
 export function FilterBar({ labels }) {
+  const { isEnglish, t } = useLanguage()
   return (
     <Panel className="my-5 flex flex-wrap items-center gap-4 py-4 px-6">
       <span className="text-[10px] font-black uppercase tracking-widest text-subtle">
-        Lọc theo
+        {isEnglish ? 'Filter by' : 'Lọc theo'}
       </span>
       {labels.map((label) => (
         <select
           key={label}
           className="h-9 rounded-xl border border-white/10 bg-slate-900/50 px-4 text-[13px] font-medium text-content outline-none focus:border-primary/50 transition-colors cursor-pointer appearance-none shadow-inner"
         >
-          <option>{label}</option>
+          <option>{t(label)}</option>
         </select>
       ))}
       <button className="ml-auto text-[13px] font-bold text-subtle hover:text-primary transition-colors">
-        Xóa bộ lọc
+        {isEnglish ? 'Clear filter' : 'Xóa bộ lọc'}
       </button>
     </Panel>
   )
@@ -229,6 +237,7 @@ export function FilterBar({ labels }) {
  * Table – dark-themed data table
  */
 export function Table({ headers, rows, compact = false, tableClassName = 'min-w-[760px]' }) {
+  const { t } = useLanguage()
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
       <div className="w-full overflow-x-auto">
@@ -249,7 +258,7 @@ export function Table({ headers, rows, compact = false, tableClassName = 'min-w-
                       isCenter ? 'text-center' : ''
                     } ${isObj && header.className ? header.className : ''}`}
                   >
-                    {label}
+                    {t(label)}
                   </th>
                 )
               })}
@@ -418,9 +427,10 @@ export function PlanCard({ plan, featured }) {
  * Field
  */
 export function Field({ label, value, className = '' }) {
+  const { t } = useLanguage()
   return (
     <label className={`block ${className}`}>
-      <span className="text-xs font-bold text-subtle">{label}</span>
+      <span className="text-xs font-bold text-subtle">{t(label)}</span>
       <input
         className="cosmic-input w-full mt-2"
         defaultValue={value}
@@ -433,9 +443,10 @@ export function Field({ label, value, className = '' }) {
  * Row
  */
 export function Row({ label, value, strong }) {
+  const { t } = useLanguage()
   return (
     <div className="flex justify-between border-b border-border-soft/20 py-2.5 last:border-0">
-      <span className="text-sm text-subtle">{label}</span>
+      <span className="text-sm text-subtle">{t(label)}</span>
       <span className={strong ? 'font-extrabold text-tertiary' : 'font-semibold text-content'}>
         {value}
       </span>
@@ -447,13 +458,14 @@ export function Row({ label, value, strong }) {
  * Legend
  */
 export function Legend({ rows }) {
+  const { t } = useLanguage()
   return (
     <div className="space-y-2">
       {rows.map(([label, value]) => (
         <div key={label} className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-tertiary" />
-            <span className="text-subtle">{label}</span>
+            <span className="text-subtle">{t(label)}</span>
           </span>
           <span className="font-semibold text-content">{value}</span>
         </div>

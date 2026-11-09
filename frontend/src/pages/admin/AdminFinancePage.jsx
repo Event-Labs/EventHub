@@ -22,6 +22,12 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 
 const PAGE_SIZE = 10
 
@@ -168,7 +174,6 @@ export function AdminFinancePage() {
   return (
     <Page
       title="Chính sách Nền tảng"
-      description="Quản lý chính sách nền tảng, điều khoản và tài liệu PDF đang áp dụng cho hệ thống"
       actions={
         <button
           type="button"
@@ -748,17 +753,18 @@ function formatRange(from, to) {
   }
 
   const formatDt = (val) => {
-    if (!val) return 'Không giới hạn'
+    const isEn = getAutoLocale() === 'en-US'
+    if (!val) return isEn ? 'Unlimited' : 'Không giới hạn'
     const d = new Date(val)
     if (Number.isNaN(d.getTime())) return '—'
-    const time = d.toLocaleTimeString('vi-VN', {
+    const time = d.toLocaleTimeString(getAutoLocale(), {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
     })
-    const date = d.toLocaleDateString('vi-VN', {
+    const date = d.toLocaleDateString(getAutoLocale(), {
       day: '2-digit',
-      month: '2-digit',
+      month: isEn ? 'short' : '2-digit',
       year: 'numeric',
     })
     return `${time} · ${date}`

@@ -5,8 +5,10 @@ import { authService } from '@/services/auth.service.js'
 import { AuthShell, Field } from './LoginPage.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 export function ForgotPasswordPage() {
+    const { isEnglish } = useLanguage()
     const toast = useToast()
     const [email, setEmail] = useState('')
     const [loading, setLoading] = useState(false)
@@ -39,11 +41,12 @@ export function ForgotPasswordPage() {
                         <CheckCircle className="size-10" />
                     </div>
                     <h1 className="font-display text-3xl font-extrabold text-white">
-                        Yêu cầu đã gửi!
+                        {isEnglish ? 'Request Sent!' : 'Yêu cầu đã gửi!'}
                     </h1>
                     <p className="mt-4 text-slate-300 text-lg">
-                        Nếu email <strong>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi liên kết đặt lại mật khẩu cho bạn.
-                        Vui lòng kiểm tra hộp thư.
+                        {isEnglish
+                            ? <>If <strong>{email}</strong> exists in our system, we have sent a password reset link to your inbox.</>
+                            : <>Nếu email <strong>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi liên kết đặt lại mật khẩu cho bạn. Vui lòng kiểm tra hộp thư.</>}
                     </p>
                     <div className="mt-8">
                         <Link
@@ -51,7 +54,7 @@ export function ForgotPasswordPage() {
                             className="btn-gold-primary inline-flex w-full items-center justify-center py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer"
                             style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                         >
-                            Quay lại đăng nhập
+                            {isEnglish ? 'Back to Sign In' : 'Quay lại đăng nhập'}
                         </Link>
                     </div>
                 </div>
@@ -65,10 +68,10 @@ export function ForgotPasswordPage() {
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                 <div className="text-center">
                     <h1 className="font-display text-3xl font-extrabold text-white">
-                        Quên mật khẩu
+                        {isEnglish ? 'Forgot Password' : 'Quên mật khẩu'}
                     </h1>
                     <p className="mt-3 text-sm font-medium text-slate-300">
-                        Nhập email để nhận liên kết đặt lại mật khẩu.
+                        {isEnglish ? 'Enter your email to receive a password reset link.' : 'Nhập email để nhận liên kết đặt lại mật khẩu.'}
                     </p>
                 </div>
 
@@ -83,21 +86,19 @@ export function ForgotPasswordPage() {
                         onChange={(e) => setEmail(e.target.value)}
                     />
 
-
-
                     <button
                         type="submit"
                         disabled={loading}
                         className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                     >
-                        {loading ? 'Đang xử lý...' : 'Gửi email đặt lại'}
+                        {loading ? (isEnglish ? 'Processing...' : 'Đang xử lý...') : (isEnglish ? 'Send Reset Email' : 'Gửi email đặt lại')}
                     </button>
                 </form>
 
                 <p className="mt-6 text-center text-muted">
                     <Link to="/login" className="font-bold text-primary hover:text-white transition-colors">
-                        Quay lại đăng nhập
+                        {isEnglish ? 'Back to Sign In' : 'Quay lại đăng nhập'}
                     </Link>
                 </p>
             </div>

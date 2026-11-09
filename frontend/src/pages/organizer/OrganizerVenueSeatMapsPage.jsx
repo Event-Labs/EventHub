@@ -781,7 +781,7 @@ export function OrganizerVenueSeatMapsPage() {
   return (
     <OrganizerPage
       title="Sơ đồ ghế"
-      description="Quản lý các sơ đồ chỗ ngồi cho địa điểm này."
+
     >
       <div className="mb-4 flex items-center justify-between">
         <button

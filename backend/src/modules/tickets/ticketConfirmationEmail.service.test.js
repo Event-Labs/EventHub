@@ -109,4 +109,60 @@ describe('ticketConfirmationEmail', () => {
     expect(attendeeCall[0].html).not.toContain('Tổng thanh toán');
     expect(attendeeCall[0].html).not.toContain('Thanh to&#225;n th&#224;nh c&#244;ng');
   });
+
+  it('generates 100% clean English emails when order locale is en', async () => {
+    const order = {
+      ...createOrder(),
+      locale: 'en',
+    };
+    const tickets = [
+      {
+        id: 'ticket-en-1',
+        ticket_code: 'TC-EN-1',
+        qr_code: 'QR-EN-1',
+        attendee_name: 'John Doe',
+        attendee_email: 'john@example.com',
+        ticket_type_name: 'VIP Experience',
+        seat_label: 'A1-01',
+      },
+    ];
+
+    await expect(ticketConfirmationEmail.sendOrderConfirmation(order, tickets)).resolves.toBe(true);
+
+    const buyerCall = mockSendEmail.mock.calls.find(([call]) => call.email === 'buyer@example.com');
+    const attendeeCall = mockSendEmail.mock.calls.find(([call]) => call.email === 'john@example.com');
+
+    expect(buyerCall).toBeDefined();
+    expect(buyerCall[0].subject).toContain('EventHub Ticket - Large event (ORD-001)');
+    expect(buyerCall[0].html).toContain('lang="en"');
+    expect(buyerCall[0].html).toContain('Payment Successful!');
+    expect(buyerCall[0].html).toContain('ORDER DETAILS');
+    expect(buyerCall[0].html).toContain('Order code');
+    expect(buyerCall[0].html).toContain('Total payment');
+    expect(buyerCall[0].html).toContain('YOUR TICKETS');
+    expect(buyerCall[0].html).toContain('CHECK-IN INSTRUCTIONS');
+    expect(buyerCall[0].html).toContain('VIEW MY TICKETS');
+    expect(buyerCall[0].html).toContain('ATTENDEE');
+    expect(buyerCall[0].html).toContain('TICKET TYPE');
+    expect(buyerCall[0].html).toContain('SEAT');
+
+    // Strict assertions: no Vietnamese in English email
+    expect(buyerCall[0].html).not.toContain('Thanh toán thành công');
+    expect(buyerCall[0].html).not.toContain('CHI TIẾT ĐƠN HÀNG');
+    expect(buyerCall[0].html).not.toContain('Mã đơn hàng');
+    expect(buyerCall[0].html).not.toContain('Tổng thanh toán');
+    expect(buyerCall[0].html).not.toContain('VÉ CỦA BẠN');
+    expect(buyerCall[0].html).not.toContain('HƯỚNG DẪN CHECK-IN');
+    expect(buyerCall[0].html).not.toContain('XEM VÉ CỦA TÔI');
+    expect(buyerCall[0].html).not.toContain('NGƯỜI THAM DỰ');
+    expect(buyerCall[0].html).not.toContain('LOẠI VÉ');
+
+    expect(attendeeCall).toBeDefined();
+    expect(attendeeCall[0].subject).toContain('Event Admission Ticket - Large event');
+    expect(attendeeCall[0].html).toContain('lang="en"');
+    expect(attendeeCall[0].html).toContain('Event Admission Ticket');
+    expect(attendeeCall[0].html).toContain('YOUR TICKETS');
+    expect(attendeeCall[0].html).not.toContain('Vé tham dự sự kiện');
+    expect(attendeeCall[0].html).not.toContain('VÉ CỦA BẠN');
+  });
 });

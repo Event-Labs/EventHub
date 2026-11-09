@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CalendarRange, Check, ChevronDown, Lock } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -218,18 +220,32 @@ export function getComparisonRange(option = 'previousPeriod', baseRange, custom 
   }
 }
 
-export function getDateRangeLabel(option, range) {
+export function getDateRangeLabel(option, range, isEnglish = false) {
   if (option === 'custom') return range.label
-  return DATE_RANGE_OPTIONS.find((item) => item.value === option)?.label || range.label
+  const rawLabel = DATE_RANGE_OPTIONS.find((item) => item.value === option)?.label || range.label
+  if (isEnglish || (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
+    return VI_TO_EN[rawLabel] || rawLabel
+  }
+  return rawLabel
 }
 
-function getComparisonLabel(option, range) {
+function getComparisonLabel(option, range, isEnglish = false) {
   if (option === 'custom') return range.label
-  return COMPARISON_OPTIONS.find((item) => item.value === option)?.label || range.label
+  const rawLabel = COMPARISON_OPTIONS.find((item) => item.value === option)?.label || range.label
+  if (isEnglish || (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
+    return VI_TO_EN[rawLabel] || rawLabel
+  }
+  return rawLabel
 }
+
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
 
 function formatDateRangeLabel(from, to) {
-  const formatter = new Intl.DateTimeFormat('vi-VN', {
+  const formatter = new Intl.DateTimeFormat(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -259,15 +275,16 @@ export function DateRangeFilter({
   const [draftCompareEnabled, setDraftCompareEnabled] = useState(false)
   const [draftCompareMode, setDraftCompareMode] = useState('previousPeriod')
   const [draftCompareFrom, setDraftCompareFrom] = useState('')
+  const { isEnglish, t } = useLanguage()
   const [draftCompareTo, setDraftCompareTo] = useState('')
   const containerRef = useRef(null)
   const triggerRef = useRef(null)
   const popupRef = useRef(null)
   const [popupStyle, setPopupStyle] = useState(null)
   const activeRange = getDateRange(value, { from: customFrom, to: customTo })
-  const activeLabel = getDateRangeLabel(value, activeRange)
+  const activeLabel = getDateRangeLabel(value, activeRange, isEnglish)
   const draftRange = getDateRange(draftValue, { from: draftFrom, to: draftTo })
-  const draftLabel = getDateRangeLabel(draftValue, draftRange)
+  const draftLabel = getDateRangeLabel(draftValue, draftRange, isEnglish)
   const comparisonRange = comparisonEnabled
     ? getComparisonRange(comparisonMode, activeRange, { from: comparisonFrom, to: comparisonTo })
     : null
@@ -276,9 +293,9 @@ export function DateRangeFilter({
     to: draftCompareTo,
   })
   const comparisonLabel = comparisonRange
-    ? getComparisonLabel(comparisonMode, comparisonRange)
+    ? getComparisonLabel(comparisonMode, comparisonRange, isEnglish)
     : ''
-  const draftComparisonLabel = getComparisonLabel(draftCompareMode, draftComparisonRange)
+  const draftComparisonLabel = getComparisonLabel(draftCompareMode, draftComparisonRange, isEnglish)
 
   const calculatePopupPosition = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect()
@@ -382,7 +399,9 @@ export function DateRangeFilter({
 
   return (
     <div ref={containerRef} className="relative">
-      <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Khoảng thời gian</span>
+      <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">
+        {isEnglish ? 'Time Range' : 'Khoảng thời gian'}
+      </span>
       <button
         ref={triggerRef}
         type="button"
@@ -395,7 +414,7 @@ export function DateRangeFilter({
           <span className="min-w-0 truncate text-[#F5EBDD]/90">{activeRange.label}</span>
           {comparisonRange && (
             <span className="hidden shrink-0 text-slate-400 lg:inline">
-              so với {comparisonLabel}
+              {isEnglish ? 'vs ' : 'so với '}{comparisonLabel}
             </span>
           )}
         </span>
@@ -425,7 +444,7 @@ export function DateRangeFilter({
                       : 'text-slate-200 hover:bg-white/10 hover:text-[#F5EBDD]'
                   }`}
                 >
-                  <span>{option.label}</span>
+                  <span>{isEnglish ? (VI_TO_EN[option.label] || option.label) : option.label}</span>
                   {draftValue === option.value && <Check className="size-4 text-[#E6C17A]" />}
                 </button>
               ))}
@@ -433,10 +452,10 @@ export function DateRangeFilter({
               <div className="my-1 border-t border-white/10" />
               <div className="flex h-10 items-center justify-between px-3">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-white">So sánh</span>
+                  <span className="text-sm font-bold text-white">{isEnglish ? 'Compare' : 'So sánh'}</span>
                   {comparisonLocked && (
                     <span className="flex items-center gap-1 rounded bg-[#C99A47]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#E6C17A]">
-                      <Lock className="size-2.5" /> Gói nâng cao
+                      <Lock className="size-2.5" /> {isEnglish ? 'Advanced Plan' : 'Gói nâng cao'}
                     </span>
                   )}
                 </div>
@@ -510,7 +529,7 @@ export function DateRangeFilter({
                 </label>
                 <label>
                   <span className="block text-xs font-bold uppercase tracking-wider text-white mb-1.5">
-                    Ngày kết thúc
+                    {isEnglish ? 'End Date' : 'Ngày kết thúc'}
                   </span>
                   <input
                     type="date"
@@ -527,16 +546,18 @@ export function DateRangeFilter({
 
               {draftCompareEnabled && (
                 <div className="mt-5 border-t border-white/10 pt-4">
-                  <p className="mb-3 text-sm font-bold text-white">So sánh</p>
+                  <p className="mb-3 text-sm font-bold text-white">{isEnglish ? 'Comparison' : 'So sánh'}</p>
                   <div className="mb-4 rounded-xl border border-white/10 bg-[#121c38] px-4 py-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#E6C17A]">Kỳ so sánh</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#E6C17A]">
+                      {isEnglish ? 'Comparison Period' : 'Kỳ so sánh'}
+                    </p>
                     <p className="mt-1 text-sm font-bold text-white">{draftComparisonLabel}</p>
                     <p className="mt-0.5 text-sm text-[#F5EBDD]/80">{draftComparisonRange.label}</p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label>
                       <span className="block text-xs font-bold uppercase tracking-wider text-white mb-1.5">
-                        Ngày bắt đầu
+                        {isEnglish ? 'Start Date' : 'Ngày bắt đầu'}
                       </span>
                       <input
                         type="date"
@@ -551,7 +572,7 @@ export function DateRangeFilter({
                     </label>
                     <label>
                       <span className="block text-xs font-bold uppercase tracking-wider text-white mb-1.5">
-                        Ngày kết thúc
+                        {isEnglish ? 'End Date' : 'Ngày kết thúc'}
                       </span>
                       <input
                         type="date"
@@ -574,14 +595,14 @@ export function DateRangeFilter({
                   onClick={() => setOpen(false)}
                   className="rounded-xl px-4 py-2 text-sm font-bold text-[#F5EBDD]/80 transition hover:bg-white/10 hover:text-white"
                 >
-                  Hủy
+                  {isEnglish ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="button"
                   onClick={applySelection}
                   className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-2 text-sm font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 hover:shadow-[#C99A47]/50 active:scale-95"
                 >
-                  Áp dụng
+                  {isEnglish ? 'Apply' : 'Áp dụng'}
                 </button>
               </div>
             </div>
