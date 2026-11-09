@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
   Loader2,
+  Lock,
   Search,
   Ticket,
   X,
@@ -15,6 +16,8 @@ import {
   exportOrganizerAttendees,
   fetchOrganizerAttendees,
 } from '@/services/organizerOrders.js'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import {
   AvatarInitials,
   Badge,
@@ -72,12 +75,26 @@ function formatDateTime(dateStr) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerAttendeesPage() {
+  const navigate = useNavigate()
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const initialEventId = searchParams.get('eventId') || ''
 
+  const [currentPlan, setCurrentPlan] = useState(null)
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState(initialEventId)
+
+  // Load current subscription plan
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setCurrentPlan(res.plan)
+        }
+      })
+      .catch(() => setCurrentPlan(null))
+  }, [])
 
   // Attendees state
   const [attendees, setAttendees] = useState([])
@@ -184,6 +201,18 @@ export function OrganizerAttendeesPage() {
 
   const handleExport = async () => {
     if (!selectedEventId || exporting) return
+
+    if (currentPlan && !currentPlan.attendee_export_enabled) {
+      toast.error('Gói dịch vụ hiện tại không hỗ trợ tính năng xuất danh sách người tham dự. Vui lòng nâng cấp gói để sử dụng.')
+      navigate('/organizer/subscriptions', {
+        state: {
+          returnTo: selectedEventId ? `/organizer/attendees?eventId=${selectedEventId}` : '/organizer/attendees',
+          message: 'Tính năng Xuất danh sách người tham dự yêu cầu gói hỗ trợ xuất dữ liệu. Vui lòng nâng cấp gói dịch vụ.',
+        },
+      })
+      return
+    }
+
     setExporting(true)
     setError('')
     try {
@@ -325,9 +354,12 @@ export function OrganizerAttendeesPage() {
                 className="org-btn-primary flex items-center gap-2"
                 onClick={handleExport}
                 disabled={exporting || loading}
+                title={currentPlan && !currentPlan.attendee_export_enabled ? 'Cần nâng cấp gói dịch vụ để xuất danh sách' : 'Xuất danh sách'}
               >
                 {exporting ? (
                   <Loader2 className="size-4 animate-spin" />
+                ) : currentPlan && !currentPlan.attendee_export_enabled ? (
+                  <Lock className="size-4" />
                 ) : (
                   <Download className="size-4" />
                 )}

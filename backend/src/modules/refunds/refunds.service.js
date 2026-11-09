@@ -1,12 +1,43 @@
 const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const fieldCrypto = require('../../core/security/fieldCrypto');
 const logger = require('../../core/logger');
 const refundsRepository = require('./refunds.repository');
 const refundRuleEngine = require('./refundRuleEngine');
 const payosRefundService = require('./payosRefund.service');
 const notificationsService = require('../notifications/notifications.service');
 const { buildRefundConfirmationEmail } = require('./refundConfirmationEmail.service');
+
+const BIN_TO_BANK_NAME = {
+  '970436': 'Vietcombank',
+  '970415': 'VietinBank',
+  '970418': 'BIDV',
+  '970405': 'Agribank',
+  '970407': 'Techcombank',
+  '970422': 'MB Bank',
+  '970416': 'ACB',
+  '970432': 'VPBank',
+  '970423': 'TPBank',
+  '970441': 'VIB',
+  '970403': 'Sacombank',
+  '970437': 'HDBank',
+  '970443': 'SHB',
+  '970448': 'OCB',
+  '970426': 'MSB',
+  '970449': 'LPBank',
+  '970412': 'PVcomBank',
+  '970409': 'Bac A Bank',
+  '970428': 'Nam A Bank',
+  '970452': 'Kienlongbank',
+  '970454': 'BVBank',
+  '970438': 'BaoViet Bank',
+  '970400': 'Saigonbank',
+  '970433': 'VietBank',
+  '970419': 'NCB',
+  '970424': 'Shinhan Bank',
+  '970457': 'Woori Bank',
+};
 
 class RefundsService {
   /**
@@ -365,12 +396,12 @@ class RefundsService {
 
           if (!payosResult.success) {
             // PayOS gateway returned failure or timed out:
-            // Keep ticket locked in REFUND_PENDING, record error note and mark FAILED for retry/manual transfer
+            // Keep previous status (e.g. APPROVED or PENDING) so organizer can immediately retry or switch to manual transfer
             await refundsRepository.updateStatus(
               refundId,
               {
-                status: 'FAILED',
-                organizer_note: `Giao dịch hoàn tiền qua Cổng thanh toán thất bại: ${payosResult.error}. Vui lòng kiểm tra lại tài khoản hoặc chuyển thủ công.`,
+                status: refund.status || 'APPROVED',
+                organizer_note: payosResult.error,
                 processed_by_id: reviewerId,
                 reviewed_at: new Date(),
               },
@@ -380,7 +411,7 @@ class RefundsService {
             await client.query('COMMIT');
 
             throw new AppError(
-              `Giao dịch hoàn tiền qua Cổng thanh toán thất bại: ${payosResult.error}. Vui lòng kiểm tra lại tài khoản hoặc chuyển thủ công.`,
+              payosResult.error,
               400,
               payosResult.errorCode || 'GATEWAY_ERROR',
             );
@@ -392,7 +423,7 @@ class RefundsService {
           finalNote = finalNote || `Đã hoàn tiền thủ công qua chuyển khoản ngân hàng (Mã GD: ${finalTransactionRef || 'N/A'})`;
         }
 
-        // Permanently invalidate the ticket: REFUND_PENDING -> REFUNDED
+        // Permanently invalidate the ticket: REFUND_PENDING / REFUND_REQUESTED -> REFUNDED
         if (refund.ticket_id) {
           await refundsRepository.invalidateTicketForRefund(refund.ticket_id, client);
 
@@ -400,6 +431,22 @@ class RefundsService {
           if (refund.session_seat_id) {
             await refundsRepository.releaseSessionSeat(refund.session_seat_id, client);
           }
+        } else if (refund.order_id) {
+          // If refund request is for the entire order, invalidate all tickets belonging to this order
+          await client.query(
+            `UPDATE tickets 
+             SET status = 'REFUNDED' 
+             WHERE order_item_id IN (SELECT id FROM order_items WHERE order_id = $1)
+               AND status IN ('VALID', 'REFUND_PENDING', 'REFUND_REQUESTED')`,
+            [refund.order_id],
+          );
+          // Release all session seats of this order
+          await client.query(
+            `UPDATE session_seats
+             SET status = 'AVAILABLE', held_by = NULL, held_until = NULL, order_id = NULL
+             WHERE order_id = $1`,
+            [refund.order_id],
+          );
         }
 
         // Check if all tickets for this order are now refunded/cancelled
@@ -466,8 +513,68 @@ class RefundsService {
     }
   }
 
+  /**
+   * Batch process multiple refund requests for an organizer
+   * (e.g. bulk pay via PayOS or bulk confirm manual bank transfer)
+   */
+  async batchProcessRefundsByOrganizer(
+    organizerUserId,
+    refundIds,
+    payload,
+    reviewerId,
+    userRole = 'ORGANIZER',
+  ) {
+    if (payload?.refund_method && payload.refund_method !== 'PAYOS') {
+      throw new AppError(
+        'Xử lý hàng loạt chỉ hỗ trợ phương thức "Hoàn tiền tự động qua PayOS". Với hình thức chuyển khoản thủ công, Ban tổ chức vui lòng xử lý từng yêu cầu để nhập mã giao dịch và tải lên biên lai đối soát theo đúng quy định.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
+    const results = {
+      total: refundIds.length,
+      successCount: 0,
+      failedCount: 0,
+      items: [],
+    };
+
+    for (const refundId of refundIds) {
+      try {
+        const item = await this.processRefundByOrganizer(
+          organizerUserId,
+          refundId,
+          payload,
+          reviewerId,
+          userRole,
+        );
+        results.successCount += 1;
+        results.items.push({ id: refundId, success: true, data: item });
+      } catch (err) {
+        results.failedCount += 1;
+        results.items.push({ id: refundId, success: false, error: err.message || 'Lỗi xử lý yêu cầu' });
+      }
+    }
+
+    return results;
+  }
+
   mapRefund(row) {
     if (!row) return null;
+
+    let bankAccountNumber = row.bank_account_number;
+    if (bankAccountNumber && fieldCrypto.isEncrypted(bankAccountNumber)) {
+      const keys = [row.organizer_id, row.order_organizer_id, 'platform'].filter(Boolean);
+      for (const k of keys) {
+        try {
+          bankAccountNumber = fieldCrypto.decrypt(bankAccountNumber, k, 'payer_account_number', { allowLegacy: true });
+          break;
+        } catch (_) {}
+      }
+    }
+
+    const bankName = BIN_TO_BANK_NAME[row.bank_name] || row.bank_name;
+
     return {
       id: row.id,
       order_id: row.order_id,
@@ -475,12 +582,13 @@ class RefundsService {
       event_id: row.event_id,
       customer_id: row.customer_id,
       organizer_id: row.organizer_id,
+      organizer_name: row.organizer_name || 'Ban tổ chức',
       refund_amount: Number(row.refund_amount || 0),
       reason: row.reason,
       status: row.status,
       refund_method: row.refund_method,
-      bank_name: row.bank_name,
-      bank_account_number: row.bank_account_number,
+      bank_name: bankName,
+      bank_account_number: bankAccountNumber,
       bank_account_name: row.bank_account_name,
       organizer_note: row.organizer_note,
       proof_url: row.organizer_proof_url,

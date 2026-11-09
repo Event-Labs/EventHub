@@ -32,6 +32,8 @@ class EventsAdminRepository {
         COALESCE(u.email, o.business_email, '') AS organizer_email,
         COALESCE(u.full_name, o.organization_name, '') AS organizer_name,
         COALESCE(o.business_phone, u.phone, '') AS organizer_phone,
+        COALESCE(org_sub.priority_support, false) AS is_priority_support,
+        org_sub.plan_name AS organizer_plan_name,
         fin_summary.paid_orders_count,
         fin_summary.total_paid_amount,
         fin_summary.issued_tickets_count,
@@ -48,6 +50,20 @@ class EventsAdminRepository {
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users u ON u.id = o.user_id
+      LEFT JOIN LATERAL (
+        SELECT
+          s.name AS plan_name,
+          COALESCE(s.priority_support, false) AS priority_support
+        FROM organizer_subscriptions os
+        JOIN subscriptions s ON os.subscription_id = s.id
+        WHERE os.organizer_id = e.organizer_id
+          AND os.status = 'ACTIVE'
+          AND os.start_date <= now()
+          AND os.end_date >= now()
+          AND s.deleted_at IS NULL
+        ORDER BY s.priority_support DESC, os.start_date DESC
+        LIMIT 1
+      ) org_sub ON true
       LEFT JOIN LATERAL (
         SELECT
           COALESCE(COUNT(DISTINCT o_fin.id) FILTER (WHERE o_fin.status = 'PAID'), 0)::int AS paid_orders_count,

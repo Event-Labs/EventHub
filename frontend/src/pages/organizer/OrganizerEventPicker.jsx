@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Calendar,
@@ -52,27 +52,34 @@ export function OrganizerEventPicker({
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('ALL')
-  const [popupStyle, setPopupStyle] = useState({ left: 0, top: 0, width: 420 })
+  const [popupStyle, setPopupStyle] = useState(null)
 
   const containerRef = useRef(null)
   const triggerRef = useRef(null)
   const popupRef = useRef(null)
   const inputRef = useRef(null)
 
+  const calculatePopupPosition = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return null
+
+    const width = Math.min(520, Math.max(rect.width, 360), window.innerWidth - 32)
+    const left = Math.min(Math.max(16, rect.left), window.innerWidth - width - 16)
+    const top = Math.min(rect.bottom + 6, window.innerHeight - 100)
+
+    return { left, top, width }
+  }, [])
+
   // Position calculation and outside click handler
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return undefined
 
     const updatePopupPosition = () => {
-      const rect = triggerRef.current?.getBoundingClientRect()
-      if (!rect) return
-
-      const width = Math.min(520, Math.max(rect.width, 360), window.innerWidth - 32)
-      const left = Math.min(Math.max(16, rect.left), window.innerWidth - width - 16)
-      const top = Math.min(rect.bottom + 6, window.innerHeight - 100)
-
-      setPopupStyle({ left, top, width })
+      const pos = calculatePopupPosition()
+      if (pos) setPopupStyle(pos)
     }
+
+    updatePopupPosition()
 
     const handlePointerDown = (event) => {
       const target = event.target
@@ -88,7 +95,6 @@ export function OrganizerEventPicker({
       if (e.key === 'Escape') setIsOpen(false)
     }
 
-    updatePopupPosition()
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
     window.addEventListener('resize', updatePopupPosition)
@@ -102,7 +108,18 @@ export function OrganizerEventPicker({
       window.removeEventListener('resize', updatePopupPosition)
       window.removeEventListener('scroll', updatePopupPosition, true)
     }
-  }, [isOpen])
+  }, [calculatePopupPosition, isOpen])
+
+  const handleToggle = () => {
+    if (loading) return
+    if (!isOpen) {
+      const pos = calculatePopupPosition()
+      if (pos) setPopupStyle(pos)
+      setIsOpen(true)
+    } else {
+      setIsOpen(false)
+    }
+  }
 
   // Augment events with computed operational status
   const enrichedEvents = useMemo(() => {
@@ -198,7 +215,7 @@ export function OrganizerEventPicker({
         ref={triggerRef}
         type="button"
         disabled={loading}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggle}
         className={`mt-1 flex h-10 w-full items-center justify-between gap-3 rounded-xl border px-3 text-left text-sm font-semibold text-white shadow-sm transition outline-none ${
           isOpen
             ? 'border-primary/60 bg-[#0d172e] ring-2 ring-primary/20 [html.light_&]:bg-white [html.light_&]:border-[#C99A47] [html.light_&]:text-[#0D1B2A] [html.light_&]:ring-[#C99A47]/20'
@@ -273,7 +290,7 @@ export function OrganizerEventPicker({
       </button>
 
       {/* Floating Dropdown Popover using createPortal (immune to z-index clipping) */}
-      {isOpen &&
+      {isOpen && popupStyle &&
         createPortal(
           <div
             ref={popupRef}

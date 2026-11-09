@@ -473,7 +473,7 @@ export function BookingSeatsPage() {
   })
 
   const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   )
   const isPaused = Boolean(
     (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
@@ -723,6 +723,14 @@ export function BookingSeatsPage() {
   if (!cart || !session) return <NavigateBackToEvents />
 
   const continueFlow = async () => {
+    const holdExpiresAtRaw = cart?.holdExpiresAt || cart?.hold_expires_at
+    if (holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) <= 0) {
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+      return
+    }
+
     if (isPaused) {
       toast.error('Sự kiện đang tạm dừng bán vé. Hiện tại không thể tiếp tục đặt vé.')
       return
@@ -958,6 +966,7 @@ export function BookingSeatsPage() {
                   <div className="mb-3 sm:mb-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted">
                     <Legend color="bg-primary" label={'Đang chọn'} />
                     <Legend color="bg-panel-soft" label={'Còn trống'} />
+                    <Legend color="border border-amber-500/60 bg-amber-950/70" label={'Tạm dừng bán'} />
                     <Legend color="bg-slate-700" label={'Đã giữ/bán'} />
                   </div>
                   <div className="rounded-xl bg-surface/60 border border-white/10 w-full max-w-full overflow-hidden flex flex-col">
@@ -1102,7 +1111,7 @@ export function BookingAttendeesPage() {
   })
 
   const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   )
   const isPaused = Boolean(
     (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
@@ -1128,6 +1137,17 @@ export function BookingAttendeesPage() {
   )
 
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
+  const expiredHandledRef = useRef(false)
+
+  useEffect(() => {
+    if (!cart?.items?.length && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.items?.length, cart?.eventId, navigate, toast])
+
   const [buyer, setBuyer] = useState(() => ({
     name: cart?.buyer?.name || '',
     email: cart?.buyer?.email || '',
@@ -1241,7 +1261,14 @@ export function BookingAttendeesPage() {
     saveBookingDraft(updatedCart)
   }, [buyer, attendees, collectAttendees, cart])
 
-  if (!cart?.items?.length) return <NavigateBackToEvents />
+  if (!cart?.items?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-primary animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
+      </div>
+    )
+  }
 
   const showFormError = (message) => {
     toast.error(message)
@@ -1412,6 +1439,16 @@ export function BookingReviewPage() {
   const [promoInput, setPromoInput] = useState(cart?.promoCode || '')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+  const expiredHandledRef = useRef(false)
+
+  useEffect(() => {
+    if (!cart?.items?.length && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.items?.length, cart?.eventId, navigate, toast])
 
   const { data: eventDetail } = useQuery({
     queryKey: ['booking-review-event-detail', cart?.eventId],
@@ -1421,7 +1458,7 @@ export function BookingReviewPage() {
   })
 
   const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   )
   const isPaused = Boolean(
     (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
@@ -1544,11 +1581,26 @@ export function BookingReviewPage() {
 
   const [termsAccepted, setTermsAccepted] = useState(() => Boolean(cart?.eventTermsAccepted))
 
-  if (!cart?.items?.length) return <NavigateBackToEvents />
+  if (!cart?.items?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-primary animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
+      </div>
+    )
+  }
 
   const collectAttendees = requiresAttendeeInfo(cart)
 
   const continueFlow = async () => {
+    const holdExpiresAtRaw = cart?.holdExpiresAt || cart?.hold_expires_at
+    if (holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) <= 0) {
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+      return
+    }
+
     if (isPaused) {
       toast.error('Sự kiện đang tạm dừng bán vé. Hiện tại không thể tiếp tục thanh toán.')
       return
@@ -1900,7 +1952,14 @@ export function BookingPaymentPage() {
   const [checkout, setCheckout] = useState(location.state?.checkout || null)
   const checkoutStartedRef = useRef(Boolean(location.state?.checkout || existingOrderId))
   const paymentSuccessHandledRef = useRef(false)
+  const expiredHandledRef = useRef(false)
+  const [tick, setTick] = useState(0)
   const orderId = existingOrderId || checkout?.order?.id
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((v) => v + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!cart?.items?.length) return
@@ -2001,6 +2060,52 @@ export function BookingPaymentPage() {
     }
   }, [navigate, order?.status, toast])
 
+  // Handle order status expired or order countdown expired
+  useEffect(() => {
+    if (!order) return
+    const isOrderExpired =
+      ['EXPIRED', 'CANCELLED', 'FAILED'].includes(order.status) ||
+      (order.expired_at && secondsLeft(order.expired_at) <= 0)
+
+    if (isOrderExpired && !expiredHandledRef.current && !paymentSuccessHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(order.event_id || cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [order?.status, order?.expired_at, order?.event_id, cart?.eventId, navigate, toast, tick])
+
+  // Handle reload when hold expired and no active order
+  useEffect(() => {
+    if (!cart?.items?.length && !orderId && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.items?.length, orderId, cart?.eventId, navigate, toast])
+
+  // Handle draft hold expiration
+  useEffect(() => {
+    const holdExpiresAtRaw = cart?.holdExpiresAt || cart?.hold_expires_at
+    if (holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) <= 0 && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.holdExpiresAt, cart?.hold_expires_at, cart?.eventId, navigate, toast, tick])
+
+  // Handle order query error (e.g. 404 expired / deleted order)
+  useEffect(() => {
+    if (statusQuery.isError && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [statusQuery.isError, cart?.eventId, navigate, toast])
+
   useEffect(() => {
     if (!cart?.items?.length || orderId || checkoutMutation.isPending || checkoutStartedRef.current) return
     const hasPolicy = Boolean(
@@ -2032,7 +2137,20 @@ export function BookingPaymentPage() {
     })
   }, [cart, checkoutMutation, orderId])
 
-  if (!cart?.items?.length) return <NavigateBackToEvents />
+  const isOrderExpired = Boolean(
+    order &&
+    (['EXPIRED', 'CANCELLED', 'FAILED'].includes(order.status) ||
+      (order.expired_at && secondsLeft(order.expired_at) <= 0))
+  )
+
+  if ((!cart?.items?.length && !orderId) || isOrderExpired) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
+      </div>
+    )
+  }
 
   return (
     <BookingShell step={4} cart={cart}>
@@ -2077,10 +2195,12 @@ export function BookingPaymentPage() {
             )}
             {payment && (
               <div className="text-center">
-                <p className="text-sm font-bold uppercase tracking-widest text-white">{'Số tiền cần thanh toán'}</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-slate-400">{'Số tiền cần thanh toán'}</p>
                 <p className="mt-2 font-display text-4xl font-extrabold text-white">{formatPrice(order.total_amount)}</p>
+
+                {/* QR code container */}
                 {payment.qr_code ? (
-                  <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
+                  <div className="mx-auto mt-6 w-fit rounded-2xl bg-white p-4.5 shadow-xl border border-white/10">
                     <QRCodeImage text={payment.qr_code} alt="QR PayOS" size={224} className="size-56" />
                   </div>
                 ) : (
@@ -2088,26 +2208,37 @@ export function BookingPaymentPage() {
                     {'QR sẽ hiển thị khi PayOS trả dữ liệu.'}
                   </div>
                 )}
-                {payment.checkout_url && (
-                  <a
-                    href={payment.checkout_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-6 inline-flex items-center justify-center gap-2 btn-gold-primary px-6 py-3 text-sm font-bold shadow-lg"
-                  >
-                    {'Mở trang PayOS'}
-                    <ExternalLink className="size-4" />
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={() => statusQuery.refetch()}
-                  disabled={statusQuery.isFetching}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-border-soft py-3 text-sm font-bold text-white hover:border-primary hover:text-primary disabled:opacity-60 transition-colors"
-                >
-                  <RefreshCw className={cn('size-4', statusQuery.isFetching && 'animate-spin')} />
-                  {statusQuery.isFetching ? 'Đang kiểm tra...' : 'Kiểm tra trạng thái'}
-                </button>
+
+                {/* Live Transaction Status */}
+                <div className="mt-6 rounded-2xl border border-white/10 bg-[#121c38]/90 p-4 backdrop-blur-md shadow-inner text-center">
+                  <div className="flex items-center justify-center gap-2.5">
+                    <span className="relative flex size-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                    </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      Đang chờ nhận tiền...
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-xs text-slate-300">
+                    Mở ứng dụng ngân hàng hoặc ví điện tử bất kỳ để quét mã VietQR ở trên.
+                  </p>
+
+                  {payment.checkout_url && (
+                    <div className="mt-3.5 pt-3 border-t border-white/5 flex justify-center">
+                      <a
+                        href={payment.checkout_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white transition"
+                      >
+                        <span>Hoặc mở cổng thanh toán PayOS</span>
+                        <ExternalLink className="size-3.5 text-[#C99A47]" />
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </Panel>
@@ -2160,7 +2291,7 @@ function BookingShell({ step, cart, children }) {
   )
 
   const holdExpiresAt =
-    hasSeatsHeld && holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) > 0
+    hasSeatsHeld && holdExpiresAtRaw
       ? holdExpiresAtRaw
       : step >= 2 && !holdExpiresAtRaw
         ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
@@ -2203,7 +2334,7 @@ function BookingShell({ step, cart, children }) {
         },
       },
     })
-  }, [holdExpiresAt, tick, navigate, toast, cart])
+  }, [holdExpiresAt, tick, navigate, toast, cart, isEnglish])
 
   const goBackStep = () => {
     const previousPathByStep = {
@@ -2520,7 +2651,16 @@ function OrderCard({
               : 'btn-gold-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
           )}
         >
-          {isPaused ? (isEnglish ? 'Sales Paused' : 'Tạm dừng bán vé') : t(cta)}
+          {isPaused ? (
+            isEnglish ? 'Sales Paused' : 'Tạm dừng bán vé'
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              {disabled && (String(cta).includes('Đang chờ') || String(cta).includes('Waiting')) && (
+                <Loader2 className="size-4.5 animate-spin text-[#0D1B2A]" />
+              )}
+              {t(cta)}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -3101,7 +3241,8 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
     const labelLen = seatLabel.length
     const fontSize = labelLen <= 2 ? '9.5px' : labelLen === 3 ? '8px' : '7px'
     const letterSpacing = labelLen >= 3 ? '-0.04em' : '-0.01em'
-    const title = `${seatLabel}${ticketType ? ` · ${ticketType.name}` : ''}${seat.zone?.name ? ` · ${seat.zone.name}` : ''}${isTicketTypePaused ? ' (Hạng vé đang tạm dừng bán)' : disabled ? ' (Đã giữ/bán)' : ''}`
+    const isBlocked = seat.status === 'BLOCKED'
+    const title = `${seatLabel}${ticketType ? ` · ${ticketType.name}` : ''}${seat.zone?.name ? ` · ${seat.zone.name}` : ''}${isTicketTypePaused ? ' (Hạng vé đang tạm dừng bán)' : isBlocked ? ' (Vị trí tạm dừng bán)' : disabled ? ' (Đã giữ/bán)' : ''}`
     const zoneColor = seat.zone?.color || seat.seat_type?.color
 
     return (
@@ -3119,9 +3260,11 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
             ? 'border-[#38bdf8] bg-gradient-to-b from-[#38bdf8] to-[#0284c7] text-[#030712] font-black shadow-[0_0_12px_rgba(56,189,248,0.5)] z-10 scale-[1.05]'
             : isTicketTypePaused
               ? 'cursor-not-allowed border-amber-900/50 bg-amber-950/30 text-amber-500/50 opacity-60'
-              : disabled
-                ? 'cursor-not-allowed border-slate-800 bg-slate-800/80 text-slate-500'
-                : 'border-white/15 bg-slate-900/90 text-slate-200 hover:border-primary hover:text-white hover:bg-slate-800 hover:scale-[1.06] hover:shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+              : isBlocked
+                ? 'cursor-not-allowed border-amber-900/60 bg-amber-950/40 text-amber-500/70 opacity-60'
+                : disabled
+                  ? 'cursor-not-allowed border-slate-800 bg-slate-800/80 text-slate-500'
+                  : 'border-white/15 bg-slate-900/90 text-slate-200 hover:border-primary hover:text-white hover:bg-slate-800 hover:scale-[1.06] hover:shadow-[0_0_8px_rgba(6,182,212,0.3)]'
         }`}
       >
         {showSeatNumber ? (
@@ -3332,12 +3475,23 @@ function buildAttendeesPayload(cart) {
 }
 
 function NavigateBackToEvents() {
+  const navigate = useNavigate()
+  const toast = useToast()
+  const redirectedRef = useRef(false)
+
+  useEffect(() => {
+    if (!redirectedRef.current) {
+      redirectedRef.current = true
+      clearBookingDraft()
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [navigate, toast])
+
   return (
-    <div className="mx-auto max-w-lg px-4 py-16 text-center">
-      <p className="text-muted">{'Kh\u00f4ng t\u00ecm th\u1ea5y th\u00f4ng tin \u0111\u1eb7t v\u00e9.'}</p>
-      <Link to="/events" className="mt-4 inline-block font-bold text-primary">
-        {'Ch\u1ecdn s\u1ef1 ki\u1ec7n'}
-      </Link>
+    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+      <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+      <p className="text-slate-300 text-sm">{'Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...'}</p>
     </div>
   )
 }

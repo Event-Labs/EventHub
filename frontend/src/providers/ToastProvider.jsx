@@ -45,8 +45,17 @@ export function ToastProvider({ children }) {
     const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`
 
     setToasts((current) => {
-      // Deduplicate: Do not stack duplicate identical toasts
-      if (current.some((t) => !t.leaving && t.message === message && t.type === toastType)) {
+      // Deduplicate: Do not stack duplicate identical toasts or overlapping refund success toasts
+      const isRefundSuccess = (msg) => {
+        const lower = String(msg || '').toLowerCase()
+        return lower.includes('hoàn tiền') && (lower.includes('thành công') || lower.includes('hoàn tất'))
+      }
+      if (
+        current.some((t) => !t.leaving && (
+          (t.message === message && t.type === toastType) ||
+          (toastType === 'success' && isRefundSuccess(message) && isRefundSuccess(t.message))
+        ))
+      ) {
         return current
       }
       window.setTimeout(() => dismiss(id), options.duration || 4500)

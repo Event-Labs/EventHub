@@ -132,18 +132,58 @@ class SubscriptionGuardService {
     const organizerUsage = await this.getOrganizerUsage(organizerId);
     const eventUsage = await this.getOrganizerUsage(organizerId, eventId);
 
-    assertLimit('Số sự kiện hoạt động', organizerUsage.active_events + 1, toLimit(plan.max_active_events || plan.event_limit));
-    assertLimit('Số loại vé của sự kiện', eventUsage.ticket_types, toLimit(plan.max_ticket_types_per_event));
-    assertLimit('Tổng số vé của sự kiện', eventUsage.ticket_capacity, toLimit(plan.max_tickets_per_event));
-    assertLimit('Số nhân sự của sự kiện', eventUsage.staff_count, toLimit(plan.max_staff_per_event || plan.staff_limit));
-    assertLimit('Số mã khuyến mãi của sự kiện', eventUsage.promo_codes, toLimit(plan.max_promo_codes_per_event));
+    // Check if event is already among active events to avoid double counting
+    const { rows: currentEventRows } = await db.query(
+      `SELECT status FROM events WHERE id = $1 AND organizer_id = $2`,
+      [eventId, organizerId],
+    );
+    const isAlreadyActive =
+      currentEventRows[0] &&
+      ['PENDING_REVIEW', 'COMPLETED', 'PUBLISHED'].includes(currentEventRows[0].status);
+    const nextActiveEvents = isAlreadyActive
+      ? organizerUsage.active_events
+      : organizerUsage.active_events + 1;
+
+    assertLimit(
+      'Số sự kiện hoạt động',
+      nextActiveEvents,
+      toLimit(plan.max_active_events || plan.event_limit),
+    );
+    assertLimit(
+      'Số loại vé của sự kiện',
+      eventUsage.ticket_types,
+      toLimit(plan.max_ticket_types_per_event),
+    );
+    assertLimit(
+      'Tổng số vé của sự kiện',
+      eventUsage.ticket_capacity,
+      toLimit(plan.max_tickets_per_event),
+    );
+    assertLimit(
+      'Số nhân sự của sự kiện',
+      eventUsage.staff_count,
+      toLimit(plan.max_staff_per_event || plan.staff_limit),
+    );
+    assertLimit(
+      'Số mã khuyến mãi của sự kiện',
+      eventUsage.promo_codes,
+      toLimit(plan.max_promo_codes_per_event),
+    );
 
     if (eventUsage.promo_codes > 0 && !plan.promo_code_enabled) {
-      throw new AppError('Gói hiện tại không hỗ trợ mã khuyến mãi. Vui lòng xóa mã khuyến mãi hoặc nâng cấp gói.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError(
+        'Gói hiện tại không hỗ trợ mã khuyến mãi. Vui lòng xóa mã khuyến mãi hoặc nâng cấp gói.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
     }
 
     if (eventUsage.seat_map_sessions > 0 && !plan.seat_map_enabled) {
-      throw new AppError('Gói hiện tại không hỗ trợ sơ đồ ghế. Vui lòng bỏ sơ đồ ghế hoặc nâng cấp gói.', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError(
+        'Gói hiện tại không hỗ trợ sơ đồ ghế. Vui lòng bỏ sơ đồ ghế hoặc nâng cấp gói.',
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
     }
 
     return { plan, usage: eventUsage };
@@ -156,12 +196,20 @@ class SubscriptionGuardService {
   async assertPromoCreationAllowed(organizerId, eventIds = []) {
     const plan = await this.assertActivePlan(organizerId, 'create promo code');
     if (!plan.promo_code_enabled) {
-      throw new AppError('Gói hiện tại không hỗ trợ tạo mã khuyến mãi. Vui lòng nâng cấp gói để sử dụng tính năng này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      throw new AppError(
+        'Gói hiện tại không hỗ trợ tạo mã khuyến mãi. Vui lòng nâng cấp gói để sử dụng tính năng này.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
     }
 
     for (const eventId of eventIds) {
       const usage = await this.getOrganizerUsage(organizerId, eventId);
-      assertLimit('Số mã khuyến mãi của sự kiện', usage.promo_codes + 1, toLimit(plan.max_promo_codes_per_event));
+      assertLimit(
+        'Số mã khuyến mãi của sự kiện',
+        usage.promo_codes + 1,
+        toLimit(plan.max_promo_codes_per_event),
+      );
     }
 
     return plan;
@@ -170,7 +218,100 @@ class SubscriptionGuardService {
   async assertSeatMapCreationAllowed(organizerId) {
     const plan = await this.assertActivePlan(organizerId, 'create seat map');
     if (!plan.seat_map_enabled) {
-      throw new AppError('Gói hiện tại không hỗ trợ sơ đồ ghế. Vui lòng nâng cấp gói để sử dụng tính năng này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      throw new AppError(
+        'Gói hiện tại không hỗ trợ sơ đồ ghế. Vui lòng nâng cấp gói để sử dụng tính năng này.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+    return plan;
+  }
+
+  async assertAiEventCreationAllowed(organizerId) {
+    const plan = await this.assertActivePlan(organizerId, 'AI event creation');
+    if (!plan.ai_event_creation_enabled) {
+      throw new AppError(
+        'Gói dịch vụ hiện tại không hỗ trợ tính năng Tạo sự kiện bằng AI. Vui lòng nâng cấp gói để sử dụng.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+    return plan;
+  }
+
+  async assertAiSeatMapAllowed(organizerId) {
+    const plan = await this.assertActivePlan(organizerId, 'AI seat map');
+    if (!(plan.ai_seat_map_enabled ?? plan.custom_branding_enabled)) {
+      throw new AppError(
+        'Gói dịch vụ hiện tại không hỗ trợ tính năng Tạo sơ đồ ghế bằng AI. Vui lòng nâng cấp gói để sử dụng.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+    return plan;
+  }
+
+  async assertAiReportAllowed(organizerId) {
+    const plan = await this.assertActivePlan(organizerId, 'AI report');
+    if (!plan.ai_report_enabled) {
+      throw new AppError(
+        'Gói dịch vụ hiện tại không hỗ trợ tính năng Cố vấn & Báo cáo doanh thu AI. Vui lòng nâng cấp gói để sử dụng.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+    return plan;
+  }
+
+  async assertAttendeeExportAllowed(organizerId) {
+    const plan = await this.assertActivePlan(organizerId, 'export attendees');
+    if (!plan.attendee_export_enabled) {
+      throw new AppError(
+        'Gói dịch vụ hiện tại không hỗ trợ tính năng Xuất danh sách người tham dự. Vui lòng nâng cấp gói để sử dụng.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+    return plan;
+  }
+
+  async assertManualCheckinAllowed(organizerId) {
+    const plan = await this.assertActivePlan(organizerId, 'manual checkin');
+    if (!plan.manual_checkin_enabled) {
+      throw new AppError(
+        'Gói dịch vụ của sự kiện không hỗ trợ tính năng check-in thủ công. Vui lòng quét mã QR hoặc liên hệ Ban tổ chức nâng cấp gói.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+    return plan;
+  }
+
+  async isManualCheckinAllowed(organizerId) {
+    const plan = await this.getActivePlanByOrganizerId(organizerId);
+    return Boolean(plan?.manual_checkin_enabled);
+  }
+
+  async assertAnalyticsAllowed(organizerId) {
+    const plan = await this.assertActivePlan(organizerId, 'analytics');
+    if (!plan.analytics_enabled) {
+      throw new AppError(
+        'Gói dịch vụ hiện tại không hỗ trợ tính năng thống kê và phân tích doanh thu. Vui lòng nâng cấp gói để sử dụng.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
+    }
+    return plan;
+  }
+
+  async assertAdvancedAnalyticsAllowed(organizerId) {
+    const plan = await this.assertActivePlan(organizerId, 'advanced analytics');
+    if (!plan.advanced_analytics_enabled) {
+      throw new AppError(
+        'Gói dịch vụ hiện tại không hỗ trợ tính năng phân tích nâng cao. Vui lòng nâng cấp gói để sử dụng.',
+        403,
+        ErrorCodes.AUTH_FORBIDDEN,
+      );
     }
     return plan;
   }

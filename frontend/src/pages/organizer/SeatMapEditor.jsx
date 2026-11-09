@@ -13,6 +13,7 @@ import {
   Grid,
   Hand,
   Loader2,
+  Minus,
   MousePointer2,
   Paintbrush,
   Palette,
@@ -2751,10 +2752,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 {/* Seats */}
                 {seats.map((seat) => {
                   const zone = zones.find((z) => z.localId === seat.zoneLocalId)
-                  const fill = seat.isDisabled ? '#EF4444' : zone ? zone.color : (isLightCanvas ? '#CBD5E1' : '#72787c')
+                  const fill = seat.isDisabled
+                    ? (isLightCanvas ? '#E2E8F0' : '#1E293B')
+                    : zone
+                      ? zone.color
+                      : (isLightCanvas ? '#CBD5E1' : '#72787c')
                   const isSelected = selectedIds.has(seat.localId)
                   const isFillLight = isLightColor(fill)
-                  const seatTextColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
+                  const seatTextColor = seat.isDisabled ? '#94A3B8' : isFillLight ? '#0D1B2A' : '#FFFFFF'
 
                   return (
                     <g
@@ -2771,12 +2776,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         stroke={isSelected
                           ? '#2563EB'
                           : seat.isDisabled
-                            ? (isLightCanvas ? '#DC2626' : '#ffffff50')
+                            ? (isLightCanvas ? '#94A3B8' : '#475569')
                             : isLightCanvas
                               ? 'rgba(15, 23, 42, 0.3)'
                               : 'rgba(255, 255, 255, 0.12)'
                         }
                         strokeWidth={isSelected ? 3 : 1}
+                        strokeDasharray={seat.isDisabled ? '2 2' : undefined}
                         opacity={seat.isDisabled ? (isLightCanvas ? 0.45 : 0.35) : 1}
                       />
                       <text
@@ -2821,9 +2827,24 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 /**
  * SeatMapPreview – component xem trước sơ đồ ghế (dùng trong chi tiết sự kiện & mua vé)
  */
-export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, width: defaultWidth = 800, height = 300 }) {
+export function SeatMapPreview({
+  seatMap,
+  seats: propSeats,
+  zones: propZones,
+  width: defaultWidth = 800,
+  height = 300,
+  interactive = false,
+  mode = 'VIEW', // 'VIEW' | 'TOGGLE_DISABLE' | 'SELECT_SEATS'
+  disabledSeatIds = [],
+  selectedSeatIds = [],
+  soldSeatIds = [],
+  pausedSeatIds = [],
+  onToggleSeat,
+  showControls = true,
+}) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(defaultWidth)
+  const [zoomLevel, setZoomLevel] = useState(1)
 
   useEffect(() => {
     if (!containerRef.current) return undefined
@@ -2842,6 +2863,11 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
   const zones = propZones || seatMap?.zones || []
   const standingAreas = seatMap?.config?.standingAreas || []
   const canvasBg = seatMap?.config?.canvasBg || '#0F172A'
+
+  const disabledSet = useMemo(() => new Set((disabledSeatIds || []).map(String)), [disabledSeatIds])
+  const selectedSet = useMemo(() => new Set((selectedSeatIds || []).map(String)), [selectedSeatIds])
+  const soldSet = useMemo(() => new Set((soldSeatIds || []).map(String)), [soldSeatIds])
+  const pausedSet = useMemo(() => new Set((pausedSeatIds || []).map(String)), [pausedSeatIds])
 
   const stagePos = seatMap?.config?.stagePosition || 'TOP'
   const stageShape = seatMap?.config?.stageShape || 'RECTANGLE'
@@ -2923,11 +2949,15 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
 
   const scaleX = width / originalW
   const scaleY = height / originalH
-  const scale = Math.min(scaleX, scaleY, 1)
+  const baseScale = Math.min(scaleX, scaleY, 1)
+  const scale = baseScale * zoomLevel
+
+  const svgWidth = Math.max(width, originalW * scale + padding * 2)
+  const svgHeight = Math.max(height, originalH * scale + padding * 2)
 
   const zoneColorById = useMemo(() => {
     const m = new Map()
-      ; (zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
+    ;(zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
     return m
   }, [zones])
 
@@ -2959,7 +2989,7 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
   return (
     <div
       ref={containerRef}
-      className="rounded-xl border border-border-soft/30 overflow-hidden w-full"
+      className="relative rounded-xl border border-border-soft/30 overflow-auto w-full select-none"
       style={{
         backgroundColor: canvasBg,
         backgroundImage: isLightPreview
@@ -2967,11 +2997,46 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
           : 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
         backgroundSize: `${20 * scale}px ${20 * scale}px`,
         width: '100%',
-        height
+        height,
       }}
     >
-      <svg width={width} height={height}>
-        <g transform={`translate(${(width - originalW * scale) / 2}, ${(height - originalH * scale) / 2}) scale(${scale})`}>
+      {/* Zoom controls for interactive modes */}
+      {(interactive || showControls) && (
+        <div className="sticky top-2 right-2 float-right z-10 mr-2 mb-[-36px] flex items-center gap-1 rounded-lg bg-[#0b1329]/90 border border-white/10 px-2 py-1 backdrop-blur-md shadow-lg text-xs text-white">
+          <button
+            type="button"
+            title="Thu nhỏ"
+            onClick={() => setZoomLevel((z) => Math.max(0.6, Math.round((z - 0.2) * 10) / 10))}
+            className="p-1 rounded hover:bg-white/10 text-slate-300 hover:text-white transition"
+          >
+            <Minus className="size-3.5" />
+          </button>
+          <span className="font-mono text-[11px] px-1 text-amber-300 font-bold min-w-[36px] text-center">
+            {Math.round(zoomLevel * 100)}%
+          </span>
+          <button
+            type="button"
+            title="Phóng to"
+            onClick={() => setZoomLevel((z) => Math.min(2.5, Math.round((z + 0.2) * 10) / 10))}
+            className="p-1 rounded hover:bg-white/10 text-slate-300 hover:text-white transition"
+          >
+            <Plus className="size-3.5" />
+          </button>
+          {zoomLevel !== 1 && (
+            <button
+              type="button"
+              title="Khôi phục kích thước ban đầu"
+              onClick={() => setZoomLevel(1)}
+              className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/10 hover:bg-white/20 text-slate-200 transition"
+            >
+              Fit
+            </button>
+          )}
+        </div>
+      )}
+
+      <svg width={svgWidth} height={svgHeight}>
+        <g transform={`translate(${(svgWidth - originalW * scale) / 2}, ${(svgHeight - originalH * scale) / 2}) scale(${scale})`}>
           {renderStage()}
 
           {/* Standing Areas */}
@@ -3045,21 +3110,101 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
           {finalSeats.map((s) => {
             const x = (s.x_position ?? s.x) - minX
             const y = (s.y_position ?? s.y) - minY
-            const isDisabled = s.is_disabled ?? s.isDisabled
-            const fill = isDisabled ? '#EF4444' : (zoneColorById.get(s.zone_id ?? s.zoneLocalId) ?? (isLightPreview ? '#CBD5E1' : '#72787c'))
+            const sId = String(s.id || s.seat_id || s.localId || '')
+            const rowLabel = s.row_label ?? s.rowLabel ?? ''
+            const seatNumber = s.seat_number ?? s.seatNumber ?? ''
+            const label = `${rowLabel}${seatNumber}`
+
+            const isSold = soldSet.has(sId) || s.status === 'SOLD'
+            const isPaused = pausedSet.has(sId) || (mode !== 'TOGGLE_DISABLE' && s.status === 'BLOCKED')
+            const isExplicitlyDisabled = disabledSet.has(sId) || Boolean(s.is_disabled ?? s.isDisabled)
+            const isDisabled = mode === 'TOGGLE_DISABLE' ? isExplicitlyDisabled : false
+            const isSelected = selectedSet.has(sId)
+
+            let fill = zoneColorById.get(s.zone_id ?? s.zoneLocalId ?? s.zone?.id) ?? (isLightPreview ? '#CBD5E1' : '#64748B')
+            let stroke = isLightPreview ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255,255,255,0.1)'
+            let strokeWidth = 1
+            let opacity = 1
+            let cursor = interactive ? 'pointer' : 'default'
+            let tooltipText = `${label} • Đang hoạt động`
+
+            if (isSold) {
+              fill = '#1E293B'
+              stroke = '#334155'
+              opacity = 0.35
+              cursor = 'not-allowed'
+              tooltipText = `${label} • Đã bán (Không thể thao tác)`
+            } else if (mode === 'TOGGLE_DISABLE') {
+              if (isDisabled) {
+                fill = '#1E293B'
+                stroke = '#475569'
+                strokeWidth = 1
+                opacity = 0.35
+                tooltipText = `${label} • Đã vô hiệu hóa (Bấm để mở lại)`
+              } else {
+                tooltipText = `${label} • Đang mở bán (Bấm để vô hiệu hóa)`
+              }
+            } else if (mode === 'SELECT_SEATS') {
+              if (isSelected) {
+                fill = '#F59E0B'
+                stroke = '#FDE68A'
+                strokeWidth = 2.5
+                opacity = 1
+                tooltipText = `${label} • Đang chọn`
+              } else if (isPaused) {
+                fill = '#EF4444'
+                stroke = '#DC2626'
+                strokeWidth = 1.5
+                opacity = 0.7
+                tooltipText = `${label} • Đang tạm dừng bán (Bấm để chọn)`
+              } else {
+                tooltipText = `${label} • Đang mở bán (Bấm để chọn tạm dừng)`
+              }
+            } else if (s.is_disabled ?? s.isDisabled) {
+              fill = isLightPreview ? '#E2E8F0' : '#1E293B'
+              stroke = isLightPreview ? '#94A3B8' : '#475569'
+              strokeWidth = 1
+              opacity = isLightPreview ? 0.45 : 0.35
+              tooltipText = `${label} • Vô hiệu hóa`
+            }
+
+            const isSeatDisabled = (mode === 'TOGGLE_DISABLE' && isDisabled) || Boolean(s.is_disabled ?? s.isDisabled)
             const isFillLight = isLightColor(fill)
-            const seatTextColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
+            const seatTextColor = isSold || isSeatDisabled ? '#64748B' : isFillLight ? '#0D1B2A' : '#FFFFFF'
 
             return (
-              <g key={s.id || s.localId} transform={`translate(${x},${y})`}>
+              <g
+                key={sId || `${rowLabel}-${seatNumber}`}
+                transform={`translate(${x},${y})`}
+                onClick={() => {
+                  if (!interactive || isSold) return
+                  if (onToggleSeat) {
+                    onToggleSeat({
+                      ...s,
+                      id: s.id || s.seat_id || s.localId,
+                      seat_id: s.seat_id || s.id,
+                      row_label: rowLabel,
+                      seat_number: seatNumber,
+                      label,
+                      is_disabled: isDisabled,
+                      is_paused: isPaused,
+                      is_selected: isSelected,
+                    })
+                  }
+                }}
+                style={{ cursor }}
+                className={interactive && !isSold ? 'hover:brightness-125 transition-all' : ''}
+              >
+                <title>{tooltipText}</title>
                 <rect
                   width={28}
                   height={28}
                   rx={6}
                   fill={fill}
-                  stroke={isDisabled ? (isLightPreview ? '#DC2626' : '#ffffff50') : isLightPreview ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255,255,255,0.1)'}
-                  strokeWidth={1}
-                  opacity={isDisabled ? (isLightPreview ? 0.45 : 0.35) : 1}
+                  stroke={stroke}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={isSeatDisabled ? '2 2' : undefined}
+                  opacity={opacity}
                 />
                 <text
                   x={14}
@@ -3070,7 +3215,7 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
                   fontWeight="800"
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
                 >
-                  {s.row_label ?? s.rowLabel}{s.seat_number ?? s.seatNumber}
+                  {label}
                 </text>
               </g>
             )

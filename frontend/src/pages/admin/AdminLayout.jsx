@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Building2, Calendar, ClipboardList, CreditCard, LayoutDashboard, ShieldCheck, Tags, Users } from 'lucide-react'
+import { BriefcaseBusiness, Building2, Calendar, ClipboardList, CreditCard, LayoutDashboard, ShieldAlert, ShieldCheck, Tags, Users } from 'lucide-react'
 import { getStoredUser, isAdminUser } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -27,6 +27,7 @@ const navSections = [
     label: 'Tài chính & Gói dịch vụ',
     items: [
       { label: 'Tài chính', to: '/admin/platform-fee', icon: CreditCard },
+      { label: 'Khiếu nại hoàn tiền', to: '/admin/disputes', icon: ShieldAlert },
       { label: 'Gói dịch vụ', to: '/admin/plans', icon: BriefcaseBusiness },
     ],
   },

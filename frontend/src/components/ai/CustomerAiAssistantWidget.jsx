@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MessageSquare, X, Send, Loader2, Bot, User, Sparkles, Menu, Plus, Trash2, Clock, ChevronLeft, Mic, Square } from 'lucide-react'
+import { MessageSquare, X, Send, Loader2, Bot, User, Sparkles, Menu, Plus, Trash2, Clock, ChevronLeft, Mic, Square, AlertCircle } from 'lucide-react'
 import { sendChatMessage, getAiChatSessions, saveAiChatSession, syncAiChatSessions, deleteAiChatSession } from '@/services/aiAssistant.js'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -7,7 +7,18 @@ import { useNavigate, Link } from 'react-router-dom'
 import { fetchEventDetail, releaseSeatHolds } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
-import { clearBookingDraft, readBookingDraft } from '@/utils/bookingDraft.js'
+import { clearBookingDraft, readBookingDraft, saveBookingDraft, secondsLeft, formatCountdown } from '@/utils/bookingDraft.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
+
+function stripIcons(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
+    .replace(/[✓➔✏️🔄🪑🎭📍💰📝🔗🛡️✨🎫ℹ️🎟️🌟💡🥺🥰🎉💎]/gu, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/^[ \t]+/gm, '')
+    .trim();
+}
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -16,6 +27,14 @@ const getAutoLocale = () =>
     : 'vi-VN'
 
 function ActionMessage({ content, navigate, setInput, onSendMessage }) {
+  const toast = useToast();
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((v) => v + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const actionRegex = /\[ACTION:([A-Z_]+):?([^\]]*)\]/g;
   const parts = [];
   let lastIndex = 0;
@@ -234,6 +253,17 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
 
   const handleProposalConfirm = async (proposal) => {
     if (!proposal) return;
+    const isHoldExpired = proposal.holdExpiresAt ? secondsLeft(proposal.holdExpiresAt) <= 0 : false;
+    if (isHoldExpired) {
+      clearBookingDraft(proposal?.eventId);
+      try {
+        window.sessionStorage.removeItem('eventhub-booking-draft');
+      } catch {}
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.');
+      navigate('/', { replace: true });
+      return;
+    }
+
     try {
       const attendees = {};
       let runningSlotsLength = 0;
@@ -288,6 +318,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
       } catch (e) {
         console.warn('Could not save draft to sessionStorage', e);
       }
+      saveBookingDraft(cart);
 
       if (proposal.requireAttendeeInfo && !proposal.isAttendeesComplete) {
         navigate('/booking/attendees', { state: { cart } });
@@ -373,7 +404,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
     <div className="space-y-3">
       {parts.map((part, i) => {
         if (part.type === 'text') {
-          return <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>;
+          return <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{stripIcons(part.text)}</ReactMarkdown>;
         }
 
         if (part.action === 'CLEAR_BOOKING') {
@@ -390,44 +421,59 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
 
           if (!proposal) return null;
 
+          const proposalSecondsLeft = proposal.holdExpiresAt ? secondsLeft(proposal.holdExpiresAt) : 0;
+          const isProposalExpired = proposal.holdExpiresAt ? proposalSecondsLeft <= 0 : false;
           const seatsList = proposal.seats || [];
           const hasSeatList = seatsList.length > 0;
           const attendeeCount = (proposal.attendees || []).length;
           const isComplete = proposal.isAttendeesComplete;
 
           return (
-            <div key={i} className="mt-3 overflow-hidden rounded-2xl border border-cyan-500/40 bg-gradient-to-b from-[#0b2038] via-[#091728] to-[#06101c] p-4 text-white shadow-xl backdrop-blur-md transition-all">
+            <div key={i} className="mt-3 overflow-hidden rounded-2xl border border-slate-700/60 bg-[#111728]/95 p-4 sm:p-5 text-white shadow-xl backdrop-blur-md transition-all">
               {/* Header Badge */}
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+              <div className="flex items-center justify-between border-b border-slate-700/60 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
                     Đề xuất đặt vé thông minh
                   </span>
                 </div>
-                <span className="text-[11px] font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
-                  {proposal.hasSeatMap ? 'Tạm giữ chỗ' : 'Sẵn sàng đặt'}
+                <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                  isProposalExpired
+                    ? 'text-rose-400 bg-rose-950/40 border-rose-500/40'
+                    : 'text-[#E6C17A] bg-[#C99A47]/10 border-[#C99A47]/30'
+                }`}>
+                  {isProposalExpired
+                    ? 'Đã hết hạn giữ vé'
+                    : proposal.holdExpiresAt
+                      ? `Giữ chỗ (${formatCountdown(proposalSecondsLeft)})`
+                      : proposal.hasSeatMap ? 'Tạm giữ chỗ' : 'Sẵn sàng đặt'}
                 </span>
               </div>
 
               {/* Event & Session Details */}
               <div className="mt-3 space-y-2 text-xs">
-                <div className="font-bold text-sm text-white line-clamp-1">{proposal.eventTitle}</div>
+                <h4 className="text-[15px] font-bold text-white leading-snug break-words">
+                  {proposal.eventTitle}
+                </h4>
                 {proposal.session?.name && (
-                  <div className="text-slate-300 flex items-center gap-1.5">
-                    <span>🎭 {proposal.session.name}</span>
+                  <div className="text-slate-300 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-slate-400 font-medium">Suất diễn:</span>
+                    <span className="font-semibold text-slate-200">{proposal.session.name}</span>
                     {proposal.session.start_time && (
                       <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString(getAutoLocale())})</span>
                     )}
                   </div>
                 )}
                 {proposal.venueSummary && (
-                  <div className="text-slate-400 line-clamp-1">📍 {proposal.venueSummary}</div>
+                  <div className="text-slate-300 text-xs leading-relaxed break-words">
+                    <span className="text-slate-400 font-medium">Địa điểm: </span>
+                    <span className="text-slate-200">{proposal.venueSummary}</span>
+                  </div>
                 )}
 
                 {/* Seat Badges or Ticket Types */}
                 <div className="pt-1.5">
-                  <div className="text-[11px] text-slate-400 mb-1">
+                  <div className="text-[11px] font-medium text-slate-400 mb-1.5">
                     {proposal.hasSeatMap ? 'Vị trí ghế đề xuất:' : 'Hạng vé:'}
                   </div>
                   {hasSeatList ? (
@@ -435,11 +481,11 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                       {seatsList.map((s, idx) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/50 bg-cyan-500/15 px-2.5 py-1 text-xs font-bold text-cyan-200 shadow-sm"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-2.5 py-1 text-xs font-semibold text-slate-100 shadow-sm"
                         >
-                          <span>🪑 {s.label}</span>
+                          <span>Ghế {s.label}</span>
                           {s.ticketTypeName && (
-                            <span className="text-[10px] text-cyan-300/80 font-normal">({s.ticketTypeName})</span>
+                            <span className="text-[11px] text-[#E6C17A] font-normal">({s.ticketTypeName})</span>
                           )}
                         </span>
                       ))}
@@ -450,17 +496,17 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                         proposal.items.map((it, idx) => (
                           <div
                             key={idx}
-                            className="flex items-center justify-between text-xs bg-emerald-950/40 border border-emerald-500/25 px-2.5 py-1.5 rounded-lg text-emerald-200"
+                            className="flex items-center justify-between text-xs bg-slate-800/60 border border-slate-700 px-3 py-2 rounded-lg text-slate-200"
                           >
-                            <span className="font-semibold">🎟️ {it.quantity} vé {it.ticketType?.name || ''}</span>
-                            <span className="font-bold text-emerald-300">
+                            <span className="font-medium">{it.quantity} vé {it.ticketType?.name || ''}</span>
+                            <span className="font-bold text-[#E6C17A]">
                               {Number((it.ticketType?.price || 0) * (it.quantity || 1)).toLocaleString('vi-VN')} đ
                             </span>
                           </div>
                         ))
                       ) : (
-                        <div className="text-emerald-300 font-semibold">
-                          🎟️ {proposal.quantity} vé
+                        <div className="text-[#E6C17A] font-semibold">
+                          {proposal.quantity} vé
                         </div>
                       )}
                     </div>
@@ -469,54 +515,66 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
 
                 {/* Organizer note / alternative row note */}
                 {proposal.note && (
-                  <div className="rounded-lg bg-blue-950/60 border border-blue-500/30 p-2 text-[11px] text-blue-200">
-                    ℹ️ {proposal.note}
+                  <div className="rounded-lg bg-slate-800/70 border border-slate-700/80 p-2.5 text-[11px] text-slate-300 leading-relaxed">
+                    {proposal.note}
                   </div>
                 )}
 
                 {/* Attendee Status if required */}
                 {proposal.requireAttendeeInfo && (
-                  <div className={`rounded-lg p-2 text-[11px] border ${
+                  <div className={`rounded-lg p-2.5 text-[11px] border ${
                     isComplete 
-                      ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
-                      : 'bg-amber-950/40 border-amber-500/30 text-amber-200'
+                      ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+                      : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
                   }`}>
                     {isComplete ? (
-                      <div>✅ Đã đủ thông tin người tham gia ({attendeeCount}/{proposal.quantity} người)</div>
+                      <div>Đã đủ thông tin người tham gia ({attendeeCount}/{proposal.quantity} người)</div>
                     ) : (
-                      <div>⚠️ Cần bổ sung thông tin {proposal.quantity - attendeeCount} người tham gia còn lại (nhắn Eve trong chat)</div>
+                      <div>Cần bổ sung thông tin {proposal.quantity - attendeeCount} người tham gia còn lại (nhắn Eve trong chat)</div>
                     )}
                   </div>
                 )}
 
+                {/* Hold Expiration Notice if expired */}
+                {isProposalExpired && (
+                  <div className="rounded-lg bg-rose-950/40 border border-rose-500/30 p-2.5 text-[11px] text-rose-300 leading-relaxed flex items-center gap-2">
+                    <AlertCircle className="size-4 shrink-0 text-rose-400" />
+                    <span>Thời gian giữ vé (15 phút) cho đề xuất này đã hết hạn. Vui lòng chat để chọn lại vé mới.</span>
+                  </div>
+                )}
+
                 {/* Total Price */}
-                <div className="flex items-baseline justify-between pt-2 border-t border-slate-700/60 mt-2">
-                  <span className="text-slate-400">Tổng thanh toán:</span>
-                  <span className="text-base font-black text-emerald-400">
+                <div className="flex items-baseline justify-between pt-2.5 border-t border-slate-700/60 mt-2.5">
+                  <span className="text-xs text-slate-400 font-medium">Tổng thanh toán:</span>
+                  <span className="text-lg font-black text-[#E6C17A]">
                     {Number(proposal.totalAmount || 0).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-3.5 space-y-2">
+              <div className="mt-4 space-y-2.5">
                 <button
                   type="button"
                   onClick={() => handleProposalConfirm(proposal)}
-                  className="w-full rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg hover:from-cyan-400 hover:to-blue-500 transition-all flex items-center justify-center gap-2 cursor-pointer group"
+                  className={`w-full rounded-xl py-2.5 px-4 text-xs font-bold transition-all active:scale-[0.98] cursor-pointer shadow-md flex items-center justify-center ${
+                    isProposalExpired
+                      ? 'bg-rose-900/60 hover:bg-rose-800/80 text-rose-200 border border-rose-500/30'
+                      : 'hover:brightness-110'
+                  }`}
+                  style={isProposalExpired ? undefined : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 >
-                  <span>✓ Xác nhận & Đi tới Thanh toán</span>
-                  <span className="transition-transform group-hover:translate-x-1">➔</span>
+                  <span>{isProposalExpired ? 'Thời gian giữ vé đã hết hạn' : 'Xác nhận & Đi tới Thanh toán'}</span>
                 </button>
 
-                <div className="flex flex-wrap items-center justify-between gap-y-1.5 text-[11px] px-1 text-slate-400">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 text-[11px] px-1 text-slate-400">
                   {proposal.hasSeatMap ? (
                     <button
                       type="button"
                       onClick={() => handleProposalManualSeat(proposal)}
-                      className="hover:text-cyan-300 underline transition-colors cursor-pointer"
+                      className="hover:text-[#E6C17A] underline transition-colors cursor-pointer"
                     >
-                      🪑 Tôi muốn tự chọn trên sơ đồ
+                      Tôi muốn tự chọn trên sơ đồ
                     </button>
                   ) : <span />}
                   
@@ -526,9 +584,9 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                       onClick={() => {
                         setInput(proposal.hasSeatMap ? 'Đổi sang hàng ghế ' : 'Tôi muốn đổi sang vé ');
                       }}
-                      className="hover:text-amber-300 underline transition-colors cursor-pointer"
+                      className="hover:text-[#E6C17A] underline transition-colors cursor-pointer"
                     >
-                      {proposal.hasSeatMap ? '✏️ Đổi hàng ghế khác' : '✏️ Đổi loại vé / số lượng'}
+                      {proposal.hasSeatMap ? 'Đổi hàng ghế khác' : 'Đổi loại vé / số lượng'}
                     </button>
                   )}
 
@@ -551,9 +609,9 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                         setInput('Tôi muốn đổi sang sự kiện khác');
                       }
                     }}
-                    className="hover:text-rose-300 underline transition-colors cursor-pointer"
+                    className="hover:text-[#E6C17A] underline transition-colors cursor-pointer"
                   >
-                    🔄 Đổi sự kiện khác
+                    Đổi sự kiện khác
                   </button>
                 </div>
               </div>
@@ -567,10 +625,10 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
               key={i}
               type="button"
               onClick={() => handleBookingNavigate(part.args)}
-              className="mt-2 flex w-full items-center justify-between gap-2 rounded-xl border border-cyan-500/60 bg-[#0e2744] px-4 py-2.5 text-sm font-bold text-cyan-300 shadow-md hover:bg-[#14375f] hover:border-cyan-400 transition-all cursor-pointer group"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-md"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              <span>🪑 Nhấn vào đây để chọn ghế trên sơ đồ</span>
-              <span className="transition-transform group-hover:translate-x-1">➔</span>
+              <span>Nhấn vào đây để chọn ghế trên sơ đồ</span>
             </button>
           )
         }
@@ -582,14 +640,10 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
               key={i}
               type="button"
               onClick={() => handlePrefillNavigate(part.args)}
-              className={`mt-2 flex w-full items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold shadow-md transition-all cursor-pointer group ${
-                isSeatBooking
-                  ? 'border-cyan-500/60 bg-[#0e2744] text-cyan-300 hover:bg-[#14375f] hover:border-cyan-400'
-                  : 'border-emerald-500/60 bg-[#0c3124] text-emerald-300 hover:bg-[#124533] hover:border-emerald-400'
-              }`}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-md"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              <span>{isSeatBooking ? '🪑 Nhấn vào đây để chọn ghế trên sơ đồ' : '🎟️ Nhấn vào đây để xem lại & xác nhận vé'}</span>
-              <span className="transition-transform group-hover:translate-x-1">➔</span>
+              <span>{isSeatBooking ? 'Nhấn vào đây để chọn ghế trên sơ đồ' : 'Nhấn vào đây để xem lại & xác nhận vé'}</span>
             </button>
           )
         }
@@ -613,10 +667,19 @@ function getActiveSessionStorageKey(userKey) {
 
 const DEFAULT_GREETING = {
   role: 'assistant',
-  content: `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub 🥰.
+  content: `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
 
-Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè? 🎉`
+Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè?`
 };
+
+function ensureGreeting(session) {
+  if (!session) return session;
+  const rawMessages = Array.isArray(session.messages) ? [...session.messages] : [];
+  const messages = (rawMessages.length === 0 || rawMessages[0]?.role !== 'assistant')
+    ? [DEFAULT_GREETING, ...rawMessages]
+    : rawMessages;
+  return { ...session, messages };
+}
 
 function createNewSession() {
   const id = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
@@ -637,7 +700,7 @@ function loadInitialSessions(userKey) {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.map(ensureGreeting);
       }
     }
   } catch (e) {
@@ -903,7 +966,8 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
   // Find active session or fallback to first
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0] || createNewSession();
-  const messages = activeSession.messages || [DEFAULT_GREETING];
+  const rawMessages = activeSession.messages && activeSession.messages.length > 0 ? activeSession.messages : [DEFAULT_GREETING];
+  const messages = rawMessages[0]?.role !== 'assistant' ? [DEFAULT_GREETING, ...rawMessages] : rawMessages;
 
   // Clean up legacy un-scoped storage keys once
   useEffect(() => {
@@ -931,7 +995,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     getAiChatSessions()
       .then(async (dbSessions) => {
         if (!isMounted) return;
-        const safeDbSessions = Array.isArray(dbSessions) ? dbSessions : [];
+        const safeDbSessions = Array.isArray(dbSessions) ? dbSessions.map(ensureGreeting) : [];
         const dbSessionIds = new Set(safeDbSessions.map((s) => s.id));
 
         // Find any local cached sessions that are not in the DB yet
@@ -1129,7 +1193,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                          abortController.signal.aborted;
 
       if (isCanceled) {
-        const stoppedMessages = [...updatedMessagesWithUser, { role: 'assistant', content: '_⏹️ Đã dừng phản hồi theo yêu cầu của bạn._' }];
+        const stoppedMessages = [...updatedMessagesWithUser, { role: 'assistant', content: '_Đã dừng phản hồi theo yêu cầu của bạn._' }];
         saveAiChatSession({
           id: activeSession.id,
           title: newTitle,
@@ -1152,8 +1216,8 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
       const serverMessage = error?.response?.data?.message || error?.response?.data?.error;
       const fallbackMsg = serverMessage && !serverMessage.toLowerCase().includes('network error')
-        ? `Dạ hệ thống thông báo: ${serverMessage}. Bạn vui lòng thử lại nhé! 🥺`
-        : 'Xin lỗi, kết nối mạng tạm thời bị gián đoạn. Bạn vui lòng kiểm tra kết nối internet và thử lại nhé! 🔄';
+        ? `Dạ hệ thống thông báo: ${serverMessage}. Bạn vui lòng thử lại nhé.`
+        : 'Xin lỗi, kết nối mạng tạm thời bị gián đoạn. Bạn vui lòng kiểm tra kết nối internet và thử lại nhé.';
 
       setSessions(prev => prev.map(s => {
         if (s.id === activeSession.id) {
@@ -1320,14 +1384,14 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                 key={idx}
                 className={`flex max-w-[88%] items-end gap-2 ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}
               >
-                <div className={`grid size-7 shrink-0 place-items-center rounded-full ${msg.role === 'user' ? 'bg-primary text-[#081126]' : 'bg-[#152042] border border-slate-700 text-primary'}`}>
+                <div className={`grid size-7 shrink-0 place-items-center rounded-full ${msg.role === 'user' ? 'bg-primary text-[#081126]' : 'bg-[#12192e] border border-slate-700/80 text-[#E6C17A]'}`}>
                   {msg.role === 'user' ? <User className="size-4" /> : <Bot className="size-4" />}
                 </div>
                 <div
                   className={`rounded-2xl px-4 py-2.5 shadow-md ${
                     msg.role === 'user'
                       ? 'bg-primary text-[#081126] font-medium rounded-br-sm'
-                      : 'bg-[#131d38] border border-slate-700/80 text-slate-100 rounded-bl-sm prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/30'
+                      : 'bg-[#12192e] border border-slate-700/60 text-slate-100 rounded-bl-sm prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/30'
                   }`}
                 >
                   {msg.role === 'user' ? (
@@ -1341,10 +1405,10 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
             
             {isTyping && (
               <div className="flex max-w-[85%] self-start items-end gap-2 animate-in fade-in">
-                <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[#152042] border border-slate-700 text-primary">
+                <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[#12192e] border border-slate-700/80 text-[#E6C17A]">
                   <Bot className="size-4" />
                 </div>
-                <div className="rounded-2xl rounded-bl-sm bg-[#131d38] border border-slate-700/80 px-4 py-3 shadow-md">
+                <div className="rounded-2xl rounded-bl-sm bg-[#12192e] border border-slate-700/60 px-4 py-3 shadow-md">
                   <div className="flex items-center gap-1.5">
                     <span className="size-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '0ms' }} />
                     <span className="size-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '150ms' }} />
@@ -1363,7 +1427,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
           {speechError && (
             <div className="mb-2.5 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-950/70 px-3 py-2 text-xs text-amber-200 animate-in fade-in">
               <div className="flex items-center gap-1.5">
-                <span>⚠️</span>
+                <AlertCircle className="size-4 shrink-0" />
                 <span>{speechError}</span>
               </div>
               <button

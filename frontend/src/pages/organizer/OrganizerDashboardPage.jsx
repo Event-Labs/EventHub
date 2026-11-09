@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowDownRight,
   ArrowRight,
@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
   Layers,
   Loader2,
+  Lock,
   Printer,
   ReceiptText,
   ShieldAlert,
@@ -34,6 +35,8 @@ import {
   fetchTicketSalesAnalytics,
   generateFinancialSummary,
 } from '@/services/organizerOrders.js'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import { OrganizerPage, OrganizerPanel, TableActionButton } from './OrganizerComponents.jsx'
 import { getEventOperationalStatus } from './eventStatusUtil.js'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
@@ -1171,6 +1174,8 @@ function printExecutiveYieldReport({ financialSummary, eventTitle, dateRangeLabe
 // ─── Main Organizer Dashboard Component ──────────────────────────────────────
 
 export function OrganizerDashboardPage() {
+  const navigate = useNavigate()
+  const toast = useToast()
   const { isEnglish, t } = useLanguage()
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
@@ -1188,6 +1193,7 @@ export function OrganizerDashboardPage() {
     rangeLabel: '',
   })
 
+  const [currentPlan, setCurrentPlan] = useState(null)
   const [stats, setStats] = useState(null)
   const [comparisonStats, setComparisonStats] = useState(null)
   const [ticketSales, setTicketSales] = useState(null)
@@ -1201,6 +1207,17 @@ export function OrganizerDashboardPage() {
   const [summaryError, setSummaryError] = useState('')
   const [isAiReportExpanded, setIsAiReportExpanded] = useState(true)
   const [copied, setCopied] = useState(false)
+
+  // Load current subscription plan
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setCurrentPlan(res.plan)
+        }
+      })
+      .catch(() => setCurrentPlan(null))
+  }, [])
 
   // 1. Fetch all organizer events for the smart picker
   useEffect(() => {
@@ -1259,6 +1276,17 @@ export function OrganizerDashboardPage() {
 
   // 3. AI Financial Advisor Generator
   const loadFinancialSummary = useCallback(async () => {
+    if (currentPlan && !currentPlan.ai_report_enabled) {
+      toast.error('Gói dịch vụ hiện tại không hỗ trợ Cố vấn & Báo cáo doanh thu AI. Vui lòng nâng cấp gói để sử dụng.')
+      navigate('/organizer/subscriptions', {
+        state: {
+          returnTo: '/organizer',
+          message: 'Tính năng Cố vấn & Báo cáo doanh thu AI yêu cầu gói Chuyên Nghiệp hoặc Doanh Nghiệp. Vui lòng nâng cấp gói để sử dụng.',
+        },
+      })
+      return
+    }
+
     setSummaryLoading(true)
     setSummaryError('')
     try {
@@ -1275,7 +1303,7 @@ export function OrganizerDashboardPage() {
     } finally {
       setSummaryLoading(false)
     }
-  }, [datePreset, customFrom, customTo, selectedEventId])
+  }, [datePreset, customFrom, customTo, selectedEventId, currentPlan, navigate, toast])
 
   // Reset summary when filters change
   useEffect(() => {
@@ -1363,6 +1391,25 @@ export function OrganizerDashboardPage() {
     <OrganizerPage
       title={isEnglish ? 'Overview' : 'Tổng quan'}
     >
+      {currentPlan && !currentPlan.analytics_enabled && (
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#C99A47]/40 bg-[#C99A47]/10 p-4 text-[#E6C17A]">
+          <div className="flex items-start sm:items-center gap-3">
+            <Lock className="size-5 shrink-0 mt-0.5 sm:mt-0 text-[#E6C17A]" />
+            <div>
+              <p className="font-bold text-sm">Gói {currentPlan.name || 'hiện tại'} có giới hạn tính năng Thống kê & Phân tích</p>
+              <p className="text-xs text-[#E6C17A]/80">Nâng cấp gói dịch vụ để mở khóa đầy đủ biểu đồ doanh thu, hiệu suất bán vé, phân tích nâng cao và cố vấn AI.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/organizer/subscriptions', { state: { returnTo: '/organizer' } })}
+            className="shrink-0 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black uppercase text-[#0D1B2A] hover:brightness-110 shadow-md shadow-[#C99A47]/20"
+          >
+            Nâng cấp ngay
+          </button>
+        </div>
+      )}
+
       {/* ── Master Filter & Context Controls ── */}
       <div className="relative z-20 mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="grid flex-1 gap-4 sm:grid-cols-2">
@@ -1383,6 +1430,16 @@ export function OrganizerDashboardPage() {
             comparisonMode={comparison.mode}
             comparisonFrom={comparison.from}
             comparisonTo={comparison.to}
+            comparisonLocked={Boolean(currentPlan && !currentPlan.advanced_analytics_enabled)}
+            onComparisonLockedClick={() => {
+              toast.error('Tính năng so sánh dữ liệu chỉ dành cho gói nâng cao. Vui lòng nâng cấp gói để sử dụng.')
+              navigate('/organizer/subscriptions', {
+                state: {
+                  returnTo: '/organizer',
+                  message: 'Tính năng so sánh kỳ doanh thu yêu cầu gói nâng cao. Vui lòng nâng cấp gói để sử dụng.',
+                },
+              })
+            }}
             onPresetChange={setDatePreset}
             onCustomFromChange={setCustomFrom}
             onCustomToChange={setCustomTo}
@@ -1413,11 +1470,17 @@ export function OrganizerDashboardPage() {
             onClick={loadFinancialSummary}
             disabled={summaryLoading}
             className="btn-led-gold-sm h-10 shrink-0 active:scale-95"
-            title={isEnglish ? 'Revenue Assessment' : 'Đánh giá doanh thu'}
+            title={
+              currentPlan && !currentPlan.ai_report_enabled
+                ? (isEnglish ? 'Upgrade plan to unlock AI Advisor' : 'Cần nâng cấp gói để mở khóa Cố vấn AI')
+                : (isEnglish ? 'Revenue Assessment' : 'Đánh giá doanh thu')
+            }
           >
             <span className="btn-led-gold-sm-inner px-4 !text-sm font-black">
               {summaryLoading ? (
                 <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />
+              ) : currentPlan && !currentPlan.ai_report_enabled ? (
+                <Lock className="size-4 text-[#0D1B2A]" />
               ) : (
                 <Sparkles className="size-4 text-[#0D1B2A]" />
               )}

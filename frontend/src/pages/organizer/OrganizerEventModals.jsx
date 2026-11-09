@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Globe,
   AlertTriangle,
@@ -10,8 +10,12 @@ import {
   RotateCcw,
   ShieldAlert,
   Ticket,
+  LayoutGrid,
 } from 'lucide-react'
 import { fetchOrganizerEvent } from '@/services/organizerEvents.js'
+import { fetchSessionSeats } from '@/services/events.js'
+import { getSeatMap } from '@/services/organizerSeatMaps.js'
+import { SeatMapPreview } from './SeatMapEditor.jsx'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -207,7 +211,14 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
   const isCurrentlyPaused = currentEvent?.sales_status === 'PAUSED'
   const isHidden = currentEvent?.display_state === 'HIDDEN_BY_ORGANIZER' || currentEvent?.status === 'HIDDEN'
 
-  const [scope, setScope] = useState('ALL') // 'ALL' or 'SPECIFIC'
+  const seatedSessions = useMemo(() => {
+    return (currentEvent?.sessions || []).filter(
+      (s) => Boolean(s.seat_map_id) || s.seating_type === 'ASSIGNED'
+    )
+  }, [currentEvent])
+  const hasAssignedSeating = seatedSessions.length > 0
+
+  const [scope, setScope] = useState('ALL') // 'ALL' | 'SPECIFIC' | 'SEATS'
   const [selectedTicketTypeIds, setSelectedTicketTypeIds] = useState([])
   const [reasonNote, setReasonNote] = useState('')
   const [ticketTypes, setTicketTypes] = useState(() => {
@@ -220,6 +231,24 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
     return []
   })
   const [loadingTickets, setLoadingTickets] = useState(false)
+
+  // Seat-level pause/resume state
+  const [selectedSessionId, setSelectedSessionId] = useState('')
+  useEffect(() => {
+    if (seatedSessions.length > 0 && (!selectedSessionId || !seatedSessions.some((s) => String(s.id) === String(selectedSessionId)))) {
+      setSelectedSessionId(String(seatedSessions[0].id))
+    }
+  }, [seatedSessions, selectedSessionId])
+
+  const [sessionSeatsData, setSessionSeatsData] = useState(null)
+  const [fullSeatMap, setFullSeatMap] = useState(null)
+  const [loadingSeats, setLoadingSeats] = useState(false)
+  const [seatAction, setSeatAction] = useState('PAUSE') // 'PAUSE' | 'RESUME'
+  const [selectedSeatIds, setSelectedSeatIds] = useState([])
+
+  useEffect(() => {
+    setSelectedSeatIds([])
+  }, [scope, selectedSessionId, seatAction])
 
   // Fetch full event details & ticket types if not loaded or to ensure freshness
   useEffect(() => {
@@ -242,13 +271,104 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
     }
   }, [event?.id])
 
-  // Find active specific ticket blocks
+  // Fetch session seats & seat map when scope is SEATS
+  useEffect(() => {
+    if (scope === 'SEATS' && selectedSessionId) {
+      setLoadingSeats(true)
+      const currentSession = seatedSessions.find((s) => String(s.id) === String(selectedSessionId))
+      const promises = [fetchSessionSeats(selectedSessionId)]
+      if (currentSession?.seat_map_id) {
+        promises.push(getSeatMap(currentSession.seat_map_id).catch(() => null))
+      }
+      Promise.all(promises)
+        .then(([seatsRes, mapRes]) => {
+          setSessionSeatsData(seatsRes)
+          if (mapRes) setFullSeatMap(mapRes)
+          else if (seatsRes?.seat_map) setFullSeatMap(seatsRes.seat_map)
+        })
+        .catch((err) => {
+          console.error('Failed to load session seats for pause modal:', err)
+        })
+        .finally(() => setLoadingSeats(false))
+    }
+  }, [scope, selectedSessionId, seatedSessions])
+
+  // Active sales blocks
   const activeSpecificBlocks = (currentEvent?.sales_blocks || []).filter(
     (b) => !b.released_at && (b.metadata?.scope === 'SPECIFIC' || b.metadata?.ticket_type_id)
   )
   const pausedTicketIds = new Set(
     activeSpecificBlocks.map((b) => String(b.metadata?.ticket_type_id || '')).filter(Boolean)
   )
+
+  const activeSeatBlocks = (currentEvent?.sales_blocks || []).filter(
+    (b) => !b.released_at && b.metadata?.scope === 'SEATS'
+  )
+
+  const seatsList = sessionSeatsData?.seats || []
+  const currentlyBlockedSeatIds = useMemo(() => {
+    return seatsList
+      .filter((s) => s.status === 'BLOCKED' || Boolean(s.is_disabled))
+      .map((s) => String(s.seat_id || s.id))
+  }, [seatsList])
+
+  const currentlySoldSeatIds = useMemo(() => {
+    return seatsList
+      .filter((s) => s.status === 'SOLD')
+      .map((s) => String(s.seat_id || s.id))
+  }, [seatsList])
+
+  const availableSeatIds = useMemo(() => {
+    return seatsList
+      .filter((s) => s.status === 'AVAILABLE' && !s.is_disabled)
+      .map((s) => String(s.seat_id || s.id))
+  }, [seatsList])
+
+  const uniqueSeatRows = useMemo(() => {
+    const rows = Array.from(new Set(seatsList.map((s) => s.row_label).filter(Boolean)))
+    return rows.sort()
+  }, [seatsList])
+
+  const handleToggleSeatSelection = (seat) => {
+    const seatId = String(seat.seat_id || seat.id)
+    if (currentlySoldSeatIds.includes(seatId)) return
+
+    if (seatAction === 'PAUSE') {
+      if (currentlyBlockedSeatIds.includes(seatId)) return
+      setSelectedSeatIds((prev) =>
+        prev.includes(seatId) ? prev.filter((id) => id !== seatId) : [...prev, seatId]
+      )
+    } else {
+      if (!currentlyBlockedSeatIds.includes(seatId)) return
+      setSelectedSeatIds((prev) =>
+        prev.includes(seatId) ? prev.filter((id) => id !== seatId) : [...prev, seatId]
+      )
+    }
+  }
+
+  const handleSelectRow = (rowLabel) => {
+    if (!rowLabel) return
+    const targetPool = seatAction === 'PAUSE' ? availableSeatIds : currentlyBlockedSeatIds
+    const rowSeatIds = seatsList
+      .filter((s) => s.row_label === rowLabel && targetPool.includes(String(s.seat_id || s.id)))
+      .map((s) => String(s.seat_id || s.id))
+
+    const allInSelected = rowSeatIds.length > 0 && rowSeatIds.every((id) => selectedSeatIds.includes(id))
+    if (allInSelected) {
+      setSelectedSeatIds((prev) => prev.filter((id) => !rowSeatIds.includes(id)))
+    } else {
+      setSelectedSeatIds((prev) => Array.from(new Set([...prev, ...rowSeatIds])))
+    }
+  }
+
+  const handleSelectAllActionableSeats = () => {
+    const pool = seatAction === 'PAUSE' ? availableSeatIds : currentlyBlockedSeatIds
+    if (selectedSeatIds.length === pool.length) {
+      setSelectedSeatIds([])
+    } else {
+      setSelectedSeatIds(pool)
+    }
+  }
 
   const formatCurrency = (val) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0)
@@ -264,6 +384,18 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
         ticketTypes: selectedTickets,
         reason: reasonNote.trim(),
       })
+    } else if (scope === 'SEATS') {
+      const selectedLabels = seatsList
+        .filter((s) => selectedSeatIds.includes(String(s.seat_id || s.id)))
+        .map((s) => `${s.row_label}${s.seat_number}`)
+      onConfirm({
+        scope: 'SEATS',
+        action: seatAction === 'RESUME' ? 'RESUME_SEATS' : 'PAUSE_SEATS',
+        sessionId: selectedSessionId,
+        seatIds: selectedSeatIds,
+        seatLabels: selectedLabels,
+        reason: reasonNote.trim(),
+      })
     } else {
       onConfirm({
         scope: 'ALL',
@@ -275,11 +407,14 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
   const isSubmitDisabled =
     loading ||
     (isCurrentlyPaused && isHidden) ||
-    (!isCurrentlyPaused && scope === 'SPECIFIC' && selectedTicketTypeIds.length === 0)
+    (!isCurrentlyPaused && scope === 'SPECIFIC' && selectedTicketTypeIds.length === 0) ||
+    (!isCurrentlyPaused && scope === 'SEATS' && selectedSeatIds.length === 0)
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0b1329] p-6 sm:p-7 shadow-2xl shadow-black/90 text-white my-8">
+      <div className={`w-full rounded-2xl border border-white/15 bg-[#0b1329] p-6 sm:p-7 shadow-2xl shadow-black/90 text-white my-8 transition-all duration-300 ${
+        scope === 'SEATS' ? 'max-w-4xl' : 'max-w-2xl'
+      }`}>
         <div className="flex items-start gap-3">
           <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${isCurrentlyPaused ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
             {isCurrentlyPaused ? <PlayCircle className="size-5" /> : <PauseCircle className="size-5" />}
@@ -291,7 +426,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
             <p className="mt-1 text-xs text-slate-300">
               {isCurrentlyPaused
                 ? 'Khách hàng có thể tiếp tục mua vé sau khi mở bán lại.'
-                : 'Tạm dừng bán toàn bộ sự kiện hoặc một số loại ghế / hạng vé cụ thể.'}
+                : 'Tạm dừng bán toàn bộ sự kiện, theo loại vé hoặc tùy chọn trực tiếp từng vị trí trên sơ đồ ghế.'}
             </p>
           </div>
         </div>
@@ -315,12 +450,12 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
           </div>
         ) : !isCurrentlyPaused ? (
           <>
-            {/* Scope selection: Toàn bộ sự kiện vs loại ghế / hạng vé cụ thể */}
+            {/* Scope selection: Toàn bộ sự kiện vs loại ghế / hạng vé cụ thể vs sơ đồ ghế */}
             <div className="mt-4">
               <label className="block text-xs font-semibold text-slate-300 mb-2">
                 Phạm vi tạm dừng bán <span className="text-amber-400">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className={`grid gap-2 ${hasAssignedSeating ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
                 <button
                   type="button"
                   onClick={() => setScope('ALL')}
@@ -350,8 +485,167 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">Chọn 1 hoặc nhiều loại vé</p>
                 </button>
+
+                {hasAssignedSeating && (
+                  <button
+                    type="button"
+                    onClick={() => setScope('SEATS')}
+                    className={`rounded-xl border p-2.5 text-left transition ${scope === 'SEATS'
+                        ? 'border-[#C99A47] bg-[#C99A47]/15 text-white ring-1 ring-[#C99A47]'
+                        : 'border-white/10 bg-[#121c38] text-slate-300 hover:border-white/20'
+                      }`}
+                  >
+                    <p className="text-xs font-bold flex items-center gap-1.5">
+                      <span className={`size-2 rounded-full ${scope === 'SEATS' ? 'bg-[#C99A47]' : 'bg-slate-500'}`} />
+                      Theo sơ đồ ghế
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Chọn vị trí ghế trực tiếp</p>
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* If SEATS scope selected */}
+            {scope === 'SEATS' && (
+              <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-[#121c38] p-3.5">
+                {/* Session selector if multiple sessions */}
+                {seatedSessions.length > 1 && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    <span className="text-xs text-slate-300 font-semibold shrink-0">Chọn phiên:</span>
+                    <div className="flex items-center gap-1.5">
+                      {seatedSessions.map((s, idx) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setSelectedSessionId(String(s.id))}
+                          className={`px-2.5 py-1 text-xs rounded-lg font-semibold transition whitespace-nowrap ${
+                            String(selectedSessionId) === String(s.id)
+                              ? 'bg-[#C99A47] text-[#0D1B2A] font-bold'
+                              : 'bg-white/5 border border-white/10 text-slate-300 hover:text-white'
+                          }`}
+                        >
+                          {s.session_name || `Phiên ${idx + 1}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-tabs: Pause vs Resume */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSeatAction('PAUSE')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                        seatAction === 'PAUSE'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 ring-1 ring-amber-500/30'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <PauseCircle className="size-3.5" />
+                      Tạm dừng vị trí ghế
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSeatAction('RESUME')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                        seatAction === 'RESUME'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 ring-1 ring-emerald-500/30'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <PlayCircle className="size-3.5" />
+                      Mở bán lại ghế đang dừng
+                    </button>
+                  </div>
+                  <div className="text-xs text-slate-300">
+                    Đã chọn: <strong className="text-amber-300 font-bold">{selectedSeatIds.length}</strong> ghế
+                  </div>
+                </div>
+
+                {/* Stats & bulk selection */}
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <span className="text-slate-400">Tổng: <strong className="text-white">{seatsList.length}</strong></span>
+                    <span className="text-emerald-400">Mở bán: <strong>{availableSeatIds.length}</strong></span>
+                    <span className="text-rose-400">Tạm dừng: <strong>{currentlyBlockedSeatIds.length}</strong></span>
+                    <span className="text-slate-400">Đã bán: <strong>{currentlySoldSeatIds.length}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {uniqueSeatRows.length > 0 && (
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleSelectRow(e.target.value)
+                            e.target.value = ''
+                          }
+                        }}
+                        className="rounded-lg border border-white/15 bg-[#0b1329] px-2 py-1 text-xs text-slate-200 outline-none focus:border-[#C99A47] cursor-pointer"
+                      >
+                        <option value="" disabled>Chọn theo hàng...</option>
+                        {uniqueSeatRows.map((r) => (
+                          <option key={r} value={r}>Hàng {r}</option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSelectAllActionableSeats}
+                      className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition"
+                    >
+                      {selectedSeatIds.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Seat Map Canvas */}
+                {loadingSeats ? (
+                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-400">
+                    <span className="size-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+                    Đang tải dữ liệu sơ đồ ghế...
+                  </div>
+                ) : fullSeatMap && seatsList.length > 0 ? (
+                  <div className="space-y-2">
+                    <SeatMapPreview
+                      seatMap={fullSeatMap}
+                      seats={seatsList}
+                      zones={fullSeatMap.zones}
+                      height={360}
+                      interactive={true}
+                      mode="SELECT_SEATS"
+                      selectedSeatIds={selectedSeatIds}
+                      pausedSeatIds={currentlyBlockedSeatIds}
+                      soldSeatIds={currentlySoldSeatIds}
+                      onToggleSeat={handleToggleSeatSelection}
+                    />
+                    <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-300 pt-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-3 rounded-sm bg-[#64748B]" />
+                        <span>Mở bán bình thường</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-3 rounded-sm bg-[#F59E0B] border border-[#FDE68A]" />
+                        <span className="text-amber-300 font-bold">Đang chọn ({selectedSeatIds.length})</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-3 rounded-sm bg-[#EF4444]" />
+                        <span className="text-rose-300">Đang tạm dừng</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-3 rounded-sm bg-[#1E293B] border border-[#334155]" />
+                        <span className="text-slate-400">Đã bán</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-[#0b1329] p-4 text-center text-xs text-slate-400">
+                    Phiên này không có dữ liệu sơ đồ ghế hoặc chưa được cấu hình.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* If specific ticket type selected */}
             {scope === 'SPECIFIC' && (
@@ -502,6 +796,52 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
               </div>
             )}
 
+            {/* List of currently paused seat blocks */}
+            {activeSeatBlocks.length > 0 && (
+              <div className="mt-3.5 rounded-xl border border-rose-500/25 bg-rose-500/10 p-3">
+                <p className="text-xs font-bold text-rose-300 flex items-center gap-1.5 mb-2">
+                  <PauseCircle className="size-3.5 shrink-0" /> Các vị trí ghế đang tạm dừng bán ({activeSeatBlocks.length} nhóm):
+                </p>
+                <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                  {activeSeatBlocks.map((b) => {
+                    const count = b.metadata?.count || (b.metadata?.seat_ids || []).length || 0
+                    const labels = (b.metadata?.seat_labels || []).slice(0, 8).join(', ')
+                    const hasMore = (b.metadata?.seat_labels || []).length > 8
+                    return (
+                      <div
+                        key={b.id}
+                        className="flex items-center justify-between rounded-lg bg-[#0b1329]/80 px-2.5 py-1.5 text-xs"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <p className="font-semibold text-slate-200 truncate">
+                            {count} ghế {labels ? `(${labels}${hasMore ? '...' : ''})` : ''}
+                          </p>
+                          {b.metadata?.reason && (
+                            <p className="text-[11px] text-slate-400 truncate">Lý do: {b.metadata.reason}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onConfirm({
+                              scope: 'SEATS',
+                              action: 'RESUME_SEATS',
+                              sessionId: b.metadata?.session_id,
+                              seatIds: b.metadata?.seat_ids,
+                            })
+                          }
+                          disabled={loading}
+                          className="shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                        >
+                          Mở bán lại
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Reason input */}
             <div className="mt-3">
               <label className="block text-xs font-semibold text-slate-300 mb-1">
@@ -511,7 +851,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                 type="text"
                 value={reasonNote}
                 onChange={(e) => setReasonNote(e.target.value)}
-                placeholder="Ví dụ: Kiểm tra số lượng vé, bảo trì thông tin..."
+                placeholder="Ví dụ: Kiểm tra số lượng vé, bảo trì thông tin, giữ chỗ nội bộ..."
                 className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-primary"
               />
             </div>
@@ -521,9 +861,9 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
         {!isHidden && (
           <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyPaused ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
             {isCurrentlyPaused ? (
-              <p>Các loại vé còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
+              <p>Các loại vé và ghế còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
             ) : (
-              <p>Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái &quot;Tạm dừng bán&quot; đối với loại vé đã chọn.</p>
+              <p>Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái &quot;Tạm dừng bán&quot; đối với loại vé hoặc vị trí ghế đã chọn.</p>
             )}
           </div>
         )}
@@ -554,6 +894,10 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
               selectedTicketTypeIds.length > 0
                 ? `Tạm dừng bán ${selectedTicketTypeIds.length} loại vé đã chọn`
                 : 'Chọn loại vé để tạm dừng'
+            ) : scope === 'SEATS' ? (
+              seatAction === 'RESUME'
+                ? (selectedSeatIds.length > 0 ? `Mở bán lại ${selectedSeatIds.length} ghế đã chọn` : 'Chọn ghế để mở bán lại')
+                : (selectedSeatIds.length > 0 ? `Tạm dừng bán ${selectedSeatIds.length} ghế đã chọn` : 'Chọn ghế để tạm dừng')
             ) : (
               'Tạm dừng toàn bộ sự kiện'
             )}
@@ -780,9 +1124,9 @@ export function WithdrawCancelConfirmModal({ event, onConfirm, onClose, loading 
             <RotateCcw className="size-6" />
           </span>
           <div>
-            <h3 className="text-lg font-black text-white">Rút lại yêu cầu hủy sự kiện</h3>
+            <h3 className="text-lg font-black text-white">Hoàn tác yêu cầu hủy sự kiện</h3>
             <p className="mt-1 text-xs text-slate-300">
-              Bạn có chắc chắn muốn hủy yêu cầu này? Yêu cầu gửi Admin sẽ bị hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.
+              Bạn có chắc chắn muốn hoàn tác yêu cầu này? Yêu cầu gửi Quản trị viên sẽ được hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.
             </p>
           </div>
         </div>
@@ -805,7 +1149,7 @@ export function WithdrawCancelConfirmModal({ event, onConfirm, onClose, loading 
             className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
           >
             {loading && <span className="size-3 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />}
-            Xác nhận rút lại
+            Xác nhận hoàn tác
           </button>
         </div>
       </div>

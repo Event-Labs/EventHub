@@ -157,6 +157,13 @@ export function clearBookingDraft(eventId = null) {
       window.localStorage.removeItem(BOOKING_DRAFT_KEY)
     }
 
+    try {
+      window.sessionStorage.removeItem(BOOKING_DRAFT_KEY)
+      if (eventId) {
+        window.sessionStorage.removeItem(getEventDraftKey(eventId))
+      }
+    } catch { }
+
     // Sweep any leftover booking draft keys in localStorage
     const keysToRemove = []
     for (let i = 0; i < window.localStorage.length; i++) {
@@ -168,5 +175,9 @@ export function clearBookingDraft(eventId = null) {
       }
     }
     keysToRemove.forEach((k) => window.localStorage.removeItem(k))
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('eventhub-booking-draft-cleared', { detail: { eventId } }))
+    }
   } catch { }
 }

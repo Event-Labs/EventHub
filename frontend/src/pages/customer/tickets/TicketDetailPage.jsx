@@ -10,6 +10,7 @@ import {
   RotateCcw,
   X,
   AlertCircle,
+  ExternalLink,
   HelpCircle,
   Star,
 } from 'lucide-react'
@@ -27,7 +28,7 @@ import {
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import QRCode from 'qrcode'
-import { VIETNAMESE_BANKS, getBankDisplayName } from '@/constants/banks.js'
+import { VIETNAMESE_BANKS, getBankDisplayName, resolveBankName } from '@/constants/banks.js'
 import logoSrc from '@/assets/eventhub-logo.png'
 import { buildUniversalTicketSvg } from '@/utils/ticketSvgGenerator.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -64,14 +65,20 @@ function venueLine(ticket) {
   ].filter(Boolean).join(', ')
 }
 
-function statusText(ticket, isEnglish = false) {
+function statusText(ticket, refundRequest, isEnglish = false) {
+  if (typeof refundRequest === 'boolean') {
+    isEnglish = refundRequest
+    refundRequest = null
+  }
+  if (ticket?.status === 'REFUNDED' || refundRequest?.status === 'REFUNDED' || ticket?.order?.status === 'REFUNDED') {
+    return isEnglish ? 'Refunded' : 'Đã hoàn vé'
+  }
   if (ticket?.status === 'REFUND_REQUESTED' || ticket?.status === 'REFUND_PENDING') {
     return isEnglish ? 'Refund Pending' : 'Đang chờ hoàn vé'
   }
-  if (ticket?.event?.status === 'CANCELLED' && ticket?.status !== 'REFUNDED') {
+  if (ticket?.event?.status === 'CANCELLED') {
     return isEnglish ? 'Refund Pending' : 'Đang chờ hoàn vé'
   }
-  if (ticket?.status === 'REFUNDED') return isEnglish ? 'Refunded' : 'Đã hoàn vé'
   if (ticket?.status === 'EXPIRED') return isEnglish ? 'Expired' : 'Hết hạn'
   if (ticket?.status === 'USED') return isEnglish ? 'Used' : 'Đã dùng'
   if (ticket?.status === 'CANCELLED') return isEnglish ? 'Cancelled' : 'Đã hủy'
@@ -284,13 +291,13 @@ export function TicketDetailPage() {
   )
 
   const isEventCancelled = ticket.event?.status === 'CANCELLED' || ticket.status === 'REFUND_REQUESTED' || ticket.status === 'CANCELLED'
+  const isTicketRefunded = ticket.status === 'REFUNDED' || refundRequest?.status === 'REFUNDED' || ticket.order?.status === 'REFUNDED'
   const hasProvidedPayout = Boolean(refundRequest?.bank_account_number)
   const needsPayoutInput = Boolean(
     (isEventCancelled || refundRequest) &&
     !hasProvidedPayout &&
-    refundRequest?.status !== 'REFUNDED' &&
-    refundRequest?.status !== 'REJECTED' &&
-    ticket.status !== 'REFUNDED'
+    !isTicketRefunded &&
+    refundRequest?.status !== 'REJECTED'
   )
 
   return (
@@ -312,7 +319,7 @@ export function TicketDetailPage() {
             <Info label={isEnglish ? 'Paid At' : 'Thanh toán lúc'} value={ticket.payment?.paid_at ? formatDateTime(ticket.payment?.paid_at, isEnglish) : (ticket.order?.status === 'CONFIRMED' ? formatDateTime(ticket.order?.created_at, isEnglish) : 'N/A')} />
           </Panel>
           <Panel title={isEnglish ? 'Check-in Information' : 'Thông tin check-in'} icon={CheckCircle2}>
-            <Info label={isEnglish ? 'Status' : 'Trạng thái'} value={statusText(ticket, isEnglish)} />
+            <Info label={isEnglish ? 'Status' : 'Trạng thái'} value={statusText(ticket, refundRequest, isEnglish)} />
             {ticket.status === 'EXPIRED' ? (
               <Info label={isEnglish ? 'Check-in' : 'Check-in'} value={isEnglish ? 'Closed due to expired ticket' : 'Đã đóng do vé hết hạn'} />
             ) : ticket.checked_in_at ? (
@@ -336,17 +343,17 @@ export function TicketDetailPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
               <div className="relative flex min-h-64 flex-col justify-end p-8">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase backdrop-blur-md ${ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
-                    ? 'bg-amber-500/25 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-500/40'
-                    : ticket.status === 'REFUNDED'
-                      ? 'bg-purple-500/20 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.25)] border border-purple-500/40'
+                  <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase backdrop-blur-md ${isTicketRefunded
+                    ? 'bg-purple-500/20 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.25)] border border-purple-500/40'
+                    : ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                      ? 'bg-amber-500/25 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-500/40'
                       : ticket.status === 'EXPIRED' || ticket.status === 'CANCELLED' || ticket.status === 'USED'
                         ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
                         : isEntryEligible
                           ? 'bg-emerald-500/25 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)] border border-emerald-500/40'
                           : 'bg-red-500/20 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-red-500/30'
                     }`}>
-                    {statusText(ticket, isEnglish)}
+                    {statusText(ticket, refundRequest, isEnglish)}
                   </span>
                   <span className="rounded-full bg-black/40 px-4 py-1.5 text-[10px] font-black tracking-widest uppercase text-white border border-white/20 backdrop-blur-md shadow-sm">
                     {ticket.ticket_type?.name}
@@ -395,16 +402,16 @@ export function TicketDetailPage() {
                   </>
                 ) : (
                   <div className="py-8 text-center relative z-10">
-                    <p className={`font-black text-sm uppercase tracking-wider drop-shadow-[0_0_10px_currentColor] ${ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
-                      ? 'text-amber-400'
-                      : ticket.status === 'REFUNDED'
-                        ? 'text-purple-400'
+                    <p className={`font-black text-sm uppercase tracking-wider drop-shadow-[0_0_10px_currentColor] ${isTicketRefunded
+                      ? 'text-purple-400'
+                      : ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                        ? 'text-amber-400'
                         : 'text-slate-400'
                       }`}>
-                      {ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
-                        ? (isEnglish ? 'Ticket has a pending refund request awaiting organizer review within 48h' : 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xem xét trong vòng 48h')
-                        : ticket.status === 'REFUNDED'
-                          ? (isEnglish ? 'This ticket has been refunded and is no longer valid' : 'Vé này đã được hoàn tiền thành công và không còn hiệu lực')
+                      {isTicketRefunded
+                        ? (isEnglish ? 'This ticket has been refunded and is no longer valid' : 'Vé này đã được hoàn tiền thành công và không còn hiệu lực')
+                        : ticket.status === 'REFUND_PENDING' || ticket.status === 'REFUND_REQUESTED'
+                          ? (isEnglish ? 'Ticket has a pending refund request awaiting organizer review within 48h' : 'Vé đang có yêu cầu hoàn tiền đang chờ ban tổ chức xem xét trong vòng 48h')
                           : (isEnglish ? 'Ticket is expired or no longer valid for check-in' : 'Vé đã hết hạn hoặc không còn hợp lệ để check-in')}
                     </p>
 
@@ -1290,11 +1297,13 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               <div className="space-y-1.5 text-xs text-blue-100">
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Bank:' : 'Ngân hàng:'}</span>
-                  <span className="font-semibold text-right text-white">{refundRequest.bank_name}</span>
+                  <span className="font-semibold text-right text-white">{resolveBankName(refundRequest.bank_name)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Account No:' : 'Số TK:'}</span>
-                  <span className="font-mono font-bold text-amber-300 tracking-wider">{refundRequest.bank_account_number}</span>
+                  <span className="font-mono font-bold text-amber-300 tracking-wider">
+                    {refundRequest.bank_account_number?.startsWith?.('enc.') ? '••••••••' : refundRequest.bank_account_number}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Account Holder:' : 'Chủ TK:'}</span>
@@ -1381,8 +1390,10 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
                 <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Receiving Account:' : 'Tài khoản nhận:'}</span>
                 <div className="text-right text-slate-200 space-y-0.5">
-                  <p className="font-semibold text-white">{refundRequest.bank_name}</p>
-                  <p className="font-mono font-bold text-amber-300">{refundRequest.bank_account_number}</p>
+                  <p className="font-semibold text-white">{resolveBankName(refundRequest.bank_name)}</p>
+                  <p className="font-mono font-bold text-amber-300">
+                    {refundRequest.bank_account_number?.startsWith?.('enc.') ? '••••••••' : refundRequest.bank_account_number}
+                  </p>
                   {refundRequest.bank_account_name && (
                     <p className="font-medium text-slate-400 uppercase text-[11px]">({refundRequest.bank_account_name})</p>
                   )}
@@ -1394,6 +1405,21 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
                 <span className="text-slate-400 font-medium">{isEnglish ? 'Transaction Ref:' : 'Mã GD hoàn tiền:'}</span>
                 <span className="font-mono font-bold text-emerald-400">{refundRequest.transaction_ref}</span>
+              </div>
+            )}
+
+            {(refundRequest?.proof_url || refundRequest?.organizer_proof_url) && (
+              <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
+                <span className="text-slate-400 font-medium">Biên lai chuyển khoản:</span>
+                <a
+                  href={refundRequest.proof_url || refundRequest.organizer_proof_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline text-xs"
+                >
+                  <span>Xem biên lai</span>
+                  <ExternalLink className="size-3.5" />
+                </a>
               </div>
             )}
           </div>

@@ -161,6 +161,7 @@ class OperationsService {
       return {
         active: false,
         per_event_limit: 0,
+        is_unlimited: false,
         assigned_count: 0,
         pending_invitation_count: 0,
         reserved_count: 0,
@@ -170,6 +171,7 @@ class OperationsService {
     }
 
     const perEventLimit = Number(plan?.max_staff_per_event || plan?.staff_limit || 0);
+    const isUnlimited = perEventLimit === 0;
     const [assignedCount, pendingCount] = await Promise.all([
       operationsRepository.countEventStaff(eventId),
       operationsRepository.countPendingInvitations(eventId),
@@ -180,10 +182,11 @@ class OperationsService {
     return {
       active: true,
       per_event_limit: perEventLimit,
+      is_unlimited: isUnlimited,
       assigned_count: assignedCount,
       pending_invitation_count: pendingCount,
       reserved_count: reservedCount,
-      remaining_slots: Math.max(0, perEventLimit - reservedCount),
+      remaining_slots: isUnlimited ? 999999 : Math.max(0, perEventLimit - reservedCount),
       plan_name: plan.name,
       subscription_end_date: plan.end_date,
     };
@@ -200,10 +203,8 @@ class OperationsService {
       );
     }
 
-    if (quota.per_event_limit <= 0 || quota.remaining_slots <= 0) {
-      const msg = quota.per_event_limit <= 0
-        ? `Gói ${quota.plan_name || 'hiện tại'} không hỗ trợ thêm nhân sự (giới hạn 0 staff/sự kiện). Vui lòng nâng cấp gói dịch vụ.`
-        : `Đã đạt giới hạn staff của gói hiện tại (${quota.per_event_limit} staff cho mỗi sự kiện).`;
+    if (!quota.is_unlimited && quota.remaining_slots <= 0) {
+      const msg = `Đã đạt giới hạn staff của gói hiện tại (${quota.per_event_limit} staff cho mỗi sự kiện).`;
       throw new AppError(
         msg,
         400,

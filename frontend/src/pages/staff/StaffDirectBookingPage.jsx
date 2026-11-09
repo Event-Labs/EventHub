@@ -1477,6 +1477,10 @@ function SeatLegend({ seats }) {
         <span className="size-3 rounded-sm border border-slate-700 bg-slate-700" />
         Đã giữ/bán
       </span>
+      <span className="inline-flex items-center gap-2">
+        <span className="size-3 rounded-sm border border-amber-500/60 bg-amber-950/70" />
+        Tạm dừng bán
+      </span>
       {zones.map(([name, color]) => (
         <span key={name} className="inline-flex items-center gap-2">
           <span className="size-3 rounded-sm border" style={{ borderColor: color, backgroundColor: `${color}40` }} />

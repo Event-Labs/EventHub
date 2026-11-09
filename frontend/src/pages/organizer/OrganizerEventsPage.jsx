@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Trash2,
   X,
+  Sparkles,
 } from 'lucide-react'
 import {
   Badge,
@@ -44,8 +45,9 @@ import {
 import { getDisplayStateInfo, getSalesStatusInfo, isEventEnded } from './eventStatusUtil.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
 
-export function getPrimaryEventStatus(event) {
+export function getPrimaryEventStatus(event, organizerPlan = null) {
   if (!event) return { key: 'UNKNOWN', label: 'Không xác định', tone: 'slate' }
 
   // 1. Đã hủy (Cao nhất)
@@ -100,6 +102,9 @@ export function getPrimaryEventStatus(event) {
 
   // 10. Chờ duyệt (Sự kiện mới gửi Admin xét duyệt)
   if (event.status === 'PENDING_REVIEW') {
+    if (organizerPlan?.priority_support) {
+      return { key: 'PENDING_REVIEW', label: 'Chờ duyệt (Ưu tiên)', tone: 'amber', isPriority: true }
+    }
     return { key: 'PENDING_REVIEW', label: 'Chờ duyệt', tone: 'amber' }
   }
 
@@ -599,6 +604,17 @@ export function OrganizerEventsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [organizerPlan, setOrganizerPlan] = useState(null)
+
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setOrganizerPlan(res.plan)
+        }
+      })
+      .catch(() => setOrganizerPlan(null))
+  }, [])
 
   // Publish modal state
   const [publishTarget, setPublishTarget] = useState(null)
@@ -729,12 +745,12 @@ export function OrganizerEventsPage() {
     setWithdrawLoading(true)
     try {
       await withdrawCancellationRequest(withdrawTarget.id)
-      toast.success(`Đã rút lại yêu cầu hủy sự kiện "${withdrawTarget.title}". Sự kiện đã mở bán lại bình thường.`)
+      toast.success(`Đã hoàn tác yêu cầu hủy sự kiện "${withdrawTarget.title}". Sự kiện đã mở bán lại bình thường.`)
       setWithdrawTarget(null)
       await loadEvents()
     } catch (err) {
       console.error(err)
-      toast.error(getApiMessage(err, 'Không thể rút lại yêu cầu hủy sự kiện.'))
+      toast.error(getApiMessage(err, 'Không thể hoàn tác yêu cầu hủy sự kiện.'))
     } finally {
       setWithdrawLoading(false)
     }
@@ -816,6 +832,24 @@ export function OrganizerEventsPage() {
         })
         const count = ticketTypeIds.length
         toast.info(count > 1 ? `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+      } else if (payload.scope === 'SEATS') {
+        if (payload.action === 'RESUME_SEATS') {
+          await resumeSalesOrganizerEvent(salesTarget.id, {
+            scope: 'SEATS',
+            sessionId: payload.sessionId,
+            seatIds: payload.seatIds,
+          })
+          toast.success(`Đã mở bán lại cho ${payload.seatIds?.length || 0} vị trí ghế đã chọn.`)
+        } else {
+          await pauseSalesOrganizerEvent(salesTarget.id, {
+            scope: 'SEATS',
+            sessionId: payload.sessionId,
+            seatIds: payload.seatIds,
+            seatLabels: payload.seatLabels,
+            reason: payload.reason,
+          })
+          toast.info(`Đã tạm dừng bán vé cho ${payload.seatIds?.length || 0} vị trí ghế đã chọn.`)
+        }
       } else if (salesTarget.sales_status === 'PAUSED' || payload.action === 'RESUME_ALL') {
         const res = await resumeSalesOrganizerEvent(salesTarget.id)
         if (res?.event?.sales_status === 'PAUSED' || (res?.remainingBlocks && res.remainingBlocks.length > 0)) {
@@ -875,11 +909,11 @@ export function OrganizerEventsPage() {
         !q ||
         event.title?.toLowerCase().includes(q) ||
         event.category_name?.toLowerCase().includes(q)
-      const primaryStatus = getPrimaryEventStatus(event)
+      const primaryStatus = getPrimaryEventStatus(event, organizerPlan)
       const matchStatus = !statusFilter || primaryStatus.key === statusFilter
       return matchSearch && matchStatus
     })
-  }, [events, search, statusFilter])
+  }, [events, search, statusFilter, organizerPlan])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginatedEvents = useMemo(() => {
@@ -972,17 +1006,17 @@ export function OrganizerEventsPage() {
                 )}
                 <div className="min-w-0">
                   <span className="font-bold text-[13px] text-white block hover:text-primary transition leading-snug">{event.title}</span>
-                  {event.format && <p className="text-[11px] text-subtle mt-0.5">{event.format}</p>}
                 </div>
               </div>,
 
               <span key="date" className="whitespace-nowrap">{formatEventDate(event.start_time)}</span>,
 
               (() => {
-                const statusInfo = getPrimaryEventStatus(event)
+                const statusInfo = getPrimaryEventStatus(event, organizerPlan)
                 return (
                   <div key="status" className="flex items-center">
-                    <Badge tone={statusInfo.tone}>
+                    <Badge tone={statusInfo.tone} className={statusInfo.isPriority ? 'inline-flex items-center gap-1 shadow-sm' : ''}>
+                      {statusInfo.isPriority && <Sparkles className="size-3 text-amber-300 shrink-0" />}
                       {statusInfo.label}
                     </Badge>
                   </div>
@@ -1118,9 +1152,9 @@ export function OrganizerEventsPage() {
                 <RotateCcw className="size-6" />
               </span>
               <div>
-                <h3 className="text-lg font-black text-white">Rút lại yêu cầu hủy sự kiện</h3>
+                <h3 className="text-lg font-black text-white">Hoàn tác yêu cầu hủy sự kiện</h3>
                 <p className="mt-1 text-xs text-slate-300">
-                  Bạn có chắc chắn muốn hủy yêu cầu này? Yêu cầu gửi Admin sẽ bị hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.
+                  Bạn có chắc chắn muốn hoàn tác yêu cầu này? Yêu cầu gửi Quản trị viên sẽ được hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.
                 </p>
               </div>
             </div>
@@ -1143,7 +1177,7 @@ export function OrganizerEventsPage() {
                 className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 {withdrawLoading && <span className="size-3 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />}
-                Xác nhận rút lại
+                Xác nhận hoàn tác
               </button>
             </div>
           </div>

@@ -299,6 +299,9 @@ class OrdersRepository {
           if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
             return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
           }
+          if (b.metadata?.scope === 'SEATS') {
+            return false;
+          }
           return true;
         });
       if (isPausedForItems) {
@@ -306,6 +309,9 @@ class OrdersRepository {
         const relevantBlocks = activeBlocks.filter((b) => {
           if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
             return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          if (b.metadata?.scope === 'SEATS') {
+            return false;
           }
           return true;
         });
@@ -2775,6 +2781,9 @@ class OrdersRepository {
         activeBlocks.some((b) => {
           if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
             return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          if (b.metadata?.scope === 'SEATS') {
+            return false;
           }
           return true;
         });

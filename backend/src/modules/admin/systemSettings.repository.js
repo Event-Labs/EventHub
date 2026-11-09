@@ -125,25 +125,50 @@ class SystemSettingsRepository {
     try {
       if (onlyUnreviewed) {
         const { rows } = await db.query(`
-          SELECT id, title, created_at, ai_reviewed_at, ai_recommendation
-          FROM events
-          WHERE status = 'PENDING_REVIEW'
-            AND deleted_at IS NULL
-            AND (ai_reviewed_at IS NULL OR ai_recommendation IS NULL)
-          ORDER BY created_at ASC
+          SELECT e.id, e.title, e.created_at, e.ai_reviewed_at, e.ai_recommendation
+          FROM events e
+          LEFT JOIN LATERAL (
+            SELECT COALESCE(s.priority_support, false) AS priority_support
+            FROM organizer_subscriptions os
+            JOIN subscriptions s ON os.subscription_id = s.id
+            WHERE os.organizer_id = e.organizer_id
+              AND os.status = 'ACTIVE'
+              AND os.start_date <= now()
+              AND os.end_date >= now()
+              AND s.deleted_at IS NULL
+            ORDER BY s.priority_support DESC, os.start_date DESC
+            LIMIT 1
+          ) org_sub ON true
+          WHERE e.status = 'PENDING_REVIEW'
+            AND e.deleted_at IS NULL
+            AND (e.ai_reviewed_at IS NULL OR e.ai_recommendation IS NULL)
+          ORDER BY COALESCE(org_sub.priority_support, false) DESC, e.created_at ASC
           LIMIT 1
         `);
         return rows[0] || null;
       }
 
       const { rows } = await db.query(`
-        SELECT id, title, created_at, ai_reviewed_at, ai_recommendation
-        FROM events
-        WHERE status = 'PENDING_REVIEW'
-          AND deleted_at IS NULL
+        SELECT e.id, e.title, e.created_at, e.ai_reviewed_at, e.ai_recommendation
+        FROM events e
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(s.priority_support, false) AS priority_support
+          FROM organizer_subscriptions os
+          JOIN subscriptions s ON os.subscription_id = s.id
+          WHERE os.organizer_id = e.organizer_id
+            AND os.status = 'ACTIVE'
+            AND os.start_date <= now()
+            AND os.end_date >= now()
+            AND s.deleted_at IS NULL
+          ORDER BY s.priority_support DESC, os.start_date DESC
+          LIMIT 1
+        ) org_sub ON true
+        WHERE e.status = 'PENDING_REVIEW'
+          AND e.deleted_at IS NULL
         ORDER BY
-          CASE WHEN ai_reviewed_at IS NULL OR ai_recommendation IS NULL THEN 0 ELSE 1 END,
-          created_at ASC
+          COALESCE(org_sub.priority_support, false) DESC,
+          CASE WHEN e.ai_reviewed_at IS NULL OR e.ai_recommendation IS NULL THEN 0 ELSE 1 END,
+          e.created_at ASC
         LIMIT 1
       `);
       return rows[0] || null;

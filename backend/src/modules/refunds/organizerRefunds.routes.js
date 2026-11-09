@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(protect, authorize('ORGANIZER', 'organizer', 'ADMIN', 'admin'));
 
 router.get('/', refundsController.getOrganizerRefunds);
+router.post('/batch-process', refundsController.batchProcessRefunds);
 router.get('/:id', refundsController.getRefundDetail);
 router.patch('/:id/process', refundsController.processRefund);
 

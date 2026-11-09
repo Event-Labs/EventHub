@@ -57,13 +57,16 @@ const REFUND_SELECT = `
   u_cust.full_name AS customer_name,
   u_cust.email AS customer_email,
   u_cust.phone AS customer_phone,
-  u_proc.full_name AS processed_by_name
+  u_proc.full_name AS processed_by_name,
+  COALESCE(org.organization_name, org.individual_full_name, u_org.full_name) AS organizer_name
 `;
 
 const REFUND_JOINS = `
   FROM refund_requests rr
   JOIN events e ON e.id = rr.event_id
   JOIN orders o ON o.id = rr.order_id
+  LEFT JOIN organizers org ON (org.id = e.organizer_id OR org.id = rr.organizer_id OR org.user_id = rr.organizer_id)
+  LEFT JOIN users u_org ON u_org.id = org.user_id
   LEFT JOIN tickets t ON t.id = rr.ticket_id
   LEFT JOIN order_items oi ON oi.id = t.order_item_id
   LEFT JOIN ticket_types tt ON tt.id = COALESCE(t.ticket_type_id, oi.ticket_type_id)
@@ -310,8 +313,12 @@ class RefundsRepository {
     const where = ['rr.customer_id = $1'];
 
     if (filters.status && filters.status !== 'ALL') {
-      params.push(filters.status.toUpperCase());
-      where.push(`rr.status = $${params.length}`);
+      if (filters.status.toUpperCase() === 'DISPUTED') {
+        where.push('rr.disputed = true');
+      } else {
+        params.push(filters.status.toUpperCase());
+        where.push(`rr.status = $${params.length}`);
+      }
     }
 
     const { rows } = await db.query(
@@ -359,8 +366,12 @@ class RefundsRepository {
     }
 
     if (filters.status && filters.status !== 'ALL') {
-      params.push(filters.status.toUpperCase());
-      where.push(`rr.status = $${params.length}`);
+      if (filters.status.toUpperCase() === 'DISPUTED') {
+        where.push('rr.disputed = true');
+      } else {
+        params.push(filters.status.toUpperCase());
+        where.push(`rr.status = $${params.length}`);
+      }
     }
 
     if (filters.keyword) {
