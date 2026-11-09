@@ -92,12 +92,16 @@ class EventBusinessRulesService {
   async processConfirmedOrdersOnCancellation(client, eventId) {
     const { rows: confirmedOrders } = await client.query(
       `
-      SELECT DISTINCT o.id, o.promo_code_id, o.audit_trail
+      SELECT o.id, o.promo_code_id, o.audit_trail
       FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
-      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
-      JOIN event_sessions es ON es.id = tt.event_session_id
-      WHERE es.event_id = $1 AND o.status = 'CONFIRMED'
+      WHERE o.status = 'CONFIRMED'
+        AND EXISTS (
+          SELECT 1
+          FROM order_items oi
+          JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE oi.order_id = o.id AND es.event_id = $1
+        )
       FOR UPDATE OF o
       `,
       [eventId],
@@ -322,7 +326,7 @@ class EventBusinessRulesService {
   /**
    * Pause Sales (Organizer)
    */
-  async pauseSales(userId, eventId, { reason, note, scope, ticketTypeId, ticketTypeIds, ticketTypeName, ticketTypes } = {}) {
+  async pauseSales(userId, eventId, { reason, note, scope, ticketTypeId, ticketTypeIds, ticketTypeName, ticketTypes, sessionId, seatIds, seatLabels } = {}) {
     const organizerId = await this.resolveOrganizerId(userId);
     const client = await db.getClient();
     try {
@@ -333,11 +337,45 @@ class EventBusinessRulesService {
       const targetIds = Array.isArray(ticketTypeIds) && ticketTypeIds.length > 0
         ? ticketTypeIds.map(String)
         : (ticketTypeId ? [String(ticketTypeId)] : []);
+      const targetSeatIds = Array.isArray(seatIds) ? seatIds.map(String) : [];
       const isSpecific = scope === 'SPECIFIC' && targetIds.length > 0;
+      const isSeats = scope === 'SEATS' && targetSeatIds.length > 0;
 
       let updatedBlocks = Array.isArray(event.sales_blocks) ? [...event.sales_blocks] : [];
 
-      if (isSpecific) {
+      if (isSeats) {
+        // 1. Block specified seats in session_seats
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'BLOCKED'
+          WHERE seat_id = ANY($1::uuid[])
+            AND ($2::uuid IS NULL OR event_session_id = $2)
+            AND (status = 'AVAILABLE' OR status IS NULL)
+          `,
+          [targetSeatIds, sessionId || null],
+        );
+
+        // 2. Add seat sales block
+        updatedBlocks.push({
+          id: require('crypto').randomUUID(),
+          reason: SALES_BLOCK_REASONS.ORGANIZER_PAUSE,
+          source: 'ORGANIZER',
+          created_by: userId,
+          created_at: new Date().toISOString(),
+          released_by: null,
+          released_at: null,
+          metadata: {
+            reason: humanNote,
+            note: humanNote,
+            scope: 'SEATS',
+            session_id: sessionId || null,
+            seat_ids: targetSeatIds,
+            seat_labels: seatLabels || [],
+            count: targetSeatIds.length,
+          },
+        });
+      } else if (isSpecific) {
         const nameMap = new Map();
         if (Array.isArray(ticketTypes)) {
           ticketTypes.forEach((t) => nameMap.set(String(t.id), t.name));
@@ -379,15 +417,15 @@ class EventBusinessRulesService {
 
       // Check if there is still an event-wide block active
       const hasEventWideBlock = updatedBlocks.some(
-        (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+        (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
       );
       const newSalesStatus = hasEventWideBlock ? 'PAUSED' : 'ON_SALE';
 
       const auditTrail = appendAuditTrail(event.audit_trail, {
         userId,
         role: 'ORGANIZER',
-        action: isSpecific ? 'PAUSE_TICKET_SALES' : 'PAUSE_SALES',
-        reason: humanNote || (isSpecific ? `Tạm dừng bán vé cho ${targetIds.length} loại vé` : 'Tạm dừng bán vé'),
+        action: isSeats ? 'PAUSE_SEAT_SALES' : isSpecific ? 'PAUSE_TICKET_SALES' : 'PAUSE_SALES',
+        reason: humanNote || (isSeats ? `Tạm dừng bán vé cho ${targetSeatIds.length} vị trí ghế` : isSpecific ? `Tạm dừng bán vé cho ${targetIds.length} loại vé` : 'Tạm dừng bán vé'),
         stateBefore: { sales_status: event.sales_status },
         stateAfter: { sales_status: newSalesStatus },
       });
@@ -419,7 +457,7 @@ class EventBusinessRulesService {
   /**
    * Resume Sales (Organizer)
    */
-  async resumeSales(userId, eventId, { ticketTypeId, ticketTypeIds } = {}) {
+  async resumeSales(userId, eventId, { ticketTypeId, ticketTypeIds, scope, sessionId, seatIds } = {}) {
     const organizerId = await this.resolveOrganizerId(userId);
     const client = await db.getClient();
     try {
@@ -438,8 +476,52 @@ class EventBusinessRulesService {
       const targetResumeIds = Array.isArray(ticketTypeIds) && ticketTypeIds.length > 0
         ? ticketTypeIds.map(String)
         : (ticketTypeId ? [String(ticketTypeId)] : null);
+      const targetResumeSeatIds = Array.isArray(seatIds) && seatIds.length > 0
+        ? seatIds.map(String)
+        : null;
+      const isSeats = scope === 'SEATS' && targetResumeSeatIds && targetResumeSeatIds.length > 0;
 
-      if (targetResumeIds && targetResumeIds.length > 0) {
+      if (isSeats) {
+        // Unblock specific seats in session_seats
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'AVAILABLE'
+          WHERE seat_id = ANY($1::uuid[])
+            AND ($2::uuid IS NULL OR event_session_id = $2)
+            AND status = 'BLOCKED'
+          `,
+          [targetResumeSeatIds, sessionId || null],
+        );
+
+        updatedBlocks = updatedBlocks.map((b) => {
+          if (
+            b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE &&
+            !b.released_at &&
+            b.metadata?.scope === 'SEATS'
+          ) {
+            const remainingSeats = (b.metadata?.seat_ids || []).filter(
+              (sid) => !targetResumeSeatIds.includes(String(sid))
+            );
+            if (remainingSeats.length === 0) {
+              return {
+                ...b,
+                released_by: userId,
+                released_at: new Date().toISOString(),
+              };
+            }
+            return {
+              ...b,
+              metadata: {
+                ...b.metadata,
+                seat_ids: remainingSeats,
+                count: remainingSeats.length,
+              },
+            };
+          }
+          return b;
+        });
+      } else if (targetResumeIds && targetResumeIds.length > 0) {
         updatedBlocks = updatedBlocks.map((b) => {
           if (
             b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE &&
@@ -455,6 +537,19 @@ class EventBusinessRulesService {
           return b;
         });
       } else {
+        // Resume all: unblock all blocked session_seats for this event and release all pause blocks
+        await client.query(
+          `
+          UPDATE session_seats ss
+          SET status = 'AVAILABLE'
+          FROM event_sessions es
+          WHERE ss.event_session_id = es.id
+            AND es.event_id = $1
+            AND ss.status = 'BLOCKED'
+          `,
+          [eventId],
+        );
+
         updatedBlocks = updatedBlocks.map((b) => {
           if (b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE && !b.released_at) {
             return {

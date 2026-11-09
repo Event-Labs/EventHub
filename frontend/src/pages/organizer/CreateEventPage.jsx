@@ -1260,7 +1260,8 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
           ...s,
           seating_type: activeSession.seating_type,
           seat_map_id: activeSession.seat_map_id,
-          zone_assignments: activeSession.zone_assignments ? [...activeSession.zone_assignments] : []
+          zone_assignments: activeSession.zone_assignments ? [...activeSession.zone_assignments] : [],
+          disabled_seat_ids: activeSession.disabled_seat_ids ? [...activeSession.disabled_seat_ids] : [],
         }
       });
 
@@ -1569,6 +1570,48 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
     ? (loadedSeatMap.seats || []).filter((s) => !s.zone_id && !s.is_disabled).length
     : 0
 
+  const currentDisabledSeatIds = activeSession?.disabled_seat_ids || []
+  const totalMapSeats = (loadedSeatMap?.seats || []).length
+  const disabledMapSeatsCount = (loadedSeatMap?.seats || []).filter((s) =>
+    currentDisabledSeatIds.includes(String(s.id)) || Boolean(s.is_disabled || s.isDisabled)
+  ).length
+  const activeMapSeatsCount = totalMapSeats - disabledMapSeatsCount
+
+  const uniqueRows = useMemo(() => {
+    if (!loadedSeatMap?.seats) return []
+    const rows = Array.from(new Set(loadedSeatMap.seats.map((s) => s.row_label ?? s.rowLabel).filter(Boolean)))
+    return rows.sort()
+  }, [loadedSeatMap])
+
+  const handleToggleSeatDisabled = (seat) => {
+    const seatId = String(seat.id || seat.seat_id)
+    const current = activeSession?.disabled_seat_ids || []
+    const next = current.includes(seatId)
+      ? current.filter((id) => id !== seatId)
+      : [...current, seatId]
+    updateActiveSession({ disabled_seat_ids: next })
+  }
+
+  const handleToggleRowDisabled = (rowLabel) => {
+    if (!loadedSeatMap?.seats || !rowLabel) return
+    const rowSeatIds = loadedSeatMap.seats
+      .filter((s) => (s.row_label ?? s.rowLabel) === rowLabel)
+      .map((s) => String(s.id))
+    const current = activeSession?.disabled_seat_ids || []
+    const allRowDisabled = rowSeatIds.every((id) => current.includes(id))
+    let next
+    if (allRowDisabled) {
+      next = current.filter((id) => !rowSeatIds.includes(id))
+    } else {
+      next = Array.from(new Set([...current, ...rowSeatIds]))
+    }
+    updateActiveSession({ disabled_seat_ids: next })
+  }
+
+  const handleResetAllDisabledSeats = () => {
+    updateActiveSession({ disabled_seat_ids: [] })
+  }
+
   return (
     <div className="grid grid-cols-12 items-start gap-6">
       <div className="col-span-12 space-y-6 pb-24 lg:col-span-8">
@@ -1765,13 +1808,83 @@ function Step3TicketsSeats({ formData, setFormData, venues, completeness }) {
                 <p className="mt-2 text-sm text-muted">Đang tải sơ đồ...</p>
               )}
               {loadedSeatMap && (
-                <div className="mt-4 w-full">
+                <div className="mt-4 w-full space-y-3">
+                  {/* Seat disabling info & quick toolbar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-white/10 bg-[#121c38] px-3.5 py-2.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="font-bold text-white flex items-center gap-1.5">
+                        <Icon name="block" className="size-4 text-rose-400" />
+                        Tùy chọn vô hiệu hóa ghế:
+                      </span>
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-slate-300">
+                          Tổng: <strong className="text-white">{totalMapSeats}</strong>
+                        </span>
+                        <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-emerald-300">
+                          Mở bán: <strong className="text-emerald-200">{activeMapSeatsCount}</strong>
+                        </span>
+                        <span className="rounded-md bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-rose-300">
+                          Vô hiệu hóa: <strong className="text-rose-200">{disabledMapSeatsCount}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {uniqueRows.length > 0 && (
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleToggleRowDisabled(e.target.value)
+                              e.target.value = ''
+                            }
+                          }}
+                          className="rounded-lg border border-white/15 bg-[#0b1329] px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-[#C99A47] cursor-pointer"
+                        >
+                          <option value="" disabled>Chọn theo hàng...</option>
+                          {uniqueRows.map((r) => (
+                            <option key={r} value={r}>Hàng {r}</option>
+                          ))}
+                        </select>
+                      )}
+                      {currentDisabledSeatIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleResetAllDisabledSeats}
+                          className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:text-white transition"
+                        >
+                          Bỏ vô hiệu tất cả
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 italic">
+                    * Nhấp trực tiếp vào từng vị trí ghế trên sơ đồ bên dưới để chuyển đổi trạng thái vô hiệu hóa (không mở bán cho phiên này).
+                  </p>
+
                   <SeatMapPreview
                     seatMap={loadedSeatMap}
                     seats={loadedSeatMap.seats}
                     zones={loadedSeatMap.zones}
-                    height={380}
+                    height={400}
+                    interactive={true}
+                    mode="TOGGLE_DISABLE"
+                    disabledSeatIds={currentDisabledSeatIds}
+                    onToggleSeat={handleToggleSeatDisabled}
                   />
+
+                  {/* Seat map legend */}
+                  <div className="flex flex-wrap items-center justify-center gap-4 rounded-lg border border-white/5 bg-[#0b1329]/50 px-3 py-2 text-[11px] text-slate-300">
+                    <div className="flex items-center gap-1.5">
+                      <span className="size-3 rounded-sm bg-emerald-500/80 border border-emerald-400" />
+                      <span>Ghế mở bán bình thường</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="size-3 rounded-sm bg-rose-500 border border-rose-600 flex items-center justify-center text-[8px] text-white font-bold">✕</span>
+                      <span className="text-rose-300 font-semibold">Ghế vô hiệu hóa (tạm dừng)</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
@@ -3685,6 +3798,7 @@ export function CreateEventPage() {
         seat_map_id: s.seat_map_id,
         seating_type: s.seat_map_id ? 'ASSIGNED' : 'GENERAL',
         zone_assignments: [],
+        disabled_seat_ids: s.disabled_seat_ids || [],
         checkin_start_date: sessionDate,
         checkin_start_time: checkin.time || '',
       }
@@ -4098,8 +4212,11 @@ export function CreateEventPage() {
             return saved ? { zone_id: ot.zone_id, ticket_type_id: saved.id } : null
           })
           .filter(Boolean)
-        if (assignments.length) {
-          await assignZones(eventId, refreshedSession.id, assignments)
+        if (assignments.length || (s.disabled_seat_ids && s.disabled_seat_ids.length > 0)) {
+          await assignZones(eventId, refreshedSession.id, {
+            assignments,
+            disabled_seat_ids: s.disabled_seat_ids || [],
+          })
         }
       }
     } catch (err) {

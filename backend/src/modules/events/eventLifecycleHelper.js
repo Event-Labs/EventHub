@@ -30,7 +30,10 @@ function getActiveSalesBlocks(salesBlocks) {
 function isSalesPaused(salesBlocks, salesStatus) {
   if (salesStatus === 'PAUSED' || salesStatus === 'CLOSED') return true;
   const active = getActiveSalesBlocks(salesBlocks);
-  return active.length > 0;
+  const activeEventBlocks = active.filter(
+    (b) => !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
+  );
+  return activeEventBlocks.length > 0;
 }
 
 /**
@@ -121,7 +124,7 @@ function computeSalesStatus({ status, salesBlocks, currentSalesStatus }) {
 
   const active = getActiveSalesBlocks(salesBlocks);
   const activeEventBlocks = active.filter(
-    (b) => !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   );
   if (activeEventBlocks.length > 0) {
     return 'PAUSED';

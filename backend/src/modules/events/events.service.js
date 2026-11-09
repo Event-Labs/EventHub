@@ -27,7 +27,7 @@ function mapCard(row) {
 
   const salesBlocks = Array.isArray(row.sales_blocks) ? row.sales_blocks : [];
   const activeEventBlock = salesBlocks.find(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && (b.metadata?.ticket_type_id || b.metadata?.ticket_type_ids))
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && (b.metadata?.ticket_type_id || b.metadata?.ticket_type_ids)) && !(b.metadata?.scope === 'SEATS')
   );
   const isPaused = Boolean(activeEventBlock);
 

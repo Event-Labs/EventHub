@@ -195,7 +195,7 @@ export function EventDetailPage() {
   }, [selectedSessionId, ticketsBySession])
 
   const activeEventBlocks = (Array.isArray(event?.sales_blocks) ? event.sales_blocks : []).filter(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   )
   const isPaused = Boolean(
     (event?.is_paused && activeEventBlocks.length > 0) ||

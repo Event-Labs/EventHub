@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ArrowUpRight,
   Award,
@@ -1868,9 +1869,11 @@ function EventOccupancyColumnChart({ data = [], height = 240 }) {
 // ─── Main Page Component ──────────────────────────────────────────────────────
 
 export function OrganizerTicketSalesPage() {
+  const [searchParams] = useSearchParams()
+  const initialEventId = searchParams.get('eventId') || ''
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
-  const [selectedEventId, setSelectedEventId] = useState('')
+  const [selectedEventId, setSelectedEventId] = useState(initialEventId)
   const [datePreset, setDatePreset] = useState('last30')
   const defaultRange = getDateRange('last30')
   const [customFrom, setCustomFrom] = useState(defaultRange.fromInput)
@@ -1892,19 +1895,21 @@ export function OrganizerTicketSalesPage() {
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
-      .then((data) =>
-        setEvents(
-          (data || []).filter(
-            (ev) =>
-              ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(ev.status) ||
-              Number(ev.paid_orders_count || 0) > 0 ||
-              (ev.status !== 'DRAFT' && ev.status !== 'PENDING_REVIEW')
-          )
+      .then((data) => {
+        const filtered = (data || []).filter(
+          (ev) =>
+            ['PUBLISHED', 'COMPLETED', 'CANCELLED'].includes(ev.status) ||
+            Number(ev.paid_orders_count || 0) > 0 ||
+            (ev.status !== 'DRAFT' && ev.status !== 'PENDING_REVIEW')
         )
-      )
+        setEvents(filtered)
+        if (initialEventId && filtered.some((ev) => ev.id === initialEventId)) {
+          setSelectedEventId(initialEventId)
+        }
+      })
       .catch(() => setEvents([]))
       .finally(() => setEventsLoading(false))
-  }, [])
+  }, [initialEventId])
 
   const loadAnalytics = useCallback(async () => {
     setLoading(true)

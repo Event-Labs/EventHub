@@ -810,6 +810,9 @@ class EventsRepository {
             if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
               return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
             }
+            if (b.metadata?.scope === 'SEATS') {
+              return false;
+            }
             return true;
           });
         if (isTicketPaused) {
@@ -817,6 +820,9 @@ class EventsRepository {
           const relevantBlocks = activeBlocks.filter((b) => {
             if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
               return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
+            }
+            if (b.metadata?.scope === 'SEATS') {
+              return false;
             }
             return true;
           });
