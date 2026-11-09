@@ -92,7 +92,12 @@ export function RolePortalLayout({
     )
   }
 
-  if (!isAllowed) return <Navigate to="/" replace />
+  if (!isAllowed) {
+    if (isAdminUser(user)) {
+      return <Navigate to="/admin" replace />
+    }
+    return <Navigate to="/" replace />
+  }
 
   return (
     <div className="relative flex h-screen w-full min-w-0 overflow-hidden bg-background text-content transition-colors duration-500">
@@ -532,18 +537,20 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-        <NavLink
-          to="/"
-          reloadDocument
-          className={`hidden md:inline-flex h-10 sm:h-10.5 items-center gap-2 rounded-full border px-4 lg:px-5 text-xs lg:text-sm font-bold transition-all ${isLight
-            ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
-            : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
-            }`}
-          title="Chuyển sang trang khách hàng"
-        >
-          <Home className="size-4" />
-          <span>Trang khách hàng</span>
-        </NavLink>
+        {!isAdmin && (
+          <NavLink
+            to="/"
+            reloadDocument
+            className={`hidden md:inline-flex h-10 sm:h-10.5 items-center gap-2 rounded-full border px-4 lg:px-5 text-xs lg:text-sm font-bold transition-all ${isLight
+              ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
+              : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
+              }`}
+            title="Chuyển sang trang khách hàng"
+          >
+            <Home className="size-4" />
+            <span>Trang khách hàng</span>
+          </NavLink>
+        )}
         <div className={`glass-panel flex h-10 sm:h-10.5 items-center gap-1 rounded-full px-1.5 sm:px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
           }`}>
           <TopBarIconButton
@@ -777,14 +784,16 @@ function PortalNotificationBell({ theme }) {
             })}
           </div>
 
-          <Link
-            to="/notifications"
-            onClick={() => setNotificationOpen(false)}
-            className={`block border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
-              }`}
-          >
-            Xem tất cả thông báo
-          </Link>
+          {!location.pathname.startsWith('/admin') && (
+            <Link
+              to="/notifications"
+              onClick={() => setNotificationOpen(false)}
+              className={`block border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
+                }`}
+            >
+              Xem tất cả thông báo
+            </Link>
+          )}
         </div>
       )}
     </div>
