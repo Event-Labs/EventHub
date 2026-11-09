@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CalendarRange, Check, ChevronDown } from 'lucide-react'
+import { CalendarRange, Check, ChevronDown, Lock } from 'lucide-react'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -245,6 +245,8 @@ export function DateRangeFilter({
   comparisonMode = 'previousPeriod',
   comparisonFrom = '',
   comparisonTo = '',
+  comparisonLocked = false,
+  onComparisonLockedClick = null,
   onPresetChange,
   onCustomFromChange,
   onCustomToChange,
@@ -261,7 +263,7 @@ export function DateRangeFilter({
   const containerRef = useRef(null)
   const triggerRef = useRef(null)
   const popupRef = useRef(null)
-  const [popupStyle, setPopupStyle] = useState({ left: 0, top: 0, width: 760 })
+  const [popupStyle, setPopupStyle] = useState(null)
   const activeRange = getDateRange(value, { from: customFrom, to: customTo })
   const activeLabel = getDateRangeLabel(value, activeRange)
   const draftRange = getDateRange(draftValue, { from: draftFrom, to: draftTo })
@@ -278,7 +280,27 @@ export function DateRangeFilter({
     : ''
   const draftComparisonLabel = getComparisonLabel(draftCompareMode, draftComparisonRange)
 
-  useEffect(() => {
+  const calculatePopupPosition = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return null
+
+    const width = Math.min(700, window.innerWidth - 32)
+    const triggerCenter = rect.left + rect.width / 2
+    const left = Math.min(
+      Math.max(16, Math.round(triggerCenter - width / 2)),
+      window.innerWidth - width - 16,
+    )
+    let top = rect.bottom + 8
+    if (top + 400 > window.innerHeight && rect.top > 350) {
+      top = Math.max(16, rect.top - 420)
+    } else {
+      top = Math.max(16, Math.min(top, window.innerHeight - 200))
+    }
+
+    return { left, top, width }
+  }, [])
+
+  useLayoutEffect(() => {
     if (!open) return undefined
 
     setDraftValue(value)
@@ -290,24 +312,11 @@ export function DateRangeFilter({
     setDraftCompareTo(comparisonRange?.toInput || getComparisonRange(comparisonMode, activeRange).toInput)
 
     const updatePopupPosition = () => {
-      const rect = triggerRef.current?.getBoundingClientRect()
-      if (!rect) return
-
-      const width = Math.min(700, window.innerWidth - 32)
-      const triggerCenter = rect.left + rect.width / 2
-      const left = Math.min(
-        Math.max(16, Math.round(triggerCenter - width / 2)),
-        window.innerWidth - width - 16,
-      )
-      let top = rect.bottom + 8
-      if (top + 400 > window.innerHeight && rect.top > 350) {
-        top = Math.max(16, rect.top - 420)
-      } else {
-        top = Math.max(16, Math.min(top, window.innerHeight - 200))
-      }
-
-      setPopupStyle({ left, top, width })
+      const pos = calculatePopupPosition()
+      if (pos) setPopupStyle(pos)
     }
+
+    updatePopupPosition()
 
     const handlePointerDown = (event) => {
       const target = event.target
@@ -319,7 +328,6 @@ export function DateRangeFilter({
       }
     }
 
-    updatePopupPosition()
     document.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('resize', updatePopupPosition)
     window.addEventListener('scroll', updatePopupPosition, true)
@@ -332,15 +340,24 @@ export function DateRangeFilter({
   }, [
     activeRange.fromInput,
     activeRange.toInput,
+    calculatePopupPosition,
     comparisonEnabled,
     comparisonMode,
-    comparisonFrom,
     comparisonRange?.fromInput,
     comparisonRange?.toInput,
-    comparisonTo,
     open,
     value,
   ])
+
+  const handleToggle = () => {
+    if (!open) {
+      const pos = calculatePopupPosition()
+      if (pos) setPopupStyle(pos)
+      setOpen(true)
+    } else {
+      setOpen(false)
+    }
+  }
 
   const handlePresetClick = (nextValue) => {
     setDraftValue(nextValue)
@@ -369,7 +386,7 @@ export function DateRangeFilter({
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={handleToggle}
         className="mt-1 flex h-10 w-full sm:w-auto min-w-0 sm:min-w-72 items-center justify-between gap-3 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:border-[#E6C17A]/50 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47]"
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -385,7 +402,7 @@ export function DateRangeFilter({
         <ChevronDown className={`size-4 shrink-0 text-white/60 transition ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {open && createPortal(
+      {open && popupStyle && createPortal(
         <div
           ref={popupRef}
           className="fixed z-[9999] max-h-[min(620px,calc(100vh-2rem))] overflow-hidden rounded-2xl border border-white/20 bg-[#0b1329] text-white shadow-2xl shadow-black/95 [html.light_&]:bg-white/98 [html.light_&]:border-[#C99A47]/35 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl"
@@ -415,12 +432,29 @@ export function DateRangeFilter({
 
               <div className="my-1 border-t border-white/10" />
               <div className="flex h-10 items-center justify-between px-3">
-                <span className="text-sm font-bold text-white">So sánh</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-white">So sánh</span>
+                  {comparisonLocked && (
+                    <span className="flex items-center gap-1 rounded bg-[#C99A47]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#E6C17A]">
+                      <Lock className="size-2.5" /> Gói nâng cao
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={() => setDraftCompareEnabled((current) => !current)}
+                  onClick={() => {
+                    if (comparisonLocked) {
+                      if (onComparisonLockedClick) onComparisonLockedClick()
+                      return
+                    }
+                    setDraftCompareEnabled((current) => !current)
+                  }}
                   className={`relative h-6 w-11 rounded-full transition ${
-                    draftCompareEnabled ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A]' : 'bg-white/20'
+                    comparisonLocked
+                      ? 'opacity-60 cursor-pointer bg-white/10'
+                      : draftCompareEnabled
+                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A]'
+                        : 'bg-white/20'
                   }`}
                   aria-pressed={draftCompareEnabled}
                 >
