@@ -233,3 +233,26 @@ export function getBankDisplayName(bank) {
   }
   return `${bank.shortName} (${bank.code}) - ${bank.fullName}`
 }
+
+/**
+ * Phân giải tên hiển thị thân thiện từ tên, mã hoặc mã BIN ngân hàng
+ * Ví dụ: '970422' -> 'MB Bank', 'MB' -> 'MB Bank', 'Techcombank' -> 'Techcombank'
+ */
+export function resolveBankName(bankInput) {
+  if (!bankInput) return ''
+  if (typeof bankInput === 'object') {
+    return bankInput.shortName || bankInput.name || bankInput.fullName || ''
+  }
+  const str = String(bankInput).trim()
+  const found = VIETNAMESE_BANKS.find(
+    (b) =>
+      b.bin === str ||
+      b.code?.toLowerCase() === str.toLowerCase() ||
+      b.shortName?.toLowerCase() === str.toLowerCase() ||
+      b.fullName?.toLowerCase() === str.toLowerCase()
+  )
+  if (found) {
+    return found.shortName
+  }
+  return str
+}

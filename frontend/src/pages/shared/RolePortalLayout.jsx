@@ -675,6 +675,10 @@ function PortalNotificationBell({ theme }) {
       try {
         const data = JSON.parse(event.data)
         if (data?.title) {
+          // Skip customer-targeted refund completion toast in organizer/admin portal
+          if (data.title === 'Hoàn tiền vé thành công') {
+            return
+          }
           window.dispatchEvent(
             new CustomEvent('eventhub:toast', {
               detail: {

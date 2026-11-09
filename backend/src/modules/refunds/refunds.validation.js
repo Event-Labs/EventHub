@@ -98,7 +98,7 @@ const processRefundSchema = z
 
 const refundQuerySchema = z.object({
   status: z
-    .enum(['ALL', 'PENDING', 'APPROVED', 'PROCESSING', 'REJECTED', 'REFUNDED', 'FAILED'])
+    .enum(['ALL', 'PENDING', 'APPROVED', 'PROCESSING', 'REJECTED', 'REFUNDED', 'FAILED', 'DISPUTED'])
     .optional()
     .default('ALL'),
   eventId: z.string().uuid().optional().nullable(),

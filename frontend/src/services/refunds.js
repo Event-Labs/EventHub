@@ -58,6 +58,11 @@ export async function processOrganizerRefund(id, payload) {
   return response.data.data
 }
 
+export async function batchProcessOrganizerRefunds(payload) {
+  const response = await http.post('/organizer/refunds/batch-process', payload)
+  return response.data.data
+}
+
 export async function fetchOrganizerPaymentChannel() {
   const response = await http.get('/organizer/payments/channel')
   return response.data.data

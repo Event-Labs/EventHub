@@ -35,7 +35,7 @@ import {
 } from '@/services/refunds.js'
 import { uploadOrganizerDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { VIETNAMESE_BANKS } from '@/constants/banks.js'
+import { VIETNAMESE_BANKS, resolveBankName } from '@/constants/banks.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { StatusBadge } from '@/components/StatusBadge.jsx'
 
@@ -54,6 +54,27 @@ function formatCurrency(value) {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+function formatShortErrorMessage(error) {
+  if (!error) return 'Vui lòng chọn phương thức "Chuyển khoản thủ công".'
+  const lower = error.toLowerCase()
+  if (lower.includes('chi hộ') || lower.includes('601') || lower.includes('api key')) {
+    return 'PayOS chưa bật dịch vụ Chi hộ. Vui lòng chọn "Chuyển khoản thủ công".'
+  }
+  if (lower.includes('ip') || lower.includes('whitelist')) {
+    return 'IP chưa có trong Whitelist PayOS. Vui lòng chọn "Chuyển khoản thủ công".'
+  }
+  if (lower.includes('số dư') || lower.includes('balance')) {
+    return 'Số dư ví PayOS không đủ. Vui lòng chọn "Chuyển khoản thủ công".'
+  }
+  if (lower.includes('idempotency') || lower.includes('606')) {
+    return 'Trùng mã giao dịch PayOS. Vui lòng thử lại hoặc chuyển thủ công.'
+  }
+  if (error.length > 95) {
+    return error.slice(0, 92) + '...'
+  }
+  return error
 }
 
 function resolveBankBin(bankInput) {
@@ -186,7 +207,7 @@ export function OrganizerRefundDetailPage() {
   }
 
   const bankInfo = item?.bank_info || (item?.bank_name ? {
-    bank_name: item.bank_name,
+    bank_name: resolveBankName(item.bank_name),
     account_number: item.bank_account_number,
     account_holder: item.bank_account_name,
   } : null)
@@ -250,7 +271,8 @@ export function OrganizerRefundDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['organizer-refunds'] })
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || err.message || 'Không thể xử lý yêu cầu hoàn tiền.')
+      const msg = err.response?.data?.message || err.message || 'Không thể xử lý yêu cầu hoàn tiền.'
+      toast.error(formatShortErrorMessage(msg))
     },
   })
 
@@ -468,6 +490,37 @@ export function OrganizerRefundDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* ─────────────────────────────────────────────────────────
+              DISPUTE BANNER (Hiển thị ngay đầu trang khi có khiếu nại)
+          ───────────────────────────────────────────────────────── */}
+          {isDisputed && (
+            <div className="rounded-2xl border-2 border-rose-500/50 bg-rose-500/15 p-5 shadow-xl shadow-rose-500/10 [html.light_&]:border-rose-400 [html.light_&]:bg-rose-50 text-white [html.light_&]:text-rose-950">
+              <div className="flex items-start gap-3.5">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 [html.light_&]:bg-rose-100 [html.light_&]:text-rose-600 shrink-0">
+                  <AlertCircle className="size-6" />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-base font-bold text-rose-300 [html.light_&]:text-rose-900">
+                      Khách hàng đã gửi khiếu nại: "Tôi chưa nhận được tiền"
+                    </h3>
+                    {item.disputed_at && (
+                      <span className="rounded-lg bg-rose-500/20 px-2.5 py-1 text-[11px] font-semibold text-rose-300 [html.light_&]:bg-rose-100 [html.light_&]:text-rose-800">
+                        Thời gian: {formatDateTime(item.disputed_at)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-rose-200/90 [html.light_&]:text-rose-800 leading-relaxed">
+                    <strong>Nội dung khiếu nại:</strong> &ldquo;{item.dispute_reason || 'Khách hàng báo chưa nhận được tiền vào tài khoản ngân hàng sau khi BTC xác nhận hoàn tiền.'}&rdquo;
+                  </p>
+                  <p className="text-[11px] text-slate-300 [html.light_&]:text-slate-600 pt-1">
+                    * Ban tổ chức vui lòng tra soát lại mã giao dịch ngân hàng, kiểm tra lại biên lai đã tải lên hoặc liên hệ khách hàng để đối chiếu. Nếu cần hoàn lại, hãy thực hiện chuyển khoản lại theo biểu mẫu bên dưới.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ─────────────────────────────────────────────────────────
               SECTION D & E: ACTIVE PROCESSING AREA (If Pending or Failed)

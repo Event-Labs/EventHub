@@ -9,6 +9,16 @@ const {
 
 const eventBusinessRulesService = require('../events/eventBusinessRules.service');
 
+const getUserRole = (user) => {
+  if (!user) return 'CUSTOMER';
+  if (Array.isArray(user.roles)) {
+    if (user.roles.includes('ADMIN')) return 'ADMIN';
+    if (user.roles.includes('ORGANIZER')) return 'ORGANIZER';
+    return user.roles[0] || 'CUSTOMER';
+  }
+  return user.role || 'CUSTOMER';
+};
+
 class RefundsController {
   submitRefundRequest = async (req, res, next) => {
     try {
@@ -60,7 +70,7 @@ class RefundsController {
   getRefundDetail = async (req, res, next) => {
     try {
       const { id } = uuidParamSchema.parse(req.params);
-      const data = await refundsService.getRefundDetail(id, req.user.sub, req.user.role);
+      const data = await refundsService.getRefundDetail(id, req.user.sub, getUserRole(req.user));
       res.status(200).json(ApiResponse.success(data, 'Chi tiết yêu cầu hoàn tiền'));
     } catch (error) {
       next(error);
@@ -70,7 +80,7 @@ class RefundsController {
   getOrganizerRefunds = async (req, res, next) => {
     try {
       const filters = refundQuerySchema.parse(req.query);
-      const data = await refundsService.getOrganizerRefunds(req.user.sub, filters, req.user.role);
+      const data = await refundsService.getOrganizerRefunds(req.user.sub, filters, getUserRole(req.user));
       res.status(200).json(ApiResponse.success(data, 'Danh sách yêu cầu hoàn tiền của sự kiện'));
     } catch (error) {
       next(error);
@@ -81,8 +91,34 @@ class RefundsController {
     try {
       const { id } = uuidParamSchema.parse(req.params);
       const payload = processRefundSchema.parse(req.body);
-      const data = await refundsService.processRefundByOrganizer(req.user.sub, id, payload, req.user.sub, req.user.role);
+      const data = await refundsService.processRefundByOrganizer(req.user.sub, id, payload, req.user.sub, getUserRole(req.user));
       res.status(200).json(ApiResponse.success(data, 'Đã xử lý yêu cầu hoàn tiền thành công'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  batchProcessRefunds = async (req, res, next) => {
+    try {
+      const { refund_ids, action = 'APPROVE', refund_method = 'PAYOS', organizer_note } = req.body || {};
+      if (!Array.isArray(refund_ids) || refund_ids.length === 0) {
+        throw new AppError('Vui lòng chọn ít nhất một yêu cầu hoàn tiền để xử lý.', 400, ErrorCodes.INVALID_INPUT);
+      }
+      if (refund_method !== 'PAYOS') {
+        throw new AppError(
+          'Xử lý hàng loạt chỉ hỗ trợ phương thức "Hoàn tiền tự động qua PayOS". Với hình thức chuyển khoản thủ công, Ban tổ chức vui lòng xử lý từng yêu cầu để nhập mã giao dịch và tải lên biên lai đối soát theo đúng quy định.',
+          400,
+          ErrorCodes.INVALID_INPUT,
+        );
+      }
+      const data = await refundsService.batchProcessRefundsByOrganizer(
+        req.user.sub,
+        refund_ids,
+        { action, refund_method: 'PAYOS', organizer_note },
+        req.user.sub,
+        getUserRole(req.user),
+      );
+      res.status(200).json(ApiResponse.success(data, `Đã xử lý xong ${data.successCount}/${data.total} yêu cầu hoàn tiền.`));
     } catch (error) {
       next(error);
     }

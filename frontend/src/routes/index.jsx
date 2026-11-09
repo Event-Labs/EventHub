@@ -35,6 +35,7 @@ import {
   AdminEventReviewDetailPage,
   AdminEventCancellationDetailPage,
 } from '@/pages/admin/AdminPages.jsx'
+import { AdminDisputesPage } from '@/pages/admin/AdminDisputesPage.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
 import { OrganizerOrdersPage } from '@/pages/organizer/OrganizerOrdersPage.jsx'
@@ -135,6 +136,14 @@ export const router = createBrowserRouter([
       {
         path: 'finance',
         element: <AdminFinancePage />,
+      },
+      {
+        path: 'disputes',
+        element: <AdminDisputesPage />,
+      },
+      {
+        path: 'refunds',
+        element: <Navigate to="/admin/disputes" replace />,
       },
       {
         path: 'plans',
