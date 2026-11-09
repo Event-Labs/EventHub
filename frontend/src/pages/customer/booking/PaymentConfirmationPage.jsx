@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { CheckCircle, Clock3, ExternalLink, RefreshCw, XCircle } from 'lucide-react'
+import { CheckCircle, Clock3, ExternalLink, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, fetchOrderStatus } from '@/services/orders.js'
@@ -41,6 +41,7 @@ export function PaymentConfirmationPage() {
   const orderId = searchParams.get('orderId') || checkout?.order?.id
   const [tick, setTick] = useState(0)
   const paymentSuccessHandledRef = useRef(false)
+  const expiredHandledRef = useRef(false)
 
   const statusQuery = useQuery({
     queryKey: ['order-status', orderId],
@@ -96,13 +97,35 @@ export function PaymentConfirmationPage() {
     [data?.order?.expired_at, tick],
   )
 
+  useEffect(() => {
+    if (!orderId && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft()
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [orderId, navigate, toast])
+
+  useEffect(() => {
+    if (!statusQuery.data?.order) return
+    const currentOrder = statusQuery.data.order
+    const isOrderExpired =
+      ['EXPIRED', 'CANCELLED', 'FAILED'].includes(currentOrder.status) ||
+      (currentOrder.expired_at && secondsLeft(currentOrder.expired_at) <= 0)
+
+    if (isOrderExpired && !expiredHandledRef.current && !paymentSuccessHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(currentOrder.event_id || currentOrder.event?.id)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [statusQuery.data?.order?.status, statusQuery.data?.order?.expired_at, statusQuery.data?.order?.event_id, statusQuery.data?.order?.event?.id, navigate, toast, tick])
+
   if (!orderId) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-muted">Không tìm thấy thông tin đơn hàng.</p>
-        <Link to="/my-tickets" className="mt-4 inline-block font-bold text-primary">
-          Xem vé của tôi
-        </Link>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
       </div>
     )
   }
@@ -114,6 +137,15 @@ export function PaymentConfirmationPage() {
   const paid = data.order.status === 'PAID'
   const expired = ['EXPIRED', 'CANCELLED', 'FAILED'].includes(data.order.status) || remainingSeconds === 0
   const eventTitle = data.order.event?.title || location.state?.eventTitle || 'Sự kiện'
+
+  if (expired) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
+      </div>
+    )
+  }
 
   if (paid) {
     return (
@@ -173,8 +205,9 @@ export function PaymentConfirmationPage() {
             {formatPrice(data.order.total_amount)}
           </p>
 
+          {/* QR code container */}
           {data.payment?.qr_code ? (
-            <div className="mx-auto mt-8 w-fit rounded-2xl bg-white p-5 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+            <div className="mx-auto mt-8 w-fit rounded-2xl bg-white p-5 shadow-xl border border-white/10">
               <QRCodeImage text={data.payment.qr_code} alt="QR PayOS" size={240} className="size-60" />
             </div>
           ) : (
@@ -183,16 +216,29 @@ export function PaymentConfirmationPage() {
             </div>
           )}
 
-          <p className="mx-auto mt-6 max-w-md text-sm text-slate-400 leading-relaxed">
-            Quét QR trong app ngân hàng hoặc mở trang PayOS. Hệ thống sẽ tự động cập nhật khi thanh toán thành công.
-          </p>
+          {/* Live Transaction Status */}
+          <div className="mx-auto mt-6 max-w-md rounded-2xl border border-white/10 bg-[#121c38]/90 p-4 backdrop-blur-md shadow-inner text-center">
+            <div className="flex items-center justify-center gap-2.5">
+              <span className="relative flex size-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Đang chờ nhận tiền...
+              </span>
+            </div>
+
+            <p className="mt-2 text-xs text-slate-300">
+              Mở ứng dụng ngân hàng hoặc ví điện tử bất kỳ để quét mã VietQR ở trên.
+            </p>
+          </div>
 
           {data.payment?.checkout_url && (
             <a
               href={data.payment.checkout_url}
               target="_blank"
               rel="noreferrer"
-              className="cosmic-btn-primary mx-auto mt-8 flex w-fit min-w-[280px] items-center justify-center gap-2 py-4"
+              className="cosmic-btn-primary mx-auto mt-6 flex w-fit min-w-[280px] items-center justify-center gap-2 py-4"
             >
               Mở trang thanh toán PayOS
               <ExternalLink className="size-5" />
@@ -218,15 +264,6 @@ export function PaymentConfirmationPage() {
         </div>
 
         <div className="mt-8 space-y-4">
-          <button
-            type="button"
-            onClick={() => statusQuery.refetch()}
-            disabled={statusQuery.isFetching}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 py-4 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20 disabled:opacity-60"
-          >
-            <RefreshCw className={cn('size-5', statusQuery.isFetching && 'animate-spin')} />
-            {statusQuery.isFetching ? 'Đang kiểm tra...' : 'Kiểm tra trạng thái'}
-          </button>
           <button
             type="button"
             onClick={() => cancelMutation.mutate()}
